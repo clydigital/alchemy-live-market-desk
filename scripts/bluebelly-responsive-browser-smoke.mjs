@@ -66,8 +66,10 @@ function httpGet(host,port,pathname="/"){
 async function waitForServer(server){
   for(let i=0;i<70;i++){
     if(server.exitCode!==null)throw new Error("Next server exited: "+tail);
-    try{let status=await httpGet(HOST,NEXT_PORT,"/key-stories");if(status===200)return}
-    catch{}
+    try{let status=await httpGet(HOST,NEXT_PORT,"/key-stories");
+      if(i===1||i===35)process.stdout.write("Next ready probe /key-stories = "+status+"\\n");
+      if(status===200)return}
+    catch(e){if(i===35)process.stdout.write("Next probe error: "+String(e)+"\\n");}
     await nap(240);
   }
   throw new Error("Loopback Next.js did not render a canonical public page");
@@ -153,7 +155,7 @@ try{
   assert.ok(chromePath,"GitHub runner must include Chrome/Chromium; no remote browser service permitted");
   fs.mkdirSync(ARTIFACT,{recursive:true});
   const next=remember(spawn(process.execPath,[
-    "node_modules/next/dist/bin/next","start","--hostname","127.0.0.1",
+    "node_modules/next/dist/bin/next","start","--hostname","0.0.0.0",
     "--port",String(NEXT_PORT),
   ],{env:sanitized,stdio:["ignore","pipe","pipe"]}));
   await waitForServer(next);
