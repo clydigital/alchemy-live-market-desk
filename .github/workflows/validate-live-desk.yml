@@ -322,3 +322,15 @@ jobs:
 
       - name: Verify Partition N Story thesis pointer repair
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/story_thesis_current_pointer_repair_contract.sql
+
+      - name: Bootstrap Bluebelly OAuth client isolation fixture
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/bluebelly_oauth_private_rls_fixture.sql
+
+      - name: Apply Bluebelly OAuth private table fence
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261024012000_bluebelly_external_oauth_private_rls_fence.sql
+
+      - name: Reapply Bluebelly OAuth private table fence
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261024012000_bluebelly_external_oauth_private_rls_fence.sql
+
+      - name: Verify direct-owner versus OAuth client RLS separation
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/bluebelly_oauth_private_rls_contract.sql
