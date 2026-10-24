@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
+import { bluebellyOwnerPresenterHref } from "@/lib/bluebelly-owner-presenter-links";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import PresenterPrepSession from "@/components/live-desk/PresenterPrepSession";
 import { getDeskData } from "@/lib/data";
@@ -35,6 +37,7 @@ export const metadata = {
 export default async function BluebellyExactEdition({
   searchParams,
 }: { searchParams: Promise<BluebellyExactPrepQuery> }) {
+  const host = (await headers()).get("host");
   const parsed = parseBluebellyExactPrepQuery(await searchParams);
   if (parsed.state === "invalid") notFound();
 
@@ -56,14 +59,14 @@ export default async function BluebellyExactEdition({
           <p>Select an immutable publication before opening its Story, Motion,
             Regime or Event context. The newest edition is not selected automatically.</p>
           <div className={ui.links}>
-            <Link className={ui.action} href="/presenter">Return to today's talk →</Link>
+            <Link className={ui.action} href={bluebellyOwnerPresenterHref("current",host)}>Return to today's talk →</Link>
           </div>
         </header>
         <section className={ui.panel} aria-label="Available immutable editions">
           <h2>Recent published editions</h2>
           {editions.length ? <ol>
             {editions.map(row => <li key={row.snapshotId}>
-              <Link href={"/presenter/full-prep?edition=" + encodeURIComponent(row.snapshotId)}>
+              <Link href={bluebellyOwnerPresenterHref("history",host) + "?edition=" + encodeURIComponent(row.snapshotId)}>
                 Published <time dateTime={row.publishedAt}>{row.publishedAt}</time>
                 {" · "} Edition {row.snapshotId}
               </Link>
@@ -140,7 +143,7 @@ export default async function BluebellyExactEdition({
           Original source references, frozen Story identities and missing evidence
           remain separate from today's analysis and your own talk notes.</p>
         <div className={ui.links}>
-          <Link className={ui.action} href="/presenter">Return to today's talk →</Link>
+          <Link className={ui.action} href={bluebellyOwnerPresenterHref("current",host)}>Return to today's talk →</Link>
           <a href="#session">Running-order notes ↓</a>
         </div>
       </header>
@@ -152,7 +155,7 @@ export default async function BluebellyExactEdition({
           <p>The requested edition or its exact frozen Dossier cannot be validated.
             This page has not loaded current research as a replacement.</p>
           <p><strong>Reason:</strong> {projection.reason || "Exact source identity unavailable"}</p>
-          <Link href="/presenter">Open current Presenter Prep →</Link>
+          <Link href={bluebellyOwnerPresenterHref("current",host)}>Open current Presenter Prep →</Link>
         </section>
       ) : <>
         <section className={ui.panel} data-exact-edition="pinned">
