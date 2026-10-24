@@ -114,3 +114,25 @@ export function investigationSystemInstruction(mode:InvestigationMode):string{
   "Use short, readable British English paragraphs and precise units. Do not write a finished publishable article.",
  ].join("\n");
 }
+
+/** Explicitly opt-in leads for the existing tool-free article writer.
+ * Every imported sentence stays unverified and cannot backfill canonical claims.
+ */
+export function investigationToDraftPacket(result:InvestigationResult|null):string{
+ if(!result)return "";
+ const narrative=result.narrative.slice(0,7400);
+ const cited=result.sources.slice(0,10).map(s=>
+  "- "+s.title+" | "+s.url+" | SEARCH GROUNDING; passage links "+
+  s.supportCount+"; original source NOT independently checked").join("\n");
+ return [
+  "",
+  "## Optional research-expansion leads — NONCANONICAL AND UNVERIFIED",
+  "The following search-grounded analyst notes were not admitted as Evidence.",
+  "Treat figures, expected reactions and causal interpretations as unverified until",
+  "the original document, release time and matching price data have been checked.",
+  "Never promote these leads to an official source or silently override missing proof.",
+  narrative,
+  "## Search-returned original-source candidates (verify URLs and claims separately)",
+  cited||"No grounding source references returned.",
+ ].join("\n").slice(0,10_000);
+}
