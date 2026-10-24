@@ -86,6 +86,9 @@ export async function persistSecIssuerCashflowEvidence(
     // Neither is a causal AI Story thesis, and prior evidence remains immutable.
     const issuerFcfComparison = getSecIssuerFcfComparison(item);
     const claim = formatSecIssuerQuarterCashflowClaim(issuer.entityName, item, issuerFcfComparison);
+    // Provider raw memory must remain strictly SEC-derived: IR figures are
+    // editorial/evidence enrichment with their own original provenance link.
+    const secOnlyClaim = formatSecIssuerQuarterCashflowClaim(issuer.entityName, item, null);
     const memory = await persistSensorMemory({
       provider:"sec_xbrl_consolidated_cashflow",
       sourceUrl:item.sourceUrl,
@@ -107,7 +110,7 @@ export async function persistSecIssuerCashflowEvidence(
           cfo:item.cfoUsd,capex:item.cashPpeUsd,fcf:item.simpleFcfUsd,
         },
       },
-      contentText:claim, publishedAt:item.availableAt, observedAt:now,
+      contentText:secOnlyClaim, publishedAt:item.availableAt, observedAt:now,
       ingestionKey:externalId,
       observations:[{
         observationType:"issuer_quarterly_cashflow",
