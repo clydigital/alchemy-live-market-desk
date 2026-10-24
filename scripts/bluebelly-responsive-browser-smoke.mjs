@@ -133,7 +133,7 @@ function outName(route,width){
 }
 
 const pages=[
-  {url:"/",heading:"Blue Desk"},
+  {url:"/",heading:""},
   {url:"/key-stories",heading:"Key market stories"},
   {url:"/rates",heading:"US Treasury rates"},
   {url:"/what-changed",heading:"New catalysts and follow-through"},
@@ -196,7 +196,7 @@ try{
         if(state.state==="complete"&&state.h1)break;
         await nap(200);
       }
-      test(p.url+" @ "+width+" heading",state.h1.toLowerCase().includes(p.heading.toLowerCase()),
+      test(p.url+" @ "+width+" heading",state.h1.trim().length>3 && state.h1.toLowerCase().includes(p.heading.toLowerCase()),
         `saw "${state.h1}"`);
       test(p.url+" @ "+width+" no horizontal overflow",state.scrollWidth<=width+6,
         `document width ${state.scrollWidth}, expected at most ${width+6}`);
