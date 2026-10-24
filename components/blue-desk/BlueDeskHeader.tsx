@@ -6,18 +6,17 @@ import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-
 
 import styles from "@/app/blue-desk/blue-desk.module.css";
 
+// All Bluebelly navigation stays on native, exact Blue Desk pages. Research
+// inputs and older Live Desk routes remain internal compatibility surfaces,
+// never exits in the reader/presenter navigation.
 const PRIVATE_NAV = [
   ["Live Market", "/blue-desk"],
-  ["Markets", "/markets"],
-  ["Editorial Studio", "/owner/editorial"],
-  ["Presenter Studio", "/owner/presenter"],
-  ["Deep Dive", "/articles"],
-  ["Research", "/whats-new"],
-  ["Data Library", "/data/macro"],
-  ["Presenter Prep", "/hybrid-output/prepare"],
-  ["X Wire", "/owner/x-wire"],
+  ["Markets", "/blue-desk/markets"],
+  ["Key Stories", "/blue-desk/key-stories"],
+  ["Rates", "/blue-desk/rates"],
+  ["What Changed", "/blue-desk/what-changed"],
   ["Calendar", "/blue-desk/calendar"],
-  ["Learn", "/concepts"],
+  ["Presenter Prep", "/blue-desk/presenter"],
 ] as const;
 
 // Public Bluebelly is deliberately limited to the route allowlist; never
@@ -29,8 +28,7 @@ const PUBLIC_NAV = [
   ["Rates", "/rates"],
   ["What Changed", "/what-changed"],
   ["Calendar", "/calendar"],
-  ["Presenter Prep", "/presenter"],
-] as const;
+ ] as const;
 
 const NAV_ICONS: Record<string, MarketIconName> = {
   "Live Market": "market",
@@ -49,7 +47,7 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "What Changed": "divergence",
 };
 
-/** Shared presentation chrome. These links reuse canonical Live Desk pages. */
+/** Bluebelly-first navigation. Legacy operational routes remain unadvertised. */
 export default async function BlueDeskHeader({ activePath }: { activePath: string }) {
   const host = (await headers()).get("host");
   const publicHost = isBlueDeskPublicReaderHost(host);
