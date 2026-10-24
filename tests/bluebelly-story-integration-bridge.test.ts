@@ -49,7 +49,7 @@ test("key-stories coexist: accepted readings, carried historical questions, and 
  assert.match(body,/thread\.evidenceReferenceCount/);
  assert.match(body,/No historical original source passed the time and provenance/);
  assert.match(body,/Published analysis/);
- assert.match(body,/brief\.articles\.filter/);
+ assert.match(body,/brief\.articles\s*\.filter/);
  assert.match(body,/Fresh verified developments/);
  assert.match(body,/selectVerifiedNewsBriefs\(raw, new Date\(\), 6\)/);
  assert.match(body,/SOURCE-VERIFIED FACT · NOT STORY EVIDENCE/);
