@@ -1,0 +1,27 @@
+.lede{padding:clamp(18px,3vw,32px);border:1px solid #367d98;border-radius:10px;background:linear-gradient(120deg,#073851,#052737)}
+.lede h1{font-size:clamp(26px,3vw,40px);line-height:1.16;margin:7px 0;color:#eefaff}
+.lede p{color:#bcd8e7;line-height:1.6;max-width:80ch}
+.kicker{font-size:11px;text-transform:uppercase;letter-spacing:.13em;color:#82cfe9;font-weight:700}
+.back{display:inline-flex;align-items:center;min-height:42px;padding:8px 13px;border:1px solid #3f7891;border-radius:7px;color:#ecfaff;text-decoration:none;margin-bottom:18px;font-size:13px}
+.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(250px,.8fr);gap:16px;align-items:start;margin-top:18px}
+.block{border:1px solid #2d6882;background:#05293f;border-radius:9px;padding:clamp(16px,2vw,24px);min-width:0}
+.block+.block{margin-top:14px}
+.block h2{font-size:clamp(20px,2vw,27px);margin:4px 0 12px;color:#f2fbff}
+.block h3{font-size:16px;color:#e8f9ff;margin:0 0 6px}
+.block p{color:#c1dce9;line-height:1.6;max-width:82ch}
+.block small,.block time{color:#8dbad2}
+.record{padding:14px 0;border-top:1px solid #35657d;overflow-wrap:anywhere}
+.record:first-of-type{border-top:0}
+.row{display:flex;flex-wrap:wrap;gap:8px 18px;margin:13px 0;color:#acd5e7;font-size:13px}
+.link{color:#91e4ff;font-weight:700;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+.warning{border-left:3px solid #f0c079;padding-left:12px;margin:12px 0}
+.list{margin:12px 0;padding-left:19px}
+.list li{margin:0 0 10px;color:#d0e5ef;overflow-wrap:anywhere}
+.picker{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:11px;margin-top:19px}
+.choice{display:block;text-decoration:none;border:1px solid #36718b;border-radius:8px;background:#05283e;padding:16px;color:#eaf9ff}
+.choice:hover,.choice:focus-visible{background:#0c415a;outline:2px solid #8ddbf3;outline-offset:2px}
+.choice strong{display:block;margin:5px 0;font-size:14px}
+.choice code{font-size:11px;color:#9ac9de;overflow-wrap:anywhere}
+.muted{color:#b8d4e2;font-size:13px}
+.session{margin-top:18px}
+@media(max-width:820px){.grid{grid-template-columns:minmax(0,1fr)}.lede,.block{overflow-wrap:anywhere}}
