@@ -40,3 +40,10 @@
 .slateCard p{font-size:13px;line-height:1.55}
 .slateCard .actions{margin-bottom:0}
 @media(max-width:900px){.slateGrid{grid-template-columns:1fr}}
+
+.investigationResult{border:1px solid #376b5b;background:#09271e;border-radius:10px;padding:16px;margin-top:20px}
+.investigationNarrative{white-space:pre-wrap;overflow-wrap:anywhere;max-height:520px;overflow:auto;background:#071c18;color:#dcefe4;padding:16px;border-radius:8px;font:13px/1.65 Inter,Arial,sans-serif}
+.investigationSources{list-style:disc;padding-left:20px;color:#bfd9cc;font-size:13px;line-height:1.7;overflow-wrap:anywhere}
+.investigationSources li{margin:6px 0}
+.investigationSources small{font-size:11px;color:#8db7a6}
+.investigationWarning{border-left:3px solid #deba83;padding:12px;background:#382c1f;color:#ffe8c4;font-size:13px;border-radius:4px}
