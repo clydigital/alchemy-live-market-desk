@@ -81,6 +81,8 @@ test("issuer disclosure is source-pinned context, not a raw SEC revision or Stor
   const writer=readFileSync(new URL("../lib/dossier-v2/persist-sec-quarterly-cashflow.ts",import.meta.url),"utf8");
   assert.match(writer,/formatSecIssuerQuarterCashflowClaim\(issuer\.entityName, item, issuerFcfComparison\)/);
   assert.match(writer,/getSecIssuerFcfComparison\(item\)/);
+  assert.match(writer,/const secOnlyClaim = formatSecIssuerQuarterCashflowClaim\(issuer\.entityName, item, null\)/);
+  assert.match(writer,/contentText:secOnlyClaim/);
   assert.match(writer,/issuerReportedFcfComparison:issuerFcfComparison/);
   assert.match(writer,/issuerFcfComparison\.sourceUrl/);
   assert.match(writer,/SEC_DERIVED_CFO_MINUS_CASH_PPE_EXCLUDES_FINANCE_LEASE_PRINCIPAL/);
