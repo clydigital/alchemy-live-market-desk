@@ -17,6 +17,7 @@ import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { selectFrozenSourceFact } from "@/lib/blue-desk-factual-feature";
 import { projectFrozenTrackedStories } from "@/lib/blue-desk-tracked-stories";
+import tracked from "./tracked-stories.module.css";
 import { readableSecCashflowLead, readableSourceArticleLead } from "@/lib/blue-desk-cashflow-reader-copy";
 import styles from "./blue-desk.module.css";
 
@@ -174,14 +175,14 @@ export default async function BlueDeskPage() {
             </Link>
           </div>
           {trackedStories?.tracks.length ? (
-            <div className={styles.storyGrid}>
+            <div className={tracked.grid}>
               {trackedStories.tracks.slice(0,6).map((t,i) => (
-                <article className={styles.storyCard} key={t.storyId}>
-                  <span className={styles.kicker}>THREAD {i+1} · NO ACCEPTED CHANGE</span>
+                <article className={tracked.card} key={t.storyId}>
+                  <span className={tracked.kicker}>THREAD {i+1} · NO ACCEPTED CHANGE</span>
                   <h3>{t.question}</h3>
                   <p>{t.nextTest ? "Next test: "+t.nextTest :
                     "No specific next test recorded in this frozen edition."}</p>
-                  <div className={styles.storyBottom}>
+                  <div className={tracked.bottom}>
                     <span className={styles.cardTime}>Historical context · {t.assessedAt||"undated"}</span>
                     <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"#story-"+t.storyId}>
                       Examine thread →
