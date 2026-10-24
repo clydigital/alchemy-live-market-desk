@@ -23,7 +23,7 @@ const env = Object.fromEntries(Object.entries(process.env).filter(([name]) =>
   !/(?:SUPABASE|GEMINI|OPENAI|ANTHROPIC|SERVICE_ROLE|VERCEL_OIDC_TOKEN|BYPASS_TOKEN|RESEARCH_SHARED_KEY|CRON_SECRET)/i.test(name)));
 env.NODE_ENV = "production";
 const server = spawn(process.execPath, [
-  "node_modules/next/dist/bin/next", "start", "--hostname", "127.0.0.1",
+  "node_modules/next/dist/bin/next", "start", "--hostname", "0.0.0.0",
   "--port", String(port),
 ], { env, cwd: process.cwd(), stdio: ["ignore", "pipe", "pipe"] });
 
@@ -38,7 +38,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function request(host, path) {
   const response = await fetch(base + path, {
     method: "GET",
-    headers: { Host: host, Accept: "text/html", "Cache-Control": "no-store" },
+    headers: { Host: host, "X-Forwarded-Host": host, "X-Forwarded-Proto": "http", Accept: "text/html", "Cache-Control": "no-store" },
     redirect: "manual",
     signal: AbortSignal.timeout(22_000),
   });
