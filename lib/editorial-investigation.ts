@@ -5,12 +5,14 @@
  */
 export type InvestigationMode="IMPACT"|"COTD"|"OB";
 export type InvestigationSource={title:string;url:string;domain:string;supportCount:number};
+export type InvestigationClaimSupport={excerpt:string;urls:string[]};
 export type InvestigationResult={
  contractVersion:"editorial-investigation/1";
  mode:InvestigationMode;
  status:"RESEARCH_LEADS_UNVERIFIED";
  narrative:string;
  sources:InvestigationSource[];
+ claimSupports:InvestigationClaimSupport[];
  searchQueries:string[];
  groundedSupportCount:number;
  limitations:string[];
@@ -28,7 +30,7 @@ export function validInvestigationInput(value:unknown):
  return {mode,question,packet};
 }
 type Chunk={web?:{title?:unknown;uri?:unknown}};
-type Support={groundingChunkIndices?:unknown};
+type Support={groundingChunkIndices?:unknown;segment?:{text?:unknown}};
 export function safeGroundingUrl(value:unknown):string|null{
  if(typeof value!=="string"||value.length>3000)return null;
  try{
@@ -74,6 +76,23 @@ export function projectGroundedInvestigation(
   sources.push({title,url,domain:new URL(url).hostname,supportCount:citations.get(i)||0});
   if(sources.length===12)break;
  }
+ const allowedSourceUrls=new Set(sources.map(s=>s.url));
+ const claimSupports:InvestigationClaimSupport[]=[];
+ const claimSeen=new Set<string>();
+ for(const support of supports.slice(0,40)){
+  const excerpt=typeof support.segment?.text==="string"?
+    support.segment.text.trim().slice(0,350):"";
+  const indices=Array.isArray(support.groundingChunkIndices)?support.groundingChunkIndices:[];
+  const urls=[...new Set(indices.flatMap(i=>{
+    if(typeof i!=="number"||!Number.isInteger(i)||i<0||i>=chunks.length)return [];
+    const url=safeGroundingUrl(chunks[i]?.web?.uri);
+    return url&&allowedSourceUrls.has(url)?[url]:[];
+  }))].slice(0,4);
+  if(!excerpt||!urls.length||claimSeen.has(excerpt))continue;
+  claimSeen.add(excerpt);
+  claimSupports.push({excerpt,urls});
+  if(claimSupports.length>=12)break;
+ }
  const searchQueries=(Array.isArray(meta.webSearchQueries)?meta.webSearchQueries:[])
   .filter((v):v is string=>typeof v==="string"&&v.trim().length>0)
   .slice(0,6).map(v=>v.slice(0,250));
@@ -87,7 +106,7 @@ export function projectGroundedInvestigation(
   "No paragraph-level source attribution was available in this response.");
  if(!sources.length)limitations.push("No machine-readable grounding sources were returned.");
  return {contractVersion:"editorial-investigation/1",mode,status:"RESEARCH_LEADS_UNVERIFIED",
-   narrative,sources,searchQueries,groundedSupportCount,limitations,canPublish:false};
+   narrative,sources,claimSupports,searchQueries,groundedSupportCount,limitations,canPublish:false};
 }
 export function investigationSystemInstruction(mode:InvestigationMode):string{
  const framing=mode==="COTD"?"COTD: start from a *user-confirmed* chart observation; chart patterns supplied only in notes are unverified.":
