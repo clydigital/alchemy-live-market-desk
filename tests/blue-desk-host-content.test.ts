@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { LIVE_DESK_PRESENTATION_HOST, blueDeskHostAccess, blueDeskPublicHref, blueDeskPresentationTarget } from "../lib/blue-desk-host.ts";
+import { LIVE_DESK_PRESENTATION_HOST, blueDeskHostAccess, blueDeskPublicHref, blueDeskPresentationTarget, publicLiveLegacyTabDestination } from "../lib/blue-desk-host.ts";
 
 test("Bluebelly homepage and calendar use clean public URLs", () => {
   assert.equal(blueDeskPublicHref("/blue-desk", "bluebelly-desk.vercel.app"), "/");
