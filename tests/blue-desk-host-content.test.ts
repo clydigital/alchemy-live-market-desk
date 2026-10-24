@@ -76,6 +76,7 @@ test("Bluebelly exposes only explicitly approved public reading routes", () => {
   const host = "bluebelly-desk.vercel.app";
   for (const path of [
     "/", "/calendar", "/blue-desk", "/blue-desk/calendar", "/markets", "/blue-desk/markets",
+    "/key-stories", "/blue-desk/key-stories",
     "/stories/article%3Afcea17ef-f575-4283-a363-7d5fa9c918c7%3A6e2c8a8c-fdc7-45eb-bec6-b685b0311f3e",
   ]) {
     assert.equal(blueDeskHostAccess(path, host), "public", path);
@@ -201,4 +202,17 @@ test("full Markets public exception never leaks to owner siblings, APIs or previ
   assert.match(terminal, /getGlobalFlowMonitor\(\)/);
   assert.match(terminal, /<BlueDeskHeader activePath="\/blue-desk\/markets" \/>/);
   assert.doesNotMatch(terminal, /LiveDeskShell|<form|signout|use server|fetch\("\/api\//);
+});
+
+test("expanded Story watch is a real exact public reader with no owner routes exposed",()=>{
+  for(const host of [LIVE_DESK_PRESENTATION_HOST,"bluebelly-desk.vercel.app"]){
+    assert.equal(blueDeskPresentationTarget("/key-stories",host),"/blue-desk/key-stories");
+    assert.equal(blueDeskHostAccess("/key-stories",host),"public");
+    assert.equal(blueDeskHostAccess("/blue-desk/key-stories",host),"public");
+  }
+  for(const path of ["/key-stories/any","/api/research-update","/api/cron/research/morning",
+    "/dossier","/api/owner/editorial-generate"]){
+    assert.equal(blueDeskHostAccess(path,"bluebelly-desk.vercel.app"),"blocked");
+  }
+  assert.equal(blueDeskPresentationTarget("/key-stories","review-preview.vercel.app"),null);
 });

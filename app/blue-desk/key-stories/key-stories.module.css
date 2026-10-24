@@ -1,0 +1,17 @@
+.intro{border:1px solid #2b617e;border-radius:12px;padding:clamp(18px,3vw,32px);background:linear-gradient(135deg,#042c48,#061c2d)}
+.intro h1{font-size:clamp(30px,4vw,48px);margin:8px 0;line-height:1.1;color:#f2fbff}.intro p{font-size:15px;max-width:77ch;line-height:1.6;color:#b6d3e3}
+.intro a{font-size:13px}.summary{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0}
+.summary span{border:1px solid #31637e;background:#07283b;padding:8px 12px;border-radius:6px;font-size:12px;color:#d0e8f5}
+.section{margin:24px 0 0}.section h2{font-size:clamp(23px,2.5vw,32px);letter-spacing:-.03em;color:#f2faff}
+.section>p{max-width:82ch;color:#b7d3e2;font-size:14px;line-height:1.6}
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:18px 0}
+.card{min-width:0;border:1px solid #2c617c;border-radius:9px;padding:21px;background:linear-gradient(135deg,#08334d,#041d2e);scroll-margin-top:18px}
+.card h3{font-size:clamp(18px,2vw,24px);color:#effaff;margin:8px 0 12px;line-height:1.25;overflow-wrap:anywhere}
+.card p{font-size:13px;line-height:1.6;color:#c0d9e6}
+.card small{display:block;font-size:12px;line-height:1.5;color:#9cbdd0;margin-top:10px;overflow-wrap:anywhere}
+.kicker{font-size:11px!important;font-weight:800;color:#79d5fc!important;letter-spacing:.07em}
+.test{margin:15px 0;background:#052637;border-left:2px solid #55b7db;padding:10px 14px}
+.test strong{color:#d4f2ff;font-size:12px}.test p{margin:4px 0}
+.empty{border:1px dashed #376984;padding:18px;color:#c3dbe8;background:#062337;border-radius:8px;margin-top:14px}
+.returnLink{display:inline-block;margin:8px 0 10px;font-weight:700;font-size:13px}
+@media(max-width:760px){.cards{grid-template-columns:minmax(0,1fr)}}
