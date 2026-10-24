@@ -4,6 +4,7 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getLiveDeskHomepageDailyBrief } from "@/lib/hybrid-publication";
 import { projectFrozenTrackedStories } from "@/lib/blue-desk-tracked-stories";
+import { getTrackedOriginalSources } from "@/lib/blue-desk-tracked-evidence";
 import { projectMarketBriefArticles } from "@/lib/market-brief-articles";
 import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
 import desk from "../blue-desk.module.css";
@@ -18,6 +19,7 @@ export default async function KeyStories(){
   const host=(await headers()).get("host");
   const edition=await getLiveDeskHomepageDailyBrief({fresh:true}).catch(()=>null);
   const tracker=projectFrozenTrackedStories(edition);
+  const originalSources=await getTrackedOriginalSources(tracker);
   const brief=await loadEditorialMarketBrief(projectMarketBriefArticles(edition));
   const published=brief.articles.filter(a=>a.editorial.readiness!=="RESEARCH_ONLY").slice(0,8);
   const articleHref=(id:string,ed:string)=>blueDeskPublicHref(
@@ -73,7 +75,23 @@ export default async function KeyStories(){
               <p>{t.nextTest||"No explicit next test recorded in the source edition."}</p>
             </div>
             <small>Last attention assessment: {t.assessedAt||"Date unavailable"}</small>
-            <small>{t.evidenceReferenceCount} referenced canonical evidence ID(s), not revalidated for current conditions</small>
+            <div className={ui.test}>
+              <strong>Original sources available by the frozen Dossier date</strong>
+              {originalSources.get(t.storyId)?.length ?
+                originalSources.get(t.storyId)!.map(source=>
+                  <div key={source.evidenceId}>
+                    <p>{source.claimExcerpt}</p>
+                    <a href={source.sourceUrl} rel="noopener noreferrer" target="_blank">
+                      {source.sourceName} · original primary source ↗
+                    </a>
+                    <small>Evidence available: {source.availableAt}</small>
+                  </div>) :
+                <p>No first-tier original-source facts qualified for this thread
+                  under the publication-time checks. Its question is historical context,
+                  not a fresh factual market report.</p>}
+            </div>
+            <small>{t.evidenceReferenceCount} canonical Evidence reference(s) in original Dossier;
+              only dated, source-qualified links are displayed above</small>
             <small>Frozen Story ID: {t.storyId}</small>
             <small>Thesis version: {t.thesisVersionId}</small>
           </article>)}</div>:<p className={ui.empty}>No admissible carried-forward
