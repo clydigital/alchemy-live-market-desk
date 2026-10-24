@@ -1,3 +1,5 @@
+import { ledgerAsResearchPacket, type ReactionLedger } from "./editorial-reaction-ledger.ts";
+
 /**
  * Owner-only research expansion. Google Search grounding returns research
  * *leads*, not canonical evidence or a new Story version. This file is pure:
@@ -17,6 +19,8 @@ export type InvestigationResult={
  groundedSupportCount:number;
  limitations:string[];
  canPublish:false;
+ /** Server-generated monitor observations, not canonical Evidence or event-tick reactions. */
+ reactionLedger?:ReactionLedger;
 };
 export function validInvestigationInput(value:unknown):
  {mode:InvestigationMode;question:string;packet:string}|null{
@@ -139,7 +143,9 @@ export function investigationSystemInstruction(mode:InvestigationMode):string{
  */
 export function investigationToDraftPacket(result:InvestigationResult|null):string{
  if(!result)return "";
- const narrative=result.narrative.slice(0,7400);
+ const narrative=result.narrative.slice(0,6300);
+ const observation=result.reactionLedger?
+  ledgerAsResearchPacket(result.reactionLedger):"No independent dated market-source comparison available.";
  const cited=result.sources.slice(0,10).map(s=>
   "- "+s.title+" | "+s.url+" | SEARCH GROUNDING; passage links "+
   s.supportCount+"; original source NOT independently checked").join("\n");
@@ -150,6 +156,8 @@ export function investigationToDraftPacket(result:InvestigationResult|null):stri
   "Treat figures, expected reactions and causal interpretations as unverified until",
   "the original document, release time and matching price data have been checked.",
   "Never promote these leads to an official source or silently override missing proof.",
+  "## Server-reconstructed dated source observations — NOT event reaction",
+  observation,
   narrative,
   "## Search-returned original-source candidates (verify URLs and claims separately)",
   cited||"No grounding source references returned.",
