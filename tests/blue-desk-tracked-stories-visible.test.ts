@@ -65,6 +65,12 @@ test("publisher preserves published-only and historical watch as distinct user-f
  const expanded=readFileSync(new URL("../app/blue-desk/key-stories/page.tsx",import.meta.url),"utf8");
  assert.match(page,/projectFrozenTrackedStories\(latest\)/);
  assert.match(page,/data-public-tracked-stories="true"/);
+ assert.match(page,/className=\{tracked\.grid\}/);
+ assert.match(page,/className=\{tracked\.card\}/);
+ const grid=readFileSync(new URL("../app/blue-desk/tracked-stories.module.css",import.meta.url),"utf8");
+ assert.match(grid,/grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+ assert.match(grid,/@media\(max-width:1080px\)/);
+ assert.match(grid,/@media\(max-width:690px\)/);
  assert.match(page,/No material thesis update is claimed/);
  assert.match(page,/key-stories",host\)\+"#story-"/);
  assert.match(expanded,/Published analysis/);
