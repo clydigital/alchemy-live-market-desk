@@ -229,7 +229,7 @@ test("P1a native Presenter remains private with only existing owner API exceptio
   assert.match(presenter, /getLatestEditorialSlate\(\)/);
   assert.match(presenter, /notFound\(\)/, "pinned edition must not silently use current brief");
   assert.doesNotMatch(presenter, /href=\{[^}]*hybrid-output/);
-  assert.match(presenter, /href="\/presenter\/full-prep"/);
+  assert.match(presenter, /href=\{bluebellyOwnerPresenterHref\("history",host\)\}/);
   assert.match(middleware, /bluebellyOwnerApi/);
   assert.ok(middleware.indexOf("getClaims()") > middleware.indexOf("bluebellyOwnerApi"));
   assert.equal(blueDeskHostAccess("/api/owner/editorial-generate", "alchemy-blue-desk.vercel.app"), "blocked");
