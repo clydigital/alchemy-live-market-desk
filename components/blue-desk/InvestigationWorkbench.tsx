@@ -80,6 +80,20 @@ export default function InvestigationWorkbench({
        target="_blank">{s.title}</a> <small>· {s.domain}
        · {s.supportCount ? s.supportCount+" search-linked passage(s)":"No passage attribution"}</small></li>)}
    </ul>:<p className={styles.investigationWarning}>No machine-readable sources were returned.</p>}
+   {result.claimSupports.length?<div>
+     <h3>Passages with search-provider source links</h3>
+     <p className={styles.help}>These attributions show which search results the model used.
+       They do not constitute independent confirmation of the quoted claim.</p>
+     <ul className={styles.investigationSources}>
+       {result.claimSupports.map((claim,i)=><li key={i}>
+         <p>{claim.excerpt}</p>
+         <small>{claim.urls.map((url,j)=><span key={url}>
+           {j>0?" · ":""}<a href={url} target="_blank" rel="noopener noreferrer">
+             Search reference {j+1}</a>
+         </span>)}</small>
+       </li>)}
+     </ul>
+   </div>:null}
    <h3>Limitations</h3>
    <ul className={styles.investigationSources}>
     {result.limitations.map(x=><li key={x}>{x}</li>)}
