@@ -16,6 +16,7 @@ import { projectMarketBriefArticles } from "@/lib/market-brief-articles";
 import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { selectFrozenSourceFact } from "@/lib/blue-desk-factual-feature";
+import { projectFrozenTrackedStories } from "@/lib/blue-desk-tracked-stories";
 import { readableSecCashflowLead, readableSourceArticleLead } from "@/lib/blue-desk-cashflow-reader-copy";
 import styles from "./blue-desk.module.css";
 
@@ -52,6 +53,7 @@ export default async function BlueDeskPage() {
 
   // Existing publication snapshots remain the only article authority.
   const brief = await loadEditorialMarketBrief(projectMarketBriefArticles(latest));
+  const trackedStories = projectFrozenTrackedStories(latest);
   const feature = brief.articles.find(article => article.editorial.storyEligible) || null;
   // A source-verified factual report is independently eligible to be read:
   // it is NOT a new canonical Story or Regime interpretation.
@@ -159,6 +161,39 @@ export default async function BlueDeskPage() {
           </div>
         </section>
 
+        <section className={styles.section} aria-labelledby="ongoing-stories-head" data-public-tracked-stories="true">
+          <div className={styles.sectionHead}>
+            <div>
+              <p className={styles.kicker}>CONTINUING RESEARCH · NOT NEW HEADLINES</p>
+              <h2 id="ongoing-stories-head"><MarketIcon name="layers" size={24} /> Ongoing Story watch</h2>
+              <p>{trackedStories?.tracks.length||0} persistent Story questions in the frozen Dossier.
+                No material thesis update is claimed for these threads.</p>
+            </div>
+            <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/key-stories",host)}>
+              Expand all tracked Stories →
+            </Link>
+          </div>
+          {trackedStories?.tracks.length ? (
+            <div className={styles.storyGrid}>
+              {trackedStories.tracks.slice(0,6).map((t,i) => (
+                <article className={styles.storyCard} key={t.storyId}>
+                  <span className={styles.kicker}>THREAD {i+1} · NO ACCEPTED CHANGE</span>
+                  <h3>{t.question}</h3>
+                  <p>{t.nextTest ? "Next test: "+t.nextTest :
+                    "No specific next test recorded in this frozen edition."}</p>
+                  <div className={styles.storyBottom}>
+                    <span className={styles.cardTime}>Historical context · {t.assessedAt||"undated"}</span>
+                    <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"#story-"+t.storyId}>
+                      Examine thread →
+                    </Link>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : <p className={styles.empty}>No dated frozen Story context is available in this edition.
+            Missing context must not be presented as newly verified news.</p>}
+        </section>
+
         <div className={styles.lowerGrid}>
           <section className={styles.secondaryPanel} aria-labelledby="motion-title">
             <div className={styles.sectionHead}>
@@ -223,7 +258,7 @@ export default async function BlueDeskPage() {
           <div className={styles.quickLinks}>
             {publicHost ? (
               <>
-                <Link href="/#stories-title">Key market stories →</Link>
+                <Link href="/key-stories">Key market stories and research watch →</Link>
                 <Link href="/#rates-title">Observed Treasury yields →</Link>
                 <Link href="/markets">Public markets →</Link>
                 <Link href="/calendar">Public calendar →</Link>
