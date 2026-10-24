@@ -1,0 +1,22 @@
+.intro{display:flex;align-items:flex-start;justify-content:space-between;gap:22px;padding:clamp(18px,3vw,34px);border-radius:12px;border:1px solid #2d6983;background:linear-gradient(130deg,#073551,#062739)}
+.intro>div{max-width:75ch}.intro h1{font-size:clamp(28px,3.5vw,47px);line-height:1.12;margin:10px 0;color:#f2faff}.intro p{font-size:15px;line-height:1.65;color:#b8d7e8}.intro>a{flex-shrink:0;color:#9ee5ff;font-size:13px}
+.section{margin-top:23px;border:1px solid #29546a;background:#052637;border-radius:10px;padding:clamp(15px,2.5vw,27px)}
+.section h2{font-size:clamp(21px,2.5vw,28px);color:#f1faff;margin:0 0 10px}.section>p{color:#b6d3e2;line-height:1.6}
+.meta{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 0}.meta span{font-size:11px;border:1px solid #3a697f;border-radius:5px;padding:5px 8px;color:#c4e1ed}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin-top:16px}
+.card{min-width:0;border:1px solid #305b70;background:#092d42;border-radius:8px;padding:19px}
+.card h2,.card h3{font-size:19px;color:#f2faff;margin:5px 0 10px;line-height:1.35}
+.card p{font-size:13px;color:#c2dae7;line-height:1.6;overflow-wrap:anywhere}
+.card a{font-size:12px;color:#91deff;overflow-wrap:anywhere}
+.card small{display:block;font-size:11px;color:#98bbce;line-height:1.5;margin:8px 0}
+.eyebrow{color:#98dfff!important;font-size:11px!important;letter-spacing:.06em;font-weight:700;text-transform:uppercase}
+.big{font-size:clamp(25px,3vw,35px);font-weight:750;color:#eaf9ff;margin:9px 0;display:block}
+.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:18px}
+.sourceLink{display:inline-block;margin-top:9px}
+.empty{border:1px dashed #4c7488;background:#082536;padding:23px;border-radius:7px;color:#bfd7e4;line-height:1.6;margin-top:17px}
+.lines{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:14px 0;border-bottom:1px solid #305267}
+.lines strong{font-size:14px;color:#e5f6ff}.lines span{color:#bad6e2;font-size:12px;line-height:1.5}.lines a{font-size:12px}
+.tabs{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.tabs a{padding:10px 14px;border-radius:6px;border:1px solid #44758e;color:#a4e1ff;text-decoration:none;min-height:40px;display:inline-flex;align-items:center}
+.tabs a[aria-current=page]{background:#174963;color:#fff;border-color:#65aed2}
+@media(max-width:850px){.intro{display:block}.intro>a{display:inline-block;margin-top:11px}.grid,.three{grid-template-columns:minmax(0,1fr)}.lines{grid-template-columns:minmax(0,1fr)}}
