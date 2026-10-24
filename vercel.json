@@ -3,7 +3,8 @@
   "git": {
     "deploymentEnabled": {
       "*": false,
-      "main": true
+      "main": true,
+      "preview/bluebelly-p1-p2-smoke-20261024": true
     }
   },
   "crons": [
@@ -180,5 +181,5 @@
       "schedule": "25 5 * * *"
     }
   ],
-  "ignoreCommand": "if [ \"$VERCEL_GIT_COMMIT_REF\" = \"main\" ]; then exit 1; else exit 0; fi"
+  "ignoreCommand": "case \"$VERCEL_GIT_COMMIT_REF\" in main|preview/bluebelly-p1-p2-smoke-20261024) exit 1;; *) exit 0;; esac"
 }
