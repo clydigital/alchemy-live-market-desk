@@ -54,7 +54,7 @@ test("actual Bluebelly route handles invalid and unpinned states before archival
   assert.match(route,/encodeURIComponent\(row\.snapshotId\)/);
   assert.match(route,/const requested = parsed\.editionId/);
   assert.doesNotMatch(route,/readQuery\(query, "edition"\)/);
-  assert.match(current,/redirect\("\/presenter\/full-prep\?" \+ params\.toString\(\)\)/);
-  assert.match(current,/href="\/presenter\/full-prep"/);
+  assert.match(current,/redirect\(bluebellyOwnerPresenterHref\("history",host\) \+ "\?" \+ params\.toString\(\)\)/);
+  assert.match(current,/href=\{bluebellyOwnerPresenterHref\("history",host\)\}/);
   assert.doesNotMatch(route,/<EditorialWorkbench|generateContent|createSupabaseAdminClient/);
 });
