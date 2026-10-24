@@ -16,6 +16,7 @@ import { projectMarketBriefArticles } from "@/lib/market-brief-articles";
 import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { selectFrozenSourceFact } from "@/lib/blue-desk-factual-feature";
+import { readableSecCashflowLead, readableSourceArticleLead } from "@/lib/blue-desk-cashflow-reader-copy";
 import styles from "./blue-desk.module.css";
 
 export const dynamic = "force-dynamic";
@@ -58,6 +59,17 @@ export default async function BlueDeskPage() {
   const newsFeature = feature ? null : (verifiedNews[0] || null);
   // Primary-source facts are a separate fallback, NEVER a promoted Story.
   const sourceFact = feature || newsFeature ? null : selectFrozenSourceFact(brief, now);
+  // Reader-only: literal SEC claims may be displayed as measured headline
+  // equations, never promoted to causal Story verdicts or new Evidence.
+  const displayArticle = (article:(typeof brief.articles)[number]) =>
+    readableSourceArticleLead(article.title,article.editorial.evidenceClaims,
+      article.dossierAsOf || article.generatedAt);
+  const featureDisplay = feature ? displayArticle(feature) : null;
+  const sourceDisplay = sourceFact ? readableSecCashflowLead(sourceFact.claimText,{
+    sourceName:sourceFact.sourceName,sourceUrl:sourceFact.sourceUrl,
+    availableAt:sourceFact.publishedAt,
+    editionAsOf:latest?.published_at || sourceFact.publishedAt,
+  }) : null;
   const storyHref = (article: (typeof brief.articles)[number]) => blueDeskPublicHref(
     "/blue-desk/stories/" + encodeURIComponent(article.articleId) + "?edition=" + encodeURIComponent(article.editionId), host,
   );
@@ -80,9 +92,9 @@ export default async function BlueDeskPage() {
         <section className={styles.hero} aria-label="Latest canonical Market Brief">
           <div className={styles.heroStory}>
             <p className={styles.kicker}><MarketIcon name="market" size={16} /> {feature ? "TOP STORY" : newsFeature ? "VERIFIED NEWS BRIEF" : sourceFact ? "PRIMARY-SOURCE OBSERVATION" : "MARKET BRIEF"}</p>
-            <h1>{feature?.title || newsFeature?.headline || sourceFact?.claimText || "Market Brief in review"}</h1>
+            <h1>{featureDisplay?.headline || feature?.title || newsFeature?.headline || sourceDisplay?.headline || sourceFact?.claimText || "Market Brief in review"}</h1>
             <p className={styles.heroDeck}>
-              {feature?.deck || newsFeature?.summary || (sourceFact ? "Source-reported observation; interpretation pending." : "No verified market brief available.")}
+              {featureDisplay?.deck || feature?.deck || newsFeature?.summary || sourceDisplay?.deck || (sourceFact ? "Source-reported observation; interpretation pending." : "No verified market brief available.")}
             </p>
             <div className={styles.tags}>
               <span className={styles.tag}>{feature ? feature.interpretationStatus : newsFeature ? "SOURCE-VERIFIED REPORT" : sourceFact ? "SOURCE FACT · NO INTERPRETATION" : "REVIEW"}</span>
@@ -127,17 +139,18 @@ export default async function BlueDeskPage() {
             {!publicHost ? <Link href="/articles" className={styles.textLink}>All articles →</Link> : null}
           </div>
           <div className={styles.storyGrid}>
-            {articles.length ? articles.map(article => (
-              <article key={article.articleId} className={styles.storyCard}>
+            {articles.length ? articles.map(article => {
+              const concise = displayArticle(article);
+              return <article key={article.articleId} className={styles.storyCard}>
                 <span className={styles.kicker}>{article.category} · {article.editorial.storyEligible ? article.interpretationStatus : article.editorial.readiness === "READY" ? "SOURCED ANALYSIS" : "DEVELOPING"}</span>
-                <h3>{article.title}</h3>
-                <p>{ellipsis(article.deck || article.paragraphs[0]?.text || "")}</p>
+                <h3>{concise?.headline || article.title}</h3>
+                <p>{ellipsis(concise?.deck || article.deck || article.paragraphs[0]?.text || "")}</p>
                 <div className={styles.storyBottom}>
                   <DualTimestamp value={article.generatedAt} className={styles.cardTime} />
                   <Link href={storyHref(article)}>Read analysis →</Link>
                 </div>
-              </article>
-            )) : (
+              </article>;
+            }) : (
               <article className={styles.emptyCard}>
                 <h3>No published stories</h3>
                 <p>{brief.blockedReason || "No published analyses in this edition."}</p>
