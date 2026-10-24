@@ -9,6 +9,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import http from "node:http";
 
 const port = 41983;
 const base = `http://127.0.0.1:${port}`;
@@ -36,21 +37,32 @@ server.stderr.on("data", log);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 async function request(host, path) {
-  const response = await fetch(base + path, {
-    method: "GET",
-    headers: { Host: host, "X-Forwarded-Host": host, "X-Forwarded-Proto": "http", Accept: "text/html", "Cache-Control": "no-store" },
-    redirect: "manual",
-    signal: AbortSignal.timeout(22_000),
+  // Preserve the named request URL and HTTP Host, but force DNS lookup to
+  // 127.0.0.1. This *cannot* reach the real .vercel.app host by accident.
+  const response=await new Promise((resolve,reject)=>{
+    const req=http.request({
+      hostname:host, port, path, method:"GET",
+      lookup:(_hostname,_options,cb)=>cb(null,"127.0.0.1",4),
+      headers:{Host:host,Accept:"text/html","Cache-Control":"no-store"},
+    },res=>{
+      const parts=[];
+      res.on("data",buf=>parts.push(buf));
+      res.on("end",()=>resolve({
+        status:res.statusCode,
+        location:res.headers.location||"",
+        rewrite:res.headers["x-middleware-rewrite"]||"",
+        text:Buffer.concat(parts).toString("utf8").slice(0,150000),
+      }));
+      res.on("error",reject);
+    });
+    req.setTimeout(22000,()=>req.destroy(new Error("Next HTTP smoke timeout")));
+    req.on("error",reject);
+    req.end();
   });
-  const responseBody=(await response.text()).slice(0,150_000);
   process.stdout.write("HTTP "+host+" "+path+" => "+response.status+
-    " location="+(response.headers.get("location")||"").slice(0,180)+
-    " x-middleware-rewrite="+(response.headers.get("x-middleware-rewrite")||"").slice(0,160)+"\\n");
-  return {
-    status: response.status,
-    location: response.headers.get("location") || "",
-    text: responseBody,
-  };
+    " location="+String(response.location).slice(0,180)+
+    " x-middleware-rewrite="+String(response.rewrite).slice(0,160)+"\\n");
+  return response;
 }
 
 async function ready() {
