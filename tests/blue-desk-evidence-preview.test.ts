@@ -54,3 +54,61 @@ test("Story reader contains exactly one raw evidence view behind details; sideba
  assert.match(source,/id=\{"evidence-" \+ claim\.evidenceId\}/);
  assert.match(sidebar,/href=\{"#evidence-" \+ claim\.evidenceId\}/);
 });
+
+
+const canonicalMetaQ3="Meta Platforms, Inc. consolidated FY2026 Q3 CFO $32785000000; cash PP&E $33942000000; simple FCF (CFO minus cash PP&E) $-1157000000 (USD; quarter ended 2026-09-30). SEC XBRL values use filed 2026-10-22 and prior-quarter fiscal-YTD subtraction. Excludes separately disclosed finance-lease principal; NOT AI-only cash flow or Story causality.";
+const qualifiedMetaContext={
+  sourceName:"U.S. Securities and Exchange Commission",
+  sourceUrl:"https://data.sec.gov/api/xbrl/companyfacts/CIK0001326801.json",
+  availableAt:"2026-10-23T00:00:00Z",
+  editionAsOf:"2026-10-24T01:00:00Z",
+};
+test("META Q3 stored canonical SEC text renders as simple FCF with independently sourced issuer comparison",()=>{
+ const preview=describePublicEvidenceClaim(canonicalMetaQ3,qualifiedMetaContext);
+ assert.equal(preview.kind,"SEC_CASHFLOW");
+ assert.equal(preview.facts.length,3);
+ assert.deepEqual(preview.facts.map(f=>f.valueLabel),["US$32.785bn","US$33.942bn","−US$1.157bn"]);
+ assert.match(preview.summary,/excludes finance-lease principal/);
+ assert.match(preview.issuerComparison?.detail||"",/−US\$2\.120bn/);
+ assert.match(preview.issuerComparison?.detail||"",/US\$0\.964bn/);
+ assert.match(preview.issuerComparison?.detail||"",/not established/);
+ assert.match(preview.issuerComparison?.detail||"",/not additional evidence in the frozen Story/);
+ assert.equal(preview.issuerComparison?.sourceUrl,
+   "https://investor.atmeta.com/investor-news/press-release-details/2026/Meta-Reports-Third-Quarter-2026-Results/");
+});
+test("META Q3 IR comparison refuses missing/late/source-mismatched/retroactive Context",()=>{
+ const invalid=[
+  {},
+  {...qualifiedMetaContext,sourceName:"Online comment"},
+  {...qualifiedMetaContext,sourceUrl:"https://other.example.com/meta"},
+  {...qualifiedMetaContext,availableAt:"2026-10-25T00:00:00Z"},
+  {...qualifiedMetaContext,editionAsOf:"2026-10-21T09:00:00Z"},
+  {...qualifiedMetaContext,editionAsOf:null},
+ ];
+ for(const ctx of invalid){
+  const v=describePublicEvidenceClaim(canonicalMetaQ3,ctx);
+  assert.equal(v.kind,"SEC_CASHFLOW");
+  assert.equal(v.issuerComparison,undefined,JSON.stringify(ctx));
+ }
+ const spoof=canonicalMetaQ3.replace("$-1157000000","$-2120000000");
+ const v=describePublicEvidenceClaim(spoof,qualifiedMetaContext);
+ assert.equal(v.issuerComparison,undefined);
+ assert.equal(v.kind,"TEXT");
+});
+test("other issuer SEC quarter texts get simple cashflow labels, never META comparison",()=>{
+ const another=canonicalMetaQ3.replace("Meta Platforms, Inc.","Another Company")
+   .replace("FY2026 Q3","FY2026 Q2").replace("2026-09-30","2026-06-30");
+ const r=describePublicEvidenceClaim(another,qualifiedMetaContext);
+ assert.equal(r.kind,"SEC_CASHFLOW");
+ assert.equal(r.issuerComparison,undefined);
+ assert.equal(r.facts[2].valueLabel,"−US$1.157bn");
+});
+test("Bluebelly exact article reader retains original raw claim while separating IR source",()=>{
+ const source=read("app/blue-desk/stories/[articleId]/page.tsx");
+ assert.match(source,/sourceName:claim\.sourceName,sourceUrl:claim\.sourceUrl/);
+ assert.match(source,/editionAsOf:article\.dossierAsOf \|\| article\.generatedAt/);
+ assert.match(source,/evidence\.issuerComparison/);
+ assert.match(source,/data-separate-issuer-source="true"/);
+ assert.match(source,/sourceUrl} target="_blank"/);
+ assert.match(source,/<pre>\{claim\.claimText\}<\/pre>/);
+});
