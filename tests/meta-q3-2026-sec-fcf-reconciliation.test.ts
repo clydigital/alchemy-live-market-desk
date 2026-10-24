@@ -79,12 +79,10 @@ test("META Q2 or mismatched Q3 facts never inherit Q3 2026 issuer reconciliation
 
 test("issuer disclosure is source-pinned context, not a raw SEC revision or Story writer",()=>{
   const writer=readFileSync(new URL("../lib/dossier-v2/persist-sec-quarterly-cashflow.ts",import.meta.url),"utf8");
-  assert.match(writer,/formatSecIssuerQuarterCashflowClaim\(issuer\.entityName, item, issuerFcfComparison\)/);
-  assert.match(writer,/getSecIssuerFcfComparison\(item\)/);
-  assert.match(writer,/const secOnlyClaim = formatSecIssuerQuarterCashflowClaim\(issuer\.entityName, item, null\)/);
-  assert.match(writer,/contentText:secOnlyClaim/);
-  assert.match(writer,/issuerReportedFcfComparison:issuerFcfComparison/);
-  assert.match(writer,/issuerFcfComparison\.sourceUrl/);
+  assert.match(writer,/formatSecIssuerQuarterCashflowClaim\(issuer\.entityName,item,null\)/);
+  assert.match(writer,/contentText:claim/);
+  assert.doesNotMatch(writer,/issuerFcfComparison|getSecIssuerFcfComparison|issuerReportedFcfComparison/);
+  assert.match(writer,/provenance_urls:\[item\.sourceUrl,item\.filingIndexUrl\]/);
   assert.match(writer,/SEC_DERIVED_CFO_MINUS_CASH_PPE_EXCLUDES_FINANCE_LEASE_PRINCIPAL/);
   assert.match(writer,/CONFLICTING_FILING_REVISION_REQUIRES_ADJUDICATION/);
   assert.doesNotMatch(writer,/\.from\("story_thesis_versions"\)|\.from\("stories"\)/);
