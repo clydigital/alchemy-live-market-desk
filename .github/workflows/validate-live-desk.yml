@@ -49,6 +49,18 @@ jobs:
       - name: Bluebelly anonymous HTTP route smoke (synthetic hosts, no provider credentials)
         run: node scripts/bluebelly-anonymous-http-smoke.mjs
 
+      - name: Bluebelly Chrome responsive acceptance (360 / 768 / 1440)
+        run: node scripts/bluebelly-responsive-browser-smoke.mjs
+
+      - name: Attach responsive visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bluebelly-responsive-evidence
+          path: bluebelly-qa-artifacts/
+          if-no-files-found: ignore
+          retention-days: 3
+
   database-contracts:
     runs-on: ubuntu-latest
     timeout-minutes: 15
