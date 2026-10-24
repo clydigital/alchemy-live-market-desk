@@ -18,6 +18,7 @@ type Draft = {
   body:string;
 };
 const STORAGE="bluebelly-editorial-workbench-v1";
+const PREVIEW_STORAGE="bluebelly-editorial-lab-demo-v1";
 const EMPTY:Draft={
   kind:"COTD",title:"",meta:"",assetId:"",hook:"",catalysts:"",sources:"",
   expectation:"",observed:"",explanation:"",alternative:"",
@@ -98,9 +99,10 @@ function Field({label,value,onChange,rows=2,placeholder}:{
     <textarea value={value} rows={rows} placeholder={placeholder} onChange={e=>onChange(e.target.value)}/>
   </label>;
 }
-export default function EditorialWorkbench({priceCards,mode,readError,slate,slateStatus}:{
+export default function EditorialWorkbench({priceCards,mode,readError,slate,slateStatus,previewMode=false}:{
   priceCards:EditorialPriceCard[];mode:"editorial"|"presenter";readError:boolean;
   slate:EditorialSlate|null;slateStatus:"available"|"empty"|"storage_unavailable";
+  previewMode?:boolean;
 }){
   const [draft,setDraft]=useState<Draft>({...EMPTY});
   const [loaded,setLoaded]=useState(false);
@@ -113,7 +115,7 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
   const [onAir,setOnAir]=useState(false);
   const [onAirIndex,setOnAirIndex]=useState(0);
   useEffect(()=>{
-    try{const raw=localStorage.getItem(STORAGE);
+    try{const raw=localStorage.getItem(previewMode?PREVIEW_STORAGE:STORAGE);
       if(raw){const parsed=JSON.parse(raw) as {draft?:unknown,runNotes?:unknown};
         setDraft(normalizeDraft(parsed.draft));
         const restoredNotes=parsed.runNotes;
@@ -123,7 +125,7 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
     }catch{/* Browser-only private notes never overwrite canonical data. */}
     setLoaded(true);
   },[]);
-  useEffect(()=>{if(!loaded)return;try{localStorage.setItem(STORAGE,JSON.stringify({draft,runNotes}));}catch{/* no durable server write */}},[draft,runNotes,loaded]);
+  useEffect(()=>{if(!loaded)return;try{localStorage.setItem(previewMode?PREVIEW_STORAGE:STORAGE,JSON.stringify({draft,runNotes}));}catch{/* no durable server write */}},[draft,runNotes,loaded]);
   function update<K extends keyof Draft>(key:K,value:Draft[K]){setDraft(d=>({...d,[key]:value}));}
   const selected=useMemo(()=>priceCards.find(c=>c.id===draft.assetId)||null,[priceCards,draft.assetId]);
   const packet=articlePacket(draft,selected);
@@ -152,6 +154,24 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
     setCopied("Scheduled idea loaded as PRIVATE working notes. Check original sources before generating.");
   }
   async function runGeneration(action:"draft"|"revise"){
+    if(previewMode){
+      // This public lab NEVER invokes owner APIs or external models.
+      const text=[
+        "# DEVELOPMENT EXAMPLE — NOT GENERATED RESEARCH",
+        "Draft type: "+draft.kind+".",
+        "Market question: "+(draft.title||"Not supplied"),
+        "Catalyst notes: "+(draft.catalysts||"Unverified"),
+        "Proposed mechanism: "+(draft.explanation||"Unknown"),
+        "Countercase: "+(draft.alternative||"Unknown"),
+        "NEXT TEST: "+(draft.confirmation||"Requires original sources"),
+        "DISCLAIMER: Offline template only. No Gemini calls, market verification,",
+        "canonical Evidence, Story changes or PDF publication occurred.",
+      ].join("\n\n");
+      update("body",text);
+      setGenerationError("");
+      setCopied("Offline demo template prepared; no model/API called.");
+      return;
+    }
     if(generationState!=="idle")return;
     if(!draft.title.trim()||!draft.catalysts.trim()||!draft.sources.trim()){
       setGenerationError("Enter a headline, dated catalysts and original source URLs first.");
@@ -194,14 +214,21 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
   const notes=runNotes.map((n,i)=>RUN[i]+" ("+RUN_MIN[i]+" min)\n"+(n||"Unprepared"));
   return (
     <div className={styles.layout}>
-      <nav className={styles.subnav} aria-label="Private studio views">
-        <Link href="/owner/editorial" aria-current={mode==="editorial"?"page":undefined}>Article writing</Link>
-        <Link href="/owner/presenter" aria-current={mode==="presenter"?"page":undefined}>Presenter view</Link>
-        <Link href="/hybrid-output/prepare">Edition-pinned prep ↗</Link>
-        <Link href="/owner/x-wire">X research leads ↗</Link>
-      </nav>
-      <div className={styles.status}><strong>Owner-only research workspace</strong>
-        <span>Notes save locally in this browser; scheduled research and canonical source evidence remain separate.</span></div>
+      {previewMode?(
+        <nav className={styles.subnav} aria-label="No-login lab navigation">
+          <Link href="/">← Back to public Bluebelly</Link>
+          <strong>NO-LOGIN UI LAB · SYNTHETIC DATA ONLY</strong>
+        </nav>
+      ):(
+        <nav className={styles.subnav} aria-label="Private studio views">
+          <Link href="/owner/editorial" aria-current={mode==="editorial"?"page":undefined}>Article writing</Link>
+          <Link href="/owner/presenter" aria-current={mode==="presenter"?"page":undefined}>Presenter view</Link>
+          <Link href="/hybrid-output/prepare">Edition-pinned prep ↗</Link>
+          <Link href="/owner/x-wire">X research leads ↗</Link>
+        </nav>
+      )}
+      <div className={styles.status}><strong>{previewMode?"Temporary development UI — not live research":"Owner-only research workspace"}</strong>
+        <span>{previewMode?"Synthetic examples; local-only notes. Server research, model drafting, private records and publication are unavailable here.":"Notes save locally in this browser; scheduled research and canonical source evidence remain separate."}</span></div>
       <section className={styles.panel} aria-label="Scheduled editorial slate">
         <header className={styles.panelHead}>
           <h2>09:00 Editorial Slate</h2>
@@ -231,6 +258,7 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
           selectedAssetId={selected?.id||null}
           packet={writingRequest(draft,selected).slice(0,12_800)}
           onUse={setInvestigation}
+          previewMode={previewMode}
         />
       ):null}
       {mode==="presenter"?(
@@ -320,7 +348,7 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
               placeholder="The scheduled writing brain supplies the daily idea slate. Write and refine client-facing copy here, or copy the source-grounded brief for an assisted draft."/>
             <div className={styles.actions}>
               <button type="button" disabled={generationState!=="idle"} onClick={()=>runGeneration("draft")}>
-                {generationState==="draft"?"Generating…":"Generate article draft"}
+                {generationState==="draft"?"Generating…":(previewMode?"Create offline example":"Generate article draft")}
               </button>
               <button onClick={()=>copy("Writing request",prompt)}>Copy AI writing brief</button>
               <button onClick={()=>copy("Markdown draft",packet)}>Copy draft Markdown</button>
@@ -332,7 +360,7 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
             </label>
             <div className={styles.actions}>
               <button type="button" disabled={generationState!=="idle"||!draft.body.trim()}
-                onClick={()=>runGeneration("revise")}>{generationState==="revise"?"Revising…":"Revise article with AI"}</button>
+                onClick={()=>runGeneration("revise")}>{generationState==="revise"?"Revising…":(previewMode?"Refresh offline example":"Revise article with AI")}</button>
             </div>
             <p className={styles.small} role="status">{generationError||copied||
               "Generation is optional and owner-initiated. Outputs remain PRIVATE and UNVERIFIED until sourced review."}</p>

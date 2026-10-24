@@ -5,10 +5,11 @@ import type { InvestigationMode,InvestigationResult } from "@/lib/editorial-inve
 import styles from "./editorial-studio.module.css";
 
 export default function InvestigationWorkbench({
- initialQuestion,packet,selectedAssetId,onUse,
+ initialQuestion,packet,selectedAssetId,onUse,previewMode=false,
 }:{
  initialQuestion:string;packet:string;selectedAssetId:string|null;
  onUse:(result:InvestigationResult|null)=>void;
+ previewMode?:boolean;
 }){
  const [mode,setMode]=useState<InvestigationMode>("IMPACT");
  const [question,setQuestion]=useState(initialQuestion);
@@ -29,6 +30,49 @@ export default function InvestigationWorkbench({
   if(busy)return;
   setError("");setResult(null);setUsed(false);onUse(null);setBusy(true);
   try{
+   if(previewMode){
+    // Real network research and owner routes are intentionally unavailable in
+    // this temporary anonymous UI lab. Never confuse this with a successful
+    // Google Search-grounded live model call.
+    const offline:InvestigationResult={
+      contractVersion:"editorial-investigation/1",
+      mode,status:"RESEARCH_LEADS_UNVERIFIED",
+      narrative:[
+        "DEMO ONLY — STATIC OFFLINE RESEARCH SCAFFOLD",
+        "",
+        "WHAT IS NEW: UNKNOWN; no original release was fetched.",
+        "EXPECTED VS OBSERVED: UNKNOWN; no market data or consensus was checked.",
+        "MOST PLAUSIBLE MECHANISM: Hypothesis requires independent evidence.",
+        "STRONGEST COUNTERCASE: Other market drivers or changed expectations.",
+        "NEXT DECIDING TEST: Inspect primary sources and time-matched bars.",
+        "PRIMARY SOURCE CHECKS STILL NEEDED: Exact release URL, clock,",
+        "instrument identity, data series and original charts.",
+        "OUTPUT ROUTE: "+mode+" — example layout only, NOT publishable.",
+      ].join("\n"),
+      sources:[],claimSupports:[],searchQueries:[],
+      groundedSupportCount:0,canPublish:false,
+      limitations:["Public synthetic-only lab. No model, tools, API or private account used.",
+        "All event reactions UNKNOWN. No original-source checks performed.",
+        "Do not publish or treat this example as verified evidence."],
+      reactionLedger:{
+        contractVersion:"editorial-reaction-ledger/1",
+        status:"DAILY_SOURCE_COMPARISON_NOT_EVENT_REACTION",
+        requestedAssetId:selectedAssetId,anchorId:null,
+        eventAt:null,builtAt:"2026-01-01T00:00:00.000Z",
+        assets:[],warnings:["DEMO — NO LIVE DATA"],
+        windows:([1,3,5] as const).map(sessions=>({
+          sessions,status:"UNKNOWN" as const,from:null,to:null,observations:[],
+          reason:"No live price observations are accessed in this public UI lab.",
+        })),
+        eventWindows:(["5m","30m","4h"] as const).map(label=>({
+          label,status:"UNKNOWN" as const,
+          reason:"No live event-timed price observations fetched.",
+        })),
+      },
+    };
+    setResult(offline);
+    return;
+   }
    const res=await fetch("/api/owner/editorial-investigate",{
     method:"POST",credentials:"same-origin",
     headers:{"Content-Type":"application/json"},
@@ -48,12 +92,13 @@ export default function InvestigationWorkbench({
    data-owner-investigation="research-leads-only">
   <header className={styles.panelHead}>
    <h2>Investigate the market question</h2>
-   <small>Manual · Google Search grounding · noncanonical</small>
+   <small>{previewMode?"Offline UI simulation · no API calls":"Manual · Google Search grounding · noncanonical"}</small>
   </header>
   <p className={styles.help}>Ask a fresh question before writing. This searches beyond the saved
    Dossier packet, challenges the explanation and identifies missing market measurements.
    Results are <strong>research leads, not independently verified Evidence</strong>.
-   This explicit action may incur Gemini grounding usage charges.</p>
+   {previewMode?" This temporary lab uses synthetic examples only and never calls Gemini.":
+     " This explicit action may incur Gemini grounding usage charges."}</p>
   <div className={styles.kind} role="group" aria-label="Investigation output">
    {(["IMPACT","COTD","OB"] as const).map(value=>
     <button key={value} type="button" aria-pressed={mode===value}
@@ -75,7 +120,8 @@ export default function InvestigationWorkbench({
   </label>
   <div className={styles.actions}>
    <button type="button" disabled={busy||question.trim().length<12||packet.trim().length<100}
-     onClick={investigate}>{busy?"Researching original sources…":"Investigate sources and countercase"}</button>
+     onClick={investigate}>{previewMode?"Preview investigation layout (offline)":
+    busy?"Researching original sources…":"Investigate sources and countercase"}</button>
   </div>
   {error?<p role="alert" className={styles.investigationWarning}>{error}</p>:null}
   {result?<div className={styles.investigationResult}>
