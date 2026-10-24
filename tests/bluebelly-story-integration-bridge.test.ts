@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {projectFrozenTrackedStories} from "../lib/blue-desk-tracked-stories.ts";
 import {blueDeskHostAccess,blueDeskPresentationTarget} from "../lib/blue-desk-host.ts";
-const id=n=>"00000000-0000-4000-8000-"+String(n).padStart(12,"0");
-const src=p=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
+const id=(n:number)=>"00000000-0000-4000-8000-"+String(n).padStart(12,"0");
+const src=(p:string)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 function fixture(){
  return {id:id(900),published_at:"2026-10-25T04:00:00.000Z",payload:{
   canonicalStoryManifest:[],stories:[],
@@ -21,6 +21,7 @@ function fixture(){
 }
 test("integrated old Story identities never impersonate accepted current thesis changes",()=>{
  const t=projectFrozenTrackedStories(fixture());
+ assert.ok(t);
  assert.equal(t?.tracks.length,6);
  assert.equal(t?.currentAcceptedStoryCount,0);
  assert.ok(t?.tracks.every(x=>x.status==="CARRIED_FORWARD_NO_ACCEPTED_CHANGE"));
