@@ -3,6 +3,7 @@ import {
   extractSecQuarterCashFlows, SEC_CASHFLOW_METHOD, SEC_CASHFLOW_SOURCE,
   SEC_D1_ISSUERS, type SecCashflowIssuerTicker,
 } from "./issuer-sec-quarterly-cashflow.ts";
+import { formatSecIssuerQuarterCashflowClaim } from "./sec-cashflow-disclosure.ts";
 
 /**
  * D1a/D1b: supported US GAAP hyperscalers only. The SEC publishing date is day-precision; next UTC midnight is a
@@ -80,12 +81,10 @@ export async function persistSecIssuerCashflowEvidence(
       },{onConflict:"provider_key,external_source_id"})
       .select("id").single<{id:string}>();
     if (sourceError || !source) throw new Error("SEC cashflow source registration failed: "+(sourceError?.message??"missing source"));
-    const claim = issuer.entityName+" consolidated FY"+item.fiscalYear+" Q"+item.fiscalQuarter+
-      " CFO $"+item.cfoUsd+"; cash PP&E $"+item.cashPpeUsd+
-      "; simple FCF (CFO minus cash PP&E) $"+item.simpleFcfUsd+
-      " (USD; quarter ended "+item.periodEnd+"). SEC XBRL values use filed "+item.filedDate+
-      " and "+(item.predecessorAccession?"prior-quarter fiscal-YTD subtraction.":"direct Q1 quarter.")+
-      " Excludes separately disclosed finance-lease principal; NOT AI-only cash flow or Story causality.";
+    // This provider records SEC-derived values only. IR-defined FCF is a
+    // separate original-source comparison rendered by the reader, never an
+    // unearned mutation of the SEC evidence or its immutable content hash.
+    const claim = formatSecIssuerQuarterCashflowClaim(issuer.entityName,item,null);
     const memory = await persistSensorMemory({
       provider:"sec_xbrl_consolidated_cashflow",
       sourceUrl:item.sourceUrl,
@@ -157,6 +156,7 @@ export async function persistSecIssuerCashflowEvidence(
           periodStart:item.periodStart,periodEnd:item.periodEnd,secFilingDate:item.filedDate,
           secFilingAccession:item.currentAccession,previousFilingAccession:item.predecessorAccession,
           cfoUsd:item.cfoUsd,cashPpeUsd:item.cashPpeUsd,simpleFcfUsd:item.simpleFcfUsd,
+          simpleFcfDefinition:"SEC_DERIVED_CFO_MINUS_CASH_PPE_EXCLUDES_FINANCE_LEASE_PRINCIPAL",
           capexXbrlConcepts:item.capexXbrlConcepts,
           predecessorCapexXbrlConcepts:item.predecessorCapexXbrlConcepts,
           capexToPositiveCfo:item.capexToPositiveCfo,
