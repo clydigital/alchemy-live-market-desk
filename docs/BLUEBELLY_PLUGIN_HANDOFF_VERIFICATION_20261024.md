@@ -45,3 +45,20 @@ Draft stacked on the overview reader (#1001), without merging either branch:
 - This is not a remote ChatGPT plugin. Add canonical persistent Story-version lookup only after exact-id/version lineage review.
 
 Acceptance: run full suite, database contracts, TypeScript and production build; test positive user readback against the 19 October frozen AI edition and denied owner/public cases. Production remains untouched until audited deployment approval.
+
+
+## Third code slice — exact canonical Story thesis version (owner-only)
+
+- Route: GET /api/owner/bluebelly/v1/story-version?story=UUID&version=UUID.
+- Contract: bluebelly-canonical-story-version/1; this is a persistent canonical thesis version, unlike the published editorial-article reader in slice two.
+- Existing read authority: public.story_thesis_versions by exact story_id and id, with bounded select and 5-second abort; no mutation and no fallback to latest version.
+- Version-scoped evidence candidates: only canonical-story-reasoning/v1 claim.evidenceIds from the immutable snapshot; cap 48 unique UUIDs. The candidate references are not proof.
+- Verified source facts: bounded separate join to intelligence_evidence and intelligence_evidence_sources by the exact candidate UUIDs, original first/second-tier source URL, company filing/statistic/official record evidence class, and both created_at and available_at at or before version.effective_at. Neither the reasoning claim nor its implied causal market reaction is upgraded from this join.
+- Projection allowlist: immutable Story/version/event IDs, version number and as-of, authored thesis and limited triggers, raw status/confidence, source facts and explicit UNKNOWN/NOT_VERIFIED gates. It never spreads snapshot, metadata, provider tokens, model prompts, service credentials, raw payloads or arbitrary source records into the API.
+- Auth: approved Supabase owner session only, private-origin route, no browser-public API and no wildcard CORS. A remote ChatGPT connector has **not** been activated. A subsequent standards-based scoped OAuth client with owner consent and revocation is preferred to issuing another generic permanent token.
+- Fail closed: unknown exact version 404, malformed/multiple IDs 400, unavailable version/evidence backend 503; no latest version lookup or fabricated evidence.
+- Required for merging: GitHub tests/build/DB contracts plus independent real owner-session positive and negative checks; source claims/vintage audit; private scope approval under security #834.
+
+## Remote tool connector gate
+
+Do not describe this Next.js route as already connected to ChatGPT. Before remote activation establish an identity issuer, registered OAuth client, narrowly scoped read access, consent, revocation/expiry and audit controls. Current Supabase documentation describes OAuth 2.1 Server and MCP-compatible dynamic registration, but enabling/configuring it in the Supabase project is a separate operator action and the active project's OAuth configuration has **not** been verified. The ChatGPT plugin manifest/tool definition must point to a deployed, stable, authenticated HTTPS endpoint and pass a real fresh-session invocation test. Never use existing CRON_SECRET, service-role or RESEARCH_UPDATE_TOKEN as a generic GPT bearer secret.
