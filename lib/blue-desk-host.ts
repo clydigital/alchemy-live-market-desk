@@ -81,7 +81,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   // No other Bluebelly owner routes, research APIs or machine jobs are opened.
   if (isBluebellyReaderHost(hostname)) {
     if (["/login", "/auth/google", "/auth/callback", "/auth/signout"].includes(pathname)) return "public";
-    if (["/presenter", "/presenter/editorial", "/presenter/dossier", "/presenter/changes", "/presenter/full-prep", "/presenter/technical-checks", "/api/presenter/technical-checks"].includes(pathname)) return "private";
+    if (["/presenter", "/presenter/editorial", "/presenter/dossier", "/presenter/changes", "/presenter/full-prep", "/presenter/technical-checks", "/api/presenter/technical-checks", "/api/owner/editorial-generate"].includes(pathname)) return "private";
   }
 
   const publicPage =
