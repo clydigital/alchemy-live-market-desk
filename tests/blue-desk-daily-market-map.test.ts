@@ -8,11 +8,11 @@ const now = new Date("2026-10-23T13:00:00Z");
 function observation(id: string, opts: Partial<PublicMarketObservation> = {}): PublicMarketObservation {
   return {
     id, label: id, symbol:id.toUpperCase(),type:"Major Index",last:100,change:1.5,
-    changeUnit:"%",levelUnit:(opts.type==="Rates"&&id!=="move")||id==="hy-oas"||id==="ig-oas"?"%":"native",
-    asOf:"2026-10-22T20:00:00Z",frequency:"daily",
+    changeUnit:"%",asOf:"2026-10-22T20:00:00Z",frequency:"daily",
     sourceName:"Original official provider",
     sourceUrl:"https://example.org/reports/dated-record",
     ...opts,
+    levelUnit: opts.levelUnit ?? ((opts.type==="Rates"&&id!=="move")||id==="hy-oas"||id==="ig-oas"?"%":"native"),
   };
 }
 const page = readFileSync(new URL("../app/blue-desk/page.tsx",import.meta.url),"utf8");
