@@ -12,7 +12,7 @@ test("no-login legacy Live links resolve only to an exact public reading allowli
   for (const [tab, destination] of [
     ["markets", "/owner/markets"], ["MARKET", "/owner/markets"],
     ["calendar", "/calendar"], ["bonds", "/#rates-title"],
-    ["stories", "/#stories-title"], ["what changed", "/#motion-title"],
+    ["stories", "/key-stories"], ["what changed", "/#motion-title"],
     ["research", "/"], ["unknown", "/"], ["//evil.example", "/"],
   ]) {
     assert.equal(publicLiveLegacyTabDestination(tab), destination, tab);
