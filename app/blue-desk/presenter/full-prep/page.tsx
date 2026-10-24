@@ -70,6 +70,8 @@ export default async function BluebellyExactEdition({
     : null;
   const exactDossier = dossierRead?.status === "historical_exact"
     && dossierRead.presentation
+    && dossierRead.selectedDossierId
+    && dossierRead.selectedAsOf
     && dossierRead.selectedDossierId === frozen?.dossierId
     && dossierRead.selectedAsOf === frozen?.dossierAsOf
     ? { id: dossierRead.selectedDossierId, asOf: dossierRead.selectedAsOf }
