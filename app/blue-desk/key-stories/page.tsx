@@ -80,7 +80,6 @@ export default async function KeyStories(){
               {originalSources.get(t.storyId)?.length ?
                 originalSources.get(t.storyId)!.map(source=>
                   <div key={source.evidenceId}>
-                    <p>{source.claimExcerpt}</p>
                     <a href={source.sourceUrl} rel="noopener noreferrer" target="_blank">
                       {source.sourceName} · original primary source ↗
                     </a>
