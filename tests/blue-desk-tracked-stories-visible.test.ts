@@ -74,6 +74,10 @@ test("publisher preserves published-only and historical watch as distinct user-f
  assert.match(page,/No material thesis update is claimed/);
  assert.match(page,/key-stories",host\)\+"#story-"/);
  assert.match(expanded,/Published analysis/);
+ assert.match(expanded,/readableSourceArticleLead\(a\.title,a\.editorial\.evidenceClaims/);
+ assert.match(expanded,/copy\?\.headline\|\|a\.title/);
+ assert.match(expanded,/copy\?\.deck\|\|a\.deck/);
+ assert.match(expanded,/articleHref\(a\.articleId,a\.editionId\)/);
  assert.match(expanded,/Ongoing Story watch/);
  assert.match(expanded,/no accepted material change/);
  assert.match(expanded,/No new accepted Story change/);
