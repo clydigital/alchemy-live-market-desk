@@ -75,6 +75,8 @@ export default async function BluebellyExactPresenter({searchParams}:Props) {
     :null;
   const exactDossier=dossierSelection?.status==="historical_exact"
     && dossierSelection.presentation
+    && dossierSelection.selectedDossierId
+    && dossierSelection.selectedAsOf
     && dossierSelection.selectedDossierId===frozen?.dossierId
     && dossierSelection.selectedAsOf===frozen?.dossierAsOf
     ?{id:dossierSelection.selectedDossierId,asOf:dossierSelection.selectedAsOf}:null;
