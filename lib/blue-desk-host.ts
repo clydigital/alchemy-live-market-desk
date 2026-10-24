@@ -29,6 +29,7 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   }
   if (pathname === "/") return "/blue-desk";
   if (pathname === "/calendar") return "/blue-desk/calendar";
+  if (pathname === "/presenter") return "/blue-desk/presenter";
   if (pathname === "/markets") return "/blue-desk/markets";
   if (/^\/stories\/[^/]+$/.test(pathname)) return "/blue-desk" + pathname;
   return null;
@@ -57,6 +58,15 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   }
   if (hostname === LIVE_DESK_PRESENTATION_HOST && pathname === "/owner/markets") {
     return "public";
+  }
+
+  // Only the single native Presenter route and its already-existing, independently
+  // authorised owner APIs are opened on the dedicated Bluebelly hostname.
+  // All other raw owner, legacy and machine routes remain denied here.
+  if (hostname === BLUEBELLY_PRESENTATION_HOST) {
+    if (["/login", "/auth/google", "/auth/callback", "/auth/signout"].includes(pathname)) return "public";
+    if (["/presenter", "/api/owner/editorial-generate",
+      "/api/presenter/technical-checks"].includes(pathname)) return "private";
   }
 
   const publicPage =

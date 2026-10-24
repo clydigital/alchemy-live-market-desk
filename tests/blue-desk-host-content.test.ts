@@ -82,8 +82,7 @@ test("Bluebelly exposes only explicitly approved public reading routes", () => {
   }
   for (const path of [
     "/hybrid-output/prepare", "/dossier", "/articles",
-    "/api/dossier-v2", "/api/presenter/technical-checks", "/api/cron/research/morning",
-    "/auth/callback", "/login", "/stories",
+    "/api/dossier-v2", "/api/cron/research/morning", "/stories",
     "/stories/article%3Agarbage", "/stories/article%2F../../dossier",
   ]) {
     assert.equal(blueDeskHostAccess(path, host), "blocked", path);
@@ -201,4 +200,33 @@ test("full Markets public exception never leaks to owner siblings, APIs or previ
   assert.match(terminal, /getGlobalFlowMonitor\(\)/);
   assert.match(terminal, /<BlueDeskHeader activePath="\/blue-desk\/markets" \/>/);
   assert.doesNotMatch(terminal, /LiveDeskShell|<form|signout|use server|fetch\("\/api\//);
+});
+
+test("P1a native Presenter remains private with only existing owner API exceptions", () => {
+  const host = "bluebelly-desk.vercel.app";
+  assert.equal(blueDeskPresentationTarget("/presenter", host), "/blue-desk/presenter");
+  assert.equal(blueDeskHostAccess("/presenter", host), "private");
+  for (const route of ["/login", "/auth/google", "/auth/callback", "/auth/signout"]) {
+    assert.equal(blueDeskHostAccess(route, host), "public", route);
+  }
+  for (const route of ["/api/owner/editorial-generate", "/api/presenter/technical-checks"]) {
+    assert.equal(blueDeskHostAccess(route, host), "private", route);
+    assert.equal(blueDeskPresentationTarget(route, host), null, route);
+  }
+  for (const route of ["/presenter/full-prep", "/presenter/editorial", "/owner/presenter",
+    "/api/owner/bluebelly/v1/overview", "/api/cron/research/morning"]) {
+    assert.equal(blueDeskHostAccess(route, host), "blocked", route);
+  }
+  const header = readFileSync(new URL("../components/blue-desk/BlueDeskHeader.tsx", import.meta.url), "utf8");
+  const presenter = readFileSync(new URL("../app/blue-desk/presenter/page.tsx", import.meta.url), "utf8");
+  const middleware = readFileSync(new URL("../middleware.ts", import.meta.url), "utf8");
+  assert.match(header, /\["Presenter Prep", "\/presenter"\]/);
+  assert.match(presenter, /<EditorialWorkbench priceCards=\{priceCards\} mode="presenter"/);
+  assert.match(presenter, /<PresenterTechnicalChecks compact \/>/);
+  assert.match(presenter, /getLatestEditorialSlate\(\)/);
+  assert.match(presenter, /notFound\(\)/, "pinned edition must not silently use current brief");
+  assert.doesNotMatch(presenter, /href=\{[^}]*hybrid-output|href="\/presenter\/full-prep"/);
+  assert.match(middleware, /bluebellyOwnerApi/);
+  assert.ok(middleware.indexOf("getClaims()") > middleware.indexOf("bluebellyOwnerApi"));
+  assert.equal(blueDeskHostAccess("/api/owner/editorial-generate", "alchemy-blue-desk.vercel.app"), "blocked");
 });

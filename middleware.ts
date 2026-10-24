@@ -103,7 +103,13 @@ export async function middleware(request: NextRequest) {
 
   // Preserve existing API consumers until every contract is scoped and audited.
   // Owner-facing pages are ALWAYS authenticated on non-public hosts.
-  if (pathname.startsWith("/api/") && !dashboardAuthRequired()) return NextResponse.next();
+  // When optional dashboard API auth is disabled, the exact Bluebelly owner
+  // endpoints must STILL go through the signed-in active-owner allowlist.
+  const bluebellyOwnerApi = (host || "").trim().toLowerCase().replace(/:443$/, "")
+    === "bluebelly-desk.vercel.app"
+    && ["/api/owner/editorial-generate", "/api/presenter/technical-checks"].includes(pathname);
+  if (pathname.startsWith("/api/") && !dashboardAuthRequired() && !bluebellyOwnerApi)
+    return NextResponse.next();
 
   let config: ReturnType<typeof getSupabasePublicConfig>;
   try {
