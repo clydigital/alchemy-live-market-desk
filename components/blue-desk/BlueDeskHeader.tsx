@@ -25,9 +25,9 @@ const PRIVATE_NAV = [
 const PUBLIC_NAV = [
   ["Live Market", "/"],
   ["Markets", "/markets"],
-  ["Key Stories", "/#stories-title"],
-  ["Rates", "/#rates-title"],
-  ["What Changed", "/#motion-title"],
+  ["Key Stories", "/key-stories"],
+  ["Rates", "/rates"],
+  ["What Changed", "/what-changed"],
   ["Calendar", "/calendar"],
 ] as const;
 
@@ -66,8 +66,8 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
           <Link
             key={href}
             href={blueDeskPublicHref(href, host)}
-            aria-current={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets")))) ? "page" : undefined}
-            className={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets")))) ? styles.navActive : styles.navItem}
+            aria-current={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/rates" && activePath === "/blue-desk/rates") || (href === "/what-changed" && activePath === "/blue-desk/what-changed")))) ? "page" : undefined}
+            className={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/rates" && activePath === "/blue-desk/rates") || (href === "/what-changed" && activePath === "/blue-desk/what-changed")))) ? styles.navActive : styles.navItem}
           >
             <MarketIcon name={NAV_ICONS[title] || "market"} size={17} />
             <span>{title}</span>
