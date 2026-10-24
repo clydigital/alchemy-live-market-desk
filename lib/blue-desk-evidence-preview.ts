@@ -84,7 +84,7 @@ function previewSecQuarterCashflow(value:string,context:PublicEvidenceClock):Pub
   const period="Quarter ended "+humanDate(m[7]),filed=humanDate(m[8]);
   const fact=(concept:string,label:string,n:number):PublicFilingMetric=>({
     concept,label,value:String(n),valueLabel:billion(n),period,filed,
-    form:m[9]==="direct Q1 quarter"?"10-Q":"10-Q",accession:"See original SEC evidence",
+    form:m[3]==="4"?"10-K":"10-Q",accession:"See original SEC evidence",
   });
   const originalSecIsMetaQ3=m[1]==="Meta Platforms, Inc."&&m[2]==="2026"&&m[3]==="3"
     &&m[7]==="2026-09-30"&&m[8]==="2026-10-22"
