@@ -58,6 +58,7 @@ export default async function BluebellyPresenterPrep({
           <a className={ui.action} href="#writing">Open Writing Brain ↓</a>
           <a className={ui.action} href="#technical">Review 14 technical checks ↓</a>
           <Link href="/calendar">Upcoming economic events →</Link>
+          <Link href="/presenter/full-prep">Exact historical edition →</Link>
         </div>
       </header>
 
