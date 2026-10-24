@@ -213,7 +213,8 @@ test("P1a native Presenter remains private with only existing owner API exceptio
     assert.equal(blueDeskHostAccess(route, host), "private", route);
     assert.equal(blueDeskPresentationTarget(route, host), null, route);
   }
-  for (const route of ["/presenter/full-prep", "/presenter/editorial", "/owner/presenter",
+  assert.equal(blueDeskHostAccess("/presenter/full-prep", host), "private");
+  for (const route of ["/presenter/editorial", "/owner/presenter",
     "/api/owner/bluebelly/v1/overview", "/api/cron/research/morning"]) {
     assert.equal(blueDeskHostAccess(route, host), "blocked", route);
   }
@@ -225,7 +226,8 @@ test("P1a native Presenter remains private with only existing owner API exceptio
   assert.match(presenter, /<PresenterTechnicalChecks compact \/>/);
   assert.match(presenter, /getLatestEditorialSlate\(\)/);
   assert.match(presenter, /notFound\(\)/, "pinned edition must not silently use current brief");
-  assert.doesNotMatch(presenter, /href=\{[^}]*hybrid-output|href="\/presenter\/full-prep"/);
+  assert.doesNotMatch(presenter, /href=\{[^}]*hybrid-output/);
+  assert.match(presenter, /href="\/presenter\/full-prep"/);
   assert.match(middleware, /bluebellyOwnerApi/);
   assert.ok(middleware.indexOf("getClaims()") > middleware.indexOf("bluebellyOwnerApi"));
   assert.equal(blueDeskHostAccess("/api/owner/editorial-generate", "alchemy-blue-desk.vercel.app"), "blocked");
