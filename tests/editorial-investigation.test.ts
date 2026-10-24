@@ -44,7 +44,7 @@ test("grounding returns attributable leads and defensible status, never verified
     {web:{title:"Duplicate source",uri:issuer}},
    ],
    groundingSupports:[
-    {groundingChunkIndices:[0,1,1]},{groundingChunkIndices:[0]},{groundingChunkIndices:[999]},
+    {segment:{text:"Issuer quarterly CFO was reported in the Meta results."},groundingChunkIndices:[0,1,1]},{segment:{text:"Fed press statement published."},groundingChunkIndices:[0]},{segment:{text:"Unsupported internal link."},groundingChunkIndices:[999]},
    ],
    webSearchQueries:["Meta quarterly cash flow filing","Fed statement site:federalreserve.gov"],
   }};
@@ -56,6 +56,11 @@ test("grounding returns attributable leads and defensible status, never verified
  assert.equal(obj?.sources[0].supportCount,2);
  assert.equal(obj?.sources[1].supportCount,1);
  assert.equal(obj?.searchQueries.length,2);
+ assert.equal(obj?.claimSupports.length,2);
+ assert.deepEqual(obj?.claimSupports[0].urls,[issuer,fed]);
+ assert.deepEqual(obj?.claimSupports[1].urls,[issuer]);
+ assert.ok(!obj?.claimSupports.some(x=>x.excerpt.includes("internal")));
+
  assert.match(obj?.limitations.join(" "),/not independently admitted canonical Evidence/);
  const injected=investigationToDraftPacket(obj);
  assert.match(injected,/NONCANONICAL AND UNVERIFIED/);
@@ -110,6 +115,7 @@ test("editorial UI offers explicit investigation, opt-in research and existing d
  assert.match(ui,/Opening Bell/);
  assert.match(ui,/onUse\(result\)/);
  assert.match(ui,/RESEARCH LEADS.*UNVERIFIED/);
+ assert.match(ui,/Passages with search-provider source links/);
  assert.match(writer,/investigationToDraftPacket\(investigation\)/);
  assert.match(writer,/packet:\(writingRequest\(draft,selected\)/);
  assert.match(writer,/setInvestigation\(null\)/);
