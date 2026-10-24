@@ -46,6 +46,9 @@ jobs:
       - name: Production build
         run: npx next build
 
+      - name: Bluebelly anonymous HTTP route smoke (synthetic hosts, no provider credentials)
+        run: node scripts/bluebelly-anonymous-http-smoke.mjs
+
   database-contracts:
     runs-on: ubuntu-latest
     timeout-minutes: 15
