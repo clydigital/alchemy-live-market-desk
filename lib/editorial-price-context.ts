@@ -75,7 +75,7 @@ export function editorialPriceCard(row:Pick<MarketMonitorRow,
 export function projectEditorialPriceCards(rows:readonly MarketMonitorRow[],nowIso:string) {
   const priority=["brent","wti","spx","ndx","dxy","usdjpy","us2y","us5y-fred","us10y-fred",
     "us20y-fred","us30y-fred","gold-proxy","hy-oas","smh","qqq","nvda","tsm","amd",
-    "distillate","soxx","us10y-real","jxy","eur","gbp"];
+    "distillate","soxx","meta","us10y-real","jxy","eur","gbp"];
   const present=new Map(rows.map(r=>[r.id,r]));
   return priority.flatMap(id=>{
     const row=present.get(id);return row?[editorialPriceCard(row,nowIso)]:[];
