@@ -3,7 +3,7 @@ import {
   extractSecQuarterCashFlows, SEC_CASHFLOW_METHOD, SEC_CASHFLOW_SOURCE,
   SEC_D1_ISSUERS, type SecCashflowIssuerTicker,
 } from "./issuer-sec-quarterly-cashflow.ts";
-import { formatSecIssuerQuarterCashflowClaim, getSecIssuerFcfComparison } from "./sec-cashflow-disclosure.ts";
+import { formatSecIssuerQuarterCashflowClaim } from "./sec-cashflow-disclosure.ts";
 
 /**
  * D1a/D1b: supported US GAAP hyperscalers only. The SEC publishing date is day-precision; next UTC midnight is a
@@ -81,14 +81,10 @@ export async function persistSecIssuerCashflowEvidence(
       },{onConflict:"provider_key,external_source_id"})
       .select("id").single<{id:string}>();
     if (sourceError || !source) throw new Error("SEC cashflow source registration failed: "+(sourceError?.message??"missing source"));
-    // The SEC simple metric is an observed quarterly derived value. Separately
-    // source-pinned issuer non-GAAP FCF may include financing lease principal.
-    // Neither is a causal AI Story thesis, and prior evidence remains immutable.
-    const issuerFcfComparison = getSecIssuerFcfComparison(item);
-    const claim = formatSecIssuerQuarterCashflowClaim(issuer.entityName, item, issuerFcfComparison);
-    // Provider raw memory must remain strictly SEC-derived: IR figures are
-    // editorial/evidence enrichment with their own original provenance link.
-    const secOnlyClaim = formatSecIssuerQuarterCashflowClaim(issuer.entityName, item, null);
+    // This provider records SEC-derived values only. IR-defined FCF is a
+    // separate original-source comparison rendered by the reader, never an
+    // unearned mutation of the SEC evidence or its immutable content hash.
+    const claim = formatSecIssuerQuarterCashflowClaim(issuer.entityName,item,null);
     const memory = await persistSensorMemory({
       provider:"sec_xbrl_consolidated_cashflow",
       sourceUrl:item.sourceUrl,
@@ -110,7 +106,7 @@ export async function persistSecIssuerCashflowEvidence(
           cfo:item.cfoUsd,capex:item.cashPpeUsd,fcf:item.simpleFcfUsd,
         },
       },
-      contentText:secOnlyClaim, publishedAt:item.availableAt, observedAt:now,
+      contentText:claim, publishedAt:item.availableAt, observedAt:now,
       ingestionKey:externalId,
       observations:[{
         observationType:"issuer_quarterly_cashflow",
@@ -149,8 +145,7 @@ export async function persistSecIssuerCashflowEvidence(
         confidence:95,
         freshness_status:"current",
         content_hash:item.contentHash,
-        provenance_urls:[item.sourceUrl,item.filingIndexUrl,
-          ...(issuerFcfComparison ? [issuerFcfComparison.sourceUrl] : [])],
+        provenance_urls:[item.sourceUrl,item.filingIndexUrl],
         structured_payload:{
           title:issuer.entityName+" SEC quarter FY"+item.fiscalYear+" Q"+item.fiscalQuarter,
           evidenceNature:"issuer_sec_consolidated_cashflow",
@@ -162,9 +157,6 @@ export async function persistSecIssuerCashflowEvidence(
           secFilingAccession:item.currentAccession,previousFilingAccession:item.predecessorAccession,
           cfoUsd:item.cfoUsd,cashPpeUsd:item.cashPpeUsd,simpleFcfUsd:item.simpleFcfUsd,
           simpleFcfDefinition:"SEC_DERIVED_CFO_MINUS_CASH_PPE_EXCLUDES_FINANCE_LEASE_PRINCIPAL",
-          issuerReportedFcfComparison:issuerFcfComparison,
-          // The issuer FCF comparison is IR-sourced; do not rewrite SEC XBRL
-          // values, original accession identity, event clock or source hash.
           capexXbrlConcepts:item.capexXbrlConcepts,
           predecessorCapexXbrlConcepts:item.predecessorCapexXbrlConcepts,
           capexToPositiveCfo:item.capexToPositiveCfo,
