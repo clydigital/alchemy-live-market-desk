@@ -6,7 +6,7 @@ import type { EditorialPriceCard } from "@/lib/editorial-price-context";
 import type { EditorialSlate, SlateIdea } from "@/lib/editorial-slate-core";
 import { editorialPriceLines } from "@/lib/editorial-price-context";
 import InvestigationWorkbench from "./InvestigationWorkbench";
-import { investigationToDraftPacket, type InvestigationResult } from "@/lib/editorial-investigation";
+import { mergeInvestigationIntoDraftPacket, type InvestigationResult } from "@/lib/editorial-investigation";
 import styles from "./editorial-studio.module.css";
 
 type Kind = "COTD" | "OB";
@@ -171,7 +171,7 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
           action,kind:draft.kind,title:draft.title,
-          packet:(writingRequest(draft,selected)+investigationToDraftPacket(investigation)).slice(0,24_000),existingBody:draft.body,
+          packet:mergeInvestigationIntoDraftPacket(writingRequest(draft,selected),investigation),existingBody:draft.body,
           instructions:revisionInstruction,
         }),
       });
