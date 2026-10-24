@@ -22,7 +22,7 @@ test("invalid, duplicated, empty or unrecognised pinned params are rejected befo
     {edition:UUID,regime:"a".repeat(181)},
     {edition:UUID,regime:"  "},
     {edition:UUID,unknown:"yes"},
-    {edition:UUID,"__proto__":"test"},
+    {edition:UUID,["__proto__"]:"test"},
   ];
   for (const query of bad) assert.equal(parseBluebellyExactPrepQuery(query).state,"invalid",JSON.stringify(query));
 });
