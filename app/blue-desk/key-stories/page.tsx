@@ -4,6 +4,7 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getLiveDeskHomepageDailyBrief } from "@/lib/hybrid-publication";
 import { projectFrozenTrackedStories } from "@/lib/blue-desk-tracked-stories";
+import { readableSourceArticleLead } from "@/lib/blue-desk-cashflow-reader-copy";
 import { getTrackedOriginalSources } from "@/lib/blue-desk-tracked-evidence";
 import { projectMarketBriefArticles } from "@/lib/market-brief-articles";
 import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
@@ -49,13 +50,15 @@ export default async function KeyStories(){
         <h2 id="published-head">Published analysis</h2>
         <p>These readings passed the existing article and source-admission checks
           for this exact edition. Source facts do not prove their entire proposed mechanism.</p>
-        {published.length?<div className={ui.cards}>{published.map(a=>
-          <article className={ui.card} key={a.articleId}>
+        {published.length?<div className={ui.cards}>{published.map(a=>{
+          const copy=readableSourceArticleLead(a.title,a.editorial.evidenceClaims,
+            a.dossierAsOf||a.generatedAt);
+          return <article className={ui.card} key={a.articleId}>
             <p className={ui.kicker}>{a.category} · {a.editorial.readiness}</p>
-            <h3>{a.title}</h3><p>{a.deck}</p>
+            <h3>{copy?.headline||a.title}</h3><p>{copy?.deck||a.deck}</p>
             <small>Publication ID: {a.editionId}</small>
             <Link href={articleHref(a.articleId,a.editionId)}>Read the pinned analysis →</Link>
-          </article>)}</div>:<p className={ui.empty}>No edition-verified article currently qualifies.
+          </article>})}</div>:<p className={ui.empty}>No edition-verified article currently qualifies.
           The carried-forward questions below remain visible as historical monitoring context.</p>}
       </section>
       <section className={ui.section} id="ongoing-stories" aria-labelledby="tracked-head">
