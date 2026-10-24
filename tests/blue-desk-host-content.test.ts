@@ -76,6 +76,8 @@ test("Bluebelly exposes only explicitly approved public reading routes", () => {
   const host = "bluebelly-desk.vercel.app";
   for (const path of [
     "/", "/calendar", "/blue-desk", "/blue-desk/calendar", "/markets", "/blue-desk/markets",
+    "/key-stories", "/blue-desk/key-stories", "/rates", "/blue-desk/rates",
+    "/what-changed", "/blue-desk/what-changed",
     "/stories/article%3Afcea17ef-f575-4283-a363-7d5fa9c918c7%3A6e2c8a8c-fdc7-45eb-bec6-b685b0311f3e",
   ]) {
     assert.equal(blueDeskHostAccess(path, host), "public", path);
@@ -201,4 +203,25 @@ test("full Markets public exception never leaks to owner siblings, APIs or previ
   assert.match(terminal, /getGlobalFlowMonitor\(\)/);
   assert.match(terminal, /<BlueDeskHeader activePath="\/blue-desk\/markets" \/>/);
   assert.doesNotMatch(terminal, /LiveDeskShell|<form|signout|use server|fetch\("\/api\//);
+});
+
+test("P2a expanded links resolve to distinct public reader pages; legacy tabs do not loop to home", () => {
+  const host="bluebelly-desk.vercel.app";
+  for(const [pathname,target] of [
+    ["/key-stories","/blue-desk/key-stories"],
+    ["/rates","/blue-desk/rates"],
+    ["/what-changed","/blue-desk/what-changed"],
+  ]) {
+    assert.equal(blueDeskHostAccess(pathname,host),"public",pathname);
+    assert.equal(blueDeskPresentationTarget(pathname,host),target,pathname);
+    assert.equal(blueDeskHostAccess(target,host),"public",target);
+    assert.equal(blueDeskPresentationTarget(pathname,LIVE_DESK_PRESENTATION_HOST),target);
+  }
+  const src=readFileSync(new URL("../lib/blue-desk-host.ts",import.meta.url),"utf8");
+  assert.match(src,/return "\/key-stories"/);
+  assert.match(src,/return "\/rates"/);
+  assert.match(src,/return "\/what-changed"/);
+  for(const path of ["/api/owner/editorial-generate","/presenter","/hybrid-output/prepare"]) {
+    assert.equal(blueDeskHostAccess(path,host),"blocked",path);
+  }
 });
