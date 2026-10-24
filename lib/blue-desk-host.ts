@@ -29,6 +29,9 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   }
   if (pathname === "/") return "/blue-desk";
   if (pathname === "/calendar") return "/blue-desk/calendar";
+  if (pathname === "/key-stories") return "/blue-desk/key-stories";
+  if (pathname === "/rates") return "/blue-desk/rates";
+  if (pathname === "/what-changed") return "/blue-desk/what-changed";
   if (pathname === "/presenter") return "/blue-desk/presenter";
   if (normalizedHost(host) === BLUEBELLY_PRESENTATION_HOST && pathname === "/presenter/full-prep")
     return "/blue-desk/presenter/full-prep";
@@ -76,6 +79,9 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     pathname === "/calendar" ||
     pathname === "/blue-desk" ||
     pathname === "/blue-desk/calendar" ||
+    pathname === "/key-stories" || pathname === "/blue-desk/key-stories" ||
+    pathname === "/rates" || pathname === "/blue-desk/rates" ||
+    pathname === "/what-changed" || pathname === "/blue-desk/what-changed" ||
     pathname === "/markets" ||
     pathname === "/blue-desk/markets" ||
     /^\/(?:blue-desk\/)?stories\/article(?::|%3a)[0-9a-f-]{36}(?::|%3a)[0-9a-f-]{36}$/i.test(pathname);
@@ -92,8 +98,8 @@ export function publicLiveLegacyTabDestination(tab: string | null): string {
   const key = (tab || "").trim().toLowerCase();
   if (["markets", "market", "prices", "price observations"].includes(key)) return "/owner/markets";
   if (["calendar", "economic calendar", "economic-calendar"].includes(key)) return "/calendar";
-  if (["rates", "yields", "bonds"].includes(key)) return "/#rates-title";
-  if (["stories", "key stories"].includes(key)) return "/#stories-title";
-  if (["motion", "what changed", "changes"].includes(key)) return "/#motion-title";
+  if (["rates", "yields", "bonds"].includes(key)) return "/rates";
+  if (["stories", "key stories"].includes(key)) return "/key-stories";
+  if (["motion", "what changed", "changes"].includes(key)) return "/what-changed";
   return "/";
 }
