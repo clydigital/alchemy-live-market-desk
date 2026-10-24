@@ -35,14 +35,18 @@ test("fails closed when slate record incomplete, corrupt or old",()=>{
   const old=parseEditorialSlate({...row,day_myt:"2026-10-20"},"2026-10-23T03:00:00Z");
   assert.match(old!.ageLabel,/PREVIOUS SLATE/);
 });
-test("private article model endpoint cannot be invoked from the public host",()=>{
-  assert.equal(blueDeskHostAccess("/api/owner/editorial-generate","bluebelly-desk.vercel.app"),"blocked");
+test("private article model endpoint on Bluebelly still demands the owner login and same origin",()=>{
+  assert.equal(blueDeskHostAccess("/api/owner/editorial-generate","bluebelly-desk.vercel.app"),"private");
   assert.equal(blueDeskHostAccess("/api/owner/editorial-generate","alchemy-live-market-desk.vercel.app"),"private");
   const route=readFileSync(new URL("../app/api/owner/editorial-generate/route.ts",import.meta.url),"utf8");
   assert.match(route,/session\.auth\.getUser\(\)/);
   assert.match(route,/app_access_allowlist/);
   assert.match(route,/req\.headers\.get\("origin"\)/);
   assert.match(route,/no-store/);
+  const middleware=readFileSync(new URL("../middleware.ts",import.meta.url),"utf8");
+  assert.match(middleware,/bluebellyOwnerApi/);
+  assert.match(middleware,/getClaims\(\)/);
+  assert.equal(blueDeskHostAccess("/api/owner/editorial-generate","alchemy-blue-desk.vercel.app"),"blocked");
   assert.doesNotMatch(route,/SUPABASE_SERVICE_ROLE_KEY|story_thesis_versions|research_intake_items/);
 });
 test("private slate grants remain service-role-only with three-idea constraint",()=>{
