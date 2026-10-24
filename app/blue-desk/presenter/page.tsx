@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { bluebellyOwnerPresenterHref } from "@/lib/bluebelly-owner-presenter-links";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import EditorialWorkbench from "@/components/blue-desk/EditorialWorkbench";
@@ -29,6 +31,7 @@ type Search = Record<string, string | string[] | undefined>;
 export default async function BluebellyPresenterPrep({
   searchParams,
 }: { searchParams: Promise<Search> }) {
+  const host = (await headers()).get("host");
   const query = await searchParams;
   // An exact edition or Story/Motion/Regime focus must open the pinned
   // immutable projection, never current-day data under a historic URL.
@@ -41,7 +44,7 @@ export default async function BluebellyPresenterPrep({
     if (key === "edition" && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)) notFound();
     params.set(key, v.trim());
   }
-  if (params.size) redirect("/presenter/full-prep?" + params.toString());
+  if (params.size) redirect(bluebellyOwnerPresenterHref("history",host) + "?" + params.toString());
 
   const [raw, monitor, slate] = await Promise.all([
     getCurrentVerifiedMarketMotion({ limit: 18 }).catch(() => []),
@@ -68,7 +71,7 @@ export default async function BluebellyPresenterPrep({
           <a className={ui.action} href="#writing">Open Writing Brain ↓</a>
           <a className={ui.action} href="#technical">Review 14 technical checks ↓</a>
           <Link href="/calendar">Upcoming economic events →</Link>
-          <Link href="/presenter/full-prep">Open edition-locked prep →</Link>
+          <Link href={bluebellyOwnerPresenterHref("history",host)}>Open edition-locked prep →</Link>
         </div>
       </header>
 
