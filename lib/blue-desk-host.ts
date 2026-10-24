@@ -30,6 +30,10 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   if (pathname === "/") return "/blue-desk";
   if (pathname === "/calendar") return "/blue-desk/calendar";
   if (pathname === "/key-stories") return "/blue-desk/key-stories";
+  // Temporary auth-free development lab uses strictly synthetic browser-local
+  // inputs. Real owner pages, APIs and source records remain private.
+  if (normalizedHost(host) === BLUEBELLY_PRESENTATION_HOST &&
+      pathname === "/editorial-lab") return "/blue-desk/editorial-lab";
   if (pathname === "/markets") return "/blue-desk/markets";
   if (/^\/stories\/[^/]+$/.test(pathname)) return "/blue-desk" + pathname;
   return null;
@@ -47,6 +51,12 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   const hostname = normalizedHost(host);
   if (hostname === "alchemy-blue-desk.vercel.app") return "blocked";
   if (hostname !== BLUEBELLY_PRESENTATION_HOST && hostname !== LIVE_DESK_PRESENTATION_HOST) return "private";
+
+  // Temporary development-only UI viewer on the dedicated public host.
+  // No owner API, private provider data, canonical DB, secrets or writes.
+  if (hostname === BLUEBELLY_PRESENTATION_HOST &&
+      (pathname === "/editorial-lab" || pathname === "/blue-desk/editorial-lab"))
+    return "public";
 
   // Explicitly approved, read-only full Markets terminal. This exception
   // applies to the exact Live hostname/path only; do not open other owner
