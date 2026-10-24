@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import {
  validInvestigationInput,projectGroundedInvestigation,
  safeGroundingUrl,investigationSystemInstruction,
- investigationToDraftPacket,
+ investigationToDraftPacket,mergeInvestigationIntoDraftPacket,
 } from "../lib/editorial-investigation.ts";
 import { blueDeskHostAccess } from "../lib/blue-desk-host.ts";
 
@@ -68,6 +68,12 @@ test("grounding returns attributable leads and defensible status, never verified
  assert.match(injected,/NOT independently checked/);
  assert.ok(injected.includes(issuer));
  assert.ok(injected.length<=10_000);
+ const huge="Raw owner context ".repeat(2000);
+ const merged=mergeInvestigationIntoDraftPacket(huge,obj);
+ assert.ok(merged.length<=24_000);
+ assert.ok(merged.includes("NONCANONICAL AND UNVERIFIED"));
+ assert.ok(merged.includes(issuer));
+ assert.equal(mergeInvestigationIntoDraftPacket("A",null),"A");
 });
 test("no machine-readable grounding is not silently passed off as verified",()=>{
  const obj=projectGroundedInvestigation({text:"A".repeat(210),groundingMetadata:{}}, "IMPACT");
@@ -116,7 +122,7 @@ test("editorial UI offers explicit investigation, opt-in research and existing d
  assert.match(ui,/onUse\(result\)/);
  assert.match(ui,/RESEARCH LEADS.*UNVERIFIED/);
  assert.match(ui,/Passages with search-provider source links/);
- assert.match(writer,/investigationToDraftPacket\(investigation\)/);
- assert.match(writer,/packet:\(writingRequest\(draft,selected\)/);
+ assert.match(writer,/mergeInvestigationIntoDraftPacket\(writingRequest\(draft,selected\),investigation\)/);
+ assert.match(writer,/packet:mergeInvestigationIntoDraftPacket\(/);
  assert.match(writer,/setInvestigation\(null\)/);
 });
