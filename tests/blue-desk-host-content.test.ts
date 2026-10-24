@@ -76,6 +76,8 @@ test("Bluebelly exposes only explicitly approved public reading routes", () => {
   const host = "bluebelly-desk.vercel.app";
   for (const path of [
     "/", "/calendar", "/blue-desk", "/blue-desk/calendar", "/markets", "/blue-desk/markets",
+    "/key-stories", "/blue-desk/key-stories", "/rates", "/blue-desk/rates",
+    "/what-changed", "/blue-desk/what-changed",
     "/stories/article%3Afcea17ef-f575-4283-a363-7d5fa9c918c7%3A6e2c8a8c-fdc7-45eb-bec6-b685b0311f3e",
   ]) {
     assert.equal(blueDeskHostAccess(path, host), "public", path);
@@ -231,4 +233,37 @@ test("P1a native Presenter remains private with only existing owner API exceptio
   assert.match(middleware, /bluebellyOwnerApi/);
   assert.ok(middleware.indexOf("getClaims()") > middleware.indexOf("bluebellyOwnerApi"));
   assert.equal(blueDeskHostAccess("/api/owner/editorial-generate", "alchemy-blue-desk.vercel.app"), "blocked");
+});
+
+test("integration public insight routes and owner Presenter both retain narrow host boundaries", () => {
+  const host = "bluebelly-desk.vercel.app";
+  for (const [pathname, target] of [
+    ["/key-stories", "/blue-desk/key-stories"],
+    ["/rates", "/blue-desk/rates"],
+    ["/what-changed", "/blue-desk/what-changed"],
+  ]) {
+    assert.equal(blueDeskHostAccess(pathname, host), "public", pathname);
+    assert.equal(blueDeskPresentationTarget(pathname, host), target, pathname);
+    assert.equal(blueDeskHostAccess(target, host), "public", target);
+    assert.equal(blueDeskPresentationTarget(pathname, LIVE_DESK_PRESENTATION_HOST), target);
+  }
+  assert.equal(blueDeskHostAccess("/presenter", host), "private");
+  assert.equal(blueDeskHostAccess("/presenter/full-prep", host), "private");
+  assert.equal(blueDeskPresentationTarget("/presenter", host), "/blue-desk/presenter");
+  assert.equal(blueDeskPresentationTarget("/presenter/full-prep", host), "/blue-desk/presenter/full-prep");
+  for (const path of ["/api/owner/editorial-generate", "/api/presenter/technical-checks"]) {
+    assert.equal(blueDeskHostAccess(path, host), "private");
+    assert.equal(blueDeskPresentationTarget(path, host), null);
+  }
+  for (const path of ["/hybrid-output/prepare", "/owner/presenter",
+    "/api/owner/bluebelly/v1/overview", "/api/research-update",
+    "/api/cron/research/morning", "/presenter/technical-checks"]) {
+    assert.equal(blueDeskHostAccess(path, host), "blocked", path);
+  }
+  const middleware = readFileSync(new URL("../middleware.ts", import.meta.url), "utf8");
+  assert.ok(middleware.indexOf("getClaims()") > middleware.indexOf("bluebellyOwnerApi"));
+  assert.match(middleware, /app_access_allowlist/);
+  for (const [tab, expected] of [["bonds", "/rates"], ["stories", "/key-stories"], ["motion", "/what-changed"]]) {
+    assert.equal(publicLiveLegacyTabDestination(tab), expected);
+  }
 });
