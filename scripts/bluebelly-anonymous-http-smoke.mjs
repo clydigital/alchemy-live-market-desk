@@ -42,10 +42,14 @@ async function request(host, path) {
     redirect: "manual",
     signal: AbortSignal.timeout(22_000),
   });
+  const responseBody=(await response.text()).slice(0,150_000);
+  process.stdout.write("HTTP "+host+" "+path+" => "+response.status+
+    " location="+(response.headers.get("location")||"").slice(0,180)+
+    " x-middleware-rewrite="+(response.headers.get("x-middleware-rewrite")||"").slice(0,160)+"\\n");
   return {
     status: response.status,
     location: response.headers.get("location") || "",
-    text: (await response.text()).slice(0, 150_000),
+    text: responseBody,
   };
 }
 
@@ -67,7 +71,7 @@ function check(name, actual, expected) {
     assert.equal(actual, expected, name);
     checks.push({name, result: "PASS"});
   } catch (error) {
-    checks.push({name, result: "FAIL", detail: error.message});
+    checks.push({name, result: "FAIL", detail: JSON.stringify({actual,expected})});
   }
 }
 function checkPublic(name, response, marker) {
