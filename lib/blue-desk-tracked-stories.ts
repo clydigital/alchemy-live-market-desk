@@ -15,6 +15,7 @@ export type TrackedStory = {
   assessedAt:string|null;
   frozenDossierAsOf:string;
   evidenceReferenceCount:number;
+  evidenceIds:string[];
   status:"CARRIED_FORWARD_NO_ACCEPTED_CHANGE";
 };
 export type TrackedStoriesRead = {
@@ -72,11 +73,12 @@ export function projectFrozenTrackedStories(input:unknown):TrackedStoriesRead|nu
     const watch=Array.isArray(v?.watchItems)?v.watchItems:[];
     const nextTest=watch.map(x=>short(obj(x)?.variable,700)).find(Boolean)||null;
     const refs=Array.isArray(v?.evidenceRefs)?v.evidenceRefs:[];
-    const evidenceReferenceCount=new Set(refs.filter(x=>typeof x==="string"&&UUID.test(x))).size;
+    const evidenceIds=[...new Set(refs.filter((x):x is string=>typeof x==="string"&&UUID.test(x)))].slice(0,24);
+    const evidenceReferenceCount=evidenceIds.length;
     unique.add(storyId);
     tracks.push({storyId,thesisVersionId,historicalSnapshotId,
       question,nextTest,assessedAt:stamp,frozenDossierAsOf:dossierAsOf,
-      evidenceReferenceCount,status:"CARRIED_FORWARD_NO_ACCEPTED_CHANGE"});
+      evidenceReferenceCount,evidenceIds,status:"CARRIED_FORWARD_NO_ACCEPTED_CHANGE"});
     if(tracks.length>=12)break;
   }
   return {editionId:id,publishedAt:pub,dossierAsOf,
