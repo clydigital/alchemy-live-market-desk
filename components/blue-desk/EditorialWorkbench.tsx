@@ -191,10 +191,17 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
   return (
     <div className={styles.layout}>
       <nav className={styles.subnav} aria-label="Private studio views">
-        <Link href="/owner/editorial" aria-current={mode==="editorial"?"page":undefined}>Article writing</Link>
-        <Link href="/owner/presenter" aria-current={mode==="presenter"?"page":undefined}>Presenter view</Link>
-        <Link href="/hybrid-output/prepare">Edition-pinned prep ↗</Link>
-        <Link href="/owner/x-wire">X research leads ↗</Link>
+        {mode==="presenter" ? <>
+          <Link href="/blue-desk/presenter#writing">Article writing</Link>
+          <Link href="/blue-desk/presenter">Presenter view</Link>
+          <Link href="/blue-desk/presenter/full-prep">Edition-locked prep</Link>
+          <Link href="/blue-desk/key-stories">Published research</Link>
+        </> : <>
+          <Link href="/owner/editorial" aria-current="page">Article writing</Link>
+          <Link href="/owner/presenter">Presenter view</Link>
+          <Link href="/hybrid-output/prepare">Edition-pinned prep</Link>
+          <Link href="/owner/x-wire">X research leads</Link>
+        </>}
       </nav>
       <div className={styles.status}><strong>Owner-only research workspace</strong>
         <span>Notes save locally in this browser; scheduled research and canonical source evidence remain separate.</span></div>
@@ -258,7 +265,7 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
             <p className={styles.small}>{short(draft.hook,"Add an opener in Article writing.")}</p>
             <p className={styles.small}>Next confirmation: {short(draft.confirmation)}</p>
             <p className={styles.small}>Invalidation: {short(draft.invalidation)}</p>
-            <Link href="/owner/editorial">Edit editorial notes →</Link>
+            <Link href={mode==="presenter"?"/blue-desk/presenter#writing":"/owner/editorial"}>Edit editorial notes →</Link>
           </aside>
         </div>
       ):(
@@ -310,7 +317,7 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
               <button type="button" disabled={generationState!=="idle"} onClick={()=>runGeneration("draft")}>
                 {generationState==="draft"?"Generating…":"Generate article draft"}
               </button>
-              <button onClick={()=>copy("Writing request",prompt)}>Copy AI writing brief</button>
+              <button onClick={()=>copy("Writing request",prompt)}>Copy writing brief (optional)</button>
               <button onClick={()=>copy("Markdown draft",packet)}>Copy draft Markdown</button>
             </div>
             <label className={styles.lineField}>
