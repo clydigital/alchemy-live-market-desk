@@ -79,6 +79,12 @@ test("publisher preserves published-only and historical watch as distinct user-f
  assert.match(expanded,/No new accepted Story change/);
  assert.match(expanded,/currentAcceptedStoryCount/);
  assert.match(expanded,/evidenceReferenceCount/);
+ const sources=readFileSync(new URL("../lib/blue-desk-tracked-evidence.ts",import.meta.url),"utf8");
+ assert.doesNotMatch(sources,/claim_text|claimExcerpt/);
+ assert.match(sources,/const allowed=\["sec\.gov"/);
+ assert.match(sources,/source_tier>2/);
+ assert.match(sources,/created>asOf\|\|available>asOf/);
+ assert.doesNotMatch(expanded,/source\.claimExcerpt/);
  assert.doesNotMatch(expanded,/\.from\("story_thesis_versions"\)|createSupabaseAdminClient|generateContent/);
  assert.equal(blueDeskHostAccess("/key-stories","bluebelly-desk.vercel.app"),"public");
  assert.equal(blueDeskPresentationTarget("/key-stories","bluebelly-desk.vercel.app"),"/blue-desk/key-stories");
