@@ -90,7 +90,7 @@ export async function POST(req:NextRequest){
     },
    }),
    new Promise<never>((_resolve,reject)=>{
-    timer=setTimeout(()=>reject(new Error("Research timeout")),53_000);
+    timer=setTimeout(()=>reject(new Error("Research timeout")),45_000);
    }),
   ]);
   const result=projectGroundedInvestigation({
