@@ -141,7 +141,7 @@ export async function middleware(request: NextRequest) {
   // Even if optional dashboard auth is disabled, the specific Bluebelly
   // Presenter endpoint must remain authenticated (source notes are private).
   const bluebellyPresenterApi = isBluebellyReaderHost(host)
-    && pathname === "/api/presenter/technical-checks";
+    && ["/api/presenter/technical-checks", "/api/owner/editorial-generate"].includes(pathname);
   if (pathname.startsWith("/api/") && !dashboardAuthRequired() && !bluebellyPresenterApi) return NextResponse.next();
 
   let config: ReturnType<typeof getSupabasePublicConfig>;
