@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { isBluebellyReaderHost } from "@/lib/blue-desk-host";
-import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
+import { getCurrentMarketMotion, getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { publicMarketObservations } from "@/lib/blue-desk-public-markets";
@@ -33,7 +33,7 @@ function editionPinnedPrepHref(query:Search):string{
     params.set(key, value);
   }
   const suffix=params.toString();
-  return "/hybrid-output/prepare"+(suffix?"?"+suffix:"");
+  return "/presenter/full-prep"+(suffix?"?"+suffix:"");
 }
 const LENSES=[
   {
@@ -64,17 +64,22 @@ export default async function BlueDeskPresenterStudio({searchParams}:Props){
   const pinSuffix=pinHref.includes("?")?pinHref.slice(pinHref.indexOf("?")+1):"";
   const tabHref=(view:"talk"|"checks"|"source")=>prepRoot+"?view="+view+(pinSuffix?"&"+pinSuffix:"");
   const view=query.view==="checks"||query.view==="source"?query.view:"talk";
-  const fullPrepHref=bluebelly
-    ?pinHref.replace("/hybrid-output/prepare","/presenter/full-prep"):pinHref;
+  const fullPrepHref=bluebelly ? pinHref : pinHref.replace("/presenter/full-prep","/blue-desk/presenter/full-prep");
   const editorialHref=(bluebelly?"/presenter/editorial":"/blue-desk/presenter/editorial")
     +(query.edition&&typeof query.edition==="string"?"?edition="+encodeURIComponent(query.edition):"");
   const dossierHref=bluebelly?"/presenter/dossier":"/blue-desk/dossier";
   const changesHref=bluebelly?"/presenter/changes":"/blue-desk/changes";
-  const [rawMotions,monitor]=await Promise.all([
+  const [rawMotions,monitor,researchMotions]=await Promise.all([
     getCurrentVerifiedMarketMotion({limit:18}).catch(()=>[]),
     getMarketMonitor().catch(()=>null),
+    getCurrentMarketMotion({limit:75}).catch(()=>[]),
   ]);
   const news=selectVerifiedNewsBriefs(rawMotions,new Date(),8);
+  const leads=researchMotions.filter(item=>item.verification_state!=="VERIFIED"
+    && item.effective_state!=="EXPIRED" && item.lifecycle_state!=="EXPIRED")
+    .sort((a,b)=>(b.materiality*.45+b.relevance*.35+b.novelty*.1)
+      -(a.materiality*.45+a.relevance*.35+a.novelty*.1))
+    .slice(0,5);
   const readings=publicMarketObservations(monitor?.rows||[],"all")
     .filter(row=>["us2y","us10y-fred","us30y-fred","brent","wti","spx","dxy","gold-proxy","smh"].includes(row.id))
     .slice(0,9);
@@ -144,6 +149,18 @@ export default async function BlueDeskPresenterStudio({searchParams}:Props){
               </div>):<p className={ui.muted}>No dated publisher-qualified levels are currently available.</p>}
               <p className={ui.muted}>These levels do not establish causality or live chart conditions.</p>
             </section>
+            <section className={ui.box} data-presenter-motion-queue="owner-investigation-only">
+              <span className={ui.kicker}>PRIVATE RESEARCH QUEUE · NOT YET VERIFIED</span>
+              <h3>What deserves investigating?</h3>
+              <p className={ui.muted}>Prioritised by materiality, relevance and novelty. These are leads, not broadcast-ready facts or canonical evidence.</p>
+              {leads.length?leads.map(lead=><article className={ui.newsRow} key={lead.id}>
+                <strong>{lead.headline}</strong>
+                <small>{lead.category.replaceAll("_"," ")} · {lead.verification_state} · <DualTimestamp value={lead.occurred_at} sourceDate={lead.occurred_at}/></small>
+                {lead.why_interesting?<p>{lead.why_interesting}</p>:null}
+                <p><strong>Verify next:</strong> {lead.next_test||"Check primary publisher evidence and matched market observations."}</p>
+                {lead.source_url?.startsWith("https://")?<a href={lead.source_url} target="_blank" rel="noopener noreferrer">{lead.source_name} ↗</a>:null}
+              </article>):<p className={ui.muted}>No current unverified leads in the owner research queue.</p>}
+            </section>
             <section className={ui.box}>
               <span className={ui.kicker}>LATEST VERIFIED REPORTING</span>
               {news.length?news.slice(0,4).map(item=><article className={ui.newsRow} key={item.id}>
@@ -176,7 +193,11 @@ export default async function BlueDeskPresenterStudio({searchParams}:Props){
             <span className={ui.kicker}>DATA BOUNDARY · EXISTING RUNTIME</span>
             <h3>Where each piece of information comes from</h3>
             <dl className={ui.ledger}>
-              <div><dt>Technical source</dt><dd>Existing owner API · /api/presenter/technical-checks · technical-checks/3</dd></div>
+              <div><dt>Verified news feed</dt><dd>{news.length} source-verified developments admitted from existing Market Motion records. These are factual reports, not canonical Story changes.</dd></div>
+              <div><dt>Market-data adapter</dt><dd>{readings.length} publisher-dated observations from the existing public-market monitor. Stale or missing levels must retain their source dates.</dd></div>
+              <div><dt>Technical source</dt><dd>Authenticated owner API · /api/presenter/technical-checks · technical-checks/3. Your saved chart readings are not public market evidence.</dd></div>
+              <div><dt>Plugin and creator intelligence</dt><dd>External research/creator inputs belong in discovery and source verification first. No direct plugin-to-public Story publication or checklist overwrite is authorised.</dd></div>
+              <div><dt>Learn</dt><dd>Governed concept registry for stable explanations; no current trade signals or private research intake.</dd></div>
               <div><dt>Authentication</dt><dd>Approved Google account + active Supabase allowlist</dd></div>
               <div><dt>Research identity</dt><dd>{query.edition&&typeof query.edition==="string"?query.edition:"No edition pinned · current available context only"}</dd></div>
               <div><dt>Reconciliation</dt><dd>Presenter explanation · non-evidentiary; no Story or Regime mutation</dd></div>

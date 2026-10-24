@@ -12,6 +12,7 @@ function observation(id: string, opts: Partial<PublicMarketObservation> = {}): P
     sourceName:"Original official provider",
     sourceUrl:"https://example.org/reports/dated-record",
     ...opts,
+    levelUnit: opts.levelUnit ?? ((opts.type==="Rates"&&id!=="move")||id==="hy-oas"||id==="ig-oas"?"%":"native"),
   };
 }
 const page = readFileSync(new URL("../app/blue-desk/page.tsx",import.meta.url),"utf8");
@@ -60,10 +61,11 @@ test("blank original source, future dates, missing values, and invalid clocks fa
   assert.equal(buildBlueDeskDailyMarketMap([observation("spx")],new Date("invalid")).observedCount,0);
 });
 
-test("homepage renders source-only daily angles before the single Dossier-dependent hero",()=>{
+test("homepage retains source-only daily angles in expandable data section after editorial hero",()=>{
   assert.match(page,/buildBlueDeskDailyMarketMap/);
   assert.match(page,/aria-labelledby="daily-map-title"/);
-  assert.ok(page.indexOf('aria-labelledby="daily-map-title"') < page.indexOf('aria-label="Latest canonical Market Brief"'));
+  assert.ok(page.indexOf('aria-label="Latest canonical Market Brief"') < page.indexOf('aria-labelledby="daily-map-title"'));
+   assert.match(page,/homeDisclosureSummary/);
   assert.match(page,/lens\.observations\.map/);
   assert.match(page,/row\.sourceUrl/);
   assert.match(page,/OLDER_SOURCE/);

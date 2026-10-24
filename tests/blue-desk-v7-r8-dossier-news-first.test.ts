@@ -26,12 +26,14 @@ test("Bluebelly public reader never receives the raw canonical Dossier",()=>{
  const publicNav=nav.slice(nav.indexOf("const PUBLIC_NAV"),nav.indexOf("const NAV_ICONS"));
  assert.doesNotMatch(publicNav,/dossier|hybrid|feed|\/blue-desk\/presenter/i);
 });
-test("latest verified reporting opens before market observations and Dossier interpretation",()=>{
+test("editorial Bluebelly home leads with sourced Story, then keeps verified news and market observations expandable",()=>{
  const home=source("app/blue-desk/page.tsx");
  const news=home.indexOf('aria-labelledby="blue-desk-news-title"');
  const map=home.indexOf('aria-labelledby="daily-map-title"');
  const hero=home.indexOf('aria-label="Latest canonical Market Brief"');
- assert.ok(news>=0 && map>news && hero>map);
+ assert.ok(hero>=0 && news>hero && map>news);
+ assert.match(home,/homeDisclosureSummary/);
+ assert.match(home,/getRecentPublishedStoryReadings\(/);
  assert.match(home,/getCurrentVerifiedMarketMotion\(\{ limit: 24 \}\)/);
  assert.match(home,/selectVerifiedNewsBriefs\(verifiedMotions, now, 12\)/);
  assert.match(home,/ownerResearchMotions = publicHost \? \[\]/);

@@ -2,6 +2,7 @@
 export const BLUEBELLY_PRESENTATION_HOST = "bluebelly-desk.vercel.app";
 /** Branch-bound V6 review hostname; never a production hostname. */
 export const BLUEBELLY_V6_REVIEW_HOST = "bluebelly-v6-review.vercel.app";
+export const BLUEBELLY_V7_REVIEW_HOST = "bluebelly-v7-review.vercel.app";
 export const LIVE_DESK_PRESENTATION_HOST = "alchemy-live-market-desk.vercel.app";
 
 function normalizedHost(host: string | null | undefined) {
@@ -9,7 +10,7 @@ function normalizedHost(host: string | null | undefined) {
 }
 
 export function isBluebellyReaderHost(host: string | null | undefined) {
-  return [BLUEBELLY_PRESENTATION_HOST, BLUEBELLY_V6_REVIEW_HOST].includes(normalizedHost(host));
+  return [BLUEBELLY_PRESENTATION_HOST, BLUEBELLY_V6_REVIEW_HOST, BLUEBELLY_V7_REVIEW_HOST].includes(normalizedHost(host));
 }
 
 /** Only the approved public reading hosts use public-clean Blue Desk links. */
@@ -44,7 +45,8 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   if (pathname === "/presenter/editorial") return "/blue-desk/presenter/editorial";
   if (pathname === "/presenter/dossier") return "/blue-desk/dossier";
   if (pathname === "/presenter/changes") return "/blue-desk/changes";
-  if (pathname === "/presenter/full-prep") return "/hybrid-output/prepare";
+  if (pathname === "/presenter/full-prep") return "/blue-desk/presenter/full-prep";
+  if (pathname === "/presenter/technical-checks" && isBluebellyReaderHost(host)) return "/blue-desk/presenter/technical-checks";
   if (/^\/stories\/[^/]+$/.test(pathname)) return "/blue-desk" + pathname;
   return null;
 }
@@ -79,7 +81,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   // No other Bluebelly owner routes, research APIs or machine jobs are opened.
   if (isBluebellyReaderHost(hostname)) {
     if (["/login", "/auth/google", "/auth/callback", "/auth/signout"].includes(pathname)) return "public";
-    if (["/presenter", "/presenter/editorial", "/presenter/dossier", "/presenter/changes", "/presenter/full-prep", "/api/presenter/technical-checks"].includes(pathname)) return "private";
+    if (["/presenter", "/presenter/editorial", "/presenter/dossier", "/presenter/changes", "/presenter/full-prep", "/presenter/technical-checks", "/api/presenter/technical-checks", "/api/owner/editorial-generate"].includes(pathname)) return "private";
   }
 
   const publicPage =

@@ -205,7 +205,7 @@ test("full Markets public exception never leaks to owner siblings, APIs or previ
 
 test("Bluebelly presenter sign-in is exact-path private; OAuth entry and callback remain controlled",()=>{
  const host="bluebelly-desk.vercel.app";
- for(const path of ["/presenter","/presenter/editorial","/presenter/dossier","/presenter/changes","/presenter/full-prep","/api/presenter/technical-checks"]){
+ for(const path of ["/presenter","/presenter/editorial","/presenter/dossier","/presenter/changes","/presenter/full-prep","/presenter/technical-checks","/api/presenter/technical-checks"]){
    assert.equal(blueDeskHostAccess(path,host),"private",path);
  }
  for(const path of ["/login","/auth/google","/auth/callback","/auth/signout"])
@@ -217,7 +217,8 @@ test("Bluebelly presenter sign-in is exact-path private; OAuth entry and callbac
  assert.equal(blueDeskPresentationTarget("/presenter",host),"/blue-desk/presenter");
  assert.equal(blueDeskPresentationTarget("/presenter/editorial",host),"/blue-desk/presenter/editorial");
  assert.equal(blueDeskPresentationTarget("/presenter/dossier",host),"/blue-desk/dossier");
- assert.equal(blueDeskPresentationTarget("/presenter/full-prep",host),"/hybrid-output/prepare");
+ assert.equal(blueDeskPresentationTarget("/presenter/full-prep",host),"/blue-desk/presenter/full-prep");
+  assert.equal(blueDeskPresentationTarget("/presenter/technical-checks",host),"/blue-desk/presenter/technical-checks");
  const middleware=readFileSync(new URL("../middleware.ts",import.meta.url),"utf8");
  assert.match(middleware,/bluebellyPresenterApi/);
  assert.ok(middleware.indexOf('if (accessScope === "public")')<middleware.indexOf("getClaims()"));

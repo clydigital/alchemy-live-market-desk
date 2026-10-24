@@ -44,15 +44,36 @@ test("native Presenter shell reuses the existing technical-checks/3 authority", 
 
 test("native presenter forwards exact edition references, never silently substitutes latest", () => {
   const page = read("app/blue-desk/presenter/page.tsx");
-  const full = read("app/hybrid-output/prepare/page.tsx");
+  const full = read("app/blue-desk/presenter/full-prep/page.tsx");
+  const host = read("lib/blue-desk-host.ts");
   assert.match(page, /editionPinnedPrepHref\(query\)/);
   assert.match(page, /EXACT_UUID\.test\(value\)\) notFound\(\)/);
   assert.match(page, /typeof value !== "string"/);
   assert.match(page, /params\.set\(key, value\)/);
-  assert.match(page, /"\/hybrid-output\/prepare"/);
+  assert.match(page, /"\/presenter\/full-prep"/);
+  assert.doesNotMatch(page, /\/hybrid-output/);
+  assert.match(host, /if \(pathname === "\/presenter\/full-prep"\) return "\/blue-desk\/presenter\/full-prep"/);
+  assert.match(host, /if \(pathname === "\/presenter\/technical-checks" && isBluebellyReaderHost\(host\)\) return "\/blue-desk\/presenter\/technical-checks"/);
   assert.match(full, /resolvePresenterPrepExactSelection\(/);
-  assert.match(full, /getHybridExactDailyBriefEdition\(validExactId\)/);
-  assert.match(full, /getHybridDirectDailyBriefSuperseders\(validExactId\)/);
-  assert.match(full, /<PresenterTechnicalChecks compact \/>/);
+  assert.match(full, /getHybridExactDailyBriefEdition\(requested\)/);
+  assert.match(full, /getHybridDirectDailyBriefSuperseders\(requested\)/);
+  assert.match(read("app/blue-desk/presenter/technical-checks/page.tsx"), /<PresenterTechnicalChecks\/>/);
   assert.match(full, /<PresenterPrepSession/);
+});
+
+test("V7 host and middleware preserve the existing owner Writer API contract for integration", () => {
+  const middleware = read("middleware.ts");
+  // This V7 reference branch retains a local-only editor. The existing Gemini
+  // writer endpoint is owned by main/#998 and must be reused at convergence.
+  for (const host of ["bluebelly-desk.vercel.app", "bluebelly-v6-review.vercel.app", "bluebelly-v7-review.vercel.app"]) {
+    assert.equal(blueDeskHostAccess("/api/owner/editorial-generate", host), "private", host);
+    assert.equal(blueDeskHostAccess("/api/presenter/technical-checks", host), "private", host);
+    assert.equal(blueDeskHostAccess("/api/dossier-v2", host), "blocked", host);
+    assert.equal(blueDeskHostAccess("/api/owner/bluebelly/v1/story-version", host), "blocked", host);
+  }
+  assert.equal(blueDeskHostAccess("/api/owner/editorial-generate", "alchemy-live-market-desk.vercel.app"), "private");
+  assert.match(middleware, /isBluebellyReaderHost\(host\)/);
+  assert.match(middleware, /\["\/api\/presenter\/technical-checks", "\/api\/owner\/editorial-generate"\]\.includes\(pathname\)/);
+  assert.match(middleware, /supabase\.auth\.getClaims\(\)/);
+  assert.match(middleware, /app_access_allowlist/);
 });
