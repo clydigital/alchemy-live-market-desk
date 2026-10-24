@@ -155,3 +155,14 @@ export function investigationToDraftPacket(result:InvestigationResult|null):stri
   cited||"No grounding source references returned.",
  ].join("\n").slice(0,10_000);
 }
+
+/** Guarantee manually accepted investigative context actually reaches the writer,
+ * even when verbose owner notes fill the request cap.
+ */
+export function mergeInvestigationIntoDraftPacket(
+ existing:string,result:InvestigationResult|null
+):string{
+ const addition=investigationToDraftPacket(result);
+ const available=24_000-addition.length;
+ return existing.slice(0,available)+addition;
+}
