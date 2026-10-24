@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { EditorialPriceCard } from "@/lib/editorial-price-context";
 import type { EditorialSlate, SlateIdea } from "@/lib/editorial-slate-core";
 import { editorialPriceLines } from "@/lib/editorial-price-context";
+import InvestigationWorkbench from "./InvestigationWorkbench";
+import { investigationToDraftPacket, type InvestigationResult } from "@/lib/editorial-investigation";
 import styles from "./editorial-studio.module.css";
 
 type Kind = "COTD" | "OB";
@@ -104,6 +106,7 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
   const [loaded,setLoaded]=useState(false);
   const [copied,setCopied]=useState("");
   const [generationState,setGenerationState]=useState<"idle"|"draft"|"revise">("idle");
+  const [investigation,setInvestigation]=useState<InvestigationResult|null>(null);
   const [generationError,setGenerationError]=useState("");
   const [revisionInstruction,setRevisionInstruction]=useState("");
   const [runNotes,setRunNotes]=useState<string[]>(RUN.map(()=>""));
@@ -130,6 +133,7 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
     catch{setCopied("Clipboard unavailable — select and copy the preview text below.");}
   }
   function selectSlateIdea(idea:SlateIdea){
+    setInvestigation(null);
     if((draft.title||draft.body)&&!window.confirm("Replace the working article notes with this saved idea? Your existing browser draft will be overwritten."))return;
     const format:Kind=idea.format==="BOTH"?"OB":idea.format;
     setDraft({
@@ -167,7 +171,7 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
           action,kind:draft.kind,title:draft.title,
-          packet:writingRequest(draft,selected),existingBody:draft.body,
+          packet:(writingRequest(draft,selected)+investigationToDraftPacket(investigation)).slice(0,24_000),existingBody:draft.body,
           instructions:revisionInstruction,
         }),
       });
@@ -221,6 +225,13 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
           </div>
         </>}
       </section>
+      {mode==="editorial"?(
+        <InvestigationWorkbench
+          initialQuestion={draft.title}
+          packet={writingRequest(draft,selected).slice(0,12_800)}
+          onUse={setInvestigation}
+        />
+      ):null}
       {mode==="presenter"?(
         <div className={styles.columns}>
           <section className={styles.panel}>
