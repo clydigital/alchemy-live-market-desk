@@ -42,7 +42,9 @@ async function request(host, path) {
   const response=await new Promise((resolve,reject)=>{
     const req=http.request({
       hostname:host, port, path, method:"GET",
-      lookup:(_hostname,_options,cb)=>cb(null,"127.0.0.1",4),
+      lookup:(_hostname,options,cb)=>options.all
+        ?cb(null,[{address:"127.0.0.1",family:4}])
+        :cb(null,"127.0.0.1",4),
       headers:{Host:host,Accept:"text/html","Cache-Control":"no-store"},
     },res=>{
       const parts=[];
