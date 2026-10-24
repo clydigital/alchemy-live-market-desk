@@ -56,14 +56,14 @@ export default async function BluebellyExactEdition({
           <p>Select an immutable publication before opening its Story, Motion,
             Regime or Event context. The newest edition is not selected automatically.</p>
           <div className={ui.links}>
-            <Link className={ui.action} href="/presenter">Return to today's talk →</Link>
+            <Link className={ui.action} href="/blue-desk/presenter">Return to today's talk →</Link>
           </div>
         </header>
         <section className={ui.panel} aria-label="Available immutable editions">
           <h2>Recent published editions</h2>
           {editions.length ? <ol>
             {editions.map(row => <li key={row.snapshotId}>
-              <Link href={"/presenter/full-prep?edition=" + encodeURIComponent(row.snapshotId)}>
+              <Link href={"/blue-desk/presenter/full-prep?edition=" + encodeURIComponent(row.snapshotId)}>
                 Published <time dateTime={row.publishedAt}>{row.publishedAt}</time>
                 {" · "} Edition {row.snapshotId}
               </Link>
