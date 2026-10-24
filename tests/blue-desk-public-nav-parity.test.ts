@@ -6,15 +6,16 @@ import { blueDeskHostAccess } from "../lib/blue-desk-host.ts";
 const header = readFileSync(new URL("../components/blue-desk/BlueDeskHeader.tsx", import.meta.url), "utf8");
 const homepage = readFileSync(new URL("../app/blue-desk/page.tsx", import.meta.url), "utf8");
 
-test("all visible public header links target approved host paths and real anchors", () => {
+test("reader header links target either approved public pages or exact private Presenter route", () => {
   const match = header.match(/const PUBLIC_NAV = \[([\s\S]*?)\] as const;/);
   assert.ok(match, "public navigation must be explicitly enumerated");
   const hrefs = [...match[1].matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m => m[1]);
-  assert.deepEqual(hrefs, ["/", "/markets", "/#stories-title", "/#rates-title", "/#motion-title", "/calendar"]);
+  assert.deepEqual(hrefs, ["/", "/markets", "/#stories-title", "/#rates-title", "/#motion-title", "/calendar", "/presenter"]);
   for (const href of hrefs) {
     const url = new URL(href, "https://bluebelly-desk.vercel.app");
-    assert.equal(blueDeskHostAccess(url.pathname, url.hostname), "public", href);
-    assert.equal(blueDeskHostAccess(url.pathname, "alchemy-live-market-desk.vercel.app"), "public", href);
+    const expectedAccess = href === "/presenter" ? "private" : "public";
+    assert.equal(blueDeskHostAccess(url.pathname, url.hostname), expectedAccess, href);
+    assert.equal(blueDeskHostAccess(url.pathname, "alchemy-live-market-desk.vercel.app"), expectedAccess, href);
     if (url.hash) assert.match(homepage, new RegExp('id="' + url.hash.slice(1) + '"'));
   }
 });
