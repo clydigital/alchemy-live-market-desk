@@ -128,7 +128,7 @@ export function projectBluebellyCanonicalStoryVersion(
   if (storyId !== expected.storyId.toLowerCase()
     || versionId !== expected.versionId.toLowerCase()
     || !effectiveAt || !title || !rawThesis || !status
-    || !Number.isInteger(number) || (number as number) < 1
+    || typeof number !== "number" || !Number.isInteger(number) || number < 1
     || typeof confidence !== "number" || !Number.isFinite(confidence)
     || confidence < 0 || confidence > 100) return null;
 
