@@ -5,12 +5,14 @@ import type { InvestigationMode,InvestigationResult } from "@/lib/editorial-inve
 import styles from "./editorial-studio.module.css";
 
 export default function InvestigationWorkbench({
- initialQuestion,packet,onUse,
+ initialQuestion,packet,selectedAssetId,onUse,
 }:{
- initialQuestion:string;packet:string;onUse:(result:InvestigationResult|null)=>void;
+ initialQuestion:string;packet:string;selectedAssetId:string|null;
+ onUse:(result:InvestigationResult|null)=>void;
 }){
  const [mode,setMode]=useState<InvestigationMode>("IMPACT");
  const [question,setQuestion]=useState(initialQuestion);
+ const [eventAt,setEventAt]=useState("");
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState("");
  const [result,setResult]=useState<InvestigationResult|null>(null);
@@ -30,7 +32,7 @@ export default function InvestigationWorkbench({
    const res=await fetch("/api/owner/editorial-investigate",{
     method:"POST",credentials:"same-origin",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({mode,question,packet:packet.slice(0,12_800)}),
+    body:JSON.stringify({mode,question,packet:packet.slice(0,12_800),selectedAssetId,eventAt}),
    });
    const data=await res.json() as InvestigationResult&{error?:string};
    if(!res.ok||data.status!=="RESEARCH_LEADS_UNVERIFIED")throw Error(data.error||"Research unavailable");
@@ -64,6 +66,13 @@ export default function InvestigationWorkbench({
     onChange={e=>{setQuestion(e.target.value);setResult(null);setUsed(false);onUse(null)}}
     placeholder="Why are Treasury yields falling while oil rises? What would disprove a flight to safety?"/>
   </label>
+  <label className={styles.field}><span>Original event timestamp (optional, include timezone)</span>
+   <input type="text" maxLength={40} value={eventAt}
+    placeholder="2026-10-21T08:30:00-04:00"
+    onChange={e=>{setEventAt(e.target.value);setResult(null);setUsed(false);onUse(null)}}/>
+   <small>Example uses a timezone offset. This is a research locator,
+     not a verified event clock. An omitted time leaves event-window returns UNKNOWN.</small>
+  </label>
   <div className={styles.actions}>
    <button type="button" disabled={busy||question.trim().length<12||packet.trim().length<100}
      onClick={investigate}>{busy?"Researching original sources…":"Investigate sources and countercase"}</button>
@@ -72,6 +81,27 @@ export default function InvestigationWorkbench({
   {result?<div className={styles.investigationResult}>
    <p className={styles.kicker}>RESEARCH LEADS · UNVERIFIED · NOT A STORY UPDATE</p>
    <pre className={styles.investigationNarrative}>{result.narrative}</pre>
+   {result.reactionLedger?<section aria-label="Server-derived market comparisons"
+     className={styles.reactionLedger}>
+    <h3>Observed price context · matched daily sessions</h3>
+    <p className={styles.help}>Source data reconstructed by the authenticated server,
+      not taken from the owner-entered packet. These are completed daily bars,
+      <strong> not event-window reactions or causal evidence</strong>.</p>
+    {result.reactionLedger.windows.map(w=><div className={styles.reactionWindow} key={w.sessions}>
+      <strong>{w.sessions} completed session(s): {w.status==="MATCHED_DAILY_OBSERVATION"?
+        w.from+" → "+w.to:"UNKNOWN"}</strong>
+      {w.observations.map(o=><p key={o.id}>{o.symbol}:{" "}
+       {(o.change>0?"+":"")+o.change} {o.unit}
+       {o.percent!==null?" ("+(o.percent>0?"+":"")+o.percent+"%)":""}
+       {" · "}<a href={o.sourceUrl} target="_blank" rel="noopener noreferrer">
+        {o.source} · original source</a></p>)}
+      <small>{w.reason}</small>
+    </div>)}
+    <p><strong>5m / 30m / 4h event-window reactions:</strong> UNKNOWN
+      — no timestamped intraday provider bars were admitted.</p>
+    {result.reactionLedger.warnings.map((message,i)=>
+      <p key={i} className={styles.help}>{message}</p>)}
+   </section>:null}
    <h3>Grounding references ({result.sources.length})</h3>
    <p className={styles.help}>{result.groundedSupportCount} supported passage(s) reported
     by the search provider. Individual sources still require direct checking.</p>
