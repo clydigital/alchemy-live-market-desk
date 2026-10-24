@@ -60,3 +60,25 @@ test("native presenter forwards exact edition references, never silently substit
   assert.match(read("app/blue-desk/presenter/technical-checks/page.tsx"), /<PresenterTechnicalChecks\/>/);
   assert.match(full, /<PresenterPrepSession/);
 });
+
+test("V7 Writing Brain POST is same-origin owner-only on every approved Bluebelly review host", () => {
+  const middleware = read("middleware.ts");
+  const generate = read("app/api/owner/editorial-generate/route.ts");
+  const editor = read("components/blue-desk/PresenterEditorialDraftEditor.tsx");
+  for (const host of ["bluebelly-desk.vercel.app", "bluebelly-v6-review.vercel.app", "bluebelly-v7-review.vercel.app"]) {
+    assert.equal(blueDeskHostAccess("/api/owner/editorial-generate", host), "private", host);
+    assert.equal(blueDeskHostAccess("/api/presenter/technical-checks", host), "private", host);
+    assert.equal(blueDeskHostAccess("/api/dossier-v2", host), "blocked", host);
+    assert.equal(blueDeskHostAccess("/api/owner/bluebelly/v1/story-version", host), "blocked", host);
+  }
+  assert.equal(blueDeskHostAccess("/api/owner/editorial-generate", "alchemy-live-market-desk.vercel.app"), "private");
+  assert.match(middleware, /isBluebellyReaderHost\(host\)/);
+  assert.match(middleware, /\["\/api\/presenter\/technical-checks", "\/api\/owner\/editorial-generate"\]\.includes\(pathname\)/);
+  assert.match(middleware, /supabase\.auth\.getClaims\(\)/);
+  assert.match(middleware, /app_access_allowlist/);
+  assert.match(generate, /blueDeskHostAccess\("\/api\/owner\/editorial-generate",host\)/);
+  assert.match(generate, /Same-origin browser request required/);
+  assert.match(generate, /session\.auth\.getUser\(\)/);
+  assert.match(generate, /app_access_allowlist/);
+  assert.match(editor, /\/api\/owner\/editorial-generate/);
+});
