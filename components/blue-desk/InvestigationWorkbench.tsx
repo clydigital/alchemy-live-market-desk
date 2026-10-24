@@ -19,6 +19,10 @@ export default function InvestigationWorkbench({
  // Reset researched conclusions when a new article idea is selected.
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[initialQuestion]);
+ useEffect(()=>{setResult(null);setUsed(false);onUse(null);
+ // Any substantive change to the article packet invalidates prior research.
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[packet]);
  async function investigate(){
   if(busy)return;
   setError("");setResult(null);setUsed(false);onUse(null);setBusy(true);
