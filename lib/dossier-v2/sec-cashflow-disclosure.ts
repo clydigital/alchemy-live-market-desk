@@ -20,7 +20,7 @@ export type SecIssuerFcfComparison = {
   definition: "ISSUER_FCF_CFO_LESS_CASH_PPE_LESS_FINANCE_LEASE_PRINCIPAL";
 };
 
-const META_FY26_Q3_IR = {
+export const META_FY26_Q3_IR = {
   sourceType: "ISSUER_IR_RELEASE",
   releaseDate: "2026-10-21",
   sourceUrl: "https://investor.atmeta.com/investor-news/press-release-details/2026/Meta-Reports-Third-Quarter-2026-Results/",
@@ -60,7 +60,7 @@ function billions(value: number): string {
 export function formatSecIssuerQuarterCashflowClaim(
   entityName: string,
   item: SecQuarterCashFlow,
-  comparison = getSecIssuerFcfComparison(item),
+  comparison: SecIssuerFcfComparison | null = null,
 ): string {
   const method = item.predecessorAccession
     ? "same-fiscal-year YTD figures less the prior-quarter YTD filing"
