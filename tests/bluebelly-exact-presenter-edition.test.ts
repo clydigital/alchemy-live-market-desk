@@ -56,8 +56,8 @@ test("P1b archive lookup has exact ID and independent Dossier vintage checks",()
   assert.match(page,/buildPresenterPrepEditionIndex\(recent,deskData\?\.researchRuns\|\|\[\]\)/);
   assert.match(page,/presenterDossierEditionContextFromPayload\(selected\?\.payload\)/);
   assert.match(page,/getDossierV2PresentationSelectionById\(frozen\.dossierId\)/);
-  assert.match(page,/dossierSelection\?\.selectedDossierId===frozen\?\.dossierId/);
-  assert.match(page,/dossierSelection\?\.selectedAsOf===frozen\?\.dossierAsOf/);
+  assert.match(page,/dossierSelection\.selectedDossierId===frozen\?\.dossierId/);
+  assert.match(page,/dossierSelection\.selectedAsOf===frozen\?\.dossierAsOf/);
   assert.match(page,/buildPresenterPrepSourceProjection\(\{/);
   assert.match(page,/buildPresenterPrepEditorialReadiness\(\{/);
   assert.match(page,/requestedEditionId:requestedId/);
