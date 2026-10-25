@@ -32,3 +32,9 @@
 .event p{font-size:13px}
 .footer{color:#83acbf;line-height:1.7;font-size:12px;padding-top:25px;max-width:930px}
 @media(max-width:760px){.readings,.watchGrid,.twoCols{grid-template-columns:1fr}.shell{padding-top:15px}.section{padding:22px 0}}
+.storyParagraph{font-size:15px!important;line-height:1.78!important;color:#d9e9f1!important}
+.storyParagraph strong,.storyCaveat strong{color:#effbff}
+.storyCaveat{font-size:13px!important;line-height:1.7!important;color:#b7d4e4!important;border-left:2px solid #508a9e;padding-left:12px}
+.moreStories{border:1px solid #265771;border-radius:10px;padding:15px;margin-top:16px}
+.moreStories summary{font-weight:750;color:#8adcf7;cursor:pointer;font-size:15px;padding:8px}
+.moreStories .readings{margin-top:15px}
