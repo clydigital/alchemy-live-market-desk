@@ -158,9 +158,9 @@ test("latest unresolved AI edition can headline one exact issuer-reported fact, 
 
   const home = readFileSync(new URL("../app/blue-desk/page.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(home, /PRIMARY-SOURCE OBSERVATION/);
-  assert.doesNotMatch(home, /selectFrozenSourceFact|sourceFact|article\\.editorial\\.storyEligible/);
+  assert.doesNotMatch(home, /selectFrozenSourceFact|sourceFact|article\.editorial\.storyEligible/);
   assert.match(home, /LATEST VERIFIED DEVELOPMENT/);
-  assert.match(home, /newsFeature\\.sourceUrl/);
+  assert.match(home, /newsFeature\.sourceUrl/);
 });
 
 test("factual lead refuses stale, future, missing and post-edition evidence", () => {
