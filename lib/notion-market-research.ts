@@ -153,6 +153,8 @@ export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionRes
       try{
         const pageBlocks=await children(token,selected.gateId,2);
         const parsed=blocksText(pageBlocks,12500);
+        if(/(?:Coverage\s+PARTIAL|Input Health\s+PARTIAL|Run\s+PARTIAL|eligible overflow|unconsumed eligible)/i.test(parsed.text))
+          warnings.push("The latest Research Gap Gate explicitly reports partial coverage or unread overflow. Treat its findings as bounded.");
         if(parsed.text) sources.push({kind:"RESEARCH_GAP",title:day+" — latest Research Gap Gate",
           url:"https://www.notion.so/"+selected.gateId,pageId:selected.gateId,
           retrievedAt:fetchedAt,text:parsed.text,originalLinks:parsed.links});
