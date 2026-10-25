@@ -6,6 +6,8 @@ import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { formatDualDeskTime } from "@/lib/blue-desk-time";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
+import { getOriginalPressNews } from "@/lib/blue-desk-original-press-news-server";
+import { combineQualifiedNews } from "@/lib/blue-desk-qualified-news";
 import { projectLivingMarketTopics } from "@/lib/blue-desk-living-topics";
 import { listPublishedReports, getLatestPublishedDailyReport } from "@/lib/editorial-publications-server";
 import { getEconomicCalendar } from "@/lib/calendar";
@@ -25,7 +27,7 @@ export default async function DailyReportPage() {
   const host = (await headers()).get("host");
   // All feeds are existing public read models. There is no Dossier, Story
   // adjudication or model completion in this GET path.
-  const [verified, reports, latestReviewed, macro, earnings] = await Promise.all([
+  const [verified, reports, latestReviewed, macro, earnings, originalPress] = await Promise.all([
     getCurrentVerifiedMarketMotion({ limit: 36 }).catch(() => []),
     listPublishedReports(8).catch(() => []),
     getLatestPublishedDailyReport().catch(() => null),
@@ -33,8 +35,10 @@ export default async function DailyReportPage() {
     getForwardEarningsEvents({ now }).catch(() => ({
       events: [], coverage: "unavailable" as const, warning: "Earnings source unavailable",
     })),
+    getOriginalPressNews(now,18).catch(() => []),
   ]);
-  const news = selectVerifiedNewsBriefs(verified, now, 18);
+  const motionNews = selectVerifiedNewsBriefs(verified, now, 18);
+  const news = combineQualifiedNews(motionNews,originalPress,18);
   const topics = projectLivingMarketTopics(news);
   const calendar = buildPresenterCalendar(macro, earnings, now);
   const upcoming = selectBlueDeskUpcoming(calendar, now, 14).slice(0, 12);
