@@ -47,7 +47,7 @@ export async function POST(req:NextRequest){
     body=JSON.parse(raw) as EditorialRequest;
   }catch{return fail(400,"Invalid draft request");}
   const action=body.action==="revise"?"revise":body.action==="draft"?"draft":null;
-  const kind=body.kind==="OB"||body.kind==="COTD"?body.kind:null;
+  const kind=body.kind==="OB"||body.kind==="COTD"||body.kind==="DAILY_REPORT"?body.kind:null;
   const title=txt(body.title,63), packet=txt(body.packet,24_000);
   const existing=txt(body.existingBody,15_000);
   const instruction=txt(body.instructions,900);
@@ -77,6 +77,15 @@ export async function POST(req:NextRequest){
     "A 1-session, 3-session or 5-session source comparison is NOT proof of event causation.",
     "Use British English, clear mobile-friendly prose, paragraphs <=3 sentences.",
     "Avoid melodrama, templated parallelism, and stock AI phrases.",
+    "DAILY_REPORT: write a concise but substantial researched market briefing, not a headlines list.",
+    "DAILY_REPORT sections: What is new; market reaction and expectations;",
+    "Why it matters (step-by-step mechanism and exposed markets); What does not fit;",
+    "Conditional paths, next catalysts, economic calendar and earnings.",
+    "Distinguish an original independently cited fact from MacroPulse/Gate synthesis.",
+    "MacroPulse and Research Gap Notion pages are UNVERIFIED research inputs.",
+    "A partial Gate or unread research backlog MUST be disclosed and must not be described as exhaustive.",
+    "Never treat a current Notion fetch as an original-source check or a Sunday US market reaction.",
+    "If no verified source-linked facts exist, return an explicit partial coverage brief.",
     "COTD: 600–800 words when evidence supports it; chart-first.",
     "OB: catalyst-first, then observed price, mechanism, countercase, next trigger.",
     "At most three chart placement suggestions, prefixed 'Chart check:' not an asserted setup.",
