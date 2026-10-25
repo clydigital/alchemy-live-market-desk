@@ -18,6 +18,7 @@ const PRIVATE_NAV = [
   ["Data Library", "/data/macro"],
   ["Presenter Prep", "/hybrid-output/prepare"],
   ["X Wire", "/owner/x-wire"],
+  ["Private Daily Articles", "/owner/daily-articles"],
   ["Publish Reports", "/owner/publications"],
   ["Calendar", "/blue-desk/calendar"],
   ["Learn", "/concepts"],
@@ -32,7 +33,6 @@ const PUBLIC_NAV = [
   ["Key Stories", "/key-stories"],
   ["Rates", "/#rates-title"],
   ["What Changed", "/#motion-title"],
-  ["COTD / OB", "/reports"],
   ["Calendar + Earnings", "/calendar"],
 ] as const;
 
@@ -57,6 +57,7 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Daily Report Studio": "deep-dive",
   "Calendar + Earnings": "calendar",
   "Publish Reports": "library",
+  "Private Daily Articles": "deep-dive",
 };
 
 /** Shared presentation chrome. These links reuse canonical Live Desk pages. */
