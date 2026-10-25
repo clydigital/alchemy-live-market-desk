@@ -8,7 +8,8 @@ import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { getOriginalPressNews } from "@/lib/blue-desk-original-press-news-server";
 import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
-import {getLatestPublishedDailyReport} from "@/lib/editorial-publications-server";
+import {getLatestPublishedDailyReport,listPublishedReports} from "@/lib/editorial-publications-server";
+import {approvedEditorialLead} from "@/lib/blue-desk-editorial-preview";
 import { combineQualifiedNews } from "@/lib/blue-desk-qualified-news";
 import { projectLivingMarketTopics } from "@/lib/blue-desk-living-topics";
 import { getPublicThesisLedger } from "@/lib/blue-desk-thesis-ledger-server";
@@ -31,7 +32,7 @@ export default async function DailyReportPage() {
   const host = (await headers()).get("host");
   // All feeds are existing public read models. There is no Dossier, Story
   // adjudication or model completion in this GET path.
-  const [verified, macro, earnings, originalPress, macroDigests, stories, observations, publishedDaily] = await Promise.all([
+  const [verified, macro, earnings, originalPress, macroDigests, stories, observations, publishedDaily, approvedAngles] = await Promise.all([
     getCurrentVerifiedMarketMotion({ limit: 36 }).catch(() => []),
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({ now }).catch(() => ({
@@ -42,6 +43,7 @@ export default async function DailyReportPage() {
     getPublicThesisLedger(now,24).catch(() => []),
     getPublicSourceObservations(now,16).catch(() => []),
     getLatestPublishedDailyReport().catch(() => null),
+    listPublishedReports(3).catch(() => []),
   ]);
   const motionNews = selectVerifiedNewsBriefs(verified, now, 18);
   const news = combineQualifiedNews(motionNews,originalPress,18);
@@ -86,6 +88,12 @@ export default async function DailyReportPage() {
           <h3>{publishedDaily.title}</h3>
           {publishedDaily.meta_description ? <p className={styles.deck}>{publishedDaily.meta_description}</p> : null}
           <p className={styles.readingFoot}>Published <DualTimestamp value={publishedDaily.published_at}/></p>
+          <div className={styles.reportActions}>
+            <Link href={blueDeskPublicHref("/blue-desk/reports/"+publishedDaily.id+"/pdf",host)}
+              target="_blank" rel="noopener noreferrer">Open fixed Daily Report PDF</Link>
+            <Link href={blueDeskPublicHref("/blue-desk/reports/"+publishedDaily.id,host)}>
+              Open permanent report edition</Link>
+          </div>
           <div className={styles.publishedProse}>
             {publishedParagraphs.map((part,i) => /^#{1,3}\s/.test(part)
               ? <h4 key={i}>{part.replace(/^#{1,3}\s+/,"")}</h4>
@@ -99,6 +107,30 @@ export default async function DailyReportPage() {
         </article> : <p className={styles.empty}>No editor-approved Daily Report edition has
           been published yet. The rolling source-based desk context below remains available;
           it is not presented as an approved report.</p>}
+      </section>
+
+      <section className={styles.section} aria-labelledby="approved-article-angles" data-approved-angles="published-only">
+        <div className={styles.heading}>
+          <p className={styles.eyebrow}>EDITORIAL ANGLES / COTD + OPENING BELL</p>
+          <h2 id="approved-article-angles">The analysis behind the charts and catalysts</h2>
+          <p>These are the latest editor-approved articles, with the actual opening
+            argument from each fixed edition. They are not automatically matched to today's news.</p>
+        </div>
+        {approvedAngles.length ? <div className={styles.readings}>
+          {approvedAngles.map(report=><article className={styles.reading} key={report.id}>
+            <p className={styles.eyebrow}>{report.kind==="COTD"?"CHART OF THE DAY":"OPENING BELL"} · APPROVED</p>
+            <h3>{report.title}</h3>
+            <p className={styles.editorialExtract}>{approvedEditorialLead(report.body)}</p>
+            <p className={styles.readingFoot}>Published <DualTimestamp value={report.published_at}/></p>
+            <div className={styles.reportActions}>
+              <Link href={blueDeskPublicHref("/blue-desk/reports/"+report.id,host)}>Read full explanation</Link>
+              <Link href={blueDeskPublicHref("/blue-desk/reports/"+report.id+"/pdf",host)}
+                target="_blank" rel="noopener noreferrer">Open PDF</Link>
+            </div>
+          </article>)}
+        </div> : <p className={styles.empty}>No editor-approved COTD or Opening Bell editions are available yet.
+          Private drafts are not shown as published analysis.</p>}
+        <p><Link href={blueDeskPublicHref("/blue-desk/reports",host)}>Browse the COTD / OB library</Link></p>
       </section>
 
       <section className={styles.section} aria-labelledby="daily-story-map" data-daily-story-coverage="persistent-and-dated">
