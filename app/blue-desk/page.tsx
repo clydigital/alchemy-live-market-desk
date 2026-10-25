@@ -23,6 +23,7 @@ import tracked from "./tracked-stories.module.css";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { getPublicSourceObservations } from "@/lib/blue-desk-source-observations";
 import { getPublicThesisLedger } from "@/lib/blue-desk-thesis-ledger-server";
+import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
 import { listPublishedReports } from "@/lib/editorial-publications-server";
 
 import styles from "./blue-desk.module.css";
@@ -47,7 +48,7 @@ export default async function BlueDeskPage() {
   const now = new Date();
   const host = (await headers()).get("host");
   const publicHost = isBlueDeskPublicReaderHost(host);
-  const [macro, earnings, monitor, verifiedMotions, reports, observations, theses, originalPress] = await Promise.all([
+  const [macro, earnings, monitor, verifiedMotions, reports, observations, theses, originalPress, digestBriefs] = await Promise.all([
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({ now }).catch(() => ({
       events: [], coverage: "unavailable" as const, warning: "Earnings source unavailable",
@@ -58,6 +59,7 @@ export default async function BlueDeskPage() {
     getPublicSourceObservations(now,8).catch(() => []),
     getPublicThesisLedger(now,9).catch(() => []),
     getOriginalPressNews(now,12).catch(() => []),
+    getPublishedMacroPulseBriefs(2).catch(() => []),
   ]);
   const motionNews = selectVerifiedNewsBriefs(verifiedMotions, now, 12);
   const verifiedNews = combineQualifiedNews(motionNews,originalPress,12);
@@ -128,6 +130,30 @@ export default async function BlueDeskPage() {
             <Link href={publicHost ? blueDeskPublicHref("/blue-desk/markets", host) : "/markets"} className={styles.textLink}>Cross-asset monitor →</Link>
           </aside>
         </section>
+
+        {digestBriefs.length ? <section className={styles.section} aria-labelledby="macropulse-brief-head" data-home-macropulse="reviewed-digest">
+          <div className={styles.sectionHead}>
+            <div><p className={styles.kicker}>MACROPULSE / EDITOR-REVIEWED RESEARCH</p>
+              <h2 id="macropulse-brief-head"><MarketIcon name="layers" size={22}/> Research desk briefing</h2>
+              <p>Attributed analysis from prior MacroPulse posts. It is separate from independently verified News and canonical Dossier verdicts.</p>
+            </div>
+            <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/daily-report",host)}>
+              Read full research context →
+            </Link>
+          </div>
+          <div className={styles.storyGrid}>{digestBriefs.map(brief=>
+            <article key={brief.id} className={styles.storyCard}>
+              <span className={styles.kicker}>RESEARCH-DERIVED · OWNER REVIEWED · {brief.primary_region.toUpperCase()}</span>
+              <h3>{brief.headline}</h3>
+              <p>{brief.standfirst}</p>
+              <div className={styles.storyBottom}>
+                <DualTimestamp value={brief.source_published_at} className={styles.cardTime}/>
+                <Link href={blueDeskPublicHref("/blue-desk/daily-report",host)+"#macropulse-editorial"}>
+                  Read countercase and what comes next →
+                </Link>
+              </div>
+            </article>)}</div>
+        </section>:null}
 
         <section className={styles.section} aria-labelledby="stories-title">
           <div className={styles.sectionHead}>
