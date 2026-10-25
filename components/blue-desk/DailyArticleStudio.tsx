@@ -2,7 +2,7 @@
 import {useState} from "react";
 import {DESK_CHARTS,type DailyArticleIdea} from "@/lib/blue-desk-daily-article-plan";
 import styles from "./daily-article-studio.module.css";
-type Packet={packet:string;assembledAt:string;notionStatus:string;warnings:string[];sourceUrls:string[];newsCount:number;deliveredBriefCount?:number;health?:{status:string;sources:{macroPulsePosts:number;researchGapRuns:number};news:{within48h:number}};error?:string};
+type Packet={packet:string;assembledAt:string;notionStatus:string;warnings:string[];sourceUrls:string[];newsCount:number;deliveredBriefCount?:number;deliveredResearch?:{status:"AVAILABLE"|"UNAVAILABLE";count:number;caveat:string};health?:{status:string;sources:{macroPulsePosts:number;researchGapRuns:number};news:{within48h:number}};error?:string};
 type Draft={text:string;busy:boolean;error:string};
 export default function DailyArticleStudio(){
  const [packet,setPacket]=useState<Packet|null>(null);
@@ -100,6 +100,7 @@ export default function DailyArticleStudio(){
       {" "}Verified factual headlines in packet: {packet.newsCount}.
       {packet.health?.status?" · Research health: "+packet.health.status.replaceAll("_"," ").toLowerCase():""}
       {" "}Delivered editorial research drafts in packet: {packet.deliveredBriefCount||0}.\n      {" "}Gaps remain gaps; article generation does not cure missing evidence.</p>:null}
+    {packet?.deliveredResearch?.status==="UNAVAILABLE"?<p className={styles.caveat}>The private research-delivery queue could not be read. Do not infer no new posts.</p>:null}
     <p role="status" className={styles.status}>{notice}</p>
   </div>
   {ideas.length?<div className={styles.grid}>{ideas.map((idea,i)=><article className={styles.card} key={idea.title}>
