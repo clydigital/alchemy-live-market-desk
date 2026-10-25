@@ -5,6 +5,8 @@ import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
+import { getOriginalPressNews } from "@/lib/blue-desk-original-press-news-server";
+import { combineQualifiedNews } from "@/lib/blue-desk-qualified-news";
 import { projectLivingMarketTopics } from "@/lib/blue-desk-living-topics";
 import { getPublicThesisLedger } from "@/lib/blue-desk-thesis-ledger-server";
 import { getPublicSourceObservations } from "@/lib/blue-desk-source-observations";
@@ -21,13 +23,15 @@ export const metadata = {
 export default async function KeyStories(){
   const now = new Date();
   const host = (await headers()).get("host");
-  const [raw, reviewed, theses, observations] = await Promise.all([
+  const [raw, reviewed, theses, observations, originalPress] = await Promise.all([
     getCurrentVerifiedMarketMotion({ limit: 36 }).catch(() => []),
     listPublishedReports(6).catch(() => []),
     getPublicThesisLedger(now,9).catch(() => []),
     getPublicSourceObservations(now,8).catch(() => []),
+    getOriginalPressNews(now,18).catch(() => []),
   ]);
-  const news = selectVerifiedNewsBriefs(raw, now, 18);
+  const motionNews = selectVerifiedNewsBriefs(raw, now, 18);
+  const news = combineQualifiedNews(motionNews,originalPress,18);
   const topics = projectLivingMarketTopics(news);
   return <main className={desk.page} data-bluebelly-stories="expanded"
     data-living-topics="dossier-independent">
