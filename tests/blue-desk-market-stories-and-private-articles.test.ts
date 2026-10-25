@@ -71,7 +71,7 @@ test("private daily slate is behind login; no public COTD/OB or report download 
  assert.doesNotMatch(publicNav,/COTD|\/reports/);
  assert.match(header,/Private Daily Articles/);
  assert.match(owner,/data-private-daily-articles-page="owner-authenticated"/);
- assert.match(route,/client\\.auth\\.getUser\(\)/);
+ assert.match(route,/client\.auth\.getUser\(\)/);
  assert.match(route,/app_access_allowlist/);
  assert.match(route,/GEMINI_API_KEY/);
  assert.match(route,/parseDailyArticlePlan/);
