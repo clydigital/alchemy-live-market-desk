@@ -31,7 +31,9 @@ function safeSource(s:string):string|null {
   const u=new URL(raw);
   if(u.protocol!=="https:"||u.username||u.password||u.port||
      u.hostname==="localhost"||u.hostname.endsWith(".local")||
-     u.hostname.endsWith(".internal")||/^\d+(?:\.\d+){3}$/.test(u.hostname))return null;
+     u.hostname.endsWith(".internal")||u.hostname.endsWith(".example")||
+     u.hostname.endsWith(".test")||u.hostname.endsWith(".invalid")||
+     /^\d+(?:\.\d+){3}$/.test(u.hostname))return null;
   return u.toString();
  }catch{return null}
 }
@@ -117,7 +119,7 @@ export function chatResearchTransferPrompt(kind:"OB"|"COTD"):string {
   '{ "kind":"'+kind+'", "title":"", "meta":"", "body":"", "hook":"", "catalysts":"",',
   '"expectation":"", "observed":"", "explanation":"", "alternative":"",',
   '"confirmation":"", "invalidation":"", "missingProof":"",',
-  '"chartGuidance":["","",""], "sourceUrls":["https://official.example/document"] }',
+  '"chartGuidance":["","",""], "sourceUrls":["https://ACTUAL-OFFICIAL-PUBLISHER-URL"] }',
   "Cite actual original-page URLs, no invented links. Provide explicit source times and limitations.",
   "The receiving website keeps the result UNVERIFIED pending human source checks.",
  ].join("\n");
