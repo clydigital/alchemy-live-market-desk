@@ -69,7 +69,8 @@ test("invalid/missing JSON and oversized notes fail without replacing browser dr
 });
 test("sources are bounded, deduped, HTTPS only; unusable source retains explicit gap",()=>{
  const withLinks=sourceLinksFromResearch(
-  [FED,FED,"https://user:secret@fed.example/path","javascript:alert(1)","http://www.sec.gov/"],
+  [FED,FED,"https://user:secret@fed.example/path","javascript:alert(1)",
+   "https://official.example/document","http://www.sec.gov/"],
   SEC+" and "+FED+".");
  assert.deepEqual(withLinks,[FED,SEC]);
  const noSources=parseExternalResearch("# Topic\n\nAn unverified candidate; reaction UNKNOWN.", "OB");
