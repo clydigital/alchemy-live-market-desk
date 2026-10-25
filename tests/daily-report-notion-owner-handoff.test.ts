@@ -340,3 +340,21 @@ test("Notion direct parent/data-source fallback retrieves full today's Pulse and
     else process.env.NOTION_API_TOKEN=oldToken;
   }
 });
+
+test("a configured but unshared or invalid Notion token reports UNAVAILABLE, not merely partial coverage",async()=>{
+ const saved=process.env.NOTION_API_TOKEN;
+ const previousFetch=globalThis.fetch;
+ process.env.NOTION_API_TOKEN="invalid-mock-token";
+ globalThis.fetch=async()=>new Response(JSON.stringify({message:"Unauthorized"}),
+  {status:401,headers:{"Content-Type":"application/json"}});
+ try{
+  const state=await fetchTodayNotionResearch(new Date("2026-10-26T04:30:00.000Z"));
+  assert.equal(state.status,"UNAVAILABLE");
+  assert.equal(state.sources.length,0);
+  assert.ok(state.warnings.some(w=>w.includes("data source could not be queried")));
+ }finally{
+  globalThis.fetch=previousFetch;
+  if(saved===undefined)delete process.env.NOTION_API_TOKEN;
+  else process.env.NOTION_API_TOKEN=saved;
+ }
+});
