@@ -6,7 +6,7 @@ import css from "./daily-report-writer.module.css";
 
 type Handoff={
   contractVersion:string;assembledAt:string;notionStatus:string;
-  warnings:string[];newsCount:number;packet:string;sourceUrls:string[];
+  warnings:string[];newsCount:number;deliveredBriefCount?:number;packet:string;sourceUrls:string[];
   researchSourceCandidates?:Array<{url:string;sourcePageUrl:string;kind:"MACROPULSE"|"RESEARCH_GAP";verification:"EXACT_NEWS_SOURCE_MATCH"|"UNVERIFIED_LINK";matchingNewsHeadline:string|null}>;
   sourcePages:Array<{kind:string;title:string;url:string;retrievedAt:string}>;
   calendarWarnings:string[];error?:string;
@@ -86,6 +86,9 @@ export default function DailyReportWriter(){
         <p><strong>Notion:</strong> {research.notionStatus.replaceAll("_"," ")}.
           {" "}<strong>Verified news items:</strong> {research.newsCount}.</p>
         <p><strong>Packet assembled:</strong> {research.assembledAt}</p>
+        <p><strong>Delivered MacroPulse review briefs:</strong> {research.deliveredBriefCount||0}.
+          {" "}These are source-attributed research digests, not a live Notion read,
+          independent verification or permission to publish.</p>
         {research.notionStatus==="NOT_CONFIGURED" ? <p className={css.warning}>
           Server-side Notion integration unavailable. To read the live workspace
           automatically, configure the owner-only NOTION_API_TOKEN and explicitly
