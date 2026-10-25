@@ -3,6 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { blueDeskHostAccess } from "@/lib/blue-desk-host";
+import {reviewSourceOverlap} from "@/lib/blue-desk-originality-review";
 
 export const dynamic="force-dynamic";
 export const runtime="nodejs";
@@ -123,6 +124,7 @@ export async function POST(req:NextRequest){
     const draft=txt(response.text,22000);
     if(draft.length<120) return fail(502,"Model did not produce a useful article draft");
     return NextResponse.json({body:draft,model,status:"PRIVATE_UNVERIFIED_DRAFT",
+      originalityReview:reviewSourceOverlap(draft,packet),
       message:"Review original sources, chart setups and every figure before publishing."},{headers:noStore});
   }catch(e){
     // Do not expose upstream SDK errors or secrets to the browser.
