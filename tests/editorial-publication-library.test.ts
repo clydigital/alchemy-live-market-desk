@@ -1,0 +1,92 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {readFileSync} from "node:fs";
+import {
+ validPublicationId,parseReviewedSubmission,isLikelyPdf,
+} from "../lib/editorial-publications.ts";
+import {blueDeskHostAccess,blueDeskPresentationTarget} from "../lib/blue-desk-host.ts";
+const id="a2f040b6-1c87-48a4-9fe8-72f54398661a";
+const sec="https://www.sec.gov/Archives/edgar/data/1326801/000132680126000999/meta.html";
+const data={kind:"OB",title:"Meta's Cash Flow Cannot Prove AI Borrowing",meta:"Cash investments and lease principal differ.",
+ body:"The SEC-derived quarterly CFO minus cash purchases of PP&E is a simple cash-flow measure. "+
+  "It is not issuer-defined FCF. Do not infer that financing for AI projects is already constrained. ".repeat(5),
+ sources:sec};
+test("owner-reviewed report parser bounds original source URLs, word counts and unsupported claims",()=>{
+ const result=parseReviewedSubmission(data);
+ assert.equal(result?.kind,"OB");
+ assert.equal(result?.source_urls[0],sec);
+ assert.match(result?.body||"",/SEC-derived/);
+ assert.equal(parseReviewedSubmission({...data,kind:"IMPACT"}),null);
+ assert.equal(parseReviewedSubmission({...data,title:"x".repeat(64)}),null);
+ assert.equal(parseReviewedSubmission({...data,body:"short"}),null);
+ assert.equal(parseReviewedSubmission({...data,sources:"https://localhost/private"}),null);
+ assert.equal(parseReviewedSubmission({...data,sources:"https://bad.example/foo"}),null);
+ assert.equal(parseReviewedSubmission({...data,sources:""}),null);
+});
+test("PDF signature and trailer are required, not only a MIME type or filename",()=>{
+ const prefix=new TextEncoder().encode("%PDF-1.7\n"+"a".repeat(650)+"\n%%EOF\n");
+ assert.equal(isLikelyPdf(prefix),true);
+ assert.equal(isLikelyPdf(new TextEncoder().encode("a".repeat(650)+"\n%%EOF")),false);
+ assert.equal(isLikelyPdf(new TextEncoder().encode("%PDF-1.7\n"+"a".repeat(650))),false);
+ assert.equal(isLikelyPdf(new Uint8Array(3145729)),false);
+});
+test("public report library, exact article and PDF are separately allowlisted; arbitrary owner paths never are",()=>{
+ for(const host of ["bluebelly-desk.vercel.app","alchemy-live-market-desk.vercel.app"]){
+  for(const path of ["/reports","/blue-desk/reports","/reports/"+id,"/reports/"+id+"/pdf"])
+   assert.equal(blueDeskHostAccess(path,host),"public",host+path);
+  assert.equal(blueDeskPresentationTarget("/reports",host),"/blue-desk/reports");
+  assert.equal(blueDeskPresentationTarget("/reports/"+id+"/pdf",host),
+   "/blue-desk/reports/"+id+"/pdf");
+ }
+ for(const p of ["/owner/publications","/api/owner/editorial-publish",
+ "/reports/not-a-real-id","/reports/"+id+"/evil","/reports/"+id+"/pdf/delete"]){
+  assert.equal(blueDeskHostAccess(p,"bluebelly-desk.vercel.app"),"blocked",p);
+ }
+ assert.equal(blueDeskHostAccess("/api/owner/editorial-publish","alchemy-live-market-desk.vercel.app"),"private");
+ assert.equal(blueDeskHostAccess("/owner/publications","alchemy-live-market-desk.vercel.app"),"private");
+ assert.equal(validPublicationId("not-uuid"),false);
+ assert.equal(validPublicationId(id),true);
+});
+test("private publication API checks approved identity and origin before reading body and only writes after owner approval",()=>{
+ const src=readFileSync(new URL("../app/api/owner/editorial-publish/route.ts",import.meta.url),"utf8");
+ const auth=src.indexOf("auth.getUser()");
+ const upload=src.indexOf('.storage.from("editorial-pdfs").upload');
+ assert.ok(auth>=0&&upload>auth);
+ assert.match(src,/app_access_allowlist/);
+ assert.match(src,/form\.get\(x\)==="yes"/);
+ assert.match(src,/sourcesChecked/);
+ assert.match(src,/chartsChecked/);
+ assert.match(src,/publicRightsConfirmed/);
+ assert.match(src,/createSupabaseAdminClient/);
+ assert.match(src,/isLikelyPdf\(bytes\)/);
+ assert.match(src,/createHash\("sha256"\)/);
+ assert.match(src,/storage\.from\("editorial-pdfs"\)\.remove\(\[path\]\)/);
+ assert.doesNotMatch(src,/story_thesis_versions|persistSensorMemory|generateContent/);
+ assert.match(src,/origin/);
+});
+test("publication SQL uses RLS public approved read only, private bucket, no anon writes",()=>{
+ const sql=readFileSync(new URL("../supabase/migrations/20261025094500_editorial_publications.sql",import.meta.url),"utf8");
+ assert.match(sql,/alter table public\.editorial_publications enable row level security/);
+ assert.match(sql,/using \(status='published'\)/);
+ assert.match(sql,/revoke all on public\.editorial_publications from anon,authenticated/);
+ assert.match(sql,/grant select \(/);
+ assert.doesNotMatch(sql,/grant insert|grant update|grant delete/i);
+ assert.match(sql,/values\('editorial-pdfs','editorial-pdfs',false/);
+ assert.match(sql,/pdf_sha256/);
+ assert.doesNotMatch(sql,/story_thesis_versions|market_motion_items|research_runs/);
+});
+test("public report HTML is exact published-only, PDF download validates record+path and does not leak storage",()=>{
+ const r=readFileSync(new URL("../lib/editorial-publications-server.ts",import.meta.url),"utf8");
+ const page=readFileSync(new URL("../app/blue-desk/reports/[id]/page.tsx",import.meta.url),"utf8");
+ const pdf=readFileSync(new URL("../app/blue-desk/reports/[id]/pdf/route.ts",import.meta.url),"utf8");
+ assert.match(r,/getSupabasePublicConfig/);
+ assert.match(r,/\.eq\("status","published"\)/);
+ assert.doesNotMatch(r,/createSupabaseAdminClient|SUPABASE_SERVICE_ROLE_KEY/);
+ assert.match(page,/getPublishedReport/);
+ assert.match(page,/Original source links/);
+ assert.match(pdf,/\.eq\("status","published"\)/);
+ assert.match(pdf,/startsWith\(expected\)/);
+ assert.match(pdf,/Content-Type":"application\/pdf"/);
+ assert.match(pdf,/Content-Disposition/);
+ assert.match(pdf,/X-Content-Type-Options/);
+});
