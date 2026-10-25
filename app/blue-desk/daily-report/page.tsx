@@ -87,8 +87,8 @@ export default async function DailyReportPage() {
           {publishedDaily.meta_description ? <p className={styles.deck}>{publishedDaily.meta_description}</p> : null}
           <p className={styles.readingFoot}>Published <DualTimestamp value={publishedDaily.published_at}/></p>
           <div className={styles.publishedProse}>
-            {publishedParagraphs.map((part,i) => /^#{1,3}\\s/.test(part)
-              ? <h4 key={i}>{part.replace(/^#{1,3}\\s+/,"")}</h4>
+            {publishedParagraphs.map((part,i) => /^#{1,3}\s/.test(part)
+              ? <h4 key={i}>{part.replace(/^#{1,3}\s+/,"")}</h4>
               : <p key={i}>{part}</p>)}
           </div>
           <div className={styles.publishedSources}>
