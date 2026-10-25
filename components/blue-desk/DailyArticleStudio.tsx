@@ -121,7 +121,7 @@ export default function DailyArticleStudio(){
     {drafts[i]?.text?<label className={styles.draftLabel}>
       Editable private article · all figures and original sources require review
       <textarea rows={19} value={drafts[i].text}
-       onChange={e=>setDrafts(old=>({...old,[i]:{...old[i],text:e.target.value}}))}/>
+       onChange={e=>setDrafts(old=>({...old,[i]:{text:e.target.value,busy:false,error:old[i]?.error||""}}))}/>
     </label>:null}
   </article>)}</div>:<p className={styles.empty}>Load a current research packet to create today's article plan.
     No stories or charts will be invented merely to fill four slots.</p>}
