@@ -24,7 +24,6 @@ import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { getPublicSourceObservations } from "@/lib/blue-desk-source-observations";
 import { getPublicThesisLedger } from "@/lib/blue-desk-thesis-ledger-server";
 import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
-import { listPublishedReports } from "@/lib/editorial-publications-server";
 
 import styles from "./blue-desk.module.css";
 
@@ -48,16 +47,15 @@ export default async function BlueDeskPage() {
   const now = new Date();
   const host = (await headers()).get("host");
   const publicHost = isBlueDeskPublicReaderHost(host);
-  const [macro, earnings, monitor, verifiedMotions, reports, observations, theses, originalPress, digestBriefs] = await Promise.all([
+  const [macro, earnings, monitor, verifiedMotions, observations, theses, originalPress, digestBriefs] = await Promise.all([
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({ now }).catch(() => ({
       events: [], coverage: "unavailable" as const, warning: "Earnings source unavailable",
     })),
     getMarketMonitor().catch(() => null),
     getCurrentVerifiedMarketMotion({ limit: 24 }).catch(() => []),
-    listPublishedReports(6).catch(() => []),
     getPublicSourceObservations(now,8).catch(() => []),
-    getPublicThesisLedger(now,9).catch(() => []),
+    getPublicThesisLedger(now,24).catch(() => []),
     getOriginalPressNews(now,12).catch(() => []),
     getPublishedMacroPulseBriefs(2).catch(() => []),
   ]);
@@ -65,8 +63,6 @@ export default async function BlueDeskPage() {
   const verifiedNews = combineQualifiedNews(motionNews,originalPress,12);
   const newsFeature = verifiedNews[0] || null;
   const observedFeature = observations[0] || null;
-  const latestReport = reports[0] || null;
-  const reportHref = (id:string) => blueDeskPublicHref("/blue-desk/reports/" + id,host);
   const yields = YIELD_IDS.map(id => monitor?.rows.find(row => row.id === id)).filter(
     (row): row is NonNullable<typeof row> => Boolean(row),
   );
@@ -85,16 +81,15 @@ export default async function BlueDeskPage() {
         <section className={styles.hero} aria-label="Latest source-dated market development">
           <div className={styles.heroStory}>
             <p className={styles.kicker}><MarketIcon name="market" size={16} />
-              {newsFeature ? "LATEST VERIFIED DEVELOPMENT" : observedFeature ? "LAST COMPLETED SOURCE OBSERVATION" : latestReport ? "LATEST APPROVED ARTICLE" : "MARKET NEWS"}
+              {newsFeature ? "LATEST VERIFIED DEVELOPMENT" : observedFeature ? "LATEST DATED MARKET OBSERVATION" : "MARKET NEWS"}
             </p>
-            <h1>{newsFeature?.headline || (observedFeature ? ellipsis(observedFeature.description,125) : "") || latestReport?.title || "No verified market headline available"}</h1>
+            <h1>{newsFeature?.headline || (observedFeature ? ellipsis(observedFeature.description,125) : "") || "No verified market headline available"}</h1>
             <p className={styles.heroDeck}>
-              {newsFeature?.summary || (observedFeature ? "Recorded by "+observedFeature.sourceName+". This is an observed source value, not evidence of a new catalyst or its cause." : "") || latestReport?.excerpt ||
+              {newsFeature?.summary || (observedFeature ? "Recorded by "+observedFeature.sourceName+". This is an observed source value, not evidence of a new catalyst or its cause." : "") ||
                 "Source verification or provider coverage may be incomplete. Check the calendar and market monitor."}
             </p>
             <div className={styles.tags}>
-              <span className={styles.tag}>{newsFeature ? "SOURCE-VERIFIED FACT" : observedFeature ? "SOURCE-DOCUMENTED · DATED MARKET OBSERVATION" :
-                latestReport ? "DATED EDITORIAL ASSESSMENT" : "NO VERIFIED UPDATE"}</span>
+              <span className={styles.tag}>{newsFeature ? "SOURCE-VERIFIED FACT" : observedFeature ? "SOURCE-DOCUMENTED MARKET OBSERVATION" : "NO VERIFIED UPDATE"}</span>
               <span className={styles.tag}>No Dossier approval required</span>
             </div>
             <div className={styles.heroFooter}>
@@ -102,15 +97,13 @@ export default async function BlueDeskPage() {
                 <a className={styles.primaryAction} href={newsFeature.sourceUrl} target="_blank" rel="noreferrer">Read original report ↗</a>
               ) : observedFeature ? (
                 <a className={styles.primaryAction} href={observedFeature.sourceUrl} target="_blank" rel="noreferrer">Original market source ↗</a>
-              ) : latestReport ? (
-                <Link className={styles.primaryAction} href={reportHref(latestReport.id)}>Read approved article →</Link>
               ) : (
                 <Link className={styles.primaryAction} href={blueDeskPublicHref("/blue-desk/daily-report", host)}>
                   Daily Report →</Link>
               )}
               {newsFeature ? <DualTimestamp value={newsFeature.occurredAt} className={styles.heroTime} /> :
                 observedFeature ? <DualTimestamp value={observedFeature.eventAt} sourceDate={observedFeature.eventAt} className={styles.heroTime} /> :
-                latestReport ? <DualTimestamp value={latestReport.published_at} className={styles.heroTime} /> : null}
+                null}
             </div>
             <p><Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/daily-report",host)}>
               Full Daily Report and upcoming catalysts →</Link></p>
@@ -155,35 +148,10 @@ export default async function BlueDeskPage() {
             </article>)}</div>
         </section>:null}
 
-        <section className={styles.section} aria-labelledby="stories-title">
-          <div className={styles.sectionHead}>
-            <div><h2 id="stories-title"><MarketIcon name="layers" size={24} /> Approved articles</h2>
-              <p>Previous COTD/OB analysis remains dated and explicitly reviewed.</p>
-            </div>
-            <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/reports",host)}>
-              COTD / OB library →</Link>
-          </div>
-          <div className={styles.storyGrid}>
-            {reports.length ? reports.map(report =>
-              <article key={report.id} className={styles.storyCard}>
-                <span className={styles.kicker}>{report.kind==="COTD"?"CHART OF THE DAY":"OPENING BELL"} · PUBLISHED</span>
-                <h3>{report.title}</h3>
-                <p>{ellipsis(report.excerpt)}</p>
-                <div className={styles.storyBottom}>
-                  <DualTimestamp value={report.published_at} className={styles.cardTime} />
-                  <Link href={reportHref(report.id)}>Read approved analysis →</Link>
-                </div>
-              </article>) : <article className={styles.emptyCard}>
-              <h3>No published articles</h3>
-              <p>The article library is empty. This does not stop current verified market reporting.</p>
-            </article>}
-          </div>
-        </section>
-
         <section className={styles.section} aria-labelledby="ongoing-stories-head" data-public-thesis-ledger="read-only">
           <div className={styles.sectionHead}>
             <div><p className={styles.kicker}>PERSISTENT RESEARCH · DATED THESIS HISTORY</p>
-              <h2 id="ongoing-stories-head"><MarketIcon name="layers" size={24} /> Tracked market theses</h2>
+              <h2 id="ongoing-stories-head"><MarketIcon name="layers" size={24} /> What is shaping the market?</h2>
               <p>These are stored interpretations, not today's verified headlines. Every thesis retains its last recorded update date.</p>
             </div>
             <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/key-stories",host)}>
@@ -193,10 +161,10 @@ export default async function BlueDeskPage() {
           {theses.length ? <div className={tracked.grid}>
             {theses.slice(0,6).map(thesis =>
               <article className={tracked.card} key={thesis.id}>
-                <span className={tracked.kicker}>TRACKED THESIS · {thesis.status.toUpperCase()} · HISTORICAL VIEW</span>
+                <span className={tracked.kicker}>ONGOING STORY · LAST RESEARCHED <DualTimestamp value={thesis.updatedAt}/></span>
                 <h3>{thesis.title}</h3>
-                <p><strong>Question:</strong> {thesis.question}</p>
-                <p><strong>Recorded view:</strong> {ellipsis(thesis.thesis,200)}</p>
+                <p><strong>The issue:</strong> {thesis.question}</p>
+                <p>{ellipsis(thesis.thesis,260)}</p>
                 <div className={tracked.bottom}>
                   <DualTimestamp value={thesis.updatedAt} className={styles.cardTime} />
                   <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"#thesis-"+thesis.slug}>
