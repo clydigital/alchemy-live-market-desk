@@ -1,0 +1,28 @@
+{
+  "contractVersion": "bluebelly/macropulse-brief/1",
+  "sourcePageId": "404519b6-7a94-8118-b347-d363f9b215a9",
+  "sourcePulseId": "2026-10-26-0200-centcom-hormuz-cumulative-milestone-x-vintage-audit",
+  "sourcePageUrl": "https://www.notion.so/404519b67a948118b347d363f9b215a9",
+  "sourcePublishedAt": "2026-10-25T18:00:00.000Z",
+  "sourceRetrievedAt": "2026-10-25T19:45:00.000Z",
+  "headline": "CENTCOM's Hormuz numbers don't settle the oil risk",
+  "standfirst": "The US military reports thousands of assisted ship transits and substantial crude support. That sounds reassuring, but it does not establish how much oil is moving through Hormuz today.",
+  "whatChanged": "In a statement published on 25 October, CENTCOM said it had supported more than 3,000 commercial-vessel transits over six months and helped Gulf partners export more than 1.5 billion barrels since summer. Those figures are CENTCOM's cumulative claims, not independently measured daily flow.",
+  "whyItMatters": "Tankers need safe passage, and insurers charge more when that looks uncertain. If ships can keep moving, some oil supply fears could ease. But six-month voyage totals and oil barrels measured from an unspecified summer start do not tell us whether export capacity is recovering now. No matching post-announcement Brent or equity-market reaction was established at this Pulse cutoff.",
+  "countercase": "CENTCOM is a conflict participant reporting its own assistance. The voyage, cargo and safety measures may cover different periods and vessels. Reuters reported continuing attacks in October; independently observed AIS crossings, port loadings and insurance premiums would be needed to test the more optimistic reading.",
+  "watchNext": "Compare dated UKMTO/JMIC vessel observations with port cargo data and insurer updates. Then check the first liquid Monday Brent, gold and US yield session before describing a price reaction.",
+  "primaryRegion": "Other",
+  "editorialModel": "ChatGPT editorial prototype",
+  "sourceLinks": [
+    {
+      "url": "https://www.dvidshub.net/news/577799/centcom-commander-visits-strait-hormuz-during-milestone-week",
+      "label": "CENTCOM original DVIDS statement",
+      "kind": "PRIMARY_RELEASE"
+    },
+    {
+      "url": "https://www.reuters.com/business/energy/ship-attacks-strait-hormuz-hit-record-high-october-2026-10-23/",
+      "label": "Reuters 23 October shipping attacks",
+      "kind": "REPORTING"
+    }
+  ]
+}
