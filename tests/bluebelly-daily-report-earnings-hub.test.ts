@@ -42,16 +42,16 @@ test("COTD and OB guide questions cover mechanisms, opposing views and next data
   }
 });
 
-test("Daily Report reads verified news independently of historic Dossier Story admission", () => {
-  const text = readFileSync(new URL("../app/blue-desk/daily-report/page.tsx", import.meta.url), "utf8");
-  assert.match(text, /getCurrentVerifiedMarketMotion/);
-  assert.match(text, /selectVerifiedNewsBriefs/);
-  assert.match(text, /getForwardEarningsEvents/);
-  assert.match(text, /getEconomicCalendar/);
-  assert.match(text, /projectFrozenTrackedStories/);
-  assert.match(text, /No current ET-day edition confirmed/);
-  assert.match(text, /not a newly generated/);
-  assert.doesNotMatch(text, /createSupabaseAdminClient|generateContent\(|story_thesis_versions|insert\(/);
+test("Daily Report uses source-verified live topics and approved reports without Dossier admission", () => {
+ const text = readFileSync(new URL("../app/blue-desk/daily-report/page.tsx", import.meta.url), "utf8");
+ assert.match(text, /getCurrentVerifiedMarketMotion/);
+ assert.match(text, /selectVerifiedNewsBriefs/);
+ assert.match(text, /projectLivingMarketTopics/);
+ assert.match(text, /listPublishedReports/);
+ assert.match(text, /getForwardEarningsEvents/);
+ assert.match(text, /getEconomicCalendar/);
+ assert.doesNotMatch(text, /getLiveDeskHomepageDailyBrief|projectFrozenTrackedStories|loadEditorialMarketBrief/);
+ assert.doesNotMatch(text, /createSupabaseAdminClient|generateContent\(|story_thesis_versions|insert\(/);
 });
 
 test("Calendar embeds an earnings hub with source-status distinction", () => {
