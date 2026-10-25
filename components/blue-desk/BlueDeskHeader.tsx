@@ -16,6 +16,7 @@ const PRIVATE_NAV = [
   ["Data Library", "/data/macro"],
   ["Presenter Prep", "/hybrid-output/prepare"],
   ["X Wire", "/owner/x-wire"],
+  ["Publish Reports", "/owner/publications"],
   ["Calendar", "/blue-desk/calendar"],
   ["Learn", "/concepts"],
 ] as const;
@@ -28,6 +29,7 @@ const PUBLIC_NAV = [
   ["Key Stories", "/key-stories"],
   ["Rates", "/#rates-title"],
   ["What Changed", "/#motion-title"],
+  ["Reports", "/reports"],
   ["Calendar", "/calendar"],
 ] as const;
 
@@ -46,6 +48,8 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Key Stories": "layers",
   "Rates": "rates",
   "What Changed": "divergence",
+  "Reports": "library",
+  "Publish Reports": "library",
 };
 
 /** Shared presentation chrome. These links reuse canonical Live Desk pages. */
@@ -54,7 +58,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
   const publicHost = isBlueDeskPublicReaderHost(host);
   // Authenticated owner routes must retain their private workspace navigation,
   // even when opened on the canonical hostname that also serves public readers.
-  const ownerWorkspace = activePath === "/owner/editorial" || activePath === "/owner/presenter";
+  const ownerWorkspace = activePath === "/owner/editorial" || activePath === "/owner/presenter" || activePath === "/owner/publications";
   const nav = publicHost && !ownerWorkspace ? PUBLIC_NAV : PRIVATE_NAV;
   return (
     <header className={styles.topbar}>
@@ -66,8 +70,8 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
           <Link
             key={href}
             href={blueDeskPublicHref(href, host)}
-            aria-current={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories")))) ? "page" : undefined}
-            className={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories")))) ? styles.navActive : styles.navItem}
+            aria-current={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/reports" && activePath === "/blue-desk/reports")))) ? "page" : undefined}
+            className={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/reports" && activePath === "/blue-desk/reports")))) ? styles.navActive : styles.navItem}
           >
             <MarketIcon name={NAV_ICONS[title] || "market"} size={17} />
             <span>{title}</span>
