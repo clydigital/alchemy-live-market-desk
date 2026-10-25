@@ -1,104 +1,131 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
-import { getLiveDeskHomepageDailyBrief } from "@/lib/hybrid-publication";
-import { projectFrozenTrackedStories } from "@/lib/blue-desk-tracked-stories";
-import { readableSourceArticleLead } from "@/lib/blue-desk-cashflow-reader-copy";
-import { getTrackedOriginalSources } from "@/lib/blue-desk-tracked-evidence";
-import { projectMarketBriefArticles } from "@/lib/market-brief-articles";
-import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
+import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
+import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
+import { getOriginalPressNews } from "@/lib/blue-desk-original-press-news-server";
+import { combineQualifiedNews } from "@/lib/blue-desk-qualified-news";
+import { projectLivingMarketTopics } from "@/lib/blue-desk-living-topics";
+import { getPublicThesisLedger } from "@/lib/blue-desk-thesis-ledger-server";
+import {storyMarketTransmission} from "@/lib/blue-desk-thesis-ledger";
+import { getPublicSourceObservations } from "@/lib/blue-desk-source-observations";
 import desk from "../blue-desk.module.css";
 import ui from "./key-stories.module.css";
 
-export const dynamic="force-dynamic";
-export const metadata={
-  title:"Key Stories and Tracked Themes | Bluebelly",
-  description:"Published market analysis and historical Story threads with their dated next tests.",
+export const dynamic = "force-dynamic";
+export const metadata = {
+  title: "Persistent Market Theses | Bluebelly",
+  description: "Dated long-lived market theses with recorded support, contradictions and next tests, separate from recent news.",
 };
+
 export default async function KeyStories(){
-  const host=(await headers()).get("host");
-  const edition=await getLiveDeskHomepageDailyBrief({fresh:true}).catch(()=>null);
-  const tracker=projectFrozenTrackedStories(edition);
-  const originalSources=await getTrackedOriginalSources(tracker);
-  const brief=await loadEditorialMarketBrief(projectMarketBriefArticles(edition));
-  const published=brief.articles.filter(a=>a.editorial.readiness!=="RESEARCH_ONLY").slice(0,8);
-  const articleHref=(id:string,ed:string)=>blueDeskPublicHref(
-    "/blue-desk/stories/"+encodeURIComponent(id)+"?edition="+encodeURIComponent(ed),host,
-  );
-  return <main className={desk.page} data-bluebelly-stories="expanded">
-    <BlueDeskHeader activePath="/key-stories"/>
+  const now = new Date();
+  const host = (await headers()).get("host");
+  const [raw, theses, observations, originalPress] = await Promise.all([
+    getCurrentVerifiedMarketMotion({ limit: 36 }).catch(() => []),
+    getPublicThesisLedger(now,24).catch(() => []),
+    getPublicSourceObservations(now,8).catch(() => []),
+    getOriginalPressNews(now,18).catch(() => []),
+  ]);
+  const motionNews = selectVerifiedNewsBriefs(raw, now, 18);
+  const news = combineQualifiedNews(motionNews,originalPress,18);
+  const topics = projectLivingMarketTopics(news);
+  return <main className={desk.page} data-bluebelly-stories="expanded"
+    data-living-topics="dossier-independent">
+    <BlueDeskHeader activePath="/blue-desk/key-stories" />
     <div className={desk.content}>
       <header className={ui.intro}>
-        <p className={desk.kicker}>STORY DESK / PUBLISHED AND MONITORED</p>
-        <h1>Market stories worth following</h1>
-        <p>New publications and ongoing market questions are different things.
-          The first section contains evidence-admitted analysis. The second
-          preserves dated Story threads from the frozen Dossier, even when
-          no new change has passed research review. A carried-forward thesis is
-          not breaking news, an updated verdict, or a measured market move.</p>
-        <Link className={ui.returnLink} href={blueDeskPublicHref("/blue-desk",host)}>← Live Market</Link>
+        <p className={desk.kicker}>STORY DESK / PERSISTENT THESIS LEDGER</p>
+        <h1>What is driving the markets, and what happens next?</h1>
+        <p>Oil supply, expensive borrowing, the AI spending boom and weaker consumer demand
+          all feed into markets in different ways. Follow each ongoing story here:
+          what has happened, how it could affect prices, and what evidence would make us rethink it.</p>
+        <p>These are continuing research stories. New events and verified price observations
+          keep their own dates, so older analysis never masquerades as today's news.</p>
+        <Link className={ui.returnLink}
+          href={blueDeskPublicHref("/blue-desk/daily-report",host)}>
+          Read the Daily Report
+        </Link>
       </header>
       <div className={ui.summary}>
-        <span>{published.length} available analyses</span>
-        <span>{tracker?.tracks.length||0} carried-forward Story threads</span>
-        <span>{tracker?.currentAcceptedStoryCount??0} new accepted Story record(s) in this edition</span>
-        <span>Edition published: {tracker?.publishedAt||"Unavailable"}</span>
-        <span>Dossier context as of: {tracker?.dossierAsOf||"Unavailable"}</span>
+        <span>{theses.length} ongoing market stories</span>
+        <span>{topics.length} fresh news themes</span>
+        <span>{news.length} source-verified development{news.length === 1 ? "" : "s"}</span>
+        <span>As of <DualTimestamp value={now.toISOString()} /></span>
       </div>
-      <section className={ui.section} aria-labelledby="published-head">
-        <h2 id="published-head">Published analysis</h2>
-        <p>These readings passed the existing article and source-admission checks
-          for this exact edition. Source facts do not prove their entire proposed mechanism.</p>
-        {published.length?<div className={ui.cards}>{published.map(a=>{
-          const copy=readableSourceArticleLead(a.title,a.editorial.evidenceClaims,
-            a.dossierAsOf||a.generatedAt);
-          return <article className={ui.card} key={a.articleId}>
-            <p className={ui.kicker}>{a.category} · {a.editorial.readiness}</p>
-            <h3>{copy?.headline||a.title}</h3><p>{copy?.deck||a.deck}</p>
-            <small>Publication ID: {a.editionId}</small>
-            <Link href={articleHref(a.articleId,a.editionId)}>Read the pinned analysis →</Link>
-          </article>})}</div>:<p className={ui.empty}>No edition-verified article currently qualifies.
-          The carried-forward questions below remain visible as historical monitoring context.</p>}
+      <section className={ui.section} aria-labelledby="persistent-theses" data-persistent-thesis-ledger="source-identity">
+        <h2 id="persistent-theses">The stories behind the market</h2>
+        <p>Today's price action makes more sense when you know the longer-running issues.
+          These stories keep that context in one place, even on days without a new verified headline.
+          Each explanation is based on its last recorded assessment, not a fresh call on prices.</p>
+        {theses.length ? <div className={ui.cards}>{theses.map(thesis=>
+          <article className={ui.card} id={"thesis-"+thesis.slug} key={thesis.id} data-stored-story={thesis.status}>
+            <p className={ui.kicker}>{thesis.status==="develop"?"STILL BEING INVESTIGATED":"ONGOING MARKET STORY"}
+              {" · "}Last updated <DualTimestamp value={thesis.updatedAt}/></p>
+            <h3>{thesis.title}</h3>
+            <p className={ui.storyIntro}><strong>Here's the issue.</strong> {thesis.thesis}</p>
+            <p className={ui.storyExplanation}><strong>Why it could move markets.</strong> {storyMarketTransmission(thesis)}</p>
+            {thesis.support ? <p className={ui.storyContext}><strong>What supports this view:</strong> {thesis.support}</p> : null}
+            {thesis.contradiction ? <p className={ui.storyContext}><strong>The catch:</strong> {thesis.contradiction}</p> : null}
+            {(thesis.confirmation||thesis.invalidation||thesis.nextTest)?<details className={ui.more}>
+              <summary>What would change the story?</summary>
+              {thesis.confirmation?<p><strong>Confirmation:</strong> {thesis.confirmation}</p>:null}
+              {thesis.invalidation?<p><strong>Invalidation:</strong> {thesis.invalidation}</p>:null}
+              {thesis.nextTest?<p><strong>Next catalyst:</strong> {thesis.nextTest}</p>:null}
+            </details>:null}
+            <p className={ui.timeNote}>Historical research snapshot, not an independently confirmed price reaction.
+              {" "}The latest market observations are shown separately below.</p>
+          </article>
+        )}</div>:<p className={ui.empty}>We couldn't load the stored market stories.
+          That is a coverage problem, not evidence that there is nothing happening.</p>}
       </section>
-      <section className={ui.section} id="ongoing-stories" aria-labelledby="tracked-head">
-        <h2 id="tracked-head">Ongoing Story watch</h2>
-        <p>These questions already existed in the frozen Dossier and have preserved
-          Story/version IDs. Each is explicitly marked as having <strong>no accepted material change</strong>
-          in this edition. Its next test is a research target, not an observation that has occurred.
-          Source-reference counts are metadata and do not establish fresh verification.</p>
-        {tracker?.tracks.length?<div className={ui.cards}>{tracker.tracks.map((t,i)=>
-          <article className={ui.card} id={"story-"+t.storyId} key={t.storyId}>
-            <p className={ui.kicker}>THREAD {String(i+1).padStart(2,"0")} · FROZEN STORY CONTEXT</p>
-            <h3>{t.question}</h3>
-            <p>No new accepted Story change. Do not interpret this question as a verified
-              present-day market condition.</p>
+      <section className={ui.section} aria-labelledby="recent-originals">
+        <h2 id="recent-originals">Latest original-source market observations</h2>
+        <p>Exact dated measurements or official releases only. A market close does not explain its own cause,
+          and an old observation does not become new because it was retrieved again.</p>
+        {observations.length?<div className={ui.cards}>{observations.map(item=>
+          <article className={ui.card} key={item.id}>
+            <p className={ui.kicker}>{item.kind==="MARKET_OBSERVATION"?"LAST COMPLETED MARKET OBSERVATION":"ORIGINAL RELEASE"}</p>
+            <p>{item.description}</p>
+            <small>Event time <DualTimestamp value={item.eventAt}/></small>
+            <a href={item.sourceUrl} rel="noopener noreferrer" target="_blank">{item.sourceName} · original source</a>
+          </article>
+        )}</div>:<p className={ui.empty}>No qualifying recent original-source measurements. This is not evidence of an inactive market.</p>}
+      </section>
+      <section className={ui.section} aria-labelledby="live-topics">
+        <h2 id="live-topics">Topics from current verified News</h2>
+        <p>Topics are grouped from verified news text for navigation only.
+          That classification does not establish market impact, a trading signal
+          or agreement with an older thesis. No stale Story is presented as new.</p>
+        {topics.length ? <div className={ui.cards}>{topics.map(topic =>
+          <article className={ui.card} id={topic.id} key={topic.id}>
+            <p className={ui.kicker}>CURRENT TOPIC · {topic.updates.length} UPDATE{topic.updates.length===1?"":"S"}</p>
+            <h3>{topic.title}</h3>
+            <p><strong>Question to investigate:</strong> {topic.guidingQuestion}</p>
+            <small>Latest event: <DualTimestamp value={topic.latestObservedAt} /></small>
             <div className={ui.test}>
-              <strong>What we would check next</strong>
-              <p>{t.nextTest||"No explicit next test recorded in the source edition."}</p>
+              <strong>What has been verified?</strong>
+              {topic.updates.map(item => <div key={item.id}>
+                <p>{item.headline}</p>
+                <p>{item.summary}</p>
+                <small>Event: <DualTimestamp value={item.occurredAt} /></small>
+                <a href={item.sourceUrl} rel="noopener noreferrer" target="_blank">
+                  {item.sourceName} · original report
+                </a>
+              </div>)}
             </div>
-            <small>Last attention assessment: {t.assessedAt||"Date unavailable"}</small>
             <div className={ui.test}>
-              <strong>Original sources available by the frozen Dossier date</strong>
-              {originalSources.get(t.storyId)?.length ?
-                originalSources.get(t.storyId)!.map(source=>
-                  <div key={source.evidenceId}>
-                    <a href={source.sourceUrl} rel="noopener noreferrer" target="_blank">
-                      {source.sourceName} · original primary source ↗
-                    </a>
-                    <small>Evidence available: {source.availableAt}</small>
-                  </div>) :
-                <p>No first-tier original-source facts qualified for this thread
-                  under the publication-time checks. Its question is historical context,
-                  not a fresh factual market report.</p>}
+              <strong>What still needs testing?</strong>
+              <p>Find dated market observations, the expected response,
+                each causal transmission step, the best opposing explanation
+                and the next economic or issuer release that distinguishes them.</p>
             </div>
-            <small>{t.evidenceReferenceCount} canonical Evidence reference(s) in original Dossier;
-              only dated, source-qualified links are displayed above</small>
-            <small>Frozen Story ID: {t.storyId}</small>
-            <small>Thesis version: {t.thesisVersionId}</small>
-          </article>)}</div>:<p className={ui.empty}>No admissible carried-forward
-          Story threads in this exact publication. This is a coverage gap, not proof that
-          major market themes have disappeared.</p>}
+          </article>)}</div> :
+          <p className={ui.empty}>No source-verified topics were admitted during
+            the last 48 hours. This is a research-coverage state, not evidence
+            that the market is inactive.</p>}
       </section>
     </div>
   </main>;

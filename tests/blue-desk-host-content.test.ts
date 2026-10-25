@@ -77,9 +77,6 @@ test("Bluebelly exposes only explicitly approved public reading routes", () => {
   for (const path of [
     "/", "/calendar", "/blue-desk", "/blue-desk/calendar", "/markets", "/blue-desk/markets",
     "/key-stories", "/blue-desk/key-stories",
-    "/reports", "/blue-desk/reports",
-    "/reports/a2f040b6-1c87-48a4-9fe8-72f54398661a",
-    "/reports/a2f040b6-1c87-48a4-9fe8-72f54398661a/pdf",
     "/stories/article%3Afcea17ef-f575-4283-a363-7d5fa9c918c7%3A6e2c8a8c-fdc7-45eb-bec6-b685b0311f3e",
   ]) {
     assert.equal(blueDeskHostAccess(path, host), "public", path);
@@ -88,7 +85,10 @@ test("Bluebelly exposes only explicitly approved public reading routes", () => {
     "/hybrid-output/prepare", "/dossier", "/articles",
     "/api/dossier-v2", "/api/presenter/technical-checks", "/api/cron/research/morning",
     "/auth/callback", "/login", "/stories",
-    "/api/owner/editorial-publish","/owner/publications",
+    "/api/owner/editorial-publish","/owner/publications","/owner/daily-articles",
+    "/reports","/blue-desk/reports",
+    "/reports/a2f040b6-1c87-48a4-9fe8-72f54398661a",
+    "/reports/a2f040b6-1c87-48a4-9fe8-72f54398661a/pdf",
     "/reports/not-a-uuid","/reports/../../owner/publications/pdf",
     "/stories/article%3Agarbage", "/stories/article%2F../../dossier",
   ]) {

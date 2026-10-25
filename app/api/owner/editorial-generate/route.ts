@@ -3,6 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { blueDeskHostAccess } from "@/lib/blue-desk-host";
+import {reviewSourceOverlap} from "@/lib/blue-desk-originality-review";
 
 export const dynamic="force-dynamic";
 export const runtime="nodejs";
@@ -47,7 +48,7 @@ export async function POST(req:NextRequest){
     body=JSON.parse(raw) as EditorialRequest;
   }catch{return fail(400,"Invalid draft request");}
   const action=body.action==="revise"?"revise":body.action==="draft"?"draft":null;
-  const kind=body.kind==="OB"||body.kind==="COTD"?body.kind:null;
+  const kind=body.kind==="OB"||body.kind==="COTD"||body.kind==="DAILY_REPORT"?body.kind:null;
   const title=txt(body.title,63), packet=txt(body.packet,24_000);
   const existing=txt(body.existingBody,15_000);
   const instruction=txt(body.instructions,900);
@@ -68,9 +69,33 @@ export async function POST(req:NextRequest){
     "state the condition tentatively or omit the number entirely.",
     "Never invent technical band breaks, chart levels, event-timed price reactions or quotes.",
     "Separate observation from causal explanation and from the strongest counter-explanation.",
+    "Show each causal step in plain language: who acts, what changes, how that",
+    "passes through funding, supply, costs or demand, and why the named asset may respond.",
+    "Identify what the mechanism does NOT establish; compare competing explanations.",
+    "Treat issuer earnings and economic calendar rows as forward tests, not known outcomes.",
+    "Only cite a scheduled date, fiscal period, expectation or event time when supplied",
+    "by a dated original source; preserve date-only and unconfirmed event times.",
     "A 1-session, 3-session or 5-session source comparison is NOT proof of event causation.",
     "Use British English, clear mobile-friendly prose, paragraphs <=3 sentences.",
+    "Write a NEW market explanation in the analyst's own voice, not a lightly reworded source article.",
+    "Original financial statistics and dates may be reused with attribution; do not copy",
+    "full passages, distinctive sentences, structure or unsupported quotes from sources.",
+    "Explain like a trader speaking to another trader: literal event first, then who pays",
+    "more or earns less, how it reaches the asset, the catch and the exact chart to check.",
+    "Use straightforward, natural language at approximately Year 8 reading level.",
+    "Avoid repeating 'what changed / why it matters' labels as a rigid formula on every paragraph.",
+    "Do not pretend the model has seen a TradingView chart, measured EMA bands or",
+    "confirmed an asset reaction unless dated chart evidence was in the supplied packet.",
     "Avoid melodrama, templated parallelism, and stock AI phrases.",
+    "DAILY_REPORT: write a concise but substantial researched market briefing, not a headlines list.",
+    "DAILY_REPORT sections: What is new; market reaction and expectations;",
+    "Why it matters (step-by-step mechanism and exposed markets); What does not fit;",
+    "Conditional paths, next catalysts, economic calendar and earnings.",
+    "Distinguish an original independently cited fact from MacroPulse/Gate synthesis.",
+    "MacroPulse and Research Gap Notion pages are UNVERIFIED research inputs.",
+    "A partial Gate or unread research backlog MUST be disclosed and must not be described as exhaustive.",
+    "Never treat a current Notion fetch as an original-source check or a Sunday US market reaction.",
+    "If no verified source-linked facts exist, return an explicit partial coverage brief.",
     "COTD: 600–800 words when evidence supports it; chart-first.",
     "OB: catalyst-first, then observed price, mechanism, countercase, next trigger.",
     "At most three chart placement suggestions, prefixed 'Chart check:' not an asserted setup.",
@@ -99,6 +124,7 @@ export async function POST(req:NextRequest){
     const draft=txt(response.text,22000);
     if(draft.length<120) return fail(502,"Model did not produce a useful article draft");
     return NextResponse.json({body:draft,model,status:"PRIVATE_UNVERIFIED_DRAFT",
+      originalityReview:reviewSourceOverlap(draft,packet),
       message:"Review original sources, chart setups and every figure before publishing."},{headers:noStore});
   }catch(e){
     // Do not expose upstream SDK errors or secrets to the browser.

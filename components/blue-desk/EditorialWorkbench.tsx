@@ -8,12 +8,13 @@ import { editorialPriceLines } from "@/lib/editorial-price-context";
 import InvestigationWorkbench from "./InvestigationWorkbench";
 import {parseExternalResearch,chatResearchTransferPrompt} from "@/lib/editorial-external-research";
 import { mergeInvestigationIntoDraftPacket, type InvestigationResult } from "@/lib/editorial-investigation";
+import { editorialGuidingQuestions } from "@/lib/editorial-question-guide";
 import styles from "./editorial-studio.module.css";
 
 type Kind = "COTD" | "OB";
 type Draft = {
   kind:Kind; title:string; meta:string; assetId:string;
-  hook:string; catalysts:string; sources:string;
+  hook:string; catalysts:string; forwardCatalysts:string; sources:string;
   expectation:string; observed:string; explanation:string; alternative:string;
   confirmation:string; invalidation:string; missingProof:string; chart1:string;chart2:string;chart3:string;
   body:string;
@@ -21,7 +22,7 @@ type Draft = {
 const STORAGE="bluebelly-editorial-workbench-v1";
 const PREVIEW_STORAGE="bluebelly-editorial-lab-demo-v1";
 const EMPTY:Draft={
-  kind:"COTD",title:"",meta:"",assetId:"",hook:"",catalysts:"",sources:"",
+  kind:"COTD",title:"",meta:"",assetId:"",hook:"",catalysts:"",forwardCatalysts:"",sources:"",
   expectation:"",observed:"",explanation:"",alternative:"",
   confirmation:"",invalidation:"",missingProof:"",chart1:"",chart2:"",chart3:"",body:"",
 };
@@ -54,6 +55,8 @@ function articlePacket(d:Draft,card:EditorialPriceCard|null) {
     short(d.catalysts,"Not verified or entered"),
     "## Price comparison — observed daily-source bars",
     card?editorialPriceLines(card):"No instrument selected. Daily/3-session/5-session price comparisons UNKNOWN.",
+    "## Upcoming calendar and earnings (source dates; do not invent results)",
+    short(d.forwardCatalysts,"No upcoming agency or issuer event verified or entered."),
     "## Textbook expectation",
     short(d.expectation),
     "## Actual reaction (owner notes; unverified until independently checked)",
@@ -88,6 +91,9 @@ function writingRequest(d:Draft,card:EditorialPriceCard|null) {
     "Do not use an unverified sentence from the owner's notes as fact. Verify first with original issuer/official/exchange sources and dated price data; if unavailable omit or mark conditional.",
     "Max three charts, each tied to a deciding technical question; chart annotations and EMA20/50 1σ, EMA100 0.5σ, EMA200 0.25σ are suggestions until inspected.",
     "Title at most 63 characters, meta at most 150, paragraphs at most 3 sentences. COTD target 600–800 words. Short readable, no hype.",
+    "Explain the complete plain-English mechanism one moving part per sentence: who acts, what changes immediately, the missing link, the assets exposed and the catch.",
+    "Separate expected reaction, actual measured response, alternatives, uncertainties and what the next original source could resolve.",
+    "Reference genuinely scheduled economic calendar and issuer earnings only when original date/period and timing precision are supplied; distinguish reported from confirmed dates.",
     "Show a countercase and confirmation/invalidation. Do not invent cited numbers or causal certainty.",
     "ARTICLE NOTES / UNVERIFIED INPUTS:",
     articlePacket(d,card),
@@ -384,6 +390,22 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
               <button aria-pressed={draft.kind==="COTD"} onClick={()=>update("kind","COTD")}>COTD · chart-first</button>
               <button aria-pressed={draft.kind==="OB"} onClick={()=>update("kind","OB")}>Opening Bell · catalyst-first</button>
             </div>
+            <details className={styles.panel} data-editorial-guiding-questions={draft.kind}>
+              <summary>Guiding questions for {draft.kind === "COTD" ? "Chart of the Day" : "Opening Bell"}</summary>
+              <p className={styles.help}>Build an explanation a non-specialist can follow.
+                Work from the chart or catalyst through each economic step, and return to the
+                affected asset. Missing evidence stays unknown.</p>
+              <ol>
+                {editorialGuidingQuestions(draft.kind).map(item =>
+                  <li key={item.id}>
+                    <strong>{item.question}</strong>
+                    <p className={styles.help}>{item.evidenceCheck}</p>
+                  </li>)}
+              </ol>
+              <p className={styles.help}>Upcoming figures and earnings:
+                {" "}<Link href="/blue-desk/calendar#earnings-hub">Calendar + Earnings Hub</Link>.
+                Verify issuer dates and economic releases before citing them.</p>
+            </details>
             <label className={styles.lineField}><span>Working headline ({draft.title.length}/63)</span>
               <input maxLength={63} value={draft.title} onChange={e=>update("title",e.target.value)}
                 placeholder="What changed, which asset, why it matters"/></label>
@@ -394,12 +416,16 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
               onChange={v=>update("hook",v)} placeholder="The decisive move or verified catalyst, in plain English."/>
             <Field label="Catalyst timeline · date, event, original URL" value={draft.catalysts} rows={4}
               onChange={v=>update("catalysts",v)} placeholder="Newest first, dated. What happened yesterday, over three sessions, and last week?"/>
+            <Field label="Upcoming economic calendar + issuer earnings · what could change the view?" rows={3}
+              value={draft.forwardCatalysts} onChange={v=>update("forwardCatalysts",v)}
+              placeholder="Official date, agency/issuer URL, consensus if sourced, exposed markets and the exact question the result will answer."/>
             <Field label="What should price normally have done?" value={draft.expectation}
               onChange={v=>update("expectation",v)} placeholder="A pre-event expectation, not a prediction retrofitted to the tape."/>
             <Field label="Observed reaction · exact session and source" value={draft.observed}
               onChange={v=>update("observed",v)} placeholder="Never treat a live quote as a closing price."/>
             <Field label="Why could it be rising / falling? · mechanism" value={draft.explanation}
-              onChange={v=>update("explanation",v)}/>
+              onChange={v=>update("explanation",v)}
+              placeholder="Actor → immediate change → the missing causal step → affected markets. One step per sentence, then explain the catch."/>
             <Field label="What else could explain it? · countercase" value={draft.alternative}
               onChange={v=>update("alternative",v)}/>
             <Field label="What confirms the idea?" value={draft.confirmation}

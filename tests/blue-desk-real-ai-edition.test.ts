@@ -114,15 +114,16 @@ test("later issuer disclosure cannot rewrite the 19 October edition", () => {
 });
 
 
-test("frozen AI lesson without Dossier ID cannot be elevated to a homepage canonical Story", () => {
+test("unaccepted frozen AI story cannot become the current public home feature", () => {
   const projected = projectMarketBriefArticles(snapshot);
   const compiled = buildEditorialBrief(projected, sourceRows);
   assert.equal(compiled.articles[0].editorial.storyEligible, false);
   const home = readFileSync(new URL("../app/blue-desk/page.tsx", import.meta.url), "utf8");
-  assert.match(home, /article\.editorial\.storyEligible/);
-  assert.match(home, /SOURCED ANALYSIS/);
+  assert.doesNotMatch(home, /article\.editorial\.storyEligible|projectMarketBriefArticles/);
+  assert.doesNotMatch(home, /listPublishedReports/);
+  assert.match(home, /getPublicThesisLedger/);
+  assert.match(home, /getPublicSourceObservations/);
 });
-
 
 test("Blue Desk explains only actual evidence-linked mechanism edges", () => {
   const detail = readFileSync(new URL("../app/blue-desk/stories/[articleId]/page.tsx", import.meta.url), "utf8");
@@ -157,11 +158,10 @@ test("latest unresolved AI edition can headline one exact issuer-reported fact, 
   assert.equal(editorial.articles[0].editorial.storyEligible, false);
 
   const home = readFileSync(new URL("../app/blue-desk/page.tsx", import.meta.url), "utf8");
-  assert.match(home, /PRIMARY-SOURCE OBSERVATION/);
-  assert.match(home, /SOURCE FACT · NO INTERPRETATION/);
-  assert.match(home, /sourceFact\.sourceUrl/);
-  assert.match(home, /selectFrozenSourceFact\(brief, now\)/);
-  assert.match(home, /article\.editorial\.storyEligible/);
+  assert.doesNotMatch(home, /PRIMARY-SOURCE OBSERVATION/);
+  assert.doesNotMatch(home, /selectFrozenSourceFact|sourceFact|article\.editorial\.storyEligible/);
+  assert.match(home, /LATEST VERIFIED DEVELOPMENT/);
+  assert.match(home, /newsFeature\.sourceUrl/);
 });
 
 test("factual lead refuses stale, future, missing and post-edition evidence", () => {

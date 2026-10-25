@@ -10,7 +10,7 @@ test("all visible public header links target approved host paths and real anchor
   const match = header.match(/const PUBLIC_NAV = \[([\s\S]*?)\] as const;/);
   assert.ok(match, "public navigation must be explicitly enumerated");
   const hrefs = [...match[1].matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m => m[1]);
-  assert.deepEqual(hrefs, ["/", "/markets", "/key-stories", "/#rates-title", "/#motion-title", "/reports", "/calendar"]);
+  assert.deepEqual(hrefs, ["/", "/daily-report", "/markets", "/key-stories", "/#rates-title", "/#motion-title", "/calendar"]);
   for (const href of hrefs) {
     const url = new URL(href, "https://bluebelly-desk.vercel.app");
     assert.equal(blueDeskHostAccess(url.pathname, url.hostname), "public", href);
@@ -40,8 +40,8 @@ test("private legacy navigation remains available only on owner host", () => {
 
 test("no dead public links are advertised in the homepage special panels", () => {
   assert.match(homepage, /publicHost \? blueDeskPublicHref\("\/blue-desk\/markets", host\) : "\/markets"/);
-  assert.match(homepage, /!publicHost \? <Link href="\/articles"/);
+  assert.doesNotMatch(homepage, /listPublishedReports/);
   assert.match(homepage, /!publicHost \? <Link className=\{styles\.textLink\} href="\/whats-new"/);
   assert.match(homepage, /publicHost \? "Explore public research" : "Dossier, Journey and presenter preparation"/);
-  assert.match(homepage, /sourceFact\.sourceUrl/);
+  assert.match(homepage, /newsFeature\.sourceUrl/);
 });

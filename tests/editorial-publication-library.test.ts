@@ -30,18 +30,16 @@ test("PDF signature and trailer are required, not only a MIME type or filename",
  assert.equal(isLikelyPdf(new TextEncoder().encode("%PDF-1.7\n"+"a".repeat(650))),false);
  assert.equal(isLikelyPdf(new Uint8Array(3145729)),false);
 });
-test("public report library, exact article and PDF are separately allowlisted; arbitrary owner paths never are",()=>{
- for(const host of ["bluebelly-desk.vercel.app","alchemy-live-market-desk.vercel.app"]){
-  for(const path of ["/reports","/blue-desk/reports","/reports/"+id,"/reports/"+id+"/pdf"])
-   assert.equal(blueDeskHostAccess(path,host),"public",host+path);
-  assert.equal(blueDeskPresentationTarget("/reports",host),"/blue-desk/reports");
-  assert.equal(blueDeskPresentationTarget("/reports/"+id+"/pdf",host),
-   "/blue-desk/reports/"+id+"/pdf");
+test("COTD/OB and PDF library moved from public visitor routes to signed-in private host",()=>{
+ for(const path of ["/reports","/blue-desk/reports","/reports/"+id,
+  "/reports/"+id+"/pdf"]){
+  assert.equal(blueDeskHostAccess(path,"bluebelly-desk.vercel.app"),"blocked");
+  assert.equal(blueDeskHostAccess(path,"alchemy-live-market-desk.vercel.app"),"private");
+  assert.equal(blueDeskPresentationTarget(path,"bluebelly-desk.vercel.app"),null);
+  assert.equal(blueDeskHostAccess(path,"private-preview.vercel.app"),"private");
  }
- for(const p of ["/owner/publications","/api/owner/editorial-publish",
- "/reports/not-a-real-id","/reports/"+id+"/evil","/reports/"+id+"/pdf/delete"]){
-  assert.equal(blueDeskHostAccess(p,"bluebelly-desk.vercel.app"),"blocked",p);
- }
+ assert.equal(blueDeskHostAccess("/owner/daily-articles","bluebelly-desk.vercel.app"),"blocked");
+ assert.equal(blueDeskHostAccess("/owner/daily-articles","private-preview.vercel.app"),"private");
  assert.equal(blueDeskHostAccess("/api/owner/editorial-publish","alchemy-live-market-desk.vercel.app"),"private");
  assert.equal(blueDeskHostAccess("/owner/publications","alchemy-live-market-desk.vercel.app"),"private");
  assert.equal(validPublicationId("not-uuid"),false);

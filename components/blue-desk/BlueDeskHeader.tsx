@@ -8,14 +8,17 @@ import styles from "@/app/blue-desk/blue-desk.module.css";
 
 const PRIVATE_NAV = [
   ["Live Market", "/blue-desk"],
+  ["Daily Report", "/blue-desk/daily-report"],
   ["Markets", "/markets"],
   ["Editorial Studio", "/owner/editorial"],
+  ["Daily Report Studio", "/owner/daily-report"],
   ["Presenter Studio", "/owner/presenter"],
   ["Deep Dive", "/articles"],
   ["Research", "/whats-new"],
   ["Data Library", "/data/macro"],
   ["Presenter Prep", "/hybrid-output/prepare"],
   ["X Wire", "/owner/x-wire"],
+  ["Private Daily Articles", "/owner/daily-articles"],
   ["Publish Reports", "/owner/publications"],
   ["Calendar", "/blue-desk/calendar"],
   ["Learn", "/concepts"],
@@ -25,12 +28,12 @@ const PRIVATE_NAV = [
 // advertise owner-only legacy links that its middleware correctly returns 404.
 const PUBLIC_NAV = [
   ["Live Market", "/"],
+  ["Daily Report", "/daily-report"],
   ["Markets", "/markets"],
   ["Key Stories", "/key-stories"],
   ["Rates", "/#rates-title"],
   ["What Changed", "/#motion-title"],
-  ["Reports", "/reports"],
-  ["Calendar", "/calendar"],
+  ["Calendar + Earnings", "/calendar"],
 ] as const;
 
 const NAV_ICONS: Record<string, MarketIconName> = {
@@ -49,7 +52,12 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Rates": "rates",
   "What Changed": "divergence",
   "Reports": "library",
+  "COTD / OB": "library",
+  "Daily Report": "deep-dive",
+  "Daily Report Studio": "deep-dive",
+  "Calendar + Earnings": "calendar",
   "Publish Reports": "library",
+  "Private Daily Articles": "deep-dive",
 };
 
 /** Shared presentation chrome. These links reuse canonical Live Desk pages. */
@@ -58,7 +66,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
   const publicHost = isBlueDeskPublicReaderHost(host);
   // Authenticated owner routes must retain their private workspace navigation,
   // even when opened on the canonical hostname that also serves public readers.
-  const ownerWorkspace = activePath === "/owner/editorial" || activePath === "/owner/presenter" || activePath === "/owner/publications";
+  const ownerWorkspace = activePath === "/owner/editorial" || activePath === "/owner/presenter" || activePath === "/owner/publications" || activePath === "/owner/daily-report" || activePath === "/owner/daily-articles" || activePath === "/owner/x-wire";
   const nav = publicHost && !ownerWorkspace ? PUBLIC_NAV : PRIVATE_NAV;
   return (
     <header className={styles.topbar}>
@@ -70,8 +78,8 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
           <Link
             key={href}
             href={blueDeskPublicHref(href, host)}
-            aria-current={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/reports" && activePath === "/blue-desk/reports")))) ? "page" : undefined}
-            className={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/reports" && activePath === "/blue-desk/reports")))) ? styles.navActive : styles.navItem}
+            aria-current={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/daily-report" && activePath === "/blue-desk/daily-report")))) ? "page" : undefined}
+            className={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/daily-report" && activePath === "/blue-desk/daily-report")))) ? styles.navActive : styles.navItem}
           >
             <MarketIcon name={NAV_ICONS[title] || "market"} size={17} />
             <span>{title}</span>

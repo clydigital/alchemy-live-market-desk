@@ -40,12 +40,11 @@ test("frozen raw title only transforms if its own exact SEC evidence is present"
  assert.equal(readableSourceArticleLead(title,[],ctx.editionAsOf),null);
  assert.equal(readableSourceArticleLead(title,[{...evidence[0],sourceUrl:"https://example.com"}],ctx.editionAsOf),null);
 });
-test("home shows concise sourced measurement, preserves category and original report links",()=>{
+test("public home no longer replays an old SEC snapshot as the current headline",()=>{
  const page=readFileSync(new URL("../app/blue-desk/page.tsx",import.meta.url),"utf8");
- assert.match(page,/sourceDisplay\?\.headline \|\| sourceFact\?\.claimText/);
- assert.match(page,/featureDisplay\?\.headline \|\| feature\?\.title/);
- assert.match(page,/concise\?\.headline \|\| article\.title/);
- assert.match(page,/sourceFact\.sourceUrl/);
- assert.match(page,/SOURCE FACT · NO INTERPRETATION/);
- assert.match(page,/selectFrozenSourceFact\(brief, now\)/);
+ assert.match(page,/getCurrentVerifiedMarketMotion/);
+ assert.match(page,/selectVerifiedNewsBriefs/);
+ assert.doesNotMatch(page,/listPublishedReports/);
+ assert.match(page,/newsFeature\.sourceUrl/);
+ assert.doesNotMatch(page,/sourceFact|selectFrozenSourceFact|featureDisplay/);
 });

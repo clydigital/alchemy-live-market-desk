@@ -2,7 +2,7 @@
 import {useState,type FormEvent} from "react";
 import {parseReviewedSubmission} from "@/lib/editorial-publications";
 import css from "./publisher.module.css";
-type Kind="OB"|"COTD";
+type Kind="OB"|"COTD"|"DAILY_REPORT";
 export default function ReportPublisher(){
  const [kind,setKind]=useState<Kind>("OB");
  const [title,setTitle]=useState("");
@@ -18,7 +18,7 @@ export default function ReportPublisher(){
  function fillPacket(){
   try{
    const data=JSON.parse(packet) as Record<string,unknown>;
-   setKind(data.kind==="COTD"?"COTD":"OB");
+   setKind(data.kind==="DAILY_REPORT"?"DAILY_REPORT":data.kind==="COTD"?"COTD":"OB");
    setTitle(typeof data.title==="string"?data.title.slice(0,63):"");
    setMeta(typeof data.meta==="string"?data.meta.slice(0,150):
     typeof data.meta_description==="string"?data.meta_description.slice(0,150):"");
@@ -74,6 +74,7 @@ export default function ReportPublisher(){
    <label>Edition
     <select value={kind} onChange={e=>setKind(e.target.value as Kind)}>
      <option value="OB">Opening Bell</option><option value="COTD">Chart of the Day</option>
+     <option value="DAILY_REPORT">Daily Market Report</option>
     </select>
    </label>
    <label>Approved headline (maximum 63 characters)

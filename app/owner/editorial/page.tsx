@@ -30,7 +30,7 @@ export default async function EditorialStudioPage(){
     </div>
     <EditorialWorkbench mode="editorial" priceCards={cards} readError={!monitor} slate={editorialSlate.slate} slateStatus={editorialSlate.status}/>
     <div className={styles.content}>
-      <p className={styles.muted}>Research inputs: full <Link href="/whats-new">What's New</Link>, <Link href="/articles">Article memory</Link>, <Link href="/owner/x-wire">X leads</Link> and <Link href="/owner/presenter">Presenter view</Link>. Open and verify original sources before publication.</p>
+      <p className={styles.muted}>Research inputs: full <Link href="/whats-new">What's New</Link>, <Link href="/articles">Article memory</Link>, <Link href="/owner/x-wire">X leads</Link> and <Link href="/owner/presenter">Presenter view</Link>, <Link href="/owner/daily-report">Daily Report writer</Link>. Open and verify original sources before publication.</p>
     </div>
   </main>;
 }

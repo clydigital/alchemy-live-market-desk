@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   MARKET_MOTION_RUN_LIMIT,
+  MARKET_MOTION_CREATOR_ATTENTION_LIMIT,
   buildExistingMotionCorroborationUpdates,
   buildMarketMotionCandidates,
   buildMarketMotionCorroborationCandidates,
@@ -941,4 +942,39 @@ test("record-high identity prefers the named instrument over unrelated creator e
   const [unified] = unifyMarketMotionCandidates([creator]);
 
   assert.equal(unified.motionKey, "event:record_high:nvda");
+});
+
+test("creator Motion attention caps protect relevance while retaining source-lead provenance",()=>{
+ const stories=Array.from({length:8},(_,i)=>({
+  id:"00000000-0000-4000-8000-"+String(i+1).padStart(12,"0"),
+  slug:"creator-testing-"+i,title:"Distinct issuer investigation "+i,
+ }));
+ const rows=stories.map((story,i)=>reviewedTranscriptRow({
+  id:"creator-row-"+i,
+  item_key:"youtube:stockedup:creator-"+i,
+  url:"https://www.youtube.com/watch?v=creator"+i,
+  affected_story_slugs:[story.slug],
+  transcript_motion_leads:Array.from({length:4},(_,n)=>({
+   kind:"claim",text:"Issuer "+i+" disclosed a distinct financing data point number "+n,
+   tags:["finance"],entities:["Issuer "+i],verificationNeeded:true,
+   verificationTarget:"Independent official issuer financial filing",
+   searchPrompt:"Check original filing of issuer "+i,articleHook:null,priority:94-n,
+  })),
+ }));
+ // Each source review still owns all four raw claims; only its Motion attention
+ // projection is limited to two. Across the full run, maximum five survive.
+ const candidates=buildTranscriptMotionCandidates(rows,stories,{now:NOW});
+ assert.equal(rows.reduce((n,row)=>n+(row.transcript_motion_leads as unknown[]).length,0),32);
+ assert.equal(candidates.length,MARKET_MOTION_CREATOR_ATTENTION_LIMIT);
+ assert.ok(candidates.every(c=>c.sourceKind==="creator"&&c.verificationState==="LEAD"));
+ const counts=new Map<string,number>();
+ for(const c of candidates){
+  const key=String(c.metadata?.itemKey);
+  counts.set(key,(counts.get(key)||0)+1);
+  assert.equal(c.metadata?.verificationNeeded,true);
+  assert.match(c.nextTest||"",/original filing|Independent|Check original/i);
+ }
+ assert.ok([...counts.values()].every(n=>n<=2));
+ assert.equal(rows[0].transcript_motion_leads instanceof Array,true,
+  "source review not mutated by attention gating");
 });
