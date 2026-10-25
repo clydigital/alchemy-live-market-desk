@@ -45,6 +45,21 @@ function sameId(a:unknown,b:string):boolean{
 function blocksText(blocks:readonly AnyRecord[],max=11000):{text:string;links:string[]}{
   const lines:string[]=[];
   const links=new Set<string>();
+  // Notion Pulse posts often paste raw source URLs into text rather than
+  // hyperlinking them. Extract both representations as UNVERIFIED candidates,
+  // never as assertions or confirmed original-source receipts.
+  const remember=(value:unknown)=>{
+    if(typeof value!=="string"||links.size>=32)return;
+    const trimmed=value.trim().replace(/[).,;!?\]}>]+$/g,"");
+    try{
+      const u=new URL(trimmed);
+      if(u.protocol!=="https:"||u.username||u.password||
+         u.href.length>2000||u.hostname.endsWith(".local")||
+         u.hostname.endsWith(".internal")||
+         /^(?:localhost|127(?:\.\d+){3}|0\.0\.0\.0)$/i.test(u.hostname))return;
+      links.add(u.href);
+    }catch{ /* not a valid https candidate */ }
+  };
   for(const block of blocks){
     const type=txt(block.type,32);
     if(!["paragraph","heading_1","heading_2","heading_3","bulleted_list_item",
@@ -55,12 +70,8 @@ function blocksText(blocks:readonly AnyRecord[],max=11000):{text:string;links:st
       const text=obj(span.text);
       const original=txt(span.plain_text,3500)||txt(text.content,3500);
       const link=txt(obj(span.href).url,2000)||txt(span.href,2000)||txt(text.link && obj(text.link).url,2000);
-      if(link) {
-        try{
-          const u=new URL(link);
-          if(u.protocol==="https:" && !u.username && !u.password && links.size<32)links.add(u.href);
-        }catch{ /* ignore invalid source candidate */ }
-      }
+      if(link)remember(link);
+      for(const match of original.matchAll(/https:\/\/[^\s<>"'`]+/g))remember(match[0]);
       return original;
     }).join("");
     if(paragraph) lines.push((type.startsWith("heading")?"## ":"")+paragraph);
