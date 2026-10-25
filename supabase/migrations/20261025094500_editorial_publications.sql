@@ -9,7 +9,7 @@ create table if not exists public.editorial_publications (
   excerpt text not null check (char_length(excerpt) <= 260),
   source_urls jsonb not null default '[]'::jsonb
     check (jsonb_typeof(source_urls)='array' and jsonb_array_length(source_urls) between 1 and 12),
-  pdf_path text not null unique check (pdf_path ~ '^reports/[0-9a-f-]{36}/[0-9a-f-]{36}\\.pdf$'),
+  pdf_path text not null unique check (pdf_path ~ '^reports/[0-9a-f-]{36}/[0-9a-f-]{36}[.]pdf$'),
   pdf_sha256 text not null check (pdf_sha256 ~ '^[0-9a-f]{64}$'),
   status text not null default 'published' check (status='published'),
   published_at timestamptz not null default now(),
