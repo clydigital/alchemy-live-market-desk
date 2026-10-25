@@ -22,7 +22,7 @@ test("Daily Report is a public reader only on the two canonical hosts", () => {
     "/api/cron/research/morning", "/owner/publications", "/hybrid-output/prepare"]) {
     assert.notEqual(blueDeskHostAccess(path, BLUEBELLY), "public", path);
   }
-  for (const path of ["/reports", "/editorial-lab", "/markets", "/key-stories"]) {
+  for (const path of ["/editorial-lab", "/markets", "/key-stories"]) {
     assert.equal(blueDeskHostAccess(path, BLUEBELLY), "public", path);
   }
 });
@@ -47,7 +47,9 @@ test("Daily Report uses source-verified live topics and approved reports without
  assert.match(text, /getCurrentVerifiedMarketMotion/);
  assert.match(text, /selectVerifiedNewsBriefs/);
  assert.match(text, /projectLivingMarketTopics/);
- assert.match(text, /listPublishedReports/);
+ assert.doesNotMatch(text, /listPublishedReports/);
+ assert.match(text,/getPublicThesisLedger/);
+ assert.match(text,/getPublicSourceObservations/);
  assert.match(text, /getForwardEarningsEvents/);
  assert.match(text, /getEconomicCalendar/);
  assert.doesNotMatch(text, /getLiveDeskHomepageDailyBrief|projectFrozenTrackedStories|loadEditorialMarketBrief/);
