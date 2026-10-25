@@ -11,6 +11,10 @@ import { formatBlueDeskSourceObservation } from "@/lib/blue-desk-source-copy";
 import { describePublicEvidenceClaim } from "@/lib/blue-desk-evidence-preview";
 import { blueDeskStorySections } from "@/lib/blue-desk-story-sections";
 import { readerParagraphSources, readerVerifiedReaction } from "@/lib/blue-desk-reader-evidence";
+import {getMarketMonitor} from "@/lib/market-monitor-public";
+import {projectEditorialPriceCards} from "@/lib/editorial-price-context";
+import {projectArticleCloseScenarios} from "@/lib/bluebelly-article-perspectives";
+import {getArticleCreatorPerspectives} from "@/lib/bluebelly-article-creators";
 import {
   projectMarketBriefArticles,
   readerFacingMarketText,
@@ -75,6 +79,15 @@ export default async function BlueDeskStoryPage({
   );
   if (!article) notFound();
 
+  const nowIso = new Date().toISOString();
+  // Today-facing observations are not part of this immutable historical
+  // edition. They must carry their own source and completed-session dates.
+  const [monitor, creatorViews] = await Promise.all([
+    getMarketMonitor().catch(() => null),
+    getArticleCreatorPerspectives(article.title+" "+article.deck,nowIso),
+  ]);
+  const closeScenarios = projectArticleCloseScenarios(article.title+" "+article.deck,
+    projectEditorialPriceCards(monitor?.rows||[],nowIso));
   const host = (await headers()).get("host");
   const back = blueDeskPublicHref("/blue-desk", host);
   const references = article.sourceLinks.filter(source => httpsSource(source.url));
@@ -130,6 +143,62 @@ export default async function BlueDeskStoryPage({
             </a>
           ))}
         </nav>
+        <section className={styles.deepSection} aria-labelledby="reader-guide">
+          <p className={styles.kicker}>BLUEBELLY / READ AT WORK · NO EMBEDDED CHARTS</p>
+          <h2 id="reader-guide">The story in plain English</h2>
+          <p>{article.deck}</p>
+          <p>The explanation below separates what original sources report, what the
+            Dossier infers, and what would challenge it. A creator opinion, a daily
+            close and a source release are different kinds of information.</p>
+        </section>
+        <section className={styles.deepSection} id="last-close" aria-labelledby="last-close-head">
+          <h2 id="last-close-head">What the last completed close suggests</h2>
+          <p>Related benchmarks selected by this story’s subject. These are later,
+            source-dated observations shown beside the archived edition; they are
+            <strong> not</strong> retroactive evidence for the article or a live chart.
+            A daily movement by itself cannot establish a causal market reaction.</p>
+          {closeScenarios.length ? <ul className={styles.deepWatchList}>
+            {closeScenarios.map(c=><li key={c.id}>
+              <h3>{c.label}</h3>
+              <p>Last eligible completed daily observation: <strong>{c.asOf||"Unavailable"}</strong>.
+                Level: <strong>{c.observedClose===null?"Unknown":c.observedClose.toLocaleString("en-GB",{maximumFractionDigits:3})}</strong>.
+                {c.previousDate&&c.previousClose!==null?
+                  <> Previous comparison ({c.previousDate}): {c.previousClose.toLocaleString("en-GB",{maximumFractionDigits:3})}.</>:
+                  " Previous close unavailable."}</p>
+              <p>One completed-session change: <strong>{c.oneSessionChange===null?"Unknown":
+                (c.oneSessionChange>0?"+":"")+c.oneSessionChange.toFixed(2)+" "+c.oneSessionUnit}</strong>.
+                Three-session: <strong>{c.threeSessionChange===null?"Unknown":
+                (c.threeSessionChange>0?"+":"")+c.threeSessionChange.toFixed(2)+" "+c.oneSessionUnit}</strong>.
+                Five-session: <strong>{c.fiveSessionChange===null?"Unknown":
+                (c.fiveSessionChange>0?"+":"")+c.fiveSessionChange.toFixed(2)+" "+c.oneSessionUnit}</strong>.</p>
+              <p><strong>Conditional chart read:</strong> {c.conditions}</p>
+              <small>{c.status} · {c.source}. {c.note}</small>
+              {c.sourceUrl?<a href={c.sourceUrl} rel="noopener noreferrer" target="_blank">Original daily source ↗</a>:null}
+            </li>)}
+          </ul> : <p>No source-dated completed daily benchmark was available.
+            We will not invent a previous close or chart structure.</p>}
+          <p>EMA20/50 ±1 standard deviation, the exact 4-hour candle and whether a
+            line has been broken or retested still require actual technical observations.
+            These are scenarios to check, not claimed chart signals.</p>
+        </section>
+        <section className={styles.deepSection} id="creator-views" aria-labelledby="creator-head">
+          <h2 id="creator-head">What market creators are discussing</h2>
+          <p>Attributed, transcript-derived interpretations, not original-source market
+            data, independently checked forecasts or endorsements. Each video date
+            can differ from the last close and from this article’s historical edition.</p>
+          {creatorViews.length?<ul className={styles.deepWatchList}>
+            {creatorViews.map(creator=><li key={creator.url}>
+              <h3>{creator.publisher}</h3>
+              <p><strong>{creator.title}</strong> · {creator.publishedAt.slice(0,10)}</p>
+              <p>{creator.view}</p>
+              <a href={creator.url} rel="noopener noreferrer" target="_blank">
+                Watch the attributed original video ↗
+              </a>
+            </li>)}
+          </ul>:<p>No sufficiently attributed, transcript-ready creator view matched this
+            subject within the review window. We do not substitute unverified
+            social posts or invent a market consensus.</p>}
+        </section>
         <div className={styles.deepLayout}>
           <article className={styles.deepArticle}>
             <section id="story-overview" className={styles.storyAtGlance} aria-labelledby="story-overview-title">

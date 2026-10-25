@@ -81,7 +81,7 @@ test("native exact source reader preserves immutable Dossier and original editor
   assert.match(src, /buildPresenterPrepEditorialReadiness/);
   assert.match(src, /<PresenterPrepSession editionId=\{pinned\.editionId\} dossierId=\{pinned\.dossierId\}/);
   assert.doesNotMatch(src, /createSupabaseAdminClient|story_thesis_versions|generateContent/);
-  assert.match(presenter, /redirect\("\/presenter\/full-prep\?" \+ params\.toString\(\)\)/);
+  assert.match(presenter, /redirect\("\/blue-desk\/presenter\/full-prep\?" \+ params\.toString\(\)\)/);
   assert.match(publication, /export async function getHybridDirectDailyBriefSuperseders/);
   const api = readFileSync(new URL("../app/api/owner/editorial-generate/route.ts", import.meta.url), "utf8");
   assert.match(api, /blueDeskHostAccess/);

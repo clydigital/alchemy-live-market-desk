@@ -96,7 +96,7 @@ export default async function BlueDeskPage() {
               ) : sourceFact ? (
                 <a className={styles.primaryAction} href={sourceFact.sourceUrl} target="_blank" rel="noreferrer">Read {sourceFact.sourceName} report ↗</a>
               ) : (
-                publicHost ? <span className={styles.empty}>Awaiting a source-supported publication.</span> : <Link className={styles.primaryAction} href="/articles">All articles →</Link>
+                <Link className={styles.primaryAction} href={blueDeskPublicHref("/blue-desk/key-stories",host)}>Open Key Stories →</Link>
               )}
               {feature && latest ? <DualTimestamp value={latest.published_at} className={styles.heroTime} /> :
                 newsFeature ? <DualTimestamp value={newsFeature.occurredAt} className={styles.heroTime} /> :
@@ -115,7 +115,7 @@ export default async function BlueDeskPage() {
                 <strong>{row.last === null ? "—" : row.last.toFixed(2) + "%"}</strong>
               </div>
             )) : <p className={styles.empty}>Yield data unavailable.</p>}
-            <Link href={publicHost ? blueDeskPublicHref("/blue-desk/markets", host) : "/markets"} className={styles.textLink}>Cross-asset monitor →</Link>
+            <Link href={blueDeskPublicHref("/blue-desk/markets", host)} className={styles.textLink}>Cross-asset monitor →</Link>
           </aside>
         </section>
 
@@ -124,7 +124,7 @@ export default async function BlueDeskPage() {
             <div>
               <h2 id="stories-title"><MarketIcon name="layers" size={24} /> Key market stories</h2>
             </div>
-            {!publicHost ? <Link href="/articles" className={styles.textLink}>All articles →</Link> : null}
+            <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)} className={styles.textLink}>All stories →</Link>
           </div>
           <div className={styles.storyGrid}>
             {articles.length ? articles.map(article => (
@@ -153,7 +153,7 @@ export default async function BlueDeskPage() {
                 <p className={styles.kicker}>MARKET MOTION</p>
                 <h2 id="motion-title"><MarketIcon name="divergence" size={24} /> What changed</h2>
               </div>
-              {!publicHost ? <Link className={styles.textLink} href="/whats-new">Investigate →</Link> : null}
+              <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/what-changed",host)}>What changed →</Link>
             </div>
             {verifiedNews.length ? verifiedNews.map(news => (
               <article key={news.id} className={styles.motionRow}>
@@ -203,26 +203,16 @@ export default async function BlueDeskPage() {
           </section>
         </div>
 
-        <section className={styles.lastLinks} aria-label="Desk research and presenter">
+        <section className={styles.lastLinks} aria-label="Explore Bluebelly">
           <div>
-            <h2>{publicHost ? "Explore public research" : "Dossier, Journey and presenter preparation"}</h2>
+            <h2>Continue in Bluebelly</h2>
           </div>
           <div className={styles.quickLinks}>
-            {publicHost ? (
-              <>
-                <Link href="/#stories-title">Key market stories →</Link>
-                <Link href="/#rates-title">Observed Treasury yields →</Link>
-                <Link href="/markets">Public markets →</Link>
-                <Link href="/calendar">Public calendar →</Link>
-              </>
-            ) : (
-              <>
-                <Link href="/dossier">Current Dossier →</Link>
-                <Link href="/regimes">Market Regimes →</Link>
-                <Link href="/hybrid-output/prepare">Presenter Studio →</Link>
-                <Link href="/presenter/technical-checks">Technical Checks →</Link>
-              </>
-            )}
+            <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>Expanded market stories →</Link>
+            <Link href={blueDeskPublicHref("/blue-desk/rates",host)}>Rates and yields →</Link>
+            <Link href={blueDeskPublicHref("/blue-desk/what-changed",host)}>What changed →</Link>
+            <Link href={blueDeskPublicHref("/blue-desk/calendar",host)}>Event calendar →</Link>
+            {!publicHost?<Link href="/blue-desk/presenter">Private Presenter Prep →</Link>:null}
           </div>
         </section>
 

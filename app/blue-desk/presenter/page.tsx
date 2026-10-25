@@ -41,7 +41,7 @@ export default async function BluebellyPresenterPrep({
     if (key === "edition" && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)) notFound();
     params.set(key, v.trim());
   }
-  if (params.size) redirect("/presenter/full-prep?" + params.toString());
+  if (params.size) redirect("/blue-desk/presenter/full-prep?" + params.toString());
 
   const [raw, monitor, slate] = await Promise.all([
     getCurrentVerifiedMarketMotion({ limit: 18 }).catch(() => []),
@@ -67,8 +67,8 @@ export default async function BluebellyPresenterPrep({
         <div className={ui.links}>
           <a className={ui.action} href="#writing">Open Writing Brain ↓</a>
           <a className={ui.action} href="#technical">Review 14 technical checks ↓</a>
-          <Link href="/calendar">Upcoming economic events →</Link>
-          <Link href="/presenter/full-prep">Open edition-locked prep →</Link>
+          <Link href="/blue-desk/calendar">Upcoming economic events →</Link>
+          <Link href="/blue-desk/presenter/full-prep">Open edition-locked prep →</Link>
         </div>
       </header>
 
@@ -119,9 +119,8 @@ export default async function BluebellyPresenterPrep({
         <PresenterTechnicalChecks compact />
       </section>
       <footer className={ui.footer}>Owner-only. Nothing here updates a Story,
-        Regime, original Evidence or published edition. Exact historical editions
-        remain available through the existing protected Live Desk until the
-        native edition-pinned partition is validated.</footer>
+        Regime, original Evidence or published edition. Use the native Bluebelly
+        edition-locked prep to review a specific historical snapshot.</footer>
     </div>
   </main>;
 }

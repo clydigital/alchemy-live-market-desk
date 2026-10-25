@@ -6,7 +6,22 @@ import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-
 
 import styles from "@/app/blue-desk/blue-desk.module.css";
 
+// All Bluebelly navigation stays on native, exact Blue Desk pages. Research
+// inputs and older Live Desk routes remain internal compatibility surfaces,
+// never exits in the reader/presenter navigation.
 const PRIVATE_NAV = [
+  ["Live Market", "/blue-desk"],
+  ["Markets", "/blue-desk/markets"],
+  ["Key Stories", "/blue-desk/key-stories"],
+  ["Rates", "/blue-desk/rates"],
+  ["What Changed", "/blue-desk/what-changed"],
+  ["Calendar", "/blue-desk/calendar"],
+  ["Presenter Prep", "/blue-desk/presenter"],
+] as const;
+
+// Compatibility navigation is limited to pages belonging to the old owner
+// workspaces themselves; native Bluebelly never advertises these exits.
+const LEGACY_OWNER_NAV = [
   ["Live Market", "/blue-desk"],
   ["Markets", "/markets"],
   ["Editorial Studio", "/owner/editorial"],
@@ -29,8 +44,7 @@ const PUBLIC_NAV = [
   ["Rates", "/rates"],
   ["What Changed", "/what-changed"],
   ["Calendar", "/calendar"],
-  ["Presenter Prep", "/presenter"],
-] as const;
+ ] as const;
 
 const NAV_ICONS: Record<string, MarketIconName> = {
   "Live Market": "market",
@@ -49,14 +63,14 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "What Changed": "divergence",
 };
 
-/** Shared presentation chrome. These links reuse canonical Live Desk pages. */
+/** Bluebelly-first navigation. Legacy operational routes remain unadvertised. */
 export default async function BlueDeskHeader({ activePath }: { activePath: string }) {
   const host = (await headers()).get("host");
   const publicHost = isBlueDeskPublicReaderHost(host);
   // Authenticated owner routes must retain their private workspace navigation,
   // even when opened on the canonical hostname that also serves public readers.
   const ownerWorkspace = activePath === "/owner/editorial" || activePath === "/owner/presenter";
-  const nav = publicHost && !ownerWorkspace ? PUBLIC_NAV : PRIVATE_NAV;
+  const nav = ownerWorkspace ? LEGACY_OWNER_NAV : publicHost ? PUBLIC_NAV : PRIVATE_NAV;
   return (
     <header className={styles.topbar}>
       <Link href={blueDeskPublicHref("/blue-desk", host)} className={styles.brand} aria-label="Blue Desk — Live Market">
@@ -67,8 +81,8 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
           <Link
             key={href}
             href={blueDeskPublicHref(href, host)}
-            aria-current={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/rates" && activePath === "/blue-desk/rates") || (href === "/what-changed" && activePath === "/blue-desk/what-changed") || (href === "/presenter" && activePath === "/blue-desk/presenter")))) ? "page" : undefined}
-            className={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/rates" && activePath === "/blue-desk/rates") || (href === "/what-changed" && activePath === "/blue-desk/what-changed") || (href === "/presenter" && activePath === "/blue-desk/presenter")))) ? styles.navActive : styles.navItem}
+            aria-current={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/rates" && activePath === "/blue-desk/rates") || (href === "/what-changed" && activePath === "/blue-desk/what-changed")))) ? "page" : undefined}
+            className={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/rates" && activePath === "/blue-desk/rates") || (href === "/what-changed" && activePath === "/blue-desk/what-changed")))) ? styles.navActive : styles.navItem}
           >
             <MarketIcon name={NAV_ICONS[title] || "market"} size={17} />
             <span>{title}</span>
