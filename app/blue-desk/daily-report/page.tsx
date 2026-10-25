@@ -7,6 +7,7 @@ import { formatDualDeskTime } from "@/lib/blue-desk-time";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { getOriginalPressNews } from "@/lib/blue-desk-original-press-news-server";
+import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
 import { combineQualifiedNews } from "@/lib/blue-desk-qualified-news";
 import { projectLivingMarketTopics } from "@/lib/blue-desk-living-topics";
 import { listPublishedReports, getLatestPublishedDailyReport } from "@/lib/editorial-publications-server";
@@ -27,7 +28,7 @@ export default async function DailyReportPage() {
   const host = (await headers()).get("host");
   // All feeds are existing public read models. There is no Dossier, Story
   // adjudication or model completion in this GET path.
-  const [verified, reports, latestReviewed, macro, earnings, originalPress] = await Promise.all([
+  const [verified, reports, latestReviewed, macro, earnings, originalPress, macroDigests] = await Promise.all([
     getCurrentVerifiedMarketMotion({ limit: 36 }).catch(() => []),
     listPublishedReports(8).catch(() => []),
     getLatestPublishedDailyReport().catch(() => null),
@@ -36,6 +37,7 @@ export default async function DailyReportPage() {
       events: [], coverage: "unavailable" as const, warning: "Earnings source unavailable",
     })),
     getOriginalPressNews(now,18).catch(() => []),
+    getPublishedMacroPulseBriefs(4).catch(() => []),
   ]);
   const motionNews = selectVerifiedNewsBriefs(verified, now, 18);
   const news = combineQualifiedNews(motionNews,originalPress,18);
@@ -99,6 +101,40 @@ export default async function DailyReportPage() {
           owner-approved report has been published yet; headlines and Notion research
           are not silently promoted into a finished analysis.
         </p>}
+      </section>
+
+      <section className={styles.section} aria-labelledby="macropulse-editorial" data-macropulse-editorial="attributed-research">
+        <div className={styles.heading}>
+          <p className={styles.eyebrow}>RESEARCH DESK / MACROPULSE</p>
+          <h2 id="macropulse-editorial">What the research is telling us</h2>
+          <p>Short, owner-reviewed explanations drawn from dated MacroPulse posts.
+            These are attributed research assessments, not independently verified breaking News,
+            and they do not amend a canonical Story or Dossier.</p>
+        </div>
+        {macroDigests.length ? <div className={styles.readings}>
+          {macroDigests.map(brief=><article className={styles.reading} key={brief.id}>
+            <p className={styles.eyebrow}>MACROPULSE-DERIVED · EDITOR REVIEWED · {brief.primary_region.toUpperCase()}</p>
+            <h3>{brief.headline}</h3>
+            <p className={styles.deck}>{brief.standfirst}</p>
+            <dl className={styles.questions}>
+              <div><dt>What changed?</dt><dd>{brief.what_changed}</dd></div>
+              <div><dt>Why should markets care?</dt><dd>{brief.why_it_matters}</dd></div>
+              <div><dt>What argues against the idea?</dt><dd>{brief.countercase}</dd></div>
+              <div><dt>What should we watch next?</dt><dd>{brief.watch_next}</dd></div>
+            </dl>
+            <p>Original research: <a href={brief.source_page_url} target="_blank" rel="noopener noreferrer">
+              MacroPulse {brief.source_pulse_id}</a>
+              {" · "}Pulse published <DualTimestamp value={brief.source_published_at}/>
+              {" · "}Editorial edition <DualTimestamp value={brief.published_at}/></p>
+            <div className={styles.row}>
+              {brief.source_links.map(link=><a key={link.url} href={link.url}
+                 target="_blank" rel="noopener noreferrer">{link.label} ({link.kind.replaceAll("_"," ").toLowerCase()})</a>)}
+            </div>
+            <p className={styles.context}>Research-derived interpretation. Linked sources retain their individual
+              evidentiary limits; no event-to-price reaction is independently established by this summary.</p>
+          </article>)}
+        </div> : <p className={styles.empty}>No owner-reviewed MacroPulse briefs have been delivered yet.
+          The source-verified News and research archive remain separate.</p>}
       </section>
 
       <section className={styles.section} aria-labelledby="developments">
