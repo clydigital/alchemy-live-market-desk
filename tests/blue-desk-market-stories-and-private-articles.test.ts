@@ -73,7 +73,7 @@ test("private daily slate stays authenticated while editor-approved publications
  const publicNav=header.match(/const PUBLIC_NAV = \[([\s\S]*?)\] as const;/)?.[1]||"";
  assert.match(publicNav,/COTD \/ OB/);
  assert.match(publicNav,/\/reports/);
- assert.match(header,/Private Daily Articles/);
+ assert.match(header,/COTD \/ OB Angles/);
  assert.ok(header.includes('activePath === "/owner/daily-articles"'));
  assert.ok(header.includes('activePath === "/owner/x-wire"'));
  assert.match(owner,/data-private-daily-articles-page="owner-authenticated"/);
