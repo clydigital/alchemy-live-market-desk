@@ -60,36 +60,25 @@ test("fail closed on unversioned, fake, duplicate, future or unsupported Story c
  assert.equal(projectFrozenTrackedStories(null),null);
 });
 
-test("publisher preserves published-only and historical watch as distinct user-facing sections",()=>{
+test("public Story and homepage readers use verified rolling topics, not frozen dossier projections",()=>{
  const page=readFileSync(new URL("../app/blue-desk/page.tsx",import.meta.url),"utf8");
  const expanded=readFileSync(new URL("../app/blue-desk/key-stories/page.tsx",import.meta.url),"utf8");
- assert.match(page,/projectFrozenTrackedStories\(latest\)/);
- assert.match(page,/data-public-tracked-stories="true"/);
+ const daily=readFileSync(new URL("../app/blue-desk/daily-report/page.tsx",import.meta.url),"utf8");
+ for(const reader of [page,expanded,daily]){
+   assert.match(reader,/projectLivingMarketTopics/);
+   assert.match(reader,/selectVerifiedNewsBriefs/);
+   assert.doesNotMatch(reader,/getLiveDeskHomepageDailyBrief|projectFrozenTrackedStories|loadEditorialMarketBrief/);
+   assert.doesNotMatch(reader,/story_thesis_versions|createSupabaseAdminClient|generateContent/);
+ }
+ assert.match(page,/data-public-living-stories="true"/);
  assert.match(page,/className=\{tracked\.grid\}/);
  assert.match(page,/className=\{tracked\.card\}/);
+ assert.match(expanded,/data-living-topics="dossier-independent"/);
+ assert.match(expanded,/listPublishedReports/);
  const grid=readFileSync(new URL("../app/blue-desk/tracked-stories.module.css",import.meta.url),"utf8");
  assert.match(grid,/grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
  assert.match(grid,/@media\(max-width:1080px\)/);
  assert.match(grid,/@media\(max-width:690px\)/);
- assert.match(page,/No material thesis update is claimed/);
- assert.match(page,/key-stories",host\)\+"#story-"/);
- assert.match(expanded,/Published analysis/);
- assert.match(expanded,/readableSourceArticleLead\(a\.title,a\.editorial\.evidenceClaims/);
- assert.match(expanded,/copy\?\.headline\|\|a\.title/);
- assert.match(expanded,/copy\?\.deck\|\|a\.deck/);
- assert.match(expanded,/articleHref\(a\.articleId,a\.editionId\)/);
- assert.match(expanded,/Ongoing Story watch/);
- assert.match(expanded,/no accepted material change/);
- assert.match(expanded,/No new accepted Story change/);
- assert.match(expanded,/currentAcceptedStoryCount/);
- assert.match(expanded,/evidenceReferenceCount/);
- const sources=readFileSync(new URL("../lib/blue-desk-tracked-evidence.ts",import.meta.url),"utf8");
- assert.doesNotMatch(sources,/claim_text|claimExcerpt/);
- assert.match(sources,/const allowed=\["sec\.gov"/);
- assert.match(sources,/source_tier>2/);
- assert.match(sources,/created>asOf\|\|available>asOf/);
- assert.doesNotMatch(expanded,/source\.claimExcerpt/);
- assert.doesNotMatch(expanded,/\.from\("story_thesis_versions"\)|createSupabaseAdminClient|generateContent/);
  assert.equal(blueDeskHostAccess("/key-stories","bluebelly-desk.vercel.app"),"public");
  assert.equal(blueDeskPresentationTarget("/key-stories","bluebelly-desk.vercel.app"),"/blue-desk/key-stories");
 });
