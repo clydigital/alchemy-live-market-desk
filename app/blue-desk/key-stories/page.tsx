@@ -6,22 +6,26 @@ import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { projectLivingMarketTopics } from "@/lib/blue-desk-living-topics";
+import { getPublicThesisLedger } from "@/lib/blue-desk-thesis-ledger-server";
+import { getPublicSourceObservations } from "@/lib/blue-desk-source-observations";
 import { listPublishedReports } from "@/lib/editorial-publications-server";
 import desk from "../blue-desk.module.css";
 import ui from "./key-stories.module.css";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
-  title: "Current Market Themes | Bluebelly",
-  description: "Rolling source-verified market developments grouped into live research topics.",
+  title: "Persistent Market Theses | Bluebelly",
+  description: "Dated long-lived market theses with recorded support, contradictions and next tests, separate from recent news.",
 };
 
 export default async function KeyStories(){
   const now = new Date();
   const host = (await headers()).get("host");
-  const [raw, reviewed] = await Promise.all([
+  const [raw, reviewed, theses, observations] = await Promise.all([
     getCurrentVerifiedMarketMotion({ limit: 36 }).catch(() => []),
     listPublishedReports(6).catch(() => []),
+    getPublicThesisLedger(now,9).catch(() => []),
+    getPublicSourceObservations(now,8).catch(() => []),
   ]);
   const news = selectVerifiedNewsBriefs(raw, now, 18);
   const topics = projectLivingMarketTopics(news);
@@ -30,25 +34,68 @@ export default async function KeyStories(){
     <BlueDeskHeader activePath="/blue-desk/key-stories" />
     <div className={desk.content}>
       <header className={ui.intro}>
-        <p className={desk.kicker}>STORY DESK / ROLLING MARKET TOPICS</p>
-        <h1>What is changing in the markets?</h1>
-        <p>These research topics follow newly verified developments.
-          They do not need a canonical Story update or Dossier snapshot
-          before appearing. Each item links to its original reported fact,
-          while the bigger explanation remains a question until assessed.</p>
-        <p>Window: the latest 48 hours, not an all-time historical Story ledger.</p>
+        <p className={desk.kicker}>STORY DESK / PERSISTENT THESIS LEDGER</p>
+        <h1>What does the desk believe, and what would change its mind?</h1>
+        <p>These are dated, continuing market theses read from the existing Story record.
+          Their last amendment is not today's market verdict. New factual reports and source
+          observations remain separate, and no new Dossier reasoning is performed here.</p>
+        <p>Historical thesis updates are kept distinct from events observed in the latest 48 hours.</p>
         <Link className={ui.returnLink}
           href={blueDeskPublicHref("/blue-desk/daily-report",host)}>
           Read the Daily Report
         </Link>
       </header>
       <div className={ui.summary}>
-        <span>{topics.length} currently active topic{topics.length === 1 ? "" : "s"}</span>
+        <span>{theses.length} persistent tracked theses</span>
+        <span>{topics.length} current news topics</span>
         <span>{news.length} source-verified development{news.length === 1 ? "" : "s"}</span>
         <span>As of <DualTimestamp value={now.toISOString()} /></span>
       </div>
+      <section className={ui.section} aria-labelledby="persistent-theses" data-persistent-thesis-ledger="source-identity">
+        <h2 id="persistent-theses">Persistent market theses</h2>
+        <p>Stored hypotheses and observations below were recorded on the dates shown.
+          They are neither automatically reaffirmed today nor treated as new market news.
+          The only valid Story IDs are the existing database identities.</p>
+        {theses.length ? <div className={ui.cards}>{theses.map(thesis=>
+          <article className={ui.card} id={"thesis-"+thesis.slug} key={thesis.id}>
+            <p className={ui.kicker}>RECORDED {thesis.status.toUpperCase()} THESIS · LAST AMENDED <DualTimestamp value={thesis.updatedAt}/></p>
+            <h3>{thesis.title}</h3>
+            <p><strong>Market question:</strong> {thesis.question}</p>
+            <p><strong>Recorded thesis:</strong> {thesis.thesis}</p>
+            {thesis.pricedAssessment?<p><strong>Market assessment at last amendment:</strong> {thesis.pricedAssessment}</p>:null}
+            <div className={ui.test}>
+              <strong>Supporting evidence recorded in the thesis</strong>
+              <p>{thesis.support||"No supporting summary was recorded."}</p>
+              <strong>Strongest countercase recorded</strong>
+              <p>{thesis.contradiction||"No countercase was recorded."}</p>
+            </div>
+            <div className={ui.test}>
+              <strong>What would confirm the interpretation?</strong>
+              <p>{thesis.confirmation||"Confirmation condition not recorded."}</p>
+              <strong>What would invalidate it?</strong>
+              <p>{thesis.invalidation||"Invalidation condition not recorded."}</p>
+              <strong>Next test as recorded</strong>
+              <p>{thesis.nextTest||"No next catalyst recorded."}</p>
+            </div>
+            <small>Thesis history only · Last amended <DualTimestamp value={thesis.updatedAt}/>. These stored statements are not reverified by this page.</small>
+          </article>
+        )}</div>:<p className={ui.empty}>No qualified ranked thesis identities were available.</p>}
+      </section>
+      <section className={ui.section} aria-labelledby="recent-originals">
+        <h2 id="recent-originals">Latest original-source market observations</h2>
+        <p>Exact dated measurements or official releases only. A market close does not explain its own cause,
+          and an old observation does not become new because it was retrieved again.</p>
+        {observations.length?<div className={ui.cards}>{observations.map(item=>
+          <article className={ui.card} key={item.id}>
+            <p className={ui.kicker}>{item.kind==="MARKET_OBSERVATION"?"LAST COMPLETED MARKET OBSERVATION":"ORIGINAL RELEASE"}</p>
+            <p>{item.description}</p>
+            <small>Event time <DualTimestamp value={item.eventAt}/></small>
+            <a href={item.sourceUrl} rel="noopener noreferrer" target="_blank">{item.sourceName} · original source</a>
+          </article>
+        )}</div>:<p className={ui.empty}>No qualifying recent original-source measurements. This is not evidence of an inactive market.</p>}
+      </section>
       <section className={ui.section} aria-labelledby="live-topics">
-        <h2 id="live-topics">Live research topics</h2>
+        <h2 id="live-topics">Topics from current verified News</h2>
         <p>Topics are grouped from verified news text for navigation only.
           That classification does not establish market impact, a trading signal
           or agreement with an older thesis. No stale Story is presented as new.</p>
