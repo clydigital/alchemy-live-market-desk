@@ -185,6 +185,13 @@ async function discoverNotionDay(
       }).then(res=>selectNotionResearchPages(res.results,day,macroRoot,gateSource).gateId)
         .catch(()=>{fallbackWarnings.push("Research Gap data source could not be queried.");return null;}),
   ]);
+  // A successful exact parent and data-source read supersedes a failing
+  // workspace title search. The title-search outage does not mean the
+  // complete, independently scoped results are missing.
+  if(archive&&gate){
+    return {archiveId:archive,gateId:gate,searchPaginated,
+      fallbackWarnings:fallbackWarnings.filter(w=>!w.startsWith("Notion title search unavailable"))};
+  }
   return {archiveId:archive,gateId:gate,searchPaginated,fallbackWarnings};
 }
 export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionResearchBundle>{
@@ -261,5 +268,9 @@ export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionRes
     if(today.searchPaginated)warnings.push("Notion search results were paginated; latest-page discovery may be partial.");
   }catch{return {status:"UNAVAILABLE",sources:[],fetchedAt,
     warnings:["Notion read could not complete. Do not reuse an undated cached report."]};}
-  return {status:sources.length===3&&warnings.length===0?"READY_FOR_REVIEW":"PARTIAL",sources,warnings,fetchedAt};
+  const readBlocked=sources.length===0&&warnings.some(w=>
+    /(?:root page could not be listed|data source could not be queried|archive could not be read|run could not be read)/i.test(w));
+  return {status:readBlocked?"UNAVAILABLE":
+      sources.length===3&&warnings.length===0?"READY_FOR_REVIEW":"PARTIAL",
+    sources,warnings,fetchedAt};
 }
