@@ -15,6 +15,8 @@ import { getMarketMonitor } from "@/lib/market-monitor-public";
 
 
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
+import { getOriginalPressNews } from "@/lib/blue-desk-original-press-news-server";
+import { combineQualifiedNews } from "@/lib/blue-desk-qualified-news";
 
 
 import tracked from "./tracked-stories.module.css";
@@ -45,7 +47,7 @@ export default async function BlueDeskPage() {
   const now = new Date();
   const host = (await headers()).get("host");
   const publicHost = isBlueDeskPublicReaderHost(host);
-  const [macro, earnings, monitor, verifiedMotions, reports, observations, theses] = await Promise.all([
+  const [macro, earnings, monitor, verifiedMotions, reports, observations, theses, originalPress] = await Promise.all([
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({ now }).catch(() => ({
       events: [], coverage: "unavailable" as const, warning: "Earnings source unavailable",
@@ -55,8 +57,10 @@ export default async function BlueDeskPage() {
     listPublishedReports(6).catch(() => []),
     getPublicSourceObservations(now,8).catch(() => []),
     getPublicThesisLedger(now,9).catch(() => []),
+    getOriginalPressNews(now,12).catch(() => []),
   ]);
-  const verifiedNews = selectVerifiedNewsBriefs(verifiedMotions, now, 12);
+  const motionNews = selectVerifiedNewsBriefs(verifiedMotions, now, 12);
+  const verifiedNews = combineQualifiedNews(motionNews,originalPress,12);
   const newsFeature = verifiedNews[0] || null;
   const observedFeature = observations[0] || null;
   const latestReport = reports[0] || null;
