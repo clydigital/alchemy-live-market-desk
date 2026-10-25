@@ -1,0 +1,34 @@
+.page{min-height:100vh;background:#031827;color:#e9f4fa}
+.shell{max-width:1220px;margin:auto;padding:28px clamp(16px,3vw,38px) 70px}
+.hero{padding:clamp(22px,4vw,42px);border:1px solid #245875;border-radius:12px;background:linear-gradient(125deg,#07344f,#031c30)}
+.eyebrow{font-size:11px;font-weight:750;letter-spacing:.11em;color:#76d9fa;text-transform:uppercase}
+.hero h1{font-family:Georgia,serif;font-size:clamp(30px,4vw,52px);font-weight:600;line-height:1.13;margin:10px 0}
+.lead{max-width:780px;font-size:17px;line-height:1.6;color:#d1e3ee}
+.meta{display:flex;gap:12px 22px;flex-wrap:wrap;color:#a1c8da;font-size:12px;margin:20px 0 12px}
+.context{font-size:12px;line-height:1.65;color:#accbda;max-width:880px;margin-bottom:0}
+.context strong{color:#dceef5}
+.section{padding:30px 0;border-bottom:1px solid #1f4b62}
+.heading{max-width:790px;margin-bottom:20px}
+.heading h2{font-family:Georgia,serif;font-size:clamp(25px,3vw,34px);margin:6px 0 9px}
+.heading p:not(.eyebrow){color:#b9d2de;line-height:1.65}
+.newsList{display:grid;gap:11px}
+.news,.reading,.watch{border:1px solid #24536c;border-radius:9px;background:#072538;padding:clamp(16px,2.3vw,25px)}
+.news h3,.reading h3,.watch h3{font-size:18px;margin:5px 0 9px;color:#f2fbff;line-height:1.35}
+.news p,.reading p,.watch p{color:#c4d9e4;line-height:1.6}
+.row,.readingFoot{display:flex;justify-content:space-between;gap:9px 20px;flex-wrap:wrap;font-size:12px;color:#9abed0;align-items:baseline}
+.page a{color:#87ddfb;text-decoration:underline;text-underline-offset:3px}
+.readings,.watchGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+.deck{font-size:14px}
+.questions{display:grid;gap:13px;margin:20px 0}
+.questions div{padding-left:14px;border-left:2px solid #357596}
+.questions dt{color:#96dbfa;font-weight:700;font-size:13px}
+.questions dd{color:#d2e4ed;margin:5px 0 0;font-size:13px;line-height:1.65}
+.watch small{color:#90bace;line-height:1.5}
+.empty{padding:22px;border:1px dashed #386c82;color:#bbd2dc;border-radius:9px}
+.twoCols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.event{border-top:1px solid #2a576d;margin-top:13px;padding-top:14px}
+.event strong,.event span,.event small{display:block;margin-bottom:5px}
+.event span,.event small{color:#9dc5d5;font-size:12px}
+.event p{font-size:13px}
+.footer{color:#83acbf;line-height:1.7;font-size:12px;padding-top:25px;max-width:930px}
+@media(max-width:760px){.readings,.watchGrid,.twoCols{grid-template-columns:1fr}.shell{padding-top:15px}.section{padding:22px 0}}
