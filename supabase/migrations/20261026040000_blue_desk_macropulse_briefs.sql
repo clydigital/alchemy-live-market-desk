@@ -46,7 +46,7 @@ revoke all on public.blue_desk_macropulse_briefs from anon,authenticated;
 grant select(id,source_page_id,source_pulse_id,source_page_url,
  source_published_at,source_retrieved_at,headline,standfirst,what_changed,
  why_it_matters,countercase,watch_next,source_links,primary_region,
- verification_label,published_at)
+ verification_label,status,published_at)
  on public.blue_desk_macropulse_briefs to anon,authenticated;
 -- All creation/promotion uses existing owner-checked or scoped private
 -- server-only service role. No browser client can mutate this table.
