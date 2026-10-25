@@ -125,3 +125,20 @@ test("reviewed Daily Report uses existing PDF approval contract, SQL RLS and ded
  assert.match(page,/getLatestPublishedDailyReport/);
  assert.match(page,/Reviewed research references/);
 });
+
+test("Notion Gate discovery uses the real Run title property, not Name or title",()=>{
+  const rows=[
+    {id:"403519b6-7a94-81df-8e29-feaacb0d7bb0",
+     parent:{type:"page_id",page_id:macro},properties:{title:{type:"title",title:[{plain_text:day+" — MacroPulse"}]}}},
+    {id:"404519b6-7a94-8115-afdb-c66b8082561d",
+     parent:{type:"data_source_id",data_source_id:source},
+     properties:{Run:{id:"title",type:"title",title:[{plain_text:day+" 20:40 MYT — PM Research Gap Gate"}]}}},
+    {id:"404519b6-7a94-8129-86c2-e49a03021823",
+     parent:{type:"data_source_id",data_source_id:source},
+     properties:{Run:{id:"title",type:"title",title:[{plain_text:day+" 08:40 MYT — AM Research Gap Gate"}]}}},
+  ];
+  assert.deepEqual(selectNotionResearchPages(rows,day),{
+    archiveId:"403519b67a9481df8e29feaacb0d7bb0",
+    gateId:"404519b67a948115afdbc66b8082561d",
+  });
+});
