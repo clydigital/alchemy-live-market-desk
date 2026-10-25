@@ -47,6 +47,19 @@ test("structured OB packet maps directly to editor fields, never accepts externa
  assert.doesNotMatch(result.research.sources,/evil|localhost/);
  assert.ok(result.research.missingProof.includes("NOT INDEPENDENTLY VERIFIED"));
 });
+test("ChatGPT fenced JSON research is imported as structured data, not a raw code snippet",()=>{
+ const markdown="```json\n"+JSON.stringify({
+  kind:"COTD",title:"Oil at a hypothetical EMA decision",
+  hook:"Chart structure needs independent review",body:"Research draft with uncertainty.",
+  sourceUrls:[FED],
+ })+"\n```";
+ const result=parseExternalResearch(markdown,"OB");
+ assert.equal(result.ok,true);
+ if(!result.ok)return;
+ assert.equal(result.research.kind,"COTD");
+ assert.equal(result.research.title,"Oil at a hypothetical EMA decision");
+ assert.equal(result.research.sources,FED);
+});
 test("invalid/missing JSON and oversized notes fail without replacing browser drafts",()=>{
  assert.equal(parseExternalResearch("", "OB").ok,false);
  assert.equal(parseExternalResearch("{oops","OB").ok,false);
