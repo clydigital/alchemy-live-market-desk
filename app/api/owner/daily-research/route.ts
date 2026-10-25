@@ -14,6 +14,7 @@ import { getForwardEarningsEvents } from "@/lib/forward-earnings-sources";
 import { buildPresenterCalendar } from "@/lib/presenter-calendar";
 import { selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
+import {getOwnerDeliveredResearchBriefs} from "@/lib/blue-desk-delivered-research-server";
 
 export const dynamic="force-dynamic";
 export const runtime="nodejs";
@@ -34,7 +35,7 @@ export async function GET(req:NextRequest){
   if(accessError||!access)return fail(403,"Owner account not authorised");
 
   const now=new Date();
-  const [notion,rawNews,originalPress,monitor,macro,earnings]=await Promise.all([
+  const [notion,rawNews,originalPress,monitor,macro,earnings,delivery]=await Promise.all([
     fetchTodayNotionResearch(now),
     getCurrentVerifiedMarketMotion({limit:24}).catch(()=>[]),
     getOriginalPressNews(now,12).catch(()=>[]),
@@ -43,6 +44,9 @@ export async function GET(req:NextRequest){
     getForwardEarningsEvents({now}).catch(()=>({
       events:[],coverage:"unavailable" as const,warning:"Earnings source unavailable",
     })),
+    getOwnerDeliveredResearchBriefs(6)
+      .then(briefs=>({status:"AVAILABLE" as const,briefs}))
+      .catch(()=>({status:"UNAVAILABLE" as const,briefs:[]})),
   ]);
   const motionNews=selectVerifiedNewsBriefs(rawNews,now,12);
   const news=combineQualifiedNews(motionNews,originalPress,12);
@@ -50,6 +54,7 @@ export async function GET(req:NextRequest){
   const upcoming=selectBlueDeskUpcoming(calendar,now,30).slice(0,14);
   const packet=buildDailyResearchPacket({
     now:now.toISOString(),notion,news,
+    editorialBriefs:delivery.briefs,
     prices:(monitor?.rows||[]).filter(r=>r.last!==null)
       .slice(0,12).map(r=>({
         label:r.label,level:r.last,asOf:r.asOf,
@@ -63,7 +68,10 @@ export async function GET(req:NextRequest){
   });
   const health=assessDailyResearchHealth({now,notion,packet,news});
   return NextResponse.json({
-    ...packet,health,sourcePages:notion.sources.map(s=>({
+    ...packet,health,
+    deliveredResearch:{status:delivery.status,count:delivery.briefs.length,
+      caveat:"Delivered editorial briefs are unverified research, not a substitute for full Notion or Research Gap source reads."},
+    sourcePages:notion.sources.map(s=>({
       kind:s.kind,title:s.title,url:s.url,retrievedAt:s.retrievedAt,
     })),
     calendarWarnings:calendar.sourceHealth.warnings,

@@ -1,5 +1,6 @@
 import type { NotionResearchBundle } from "./notion-market-research.ts";
 import type { NewsBriefV1 } from "./market-brief-news.ts";
+import type { DeliveredMacroPulseBrief } from "./blue-desk-delivered-research";
 
 export type DailyResearchCalendarItem = {
   title:string; scheduledAt:string|null; sourceName:string; sourceUrl:string|null;
@@ -20,6 +21,7 @@ export type DailyResearchPacket = {
   notionStatus:NotionResearchBundle["status"];
   warnings:string[];
   newsCount:number;
+  deliveredBriefCount?:number;
   packet:string;
   sourceUrls:string[];
 };
@@ -36,6 +38,7 @@ export function buildDailyResearchPacket(input:{
   now:string; notion:NotionResearchBundle; news:readonly NewsBriefV1[];
   calendar:readonly DailyResearchCalendarItem[];
   prices:readonly DailyResearchPriceObservation[];
+  editorialBriefs?:readonly DeliveredMacroPulseBrief[];
 }):DailyResearchPacket{
   const links=new Set<string>();
   const include=(url:unknown)=>{const safeLink=safeUrl(url);if(safeLink&&links.size<40)links.add(safeLink);};
@@ -69,6 +72,17 @@ export function buildDailyResearchPacket(input:{
     }
     if(candidates.length>=32)break;
   }
+  const delivered=(input.editorialBriefs||[]).slice(0,6);
+  for(const brief of delivered){
+    for(const link of Array.isArray(brief.source_links)?brief.source_links.slice(0,8):[]){
+      const url=safeUrl(link.url),key=url&&normalise(url);
+      if(!url||!key||candidateKeys.has(key)||candidates.length>=32)continue;
+      candidateKeys.add(key);
+      candidates.push({url,sourcePageUrl:brief.source_page_url,kind:"MACROPULSE",
+        verification:proven.has(key)?"EXACT_NEWS_SOURCE_MATCH":"UNVERIFIED_LINK",
+        matchingNewsHeadline:proven.get(key)||null});
+    }
+  }
   const lines=[
     "RESEARCH PACKET v1 / PRIVATE UNVERIFIED ANALYST INPUT",
     "Assembled: "+input.now,
@@ -81,8 +95,34 @@ export function buildDailyResearchPacket(input:{
     "NOTION COVERAGE: "+input.notion.status,
     ...input.notion.warnings.map(w=>"COVERAGE WARNING: "+safe(w,550)),
     "",
-    "## SOURCE-VERIFIED NEWS (factual only, no automatic price/causal claim)",
   ];
+  if(delivered.length){
+    lines.push("## PRIVATELY DELIVERED MACROPULSE EDITORIAL BRIEFS — RESEARCH ONLY",
+      "These are attributed drafts supplied to the separate owner review queue, NOT independently verified News, accepted Motion, Dossier evidence, or proof of a live Notion API read.",
+      "The original MacroPulse and Research Gap coverage status above remains unchanged. Research Gate completeness must be assessed separately.");
+    for(const brief of delivered){
+      include(brief.source_page_url);
+      lines.push("### "+safe(brief.headline,140),
+        "Source Pulse: "+safe(brief.source_pulse_id,180),
+        "Original research: "+safe(brief.source_page_url,500),
+        "Source published: "+safe(brief.source_published_at,50)+
+        "; retrieved: "+safe(brief.source_retrieved_at,50),
+        "Owner status: "+(brief.status==="published"?"OWNER-REVIEWED RESEARCH":"UNAPPROVED REVIEW DRAFT")+
+        "; verification: RESEARCH_DERIVED_UNADJUDICATED",
+        "Standfirst: "+safe(brief.standfirst,550),
+        "Claim as described by research: "+safe(brief.what_changed,1500),
+        "Potential market mechanism, NOT an observed reaction: "+safe(brief.why_it_matters,1500),
+        "Countercase and attribution limits: "+safe(brief.countercase,1000),
+        "Next original-source checks: "+safe(brief.watch_next,950));
+      for(const source of Array.isArray(brief.source_links)?brief.source_links.slice(0,8):[]){
+        const url=safeUrl(source.url);if(!url)continue;include(url);
+        lines.push("Candidate source (must check): "+safe(source.kind,35)+
+          " | "+safe(source.label,130)+" | "+url);
+      }
+    }
+    lines.push("");
+  }
+  lines.push("## SOURCE-VERIFIED NEWS (factual only, no automatic price/causal claim)");
   for(const n of input.news.slice(0,10)){
     include(n.sourceUrl);
     lines.push("- "+safe(n.occurredAt,50)+" | "+safe(n.headline,200),
@@ -124,6 +164,6 @@ export function buildDailyResearchPacket(input:{
     "If the report has inadequate verified material, produce an explicitly PARTIAL report.");
   return {contractVersion:"daily-report-research/1",assembledAt:input.now,
     notionStatus:input.notion.status,warnings:input.notion.warnings,
-    newsCount:input.news.length,researchSourceCandidates:candidates,
+    newsCount:input.news.length,deliveredBriefCount:delivered.length,researchSourceCandidates:candidates,
     packet:lines.join("\n").slice(0,23800),sourceUrls:[...links]};
 }
