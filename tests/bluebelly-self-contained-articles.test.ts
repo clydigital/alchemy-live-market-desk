@@ -83,7 +83,7 @@ test("Bluebelly pages use native nav and archive vs close/creator data remains v
  assert.match(workbench,/mode==="presenter" \? <>/);
  assert.match(article,/getArticleCreatorPerspectives/);
  assert.match(article,/projectArticleCloseScenarios/);
- assert.match(article,/not.*retroactive evidence/);
+ assert.match(article,/not<\\/strong> retroactive evidence/);
  assert.match(article,/No sufficiently attributed, transcript-ready creator view/);
  assert.doesNotMatch(article,/ChartWidget|<Chart|TradingView/);
 });
