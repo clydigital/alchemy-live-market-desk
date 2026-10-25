@@ -20,8 +20,9 @@ export default async function PublishedReportPage({params}:{params:Promise<{id:s
  return <main className={desk.page}>
   <BlueDeskHeader activePath="/blue-desk/reports"/>
   <article className={css.article}>
-   <Link href="/reports" className={css.back}>← All published reports</Link>
-   <p className={css.tag}>{report.kind==="OB"?"OPENING BELL":"CHART OF THE DAY"} · REVIEWED EDITION</p>
+   <Link href={report.kind==="DAILY_REPORT"?"/daily-report":"/reports"} className={css.back}>
+     ← {report.kind==="DAILY_REPORT"?"Daily Report":"All published reports"}</Link>
+   <p className={css.tag}>{report.kind==="OB"?"OPENING BELL":report.kind==="COTD"?"CHART OF THE DAY":"DAILY MARKET REPORT"} · REVIEWED EDITION</p>
    <h1>{report.title}</h1>
    {report.meta_description?<p className={css.deck}>{report.meta_description}</p>:null}
    <p className={css.date}>Published <time dateTime={report.published_at}>
