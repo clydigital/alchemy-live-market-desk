@@ -86,7 +86,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     pathname === "/blue-desk/markets" ||
     /^\/(?:blue-desk\/)?stories\/article(?::|%3a)[0-9a-f-]{36}(?::|%3a)[0-9a-f-]{36}$/i.test(pathname);
 
-  return publicPage ? "public" : (hostname === BLUEBELLY_PRESENTATION_HOST || hostname === BLUEBELLY_QA_PREVIEW_HOST) ? "blocked" : "private";
+  return publicPage ? "public" : hostname === BLUEBELLY_PRESENTATION_HOST ? "blocked" : hostname === BLUEBELLY_QA_PREVIEW_HOST ? "blocked" : "private";
 }
 
 /**
