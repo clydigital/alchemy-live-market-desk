@@ -25,3 +25,24 @@
 .more summary{font-size:13px;font-weight:750;cursor:pointer;color:#8cdefe}
 .more p{font-size:13px;line-height:1.65}
 .timeNote{font-size:11px!important;color:#90b6c8!important}
+
+/* Editorial reading is the entry point; archived Story context is secondary. */
+.editorialGrid{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);gap:16px;align-items:start;margin:18px 0}
+.editorialFeature,.editorialSide{min-width:0;border:1px solid #367593;border-radius:10px;padding:clamp(18px,2.5vw,28px);background:linear-gradient(140deg,#083955,#051e32)}
+.editorialFeature{position:relative}
+.editorialFeature h3{font:600 clamp(25px,3vw,37px)/1.2 Georgia,serif;margin:16px 0;color:#f0fbff}
+.editorialFeature p{font-size:14px;line-height:1.75;color:#d2e5ee}
+.editorialLead{font-size:16px!important;max-width:62ch;color:#e5f3fa!important}
+.editorialSide h3{font-size:22px;margin:0 0 18px}
+.editorialAngle{padding:17px 0;border-top:1px solid #34637a}
+.editorialAngle h4{font-size:18px;color:#f3fbff;line-height:1.35;margin:6px 0 8px}
+.editorialAngle p{font-size:13px;line-height:1.7;color:#c8dce8}
+.editorialMeta{font-size:12px!important;color:#9cc9db!important}
+.editorialActions{display:flex;flex-wrap:wrap;gap:10px 20px;margin:16px 0 0;font-size:13px;font-weight:750}
+.editorialActions a{color:#96e3ff;text-decoration:underline;text-underline-offset:3px}
+.storyTests{margin:10px 0;padding:11px 14px;background:#062738;border-left:2px solid #4b94b2}
+.storyTests p{margin:4px 0!important}
+@media(max-width:900px){.editorialGrid{grid-template-columns:minmax(0,1fr)}}
+
+.ownerEditorialLink{margin:14px 0 0;font-size:13px!important;font-weight:750}
+.ownerEditorialLink a{color:#99e2ff;text-decoration:underline;text-underline-offset:3px}

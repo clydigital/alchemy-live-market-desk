@@ -32,7 +32,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Blue Desk | Market Intelligence",
-  description: "Market stories, rates and upcoming events.",
+  description: "Rolling source-verified market developments, observed rates, persistent stories and upcoming catalysts.",
 };
 
 
@@ -80,7 +80,7 @@ export default async function BlueDeskPage() {
       <BlueDeskHeader activePath="/blue-desk" />
       <div className={styles.content}>
 
-        <section className={styles.hero} aria-label="Latest source-dated market development">
+        <section className={styles.hero} aria-label="Live Report — latest source-dated market development">
           <div className={styles.heroStory}>
             <p className={styles.kicker}><MarketIcon name="market" size={16} />
               {newsFeature ? "LATEST VERIFIED DEVELOPMENT" : observedFeature ? "LATEST DATED MARKET OBSERVATION" : olderStory ? "ONGOING STORY · HISTORICAL VIEW" : "MARKET NEWS"}

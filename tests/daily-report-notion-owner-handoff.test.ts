@@ -122,7 +122,9 @@ test("reviewed Daily Report uses existing PDF approval contract, SQL RLS and ded
  assert.match(publicReader,/\.eq\("kind","DAILY_REPORT"\)/);
  assert.match(publicReader,/\.neq\("kind","DAILY_REPORT"\)/);
  const page=readFileSync(new URL("../app/blue-desk/daily-report/page.tsx",import.meta.url),"utf8");
- assert.doesNotMatch(page,/getLatestPublishedDailyReport/);
+ assert.match(page,/getLatestPublishedDailyReport/);
+ assert.match(page,/data-reviewed-daily-report="published-only"/);
+ assert.match(page,/publishedDaily\.published_at/);
  assert.match(page,/data-daily-story-coverage="persistent-and-dated"/);
  assert.match(page,/data-market-source-coverage="dated-originals"/);
 });

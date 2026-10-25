@@ -1,6 +1,7 @@
 import Link from "next/link";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import {listPublishedReports} from "@/lib/editorial-publications-server";
+import {approvedEditorialLead} from "@/lib/blue-desk-editorial-preview";
 import desk from "../blue-desk.module.css";
 import css from "./reports.module.css";
 export const dynamic="force-dynamic";
@@ -15,7 +16,7 @@ export default async function ReportsLibrary(){
     <p className={desk.kicker}>EDITORIAL LIBRARY · IMMUTABLE EDITIONS</p>
     <h1>Market reports</h1>
     <p>Reviewed Opening Bell and Chart of the Day publications.
-      Download a fixed PDF edition or read the same approved article online.
+      Start with the published article angle and its original explanation. Open the fixed PDF or read the same approved text online.
       These reports are editorial analyses, not automatic changes to the canonical Dossier.</p>
    </header>
    <section className={css.grid} aria-label="Published reports">
@@ -23,7 +24,7 @@ export default async function ReportsLibrary(){
      <article className={css.card} key={report.id}>
       <span className={css.tag}>{report.kind==="OB"?"OPENING BELL":"CHART OF THE DAY"}</span>
       <h2><Link href={"/reports/"+report.id}>{report.title}</Link></h2>
-      <p>{report.excerpt}</p>
+      <p className={css.editorialLead}>{approvedEditorialLead(report.body)}</p>
       <time dateTime={report.published_at}>{new Date(report.published_at).toLocaleDateString("en-GB",{
        timeZone:"UTC",year:"numeric",month:"short",day:"numeric",
       })} UTC</time>

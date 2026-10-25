@@ -47,7 +47,9 @@ test("Daily Report uses source-verified live topics and approved reports without
  assert.match(text, /getCurrentVerifiedMarketMotion/);
  assert.match(text, /selectVerifiedNewsBriefs/);
  assert.match(text, /projectLivingMarketTopics/);
- assert.doesNotMatch(text, /listPublishedReports/);
+ assert.match(text, /listPublishedReports\(3\)/);
+  assert.match(text, /getLatestPublishedDailyReport/);
+  assert.match(text, /Open fixed Daily Report PDF/);
  assert.match(text,/getPublicThesisLedger/);
  assert.match(text,/getPublicSourceObservations/);
  assert.match(text, /getForwardEarningsEvents/);

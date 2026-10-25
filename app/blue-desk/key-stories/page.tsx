@@ -2,7 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
-import { blueDeskPublicHref } from "@/lib/blue-desk-host";
+import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { getOriginalPressNews } from "@/lib/blue-desk-original-press-news-server";
@@ -11,42 +11,45 @@ import { projectLivingMarketTopics } from "@/lib/blue-desk-living-topics";
 import { getPublicThesisLedger } from "@/lib/blue-desk-thesis-ledger-server";
 import {storyMarketTransmission} from "@/lib/blue-desk-thesis-ledger";
 import { getPublicSourceObservations } from "@/lib/blue-desk-source-observations";
+import { getLatestPublishedDailyReport, listPublishedReports } from "@/lib/editorial-publications-server";
+import { approvedEditorialLead } from "@/lib/blue-desk-editorial-preview";
 import desk from "../blue-desk.module.css";
 import ui from "./key-stories.module.css";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
-  title: "Persistent Market Theses | Bluebelly",
-  description: "Dated long-lived market theses with recorded support, contradictions and next tests, separate from recent news.",
+  title: "Daily Analysis and Key Market Stories | Bluebelly",
+  description: "Latest approved Daily Report, COTD and Opening Bell analysis, with dated market stories and sources.",
 };
 
 export default async function KeyStories(){
   const now = new Date();
   const host = (await headers()).get("host");
-  const [raw, theses, observations, originalPress] = await Promise.all([
+  const [raw, theses, observations, originalPress, publishedDaily, editorials] = await Promise.all([
     getCurrentVerifiedMarketMotion({ limit: 36 }).catch(() => []),
     getPublicThesisLedger(now,24).catch(() => []),
     getPublicSourceObservations(now,8).catch(() => []),
     getOriginalPressNews(now,18).catch(() => []),
+    getLatestPublishedDailyReport().catch(() => null),
+    listPublishedReports(4).catch(() => []),
   ]);
   const motionNews = selectVerifiedNewsBriefs(raw, now, 18);
   const news = combineQualifiedNews(motionNews,originalPress,18);
   const topics = projectLivingMarketTopics(news);
-  return <main className={desk.page} data-bluebelly-stories="expanded"
+  return <main className={desk.page} data-bluebelly-stories="editorial-first"
     data-living-topics="dossier-independent">
     <BlueDeskHeader activePath="/blue-desk/key-stories" />
     <div className={desk.content}>
       <header className={ui.intro}>
-        <p className={desk.kicker}>STORY DESK / PERSISTENT THESIS LEDGER</p>
-        <h1>What is driving the markets, and what happens next?</h1>
-        <p>Oil supply, expensive borrowing, the AI spending boom and weaker consumer demand
-          all feed into markets in different ways. Follow each ongoing story here:
-          what has happened, how it could affect prices, and what evidence would make us rethink it.</p>
-        <p>These are continuing research stories. New events and verified price observations
-          keep their own dates, so older analysis never masquerades as today's news.</p>
+        <p className={desk.kicker}>EDITORIAL DESK / MARKET CONTEXT</p>
+        <h1>Read the analysis. Then investigate the story.</h1>
+        <p>Start with the approved Daily Report and the latest Chart of the Day or Opening Bell angle.
+          The ongoing Stories below provide context, not a replacement for a dated, explained market view.</p>
+        <p>Editorial editions remain fixed at publication. Ongoing Story hypotheses and verified market
+          observations retain their own dates and should not be mistaken for new trading calls.</p>
         <Link className={ui.returnLink}
           href={blueDeskPublicHref("/blue-desk/daily-report",host)}>
-          Read the Daily Report
+          Open the full Daily Report
         </Link>
       </header>
       <div className={ui.summary}>
@@ -55,11 +58,58 @@ export default async function KeyStories(){
         <span>{news.length} source-verified development{news.length === 1 ? "" : "s"}</span>
         <span>As of <DualTimestamp value={now.toISOString()} /></span>
       </div>
+      <section className={ui.section} aria-labelledby="editorial-priority" data-editorial-priority="published-only">
+        <h2 id="editorial-priority">Start with the finished market analysis</h2>
+        <p>Only separately approved articles appear here. Headlines, explanations and publication dates
+          come from their frozen editorial editions, not from automatic Story expansion.</p>
+        <div className={ui.editorialGrid}>
+          <article className={ui.editorialFeature}>
+            <span className={ui.kicker}>DAILY REPORT / EDITOR-APPROVED</span>
+            {publishedDaily ? <>
+              <h3>{publishedDaily.title}</h3>
+              <p className={ui.editorialMeta}>Published <DualTimestamp value={publishedDaily.published_at}/></p>
+              <p className={ui.editorialLead}>{approvedEditorialLead(publishedDaily.body)}</p>
+              <div className={ui.editorialActions}>
+                <Link href={blueDeskPublicHref("/blue-desk/daily-report",host)}>Read the full Daily Report</Link>
+                <Link href={blueDeskPublicHref("/blue-desk/reports/"+publishedDaily.id+"/pdf",host)}
+                  target="_blank" rel="noopener noreferrer">Open approved PDF</Link>
+              </div>
+            </>:<>
+              <h3>No reviewed Daily Report published yet</h3>
+              <p>The rolling source-based Daily Report remains available below the publication layer,
+                but it is not represented as an approved edition.</p>
+              <Link href={blueDeskPublicHref("/blue-desk/daily-report",host)}>Read rolling desk context</Link>
+            </>}
+          </article>
+          <div className={ui.editorialSide}>
+            <h3>Latest COTD / Opening Bell angles</h3>
+            {editorials.length ? editorials.map(report=>
+              <article className={ui.editorialAngle} key={report.id}>
+                <p className={ui.kicker}>{report.kind==="OB"?"OPENING BELL":"CHART OF THE DAY"} · APPROVED EDITION</p>
+                <h4>{report.title}</h4>
+                <p className={ui.editorialMeta}>Published <DualTimestamp value={report.published_at}/></p>
+                <p>{approvedEditorialLead(report.body,400)}</p>
+                <div className={ui.editorialActions}>
+                  <Link href={blueDeskPublicHref("/blue-desk/reports/"+report.id,host)}>Read the explanation</Link>
+                  <Link href={blueDeskPublicHref("/blue-desk/reports/"+report.id+"/pdf",host)}
+                    target="_blank" rel="noopener noreferrer">PDF</Link>
+                </div>
+              </article>
+            ) : <p className={ui.empty}>No approved COTD or Opening Bell articles yet.
+              Unreviewed angle ideas stay in the private writing studio.</p>}
+            <Link className={ui.returnLink} href={blueDeskPublicHref("/blue-desk/reports",host)}>
+              Browse approved COTD / OB reports
+            </Link>
+            {!isBlueDeskPublicReaderHost(host) ? <p className={ui.ownerEditorialLink}>
+              <Link href="/owner/daily-articles">Prepare today's COTD / OB angles (private)</Link>
+            </p> : null}
+          </div>
+        </div>
+      </section>
       <section className={ui.section} aria-labelledby="persistent-theses" data-persistent-thesis-ledger="source-identity">
-        <h2 id="persistent-theses">The stories behind the market</h2>
-        <p>Today's price action makes more sense when you know the longer-running issues.
-          These stories keep that context in one place, even on days without a new verified headline.
-          Each explanation is based on its last recorded assessment, not a fresh call on prices.</p>
+        <h2 id="persistent-theses">Story context, not another article</h2>
+        <p>The shorter Story cards preserve earlier theses and contradictions. For an actionable
+          interpretation, use the dated Daily Report and COTD / OB articles above.</p>
         {theses.length ? <div className={ui.cards}>{theses.map(thesis=>
           <article className={ui.card} id={"thesis-"+thesis.slug} key={thesis.id} data-stored-story={thesis.status}>
             <p className={ui.kicker}>{thesis.status==="develop"?"STILL BEING INVESTIGATED":"ONGOING MARKET STORY"}
@@ -69,12 +119,11 @@ export default async function KeyStories(){
             <p className={ui.storyExplanation}><strong>Why it could move markets.</strong> {storyMarketTransmission(thesis)}</p>
             {thesis.support ? <p className={ui.storyContext}><strong>What supports this view:</strong> {thesis.support}</p> : null}
             {thesis.contradiction ? <p className={ui.storyContext}><strong>The catch:</strong> {thesis.contradiction}</p> : null}
-            {(thesis.confirmation||thesis.invalidation||thesis.nextTest)?<details className={ui.more}>
-              <summary>What would change the story?</summary>
+            {(thesis.confirmation||thesis.invalidation||thesis.nextTest)?<div className={ui.storyTests}>
               {thesis.confirmation?<p><strong>Confirmation:</strong> {thesis.confirmation}</p>:null}
-              {thesis.invalidation?<p><strong>Invalidation:</strong> {thesis.invalidation}</p>:null}
-              {thesis.nextTest?<p><strong>Next catalyst:</strong> {thesis.nextTest}</p>:null}
-            </details>:null}
+              {thesis.invalidation?<p><strong>What would disprove it:</strong> {thesis.invalidation}</p>:null}
+              {thesis.nextTest?<p><strong>Next thing to check:</strong> {thesis.nextTest}</p>:null}
+            </div>:null}
             <p className={ui.timeNote}>Historical research snapshot, not an independently confirmed price reaction.
               {" "}The latest market observations are shown separately below.</p>
           </article>

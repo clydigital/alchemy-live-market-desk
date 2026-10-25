@@ -81,7 +81,8 @@ test("public Story and homepage readers use verified rolling topics, not frozen 
  assert.match(page,/className=\{tracked\.grid\}/);
  assert.match(page,/className=\{tracked\.card\}/);
  assert.match(expanded,/data-living-topics="dossier-independent"/);
- assert.doesNotMatch(expanded,/listPublishedReports/);
+ assert.match(expanded,/listPublishedReports\(4\)/);
+  assert.match(expanded,/data-editorial-priority="published-only"/);
  const grid=readFileSync(new URL("../app/blue-desk/tracked-stories.module.css",import.meta.url),"utf8");
  assert.match(grid,/grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
  assert.match(grid,/@media\(max-width:1080px\)/);
