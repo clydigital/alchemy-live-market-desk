@@ -1,10 +1,10 @@
 /** Exact approved, immutable public article snapshot. Never a canonical Story verdict. */
 export type EditorialPublication={
- id:string;kind:"COTD"|"OB";title:string;meta_description:string;
+ id:string;kind:"COTD"|"OB"|"DAILY_REPORT";title:string;meta_description:string;
  body:string;excerpt:string;source_urls:string[];status:"published";published_at:string;
 };
 export type ReviewedSubmission={
- kind:"COTD"|"OB";title:string;meta_description:string;body:string;
+ kind:"COTD"|"OB"|"DAILY_REPORT";title:string;meta_description:string;body:string;
  excerpt:string;source_urls:string[];
 };
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -26,7 +26,7 @@ function safeSource(value:string):string|null{
 export function parseReviewedSubmission(input:unknown):ReviewedSubmission|null{
  if(!input||typeof input!=="object"||Array.isArray(input))return null;
  const r=input as Record<string,unknown>;
- const kind=r.kind==="OB"||r.kind==="COTD"?r.kind:null;
+ const kind=r.kind==="OB"||r.kind==="COTD"||r.kind==="DAILY_REPORT"?r.kind:null;
  const title=typeof r.title==="string"?r.title.trim():"";
  const meta=typeof r.meta_description==="string"?r.meta_description.trim():
   typeof r.meta==="string"?r.meta.trim():"";
