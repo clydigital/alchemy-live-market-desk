@@ -59,6 +59,7 @@ test("public hosts cannot access machine ingestion or signed-in review API",()=>
  assert.match(cfg,/\/api\/internal\/bluebelly-editorial/);
  const receiver=readFileSync(new URL("../app/api/internal/bluebelly-editorial/route.ts",import.meta.url),"utf8");
  assert.match(receiver,/BLUEBELLY_MACROPULSE_INGEST_TOKEN/);
+ assert.match(receiver,/isBlueDeskPublicReaderHost\(host\)/);
  assert.match(receiver,/status:"review"/);
  assert.match(receiver,/parseMacroPulseDigest/);
  assert.match(receiver,/duplicate:true/);
