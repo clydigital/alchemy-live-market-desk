@@ -2,7 +2,7 @@ import "server-only";
 import {createHash} from "node:crypto";
 import {NextResponse,type NextRequest} from "next/server";
 import {createSupabaseAdminClient} from "@/lib/supabase/admin";
-import {blueDeskHostAccess} from "@/lib/blue-desk-host";
+import {blueDeskHostAccess,isBlueDeskPublicReaderHost} from "@/lib/blue-desk-host";
 import {acceptsMacroPulseIngest,scopedMacroPulseToken} from "@/lib/blue-desk-macropulse-ingest-auth";
 import {parseMacroPulseDigest} from "@/lib/blue-desk-macropulse-brief";
 export const runtime="nodejs";
@@ -17,7 +17,8 @@ const fail=(status:number,message:string)=>NextResponse.json({error:message},{st
  */
 export async function POST(req:NextRequest){
  const host=req.headers.get("host")||req.nextUrl.hostname;
- if(blueDeskHostAccess("/api/internal/bluebelly-editorial",host)!=="private")
+ if(isBlueDeskPublicReaderHost(host)||
+    blueDeskHostAccess("/api/internal/bluebelly-editorial",host)!=="private")
    return fail(404,"Not found");
  const token=process.env.BLUEBELLY_MACROPULSE_INGEST_TOKEN;
  if(!scopedMacroPulseToken(token))return fail(503,"Editorial ingest is not configured");
