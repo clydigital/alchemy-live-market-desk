@@ -1,6 +1,9 @@
 /** User-facing URLs only. Internal Next routes are preserved for compatibility. */
 export const BLUEBELLY_PRESENTATION_HOST = "bluebelly-desk.vercel.app";
 export const LIVE_DESK_PRESENTATION_HOST = "alchemy-live-market-desk.vercel.app";
+// Temporary read-only preview alias. Kept on the isolated review branch ONLY.
+// Private API/owner routes remain denied on this public QA hostname.
+export const BLUEBELLY_QA_PREVIEW_HOST = "alchemy-live-market-desk-git-preview-blue-08219b-rogue-magazine.vercel.app";
 
 function normalizedHost(host: string | null | undefined) {
   return (host || "").trim().toLowerCase().replace(/:443$/, "");
@@ -8,7 +11,7 @@ function normalizedHost(host: string | null | undefined) {
 
 /** Only the approved public reading hosts use public-clean Blue Desk links. */
 export function isBlueDeskPublicReaderHost(host: string | null | undefined) {
-  return [BLUEBELLY_PRESENTATION_HOST, LIVE_DESK_PRESENTATION_HOST].includes(normalizedHost(host));
+  return [BLUEBELLY_PRESENTATION_HOST, LIVE_DESK_PRESENTATION_HOST, BLUEBELLY_QA_PREVIEW_HOST].includes(normalizedHost(host));
 }
 
 export function blueDeskPublicHref(path: string, host: string | null | undefined) {
@@ -54,7 +57,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   "public" | "blocked" | "private" {
   const hostname = normalizedHost(host);
   if (hostname === "alchemy-blue-desk.vercel.app") return "blocked";
-  if (hostname !== BLUEBELLY_PRESENTATION_HOST && hostname !== LIVE_DESK_PRESENTATION_HOST) return "private";
+  if (hostname !== BLUEBELLY_PRESENTATION_HOST && hostname !== LIVE_DESK_PRESENTATION_HOST && hostname !== BLUEBELLY_QA_PREVIEW_HOST) return "private";
 
   // Temporary development-only UI viewer on the dedicated public host.
   // No owner API, private provider data, canonical DB, secrets or writes.
@@ -90,7 +93,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     pathname === "/blue-desk/markets" ||
     /^\/(?:blue-desk\/)?stories\/article(?::|%3a)[0-9a-f-]{36}(?::|%3a)[0-9a-f-]{36}$/i.test(pathname);
 
-  return publicPage ? "public" : hostname === BLUEBELLY_PRESENTATION_HOST ? "blocked" : "private";
+  return publicPage ? "public" : (hostname === BLUEBELLY_PRESENTATION_HOST || hostname === BLUEBELLY_QA_PREVIEW_HOST) ? "blocked" : "private";
 }
 
 /**
