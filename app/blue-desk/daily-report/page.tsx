@@ -174,7 +174,7 @@ export default async function DailyReportPage() {
                 <article className={styles.event} key={event.id}>
                   <strong>{event.title}</strong>
                   <span>{event.scheduledAt
-                    ? formatDualDeskTime(event.scheduledAt)?.etDisplay || event.scheduledAt
+                    ? formatDualDeskTime(event.scheduledAt)?.et || event.scheduledAt
                     : event.localDate + " · date only"}</span>
                   {event.decidingQuestion ? <p>{event.decidingQuestion}</p> : null}
                   {event.verificationState === "reported" ?
