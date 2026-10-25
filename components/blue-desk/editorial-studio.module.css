@@ -55,3 +55,13 @@
 .reactionWindow strong{font-size:13px;color:#c7ead6}
 .reactionWindow p{font-size:12px;color:#d2e5da;line-height:1.6}
 .reactionWindow small{font-size:11px;color:#a3c7b4}
+
+.externalPrompt{border:1px solid #294e49;border-radius:8px;padding:12px;margin:10px 0 18px;background:#0a2326}
+.externalPrompt summary{cursor:pointer;font-size:13px;color:#badbe5;font-weight:700}
+.externalPrompt pre{font-size:12px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;max-height:340px;overflow:auto;color:#bbd8cd}
+.externalImportBanner{margin:14px 0;padding:12px 16px;color:#f7e7c5;background:#3c2e1b;border-left:3px solid #e8bf7a;font-size:13px}
+.printDraft{display:none}
+
+.printStatus{font:700 11px/1.5 Arial,sans-serif}
+.printMeta{font:12px/1.5 Arial,sans-serif}
+.printText{white-space:pre-wrap}

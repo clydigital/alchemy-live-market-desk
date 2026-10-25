@@ -16,11 +16,13 @@ export default function EditorialLab(){
     <section className={ui.banner} role="note">
       <p className={ui.kicker}>TEMPORARY DEVELOPMENT LAB · NO GOOGLE LOGIN</p>
       <h1>Editorial Studio — UI preview</h1>
-      <p>Test the article-writing layout, research modes, review states and mobile
-       workflow without signing in. <strong>This is not the private research desk.</strong>
-       Every market input below is synthetic. Investigation and generation actions
-       run offline examples only; they cannot access Gemini, original market feeds,
-       saved slates, private APIs or canonical Evidence.</p>
+      <p>Use the real editorial layout without a Google login. Start with a synthetic
+       example, or paste research produced in ChatGPT using your connected sources.
+       Imported material remains <strong>unverified external research</strong>.
+       Market monitoring and model-generation actions remain offline examples:
+       they cannot access Gemini, original market feeds, private saved slates,
+       owner APIs, canonical Evidence or publication. No imported notes are
+       sent to a Bluebelly server.</p>
       <p><Link href="/">← Public Market Desk</Link></p>
     </section>
    </div>
