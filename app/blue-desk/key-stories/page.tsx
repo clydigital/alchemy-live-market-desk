@@ -2,7 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
-import { blueDeskPublicHref } from "@/lib/blue-desk-host";
+import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { getOriginalPressNews } from "@/lib/blue-desk-original-press-news-server";
@@ -100,6 +100,9 @@ export default async function KeyStories(){
             <Link className={ui.returnLink} href={blueDeskPublicHref("/blue-desk/reports",host)}>
               Browse approved COTD / OB reports
             </Link>
+            {!isBlueDeskPublicReaderHost(host) ? <p className={ui.ownerEditorialLink}>
+              <Link href="/owner/daily-articles">Prepare today's COTD / OB angles (private)</Link>
+            </p> : null}
           </div>
         </div>
       </section>
