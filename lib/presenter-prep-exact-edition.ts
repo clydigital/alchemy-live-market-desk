@@ -61,10 +61,17 @@ export function resolvePresenterPrepExactSelection(input: {
   const selectedSnapshot = byId.get(selected.snapshotId) ?? null;
   if (!selectedSnapshot) return invalid();
 
+  // An explicit UUID can still be the current terminal publication. The
+  // source projection compares this scope against the selected/current IDs;
+  // reporting every pinned request as historical incorrectly fails a valid
+  // current-edition read with EDITION_SCOPE_MISMATCH.
+  const status = current?.snapshotId === selected.snapshotId
+    ? "current" as const
+    : "historical" as const;
   return {
     current,
     selected,
     selectedSnapshot,
-    status: "historical" as const,
+    status,
   };
 }
