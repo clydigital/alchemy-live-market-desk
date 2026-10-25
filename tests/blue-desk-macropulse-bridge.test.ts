@@ -66,7 +66,7 @@ test("public hosts cannot access machine ingestion or signed-in review API",()=>
  assert.doesNotMatch(receiver,/story_thesis_versions|market_motion_items|\.upsert\(/);
 });
 test("only owner-approved digests are publicly readable, without PDF or canonical side-effects",()=>{
- const migration=readFileSync(new URL("../supabase/migrations/20261026040000_blue_desk_macropulse_briefs.sql",import.meta.url),"utf8");
+ const migration=readFileSync(new URL("../supabase/migrations/20261025220902_blue_desk_macropulse_briefs.sql",import.meta.url),"utf8");
  assert.match(migration,/enable row level security/);
  assert.match(migration,/using\(status='published'\)/);
  assert.match(migration,/revoke all on public\.blue_desk_macropulse_briefs/);
