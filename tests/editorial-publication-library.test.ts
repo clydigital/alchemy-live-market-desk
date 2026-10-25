@@ -30,14 +30,16 @@ test("PDF signature and trailer are required, not only a MIME type or filename",
  assert.equal(isLikelyPdf(new TextEncoder().encode("%PDF-1.7\n"+"a".repeat(650))),false);
  assert.equal(isLikelyPdf(new Uint8Array(3145729)),false);
 });
-test("COTD/OB and PDF library moved from public visitor routes to signed-in private host",()=>{
+test("only UUID-scoped published report readers and PDFs are public; owner publishing stays private",()=>{
  for(const path of ["/reports","/blue-desk/reports","/reports/"+id,
   "/reports/"+id+"/pdf"]){
-  assert.equal(blueDeskHostAccess(path,"bluebelly-desk.vercel.app"),"blocked");
-  assert.equal(blueDeskHostAccess(path,"alchemy-live-market-desk.vercel.app"),"private");
-  assert.equal(blueDeskPresentationTarget(path,"bluebelly-desk.vercel.app"),null);
+  assert.equal(blueDeskHostAccess(path,"bluebelly-desk.vercel.app"),"public");
+  assert.equal(blueDeskHostAccess(path,"alchemy-live-market-desk.vercel.app"),"public");
+  assert.equal(blueDeskPresentationTarget(path,"bluebelly-desk.vercel.app"),path.startsWith("/blue-desk")?null:"/blue-desk"+path);
   assert.equal(blueDeskHostAccess(path,"private-preview.vercel.app"),"private");
  }
+ assert.equal(blueDeskHostAccess("/reports/not-a-uuid","bluebelly-desk.vercel.app"),"blocked");
+ assert.equal(blueDeskHostAccess("/reports/"+id+"/edit","bluebelly-desk.vercel.app"),"blocked");
  assert.equal(blueDeskHostAccess("/owner/daily-articles","bluebelly-desk.vercel.app"),"blocked");
  assert.equal(blueDeskHostAccess("/owner/daily-articles","private-preview.vercel.app"),"private");
  assert.equal(blueDeskHostAccess("/api/owner/editorial-publish","alchemy-live-market-desk.vercel.app"),"private");
