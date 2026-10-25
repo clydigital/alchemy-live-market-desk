@@ -31,7 +31,7 @@ import styles from "./blue-desk.module.css";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Live Report | Bluebelly Desk",
+  title: "Blue Desk | Market Intelligence",
   description: "Rolling source-verified market developments, observed rates, persistent stories and upcoming catalysts.",
 };
 
