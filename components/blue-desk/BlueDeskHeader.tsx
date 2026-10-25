@@ -11,6 +11,7 @@ const PRIVATE_NAV = [
   ["Daily Report", "/blue-desk/daily-report"],
   ["Markets", "/markets"],
   ["Editorial Studio", "/owner/editorial"],
+  ["Daily Report Studio", "/owner/daily-report"],
   ["Presenter Studio", "/owner/presenter"],
   ["Deep Dive", "/articles"],
   ["Research", "/whats-new"],
@@ -53,6 +54,7 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Reports": "library",
   "COTD / OB": "library",
   "Daily Report": "deep-dive",
+  "Daily Report Studio": "deep-dive",
   "Calendar + Earnings": "calendar",
   "Publish Reports": "library",
 };
@@ -63,7 +65,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
   const publicHost = isBlueDeskPublicReaderHost(host);
   // Authenticated owner routes must retain their private workspace navigation,
   // even when opened on the canonical hostname that also serves public readers.
-  const ownerWorkspace = activePath === "/owner/editorial" || activePath === "/owner/presenter" || activePath === "/owner/publications";
+  const ownerWorkspace = activePath === "/owner/editorial" || activePath === "/owner/presenter" || activePath === "/owner/publications" || activePath === "/owner/daily-report";
   const nav = publicHost && !ownerWorkspace ? PUBLIC_NAV : PRIVATE_NAV;
   return (
     <header className={styles.topbar}>
