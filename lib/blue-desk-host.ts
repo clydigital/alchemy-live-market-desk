@@ -30,6 +30,9 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   if (pathname === "/") return "/blue-desk";
   if (pathname === "/calendar") return "/blue-desk/calendar";
   if (pathname === "/key-stories") return "/blue-desk/key-stories";
+  if (pathname === "/reports") return "/blue-desk/reports";
+  if (/^\/reports\/[0-9a-f-]{36}(?:\/pdf)?$/i.test(pathname))
+    return "/blue-desk" + pathname;
   // Temporary auth-free development lab uses strictly synthetic browser-local
   // inputs. Real owner pages, APIs and source records remain private.
   if (normalizedHost(host) === BLUEBELLY_PRESENTATION_HOST &&
@@ -75,6 +78,9 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     pathname === "/calendar" ||
     pathname === "/blue-desk" ||
     pathname === "/blue-desk/calendar" ||
+    pathname === "/reports" ||
+    pathname === "/blue-desk/reports" ||
+    /^\/(?:blue-desk\/)?reports\/[0-9a-f-]{36}(?:\/pdf)?$/i.test(pathname) ||
     pathname === "/key-stories" ||
     pathname === "/blue-desk/key-stories" ||
     pathname === "/markets" ||
