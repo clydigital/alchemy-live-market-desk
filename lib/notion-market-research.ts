@@ -153,7 +153,30 @@ export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionRes
     const search=await notionRequest(token,"/search",{
       query:day,sort:{direction:"descending",timestamp:"last_edited_time"},page_size:100,
     });
-    const selected=selectNotionResearchPages(search.results,day,macroRoot,gateSource);
+    const today=selectNotionResearchPages(search.results,day,macroRoot,gateSource);
+    // During the first MYT hours the new day may have no full Pulse or Gate.
+    // Carry the preceding day's latest real research with an explicit vintage
+    // warning; never re-label it as today's coverage.
+    const previousDay=new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Kuala_Lumpur",
+      year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(now.getTime()-24*3600_000));
+    let previous:{archiveId:string|null;gateId:string|null}={archiveId:null,gateId:null};
+    if(!today.gateId||!today.archiveId){
+      try{
+        const priorSearch=await notionRequest(token,"/search",{
+          query:previousDay,sort:{direction:"descending",timestamp:"last_edited_time"},page_size:100,
+        });
+        previous=selectNotionResearchPages(priorSearch.results,previousDay,macroRoot,gateSource);
+        if(priorSearch.has_more)warnings.push("Previous MYT day Notion discovery may be partial: search results paginated.");
+      }catch {warnings.push("Previous MYT day research lookup unavailable; overnight coverage unverified.");}
+    }
+    const selected={
+      archiveId:today.archiveId||previous.archiveId,
+      gateId:today.gateId||previous.gateId,
+    };
+    if(!today.gateId&&selected.gateId)warnings.push(
+      "Latest accessible Research Gap Gate is from "+previousDay+" MYT; today's Gate is not yet available.");
+    if(!today.archiveId&&selected.archiveId)warnings.push(
+      "Latest accessible full MacroPulse posts are from "+previousDay+" MYT; today's daily archive is not yet available.");
     if(selected.gateId){
       try{
         const [page, pageBlocks]=await Promise.all([
@@ -170,7 +193,7 @@ export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionRes
           .some(v=>/^(PARTIAL|FAILED|MATERIAL GAP|INSUFFICIENT)$/i.test(v));
         if(incomplete||/(?:Coverage\s+PARTIAL|Input Health\s+PARTIAL|Run\s+PARTIAL|eligible overflow|unconsumed eligible)/i.test(parsed.text))
           warnings.push("The latest Research Gap Gate explicitly reports partial coverage, failed inputs or unread overflow. Treat its findings as bounded.");
-        if(parsed.text) sources.push({kind:"RESEARCH_GAP",title:day+" — latest Research Gap Gate",
+        if(parsed.text) sources.push({kind:"RESEARCH_GAP",title:(today.gateId?day:previousDay)+" — latest Research Gap Gate",
           url:"https://www.notion.so/"+selected.gateId,pageId:selected.gateId,
           retrievedAt:fetchedAt,text:parsed.text,originalLinks:parsed.links});
       }catch {warnings.push("Research Gap run could not be read; coverage unknown.");}
