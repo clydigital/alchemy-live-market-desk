@@ -10,12 +10,15 @@ const liveWorkflow = readFileSync(
   "utf8",
 );
 
-test("Vercel auto-deploys only main", () => {
+test("Vercel permits main and the explicitly bounded temporary review branch", () => {
   assert.equal(config.git?.deploymentEnabled?.["*"], false);
   assert.equal(config.git?.deploymentEnabled?.main, true);
+  assert.equal(config.git?.deploymentEnabled?.["preview/bluebelly-pr1030-db-ready-20261025"],true);
+  assert.deepEqual(Object.keys(config.git.deploymentEnabled).sort(),["*","main","preview/bluebelly-pr1030-db-ready-20261025"].sort());
   assert.equal(config.git?.deploymentEnabled?.["preview-*"], undefined);
   assert.match(config.ignoreCommand || "", /VERCEL_GIT_COMMIT_REF/);
   assert.doesNotMatch(config.ignoreCommand || "", /\^preview-/);
+  assert.match(config.ignoreCommand || "", /preview\/bluebelly-pr1030-db-ready-20261025/);
 });
 
 test("Vercel owns exact Live slots and durable continuation cadence", () => {
