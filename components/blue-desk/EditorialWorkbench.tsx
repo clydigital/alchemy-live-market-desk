@@ -430,6 +430,11 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
               {previewMode?<button type="button" disabled={!draft.body.trim()} onClick={()=>window.print()}>
                 Print unverified draft / Save as PDF
               </button>:null}
+              {previewMode?<button type="button" disabled={!draft.body.trim()} onClick={()=>copy(
+                "Unapproved publisher packet",
+                JSON.stringify({kind:draft.kind,title:draft.title,meta:draft.meta,
+                 body:draft.body,sources:sourceLinks},null,2)
+              )}>Copy unapproved publication JSON</button>:null}
             </div>
             <label className={styles.lineField}>
               <span>Revision instruction · optional</span>
