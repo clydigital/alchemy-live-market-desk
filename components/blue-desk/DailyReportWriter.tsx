@@ -7,6 +7,7 @@ import css from "./daily-report-writer.module.css";
 type Handoff={
   contractVersion:string;assembledAt:string;notionStatus:string;
   warnings:string[];newsCount:number;packet:string;sourceUrls:string[];
+  researchSourceCandidates?:Array<{url:string;sourcePageUrl:string;kind:"MACROPULSE"|"RESEARCH_GAP";verification:"EXACT_NEWS_SOURCE_MATCH"|"UNVERIFIED_LINK";matchingNewsHeadline:string|null}>;
   sourcePages:Array<{kind:string;title:string;url:string;retrievedAt:string}>;
   calendarWarnings:string[];error?:string;
 };
@@ -89,6 +90,18 @@ export default function DailyReportWriter(){
           <p key={p.url}><a target="_blank" rel="noreferrer" href={p.url}>
             {p.kind} · {p.title}</a></p>) :
           <p>No live Notion page was retrieved by this server.</p>}
+        <h4>Notion original-link candidates</h4>
+        <p>These links come from research notes. An exact verified-News source match
+          confirms the original document was separately checked, not that the Note's interpretation is true.
+          Links without a matching receipt still need first-party verification.</p>
+        {(research.researchSourceCandidates||[]).length?
+          (research.researchSourceCandidates||[]).slice(0,16).map((entry,i)=>
+            <p key={entry.url}>
+              <strong>{entry.verification==="EXACT_NEWS_SOURCE_MATCH"?"Publisher receipt matched":"Unverified link candidate"}</strong>
+              {" · "}{entry.kind} · <a target="_blank" rel="noopener noreferrer" href={entry.url}>
+                {new URL(entry.url).hostname} · Source {i+1}</a>
+            </p>) :
+          <p>No links were extracted from authorised Notion research.</p>}
         <label>Research packet — editable but unverified
           <textarea rows={22} value={editedPacket}
             onChange={e=>setEditedPacket(e.target.value.slice(0,24000))}/>
