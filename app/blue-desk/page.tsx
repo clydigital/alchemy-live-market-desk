@@ -9,16 +9,19 @@ import { buildPresenterCalendar } from "@/lib/presenter-calendar";
 import { selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getForwardEarningsEvents } from "@/lib/forward-earnings-sources";
-import { getLiveDeskHomepageDailyBrief } from "@/lib/hybrid-publication";
+
 import { getMarketMonitor } from "@/lib/market-monitor-public";
-import { getCurrentMarketMotion, getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
-import { projectMarketBriefArticles } from "@/lib/market-brief-articles";
-import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
+
+
+
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
-import { selectFrozenSourceFact } from "@/lib/blue-desk-factual-feature";
-import { projectFrozenTrackedStories } from "@/lib/blue-desk-tracked-stories";
+
+
 import tracked from "./tracked-stories.module.css";
-import { readableSecCashflowLead, readableSourceArticleLead } from "@/lib/blue-desk-cashflow-reader-copy";
+import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
+import { projectLivingMarketTopics } from "@/lib/blue-desk-living-topics";
+import { listPublishedReports } from "@/lib/editorial-publications-server";
+
 import styles from "./blue-desk.module.css";
 
 export const dynamic = "force-dynamic";
@@ -41,42 +44,20 @@ export default async function BlueDeskPage() {
   const now = new Date();
   const host = (await headers()).get("host");
   const publicHost = isBlueDeskPublicReaderHost(host);
-  const [latest, macro, earnings, monitor, motions, verifiedMotions] = await Promise.all([
-    getLiveDeskHomepageDailyBrief({ fresh: true }).catch(() => null),
+  const [macro, earnings, monitor, verifiedMotions, reports] = await Promise.all([
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({ now }).catch(() => ({
       events: [], coverage: "unavailable" as const, warning: "Earnings source unavailable",
     })),
     getMarketMonitor().catch(() => null),
-    getCurrentMarketMotion({ limit: 24 }).catch(() => []),
-    getCurrentVerifiedMarketMotion({ limit: 12 }).catch(() => []),
+    getCurrentVerifiedMarketMotion({ limit: 24 }).catch(() => []),
+    listPublishedReports(6).catch(() => []),
   ]);
-
-  // Existing publication snapshots remain the only article authority.
-  const brief = await loadEditorialMarketBrief(projectMarketBriefArticles(latest));
-  const trackedStories = projectFrozenTrackedStories(latest);
-  const feature = brief.articles.find(article => article.editorial.storyEligible) || null;
-  // A source-verified factual report is independently eligible to be read:
-  // it is NOT a new canonical Story or Regime interpretation.
-  const verifiedNews = selectVerifiedNewsBriefs(verifiedMotions, now, 6);
-  const newsFeature = feature ? null : (verifiedNews[0] || null);
-  // Primary-source facts are a separate fallback, NEVER a promoted Story.
-  const sourceFact = feature || newsFeature ? null : selectFrozenSourceFact(brief, now);
-  // Reader-only: literal SEC claims may be displayed as measured headline
-  // equations, never promoted to causal Story verdicts or new Evidence.
-  const displayArticle = (article:(typeof brief.articles)[number]) =>
-    readableSourceArticleLead(article.title,article.editorial.evidenceClaims,
-      article.dossierAsOf || article.generatedAt);
-  const featureDisplay = feature ? displayArticle(feature) : null;
-  const sourceDisplay = sourceFact ? readableSecCashflowLead(sourceFact.claimText,{
-    sourceName:sourceFact.sourceName,sourceUrl:sourceFact.sourceUrl,
-    availableAt:sourceFact.publishedAt,
-    editionAsOf:latest?.published_at || sourceFact.publishedAt,
-  }) : null;
-  const storyHref = (article: (typeof brief.articles)[number]) => blueDeskPublicHref(
-    "/blue-desk/stories/" + encodeURIComponent(article.articleId) + "?edition=" + encodeURIComponent(article.editionId), host,
-  );
-  const articles = brief.articles.filter(article => article.editorial.readiness !== "RESEARCH_ONLY").slice(0, 6);
+  const verifiedNews = selectVerifiedNewsBriefs(verifiedMotions, now, 12);
+  const newsFeature = verifiedNews[0] || null;
+  const latestReport = reports[0] || null;
+  const livingTopics = projectLivingMarketTopics(verifiedNews);
+  const reportHref = (id:string) => blueDeskPublicHref("/blue-desk/reports/" + id,host);
   const yields = YIELD_IDS.map(id => monitor?.rows.find(row => row.id === id)).filter(
     (row): row is NonNullable<typeof row> => Boolean(row),
   );
@@ -92,31 +73,35 @@ export default async function BlueDeskPage() {
       <BlueDeskHeader activePath="/blue-desk" />
       <div className={styles.content}>
 
-        <section className={styles.hero} aria-label="Latest canonical Market Brief">
+        <section className={styles.hero} aria-label="Latest source-dated market development">
           <div className={styles.heroStory}>
-            <p className={styles.kicker}><MarketIcon name="market" size={16} /> {feature ? "TOP STORY" : newsFeature ? "VERIFIED NEWS BRIEF" : sourceFact ? "PRIMARY-SOURCE OBSERVATION" : "MARKET BRIEF"}</p>
-            <h1>{featureDisplay?.headline || feature?.title || newsFeature?.headline || sourceDisplay?.headline || sourceFact?.claimText || "Market Brief in review"}</h1>
+            <p className={styles.kicker}><MarketIcon name="market" size={16} />
+              {newsFeature ? "LATEST VERIFIED DEVELOPMENT" : latestReport ? "LATEST APPROVED ARTICLE" : "MARKET NEWS"}
+            </p>
+            <h1>{newsFeature?.headline || latestReport?.title || "No verified market headline available"}</h1>
             <p className={styles.heroDeck}>
-              {featureDisplay?.deck || feature?.deck || newsFeature?.summary || sourceDisplay?.deck || (sourceFact ? "Source-reported observation; interpretation pending." : "No verified market brief available.")}
+              {newsFeature?.summary || latestReport?.excerpt ||
+                "Source verification or provider coverage may be incomplete. Check the calendar and market monitor."}
             </p>
             <div className={styles.tags}>
-              <span className={styles.tag}>{feature ? feature.interpretationStatus : newsFeature ? "SOURCE-VERIFIED REPORT" : sourceFact ? "SOURCE FACT · NO INTERPRETATION" : "REVIEW"}</span>
-              {(feature || sourceFact) && latest ? <span className={styles.tag}>Edition {latest.id}</span> : null}
+              <span className={styles.tag}>{newsFeature ? "SOURCE-VERIFIED FACT" :
+                latestReport ? "DATED EDITORIAL ASSESSMENT" : "NO VERIFIED UPDATE"}</span>
+              <span className={styles.tag}>No Dossier approval required</span>
             </div>
             <div className={styles.heroFooter}>
-              {feature ? (
-                <Link className={styles.primaryAction} href={storyHref(feature)}>Read story →</Link>
-              ) : newsFeature ? (
+              {newsFeature ? (
                 <a className={styles.primaryAction} href={newsFeature.sourceUrl} target="_blank" rel="noreferrer">Read original report ↗</a>
-              ) : sourceFact ? (
-                <a className={styles.primaryAction} href={sourceFact.sourceUrl} target="_blank" rel="noreferrer">Read {sourceFact.sourceName} report ↗</a>
+              ) : latestReport ? (
+                <Link className={styles.primaryAction} href={reportHref(latestReport.id)}>Read approved article →</Link>
               ) : (
-                publicHost ? <span className={styles.empty}>Awaiting a source-supported publication.</span> : <Link className={styles.primaryAction} href="/articles">All articles →</Link>
+                <Link className={styles.primaryAction} href={blueDeskPublicHref("/blue-desk/daily-report", host)}>
+                  Daily Report →</Link>
               )}
-              {feature && latest ? <DualTimestamp value={latest.published_at} className={styles.heroTime} /> :
-                newsFeature ? <DualTimestamp value={newsFeature.occurredAt} className={styles.heroTime} /> :
-                sourceFact ? <DualTimestamp value={sourceFact.publishedAt} className={styles.heroTime} /> : null}
+              {newsFeature ? <DualTimestamp value={newsFeature.occurredAt} className={styles.heroTime} /> :
+                latestReport ? <DualTimestamp value={latestReport.published_at} className={styles.heroTime} /> : null}
             </div>
+            <p><Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/daily-report",host)}>
+              Full Daily Report and upcoming catalysts →</Link></p>
           </div>
           <aside className={styles.rates} aria-label="Observed US Treasury yield context">
             <h2 id="rates-title"><MarketIcon name="rates" size={25} /> Rates &amp; yields</h2>
@@ -136,63 +121,55 @@ export default async function BlueDeskPage() {
 
         <section className={styles.section} aria-labelledby="stories-title">
           <div className={styles.sectionHead}>
-            <div>
-              <h2 id="stories-title"><MarketIcon name="layers" size={24} /> Key market stories</h2>
+            <div><h2 id="stories-title"><MarketIcon name="layers" size={24} /> Approved articles</h2>
+              <p>Previous COTD/OB analysis remains dated and explicitly reviewed.</p>
             </div>
-            {!publicHost ? <Link href="/articles" className={styles.textLink}>All articles →</Link> : null}
+            <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/reports",host)}>
+              COTD / OB library →</Link>
           </div>
           <div className={styles.storyGrid}>
-            {articles.length ? articles.map(article => {
-              const concise = displayArticle(article);
-              return <article key={article.articleId} className={styles.storyCard}>
-                <span className={styles.kicker}>{article.category} · {article.editorial.storyEligible ? article.interpretationStatus : article.editorial.readiness === "READY" ? "SOURCED ANALYSIS" : "DEVELOPING"}</span>
-                <h3>{concise?.headline || article.title}</h3>
-                <p>{ellipsis(concise?.deck || article.deck || article.paragraphs[0]?.text || "")}</p>
+            {reports.length ? reports.map(report =>
+              <article key={report.id} className={styles.storyCard}>
+                <span className={styles.kicker}>{report.kind==="COTD"?"CHART OF THE DAY":"OPENING BELL"} · PUBLISHED</span>
+                <h3>{report.title}</h3>
+                <p>{ellipsis(report.excerpt)}</p>
                 <div className={styles.storyBottom}>
-                  <DualTimestamp value={article.generatedAt} className={styles.cardTime} />
-                  <Link href={storyHref(article)}>Read analysis →</Link>
+                  <DualTimestamp value={report.published_at} className={styles.cardTime} />
+                  <Link href={reportHref(report.id)}>Read approved analysis →</Link>
                 </div>
-              </article>;
-            }) : (
-              <article className={styles.emptyCard}>
-                <h3>No published stories</h3>
-                <p>{brief.blockedReason || "No published analyses in this edition."}</p>
-              </article>
-            )}
+              </article>) : <article className={styles.emptyCard}>
+              <h3>No published articles</h3>
+              <p>The article library is empty. This does not stop current verified market reporting.</p>
+            </article>}
           </div>
         </section>
 
-        <section className={styles.section} aria-labelledby="ongoing-stories-head" data-public-tracked-stories="true">
+        <section className={styles.section} aria-labelledby="ongoing-stories-head" data-public-living-stories="true">
           <div className={styles.sectionHead}>
-            <div>
-              <p className={styles.kicker}>CONTINUING RESEARCH · NOT NEW HEADLINES</p>
-              <h2 id="ongoing-stories-head"><MarketIcon name="layers" size={24} /> Ongoing Story watch</h2>
-              <p>{trackedStories?.tracks.length||0} persistent Story questions in the frozen Dossier.
-                No material thesis update is claimed for these threads.</p>
+            <div><p className={styles.kicker}>ROLLING RESEARCH · VERIFIED NEWS</p>
+              <h2 id="ongoing-stories-head"><MarketIcon name="layers" size={24} /> Active market topics</h2>
+              <p>Topics update from recent verified developments. No frozen Story or Dossier snapshot is required.</p>
             </div>
             <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/key-stories",host)}>
-              Expand all tracked Stories →
+              Explore live research topics →
             </Link>
           </div>
-          {trackedStories?.tracks.length ? (
-            <div className={tracked.grid}>
-              {trackedStories.tracks.slice(0,6).map((t,i) => (
-                <article className={tracked.card} key={t.storyId}>
-                  <span className={tracked.kicker}>THREAD {i+1} · NO ACCEPTED CHANGE</span>
-                  <h3>{t.question}</h3>
-                  <p>{t.nextTest ? "Next test: "+t.nextTest :
-                    "No specific next test recorded in this frozen edition."}</p>
-                  <div className={tracked.bottom}>
-                    <span className={styles.cardTime}>Historical context · {t.assessedAt||"undated"}</span>
-                    <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"#story-"+t.storyId}>
-                      Examine thread →
-                    </Link>
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : <p className={styles.empty}>No dated frozen Story context is available in this edition.
-            Missing context must not be presented as newly verified news.</p>}
+          {livingTopics.length ? <div className={tracked.grid}>
+            {livingTopics.slice(0,6).map(topic =>
+              <article className={tracked.card} key={topic.id}>
+                <span className={tracked.kicker}>{topic.updates.length} VERIFIED UPDATE{topic.updates.length===1?"":"S"}</span>
+                <h3>{topic.title}</h3>
+                <p><strong>Question:</strong> {topic.guidingQuestion}</p>
+                <p><strong>Latest:</strong> {ellipsis(topic.updates[0].headline)}</p>
+                <div className={tracked.bottom}>
+                  <DualTimestamp value={topic.latestObservedAt} className={styles.cardTime} />
+                  <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"#"+topic.id}>
+                    Examine sources →
+                  </Link>
+                </div>
+              </article>)}
+          </div> : <p className={styles.empty}>No verified market topics in the current 48-hour window.
+            Older topics are not presented as today's developments.</p>}
         </section>
 
         <div className={styles.lowerGrid}>
