@@ -9,7 +9,9 @@ test("Bluebelly homepage is driven by verified news and independently published 
   assert.match(page, /getCurrentVerifiedMarketMotion/);
   assert.match(page, /selectVerifiedNewsBriefs\(verifiedMotions, now/);
   assert.match(page, /listPublishedReports/);
-  assert.match(page, /projectLivingMarketTopics/);
+  assert.match(page, /getPublicThesisLedger/);
+  assert.match(page, /getPublicSourceObservations/);
+  assert.match(page, /data-public-thesis-ledger="read-only"/);
   assert.doesNotMatch(page, /getLiveDeskHomepageDailyBrief|projectMarketBriefArticles|projectFrozenTrackedStories/);
   assert.doesNotMatch(page, /loadEditorialMarketBrief|sourceFact|story_thesis_versions/);
 });
