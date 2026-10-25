@@ -1,36 +1,68 @@
-# Bluebelly: reporting outside the canonical Dossier hot path (25 Oct 2026)
+# Bluebelly Dossier-light Cutover — 25 October 2026
 
 ## Decision
 
-Keep the existing Dossier, canonical Story reasoning and exact replay as immutable audit/history and long-term thesis adjudication. Do not delete their schemas, workers, source lineage or previously accepted evidence. **Daily briefing and COTD/OB drafting must not require a newly accepted Story thesis.**
+Retire the **mandatory canonical Dossier and Story judgement layer from Bluebelly's everyday publishing and display paths**. Keep archival schema, jobs, historical evidence and old URLs available during migration. Do **not** drop tables, switch off research workers, erase Dossier versions, break exact historical bookmarks or change the canonical backend during this front-end cutover.
 
-## Current first slice (this branch)
+The test of success is whether the newsroom can deliver a useful sourced market briefing, COTD/OB, and live topic watch even if no new Dossier Story version is accepted.
 
-- `/daily-report` (exact Bluebelly/Live reader hosts) is its own page, not the current immutable `/reports` article library. It reads verified latest Motion news independently of published Dossier article admission, plus separately labelled admitted article explanations, frozen historical Story watch and the existing forward calendar.
-- It shows the publication clock and explicitly warns when no current ET-day research edition is available. It does not claim the news is a new accepted Story, or old research is current.
-- `/calendar#earnings-hub` exposes existing issuer-confirmed and provider-reported forward earnings with source URLs, expectation field and questions.
-- Private `EditorialWorkbench` gains chart-first vs catalyst-first guided research questions, causal moving parts and forward calendar/earnings input. It uses the same authenticated writer and preserves independent publication review.
-- Navigation preserves production `/reports`, the isolated synthetic `/editorial-lab`, and their precise public-host route rules.
+## Implemented now on PR #1030 (current-main base)
 
-## Remaining integration for actual ChatGPT-quality Daily Report (not falsely claimed by this branch)
+| Surface | New source flow | Dossier dependency |
+| --- | --- | --- |
+| Public homepage | Recent source-verified news, source-dated market monitor, already reviewed reports, live topics and calendar | None |
+| Public /daily-report | Recent verified developments; rolling topic questions; owner-reviewed published COTD/OB history; next economic events and earnings | None |
+| Public /key-stories | Grouped verified updates (48h) with event time, original URL and a question for further investigation | None |
+| /calendar#earnings-hub | Existing provider/issuer earnings calendar, proper precision and source labels | None |
+| Private OB/COTD writer | Existing authorised model draft/revise, COTD chart vs OB catalyst guide, each mechanical step, countercase, future calendar and earnings | None in owner draft path |
+| Public /reports | Reviewed immutable COTD/OB publications and PDFs | None |
+| Legacy /dossier and old exact historical routes | Existing archival read and operational compatibility | Retained; no new authority |
 
-**Inputs / provenance:** Read latest MacroPulse Notion discovery and Research Gate Notion investigations through authorised, read-only server adapters, with run ID, observedAt, source-verified time, canonical evidence ID if one exists, verification stage and reason for missing coverage. Reuse already available market monitor observations and economic/issuer calendars. Neither a Notion summary nor a creator transcript becomes factual proof merely by appearing in a packet.
+The legacy system and its pure snapshot projections remain in the repository. The new public pages do not read them. The topic grouping code receives **only** the independently source-verified news read model: it does not read raw leads, infer a current price move, or create its own truth score. Older topics expire from the live page rather than being disguised as fresh headlines.
 
-**Synthesis:** Reuse the existing owner Writing Brain/model-routing policy as a separate explicit analysis/draft action, not as implicit LLM generation on every public GET. The report first explains: (1) What is new? (2) What happened versus what was expected? (3) Mechanism, each causal step and exposed markets (4) Alternative/countercase (5) Price action with source date and timezone (6) Next economic releases, earnings and thesis-changing tests. Unproven moves, chart breaks and event-window correlations must be marked UNKNOWN. Label producedAt and all source observation clocks. Give each claim its original source or a clearly scoped hypothesis label.
+## What this does NOT yet provide
 
-**Review/publish:** A private review step can approve a bounded, immutable `daily-report` publication projection and safely expose the reviewed public copy. Do not merge it into canonical Story/Dossier. If the latest research has no verified explanation, the page still shows verified raw news and coverage warnings. A reviewed daily report is not an automatic canonical thesis mutation.
+- A full, newly reasoned "what happened today?" synthesis from **current Notion MacroPulse + Research Gate investigation**. At present the public page shows dated facts and previously reviewed editorial assessments, not a new AI-authored verdict on every refresh.
+- Live Story belief updating and historical belief diffs. Rolling topics are headline groupings and open questions, not a persistent analytical thesis memory.
+- Direct on-page model actions for anonymous readers, which would pose cost, secret, abuse and evidentiary issues. Private authoring already uses the existing owner-only model route.
+- Removal of old Dossier triggers, queues, research contracts, cron jobs, schema, edition IDs and Presenter routes. They remain critical until all dependent workflow consumers are identified and migrated.
 
-**Story state:** Provide `Last assessed`, `What changed since last assessment`, `Evidence admitted?`, `Current hypothesis` and `Next deciding test` as separate fields. Live updates can challenge the frozen thesis without re-labelling a historical version as currently accepted. Accepted evidence changes continue through the one existing Story thesis-version path only.
+## Remaining phased migration — no new scheduler or reasoning engine
 
-**Scheduling:** Reuse current MacroPulse/Research Gate cadences and owner-invoked workflow. No new scheduled tasks or duplicate reasoning engine. Do not automatically write to Supabase on public GET.
+### B1 — Source-qualified research handoff
+Connect current Notion MacroPulse and Research Gate **through a read-only authenticated adapter** using their original records. Each record must retain run ID, originating URL, occurred/observed/verified timestamps, verification decision and coverage state. Use only accepted facts for factual claims; report researcher hypotheses separately. Import creator/video and X posts only as attributed leads. Continue existing two-hour and review schedules rather than creating more scheduled tasks.
 
-## Cutover validation
+### B2 — Existing Writing Brain as the analyst
+Reuse the authenticated `/api/owner/editorial-generate` model stack, its owner allowance and current routing configuration. Create a **bounded private Daily Report drafting workflow** that combines B1 accepted facts, dated public monitor observations, prior editor-approved conclusions and upcoming economic/issuer events. Its section goals:
 
-- A nonempty fresh verified news feed must render even with zero accepted Story articles.
-- A stale edition stays visibly stale and cannot be silently joined to newer market facts as one assessed thesis.
-- Source clocks, fiscal quarter, consensus, units, time precision and event occurrence must be checked before an interpreted claim.
-- Anonymous exact-host Daily Report, Calendar and published COTD/OB remain read-only; preview hosts inherit no new public bypass.
-- Existing owner Writer draft/revise, publication authority and 14 monitor checks remain guarded.
-- Confirm canonical Story historical exact replay still works with #1029 scope fix before retiring old Presenter navigation.
-- Tests, TypeScript, Next build, PostgreSQL contracts and 360/768/1440 browser QA on the final integrated tree, not on an isolated stacked branch.
-- Retain the ability to revert only the new UI/read-model paths while leaving canonical Dossier unchanged.
+1. What is new, source and actual event clock?
+2. What was expected before this event, and what actually happened?
+3. Mechanics: actor -> immediate effect -> supply/demand/financing/earnings channel -> exposed asset.
+4. What did markets actually do, from appropriate dated bars or event-window evidence?
+5. What else could explain those moves, and what does not fit?
+6. If-then scenarios and exact falsification tests.
+7. Forward releases, auctions and earnings, with date precision, issuer link and the decision question.
+
+Output British English, accessible prose, brief paragraphs, original-source links and UNKNOWN for unsourced numbers or reactions. A well-grounded paragraph does not require a canonical Story mutation.
+
+### B3 — Reviewed daily publication
+Persist source snapshot, generated draft, owner review state and an immutable public article version **through an appropriately reviewed, minimal editorial publication path**. Do not silently treat a model completion as "verified". A public GET remains a read-only reader; it never generates, edits, or writes. Preserve approved report versions for browsing and comparisons.
+
+### B4 — Retire obsolete Dossier runtime dependencies
+Inventory old consumer routes, Research Gap triggers, Dossier publication schedule, auth and historical Presenter bookmarks. Only disable a job after the B1–B3 replacement has run successfully for multiple consecutive periods with source and access proofs. Preserve an export/restore path and exact legacy URLs, at least until no active caller relies on them.
+
+## Verification gates
+
+- New public GET paths use **no** Dossier reader, snapshot join, canonical Story mutation, privileged source or model generation.
+- No anonymous host, preview alias, /reports or /editorial-lab route can access private owner APIs or raw canonical tables.
+- Report remains useful with zero accepted Story changes; no fresh news and provider outage show an explicit honest empty/coverage state.
+- News claims are never labelled as causally proven; topic grouping is transparent and bounded to 48h.
+- Reviewed COTD/OB preserve exact published dates, original references and immutable PDFs.
+- Earnings date-only, issuer-confirmed and provider-reported records remain visibly different.
+- New branch passes tests, TypeScript, build, database contracts; responsive exact-host and authenticated owner smoke follow before release.
+- Test older approved reports vs fresh news on a live page, not simply snapshot tests.
+- Keep PR #1029 edition-scope fix separate for legacy Presenter until migration is complete.
+
+## Rollback
+
+This change is additive and primarily read-only. Revert the new routes/homepage/view changes as a unit, without touching Supabase tables, research cron jobs, canonical evidence or old historical editions.
