@@ -4,88 +4,73 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { formatDualDeskTime } from "@/lib/blue-desk-time";
-import { getLiveDeskHomepageDailyBrief } from "@/lib/hybrid-publication";
-import { projectMarketBriefArticles } from "@/lib/market-brief-articles";
-import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
-import { projectFrozenTrackedStories } from "@/lib/blue-desk-tracked-stories";
+import { projectLivingMarketTopics } from "@/lib/blue-desk-living-topics";
+import { listPublishedReports } from "@/lib/editorial-publications-server";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getForwardEarningsEvents } from "@/lib/forward-earnings-sources";
 import { buildPresenterCalendar } from "@/lib/presenter-calendar";
 import { selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
-import { readableSourceArticleLead } from "@/lib/blue-desk-cashflow-reader-copy";
 import styles from "./daily-report.module.css";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Daily Market Report | Bluebelly",
-  description: "Source-dated market developments, competing explanations and upcoming deciding events.",
+  description: "A rolling source-dated briefing, related approved analysis and upcoming market catalysts.",
 };
-
-const trim = (s: string, limit = 330) => s.length > limit ? s.slice(0, limit).replace(/\s+\S*$/, "") + "…" : s;
 
 export default async function DailyReportPage() {
   const now = new Date();
   const host = (await headers()).get("host");
-  const [edition, verified, macro, earnings] = await Promise.all([
-    getLiveDeskHomepageDailyBrief({ fresh: true }).catch(() => null),
+  // All feeds are existing public read models. There is no Dossier, Story
+  // adjudication or model completion in this GET path.
+  const [verified, reports, macro, earnings] = await Promise.all([
     getCurrentVerifiedMarketMotion({ limit: 36 }).catch(() => []),
+    listPublishedReports(8).catch(() => []),
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({ now }).catch(() => ({
       events: [], coverage: "unavailable" as const, warning: "Earnings source unavailable",
     })),
   ]);
-  const projected = await loadEditorialMarketBrief(projectMarketBriefArticles(edition));
-  // This is a public read model, not a new LLM completion or a source-admission
-  // path. Never treat researcher notes or Motion as accepted Story evidence.
-  const admitted = projected.articles
-    .filter(article => article.editorial.readiness === "READY").slice(0, 5);
-  const news = selectVerifiedNewsBriefs(verified, now, 8);
-  const frozen = projectFrozenTrackedStories(edition);
+  const news = selectVerifiedNewsBriefs(verified, now, 18);
+  const topics = projectLivingMarketTopics(news);
   const calendar = buildPresenterCalendar(macro, earnings, now);
-  const upcoming = selectBlueDeskUpcoming(calendar, now, 14).slice(0, 8);
-  const etToday = formatDualDeskTime(now)?.etDay ?? now.toISOString().slice(0, 10);
-  const editionDay = edition?.published_at
-    ? formatDualDeskTime(edition.published_at)?.etDay : null;
-  const editionCurrent = editionDay === etToday;
-  const storyHref = (article: (typeof admitted)[number]) => blueDeskPublicHref(
-    "/blue-desk/stories/" + encodeURIComponent(article.articleId) +
-    "?edition=" + encodeURIComponent(article.editionId), host,
-  );
-  const economics = upcoming.filter(e => e.kind === "economic");
-  const results = upcoming.filter(e => e.kind === "earnings");
+  const upcoming = selectBlueDeskUpcoming(calendar, now, 14).slice(0, 12);
+  const economics = upcoming.filter(e => e.kind === "economic").slice(0, 6);
+  const results = upcoming.filter(e => e.kind === "earnings").slice(0, 6);
+  const reportHref = (id:string) => blueDeskPublicHref("/blue-desk/reports/" + id, host);
+  const calendarHref = blueDeskPublicHref("/blue-desk/calendar", host);
 
-  return <main className={styles.page} data-daily-report="source-dated-read-model-v1">
+  return <main className={styles.page} data-daily-report="dossier-independent-v2">
     <BlueDeskHeader activePath="/blue-desk/daily-report" />
     <div className={styles.shell}>
       <header className={styles.hero}>
         <p className={styles.eyebrow}>MARKET INTELLIGENCE / DAILY REPORT</p>
         <h1>What is happening in the markets?</h1>
-        <p className={styles.lead}>The latest verified developments, what the existing
-          research can explain, where the market still disagrees, and the
-          upcoming releases that could change the outlook.</p>
+        <p className={styles.lead}>A rolling overview of confirmed developments,
+          related analyst articles and the events that could change the outlook.
+          Facts are separated from explanations that still need testing.</p>
         <div className={styles.meta}>
-          <span>Report read at <DualTimestamp value={now.toISOString()} /></span>
-          {edition?.published_at ? <span>Research edition <DualTimestamp value={edition.published_at} /></span> :
-            <span>Research edition unavailable</span>}
-          <span>{editionCurrent ? "Current ET-day edition" : "No current ET-day edition confirmed"}</span>
+          <span>Read at <DualTimestamp value={now.toISOString()} /></span>
+          <span>{news.length} source-verified update{news.length === 1 ? "" : "s"} in the latest 48-hour window</span>
+          <span>{topics.length} active research topic{topics.length === 1 ? "" : "s"}</span>
         </div>
-        <p className={styles.context}>This is a source-qualified read of the latest published
-          Dossier, verified news and forward calendar, <strong>not a newly generated
-          MacroPulse/Research Gate investigation</strong>. When the research edition is older
-          than today, historical reasoning is shown as such. A missing research
-          result is not silently recreated from headlines.</p>
+        <p className={styles.context}>Live news is not automatically a complete
+          research judgement. This page does not generate new analysis, verify
+          MacroPulse/Research Gate Notion outputs or assert event-to-price causality.
+          Analyst conclusions below are from independently reviewed, dated publications.
+          There is <strong>no Dossier approval or frozen Story requirement</strong>.</p>
       </header>
 
       <section className={styles.section} aria-labelledby="developments">
         <div className={styles.heading}>
           <p className={styles.eyebrow}>01 / WHAT IS NEW?</p>
           <h2 id="developments">Developments worth attention</h2>
-          <p>Only recent source-verified factual updates. A news event alone does
-            not mean the canonical Story thesis has changed.</p>
+          <p>These items passed the existing factual source-verification filter.
+            Their timestamps show when the events occurred, not when a thesis was refreshed.</p>
         </div>
-        {news.length ? <div className={styles.newsList}>{news.map(item =>
+        {news.length ? <div className={styles.newsList}>{news.slice(0, 10).map(item =>
           <article key={item.id} className={styles.news}>
             <h3>{item.headline}</h3>
             <p>{item.summary}</p>
@@ -95,76 +80,72 @@ export default async function DailyReportPage() {
               </a></div>
           </article>)}</div> :
           <p className={styles.empty}>No fresh source-verified news is available
-            from this feed. This does not mean nothing happened.</p>}
+            from this feed. This does not mean nothing happened; provider coverage
+            or research verification may be incomplete.</p>}
       </section>
 
       <section className={styles.section} aria-labelledby="reasoning">
         <div className={styles.heading}>
-          <p className={styles.eyebrow}>02 / THE MECHANICS</p>
-          <h2 id="reasoning">Why could markets react this way?</h2>
-          <p>Existing evidence-admitted research, pinned to its publication.
-            An observed fact and its proposed effect on assets are not the same claim.</p>
+          <p className={styles.eyebrow}>02 / WHY IT MATTERS</p>
+          <h2 id="reasoning">Moving parts and market implications</h2>
+          <p>Live source updates identify what happened. Explanations need evidence
+            connecting each economic step, the exposed assets, expected versus
+            observed price action, and the competing explanation.</p>
         </div>
-        {admitted.length ? <div className={styles.readings}>{admitted.map(article => {
-          const copy = readableSourceArticleLead(
-            article.title, article.editorial.evidenceClaims,
-            article.dossierAsOf || article.generatedAt,
-          );
-          const mechanism = article.paragraphs.find(p => p.role === "mechanism");
-          const reaction = article.paragraphs.find(p => p.role === "reaction");
-          const contradiction = article.paragraphs.find(p => p.role === "contradiction");
-          return <article className={styles.reading} key={article.articleId}>
-            <p className={styles.eyebrow}>{article.category} · {article.interpretationStatus}</p>
-            <h3>{copy?.headline || article.title}</h3>
-            <p className={styles.deck}>{copy?.deck || article.deck}</p>
-            <dl className={styles.questions}>
-              <div><dt>What is the proposed mechanism?</dt>
-                <dd>{mechanism ? trim(mechanism.text) : "The edition does not establish a source-backed mechanism."}</dd></div>
-              <div><dt>What did the market actually do?</dt>
-                <dd>{reaction ? trim(reaction.text) : "A matching market reaction is not established."}</dd></div>
-              <div><dt>What doesn't fit?</dt>
-                <dd>{contradiction ? trim(contradiction.text) :
-                  "No independently supported contradiction is recorded in this edition."}</dd></div>
-              <div><dt>What would change the view?</dt>
-                <dd>{article.conditionalOutlook ||
-                  article.confirmationTests?.[0] ||
-                  article.invalidationTests?.[0] ||
-                  "A discriminating confirmation or invalidation test is still required."}</dd></div>
-            </dl>
-            <p className={styles.readingFoot}><span>Edition <DualTimestamp value={article.generatedAt} /></span>
-              <Link href={storyHref(article)}>Read exact published analysis</Link></p>
-          </article>;
-        })}</div> : <p className={styles.empty}>No source-admitted explanatory article
-          qualified in the latest edition. Fresh news above remains independently readable;
-          the desk cannot invent a causal interpretation to fill the gap.</p>}
+        {topics.length ? <div className={styles.readings}>
+          {topics.map(topic =>
+            <article key={topic.id} className={styles.reading}>
+              <p className={styles.eyebrow}>ACTIVE TOPIC · {topic.updates.length} VERIFIED UPDATE{topic.updates.length === 1 ? "" : "S"}</p>
+              <h3>{topic.title}</h3>
+              <p className={styles.deck}><strong>What changed:</strong> {topic.updates[0].headline}</p>
+              <dl className={styles.questions}>
+                <div><dt>What do we know?</dt><dd>{topic.updates[0].summary}</dd></div>
+                <div><dt>Which mechanism should be tested?</dt><dd>{topic.guidingQuestion}</dd></div>
+                <div><dt>Is the asset reaction confirmed?</dt>
+                  <dd>Not established by this news feed. Check dated instrument
+                    observations before attributing the price move to the event.</dd></div>
+                <div><dt>What would challenge the explanation?</dt>
+                  <dd>Compare independent original sources, market expectations,
+                    affected assets and the next relevant event.</dd></div>
+              </dl>
+              <p className={styles.readingFoot}>
+                <span>Latest event <DualTimestamp value={topic.latestObservedAt} /></span>
+                <Link href={blueDeskPublicHref("/blue-desk/key-stories",host) + "#" + topic.id}>
+                  Examine topic and sources
+                </Link>
+              </p>
+            </article>)}
+        </div> : <p className={styles.empty}>No active source-verified themes
+          qualified in the 48-hour window. Historical topics are not recycled
+          as current analysis.</p>}
       </section>
 
-      <section className={styles.section} aria-labelledby="storywatch">
+      <section className={styles.section} aria-labelledby="published">
         <div className={styles.heading}>
-          <p className={styles.eyebrow}>03 / ONGOING THESES</p>
-          <h2 id="storywatch">What remains unresolved?</h2>
-          <p>Frozen historical Story versions remain available for comparison.
-            These are watch questions, not fresh verdicts or evidence of a current move.</p>
+          <p className={styles.eyebrow}>03 / APPROVED EDITORIAL ANALYSIS</p>
+          <h2 id="published">Read the deeper explanations</h2>
+          <p>These articles were independently reviewed and published.
+            They are immutable historical editorial assessments, not dynamically
+            revised verdicts about today's market.</p>
         </div>
-        {frozen?.tracks.length ? <div className={styles.watchGrid}>
-          {frozen.tracks.slice(0, 6).map(track => <article key={track.storyId} className={styles.watch}>
-            <h3>{track.question}</h3>
-            <p><strong>Next deciding test:</strong> {track.nextTest ||
-              "The frozen edition does not name a precise next observation."}</p>
-            <small>Last assessed: {track.assessedAt || "unavailable"} · no accepted change in this edition</small>
-          </article>)}
-        </div> : <p className={styles.empty}>No eligible carried-forward Story
-          context was attached to this publication.</p>}
-        <p><Link href={blueDeskPublicHref("/blue-desk/key-stories", host)}>
-          Explore tracked Story history
-        </Link></p>
+        {reports.length ? <div className={styles.watchGrid}>{reports.slice(0,6).map(report =>
+          <article key={report.id} className={styles.watch}>
+            <p className={styles.eyebrow}>{report.kind === "COTD" ? "CHART OF THE DAY" : "OPENING BELL"}</p>
+            <h3>{report.title}</h3>
+            <p>{report.excerpt}</p>
+            <small>Published <DualTimestamp value={report.published_at} /></small>
+            <p><Link href={reportHref(report.id)}>Read article, evidence links and PDF</Link></p>
+          </article>)}</div> :
+          <p className={styles.empty}>No approved editorial articles are available.
+            The writer can prepare an OB or COTD without a Dossier approval;
+            publication still requires the existing owner review.</p>}
       </section>
 
       <section className={styles.section} aria-labelledby="forward">
         <div className={styles.heading}>
           <p className={styles.eyebrow}>04 / WHAT TO WATCH NEXT</p>
           <h2 id="forward">Calendar and earnings catalysts</h2>
-          <p>Source-listed forward events, not predictions of release outcomes.</p>
+          <p>Source-listed future events are deciding questions, not predictions.</p>
         </div>
         <div className={styles.twoCols}>
           {[{label:"Economic releases",rows:economics},{label:"Earnings",rows:results}].map(group =>
@@ -175,21 +156,25 @@ export default async function DailyReportPage() {
                   <strong>{event.title}</strong>
                   <span>{event.scheduledAt
                     ? formatDualDeskTime(event.scheduledAt)?.et || event.scheduledAt
-                    : event.localDate + " · date only"}</span>
+                    : event.localDate + " · source date only"}</span>
                   {event.decidingQuestion ? <p>{event.decidingQuestion}</p> : null}
                   {event.verificationState === "reported" ?
                     <small>Provider-reported date · check issuer confirmation</small> : null}
-                </article>) : <p>None in the selected source-qualified 14-day window.</p>}
+                  <small>{event.sourceName}</small>
+                </article>) :
+                <p>None in the selected source-qualified 14-day window.</p>}
             </section>)}
         </div>
-        <p><Link href={blueDeskPublicHref("/blue-desk/calendar",host)}>Open Calendar + Earnings Hub</Link></p>
+        {calendar.sourceHealth.warnings.length ?
+          <p className={styles.context}>Calendar coverage: {calendar.sourceHealth.warnings.join(" ")}</p> : null}
+        <p><Link href={calendarHref}>Open Calendar + Earnings Hub</Link></p>
       </section>
 
-      <footer className={styles.footer}>
-        Research boundary: MacroPulse and Research Gate may supply discovery and
-        investigation, but their unadmitted leads do not become canonical evidence.
-        No new Story thesis, market price, scheduled event or article is created by this page.
-      </footer>
+      <footer className={styles.footer}>Verification boundaries: recent news is a
+        dated source observation, not proof of causality. A topic groups news
+        for easier reading, not an accepted long-term thesis. Upcoming releases,
+        issuer earnings and approved articles retain separate source and time labels.
+        No Dossier, Story version or research record is mutated by this page.</footer>
     </div>
   </main>;
 }
