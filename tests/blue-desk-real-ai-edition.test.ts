@@ -121,7 +121,8 @@ test("unaccepted frozen AI story cannot become the current public home feature",
   const home = readFileSync(new URL("../app/blue-desk/page.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(home, /article\.editorial\.storyEligible|projectMarketBriefArticles/);
   assert.match(home, /listPublishedReports/);
-  assert.match(home, /projectLivingMarketTopics/);
+  assert.match(home, /getPublicThesisLedger/);
+  assert.match(home, /getPublicSourceObservations/);
 });
 
 test("Blue Desk explains only actual evidence-linked mechanism edges", () => {
