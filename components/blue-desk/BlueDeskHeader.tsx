@@ -75,8 +75,8 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
           <Link
             key={href}
             href={blueDeskPublicHref(href, host)}
-            aria-current={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/reports" && activePath === "/blue-desk/reports")))) ? "page" : undefined}
-            className={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/reports" && activePath === "/blue-desk/reports")))) ? styles.navActive : styles.navItem}
+            aria-current={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/reports" && activePath === "/blue-desk/reports") || (href === "/daily-report" && activePath === "/blue-desk/daily-report")))) ? "page" : undefined}
+            className={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/reports" && activePath === "/blue-desk/reports") || (href === "/daily-report" && activePath === "/blue-desk/daily-report")))) ? styles.navActive : styles.navItem}
           >
             <MarketIcon name={NAV_ICONS[title] || "market"} size={17} />
             <span>{title}</span>
