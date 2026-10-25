@@ -81,8 +81,8 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
           <Link
             key={href}
             href={blueDeskPublicHref(href, host)}
-            aria-current={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/rates" && activePath === "/blue-desk/rates") || (href === "/what-changed" && activePath === "/blue-desk/what-changed") || (href === "/presenter" && activePath === "/blue-desk/presenter")))) ? "page" : undefined}
-            className={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/rates" && activePath === "/blue-desk/rates") || (href === "/what-changed" && activePath === "/blue-desk/what-changed") || (href === "/presenter" && activePath === "/blue-desk/presenter")))) ? styles.navActive : styles.navItem}
+            aria-current={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/rates" && activePath === "/blue-desk/rates") || (href === "/what-changed" && activePath === "/blue-desk/what-changed")))) ? "page" : undefined}
+            className={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/rates" && activePath === "/blue-desk/rates") || (href === "/what-changed" && activePath === "/blue-desk/what-changed")))) ? styles.navActive : styles.navItem}
           >
             <MarketIcon name={NAV_ICONS[title] || "market"} size={17} />
             <span>{title}</span>
