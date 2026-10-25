@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {
-  selectNotionResearchPages,selectPulseChildPages,extractNotionResearchBlocks,
+  selectNotionResearchPages,selectPulseChildPages,extractNotionResearchBlocks,fetchTodayNotionResearch,
 } from "../lib/notion-market-research.ts";
 import {buildDailyResearchPacket} from "../lib/daily-report-research-packet.ts";
 import {parseReviewedSubmission} from "../lib/editorial-publications.ts";
@@ -124,4 +124,77 @@ test("reviewed Daily Report uses existing PDF approval contract, SQL RLS and ded
  const page=readFileSync(new URL("../app/blue-desk/daily-report/page.tsx",import.meta.url),"utf8");
  assert.match(page,/getLatestPublishedDailyReport/);
  assert.match(page,/Reviewed research references/);
+});
+
+test("Notion Gate discovery uses the real Run title property, not Name or title",()=>{
+  const rows=[
+    {id:"403519b6-7a94-81df-8e29-feaacb0d7bb0",
+     parent:{type:"page_id",page_id:macro},properties:{title:{type:"title",title:[{plain_text:day+" — MacroPulse"}]}}},
+    {id:"404519b6-7a94-8115-afdb-c66b8082561d",
+     parent:{type:"data_source_id",data_source_id:source},
+     properties:{Run:{id:"title",type:"title",title:[{plain_text:day+" 20:40 MYT — PM Research Gap Gate"}]}}},
+    {id:"404519b6-7a94-8129-86c2-e49a03021823",
+     parent:{type:"data_source_id",data_source_id:source},
+     properties:{Run:{id:"title",type:"title",title:[{plain_text:day+" 08:40 MYT — AM Research Gap Gate"}]}}},
+  ];
+  assert.deepEqual(selectNotionResearchPages(rows,day),{
+    archiveId:"403519b67a9481df8e29feaacb0d7bb0",
+    gateId:"404519b67a948115afdbc66b8082561d",
+  });
+});
+
+test("MYT midnight handoff uses real prior-day Pulse and PARTIAL Gate without pretending current coverage",async()=>{
+  const previousFetch=globalThis.fetch,previousToken=process.env.NOTION_API_TOKEN;
+  process.env.NOTION_API_TOKEN="unit-test-notion-read-only";
+  const macroId="403519b67a9481df8e29feaacb0d7bb0";
+  const gateId="404519b67a948115afdbc66b8082561d";
+  const p22="404519b67a9481a38404d07a9db4a459";
+  const p20="404519b67a9481b8ba7ac26a5e57b627";
+  const gateRun=day+" 20:40 MYT — PM Research Gap Gate";
+  const pageRows=[
+    {id:macroId,parent:{page_id:macro},properties:{title:{type:"title",title:[{plain_text:day+" — MacroPulse"}]}}},
+    {id:gateId,parent:{data_source_id:source},properties:{Run:{type:"title",title:[{plain_text:gateRun}]}}},
+  ];
+  const body=(text:string)=>({results:[{type:"paragraph",paragraph:{rich_text:[{plain_text:text}]}}],has_more:false});
+  globalThis.fetch=async(input,init)=>{
+    const url=String(input);
+    let response:unknown;
+    if(url.endsWith("/search")){
+      const payload=JSON.parse(String(init?.body||"{}"));
+      response={results:payload.query==="2026-10-25"?pageRows:[],has_more:false};
+    }else if(url.includes("/blocks/"+macroId.replaceAll("-","")+"/children")){
+      response={results:[
+        {type:"child_page",id:p20,child_page:{title:"20:00 MYT — Evening market research"}},
+        {type:"child_page",id:p22,child_page:{title:"22:00 MYT — Latest market research"}},
+      ],has_more:false};
+    }else if(url.includes("/blocks/"+gateId.replaceAll("-","")+"/children")){
+      response=body("Research Gap completed 8 inputs, 27 unconsumed eligible; no verified market reaction.");
+    }else if(url.includes("/blocks/"+p22.replaceAll("-","")+"/children")){
+      response=body("Latest verified research lead; original-source check still needed.");
+    }else if(url.includes("/blocks/"+p20.replaceAll("-","")+"/children")){
+      response=body("Earlier observed research lead; no canonical verdict.");
+    }else if(url.includes("/pages/"+gateId.replaceAll("-",""))){
+      response={properties:{
+        Status:{type:"select",select:{name:"PARTIAL"}},
+        Coverage:{type:"select",select:{name:"PARTIAL"}},
+        "Input Health":{type:"select",select:{name:"PARTIAL"}},
+      }};
+    }else throw Error("Unexpected Notion test request: "+url);
+    return new Response(JSON.stringify(response),{status:200,headers:{"Content-Type":"application/json"}});
+  };
+  try{
+    const result=await fetchTodayNotionResearch(new Date("2026-10-25T16:41:00.000Z"));
+    assert.equal(result.status,"PARTIAL");
+    assert.equal(result.sources.length,3);
+    assert.match(result.sources[0].title,/2026-10-25/);
+    assert.match(result.sources[1].title,/22:00/);
+    assert.match(result.sources[2].title,/20:00/);
+    assert.ok(result.warnings.some(w=>w.includes("2026-10-25 MYT")));
+    assert.ok(result.warnings.some(w=>w.includes("partial coverage")));
+    assert.equal(result.sources.some(s=>s.title.includes("2026-10-26")),false);
+  }finally{
+    globalThis.fetch=previousFetch;
+    if(previousToken===undefined)delete process.env.NOTION_API_TOKEN;
+    else process.env.NOTION_API_TOKEN=previousToken;
+  }
 });
