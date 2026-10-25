@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { blueDeskHostAccess } from "@/lib/blue-desk-host";
 import { fetchTodayNotionResearch } from "@/lib/notion-market-research";
 import { buildDailyResearchPacket } from "@/lib/daily-report-research-packet";
+import { assessDailyResearchHealth } from "@/lib/daily-report-research-health";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { getOriginalPressNews } from "@/lib/blue-desk-original-press-news-server";
@@ -60,8 +61,9 @@ export async function GET(req:NextRequest){
       verificationState:e.verificationState,decidingQuestion:e.decidingQuestion,
     })),
   });
+  const health=assessDailyResearchHealth({now,notion,packet,news});
   return NextResponse.json({
-    ...packet,sourcePages:notion.sources.map(s=>({
+    ...packet,health,sourcePages:notion.sources.map(s=>({
       kind:s.kind,title:s.title,url:s.url,retrievedAt:s.retrievedAt,
     })),
     calendarWarnings:calendar.sourceHealth.warnings,
