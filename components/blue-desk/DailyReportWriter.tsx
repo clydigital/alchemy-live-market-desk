@@ -18,6 +18,7 @@ export default function DailyReportWriter(){
   const [busy,setBusy]=useState<"idle"|"read"|"draft"|"revise">("idle");
   const [notice,setNotice]=useState("");
   const [editedPacket,setEditedPacket]=useState("");
+  const [selectedSources,setSelectedSources]=useState("");
   async function load(){
     if(busy!=="idle")return;
     setBusy("read");setNotice("");
@@ -27,6 +28,7 @@ export default function DailyReportWriter(){
       if(!res.ok||!data.packet)throw Error(data.error||"Research intake is unavailable.");
       setResearch(data);
       setEditedPacket(data.packet);
+      setSelectedSources("");
       setNotice("Source-dated packet loaded. Verify cited originals before drafting or publishing.");
     }catch(e){setNotice(e instanceof Error?e.message:"Research unavailable");}
     finally{setBusy("idle");}
@@ -115,15 +117,32 @@ export default function DailyReportWriter(){
           <textarea rows={28} value={body} onChange={e=>setBody(e.target.value.slice(0,15000))}
             placeholder="Generate a report from the research packet, or write your own evidence-based analysis."/>
         </label>
+        <label>Original-source URLs selected for your independent review (maximum 12)
+          <textarea rows={5} value={selectedSources}
+            placeholder={"https://www.example.gov/original-release\nhttps://www.example.com/issuer-filing"}
+            onChange={e=>setSelectedSources(e.target.value.slice(0,5500))}/>
+        </label>
+        <p className={css.warning}>The imported source packet may contain up to 40 candidate links,
+          including Notion, social posts, calendars and hypotheses. None are automatically
+          cleared for publication. Select only the original documents you have checked.
+          The publisher separately requires your approval and a matching PDF.</p>
         <p className={css.warning}>Publication gate: independently check original
           source documents, event and market observation times, alternative causes,
           actual versus expected readings, calendar/earnings precision and publication rights.</p>
         <div className={css.actions}>
           <button type="button" disabled={!body.trim()}
-            onClick={()=>copy(JSON.stringify({
-              kind:"DAILY_REPORT",title,body,sourceUrls:research.sourceUrls,
-              researchAsOf:research.assembledAt,reviewStatus:"UNVERIFIED",
-            },null,2))}>Copy review packet</button>
+            onClick={()=>{
+              const urls=[...new Set(selectedSources.split(/\s+/).map(x=>x.trim()).filter(Boolean))];
+              if(!urls.length||urls.length>12||
+                 urls.some(x=>{try{const u=new URL(x);return u.protocol!=="https:"||Boolean(u.username||u.password);}catch{return true;}})){
+                setNotice("Select 1–12 complete original-source HTTPS URLs. Candidate links are not automatically approved.");
+                return;
+              }
+              copy(JSON.stringify({
+                kind:"DAILY_REPORT",title,body,sourceUrls:urls,
+                researchAsOf:research.assembledAt,reviewStatus:"UNVERIFIED",
+              },null,2));
+            }}>Copy review packet</button>
           <button type="button" disabled={!body.trim()} onClick={()=>copy(body)}>Copy report text</button>
         </div>
         <p>Review and publication are separate decisions.
