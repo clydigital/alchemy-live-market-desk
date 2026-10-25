@@ -8,8 +8,14 @@ export type DailyResearchCalendarItem = {
 export type DailyResearchPriceObservation = {
   label:string; level:number|null; asOf:string|null; sourceName:string; frequency:string;
 };
+export type ResearchSourceCandidate = {
+  url:string; sourcePageUrl:string; kind:"MACROPULSE"|"RESEARCH_GAP";
+  verification:"EXACT_NEWS_SOURCE_MATCH"|"UNVERIFIED_LINK";
+  matchingNewsHeadline:string|null;
+};
 export type DailyResearchPacket = {
   contractVersion:"daily-report-research/1";
+  researchSourceCandidates:ResearchSourceCandidate[];
   assembledAt:string;
   notionStatus:NotionResearchBundle["status"];
   warnings:string[];
@@ -33,6 +39,36 @@ export function buildDailyResearchPacket(input:{
 }):DailyResearchPacket{
   const links=new Set<string>();
   const include=(url:unknown)=>{const safeLink=safeUrl(url);if(safeLink&&links.size<40)links.add(safeLink);};
+  const normalise=(raw:string)=>{
+    try{
+      const u=new URL(raw);
+      if(u.protocol!=="https:")return null;
+      u.hash="";
+      for(const key of [...u.searchParams.keys()])
+        if(/^(?:utm_.+|fbclid|gclid)$/i.test(key))u.searchParams.delete(key);
+      const path=u.pathname.endsWith("/")?u.pathname.slice(0,-1):u.pathname;
+      return u.origin+path+u.search;
+    }catch{return null;}
+  };
+  // An exact source URL match confirms only that an independent News receipt
+  // exists for that document. It does not verify a claim written in Notion.
+  const proven=new Map(input.news
+    .filter(n=>n.verification==="SOURCE_VERIFIED")
+    .flatMap(n=>{const k=normalise(n.sourceUrl);return k?[[k,n.headline] as const]:[];}));
+  const candidates:ResearchSourceCandidate[]=[];
+  const candidateKeys=new Set<string>();
+  for(const page of input.notion.sources.slice(0,3)){
+    for(const raw of page.originalLinks.slice(0,32)){
+      const url=safeUrl(raw),key=url&&normalise(url);
+      if(!url||!key||candidateKeys.has(key))continue;
+      candidateKeys.add(key);
+      candidates.push({url,sourcePageUrl:page.url,kind:page.kind,
+        verification:proven.has(key)?"EXACT_NEWS_SOURCE_MATCH":"UNVERIFIED_LINK",
+        matchingNewsHeadline:proven.get(key)||null});
+      if(candidates.length>=32)break;
+    }
+    if(candidates.length>=32)break;
+  }
   const lines=[
     "RESEARCH PACKET v1 / PRIVATE UNVERIFIED ANALYST INPUT",
     "Assembled: "+input.now,
@@ -88,6 +124,6 @@ export function buildDailyResearchPacket(input:{
     "If the report has inadequate verified material, produce an explicitly PARTIAL report.");
   return {contractVersion:"daily-report-research/1",assembledAt:input.now,
     notionStatus:input.notion.status,warnings:input.notion.warnings,
-    newsCount:input.news.length,
+    newsCount:input.news.length,researchSourceCandidates:candidates,
     packet:lines.join("\n").slice(0,23800),sourceUrls:[...links]};
 }
