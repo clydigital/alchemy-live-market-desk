@@ -8,6 +8,7 @@ import styles from "@/app/blue-desk/blue-desk.module.css";
 
 const PRIVATE_NAV = [
   ["Live Market", "/blue-desk"],
+  ["Daily Report", "/blue-desk/daily-report"],
   ["Markets", "/markets"],
   ["Editorial Studio", "/owner/editorial"],
   ["Presenter Studio", "/owner/presenter"],
@@ -25,12 +26,13 @@ const PRIVATE_NAV = [
 // advertise owner-only legacy links that its middleware correctly returns 404.
 const PUBLIC_NAV = [
   ["Live Market", "/"],
+  ["Daily Report", "/daily-report"],
   ["Markets", "/markets"],
   ["Key Stories", "/key-stories"],
   ["Rates", "/#rates-title"],
   ["What Changed", "/#motion-title"],
-  ["Reports", "/reports"],
-  ["Calendar", "/calendar"],
+  ["COTD / OB", "/reports"],
+  ["Calendar + Earnings", "/calendar"],
 ] as const;
 
 const NAV_ICONS: Record<string, MarketIconName> = {
@@ -49,6 +51,9 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Rates": "rates",
   "What Changed": "divergence",
   "Reports": "library",
+  "COTD / OB": "library",
+  "Daily Report": "deep-dive",
+  "Calendar + Earnings": "calendar",
   "Publish Reports": "library",
 };
 
