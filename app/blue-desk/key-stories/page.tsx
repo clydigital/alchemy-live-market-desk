@@ -9,8 +9,8 @@ import { getOriginalPressNews } from "@/lib/blue-desk-original-press-news-server
 import { combineQualifiedNews } from "@/lib/blue-desk-qualified-news";
 import { projectLivingMarketTopics } from "@/lib/blue-desk-living-topics";
 import { getPublicThesisLedger } from "@/lib/blue-desk-thesis-ledger-server";
+import {storyMarketTransmission} from "@/lib/blue-desk-thesis-ledger";
 import { getPublicSourceObservations } from "@/lib/blue-desk-source-observations";
-import { listPublishedReports } from "@/lib/editorial-publications-server";
 import desk from "../blue-desk.module.css";
 import ui from "./key-stories.module.css";
 
@@ -23,10 +23,9 @@ export const metadata = {
 export default async function KeyStories(){
   const now = new Date();
   const host = (await headers()).get("host");
-  const [raw, reviewed, theses, observations, originalPress] = await Promise.all([
+  const [raw, theses, observations, originalPress] = await Promise.all([
     getCurrentVerifiedMarketMotion({ limit: 36 }).catch(() => []),
-    listPublishedReports(6).catch(() => []),
-    getPublicThesisLedger(now,9).catch(() => []),
+    getPublicThesisLedger(now,24).catch(() => []),
     getPublicSourceObservations(now,8).catch(() => []),
     getOriginalPressNews(now,18).catch(() => []),
   ]);
@@ -39,51 +38,48 @@ export default async function KeyStories(){
     <div className={desk.content}>
       <header className={ui.intro}>
         <p className={desk.kicker}>STORY DESK / PERSISTENT THESIS LEDGER</p>
-        <h1>What does the desk believe, and what would change its mind?</h1>
-        <p>These are dated, continuing market theses read from the existing Story record.
-          Their last amendment is not today's market verdict. New factual reports and source
-          observations remain separate, and no new Dossier reasoning is performed here.</p>
-        <p>Historical thesis updates are kept distinct from events observed in the latest 48 hours.</p>
+        <h1>What is driving the markets, and what happens next?</h1>
+        <p>Oil supply, expensive borrowing, the AI spending boom and weaker consumer demand
+          all feed into markets in different ways. Follow each ongoing story here:
+          what has happened, how it could affect prices, and what evidence would make us rethink it.</p>
+        <p>These are continuing research stories. New events and verified price observations
+          keep their own dates, so older analysis never masquerades as today's news.</p>
         <Link className={ui.returnLink}
           href={blueDeskPublicHref("/blue-desk/daily-report",host)}>
           Read the Daily Report
         </Link>
       </header>
       <div className={ui.summary}>
-        <span>{theses.length} persistent tracked theses</span>
-        <span>{topics.length} current news topics</span>
+        <span>{theses.length} ongoing market stories</span>
+        <span>{topics.length} fresh news themes</span>
         <span>{news.length} source-verified development{news.length === 1 ? "" : "s"}</span>
         <span>As of <DualTimestamp value={now.toISOString()} /></span>
       </div>
       <section className={ui.section} aria-labelledby="persistent-theses" data-persistent-thesis-ledger="source-identity">
-        <h2 id="persistent-theses">Persistent market theses</h2>
-        <p>Stored hypotheses and observations below were recorded on the dates shown.
-          They are neither automatically reaffirmed today nor treated as new market news.
-          The only valid Story IDs are the existing database identities.</p>
+        <h2 id="persistent-theses">The stories behind the market</h2>
+        <p>Today's price action makes more sense when you know the longer-running issues.
+          These stories keep that context in one place, even on days without a new verified headline.
+          Each explanation is based on its last recorded assessment, not a fresh call on prices.</p>
         {theses.length ? <div className={ui.cards}>{theses.map(thesis=>
-          <article className={ui.card} id={"thesis-"+thesis.slug} key={thesis.id}>
-            <p className={ui.kicker}>RECORDED {thesis.status.toUpperCase()} THESIS · LAST AMENDED <DualTimestamp value={thesis.updatedAt}/></p>
+          <article className={ui.card} id={"thesis-"+thesis.slug} key={thesis.id} data-stored-story={thesis.status}>
+            <p className={ui.kicker}>{thesis.status==="develop"?"STILL BEING INVESTIGATED":"ONGOING MARKET STORY"}
+              {" · "}Last updated <DualTimestamp value={thesis.updatedAt}/></p>
             <h3>{thesis.title}</h3>
-            <p><strong>Market question:</strong> {thesis.question}</p>
-            <p><strong>Recorded thesis:</strong> {thesis.thesis}</p>
-            {thesis.pricedAssessment?<p><strong>Market assessment at last amendment:</strong> {thesis.pricedAssessment}</p>:null}
-            <div className={ui.test}>
-              <strong>Supporting evidence recorded in the thesis</strong>
-              <p>{thesis.support||"No supporting summary was recorded."}</p>
-              <strong>Strongest countercase recorded</strong>
-              <p>{thesis.contradiction||"No countercase was recorded."}</p>
-            </div>
-            <div className={ui.test}>
-              <strong>What would confirm the interpretation?</strong>
-              <p>{thesis.confirmation||"Confirmation condition not recorded."}</p>
-              <strong>What would invalidate it?</strong>
-              <p>{thesis.invalidation||"Invalidation condition not recorded."}</p>
-              <strong>Next test as recorded</strong>
-              <p>{thesis.nextTest||"No next catalyst recorded."}</p>
-            </div>
-            <small>Thesis history only · Last amended <DualTimestamp value={thesis.updatedAt}/>. These stored statements are not reverified by this page.</small>
+            <p className={ui.storyIntro}><strong>Here's the issue.</strong> {thesis.thesis}</p>
+            <p className={ui.storyExplanation}><strong>Why it could move markets.</strong> {storyMarketTransmission(thesis)}</p>
+            {thesis.support ? <p className={ui.storyContext}><strong>What supports this view:</strong> {thesis.support}</p> : null}
+            {thesis.contradiction ? <p className={ui.storyContext}><strong>The catch:</strong> {thesis.contradiction}</p> : null}
+            {(thesis.confirmation||thesis.invalidation||thesis.nextTest)?<details className={ui.more}>
+              <summary>What would change the story?</summary>
+              {thesis.confirmation?<p><strong>Confirmation:</strong> {thesis.confirmation}</p>:null}
+              {thesis.invalidation?<p><strong>Invalidation:</strong> {thesis.invalidation}</p>:null}
+              {thesis.nextTest?<p><strong>Next catalyst:</strong> {thesis.nextTest}</p>:null}
+            </details>:null}
+            <p className={ui.timeNote}>Historical research snapshot, not an independently confirmed price reaction.
+              {" "}The latest market observations are shown separately below.</p>
           </article>
-        )}</div>:<p className={ui.empty}>No qualified ranked thesis identities were available.</p>}
+        )}</div>:<p className={ui.empty}>We couldn't load the stored market stories.
+          That is a coverage problem, not evidence that there is nothing happening.</p>}
       </section>
       <section className={ui.section} aria-labelledby="recent-originals">
         <h2 id="recent-originals">Latest original-source market observations</h2>
@@ -130,26 +126,6 @@ export default async function KeyStories(){
           <p className={ui.empty}>No source-verified topics were admitted during
             the last 48 hours. This is a research-coverage state, not evidence
             that the market is inactive.</p>}
-      </section>
-      <section className={ui.section} aria-labelledby="research-history">
-        <h2 id="research-history">Research history — approved articles</h2>
-        <p>Reviewed articles are preserved by publication date.
-          They can provide the prior explanation without becoming a fake
-          fresh Story update.</p>
-        {reviewed.length ? <div className={ui.cards}>{reviewed.map(report =>
-          <article className={ui.card} key={report.id}>
-            <p className={ui.kicker}>{report.kind === "OB" ? "OPENING BELL" : "CHART OF THE DAY"}</p>
-            <h3>{report.title}</h3>
-            <p>{report.excerpt}</p>
-            <small>Published <DualTimestamp value={report.published_at} /></small>
-            <Link href={blueDeskPublicHref("/blue-desk/reports/"+report.id,host)}>
-              Read the approved analysis
-            </Link>
-          </article>)}</div> : <p className={ui.empty}>
-            No owner-reviewed reports have been published yet.</p>}
-        <p><Link href={blueDeskPublicHref("/blue-desk/reports",host)}>
-          All COTD and Opening Bell reports
-        </Link></p>
       </section>
     </div>
   </main>;
