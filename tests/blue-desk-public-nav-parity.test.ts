@@ -11,8 +11,9 @@ test("all visible public header links target approved host paths and real anchor
   assert.ok(match, "public navigation must be explicitly enumerated");
   assert.match(header, /\["Live Report", "\/"\]/);
   assert.match(header, /\["Daily Report", "\/daily-report"\]/);
+  assert.match(header, /\["COTD \/ OB", "\/reports"\]/);
   const hrefs = [...match[1].matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m => m[1]);
-  assert.deepEqual(hrefs, ["/", "/daily-report", "/markets", "/key-stories", "/#rates-title", "/#motion-title", "/calendar"]);
+  assert.deepEqual(hrefs, ["/", "/daily-report", "/reports", "/key-stories", "/markets", "/calendar"]);
   for (const href of hrefs) {
     const url = new URL(href, "https://bluebelly-desk.vercel.app");
     assert.equal(blueDeskHostAccess(url.pathname, url.hostname), "public", href);
@@ -20,7 +21,7 @@ test("all visible public header links target approved host paths and real anchor
     if (url.hash) assert.match(homepage, new RegExp('id="' + url.hash.slice(1) + '"'));
     if (url.pathname === "/key-stories") {
       const page=readFileSync(new URL("../app/blue-desk/key-stories/page.tsx",import.meta.url),"utf8");
-      assert.match(page,/data-bluebelly-stories="expanded"/);
+      assert.match(page,/data-bluebelly-stories="editorial-first"/);
     }
   }
 });
