@@ -21,7 +21,7 @@ export type DailyResearchPacket = {
   notionStatus:NotionResearchBundle["status"];
   warnings:string[];
   newsCount:number;
-  deliveredBriefCount:number;
+  deliveredBriefCount?:number;
   packet:string;
   sourceUrls:string[];
 };
