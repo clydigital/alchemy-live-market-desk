@@ -7,7 +7,7 @@ import { formatDualDeskTime } from "@/lib/blue-desk-time";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { projectLivingMarketTopics } from "@/lib/blue-desk-living-topics";
-import { listPublishedReports } from "@/lib/editorial-publications-server";
+import { listPublishedReports, getLatestPublishedDailyReport } from "@/lib/editorial-publications-server";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getForwardEarningsEvents } from "@/lib/forward-earnings-sources";
 import { buildPresenterCalendar } from "@/lib/presenter-calendar";
@@ -25,9 +25,10 @@ export default async function DailyReportPage() {
   const host = (await headers()).get("host");
   // All feeds are existing public read models. There is no Dossier, Story
   // adjudication or model completion in this GET path.
-  const [verified, reports, macro, earnings] = await Promise.all([
+  const [verified, reports, latestReviewed, macro, earnings] = await Promise.all([
     getCurrentVerifiedMarketMotion({ limit: 36 }).catch(() => []),
     listPublishedReports(8).catch(() => []),
+    getLatestPublishedDailyReport().catch(() => null),
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({ now }).catch(() => ({
       events: [], coverage: "unavailable" as const, warning: "Earnings source unavailable",
@@ -62,6 +63,39 @@ export default async function DailyReportPage() {
           Analyst conclusions below are from independently reviewed, dated publications.
           There is <strong>no Dossier approval or frozen Story requirement</strong>.</p>
       </header>
+
+      <section className={styles.section} aria-labelledby="reviewed-daily-report"
+        data-reviewed-daily-report={latestReviewed ? "published" : "awaiting-review"}>
+        <div className={styles.heading}>
+          <p className={styles.eyebrow}>OWNER-REVIEWED DAILY EDITION</p>
+          <h2 id="reviewed-daily-report">
+            {latestReviewed ? latestReviewed.title : "Researched report awaiting editorial review"}
+          </h2>
+          <p>Unlike the source-dated updates below, this is where the full
+            analyst explanation appears after independent source checks, an
+            approved fixed PDF and the existing publication gate.</p>
+        </div>
+        {latestReviewed ? <article className={styles.reading}>
+          <p className={styles.eyebrow}>PUBLISHED · IMMUTABLE EDITION</p>
+          <p className={styles.readingFoot}>
+            <span>Published <DualTimestamp value={latestReviewed.published_at}/></span>
+            <Link href={reportHref(latestReviewed.id)}>Open reviewed edition and PDF</Link>
+          </p>
+          {latestReviewed.body.split(/\n\s*\n/).filter(Boolean).map((part,i)=>
+            /^#{1,3}\s/.test(part) ?
+              <h3 key={i}>{part.replace(/^#{1,3}\s+/,"")}</h3> :
+              <p key={i}>{part}</p>
+          )}
+          <h3>Reviewed research references</h3>
+          <ul>{latestReviewed.source_urls.map(url=>
+            <li key={url}><a href={url} target="_blank" rel="noreferrer">
+              {new URL(url).hostname} · original link</a></li>)}</ul>
+        </article> : <p className={styles.empty}>
+          The latest current market facts remain available below. No newly researched
+          owner-approved report has been published yet; headlines and Notion research
+          are not silently promoted into a finished analysis.
+        </p>}
+      </section>
 
       <section className={styles.section} aria-labelledby="developments">
         <div className={styles.heading}>
