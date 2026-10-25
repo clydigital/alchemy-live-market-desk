@@ -7,7 +7,7 @@ import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-
 import styles from "@/app/blue-desk/blue-desk.module.css";
 
 const PRIVATE_NAV = [
-  ["Live Market", "/blue-desk"],
+  ["Live Report", "/blue-desk"],
   ["Daily Report", "/blue-desk/daily-report"],
   ["Markets", "/markets"],
   ["Editorial Studio", "/owner/editorial"],
@@ -27,7 +27,7 @@ const PRIVATE_NAV = [
 // Public Bluebelly is deliberately limited to the route allowlist; never
 // advertise owner-only legacy links that its middleware correctly returns 404.
 const PUBLIC_NAV = [
-  ["Live Market", "/"],
+  ["Live Report", "/"],
   ["Daily Report", "/daily-report"],
   ["Markets", "/markets"],
   ["Key Stories", "/key-stories"],
@@ -37,7 +37,7 @@ const PUBLIC_NAV = [
 ] as const;
 
 const NAV_ICONS: Record<string, MarketIconName> = {
-  "Live Market": "market",
+  "Live Report": "market",
   "Markets": "chart",
   "Deep Dive": "deep-dive",
   "Research": "research",
@@ -70,7 +70,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
   const nav = publicHost && !ownerWorkspace ? PUBLIC_NAV : PRIVATE_NAV;
   return (
     <header className={styles.topbar}>
-      <Link href={blueDeskPublicHref("/blue-desk", host)} className={styles.brand} aria-label="Blue Desk — Live Market">
+      <Link href={blueDeskPublicHref("/blue-desk", host)} className={styles.brand} aria-label="Blue Desk — Live Report">
         <Image src="/blue-desk-wordmark.svg" alt="Blue Desk" width={272} height={60} priority unoptimized />
       </Link>
       <nav className={styles.nav} aria-label="Blue Desk primary">
