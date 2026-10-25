@@ -8,6 +8,7 @@ export default function DailyArticleStudio(){
  const [packet,setPacket]=useState<Packet|null>(null);
  const [ideas,setIdeas]=useState<DailyArticleIdea[]>([]);
  const [drafts,setDrafts]=useState<Record<number,Draft>>({});
+ const [sourceOverlap,setSourceOverlap]=useState<Record<number,{status:string;longestMatchedWords:number;note:string}>>({});
  const [busy,setBusy]=useState<"idle"|"research"|"plan"|"draft">("idle");
  const [notice,setNotice]=useState("");
  const read=async()=>{
@@ -19,7 +20,7 @@ export default function DailyArticleStudio(){
    const res=await fetch("/api/owner/daily-research",{cache:"no-store",credentials:"same-origin"});
    const data=await res.json() as Packet;
    if(!res.ok||!data.packet)throw Error(data.error||"Source research unavailable");
-   setPacket(data);setIdeas([]);setDrafts({});
+   setPacket(data);setIdeas([]);setDrafts({});setSourceOverlap({});
    setNotice("Research loaded. Article ideas will follow the original source dates and coverage limits.");
   }catch(e){setNotice(e instanceof Error?e.message:"Research unavailable");}
   finally{setBusy("idle");}
@@ -35,7 +36,7 @@ export default function DailyArticleStudio(){
    });
    const data=await res.json() as {ideas?:DailyArticleIdea[];error?:string};
    if(!res.ok||!data.ideas?.length)throw Error(data.error||"Article plan unavailable");
-   setIdeas(data.ideas);setDrafts({});
+   setIdeas(data.ideas);setDrafts({});setSourceOverlap({});
    setNotice(data.ideas.length+" different article angles proposed. Every chart still needs to be opened and checked.");
   }catch(e){setNotice(e instanceof Error?e.message:"Article planning unavailable");}
   finally{setBusy("idle");}
@@ -57,9 +58,11 @@ export default function DailyArticleStudio(){
     body:JSON.stringify({kind:idea.kind,action:"draft",title:idea.title,
       packet:(brief+packet.packet).slice(0,23500),existingBody:"",instructions:""}),
    });
-   const data=await response.json() as {body?:string;error?:string};
+   const data=await response.json() as {body?:string;error?:string;
+    originalityReview?:{status:string;longestMatchedWords:number;note:string}};
    if(!response.ok||!data.body)throw Error(data.error||"Private generation unavailable");
    setDrafts(old=>({...old,[index]:{text:data.body||"",busy:false,error:""}}));
+   if(data.originalityReview)setSourceOverlap(old=>({...old,[index]:data.originalityReview!}));
   }catch(e){setDrafts(old=>({...old,[index]:{text:old[index]?.text||"",busy:false,
    error:e instanceof Error?e.message:"Draft generation failed"}}));}
  };
@@ -118,6 +121,10 @@ export default function DailyArticleStudio(){
       {drafts[i]?.text?<button type="button" onClick={()=>copy(drafts[i].text)}>Copy draft</button>:null}
     </div>
     {drafts[i]?.error?<p className={styles.caveat}>{drafts[i].error}</p>:null}
+    {sourceOverlap[i]?<p className={styles.caveat}>
+      {sourceOverlap[i].status==="REVIEW_SOURCE_OVERLAP"?"Originality check: lengthy wording overlaps the supplied research. Rewrite and review the source before use.":"Originality check: no long exact phrasing detected in supplied notes."}
+      {" "}{sourceOverlap[i].note}
+    </p>:null}
     {drafts[i]?.text?<label className={styles.draftLabel}>
       Editable private article · all figures and original sources require review
       <textarea rows={19} value={drafts[i].text}
