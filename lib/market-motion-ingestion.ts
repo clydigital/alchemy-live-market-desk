@@ -23,6 +23,10 @@ import { diagnoseCurrentRunOriginalNewsCoverage } from "./market-motion-original
 import type { TranscriptMotionLead } from "./transcript-research-review-contract.ts";
 
 export const MARKET_MOTION_RUN_LIMIT = 18;
+/** Raw creator reviews remain untouched; only the attention feed is bounded. */
+export const MARKET_MOTION_CREATOR_ATTENTION_LIMIT = 5;
+const MARKET_MOTION_CREATOR_PER_VIDEO_LIMIT = 2;
+const MARKET_MOTION_CREATOR_PER_TOPIC_LIMIT = 3;
 const MARKET_MOTION_CORROBORATION_REPLAY_LIMIT = 240;
 export const MARKET_MOTION_MIN_SCORE = 72;
 export const MARKET_MOTION_MIN_MATERIALITY = 72;
@@ -1037,7 +1041,7 @@ export function buildTranscriptMotionCandidates(
       .filter((lead) => CREATOR_EVENT_LEAD_KINDS.has(lead.kind))
       .filter((lead) => lead.priority >= MARKET_MOTION_MIN_SCORE)
       .sort((left, right) => right.priority - left.priority)
-      .slice(0, 8);
+      .slice(0, MARKET_MOTION_CREATOR_PER_VIDEO_LIMIT);
 
     for (const lead of eventLeads) {
       const text = [lead.text, row.title, row.summary, ...lead.entities].join(" ");
@@ -1111,12 +1115,27 @@ export function buildTranscriptMotionCandidates(
     }
   }
 
-  return candidates
-    .sort((left, right) =>
-      Number(right.materiality || 0) - Number(left.materiality || 0)
-      || Number(right.relevance || 0) - Number(left.relevance || 0)
-      || Date.parse(right.occurredAt) - Date.parse(left.occurredAt))
-    .slice(0, MARKET_MOTION_RUN_LIMIT);
+  // Creator acquisition capacity is not research attention. Keep all raw
+  // transcript/review claims in the existing intake records, but only a
+  // bounded, diverse subset enters short-horizon Motion persistence.
+  const byVideo=new Map<string,number>();
+  const byTopic=new Map<string,number>();
+  const selected:MarketMotionInput[]=[];
+  for(const candidate of candidates.sort((left,right)=>
+    Number(right.materiality||0)-Number(left.materiality||0)
+    ||Number(right.relevance||0)-Number(left.relevance||0)
+    ||Date.parse(right.occurredAt)-Date.parse(left.occurredAt))){
+    const metadata=candidate.metadata||{};
+    const itemKey=String(metadata.itemKey||candidate.sourceUrl);
+    const topic=candidate.primaryStoryId||candidate.primaryRegimeSlug||candidate.category;
+    if((byVideo.get(itemKey)||0)>=MARKET_MOTION_CREATOR_PER_VIDEO_LIMIT)continue;
+    if((byTopic.get(topic)||0)>=MARKET_MOTION_CREATOR_PER_TOPIC_LIMIT)continue;
+    byVideo.set(itemKey,(byVideo.get(itemKey)||0)+1);
+    byTopic.set(topic,(byTopic.get(topic)||0)+1);
+    selected.push(candidate);
+    if(selected.length>=MARKET_MOTION_CREATOR_ATTENTION_LIMIT)break;
+  }
+  return selected;
 }
 
 export function unifyMarketMotionCandidates(
