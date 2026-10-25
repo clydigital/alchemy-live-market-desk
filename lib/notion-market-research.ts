@@ -73,10 +73,15 @@ export function extractNotionResearchBlocks(v:unknown,max=11000){
 }
 export function selectNotionResearchPages(searchResults:unknown,day:string,macroRoot=MACRO_ROOT,gateSource=GATE_SOURCE){
   const items=rows(searchResults);
+  // Database row titles are schema-specific (e.g. Research Gap uses "Run",
+  // not "title" or "Name"). Select the actual Notion title property by type.
   const name=(item:AnyRecord)=>{
     const props=obj(item.properties);
-    return rows(obj(props.title).title).map(s=>txt(s.plain_text,250)).join("") ||
-      rows(obj(props.Name).title).map(s=>txt(s.plain_text,250)).join("");
+    const typed=Object.values(props).map(obj).find(p=>p.type==="title");
+    const field=typed||[props.Run,props.title,props.Name].map(obj)
+      .find(p=>Array.isArray(p.title))||{};
+    return rows(obj(field).title).map(s=>txt(s.plain_text,250)||txt(obj(s.text).content,250)).join("")||
+      rows(item.title).map(s=>txt(s.plain_text,250)||txt(obj(s.text).content,250)).join("");
   };
   const macro=items.find(p=>name(p)===day+" — MacroPulse" &&
     sameId(obj(p.parent).page_id,macroRoot));
@@ -151,10 +156,20 @@ export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionRes
     const selected=selectNotionResearchPages(search.results,day,macroRoot,gateSource);
     if(selected.gateId){
       try{
-        const pageBlocks=await children(token,selected.gateId,2);
+        const [page, pageBlocks]=await Promise.all([
+          notionRequest(token,"/pages/"+selected.gateId),
+          children(token,selected.gateId,2),
+        ]);
         const parsed=blocksText(pageBlocks,12500);
-        if(/(?:Coverage\s+PARTIAL|Input Health\s+PARTIAL|Run\s+PARTIAL|eligible overflow|unconsumed eligible)/i.test(parsed.text))
-          warnings.push("The latest Research Gap Gate explicitly reports partial coverage or unread overflow. Treat its findings as bounded.");
+        const props=obj(page.properties);
+        const select=(name:string)=>{
+          const p=obj(props[name]);
+          return txt(obj(p.select).name,60)||txt(obj(p.status).name,60);
+        };
+        const incomplete=[select("Status"),select("Coverage"),select("Input Health")]
+          .some(v=>/^(PARTIAL|FAILED|MATERIAL GAP|INSUFFICIENT)$/i.test(v));
+        if(incomplete||/(?:Coverage\s+PARTIAL|Input Health\s+PARTIAL|Run\s+PARTIAL|eligible overflow|unconsumed eligible)/i.test(parsed.text))
+          warnings.push("The latest Research Gap Gate explicitly reports partial coverage, failed inputs or unread overflow. Treat its findings as bounded.");
         if(parsed.text) sources.push({kind:"RESEARCH_GAP",title:day+" — latest Research Gap Gate",
           url:"https://www.notion.so/"+selected.gateId,pageId:selected.gateId,
           retrievedAt:fetchedAt,text:parsed.text,originalLinks:parsed.links});
