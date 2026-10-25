@@ -6,6 +6,8 @@ import { fetchTodayNotionResearch } from "@/lib/notion-market-research";
 import { buildDailyResearchPacket } from "@/lib/daily-report-research-packet";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
+import { getOriginalPressNews } from "@/lib/blue-desk-original-press-news-server";
+import { combineQualifiedNews } from "@/lib/blue-desk-qualified-news";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getForwardEarningsEvents } from "@/lib/forward-earnings-sources";
 import { buildPresenterCalendar } from "@/lib/presenter-calendar";
@@ -31,16 +33,18 @@ export async function GET(req:NextRequest){
   if(accessError||!access)return fail(403,"Owner account not authorised");
 
   const now=new Date();
-  const [notion,rawNews,monitor,macro,earnings]=await Promise.all([
+  const [notion,rawNews,originalPress,monitor,macro,earnings]=await Promise.all([
     fetchTodayNotionResearch(now),
     getCurrentVerifiedMarketMotion({limit:24}).catch(()=>[]),
+    getOriginalPressNews(now,12).catch(()=>[]),
     getMarketMonitor().catch(()=>null),
     getEconomicCalendar().catch(()=>[]),
     getForwardEarningsEvents({now}).catch(()=>({
       events:[],coverage:"unavailable" as const,warning:"Earnings source unavailable",
     })),
   ]);
-  const news=selectVerifiedNewsBriefs(rawNews,now,12);
+  const motionNews=selectVerifiedNewsBriefs(rawNews,now,12);
+  const news=combineQualifiedNews(motionNews,originalPress,12);
   const calendar=buildPresenterCalendar(macro,earnings,now);
   const upcoming=selectBlueDeskUpcoming(calendar,now,30).slice(0,14);
   const packet=buildDailyResearchPacket({
