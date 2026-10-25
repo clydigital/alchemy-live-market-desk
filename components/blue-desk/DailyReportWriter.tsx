@@ -10,6 +10,13 @@ type Handoff={
   researchSourceCandidates?:Array<{url:string;sourcePageUrl:string;kind:"MACROPULSE"|"RESEARCH_GAP";verification:"EXACT_NEWS_SOURCE_MATCH"|"UNVERIFIED_LINK";matchingNewsHeadline:string|null}>;
   sourcePages:Array<{kind:string;title:string;url:string;retrievedAt:string}>;
   calendarWarnings:string[];error?:string;
+  health?:{
+    contractVersion:string;status:string;message:string;assessedAt:string;
+    sources:{macroPulsePosts:number;researchGapRuns:number;exactOriginalMatches:number;unverifiedCandidateLinks:number};
+    news:{qualifiedCount:number;within48h:number;latestEventAt:string|null};
+    checks:{notionAvailable:boolean;gateIncluded:boolean;fullPulseIncluded:boolean;independentNewsPresent:boolean};
+    nextActions:string[];
+  };
 };
 export default function DailyReportWriter(){
   const [research,setResearch]=useState<Handoff|null>(null);
@@ -22,6 +29,8 @@ export default function DailyReportWriter(){
   const [selectedSources,setSelectedSources]=useState("");
   async function load(){
     if(busy!=="idle")return;
+    if(research&&editedPacket!==research.packet&&
+       !window.confirm("Replace your edited research packet with a fresh source read? The report draft will remain, but your research-packet edits will be lost."))return;
     setBusy("read");setNotice("");
     try{
       const res=await fetch("/api/owner/daily-research",{cache:"no-store",credentials:"same-origin"});
@@ -85,6 +94,20 @@ export default function DailyReportWriter(){
         </p>:null}
         {[...research.warnings,...research.calendarWarnings].map((w,i)=>
           <p className={css.warning} key={i}>{w}</p>)}
+        {research.health ? <section className={css.readiness} aria-label="Research input readiness" data-research-health={research.health.status}>
+          <h4>Operational research readiness</h4>
+          <p><strong>{research.health.status.replaceAll("_"," ")}</strong> · {research.health.message}</p>
+          <p>Full Pulse posts: <strong>{research.health.sources.macroPulsePosts}</strong>
+            {" · "}Gate runs: <strong>{research.health.sources.researchGapRuns}</strong>
+            {" · "}Independently checked original-document matches: <strong>{research.health.sources.exactOriginalMatches}</strong>
+            {" · "}Unverified Notion URLs: <strong>{research.health.sources.unverifiedCandidateLinks}</strong></p>
+          <p>Source-verified headlines within 48h: <strong>{research.health.news.within48h}</strong>
+            {" · "}Most recent qualified event: <strong>{research.health.news.latestEventAt||"Not available"}</strong></p>
+          {research.health.nextActions.map((action,i)=><p key={i} className={css.warning}>{action}</p>)}
+          <button type="button" onClick={()=>copy(JSON.stringify(research.health,null,2))}>
+            Copy source-health diagnostic
+          </button>
+        </section>:null}
         <h4>Source pages read</h4>
         {research.sourcePages.length ? research.sourcePages.map(p=>
           <p key={p.url}><a target="_blank" rel="noreferrer" href={p.url}>
