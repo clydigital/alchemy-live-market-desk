@@ -6,6 +6,7 @@ import type { EditorialPriceCard } from "@/lib/editorial-price-context";
 import type { EditorialSlate, SlateIdea } from "@/lib/editorial-slate-core";
 import { editorialPriceLines } from "@/lib/editorial-price-context";
 import InvestigationWorkbench from "./InvestigationWorkbench";
+import {parseExternalResearch,chatResearchTransferPrompt} from "@/lib/editorial-external-research";
 import { mergeInvestigationIntoDraftPacket, type InvestigationResult } from "@/lib/editorial-investigation";
 import styles from "./editorial-studio.module.css";
 
@@ -109,6 +110,10 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
   const [copied,setCopied]=useState("");
   const [generationState,setGenerationState]=useState<"idle"|"draft"|"revise">("idle");
   const [investigation,setInvestigation]=useState<InvestigationResult|null>(null);
+  const [externalResearch,setExternalResearch]=useState("");
+  const [importStatus,setImportStatus]=useState("");
+  const [externalKind,setExternalKind]=useState<Kind>("OB");
+  const [importedResearch,setImportedResearch]=useState(false);
   const [generationError,setGenerationError]=useState("");
   const [revisionInstruction,setRevisionInstruction]=useState("");
   const [runNotes,setRunNotes]=useState<string[]>(RUN.map(()=>""));
@@ -152,6 +157,32 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
     });
     setGenerationError("");
     setCopied("Scheduled idea loaded as PRIVATE working notes. Check original sources before generating.");
+  }
+  function applyExternalResearch(){
+    if(!previewMode)return;
+    const parsed=parseExternalResearch(externalResearch,externalKind);
+    if(!parsed.ok){setImportStatus(parsed.error);return;}
+    const entry=parsed.research;
+    if((draft.title.trim()||draft.body.trim())&&!window.confirm(
+      "Replace the current local draft with imported research? This does not affect private or canonical records."))return;
+    setDraft({...EMPTY,kind:entry.kind,title:entry.title,meta:entry.meta,
+      hook:entry.hook,body:entry.body,catalysts:entry.catalysts,
+      expectation:entry.expectation,observed:entry.observed,
+      explanation:entry.explanation,alternative:entry.alternative,
+      confirmation:entry.confirmation,invalidation:entry.invalidation,
+      missingProof:entry.missingProof,chart1:entry.chart1,
+      chart2:entry.chart2,chart3:entry.chart3,sources:entry.sources});
+    setInvestigation(null);
+    setImportedResearch(true);
+    setImportStatus("Imported into editable local draft · "+entry.sourceCount+
+      " HTTPS source candidate(s) · all claims require independent review.");
+    setCopied("");
+  }
+  async function copyResearchPrompt(){
+    try{
+      await navigator.clipboard.writeText(chatResearchTransferPrompt(externalKind));
+      setImportStatus("Research prompt copied. Paste into ChatGPT with connected sources, then import the response here.");
+    }catch{setImportStatus("Clipboard blocked; select and copy the prompt below.");}
   }
   async function runGeneration(action:"draft"|"revise"){
     if(previewMode){
@@ -228,7 +259,47 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
         </nav>
       )}
       <div className={styles.status}><strong>{previewMode?"Temporary development UI — not live research":"Owner-only research workspace"}</strong>
-        <span>{previewMode?"Synthetic examples; local-only notes. Server research, model drafting, private records and publication are unavailable here.":"Notes save locally in this browser; scheduled research and canonical source evidence remain separate."}</span></div>
+        <span>{previewMode?"Demo slate or imported user research; local-only notes. Server research, model drafting, private records and publication are unavailable here.":"Notes save locally in this browser; scheduled research and canonical source evidence remain separate."}</span></div>
+      {previewMode?<section className={styles.panel} data-external-research-transfer="local-only"
+        aria-label="Paste externally researched article">
+        <header className={styles.panelHead}>
+          <h2>Import real research from ChatGPT</h2>
+          <small>Offline bridge · no owner login · local draft only</small>
+        </header>
+        <p className={styles.help}>
+          Research with ChatGPT and the plugins you already connect.
+          Copy the sourced result here to edit an OB or COTD without using the
+          locked Gemini route. Original links are preserved as candidates.
+          Importing is <strong>not independent verification</strong>.
+          No contents are uploaded to Bluebelly.
+        </p>
+        <div className={styles.actions}>
+          <label className={styles.lineField}>
+            <span>Research format</span>
+            <select value={externalKind} onChange={e=>setExternalKind(e.target.value==="COTD"?"COTD":"OB")}>
+              <option value="OB">Opening Bell</option>
+              <option value="COTD">Chart of the Day</option>
+            </select>
+          </label>
+          <button type="button" onClick={copyResearchPrompt}>Copy ChatGPT research prompt</button>
+        </div>
+        <details className={styles.externalPrompt}>
+          <summary>Show the research prompt and supported JSON fields</summary>
+          <pre>{chatResearchTransferPrompt(externalKind)}</pre>
+        </details>
+        <label className={styles.field}>
+          <span>Paste full research brief or JSON (max 32,000 characters)</span>
+          <textarea value={externalResearch} rows={8} maxLength={32_000}
+            placeholder='Paste ChatGPT research text with source URLs, or a structured JSON object containing title, body, sources, countercase and missingProof.'
+            onChange={e=>{setExternalResearch(e.target.value);setImportStatus("");}}/>
+        </label>
+        <div className={styles.actions}>
+          <button type="button" disabled={!externalResearch.trim()} onClick={applyExternalResearch}>
+            Import into local editable article
+          </button>
+        </div>
+        <p className={styles.small} role="status">{importStatus||"Plain Markdown/text and JSON are supported. This never calls a server-side API."}</p>
+      </section>:null}
       <section className={styles.panel} aria-label="Scheduled editorial slate">
         <header className={styles.panelHead}>
           <h2>09:00 Editorial Slate</h2>
@@ -252,6 +323,10 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
           </div>
         </>}
       </section>
+      {previewMode&&importedResearch?<p className={styles.externalImportBanner} role="note">
+        Imported research remains UNVERIFIED. The offline investigation preview below uses
+        simulated UNKNOWN price windows and does not validate the imported market claims.
+      </p>:null}
       {mode==="editorial"?(
         <InvestigationWorkbench
           initialQuestion={draft.title}
@@ -352,6 +427,9 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
               </button>
               <button onClick={()=>copy("Writing request",prompt)}>Copy AI writing brief</button>
               <button onClick={()=>copy("Markdown draft",packet)}>Copy draft Markdown</button>
+              {previewMode?<button type="button" disabled={!draft.body.trim()} onClick={()=>window.print()}>
+                Print unverified draft / Save as PDF
+              </button>:null}
             </div>
             <label className={styles.lineField}>
               <span>Revision instruction · optional</span>
@@ -386,6 +464,16 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
           </aside>
         </div>
       )}
+      {previewMode&&draft.body.trim()?<section className={styles.printDraft}
+        data-print-local-draft="unverified">
+        <p className={styles.printStatus}>WORKING DRAFT · EXTERNAL RESEARCH UNVERIFIED · NOT APPROVED</p>
+        <h1>{draft.title||"Untitled market analysis"}</h1>
+        <p className={styles.printMeta}>{draft.kind} · Owner-edited browser copy · Source checks pending</p>
+        <div className={styles.printText}>{draft.body}</div>
+        <h2>Original-source candidates to verify</h2>
+        <ul>{sourceLinks.map(url=><li key={url}>{url}</li>)}</ul>
+        <p>{draft.missingProof||"Original source, event clock and chart verification required."}</p>
+      </section>:null}
     </div>
   );
 }
