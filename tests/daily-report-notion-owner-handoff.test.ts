@@ -198,3 +198,46 @@ test("MYT midnight handoff uses real prior-day Pulse and PARTIAL Gate without pr
     else process.env.NOTION_API_TOKEN=previousToken;
   }
 });
+
+test("Notion plain-text primary links enter the private candidate list but not verified News",()=>{
+  const page=[
+    {type:"paragraph",paragraph:{rich_text:[{plain_text:
+      "Original exchange: https://www.saudiexchange.sa/wps/portal/saudiexchange/ourmarkets/main-market-watch (await final). "+
+      "Social view https://x.com/someAnalyst/status/999; " +
+      "do not trust http://insecure.example.net/a or https://localhost/secret"}]}},
+    {type:"paragraph",paragraph:{rich_text:[{plain_text:
+      "Another reference: https://www.saudiexchange.sa/wps/portal/saudiexchange/ourmarkets/main-market-watch"}]}}
+  ];
+  const result=extractNotionResearchBlocks(page);
+  assert.ok(result.links.some(url=>url.startsWith("https://www.saudiexchange.sa/")));
+  assert.ok(result.links.some(url=>url.startsWith("https://x.com/")));
+  assert.equal(result.links.filter(url=>url.includes("saudiexchange.sa")).length,1);
+  assert.ok(result.links.every(url=>url.startsWith("https://")&&!url.includes("localhost")));
+  const research=buildDailyResearchPacket({
+    now:"2026-10-26T01:00:00Z",news:[],calendar:[],prices:[],
+    notion:{status:"PARTIAL",fetchedAt:"2026-10-26T01:00:00Z",warnings:[],sources:[{
+      kind:"MACROPULSE",pageId:"404519b67a9481a38404d07a9db4a459",
+      title:"Original-source research leads only",
+      url:"https://www.notion.so/404519b67a9481a38404d07a9db4a459",
+      text:result.text,originalLinks:result.links,
+      retrievedAt:"2026-10-26T01:00:00Z",
+    }]},
+  });
+  assert.equal(research.newsCount,0);
+  assert.match(research.packet,/RESEARCH INPUT, NOT INDEPENDENT SOURCE VERIFICATION/);
+  assert.ok(research.sourceUrls.some(url=>url.includes("x.com/")));
+});
+
+test("owner Writer sees exact public source-checked announcements without auto-approving research leads",()=>{
+  const api=readFileSync(new URL("../app/api/owner/daily-research/route.ts",import.meta.url),"utf8");
+  const writer=readFileSync(new URL("../components/blue-desk/DailyReportWriter.tsx",import.meta.url),"utf8");
+  assert.match(api,/getOriginalPressNews\(now,12\)/);
+  assert.match(api,/combineQualifiedNews\(motionNews,originalPress,12\)/);
+  assert.match(api,/app_access_allowlist/);
+  assert.doesNotMatch(api,/\.insert\(|\.upsert\(|\.update\(/);
+  assert.match(writer,/setSelectedSources\(" "\)|setSelectedSources\(" "\.trim\(\)\)|setSelectedSources\(""\)/);
+  assert.match(writer,/maximum 12/);
+  assert.match(writer,/sourceUrls:urls/);
+  assert.doesNotMatch(writer,/sourceUrls:research\.sourceUrls/);
+  assert.match(writer,/reviewStatus:"UNVERIFIED"/);
+});
