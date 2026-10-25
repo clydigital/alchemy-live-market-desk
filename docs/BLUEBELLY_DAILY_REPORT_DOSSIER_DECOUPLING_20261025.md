@@ -53,7 +53,7 @@ Inventory old consumer routes, Research Gap triggers, Dossier publication schedu
 
 ## Verification gates
 
-- New public GET paths use **no** Dossier reader, snapshot join, canonical Story mutation, privileged source or model generation.
+- New public GET paths use **no** Dossier reader, snapshot join, canonical Story mutation or model generation. They continue using the established server-side verified-Motion adapter, but only the existing sanitised and evidence-screened public projection is rendered; any privileged upstream access must remain server-side and access-reviewed.
 - No anonymous host, preview alias, /reports or /editorial-lab route can access private owner APIs or raw canonical tables.
 - Report remains useful with zero accepted Story changes; no fresh news and provider outage show an explicit honest empty/coverage state.
 - News claims are never labelled as causally proven; topic grouping is transparent and bounded to 48h.
