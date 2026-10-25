@@ -36,7 +36,7 @@ export default async function KeyStories(){
   const motionNews = selectVerifiedNewsBriefs(raw, now, 18);
   const news = combineQualifiedNews(motionNews,originalPress,18);
   const topics = projectLivingMarketTopics(news);
-  return <main className={desk.page} data-bluebelly-stories="expanded"
+  return <main className={desk.page} data-bluebelly-stories="editorial-first"
     data-living-topics="dossier-independent">
     <BlueDeskHeader activePath="/blue-desk/key-stories" />
     <div className={desk.content}>
