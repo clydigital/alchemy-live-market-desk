@@ -87,7 +87,7 @@ test("public lab imports real research *locally*, never opens private owner mode
  assert.match(editor,/Print unverified draft \/ Save as PDF/);
  assert.match(editor,/window\.print\(\)/);
  assert.match(global,/body:has\(\[data-print-local-draft\]\)/);
- assert.match(global,/WORKING/); // printed label is supplied by component and CSS selector
+ assert.match(editor,/WORKING DRAFT · EXTERNAL RESEARCH UNVERIFIED/);
  assert.match(lab,/No imported notes are/);
  assert.doesNotMatch(lab,/getMarketMonitor\(|createSupabaseAdminClient|fetch\(|GoogleGenAI/);
  assert.ok(editor.indexOf("if(previewMode){")<editor.indexOf('fetch("/api/owner/editorial-generate"'));
