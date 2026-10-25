@@ -19,6 +19,22 @@ const PRIVATE_NAV = [
   ["Presenter Prep", "/blue-desk/presenter"],
 ] as const;
 
+// Compatibility navigation is limited to pages belonging to the old owner
+// workspaces themselves; native Bluebelly never advertises these exits.
+const LEGACY_OWNER_NAV = [
+  ["Live Market", "/blue-desk"],
+  ["Markets", "/markets"],
+  ["Editorial Studio", "/owner/editorial"],
+  ["Presenter Studio", "/owner/presenter"],
+  ["Deep Dive", "/articles"],
+  ["Research", "/whats-new"],
+  ["Data Library", "/data/macro"],
+  ["Presenter Prep", "/hybrid-output/prepare"],
+  ["X Wire", "/owner/x-wire"],
+  ["Calendar", "/blue-desk/calendar"],
+  ["Learn", "/concepts"],
+] as const;
+
 // Public Bluebelly is deliberately limited to the route allowlist; never
 // advertise owner-only legacy links that its middleware correctly returns 404.
 const PUBLIC_NAV = [
@@ -54,7 +70,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
   // Authenticated owner routes must retain their private workspace navigation,
   // even when opened on the canonical hostname that also serves public readers.
   const ownerWorkspace = activePath === "/owner/editorial" || activePath === "/owner/presenter";
-  const nav = publicHost && !ownerWorkspace ? PUBLIC_NAV : PRIVATE_NAV;
+  const nav = ownerWorkspace ? LEGACY_OWNER_NAV : publicHost ? PUBLIC_NAV : PRIVATE_NAV;
   return (
     <header className={styles.topbar}>
       <Link href={blueDeskPublicHref("/blue-desk", host)} className={styles.brand} aria-label="Blue Desk — Live Market">
