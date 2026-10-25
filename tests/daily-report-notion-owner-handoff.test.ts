@@ -198,3 +198,79 @@ test("MYT midnight handoff uses real prior-day Pulse and PARTIAL Gate without pr
     else process.env.NOTION_API_TOKEN=previousToken;
   }
 });
+
+test("Notion plain-text primary links enter the private candidate list but not verified News",()=>{
+  const page=[
+    {type:"paragraph",paragraph:{rich_text:[{plain_text:
+      "Original exchange: https://www.saudiexchange.sa/wps/portal/saudiexchange/ourmarkets/main-market-watch (await final). "+
+      "Social view https://x.com/someAnalyst/status/999; " +
+      "do not trust http://insecure.example.net/a or https://localhost/secret"}]}},
+    {type:"paragraph",paragraph:{rich_text:[{plain_text:
+      "Another reference: https://www.saudiexchange.sa/wps/portal/saudiexchange/ourmarkets/main-market-watch"}]}}
+  ];
+  const result=extractNotionResearchBlocks(page);
+  assert.ok(result.links.some(url=>url.startsWith("https://www.saudiexchange.sa/")));
+  assert.ok(result.links.some(url=>url.startsWith("https://x.com/")));
+  assert.equal(result.links.filter(url=>url.includes("saudiexchange.sa")).length,1);
+  assert.ok(result.links.every(url=>url.startsWith("https://")&&!url.includes("localhost")));
+  const research=buildDailyResearchPacket({
+    now:"2026-10-26T01:00:00Z",news:[],calendar:[],prices:[],
+    notion:{status:"PARTIAL",fetchedAt:"2026-10-26T01:00:00Z",warnings:[],sources:[{
+      kind:"MACROPULSE",pageId:"404519b67a9481a38404d07a9db4a459",
+      title:"Original-source research leads only",
+      url:"https://www.notion.so/404519b67a9481a38404d07a9db4a459",
+      text:result.text,originalLinks:result.links,
+      retrievedAt:"2026-10-26T01:00:00Z",
+    }]},
+  });
+  assert.equal(research.newsCount,0);
+  assert.match(research.packet,/RESEARCH INPUT, NOT INDEPENDENT SOURCE VERIFICATION/);
+  assert.ok(research.sourceUrls.some(url=>url.includes("x.com/")));
+});
+
+test("owner Writer sees exact public source-checked announcements without auto-approving research leads",()=>{
+  const api=readFileSync(new URL("../app/api/owner/daily-research/route.ts",import.meta.url),"utf8");
+  const writer=readFileSync(new URL("../components/blue-desk/DailyReportWriter.tsx",import.meta.url),"utf8");
+  assert.match(api,/getOriginalPressNews\(now,12\)/);
+  assert.match(api,/combineQualifiedNews\(motionNews,originalPress,12\)/);
+  assert.match(api,/app_access_allowlist/);
+  assert.doesNotMatch(api,/\.insert\(|\.upsert\(|\.update\(/);
+  assert.match(writer,/setSelectedSources\(" "\)|setSelectedSources\(" "\.trim\(\)\)|setSelectedSources\(""\)/);
+  assert.match(writer,/maximum 12/);
+  assert.match(writer,/sourceUrls:urls/);
+  assert.doesNotMatch(writer,/sourceUrls:research\.sourceUrls/);
+  assert.match(writer,/reviewStatus:"UNVERIFIED"/);
+});
+
+test("Notion links receive only exact-source receipt matches; no claim or social-post promotion",()=>{
+  const document="https://www.federalreserve.gov/newsevents/pressreleases/monetary20261025a.htm";
+  const social="https://x.com/creator/status/123";
+  const news={
+    contractVersion:"news-brief/1" as const,contentType:"NEWS_BRIEF" as const,
+    id:"11111111-1111-4111-8111-111111111111",
+    headline:"Federal Reserve Board issues a statement on monetary policy",
+    summary:"Original official statement; price reaction unknown.",
+    sourceName:"Federal Reserve Board",sourceUrl:document,sourceKind:"official",
+    occurredAt:"2026-10-25T12:00:00Z",observedAt:"2026-10-25T12:10:00Z",
+    verification:"SOURCE_VERIFIED" as const,
+  };
+  const notion={
+    status:"PARTIAL" as const,fetchedAt:"2026-10-25T12:50:00Z",warnings:[],
+    sources:[{kind:"MACROPULSE" as const,title:"Research leads",pageId:"404519b67a9481a38404d07a9db4a459",
+      url:"https://www.notion.so/404519b67a9481a38404d07a9db4a459",
+      retrievedAt:"2026-10-25T12:50:00Z",text:"Issuer statement; social view remains untested.",
+      originalLinks:[document,social,document+"?utm_source=notion"]}],
+  };
+  const result=buildDailyResearchPacket({now:"2026-10-25T12:51:00Z",notion,news:[news],prices:[],calendar:[]});
+  assert.equal(result.newsCount,1);
+  assert.equal(result.researchSourceCandidates.length,2);
+  assert.deepEqual(result.researchSourceCandidates.map(c=>c.verification),
+    ["EXACT_NEWS_SOURCE_MATCH","UNVERIFIED_LINK"]);
+  assert.equal(result.researchSourceCandidates[0].matchingNewsHeadline,news.headline);
+  assert.equal(result.researchSourceCandidates[1].matchingNewsHeadline,null);
+  assert.match(result.packet,/research leads only; ALL claims require original-source checks/i);
+  const writer=readFileSync(new URL("../components/blue-desk/DailyReportWriter.tsx",import.meta.url),"utf8");
+  assert.match(writer,/researchSourceCandidates/);
+  assert.match(writer,/Select 1–12 complete original-source HTTPS URLs/);
+  assert.doesNotMatch(writer,/sourceUrls:research\.sourceUrls/);
+});
