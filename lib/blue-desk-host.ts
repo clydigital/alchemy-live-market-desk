@@ -1,8 +1,7 @@
 /** User-facing URLs only. Internal Next routes are preserved for compatibility. */
 export const BLUEBELLY_PRESENTATION_HOST = "bluebelly-desk.vercel.app";
 export const LIVE_DESK_PRESENTATION_HOST = "alchemy-live-market-desk.vercel.app";
-// Temporary read-only preview alias. Kept on the isolated review branch ONLY.
-// Private API/owner routes remain denied on this public QA hostname.
+// Isolated, read-only QA hostname; never an owner/API access origin.
 export const BLUEBELLY_QA_PREVIEW_HOST = "alchemy-live-market-desk-git-preview-blue-08219b-rogue-magazine.vercel.app";
 
 function normalizedHost(host: string | null | undefined) {
@@ -34,9 +33,6 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   if (pathname === "/calendar") return "/blue-desk/calendar";
   if (pathname === "/daily-report") return "/blue-desk/daily-report";
   if (pathname === "/key-stories") return "/blue-desk/key-stories";
-  if (pathname === "/reports") return "/blue-desk/reports";
-  if (/^\/reports\/[0-9a-f-]{36}(?:\/pdf)?$/i.test(pathname))
-    return "/blue-desk" + pathname;
   // Temporary auth-free development lab uses strictly synthetic browser-local
   // inputs. Real owner pages, APIs and source records remain private.
   if (normalizedHost(host) === BLUEBELLY_PRESENTATION_HOST &&
@@ -84,16 +80,13 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     pathname === "/blue-desk/daily-report" ||
     pathname === "/blue-desk" ||
     pathname === "/blue-desk/calendar" ||
-    pathname === "/reports" ||
-    pathname === "/blue-desk/reports" ||
-    /^\/(?:blue-desk\/)?reports\/[0-9a-f-]{36}(?:\/pdf)?$/i.test(pathname) ||
     pathname === "/key-stories" ||
     pathname === "/blue-desk/key-stories" ||
     pathname === "/markets" ||
     pathname === "/blue-desk/markets" ||
     /^\/(?:blue-desk\/)?stories\/article(?::|%3a)[0-9a-f-]{36}(?::|%3a)[0-9a-f-]{36}$/i.test(pathname);
 
-  return publicPage ? "public" : hostname === BLUEBELLY_QA_PREVIEW_HOST ? "blocked" : hostname === BLUEBELLY_PRESENTATION_HOST ? "blocked" : "private";
+  return publicPage ? "public" : (hostname === BLUEBELLY_PRESENTATION_HOST || hostname === BLUEBELLY_QA_PREVIEW_HOST) ? "blocked" : "private";
 }
 
 /**

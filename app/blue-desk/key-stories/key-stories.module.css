@@ -15,3 +15,13 @@
 .empty{border:1px dashed #376984;padding:18px;color:#c3dbe8;background:#062337;border-radius:8px;margin-top:14px}
 .returnLink{display:inline-block;margin:8px 0 10px;font-weight:700;font-size:13px}
 @media(max-width:760px){.cards{grid-template-columns:minmax(0,1fr)}}
+
+/* Editorial narrative: readable on phones, not a compliance table */
+.storyIntro,.storyExplanation{font-size:15px!important;line-height:1.75!important;color:#e0ebf1!important;max-width:78ch}
+.storyIntro strong,.storyExplanation strong{color:#ffffff}
+.storyExplanation{padding-top:2px}
+.storyContext{font-size:13px!important;color:#b1d1e1!important;line-height:1.7!important}
+.more{margin-top:13px;border-top:1px solid #275268;padding-top:12px}
+.more summary{font-size:13px;font-weight:750;cursor:pointer;color:#8cdefe}
+.more p{font-size:13px;line-height:1.65}
+.timeNote{font-size:11px!important;color:#90b6c8!important}

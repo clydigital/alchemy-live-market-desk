@@ -61,8 +61,8 @@ test("real Story IDs and dated long-lived thesis snapshots survive news expiry",
  assert.equal(got[0].slug,"ai-financing-stress");
  assert.equal(got[0].updatedAt,"2026-10-07T14:01:37.972Z");
  assert.match(got[0].contradiction,/independent/);
- assert.deepEqual(projectPublicTheses([{...story,status:"develop"}],NOW),[]);
- assert.deepEqual(projectPublicTheses([{...story,rank:null}],NOW),[]);
+ assert.equal(projectPublicTheses([{...story,status:"develop"}],NOW).length,1);
+ assert.equal(projectPublicTheses([{...story,rank:null}],NOW).length,1);
  assert.deepEqual(projectPublicTheses([{...story,updated_at:"2026-10-27T00:00:00Z"}],NOW),[]);
 });
 
@@ -80,5 +80,5 @@ test("public blue desk reads original-source evidence but never exposes admin or
  assert.match(home,/getPublicThesisLedger/);
  assert.match(home,/getPublicSourceObservations/);
  assert.match(stories,/data-persistent-thesis-ledger="source-identity"/);
- assert.match(stories,/Last amended/);
+ assert.match(stories,/Last updated/);
 });

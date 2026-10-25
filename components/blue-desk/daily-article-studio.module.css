@@ -1,0 +1,23 @@
+.shell{max-width:1280px;margin:auto;padding:30px clamp(18px,4vw,48px) 70px;color:#e8f3fa}
+.hero{border:1px solid #2a6178;background:linear-gradient(120deg,#07374e,#041a2e);padding:clamp(22px,4vw,44px);border-radius:14px}
+.eyebrow{color:#80dafa;font-size:11px;font-weight:750;letter-spacing:.12em}
+.hero h1{font-family:Georgia,serif;font-size:clamp(32px,4vw,50px);line-height:1.15;margin:10px 0}
+.hero>p{color:#c8deea;line-height:1.7;max-width:780px}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0}
+.actions button{background:#176a8f;border:1px solid #54acd3;border-radius:7px;color:#fff;cursor:pointer;font-size:13px;font-weight:750;padding:10px 14px}
+.actions button:disabled{opacity:.5;cursor:not-allowed}
+.coverage{font-size:12px;color:#a8d1e2!important}.status{font-size:13px;min-height:16px;color:#97d6f4}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:24px}
+.card{min-width:0;border:1px solid #285d73;background:#082537;border-radius:11px;padding:25px}
+.card h2{color:#f5fbff;font-size:25px;line-height:1.22;margin:10px 0 18px}
+.card h3{margin:24px 0 12px;font-size:16px}
+.card p{color:#c9dce6;font-size:14px;line-height:1.7}
+.card strong{color:#f2faff}.caveat{border-left:3px solid #6099a8;padding-left:12px}
+.charts{display:grid;gap:9px}
+.charts a{display:flex;flex-direction:column;gap:4px;border:1px solid #38617a;border-radius:8px;padding:12px;text-decoration:none;color:#92defe}
+.charts span{font-size:12px;color:#adcbd8}
+.chartCheck{font-size:12px!important;color:#afcddb!important}
+.draftLabel{display:block;margin-top:18px;font-weight:700;color:#dceef7;font-size:13px}
+.draftLabel textarea{width:100%;margin-top:9px;background:#021925;border:1px solid #3f7189;color:#e4f5ff;font-size:14px;line-height:1.7;padding:14px;border-radius:8px;resize:vertical}
+.empty{padding:22px;border:1px dashed #4a748b;border-radius:9px;color:#bdd9e6;margin-top:24px}
+@media(max-width:830px){.grid{grid-template-columns:1fr}.shell{padding-top:16px}}

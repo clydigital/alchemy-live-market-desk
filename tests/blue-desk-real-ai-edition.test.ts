@@ -120,7 +120,7 @@ test("unaccepted frozen AI story cannot become the current public home feature",
   assert.equal(compiled.articles[0].editorial.storyEligible, false);
   const home = readFileSync(new URL("../app/blue-desk/page.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(home, /article\.editorial\.storyEligible|projectMarketBriefArticles/);
-  assert.match(home, /listPublishedReports/);
+  assert.doesNotMatch(home, /listPublishedReports/);
   assert.match(home, /getPublicThesisLedger/);
   assert.match(home, /getPublicSourceObservations/);
 });

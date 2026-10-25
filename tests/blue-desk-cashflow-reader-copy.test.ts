@@ -44,7 +44,7 @@ test("public home no longer replays an old SEC snapshot as the current headline"
  const page=readFileSync(new URL("../app/blue-desk/page.tsx",import.meta.url),"utf8");
  assert.match(page,/getCurrentVerifiedMarketMotion/);
  assert.match(page,/selectVerifiedNewsBriefs/);
- assert.match(page,/listPublishedReports/);
+ assert.doesNotMatch(page,/listPublishedReports/);
  assert.match(page,/newsFeature\.sourceUrl/);
  assert.doesNotMatch(page,/sourceFact|selectFrozenSourceFact|featureDisplay/);
 });

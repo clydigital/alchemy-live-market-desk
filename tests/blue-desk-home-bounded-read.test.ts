@@ -5,10 +5,10 @@ import test from "node:test";
 const page = readFileSync(new URL("../app/blue-desk/page.tsx", import.meta.url), "utf8");
 const publication = readFileSync(new URL("../lib/hybrid-publication.ts", import.meta.url), "utf8");
 
-test("Bluebelly homepage is driven by verified news and independently published editorial reports", () => {
+test("Bluebelly homepage prioritises observed facts and persistent Stories, not public copy-pasted articles", () => {
   assert.match(page, /getCurrentVerifiedMarketMotion/);
   assert.match(page, /selectVerifiedNewsBriefs\(verifiedMotions, now/);
-  assert.match(page, /listPublishedReports/);
+  assert.doesNotMatch(page, /listPublishedReports/);
   assert.match(page, /getPublicThesisLedger/);
   assert.match(page, /getPublicSourceObservations/);
   assert.match(page, /data-public-thesis-ledger="read-only"/);

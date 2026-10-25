@@ -3,6 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { blueDeskHostAccess } from "@/lib/blue-desk-host";
+import {reviewSourceOverlap} from "@/lib/blue-desk-originality-review";
 
 export const dynamic="force-dynamic";
 export const runtime="nodejs";
@@ -76,6 +77,15 @@ export async function POST(req:NextRequest){
     "by a dated original source; preserve date-only and unconfirmed event times.",
     "A 1-session, 3-session or 5-session source comparison is NOT proof of event causation.",
     "Use British English, clear mobile-friendly prose, paragraphs <=3 sentences.",
+    "Write a NEW market explanation in the analyst's own voice, not a lightly reworded source article.",
+    "Original financial statistics and dates may be reused with attribution; do not copy",
+    "full passages, distinctive sentences, structure or unsupported quotes from sources.",
+    "Explain like a trader speaking to another trader: literal event first, then who pays",
+    "more or earns less, how it reaches the asset, the catch and the exact chart to check.",
+    "Use straightforward, natural language at approximately Year 8 reading level.",
+    "Avoid repeating 'what changed / why it matters' labels as a rigid formula on every paragraph.",
+    "Do not pretend the model has seen a TradingView chart, measured EMA bands or",
+    "confirmed an asset reaction unless dated chart evidence was in the supplied packet.",
     "Avoid melodrama, templated parallelism, and stock AI phrases.",
     "DAILY_REPORT: write a concise but substantial researched market briefing, not a headlines list.",
     "DAILY_REPORT sections: What is new; market reaction and expectations;",
@@ -114,6 +124,7 @@ export async function POST(req:NextRequest){
     const draft=txt(response.text,22000);
     if(draft.length<120) return fail(502,"Model did not produce a useful article draft");
     return NextResponse.json({body:draft,model,status:"PRIVATE_UNVERIFIED_DRAFT",
+      originalityReview:reviewSourceOverlap(draft,packet),
       message:"Review original sources, chart setups and every figure before publishing."},{headers:noStore});
   }catch(e){
     // Do not expose upstream SDK errors or secrets to the browser.

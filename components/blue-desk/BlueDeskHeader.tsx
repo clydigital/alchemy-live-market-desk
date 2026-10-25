@@ -18,6 +18,7 @@ const PRIVATE_NAV = [
   ["Data Library", "/data/macro"],
   ["Presenter Prep", "/hybrid-output/prepare"],
   ["X Wire", "/owner/x-wire"],
+  ["Private Daily Articles", "/owner/daily-articles"],
   ["Publish Reports", "/owner/publications"],
   ["Calendar", "/blue-desk/calendar"],
   ["Learn", "/concepts"],
@@ -32,7 +33,6 @@ const PUBLIC_NAV = [
   ["Key Stories", "/key-stories"],
   ["Rates", "/#rates-title"],
   ["What Changed", "/#motion-title"],
-  ["COTD / OB", "/reports"],
   ["Calendar + Earnings", "/calendar"],
 ] as const;
 
@@ -57,6 +57,7 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Daily Report Studio": "deep-dive",
   "Calendar + Earnings": "calendar",
   "Publish Reports": "library",
+  "Private Daily Articles": "deep-dive",
 };
 
 /** Shared presentation chrome. These links reuse canonical Live Desk pages. */
@@ -77,8 +78,8 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
           <Link
             key={href}
             href={blueDeskPublicHref(href, host)}
-            aria-current={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/reports" && activePath === "/blue-desk/reports") || (href === "/daily-report" && activePath === "/blue-desk/daily-report")))) ? "page" : undefined}
-            className={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/reports" && activePath === "/blue-desk/reports") || (href === "/daily-report" && activePath === "/blue-desk/daily-report")))) ? styles.navActive : styles.navItem}
+            aria-current={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/daily-report" && activePath === "/blue-desk/daily-report")))) ? "page" : undefined}
+            className={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/daily-report" && activePath === "/blue-desk/daily-report")))) ? styles.navActive : styles.navItem}
           >
             <MarketIcon name={NAV_ICONS[title] || "market"} size={17} />
             <span>{title}</span>

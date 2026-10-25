@@ -77,9 +77,6 @@ test("Bluebelly exposes only explicitly approved public reading routes", () => {
   for (const path of [
     "/", "/calendar", "/blue-desk", "/blue-desk/calendar", "/markets", "/blue-desk/markets",
     "/key-stories", "/blue-desk/key-stories",
-    "/reports", "/blue-desk/reports",
-    "/reports/a2f040b6-1c87-48a4-9fe8-72f54398661a",
-    "/reports/a2f040b6-1c87-48a4-9fe8-72f54398661a/pdf",
     "/stories/article%3Afcea17ef-f575-4283-a363-7d5fa9c918c7%3A6e2c8a8c-fdc7-45eb-bec6-b685b0311f3e",
   ]) {
     assert.equal(blueDeskHostAccess(path, host), "public", path);
@@ -88,7 +85,10 @@ test("Bluebelly exposes only explicitly approved public reading routes", () => {
     "/hybrid-output/prepare", "/dossier", "/articles",
     "/api/dossier-v2", "/api/presenter/technical-checks", "/api/cron/research/morning",
     "/auth/callback", "/login", "/stories",
-    "/api/owner/editorial-publish","/owner/publications",
+    "/api/owner/editorial-publish","/owner/publications","/owner/daily-articles",
+    "/reports","/blue-desk/reports",
+    "/reports/a2f040b6-1c87-48a4-9fe8-72f54398661a",
+    "/reports/a2f040b6-1c87-48a4-9fe8-72f54398661a/pdf",
     "/reports/not-a-uuid","/reports/../../owner/publications/pdf",
     "/stories/article%3Agarbage", "/stories/article%2F../../dossier",
   ]) {
@@ -223,18 +223,14 @@ test("expanded Story watch is a real exact public reader with no owner routes ex
 });
 
 
-test("bounded QA alias exposes public Bluebelly views but blocks all private functionality",()=>{
-  const host=BLUEBELLY_QA_PREVIEW_HOST;
-  for (const path of ["/", "/blue-desk", "/calendar", "/blue-desk/calendar", "/daily-report", "/blue-desk/daily-report", "/reports", "/key-stories", "/markets"]) {
-    assert.equal(blueDeskHostAccess(path,host),"public",path);
+test("isolated public QA shares only redesigned reading routes, never reports or owner APIs", () => {
+  for (const path of ["/", "/daily-report", "/key-stories", "/markets", "/calendar"]) {
+    assert.equal(blueDeskHostAccess(path, BLUEBELLY_QA_PREVIEW_HOST), "public", path);
   }
-  assert.equal(blueDeskPresentationTarget("/",host),"/blue-desk");
-  assert.equal(blueDeskPresentationTarget("/daily-report",host),"/blue-desk/daily-report");
-  assert.equal(blueDeskPublicHref("/blue-desk/calendar",host),"/calendar");
-  for (const path of ["/owner/daily-report","/owner/editorial","/owner/publications", "/api/owner/daily-research","/api/owner/editorial-generate","/api/owner/editorial-publish","/auth/callback","/api/cron/research/morning","/dossier"]) {
-    assert.equal(blueDeskHostAccess(path,host),"blocked",path);
-    assert.equal(blueDeskPresentationTarget(path,host),null,path);
+  for (const path of ["/reports", "/blue-desk/reports", "/owner/daily-articles", "/api/owner/daily-article-plan", "/api/owner/daily-research", "/api/internal/bluebelly-editorial", "/owner/editorial"]) {
+    assert.equal(blueDeskHostAccess(path, BLUEBELLY_QA_PREVIEW_HOST), "blocked", path);
+    assert.equal(blueDeskPresentationTarget(path, BLUEBELLY_QA_PREVIEW_HOST), null, path);
   }
-  assert.equal(blueDeskHostAccess("/owner/daily-report","alchemy-live-market-desk-es1io9wf2-rogue-magazine.vercel.app"),"private");
-  assert.equal(blueDeskHostAccess("/blue-desk","attacker-preview.vercel.app"),"private");
+  assert.equal(blueDeskPresentationTarget("/", BLUEBELLY_QA_PREVIEW_HOST), "/blue-desk");
+  assert.equal(blueDeskPublicHref("/blue-desk/key-stories", BLUEBELLY_QA_PREVIEW_HOST), "/key-stories");
 });
