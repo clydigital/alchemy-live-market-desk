@@ -75,8 +75,8 @@ test("only owner-approved digests are publicly readable, without PDF or canonica
  const owner=readFileSync(new URL("../app/api/owner/macropulse-briefs/route.ts",import.meta.url),"utf8");
  assert.match(owner,/session\.auth\.getUser\(\)/);
  assert.match(owner,/app_access_allowlist/);
- assert.match(owner,/qualificationsChecked===true/);
- assert.match(owner,/copyApproved===true/);
+ assert.match(owner,/qualificationsChecked!==true/);
+ assert.match(owner,/copyApproved!==true/);
  assert.match(owner,/\.eq\("status","review"\)/);
  assert.match(owner,/published_at:new Date\(\)\.toISOString\(\)/);
  assert.doesNotMatch(owner,/generateContent|story_thesis_versions/);
