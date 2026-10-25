@@ -104,6 +104,13 @@ export function selectNotionResearchPages(searchResults:unknown,day:string,macro
   }).sort((a,b)=>name(b).localeCompare(name(a)));
   return {archiveId:safePageId(macro?.id),gateId:safePageId(gates[0]?.id)};
 }
+/** Parent-scoped fallback when Notion title search omits pages in a collection. */
+export function selectMacroPulseArchiveChild(blocks:unknown,day:string):string|null{
+  const exact=day+" — MacroPulse";
+  const item=rows(blocks).find(b=>b.type==="child_page" &&
+    txt(obj(b.child_page).title,250)===exact&&safePageId(b.id));
+  return safePageId(item?.id);
+}
 export function selectPulseChildPages(blocks:unknown,max=2) {
   return rows(blocks).filter(b=>b.type==="child_page"&&safePageId(b.id))
     .map(b=>({id:safePageId(b.id)!,title:txt(obj(b.child_page).title,300)}))
@@ -147,6 +154,39 @@ async function children(token:string,id:string,maxPages=2):Promise<AnyRecord[]>{
   }
   return blocks.slice(0,150);
 }
+/**
+ * Search remains the inexpensive first pass. Missing hits are retried using
+ * exactly the authorised MacroPulse page parent and Research Gap data source,
+ * never a workspace-wide guess. API 2025-09-03 queries data_sources, not
+ * databases. Results still pass the same parent/title validation.
+ */
+async function discoverNotionDay(
+  token:string,day:string,macroRoot:string,gateSource:string,
+):Promise<{archiveId:string|null;gateId:string|null;searchPaginated:boolean;fallbackWarnings:string[]}>{
+  const fallbackWarnings:string[]=[];
+  let searchResults:AnyRecord[]=[];
+  let searchPaginated=false;
+  try{
+    const search=await notionRequest(token,"/search",{
+      query:day,sort:{direction:"descending",timestamp:"last_edited_time"},page_size:100,
+    });
+    searchResults=rows(search.results);
+    searchPaginated=Boolean(search.has_more);
+  }catch{fallbackWarnings.push("Notion title search unavailable; parent-scoped read attempted.");}
+  const found=selectNotionResearchPages(searchResults,day,macroRoot,gateSource);
+  if(found.archiveId&&found.gateId)return {...found,searchPaginated,fallbackWarnings};
+  const [archive,gate]=await Promise.all([
+    found.archiveId?Promise.resolve(found.archiveId):children(token,macroRoot,2)
+      .then(items=>selectMacroPulseArchiveChild(items,day))
+      .catch(()=>{fallbackWarnings.push("MacroPulse root page could not be listed.");return null;}),
+    found.gateId?Promise.resolve(found.gateId):
+      notionRequest(token,"/data_sources/"+gateSource+"/query",{
+        filter:{property:"Run",title:{contains:day}},page_size:100,
+      }).then(res=>selectNotionResearchPages(res.results,day,macroRoot,gateSource).gateId)
+        .catch(()=>{fallbackWarnings.push("Research Gap data source could not be queried.");return null;}),
+  ]);
+  return {archiveId:archive,gateId:gate,searchPaginated,fallbackWarnings};
+}
 export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionResearchBundle>{
   const fetchedAt=now.toISOString();
   const token=process.env.NOTION_API_TOKEN?.trim()||process.env.NOTION_MARKET_RESEARCH_TOKEN?.trim();
@@ -161,10 +201,8 @@ export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionRes
   const sources:NotionResearchSource[]=[];
   const warnings:string[]=[];
   try{
-    const search=await notionRequest(token,"/search",{
-      query:day,sort:{direction:"descending",timestamp:"last_edited_time"},page_size:100,
-    });
-    const today=selectNotionResearchPages(search.results,day,macroRoot,gateSource);
+    const today=await discoverNotionDay(token,day,macroRoot,gateSource);
+    warnings.push(...today.fallbackWarnings);
     // During the first MYT hours the new day may have no full Pulse or Gate.
     // Carry the preceding day's latest real research with an explicit vintage
     // warning; never re-label it as today's coverage.
@@ -172,13 +210,10 @@ export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionRes
       year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(now.getTime()-24*3600_000));
     let previous:{archiveId:string|null;gateId:string|null}={archiveId:null,gateId:null};
     if(!today.gateId||!today.archiveId){
-      try{
-        const priorSearch=await notionRequest(token,"/search",{
-          query:previousDay,sort:{direction:"descending",timestamp:"last_edited_time"},page_size:100,
-        });
-        previous=selectNotionResearchPages(priorSearch.results,previousDay,macroRoot,gateSource);
-        if(priorSearch.has_more)warnings.push("Previous MYT day Notion discovery may be partial: search results paginated.");
-      }catch {warnings.push("Previous MYT day research lookup unavailable; overnight coverage unverified.");}
+      const prior=await discoverNotionDay(token,previousDay,macroRoot,gateSource);
+      previous=prior;
+      warnings.push(...prior.fallbackWarnings.map(w=>"Previous-day lookup: "+w));
+      if(prior.searchPaginated)warnings.push("Previous MYT day Notion discovery may be partial: search results paginated.");
     }
     const selected={
       archiveId:today.archiveId||previous.archiveId,
@@ -223,7 +258,7 @@ export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionRes
         if(!available.length)warnings.push("No full MacroPulse posts found for today's day archive.");
       }catch{warnings.push("MacroPulse day archive could not be read.");}
     }else warnings.push("Today's MacroPulse archive not found in authorised Notion source.");
-    if(search.has_more)warnings.push("Notion search results were paginated; latest-page discovery may be partial.");
+    if(today.searchPaginated)warnings.push("Notion search results were paginated; latest-page discovery may be partial.");
   }catch{return {status:"UNAVAILABLE",sources:[],fetchedAt,
     warnings:["Notion read could not complete. Do not reuse an undated cached report."]};}
   return {status:sources.length===3&&warnings.length===0?"READY_FOR_REVIEW":"PARTIAL",sources,warnings,fetchedAt};
