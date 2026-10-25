@@ -65,12 +65,19 @@ test("public Story and homepage readers use verified rolling topics, not frozen 
  const expanded=readFileSync(new URL("../app/blue-desk/key-stories/page.tsx",import.meta.url),"utf8");
  const daily=readFileSync(new URL("../app/blue-desk/daily-report/page.tsx",import.meta.url),"utf8");
  for(const reader of [page,expanded,daily]){
-   assert.match(reader,/projectLivingMarketTopics/);
    assert.match(reader,/selectVerifiedNewsBriefs/);
    assert.doesNotMatch(reader,/getLiveDeskHomepageDailyBrief|projectFrozenTrackedStories|loadEditorialMarketBrief/);
    assert.doesNotMatch(reader,/story_thesis_versions|createSupabaseAdminClient|generateContent/);
  }
- assert.match(page,/data-public-living-stories="true"/);
+ // The public homepage now shows existing persistent Story identities, not
+ // keyword clusters that vanish when their 48h news window expires.
+ assert.match(page,/getPublicThesisLedger/);
+ assert.match(page,/getPublicSourceObservations/);
+ assert.match(expanded,/getPublicThesisLedger/);
+ assert.match(expanded,/data-persistent-thesis-ledger="source-identity"/);
+ assert.match(expanded,/projectLivingMarketTopics/);
+ assert.match(daily,/projectLivingMarketTopics/);
+ assert.match(page,/data-public-thesis-ledger="read-only"/);
  assert.match(page,/className=\{tracked\.grid\}/);
  assert.match(page,/className=\{tracked\.card\}/);
  assert.match(expanded,/data-living-topics="dossier-independent"/);
