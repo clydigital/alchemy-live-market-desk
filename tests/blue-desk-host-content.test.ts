@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { LIVE_DESK_PRESENTATION_HOST, blueDeskHostAccess, blueDeskPublicHref, blueDeskPresentationTarget } from "../lib/blue-desk-host.ts";
+import { LIVE_DESK_PRESENTATION_HOST, BLUEBELLY_QA_PREVIEW_HOST, blueDeskHostAccess, blueDeskPublicHref, blueDeskPresentationTarget } from "../lib/blue-desk-host.ts";
 
 test("Bluebelly homepage and calendar use clean public URLs", () => {
   assert.equal(blueDeskPublicHref("/blue-desk", "bluebelly-desk.vercel.app"), "/");
@@ -220,4 +220,21 @@ test("expanded Story watch is a real exact public reader with no owner routes ex
     assert.equal(blueDeskHostAccess(path,"bluebelly-desk.vercel.app"),"blocked");
   }
   assert.equal(blueDeskPresentationTarget("/key-stories","review-preview.vercel.app"),null);
+});
+
+
+test("bounded QA alias exposes public Bluebelly views but blocks all private functionality",()=>{
+  const host=BLUEBELLY_QA_PREVIEW_HOST;
+  for (const path of ["/", "/blue-desk", "/calendar", "/blue-desk/calendar", "/daily-report", "/blue-desk/daily-report", "/reports", "/key-stories", "/markets"]) {
+    assert.equal(blueDeskHostAccess(path,host),"public",path);
+  }
+  assert.equal(blueDeskPresentationTarget("/",host),"/blue-desk");
+  assert.equal(blueDeskPresentationTarget("/daily-report",host),"/blue-desk/daily-report");
+  assert.equal(blueDeskPublicHref("/blue-desk/calendar",host),"/calendar");
+  for (const path of ["/owner/daily-report","/owner/editorial","/owner/publications", "/api/owner/daily-research","/api/owner/editorial-generate","/api/owner/editorial-publish","/auth/callback","/api/cron/research/morning","/dossier"]) {
+    assert.equal(blueDeskHostAccess(path,host),"blocked",path);
+    assert.equal(blueDeskPresentationTarget(path,host),null,path);
+  }
+  assert.equal(blueDeskHostAccess("/owner/daily-report","alchemy-live-market-desk-es1io9wf2-rogue-magazine.vercel.app"),"private");
+  assert.equal(blueDeskHostAccess("/blue-desk","attacker-preview.vercel.app"),"private");
 });
