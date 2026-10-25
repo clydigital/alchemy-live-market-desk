@@ -111,7 +111,7 @@ test("reviewed Daily Report uses existing PDF approval contract, SQL RLS and ded
  };
  assert.equal(parseReviewedSubmission(base)?.kind,"DAILY_REPORT");
  assert.equal(parseReviewedSubmission({...base,kind:"UNVERIFIED_ANALYSIS"}),null);
- const migration=readFileSync(new URL("../supabase/migrations/20261025215000_daily_report_editorial_kind.sql",import.meta.url),"utf8");
+ const migration=readFileSync(new URL("../supabase/migrations/20261025154229_daily_report_editorial_kind_20261025.sql",import.meta.url),"utf8");
  assert.match(migration,/check \(kind in \('COTD','OB','DAILY_REPORT'\)\)/);
  assert.doesNotMatch(migration,/grant insert|grant update|grant delete/i);
  const pub=readFileSync(new URL("../components/blue-desk/ReportPublisher.tsx",import.meta.url),"utf8");
