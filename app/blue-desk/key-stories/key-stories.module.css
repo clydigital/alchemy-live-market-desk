@@ -43,3 +43,6 @@
 .storyTests{margin:10px 0;padding:11px 14px;background:#062738;border-left:2px solid #4b94b2}
 .storyTests p{margin:4px 0!important}
 @media(max-width:900px){.editorialGrid{grid-template-columns:minmax(0,1fr)}}
+
+.ownerEditorialLink{margin:14px 0 0;font-size:13px!important;font-weight:750}
+.ownerEditorialLink a{color:#99e2ff;text-decoration:underline;text-underline-offset:3px}
