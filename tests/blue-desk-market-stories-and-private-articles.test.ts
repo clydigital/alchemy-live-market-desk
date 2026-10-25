@@ -53,6 +53,9 @@ test("public Bluebelly tells readable multi-paragraph Stories and full-source co
  assert.match(reader,/getPublicThesisLedger\(now=new Date\(\),limit=24\)/);
  assert.doesNotMatch(reader,/not\("rank","is",null\)/);
  assert.match(key,/storyMarketTransmission\(thesis\)/);
+ assert.match(key,/data-editorial-priority="published-only"/);
+ assert.match(key,/approvedEditorialLead/);
+ assert.doesNotMatch(key,/<details className=\{ui\.more\}>/);
  assert.match(key,/storyIntro/);
  assert.match(key,/storyExplanation/);
  assert.match(daily,/stories\.slice\(8\)/);
@@ -62,13 +65,14 @@ test("public Bluebelly tells readable multi-paragraph Stories and full-source co
  assert.match(home,/olderStory/);
  assert.doesNotMatch(home,/listPublishedReports/);
 });
-test("private daily slate is behind login; no public COTD/OB or report download UI",()=>{
+test("private daily slate stays authenticated while editor-approved publications are readable",()=>{
  const header=readFileSync(new URL("../components/blue-desk/BlueDeskHeader.tsx",import.meta.url),"utf8");
  const owner=readFileSync(new URL("../app/owner/daily-articles/page.tsx",import.meta.url),"utf8");
  const route=readFileSync(new URL("../app/api/owner/daily-article-plan/route.ts",import.meta.url),"utf8");
  const studio=readFileSync(new URL("../components/blue-desk/DailyArticleStudio.tsx",import.meta.url),"utf8");
  const publicNav=header.match(/const PUBLIC_NAV = \[([\s\S]*?)\] as const;/)?.[1]||"";
- assert.doesNotMatch(publicNav,/COTD|\/reports/);
+ assert.match(publicNav,/COTD \/ OB/);
+ assert.match(publicNav,/\/reports/);
  assert.match(header,/Private Daily Articles/);
  assert.ok(header.includes('activePath === "/owner/daily-articles"'));
  assert.ok(header.includes('activePath === "/owner/x-wire"'));
@@ -83,7 +87,7 @@ test("private daily slate is behind login; no public COTD/OB or report download 
  assert.match(studio,/No stories or charts will be invented/);
  for(const host of ["bluebelly-desk.vercel.app","alchemy-live-market-desk.vercel.app"]){
   assert.notEqual(blueDeskHostAccess("/owner/daily-articles",host),"public");
-  assert.notEqual(blueDeskHostAccess("/reports",host),"public");
-  assert.equal(blueDeskPresentationTarget("/reports",host),null);
+  assert.equal(blueDeskHostAccess("/reports",host),"public");
+  assert.equal(blueDeskPresentationTarget("/reports",host),"/blue-desk/reports");
  }
 });
