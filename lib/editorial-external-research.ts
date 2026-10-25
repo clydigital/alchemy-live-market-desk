@@ -51,7 +51,11 @@ export function parseExternalResearch(
   return {ok:false,error:"Paste a ChatGPT research brief or supported JSON packet."};
  if(text.length>MAX_INPUT)
   return {ok:false,error:"Research input exceeds 32,000 characters; shorten it before importing."};
- const raw=text.trim();
+ const pasted=text.trim();
+ // ChatGPT often wraps even requested JSON in a Markdown code fence.
+ // Accept a whole fenced JSON packet without mistaking it for article prose.
+ const fenced=pasted.match(/^\x60\x60\x60(?:json)?\s*([\s\S]*?)\s*\x60\x60\x60$/i);
+ const raw=fenced?fenced[1].trim():pasted;
  let data:Record<string,unknown>={};
  if(raw.startsWith("{")){
    try{data=obj(JSON.parse(raw));}
