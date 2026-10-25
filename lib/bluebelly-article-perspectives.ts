@@ -74,7 +74,10 @@ function sourceUrl(value:string):boolean{
 export function projectCreatorPerspectives(topic:string,rows:readonly CreatorInput[],nowIso:string):CreatorPerspective[]{
  const now=Date.parse(nowIso);
  if(!Number.isFinite(now))return [];
- const wanted=TOPICS.flatMap((r,i)=>r.test(topic)?[i]:[]);
+ // Match the dominant subject first: a stray macro word such as “inflation”
+ // must not attach an unrelated bond-video opinion to a Japan Story.
+ const dominant=[4,0,3,2,5,1].find(i=>TOPICS[i].test(topic));
+ const wanted=dominant===undefined?[]:[dominant];
  const seen=new Set<string>(),publishers=new Set<string>();
  const output:CreatorPerspective[]=[];
  for(const row of [...rows].sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at))){
