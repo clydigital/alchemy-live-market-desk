@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {
-  selectNotionResearchPages,selectPulseChildPages,extractNotionResearchBlocks,fetchTodayNotionResearch,
+  selectNotionResearchPages,selectMacroPulseArchiveChild,selectPulseChildPages,extractNotionResearchBlocks,fetchTodayNotionResearch,
 } from "../lib/notion-market-research.ts";
 import {buildDailyResearchPacket} from "../lib/daily-report-research-packet.ts";
 import {parseReviewedSubmission} from "../lib/editorial-publications.ts";
@@ -273,4 +273,70 @@ test("Notion links receive only exact-source receipt matches; no claim or social
   assert.match(writer,/researchSourceCandidates/);
   assert.match(writer,/Select 1–12 complete original-source HTTPS URLs/);
   assert.doesNotMatch(writer,/sourceUrls:research\.sourceUrls/);
+});
+
+test("Notion direct parent/data-source fallback retrieves full today's Pulse and Gate when title search omits them",async()=>{
+  const previousFetch=globalThis.fetch;
+  const oldToken=process.env.NOTION_API_TOKEN;
+  process.env.NOTION_API_TOKEN="mock-notion-token";
+  const root="3ea519b67a948161ba4dec8f97ebf658";
+  const archive="aaaa1111aaaa41118aaa1111aaaa1111";
+  const gate="bbbb2222bbbb42228bbb2222bbbb2222";
+  const post10="cccc3333cccc43338ccc3333cccc3333";
+  const post08="dddd4444dddd44448ddd4444dddd4444";
+  const day="2026-10-26";
+  const text=(message:string)=>({results:[
+    {type:"paragraph",paragraph:{rich_text:[{plain_text:message}]}}
+  ],has_more:false});
+  globalThis.fetch=async(url,options)=>{
+    const path=String(url);
+    const respond=(data:unknown)=>new Response(JSON.stringify(data),
+      {status:200,headers:{"Content-Type":"application/json"}});
+    if(path.endsWith("/search"))return respond({results:[],has_more:false});
+    if(path.includes("/data_sources/")&&path.endsWith("/query")){
+      assert.equal(options?.method,"POST");
+      const body=JSON.parse(String(options?.body||"{}"));
+      assert.equal(body.filter.property,"Run");
+      assert.equal(body.filter.title.contains,day);
+      return respond({results:[{
+        id:gate,parent:{type:"data_source_id",data_source_id:source},
+        properties:{Run:{type:"title",title:[{plain_text:day+" 08:40 MYT — AM Research Gap Gate"}]}}
+      }],has_more:false});
+    }
+    if(path.includes("/blocks/"+macro+"/children")||path.includes("/blocks/"+root+"/children"))
+      return respond({results:[{id:archive,type:"child_page",
+        child_page:{title:day+" — MacroPulse"}}],has_more:false});
+    if(path.includes("/blocks/"+archive+"/children"))
+      return respond({results:[
+        {id:post08,type:"child_page",child_page:{title:"08:00 MYT — full research"}},
+        {id:post10,type:"child_page",child_page:{title:"10:00 MYT — full research"}}
+      ],has_more:false});
+    if(path.includes("/blocks/"+gate+"/children"))return respond(text("Gate reviewed the sources; no market reaction attributed."));
+    if(path.includes("/blocks/"+post10+"/children"))
+      return respond(text("Primary observation: https://www.federalreserve.gov/newsevents/pressreleases/monetary20261026a.htm"));
+    if(path.includes("/blocks/"+post08+"/children"))return respond(text("Morning research notes."))
+    if(path.includes("/pages/"+gate))return respond({properties:{
+      Status:{type:"select",select:{name:"COMPLETE"}},
+      Coverage:{type:"select",select:{name:"COMPLETE"}},
+      "Input Health":{type:"select",select:{name:"COMPLETE"}},
+    }});
+    throw Error("Unexpected direct Notion lookup "+path);
+  };
+  try{
+    const input=new Date("2026-10-26T04:30:00.000Z");
+    const result=await fetchTodayNotionResearch(input);
+    assert.equal(result.status,"READY_FOR_REVIEW");
+    assert.equal(result.sources.length,3);
+    assert.ok(result.sources.some(x=>x.kind==="RESEARCH_GAP"));
+    assert.ok(result.sources.some(x=>x.title.startsWith("10:00 MYT")));
+    assert.ok(result.sources.some(x=>x.originalLinks.some(u=>u.includes("federalreserve.gov"))));
+    assert.equal(result.warnings.length,0);
+    const rootBlocks=[{id:archive,type:"child_page",child_page:{title:day+" — MacroPulse"}}];
+    assert.equal(selectMacroPulseArchiveChild(rootBlocks,day),archive);
+    assert.equal(selectMacroPulseArchiveChild(rootBlocks,"2026-10-25"),null);
+  }finally{
+    globalThis.fetch=previousFetch;
+    if(oldToken===undefined)delete process.env.NOTION_API_TOKEN;
+    else process.env.NOTION_API_TOKEN=oldToken;
+  }
 });
