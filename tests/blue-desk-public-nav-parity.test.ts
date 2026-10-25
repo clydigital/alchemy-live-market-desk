@@ -9,6 +9,8 @@ const homepage = readFileSync(new URL("../app/blue-desk/page.tsx", import.meta.u
 test("all visible public header links target approved host paths and real anchors", () => {
   const match = header.match(/const PUBLIC_NAV = \[([\s\S]*?)\] as const;/);
   assert.ok(match, "public navigation must be explicitly enumerated");
+  assert.match(header, /\["Live Report", "\/"\]/);
+  assert.match(header, /\["Daily Report", "\/daily-report"\]/);
   const hrefs = [...match[1].matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m => m[1]);
   assert.deepEqual(hrefs, ["/", "/daily-report", "/markets", "/key-stories", "/#rates-title", "/#motion-title", "/calendar"]);
   for (const href of hrefs) {
