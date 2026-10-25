@@ -140,7 +140,7 @@ export default async function BluebellyExactEdition({
           Original source references, frozen Story identities and missing evidence
           remain separate from today's analysis and your own talk notes.</p>
         <div className={ui.links}>
-          <Link className={ui.action} href="/presenter">Return to today's talk →</Link>
+          <Link className={ui.action} href="/blue-desk/presenter">Return to today's talk →</Link>
           <a href="#session">Running-order notes ↓</a>
         </div>
       </header>
@@ -152,7 +152,7 @@ export default async function BluebellyExactEdition({
           <p>The requested edition or its exact frozen Dossier cannot be validated.
             This page has not loaded current research as a replacement.</p>
           <p><strong>Reason:</strong> {projection.reason || "Exact source identity unavailable"}</p>
-          <Link href="/presenter">Open current Presenter Prep →</Link>
+          <Link href="/blue-desk/presenter">Open current Presenter Prep →</Link>
         </section>
       ) : <>
         <section className={ui.panel} data-exact-edition="pinned">
