@@ -9,6 +9,7 @@ import styles from "@/app/blue-desk/blue-desk.module.css";
 const PRIVATE_NAV = [
   ["Live Report", "/blue-desk"],
   ["Daily Report", "/blue-desk/daily-report"],
+  ["COTD / OB", "/blue-desk/reports"],
   ["Markets", "/markets"],
   ["Editorial Studio", "/owner/editorial"],
   ["Daily Report Studio", "/owner/daily-report"],
@@ -29,10 +30,9 @@ const PRIVATE_NAV = [
 const PUBLIC_NAV = [
   ["Live Report", "/"],
   ["Daily Report", "/daily-report"],
-  ["Markets", "/markets"],
+  ["COTD / OB", "/reports"],
   ["Key Stories", "/key-stories"],
-  ["Rates", "/#rates-title"],
-  ["What Changed", "/#motion-title"],
+  ["Markets", "/markets"],
   ["Calendar + Earnings", "/calendar"],
 ] as const;
 
@@ -78,8 +78,8 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
           <Link
             key={href}
             href={blueDeskPublicHref(href, host)}
-            aria-current={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/daily-report" && activePath === "/blue-desk/daily-report")))) ? "page" : undefined}
-            className={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/daily-report" && activePath === "/blue-desk/daily-report")))) ? styles.navActive : styles.navItem}
+            aria-current={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/reports" && activePath === "/blue-desk/reports") || (href === "/daily-report" && activePath === "/blue-desk/daily-report")))) ? "page" : undefined}
+            className={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories") || (href === "/reports" && activePath === "/blue-desk/reports") || (href === "/daily-report" && activePath === "/blue-desk/daily-report")))) ? styles.navActive : styles.navItem}
           >
             <MarketIcon name={NAV_ICONS[title] || "market"} size={17} />
             <span>{title}</span>
