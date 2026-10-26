@@ -222,7 +222,7 @@ function parseArticle(url: string, html: string): AlchemyArticle {
   const summary = meta(html, "description") || meta(html, "og:description") || clean(html.match(/<h1[^>]*>[\s\S]*?<\/h1>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/i)?.[1]);
   const image = meta(html, "og:image") || null;
   const publishedAt = extractPublishedAt(html);
-  const author = meta(html, "author") || clean(html.match(/"author"\s*:\s*\{[\s\S]{0,280}?"name"\s*:\s*"([^"]+)"/i)?.[1]) || clean(html.match(/Written by:\s*<[^>]+>\s*([^<]+)/i)?.[1]) || "Alchemy Markets";
+  const author = meta(html, "author") || clean(html.match(/"author"\s*:\s*\{[\s\S]{0,280}?"name"\s*:\s*"([^"]+)"/i)?.[1]) || clean(html.match(/Written by:\s*<[^>]+>\s*([^<]+)/i)?.[1]) || "Uncredited";
   const bodyText = extractBodyText(html);
   return {
     id: slugFromUrl(url),
@@ -232,7 +232,7 @@ function parseArticle(url: string, html: string): AlchemyArticle {
     publishedAt,
     author: author.replace(/\s+Market Analyst$/i, ""),
     image,
-    summary: summary || "Open the original Alchemy Markets article to review its published thesis and chart context.",
+    summary: summary || "Open the original market article to review its published thesis and chart context.",
     bodyText: bodyText || summary,
     tradingViewLinks: extractTradingViewLinks(html),
   };
@@ -264,9 +264,9 @@ export function parseAlchemyMarketInsightsFeed(xml: string, limit = 30): Alchemy
         url,
         category: categoryFromUrl(url),
         publishedAt: new Date(publishedAt).toISOString(),
-        author: clean(rssValue(item, "dc:creator")) || "Alchemy Markets",
+        author: clean(rssValue(item, "dc:creator")) || "Uncredited",
         image: null,
-        summary: clean(rssValue(item, "description")) || title || "Open the original Alchemy Markets article to review its published thesis and chart context.",
+        summary: clean(rssValue(item, "description")) || title || "Open the original market article to review its published thesis and chart context.",
         bodyText: extractBodyText(rawContent) || clean(rawContent),
         tradingViewLinks: extractTradingViewLinks(rawContent),
       } satisfies AlchemyArticle];
@@ -324,7 +324,7 @@ export async function getFreshAlchemyArticles(
     .slice(0, Math.min(Math.max(limit, 1), 12));
 
   if (!categoryUrls.length && categoryResults.every((result) => result.status === "rejected")) {
-    diagnostics.push("Live Alchemy Market Insights category pages could not be acquired.");
+    diagnostics.push("Market Insights category pages could not be retrieved.");
   }
 
   const directResults = await Promise.allSettled(directCandidates.map(async (url) => (
@@ -343,8 +343,8 @@ export async function getFreshAlchemyArticles(
       status: "blocked",
       articles: [],
       note: diagnostics.length
-        ? `Live Alchemy acquisition failed: ${diagnostics.join(" ")}`
-        : "Live Alchemy acquisition failed: no dated direct articles were found.",
+        ? `Market Insights source retrieval failed: ${diagnostics.join(" ")}`
+        : "Market Insights source retrieval failed: no dated direct articles were found.",
     };
   }
 
@@ -353,8 +353,8 @@ export async function getFreshAlchemyArticles(
     status: "checked",
     articles,
     note: diagnostics.length
-      ? `Direct Alchemy Market Insights acquired (${sourceSummary}). ${diagnostics.join(" ")}`
-      : `Direct Alchemy Market Insights acquired (${sourceSummary}).`,
+      ? `Original Market Insights articles retrieved (${sourceSummary}). ${diagnostics.join(" ")}`
+      : `Original Market Insights articles retrieved (${sourceSummary}).`,
   };
 }
 
