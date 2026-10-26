@@ -1,6 +1,6 @@
 import "server-only";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
-import { X_CORE_ROSTER, X_SWEEP_DEFAULTS, isExcludedXWireHandle, xSourceHealth, type XAccountAttempt } from "./x-sweep-core.ts";
+import { X_CORE_ROSTER, X_SWEEP_DEFAULTS, isExcludedXWireHandle, normaliseXPostUrl, xSourceHealth, type XAccountAttempt } from "./x-sweep-core.ts";
 import { parseFxTimeline, xWireRequestWindow } from "./x-wire-pagination.ts";
 import type { XWirePost } from "./x-wire-provider.ts";
 
@@ -20,6 +20,13 @@ type StoredPost = {
   retrieved_at:string; body:string; media_urls:string[]; quote_url:string|null;
   intake_status:"discovery"|"deferred"|"reviewed"|"rejected";
 };
+function eligibleQuoteUrl(value:string|null):string|null {
+  if(!value)return null;
+  try {
+    const quote=normaliseXPostUrl(value);
+    return isExcludedXWireHandle(quote.handle)?null:quote.url;
+  }catch{return null;}
+}
 function ms(value: string | null | undefined) { const n=value?Date.parse(value):NaN;return Number.isFinite(n)?n:0; }
 function plus(now:string, minutes:number) {return new Date(ms(now)+minutes*60_000).toISOString();}
 function safeError(e:unknown) {return e instanceof Error ? e.message.slice(0,180) : "X source or storage unavailable";}
@@ -184,7 +191,7 @@ export async function getXWireDurable(opts:{now?:Date;fetchImpl?:typeof fetch;db
       ((postsRead.data||[]) as StoredPost[]).filter(x=>!isExcludedXWireHandle(x.handle)).map(x=>({
         id:x.post_id,url:x.original_url,handle:x.handle,publishedAt:x.published_at,
         text:x.body,images:Array.isArray(x.media_urls)?x.media_urls:[],
-        quoteUrl:x.quote_url,attribution:"THIRD_PARTY_ONLY",intakeStatus:x.intake_status,
+        quoteUrl:eligibleQuoteUrl(x.quote_url),attribution:"THIRD_PARTY_ONLY",intakeStatus:x.intake_status,
       }));
     return {storageHealthy:true,retrievedAt:now,posts,accounts,health:xSourceHealth(accounts),
       deferredCount:deferredRead.count||0,pendingCount:pendingRead.count||0,
