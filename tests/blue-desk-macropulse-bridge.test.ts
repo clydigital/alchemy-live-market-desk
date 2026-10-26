@@ -75,10 +75,9 @@ test("MacroPulse briefs stay private: review GET works and public POST is disabl
  const owner=readFileSync(new URL("../app/api/owner/macropulse-briefs/route.ts",import.meta.url),"utf8");
  assert.match(owner,/session\.auth\.getUser\(\)/);
  assert.match(owner,/app_access_allowlist/);
- assert.match(owner,/qualificationsChecked!==true/);
- assert.match(owner,/copyApproved!==true/);
  assert.match(owner,/\.eq\("status","review"\)/);
- assert.match(owner,/published_at:new Date\(\)\.toISOString\(\)/);
+ assert.match(owner,/fail\(410,"Public digest publication is disabled/);
+ assert.doesNotMatch(owner,/published_at:new Date/);
  assert.doesNotMatch(owner,/generateContent|story_thesis_versions/);
  const publicReader=readFileSync(new URL("../lib/blue-desk-macropulse-brief-server.ts",import.meta.url),"utf8");
  assert.match(publicReader,/getSupabasePublicConfig/);
