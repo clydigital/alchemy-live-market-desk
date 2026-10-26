@@ -10,21 +10,23 @@ Creator intelligence is intentionally limited to this fixed universe:
 2. Wall Street Truthbombs / Mark Malek — https://www.youtube.com/@wstruthbombs/videos
 3. FX Evolution — https://www.youtube.com/@fxevolutionvideo/videos
 4. TraderNick — https://www.youtube.com/@TraderNick/videos
+5. Casual Finance — https://www.youtube.com/@casuallyfinance/videos (Tier 2 market)
 
 Do not add other creators to scheduled discovery or transcript claiming without an explicit workflow change.
 
 ## Current monitored-video priority
 
-The scheduled detector checks only the four creators above, in this order:
+The scheduled detector checks these five creators, with the original four first:
 
 1. StockedUp
 2. Wall Street Truthbombs / Mark Malek
 3. FX Evolution
 4. TraderNick
+5. Casual Finance
 
 Only long-form, non-live uploads enter transcript intake. YouTube video ID is the durable deduplication key. If a video ID already exists in `research_intake_items`, rediscovery records an `already_seen` stage and stops before cache lookup, browser retrieval or transcript-provider work. Transcript retries belong to the leased transcript worker and its cooldown state; discovery must not create a second retry path.
 
-The database also enforces uniqueness for video `external_id` values and restricts transcript-job claims to the same four publishers. This prevents a concurrent run, renamed channel key or stale queue row from creating duplicate provider work.
+The database also enforces uniqueness for video `external_id` values and restricts transcript-job claims to the same five publishers after the additive Casual Finance migration is applied. This prevents a concurrent run, renamed channel key or stale queue row from creating duplicate provider work.
 
 YouTube does not expose a first-class Shorts flag through the Data API. Scheduled Live intake therefore treats any upload with a YouTube-reported duration of 180 seconds or less as short-form and excludes it from transcript collection. This can intentionally exclude an occasional normal sub-three-minute upload rather than queue Shorts for manual work.
 
