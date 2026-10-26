@@ -80,7 +80,7 @@ export default function PositioningWorkspace({ snapshots, storyLinks }: { snapsh
   return (
     <div className={styles.workspace}>
       <div className={styles.modeSwitch} aria-label="Positioning view">
-        <button className={mode === "alchemy" ? styles.active : ""} onClick={() => setMode("alchemy")}>Alchemy View</button>
+        <button className={mode === "alchemy" ? styles.active : ""} onClick={() => setMode("alchemy")}>Raw Positions</button>
         <button className={mode === "legacy" ? styles.active : ""} onClick={() => setMode("legacy")}>COTSignal-style View</button>
       </div>
 
@@ -93,7 +93,7 @@ export default function PositioningWorkspace({ snapshots, storyLinks }: { snapsh
         <section className={styles.panel}>
           <div className={styles.panelHead}>
             <div>
-              <span className={styles.kicker}>ALCHEMY VIEW</span>
+              <span className={styles.kicker}>RAW POSITIONS</span>
               <h3>Official Legacy futures-only positioning</h3>
               <p>Raw net positions and percentages of open interest are preserved beside the 52-week scan.</p>
             </div>
@@ -226,7 +226,7 @@ export default function PositioningWorkspace({ snapshots, storyLinks }: { snapsh
             </div>
 
             <div className={styles.sourceLine}>
-              <span>Scores use the latest observation against up to 52 prior weekly reports. Raw positions remain available in Alchemy View.</span>
+              <span>Scores use the latest observation against up to 52 prior weekly reports. Raw positions remain available in Raw Positions view.</span>
               <a href={snapshots[0].sourceUrl} target="_blank" rel="noreferrer">Open official CFTC dataset ↗</a>
             </div>
           </section>
