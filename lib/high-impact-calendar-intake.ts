@@ -61,7 +61,7 @@ function releaseSummary(event: EconomicCalendarEvent) {
   const values = [
     `Actual: ${event.actual || "awaiting release"}`,
     `Consensus: ${event.consensus || "not loaded"}`,
-    `Alchemy expectation: ${event.alchemyExpectation || "not recorded"}`,
+    `Desk expectation: ${event.alchemyExpectation || "not recorded"}`,
     `Previous: ${event.previous || "not loaded"}`,
   ].join(" · ");
   return `${event.status} high-impact ${event.category.toLowerCase()} event scheduled for ${event.date} at ${event.timeLabel}. ${values}. Desk question: ${event.decidingQuestion}`;
@@ -108,7 +108,7 @@ export function buildHighImpactCalendarIntake(
           `${event.event}: ${event.status}`,
           `Actual ${event.actual || "awaiting"}`,
           `Consensus ${event.consensus || "not loaded"}`,
-          `Alchemy expectation ${event.alchemyExpectation || "not recorded"}`,
+          `Desk expectation ${event.alchemyExpectation || "not recorded"}`,
           `Previous ${event.previous || "not loaded"}`,
           surprise,
         ].filter(Boolean).join(" · "),
@@ -121,7 +121,7 @@ export function buildHighImpactCalendarIntake(
           publisher: event.sourceName,
           publishedAt: releaseTimestamp(event),
           claim: event.status === "Released"
-            ? `Official release record for ${event.event}, including the latest actual, consensus, separate Alchemy expectation and previous values available to the desk.`
+            ? `Official release record for ${event.event}, including the latest actual, consensus, separate Desk expectation and previous values available to the desk.`
             : `Official schedule for the upcoming high-impact ${event.event} release.`,
         }],
         reviewReason: released
