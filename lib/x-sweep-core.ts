@@ -37,9 +37,14 @@ export const X_CORE_ROSTER = Object.freeze([
   { handle: "arena", focus: "markets" },
   { handle: "KobeissiLetter", focus: "macro" },
   { handle: "FirstSquawk", focus: "breaking" },
-  { handle: "zerohedge", focus: "macro" },
   { handle: "GordianKnotDev", focus: "alchemy-linked" },
 ] as const);
+// X Wire exclusion only. ZeroHedge may remain available in other research feeds.
+export const X_WIRE_EXCLUDED_HANDLES = Object.freeze(["zerohedge"] as const);
+export function isExcludedXWireHandle(handle: string): boolean {
+  return X_WIRE_EXCLUDED_HANDLES.some(blocked =>
+    blocked === handle.trim().replace(/^@/, "").toLowerCase());
+}
 // Focus is a discovery grouping, never identity verification or a reliability tier.
 
 function bounded(name: string, value: unknown, min: number, max: number) {
@@ -128,6 +133,10 @@ export function selectXSweepCandidates(
   for (const item of rows) {
     try {
       const post = normaliseXPostUrl(item.postUrl);
+      if (isExcludedXWireHandle(post.handle) || isExcludedXWireHandle(item.accountHandle)) {
+        withheld.push({ item, reason: "excluded_x_wire_source" });
+        continue;
+      }
       if (post.handle.toLowerCase() !== item.accountHandle.replace(/^@/, "").toLowerCase()) {
         withheld.push({ item, reason: "account_identity_mismatch" });
         continue;
