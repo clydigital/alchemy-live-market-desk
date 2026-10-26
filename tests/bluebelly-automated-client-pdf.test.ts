@@ -105,6 +105,24 @@ test("source gate excludes creator or calendar-only claims, checks exact source 
   stories:[{...narrative.stories[0],reveal:"The latest oil price surged to $98765 without a source record. ".repeat(3)},narrative.stories[1]]},evidence),null);
  assert.equal(reportEvidenceReady({...evidence,sources:evidence.sources.filter(s=>s.type==="CALENDAR")}),false);
 });
+test("quiet sourced session can tell one real story without inventing market lenses or calendar events",()=>{
+ const {evidence,narrative}=fixture();
+ const quiet={...narrative,stories:[narrative.stories[0]],crossMarket:[],watchlist:[]};
+ assert.equal(reportEvidenceReady(evidence),true);
+ const parsed=parseAutomatedReportNarrative(quiet,evidence);
+ assert.ok(parsed,"Two independent dated factual sources still clear the unchanged source gate");
+ const pdf=renderAutomatedReportPdf(evidence,parsed!);
+ const body=Buffer.from(pdf).toString("latin1");
+ assert.match(body,/The stories behind the moves/);
+ assert.doesNotMatch(body,/Cross-market transmission|The watchlist/);
+ assert.match(body,/Source ledger/);
+ assert.match(body,/%%EOF\\s*$/);
+ assert.equal(parseAutomatedReportNarrative({...quiet,stories:[]},evidence),null);
+ assert.equal(parseAutomatedReportNarrative({...quiet,stories:[{...quiet.stories[0],sourceIds:["made-up"]}]},evidence),null);
+ assert.equal(parseAutomatedReportNarrative({...quiet,stories:[{...quiet.stories[0],setup:"The unsupported yield was 98765 according to the tape.".repeat(4)}]},evidence),null);
+ assert.equal(parseAutomatedReportNarrative(quiet,{...evidence,sources:evidence.sources.filter(s=>s.type==="CALENDAR")}),null);
+});
+
 test("market-data-led briefing admits only dated provider values and explicitly flags missing verified news",()=>{
  const monitored=["US 10Y yield","S&P 500","WTI oil","USD index"].map((label,i)=>({
   label,level:100+i,previousClose:99+i,asOf:"2026-10-26T20:00:00Z",
