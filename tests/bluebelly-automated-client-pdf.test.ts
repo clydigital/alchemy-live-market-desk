@@ -229,6 +229,8 @@ test("source-qualified private PDF starts within the existing authorised cron ev
  assert.ok(!job.includes('status:"published"'));
  assert.ok(job.includes('pluginCallsVerified:[]'));
  assert.ok(job.includes("source_receipts:evidence.sources.map"));
+ assert.ok(job.includes("ThinkingLevel.LOW"));
+ assert.ok(!job.includes("temperature:0.22"));
  const contract=read("lib/blue-desk-automated-report-contract.ts");
  assert.ok(contract.includes("TECHNOLOGY REALITY"));
  assert.ok(contract.includes("MARKET REALITY"));
