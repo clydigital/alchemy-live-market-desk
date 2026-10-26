@@ -1,0 +1,28 @@
+.root{margin:22px 0 32px;padding:22px;border:1px solid #286181;border-radius:12px;background:#072337;color:#e8f5fe}
+.header{display:flex;justify-content:space-between;gap:24px;align-items:flex-start}
+.header h2{font:600 30px Georgia,serif;margin:8px 0 10px}
+.header p{font-size:13px;line-height:1.6;color:#b6d0df;max-width:80ch}
+.kicker{font-size:11px;font-weight:800;letter-spacing:.1em;color:#82d8f7}
+.total{font-size:26px;font-weight:700;white-space:nowrap}
+.total small{display:block;font-size:11px;font-weight:400;color:#b3d2e4}
+.toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:18px 0}
+.toolbar button,.detail button{background:#0b4869;border:1px solid #4d91b3;color:white;border-radius:7px;padding:10px 13px;cursor:pointer}
+.toolbar label{color:#d8ebfa;font-size:12px}
+.toolbar select{margin-left:8px;background:#082d46;color:white;border:1px solid #407b9c;border-radius:6px;padding:8px}
+.layout{display:grid;grid-template-columns:minmax(230px,.85fr) minmax(0,1.6fr);gap:16px;align-items:start}
+.list{display:grid;gap:8px;max-height:670px;overflow:auto}
+.item,.selected{display:grid;gap:6px;padding:12px;text-align:left;border:1px solid #23516d;border-radius:7px;background:#0a2d44;color:#eaf7ff;cursor:pointer}
+.selected{background:#135173;border-color:#85d9fa}
+.item span,.selected span{color:#93d0ed;font-size:10px;text-transform:uppercase}
+.item strong,.selected strong{font-size:13px;line-height:1.4}
+.item small,.selected small{font-size:11px;color:#bed9e9}
+.detail{border:1px solid #285b7c;border-radius:9px;background:#041c2c;padding:22px}
+.detail h3{font:600 24px Georgia,serif;margin:10px 0 18px}
+.detail label{display:grid;gap:6px;color:#d0e3f1;font-size:12px;margin:12px 0}
+.detail select,.detail textarea{width:100%;border:1px solid #387493;border-radius:6px;background:#082d43;color:white;padding:10px;font:inherit}
+.facts{display:grid;grid-template-columns:140px minmax(0,1fr);gap:12px;padding-top:18px;border-top:1px solid #25516a;margin-top:20px;font-size:12px}
+.facts dt{color:#90c5df}.facts dd{margin:0;overflow-wrap:anywhere}
+.script{margin-top:18px;border-left:3px solid #64bce5;background:#092b40;padding:16px}
+.script strong{font-size:12px}.script p{line-height:1.65;color:#d6e6f2;font-size:13px}
+.warning{font-size:12px;line-height:1.6;color:#f4dba2;margin-top:16px}
+@media(max-width:790px){.header{flex-direction:column}.layout{grid-template-columns:1fr}.list{max-height:350px}.facts{grid-template-columns:1fr;gap:5px}}
