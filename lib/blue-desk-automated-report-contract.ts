@@ -25,6 +25,13 @@ export type AutomaticReportEvidence={
 const text=(x:unknown,min:number,max:number):x is string=>
  typeof x==="string"&&x.trim()===x&&x.length>=min&&x.length<=max
  && !/[\u0000-\u0008\u000b\u000e-\u001f]/.test(x);
+/** Existing Dossier retry time is the report's finalisation opportunity (UTC). */
+export function isAutomaticReportFinalisationWindow(now:Date,slot:AutomaticReportSlot):boolean{
+ if(!Number.isFinite(now.getTime()))return false;
+ const minutes=now.getUTCHours()*60+now.getUTCMinutes();
+ const target=slot==="morning"?2*60+40:15*60+20;
+ return minutes>=target&&minutes<target+16;
+}
 const MAX_AGE=48*3600_000;
 const dateValid=(s:string,now:number)=>Number.isFinite(Date.parse(s))
  && Date.parse(s)<=now+120000;
