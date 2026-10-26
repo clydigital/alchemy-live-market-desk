@@ -4,9 +4,9 @@ import {isAutomaticReportFallbackWindow,type AutomaticReportSlot}
 import {attemptPrivateDailyPdfAfterLateDossier}
  from "@/lib/blue-desk-automated-report-late-handoff";
 
-export const dynamic="force-dynamic";
-export const runtime="nodejs";
-export const maxDuration=300;
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+export const maxDuration = 300;
 
 /** Preserve the Research Gap handoff's canonical response. Only the existing
  * authorised 03:30/03:45, 15:30/15:45 UTC invocations can retry a completed
