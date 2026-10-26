@@ -1,11 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {assembleAutomaticReportEvidence,parseAutomatedReportNarrative,reportEvidenceReady}
+import {assembleAutomaticReportEvidence,parseAutomatedReportNarrative,reportEvidenceReady,isAutomaticReportFinalisationWindow}
  from "../lib/blue-desk-automated-report-contract.ts";
 import {renderAutomatedReportPdf} from "../lib/blue-desk-automated-report-pdf.ts";
-import {isAutomaticReportFinalisationWindow}
- from "../lib/blue-desk-automated-report-job.ts";
+
 
 const now=new Date("2026-10-27T02:41:00Z");
 function fixture(){
