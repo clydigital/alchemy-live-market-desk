@@ -36,10 +36,10 @@ export default async function PresenterStudioPage(){
         <div className={styles.sectionHead}>
           <div><p className={styles.kicker}>MANUAL TECHNICAL RECONCILIATION</p>
             <h2>Technical checks</h2>
-            <p>Actual chart inspection and observation dates required. These notes do not change canonical evidence.</p>
+            <p>All 14 saved monitor keys are available: seven core checks first, then seven additional cross-asset checks under Show additional. Review chart dates and linked sources; presenter notes never change canonical evidence.</p>
           </div>
         </div>
-        <PresenterTechnicalChecks compact/>
+        <PresenterTechnicalChecks/>
       </section>
     </div>
   </main>;
