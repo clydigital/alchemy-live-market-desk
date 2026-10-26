@@ -34,7 +34,7 @@ function dateText(s:string){
   ?d.toLocaleString("en-GB",{timeZone:"UTC",dateStyle:"medium",timeStyle:"short"})+" UTC":"Unavailable";
 }
 export function renderAutomatedReportPdf(e:AutomaticReportEvidence,n:AutomatedReportNarrative):Uint8Array{
- const pages:Page[]=[];let page:Page;let y=750;
+ const pages:Page[]=[];let page:Page={ops:[],links:[]};let y=750;
  const newPage=()=>{
   page={ops:[],links:[]};pages.push(page);y=750;
   page.ops.push(`0.975 0.984 0.992 rg 0 0 ${PAGE_W} ${PAGE_H} re f`);
