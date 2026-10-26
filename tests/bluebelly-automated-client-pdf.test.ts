@@ -116,7 +116,7 @@ test("quiet sourced session can tell one real story without inventing market len
  assert.match(body,/The stories behind the moves/);
  assert.doesNotMatch(body,/Cross-market transmission|The watchlist/);
  assert.match(body,/Source ledger/);
- assert.match(body,/%%EOF\\s*$/);
+ assert.match(body,/%%EOF\s*$/);
  assert.equal(parseAutomatedReportNarrative({...quiet,stories:[]},evidence),null);
  assert.equal(parseAutomatedReportNarrative({...quiet,stories:[{...quiet.stories[0],sourceIds:["made-up"]}]},evidence),null);
  assert.equal(parseAutomatedReportNarrative({...quiet,stories:[{...quiet.stories[0],setup:"The unsupported yield was 98765 according to the tape.".repeat(4)}]},evidence),null);
