@@ -83,3 +83,40 @@ export function selectBlueDeskReleasedWeek(
       return bTime - aTime || a.id.localeCompare(b.id);
     });
 }
+
+/**
+ * The current US/Eastern Monday–Sunday earnings week, not a rolling 30-day
+ * list disguised as a weekly calendar. Keep date-only records as source dates.
+ * This is a read-only presentation projection of presenter-calendar/1.
+ */
+export function selectBlueDeskEarningsWeek(
+  calendar: Pick<PresenterCalendar, "events">,
+  now: Date,
+): PresenterCalendarEvent[] {
+  const today = formatDualDeskTime(now)?.etDay;
+  if (!today) return [];
+  const todayUtc = Date.parse(today + "T00:00:00Z");
+  const weekday = (new Date(todayUtc).getUTCDay() + 6) % 7;
+  const monday = new Date(todayUtc - weekday * 86_400_000).toISOString().slice(0, 10);
+  const nextMonday = new Date(todayUtc + (7 - weekday) * 86_400_000).toISOString().slice(0, 10);
+  return calendar.events
+    .filter(event => {
+      if (event.kind !== "earnings" || event.status !== "scheduled") return false;
+      if (event.scheduledAt) {
+        const when = Date.parse(event.scheduledAt);
+        const etDay = formatDualDeskTime(event.scheduledAt)?.etDay;
+        return Number.isFinite(when) && when >= now.getTime()
+          && !!etDay && etDay >= monday && etDay < nextMonday;
+      }
+      // Date-only is an issuer/source calendar date, not an asserted ET time.
+      return event.localDate >= today && event.localDate >= monday && event.localDate < nextMonday;
+    })
+    .sort((a, b) => {
+      const aDay = a.scheduledAt ? formatDualDeskTime(a.scheduledAt)?.etDay : a.localDate;
+      const bDay = b.scheduledAt ? formatDualDeskTime(b.scheduledAt)?.etDay : b.localDate;
+      return (aDay || "").localeCompare(bDay || "") ||
+        (a.scheduledAt ? Date.parse(a.scheduledAt) : Number.POSITIVE_INFINITY)
+        - (b.scheduledAt ? Date.parse(b.scheduledAt) : Number.POSITIVE_INFINITY)
+        || a.id.localeCompare(b.id);
+    });
+}
