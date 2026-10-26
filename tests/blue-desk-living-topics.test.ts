@@ -23,6 +23,8 @@ test("rolling topics use only dated verified news supplied by the upstream reade
  assert.equal(groups[0].updates[0].sourceUrl,rows[0].sourceUrl);
  assert.equal(groups[0].latestObservedAt,rows[0].occurredAt);
  assert.ok(groups.every(g=>g.guidingQuestion.endsWith("?")));
+ assert.ok(groups.every(g=>g.humanStake.length>80));
+ assert.ok(groups.every(g=>!/(already rallied|guaranteed gain|confirmed price reaction)/i.test(g.humanStake)));
 });
 
 test("topic routing does not inflate counts, invent price reactions, or attach an old canonical Story",()=>{
@@ -44,4 +46,5 @@ test("unknown headlines remain clearly labelled as other developments",()=>{
  ]);
  assert.equal(groups[0].id,"other-catalysts");
  assert.match(groups[0].guidingQuestion,/what evidence is still missing/i);
+ assert.match(groups[0].humanStake,/people exposed depend/i);
 });
