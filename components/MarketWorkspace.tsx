@@ -614,7 +614,7 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
             </article>
 
             <article className="panel coverage-preview">
-              <div className="panel-title-row"><PanelTitle icon="▤" title="Alchemy article memory" /><button className="ghost-button" onClick={() => setActiveTab("Articles")}>Open coverage map</button></div>
+              <div className="panel-title-row"><PanelTitle icon="▤" title="Article history" /><button className="ghost-button" onClick={() => setActiveTab("Articles")}>Open coverage map</button></div>
               <div className="coverage-summary"><div><b>{articleMemory.length}</b><span>recent pieces scanned</span></div><div><b>{revisitArticles.length}</b><span>materially evolved</span></div><p>Prior coverage is not a reason to ignore a story. The colour shows how much the evidence has changed since publication.</p></div>
               <div className="coverage-preview-list">{articleMemory.slice(0, 3).map((article) => <button key={article.id} className={`change-${article.changeKey}`} onClick={() => { setSelectedArticleId(article.id); setActiveTab("Articles"); }}><span><small>{article.author} · {articleDate(article.publishedAt)}</small><b>{article.title}</b><em>{article.story ? `Aligns with ${article.story.title}` : "No strong current match"}</em></span><strong>{article.changeScore}<small>change</small></strong></button>)}</div>
             </article>
@@ -728,14 +728,14 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
                 </aside>
               </div>
               <footer>{activeStory.assets.map((asset) => <span key={asset}>{asset}</span>)}</footer>
-              <div className="related-coverage"><div><small>PRIOR ALCHEMY COVERAGE</small><b>Has this story moved enough to revisit?</b></div>{articleMemory.filter((article) => article.story?.id === activeStory.id).slice(0, 3).map((article) => <button className={`change-${article.changeKey}`} key={article.id} onClick={() => { setSelectedArticleId(article.id); setActiveTab("Articles"); }}><span>{article.title}</span><strong>{article.changeScore}</strong></button>)}{!articleMemory.some((article) => article.story?.id === activeStory.id) && <p>No recent Alchemy piece has a strong match with this story.</p>}</div>
+              <div className="related-coverage"><div><small>PREVIOUS COVERAGE</small><b>Has this story moved enough to revisit?</b></div>{articleMemory.filter((article) => article.story?.id === activeStory.id).slice(0, 3).map((article) => <button className={`change-${article.changeKey}`} key={article.id} onClick={() => { setSelectedArticleId(article.id); setActiveTab("Articles"); }}><span>{article.title}</span><strong>{article.changeScore}</strong></button>)}{!articleMemory.some((article) => article.story?.id === activeStory.id) && <p>No recent published article has a strong match with this story.</p>}</div>
             </article>
           </div>
         )}
 
         {activeTab === "Articles" && (
           <div className="articles-page tab-page">
-            <header className="article-memory-header"><div><span>ALCHEMY ARTICLE MEMORY</span><h2>What have we already said, and what changed?</h2><p>Every piece keeps its published view. Live stories and material updates decide whether it is stable, evolving or ready to revisit.</p></div><div className="change-legend"><span className="change-stable">Little changed</span><span className="change-incremental">Incremental</span><span className="change-material">Material evolution</span><span className="change-revisit">Revisit now</span></div></header>
+            <header className="article-memory-header"><div><span>ARTICLE HISTORY</span><h2>What have we already said, and what changed?</h2><p>Every piece keeps its published view. Live stories and material updates decide whether it is stable, evolving or ready to revisit.</p></div><div className="change-legend"><span className="change-stable">Little changed</span><span className="change-incremental">Incremental</span><span className="change-material">Material evolution</span><span className="change-revisit">Revisit now</span></div></header>
             <div className="article-filters">{(["All", "Revisit now", "Material evolution", "Incremental", "Little changed"] as ArticleFilter[]).map((filter) => <button key={filter} className={articleFilter === filter ? "active" : ""} onClick={() => setArticleFilter(filter)}>{filter}<b>{filter === "All" ? articleMemory.length : articleMemory.filter((article) => article.changeLabel === filter).length}</b></button>)}</div>
             <div className="article-memory-layout">
               <section className="article-feed">{filteredArticles.map((article) => <article key={article.id} className={`article-card change-${article.changeKey} ${selectedArticle?.id === article.id ? "selected" : ""}`} tabIndex={0} role="button" onClick={() => setSelectedArticleId(article.id)} onKeyDown={(event) => { if (event.key === "Enter") setSelectedArticleId(article.id); }}><div className="article-image" style={article.image ? { backgroundImage: `linear-gradient(180deg, rgba(15,17,43,.05), rgba(15,17,43,.88)), url(${article.image})` } : undefined}><span>{article.category}</span><strong>{article.changeScore}<small>change</small></strong></div><div className="article-copy"><small>{article.author} · {articleDate(article.publishedAt)}</small><h3>{article.title}</h3><p>{article.summary}</p><div><span>{article.story ? `↳ ${article.story.title}` : "No current match"}</span><a href={article.url} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>Open piece ↗</a></div></div></article>)}</section>
@@ -847,7 +847,7 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
           </div>
         )}
 
-        <footer className="workspace-footer"><span>Alchemy Markets · Persistent research state</span><span>Educational use only</span></footer>
+        <footer className="workspace-footer"><span>Bluebelly · Persistent research state</span><span>Educational use only</span></footer>
       </section>
 
       {showActions && (
@@ -856,7 +856,7 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
             <header><div><span>NEW RESEARCH</span><h2>Where should the desk go next?</h2></div><button onClick={() => setShowActions(false)}>×</button></header>
             <button onClick={() => openAction("Research Layer")}><i>01</i><span><b>Open canonical research layer</b><small>Review transcript methods, source ownership, research-state diagnostics and rollout.</small></span><em>→</em></button>
             <button onClick={() => openAction("Stories")}><i>02</i><span><b>Open Story Lab</b><small>Compare support, contradiction and the next test.</small></span><em>→</em></button>
-            <button onClick={() => openAction("Articles")}><i>03</i><span><b>Review prior Alchemy coverage</b><small>See what was said, how the story evolved and whether it is ready to revisit.</small></span><em>→</em></button>
+            <button onClick={() => openAction("Articles")}><i>03</i><span><b>Review previous coverage</b><small>See what was said, how the story evolved and whether it is ready to revisit.</small></span><em>→</em></button>
             <button onClick={() => openAction("Charts")}><i>04</i><span><b>Request a chart</b><small>Choose the visual that answers a defined question.</small></span><em>→</em></button>
             <button onClick={() => openAction("Earnings")}><i>05</i><span><b>Review earnings intelligence</b><small>Inspect guidance, capex, demand and wording shifts.</small></span><em>→</em></button>
           </div>

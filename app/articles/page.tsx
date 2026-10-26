@@ -123,7 +123,7 @@ export default async function ArticlesPage() {
     <LiveDeskShell
       activePath="/articles"
       title="Articles"
-      description="Quick takeaways from published Alchemy Markets articles, with links to the full story and later developments."
+      description="Quick takeaways from previously published market articles, with links to the full story and later developments."
       meta={`${records.length} published records loaded`}
     >
       <div className={styles.grid}>

@@ -104,7 +104,7 @@ export default async function MacroDataPage() {
                       <div key={metric.id}>
                         <span className={styles.metaLabel}>{metric.label} Â· {metric.transformation}</span>
                         <p>Actual {metric.actual ?? "Unavailable"}{metric.unit ? ` ${metric.unit}` : ""}</p>
-                        <p>Consensus {metric.consensus ?? "Unavailable"} Â· Alchemy {metric.alchemy_expectation ?? "Unavailable"}</p>
+                        <p>Consensus {metric.consensus ?? "Unavailable"} Â· Desk expectation {metric.alchemy_expectation ?? "Unavailable"}</p>
                       </div>
                     ))}
                   </div>

@@ -216,7 +216,7 @@ function metricFromSeries(spec: SeriesSpec, data: MonitorData): CaseMonitorMetri
       delta: null,
       asOf: null,
       cadence: spec.cadence || "As available",
-      sourceName: spec.kind === "market" ? "Alchemy market series" : "Alchemy macro series",
+      sourceName: spec.kind === "market" ? "Desk-derived market series" : "Desk-derived macro series",
       sourceUrl: null,
       question: spec.question,
       interpretation: "The deciding series is defined but is not currently populated in the canonical data store.",
@@ -322,7 +322,7 @@ function sourceSignals(story: Story, data: MonitorData): CaseMonitorSignal[] {
     headline: "No verified relevant video in the current intake window",
     detail: "The research intake remains configured to surface relevant transcript-backed videos when they appear.",
     asOf: null,
-    sourceName: "Alchemy research intake",
+    sourceName: "Desk research intake",
     sourceUrl: null,
     verification: "configured",
   });
