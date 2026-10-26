@@ -1,0 +1,5 @@
+.featureTake{background:rgba(2,27,44,.75);border-left:3px solid #83d7ed;border-radius:0 8px 8px 0;padding:13px 17px;margin:21px 0 12px;max-width:680px}
+.featureTake p{color:#d7e9f4;font-size:14px;line-height:1.65;margin:5px 0 9px}
+.featureTake strong{color:#f3fbff}
+.featureTake .eyebrow{font-size:11px;color:#9cddf4;letter-spacing:.07em;font-weight:800;margin:0 0 8px}
+@media(max-width:720px){.featureTake{padding:12px 14px}}
