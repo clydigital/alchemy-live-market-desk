@@ -5,7 +5,7 @@ import desk from "@/app/blue-desk/blue-desk.module.css";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
-  title: "Research Library | Blue Desk",
+  title: "Research Library | Bluebelly",
   description: "Private source-linked market research archive, topic map and research gaps.",
 };
 
