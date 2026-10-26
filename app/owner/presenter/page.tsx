@@ -10,7 +10,7 @@ import styles from "@/app/blue-desk/blue-desk.module.css";
 export const dynamic="force-dynamic";
 export const revalidate=0;
 export const metadata={title:"Presenter Studio | Private Blue Desk",
-  description:"Owner-only presenter run of show, market checks and technical overlays."};
+  description:"Owner-only presenter run of show, market checks and technical overlays.",robots:{index:false,follow:false}};
 
 export default async function PresenterStudioPage(){
   const [monitor,editorialSlate]=await Promise.all([getMarketMonitor().catch(()=>null),getLatestEditorialSlate()]);
@@ -26,13 +26,13 @@ export default async function PresenterStudioPage(){
         <div className={styles.calendarClock}>
           <span className={styles.kicker}>RESEARCH CONNECTION</span>
           <strong>Daily briefing</strong>
-          <small><Link href="/owner/daily-report">Open my automatic PDF and research context ↗</Link></small>
+          <small><Link href="/my-reports">Open my source-qualified PDFs ↗</Link></small>
         </div>
       </header>
     </div>
     <EditorialWorkbench mode="presenter" priceCards={cards} readError={!monitor} slate={editorialSlate.slate} slateStatus={editorialSlate.status}/>
     <div className={styles.content}>
-      <section className={styles.section}>
+      <section id="technical-checks" className={styles.section}>
         <div className={styles.sectionHead}>
           <div><p className={styles.kicker}>MANUAL TECHNICAL RECONCILIATION</p>
             <h2>Technical checks</h2>
