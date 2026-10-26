@@ -51,7 +51,7 @@ test("private desk blocks all new report publications at the server endpoint",()
  const header=readFileSync(new URL("../components/blue-desk/BlueDeskHeader.tsx",import.meta.url),"utf8");
  assert.match(src,/status:410/);
  assert.match(src,/Public report publication is disabled/);
- assert.doesNotMatch(src,/storage\\.from|\\.insert\\(|status:"published"/);
+ assert.doesNotMatch(src,/storage\.from|\.insert\(|status:"published"/);
  assert.match(owner,/Reports are private/);
  assert.doesNotMatch(owner,/ReportPublisher/);
  const privateNav=header.match(/const PRIVATE_NAV = \\[([\\s\\S]*?)\\] as const;/)?.[1]||"";
