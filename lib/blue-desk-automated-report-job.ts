@@ -68,8 +68,14 @@ export async function runAutomatedDailyPdfReport(
    qualified:evidence.sources.filter(s=>s.type!=="CALENDAR").length}));
   return {status:"coverage_blocked",reason:"insufficient_source_qualified_facts"};
  }
- // Bound the packet and persisted public source ledger. Repeatable edition by MYT date and slot.
- evidence.sources=evidence.sources.slice(0,20);
+ // Bound the ledger while retaining forward catalysts when observations are plentiful.
+ // An all-data report must retain its original dated calendar tests.
+ evidence.sources=[
+  ...evidence.sources.filter(s=>s.type==="NEWS").slice(0,6),
+  ...evidence.sources.filter(s=>s.type==="OBSERVATION").slice(0,8),
+  ...evidence.sources.filter(s=>s.type==="CALENDAR").slice(0,6),
+ ].slice(0,20);
+ if(!reportEvidenceReady(evidence))return {status:"coverage_blocked",reason:"bounded_source_coverage_incomplete"};
  const {data:prior,error:priorError}=await db.from("blue_desk_automated_reports")
   .select("id,status,created_at").eq("report_day",reportDay).eq("slot",slot).maybeSingle();
  if(priorError)throw new Error("Automated report table unavailable (migration required)");
