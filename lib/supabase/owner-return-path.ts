@@ -7,7 +7,7 @@
  * intact, but never redirect a completed sign-in to another domain or back
  * into the auth callback/sign-out flow.
  */
-const FALLBACK = "/owner/live";
+const FALLBACK = "/my-reports";
 const INTERNAL_ORIGIN = "https://live-desk-owner.invalid";
 
 export function safeOwnerReturnPath(input: string | null | undefined): string {

@@ -83,7 +83,7 @@ test("Bluebelly exposes only explicitly approved public reading routes", () => {
   }
   for (const path of [
     "/hybrid-output/prepare", "/dossier", "/articles",
-    "/api/dossier-v2", "/api/presenter/technical-checks", "/api/cron/research/morning",
+    "/api/dossier-v2", "/api/cron/research/morning",
     "/stories",
     "/api/owner/editorial-publish","/owner/publications","/owner/daily-articles",
     "/reports","/blue-desk/reports",
@@ -99,13 +99,16 @@ test("Bluebelly exposes only explicitly approved public reading routes", () => {
 test("Bluebelly My Reports enclave is login-protected and nothing else gains owner access",()=>{
  const host="bluebelly-desk.vercel.app";
  for(const path of ["/my-reports","/login","/auth/google","/auth/callback",
-   "/auth/signout","/api/owner/automated-report-pdf"]){
+   "/auth/signout","/api/owner/automated-report-pdf",
+   "/owner/editorial","/owner/presenter",
+   "/api/owner/editorial-generate","/api/owner/editorial-investigate",
+   "/api/presenter/technical-checks"]){
   assert.equal(blueDeskHostAccess(path,host),"private",path);
   assert.equal(blueDeskPresentationTarget(path,host),null,path);
  }
  for(const path of ["/my-reports/","/my-reports/other","/auth","/auth/callback/private",
-   "/owner/daily-report","/owner/editorial","/owner/publications",
-   "/api/owner/daily-research","/api/owner/editorial-generate",
+   "/owner/daily-report","/owner/publications",
+   "/api/owner/daily-research","/api/owner/editorial-publish",
    "/api/cron/research/morning","/daily-report/pdf"]){
   assert.equal(blueDeskHostAccess(path,host),"blocked",path);
  }
@@ -253,7 +256,7 @@ test("expanded Story watch is a real exact public reader with no owner routes ex
     assert.equal(blueDeskHostAccess("/blue-desk/key-stories",host),"public");
   }
   for(const path of ["/key-stories/any","/api/research-update","/api/cron/research/morning",
-    "/dossier","/api/owner/editorial-generate"]){
+    "/dossier","/api/owner/editorial-publish"]){
     assert.equal(blueDeskHostAccess(path,"bluebelly-desk.vercel.app"),"blocked");
   }
   assert.equal(blueDeskPresentationTarget("/key-stories","review-preview.vercel.app"),null);

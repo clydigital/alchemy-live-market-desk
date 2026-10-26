@@ -9,7 +9,7 @@ import styles from "@/app/blue-desk/blue-desk.module.css";
 export const dynamic="force-dynamic";
 export const revalidate=0;
 export const metadata={title:"Editorial Studio | Private Blue Desk",
-  description:"Owner-only OB/COTD composition, dated session comparisons and charts."};
+  description:"Owner-only OB/COTD composition, dated session comparisons and charts.",robots:{index:false,follow:false}};
 
 export default async function EditorialStudioPage(){
   const [monitor,editorialSlate]=await Promise.all([getMarketMonitor().catch(()=>null),getLatestEditorialSlate()]);
@@ -30,7 +30,7 @@ export default async function EditorialStudioPage(){
     </div>
     <EditorialWorkbench mode="editorial" priceCards={cards} readError={!monitor} slate={editorialSlate.slate} slateStatus={editorialSlate.status}/>
     <div className={styles.content}>
-      <p className={styles.muted}>Research inputs: full <Link href="/whats-new">What's New</Link>, <Link href="/articles">Article memory</Link>, <Link href="/owner/x-wire">X leads</Link> and <Link href="/owner/presenter">Presenter view</Link>. Use <Link href="/owner/daily-report">My Daily Report</Link> or <Link href="/owner/daily-articles">Private Daily Articles</Link>. Open and verify original sources before using any draft.</p>
+      <p className={styles.muted}>Research inputs: <Link href="/key-stories">Key Stories</Link>, <Link href="/daily-report">Daily Report</Link>, <Link href="/my-reports">My source-qualified PDF library</Link> and <Link href="/owner/presenter">Presenter Studio</Link>. Open and verify original sources before using any draft.</p>
     </div>
   </main>;
 }
