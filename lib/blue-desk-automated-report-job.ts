@@ -1,6 +1,6 @@
 import "server-only";
 import {createHash} from "node:crypto";
-import {GoogleGenAI} from "@google/genai";
+import {GoogleGenAI,ThinkingLevel} from "@google/genai";
 import {createSupabaseAdminClient} from "@/lib/supabase/admin";
 import {getCurrentVerifiedMarketMotion} from "@/lib/market-motion";
 import {selectVerifiedNewsBriefs} from "@/lib/market-brief-news";
@@ -140,7 +140,7 @@ export async function runAutomatedDailyPdfReport(
   try{
    generated=await Promise.race([
     ai.models.generateContent({model,contents:request,config:{
-     responseMimeType:"application/json",temperature:0.22,maxOutputTokens:9000,
+     responseMimeType:"application/json",thinkingConfig:{thinkingLevel:ThinkingLevel.LOW},maxOutputTokens:9000,
      systemInstruction:"Write the source-qualified Bluebelly market report in strict English JSON. Never introduce a new numerical fact; do not turn calendar questions into realised outcomes, or research uncertainty into verified claims. No links not supplied in the research packet. Cite every story and watchpoint with exact source IDs. Output client-ready narrative, not a research-process log.",
     }}),
     new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error("MODEL_TIMEOUT")),85_000);}),
