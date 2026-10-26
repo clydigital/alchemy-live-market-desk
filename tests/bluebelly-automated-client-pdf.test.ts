@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {assembleAutomaticReportEvidence,parseAutomatedReportNarrative,reportEvidenceReady,isAutomaticReportFinalisationWindow}
+import {assembleAutomaticReportEvidence,parseAutomatedReportNarrative,reportEvidenceReady,isAutomaticReportFinalisationWindow,isAutomaticReportFallbackWindow,isCompletedDossierForAutomaticReport}
  from "../lib/blue-desk-automated-report-contract.ts";
 import {renderAutomatedReportPdf} from "../lib/blue-desk-automated-report-pdf.ts";
 
@@ -45,6 +45,52 @@ test("only existing final Dossier retry times can author an automatic edition",(
  assert.equal(isAutomaticReportFinalisationWindow(new Date("2026-10-27T15:20:00Z"),"evening"),true);
  assert.equal(isAutomaticReportFinalisationWindow(new Date("2026-10-27T02:20:00Z"),"morning"),false);
  assert.equal(isAutomaticReportFinalisationWindow(new Date("2026-10-27T14:59:00Z"),"evening"),false);
+});
+test("only existing late Research Gap handoff calls provide Dossier-backed PDF retries",()=>{
+ const utc=(when:string)=>new Date(when);
+ assert.equal(isAutomaticReportFallbackWindow(utc("2026-10-27T03:30:00Z"),"morning"),true);
+ assert.equal(isAutomaticReportFallbackWindow(utc("2026-10-27T03:45:00Z"),"morning"),true);
+ assert.equal(isAutomaticReportFallbackWindow(utc("2026-10-27T03:56:00Z"),"morning"),false);
+ assert.equal(isAutomaticReportFallbackWindow(utc("2026-10-27T02:40:00Z"),"morning"),false);
+ assert.equal(isAutomaticReportFallbackWindow(utc("2026-10-27T15:30:00Z"),"evening"),true);
+ assert.equal(isAutomaticReportFallbackWindow(utc("2026-10-27T15:45:00Z"),"evening"),true);
+ assert.equal(isAutomaticReportFallbackWindow(utc("2026-10-27T16:00:00Z"),"evening"),false);
+ assert.equal(isAutomaticReportFallbackWindow(utc("2026-10-27T15:45:00Z"),"morning"),false);
+ const now=utc("2026-10-27T03:30:00Z");
+ const run={id:"00000000-0000-4000-8000-000000000001",schedule_slot:"morning",
+  status:"completed",scheduled_for:"2026-10-27T01:30:00Z",completed_at:"2026-10-27T02:46:41Z"};
+ const slotRun={research_run_id:run.id,slot_key:"morning",status:"completed",
+  health_state:"healthy",live_publication_status:"complete",hybrid_handoff_status:"complete",
+  stage_summary:{evidence_gate_passed:true,required_sources_complete:true,accuracy_gate:"clear",
+   postResearchDossier:{contractVersion:"post-research-dossier/1",state:"DONE",
+    finishedAt:"2026-10-27T03:01:00Z"}}};
+ assert.equal(isCompletedDossierForAutomaticReport(run,slotRun,"morning",now),true);
+ assert.equal(isCompletedDossierForAutomaticReport(run,{...slotRun,stage_summary:{
+  ...slotRun.stage_summary,postResearchDossier:{state:"RUNNING",contractVersion:"post-research-dossier/1"}}},"morning",now),false);
+ assert.equal(isCompletedDossierForAutomaticReport(run,{...slotRun,stage_summary:{
+  ...slotRun.stage_summary,evidence_gate_passed:false}},"morning",now),false);
+ assert.equal(isCompletedDossierForAutomaticReport(run,{...slotRun,stage_summary:{
+  ...slotRun.stage_summary,required_sources_complete:false}},"morning",now),false);
+ assert.equal(isCompletedDossierForAutomaticReport(run,slotRun,"evening",now),false);
+ assert.equal(isCompletedDossierForAutomaticReport({...run,completed_at:"2026-10-27T04:30:00Z"},slotRun,"morning",now),false);
+ assert.equal(isCompletedDossierForAutomaticReport({...run,scheduled_for:"2026-10-26T21:30:00Z"},slotRun,"morning",now),false);
+});
+test("late PDF retry reuses authorised Research Gap cron without weakening public/private boundaries",()=>{
+ const route=readFileSync(new URL("../app/api/cron/research-gap/handoff/route.ts",import.meta.url),"utf8");
+ const retry=readFileSync(new URL("../lib/blue-desk-automated-report-late-handoff.ts",import.meta.url),"utf8");
+ const job=readFileSync(new URL("../lib/blue-desk-automated-report-job.ts",import.meta.url),"utf8");
+ const schedule=readFileSync(new URL("../vercel.json",import.meta.url),"utf8");
+ assert.ok(route.includes("handleScheduledResearchGapHandoff(request)"));
+ assert.ok(route.includes("attemptPrivateDailyPdfAfterLateDossier(request,slot,now)"));
+ assert.ok(route.includes('payload.status!=="completed"'));
+ assert.ok(retry.includes("acceptsResearchAuthorization"));
+ assert.ok(retry.includes("isCompletedDossierForAutomaticReport"));
+ assert.ok(retry.includes("runAutomatedDailyPdfReport(slot,now)"));
+ assert.ok(job.includes("isAutomaticReportFallbackWindow(now,slot)"));
+ assert.ok(job.includes('status:"ready"'));
+ assert.ok(!job.includes('status:"published"'));
+ assert.ok(schedule.includes('"/api/cron/research-gap/handoff"'));
+ assert.ok(!schedule.includes("/api/cron/automatic-daily-pdf"));
 });
 test("source gate excludes creator or calendar-only claims, checks exact source ID joins",()=>{
  const {evidence,narrative}=fixture();
