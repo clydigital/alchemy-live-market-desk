@@ -38,8 +38,7 @@ export function projectPublicTheses(rows:readonly RecordInput[],now=new Date(),l
    rank:Number.isInteger(rank)&&rank>=1&&rank<=5?rank:null,
   }];
  });
- return projected.sort((a,b)=>(a.rank??99)-(b.rank??99)||
-  Date.parse(b.updatedAt)-Date.parse(a.updatedAt))
+ return projected.sort((a,b)=>Date.parse(b.updatedAt)-Date.parse(a.updatedAt))
   .slice(0,Math.max(0,Math.min(38,limit)));
 }
 
@@ -60,4 +59,37 @@ export function storyMarketTransmission(story:Pick<PublicThesis,"slug"|"title">)
  if(/equity|stock|earning|profit|consumer|labou?r|productiv|breadth|growth/.test(s))
   return "Stock prices depend on what investors expect companies to earn and how much they are willing to pay for those profits. Weaker spending, rising costs or expensive financing can challenge that calculation, although a strong earnings surprise could offset it.";
  return "The market impact depends on how this development changes actual demand, costs, financing or investor expectations. Check the exposed assets and their dated price action before treating the explanation as a confirmed cause.";
+}
+
+/** Explicitly linked Motion is context for ordering, not evidence of a market
+ * reaction or an accepted Story revision. Never infer links from keywords. */
+export type StoryMotionRecency = {
+  primary_story_id:string|null;occurred_at:string;verification_state:string;
+};
+export type MotionOrderedStory = PublicThesis & {
+  latestMotionAt:string|null;latestMotionVerification:string|null;
+};
+export function orderStoriesByLatestMotion(
+  stories:readonly PublicThesis[], motions:readonly StoryMotionRecency[], now=new Date(),
+):MotionOrderedStory[]{
+  const current=now.getTime();
+  const validIds=new Set(stories.map(s=>s.id));
+  const latest=new Map<string,{at:string;verification:string}>();
+  for(const item of motions){
+    if(!item.primary_story_id||!validIds.has(item.primary_story_id))continue;
+    const at=Date.parse(item.occurred_at);
+    if(!Number.isFinite(at)||at>current)continue;
+    const old=latest.get(item.primary_story_id);
+    if(!old||at>Date.parse(old.at))latest.set(item.primary_story_id,{
+      at:new Date(at).toISOString(),verification:item.verification_state,
+    });
+  }
+  return stories.map(story=>({
+    ...story,latestMotionAt:latest.get(story.id)?.at||null,
+    latestMotionVerification:latest.get(story.id)?.verification||null,
+  })).sort((a,b)=>
+    Number(Boolean(b.latestMotionAt))-Number(Boolean(a.latestMotionAt))
+    || Date.parse(b.latestMotionAt||b.updatedAt)-Date.parse(a.latestMotionAt||a.updatedAt)
+    || a.title.localeCompare(b.title)
+  );
 }

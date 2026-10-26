@@ -80,5 +80,5 @@ test("public blue desk reads original-source evidence but never exposes admin or
  assert.match(home,/getPublicThesisLedger/);
  assert.match(home,/getPublicSourceObservations/);
  assert.match(stories,/data-persistent-thesis-ledger="source-identity"/);
- assert.match(stories,/Last updated/);
+ assert.match(stories,/Last researched|Last updated|LATEST LINKED MOTION/);
 });

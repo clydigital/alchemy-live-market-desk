@@ -40,7 +40,7 @@ export default function DailyReportWriter(){
       setResearch(data);
       setEditedPacket(data.packet);
       setSelectedSources("");
-      setNotice("Source-dated packet loaded. Verify cited originals before drafting or publishing.");
+      setNotice("Source-dated packet loaded. Verify cited originals before using your private report.");
     }catch(e){setNotice(e instanceof Error?e.message:"Research unavailable");}
     finally{setBusy("idle");}
   }
@@ -89,7 +89,7 @@ export default function DailyReportWriter(){
         <p><strong>Packet assembled:</strong> {research.assembledAt}</p>
         <p><strong>Delivered MacroPulse review briefs:</strong> {research.deliveredBriefCount||0}.
           {" "}These are source-attributed research digests, not a live Notion read,
-          independent verification or permission to publish.</p>
+          independent verification or an approved market conclusion.</p>
         {research.deliveredResearch?.status==="UNAVAILABLE"?<p className={css.warning}>Private delivery queue could not be read. Its absence does not mean there were no new research posts.</p>:null}
         {research.notionStatus==="NOT_CONFIGURED" ? <p className={css.warning}>
           Server-side Notion integration unavailable. To read the live workspace
@@ -164,12 +164,11 @@ export default function DailyReportWriter(){
             onChange={e=>setSelectedSources(e.target.value.slice(0,5500))}/>
         </label>
         <p className={css.warning}>The imported source packet may contain up to 40 candidate links,
-          including Notion, social posts, calendars and hypotheses. None are automatically
-          cleared for publication. Select only the original documents you have checked.
+          including Notion, social posts, calendars and hypotheses. They are unverified candidates. Select only original documents you have checked.
           The publisher separately requires your approval and a matching PDF.</p>
-        <p className={css.warning}>Publication gate: independently check original
+        <p className={css.warning}>Personal review checklist: independently check original
           source documents, event and market observation times, alternative causes,
-          actual versus expected readings, calendar/earnings precision and publication rights.</p>
+          actual versus expected readings, and calendar/earnings precision.</p>
         <div className={css.actions}>
           <button type="button" disabled={!body.trim()}
             onClick={()=>{
@@ -186,10 +185,7 @@ export default function DailyReportWriter(){
             }}>Copy review packet</button>
           <button type="button" disabled={!body.trim()} onClick={()=>copy(body)}>Copy report text</button>
         </div>
-        <p>Review and publication are separate decisions.
-          {" "}<Link href="/owner/publications">Approved article publisher</Link>
-          {" · "}<Link href="/blue-desk/daily-report">Public Daily Report</Link>
-        </p>
+        <p>This is your private report. Draft, review, copy or export it for your own use; public publishing is disabled.</p>
       </section>
     </div> : <div className={css.empty}>Read the current sources to begin. No report
       has been generated or verified in this session.</div>}

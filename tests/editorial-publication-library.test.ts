@@ -45,22 +45,17 @@ test("COTD/OB and PDF library moved from public visitor routes to signed-in priv
  assert.equal(validPublicationId("not-uuid"),false);
  assert.equal(validPublicationId(id),true);
 });
-test("private publication API checks approved identity and origin before reading body and only writes after owner approval",()=>{
+test("private desk blocks all new report publications at the server endpoint",()=>{
  const src=readFileSync(new URL("../app/api/owner/editorial-publish/route.ts",import.meta.url),"utf8");
- const auth=src.indexOf("auth.getUser()");
- const upload=src.indexOf('.storage.from("editorial-pdfs").upload');
- assert.ok(auth>=0&&upload>auth);
- assert.match(src,/app_access_allowlist/);
- assert.match(src,/form\.get\(x\)==="yes"/);
- assert.match(src,/sourcesChecked/);
- assert.match(src,/chartsChecked/);
- assert.match(src,/publicRightsConfirmed/);
- assert.match(src,/createSupabaseAdminClient/);
- assert.match(src,/isLikelyPdf\(bytes\)/);
- assert.match(src,/createHash\("sha256"\)/);
- assert.match(src,/storage\.from\("editorial-pdfs"\)\.remove\(\[path\]\)/);
- assert.doesNotMatch(src,/story_thesis_versions|persistSensorMemory|generateContent/);
- assert.match(src,/origin/);
+ const owner=readFileSync(new URL("../app/owner/publications/page.tsx",import.meta.url),"utf8");
+ const header=readFileSync(new URL("../components/blue-desk/BlueDeskHeader.tsx",import.meta.url),"utf8");
+ assert.match(src,/status:410/);
+ assert.match(src,/Public report publication is disabled/);
+ assert.doesNotMatch(src,/storage\.from|\.insert\(|status:"published"/);
+ assert.match(owner,/Reports are private/);
+ assert.doesNotMatch(owner,/ReportPublisher/);
+ const privateNav=header.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0]||"";
+ assert.ok(!privateNav.includes("Publish Reports")&&!privateNav.includes("/owner/publications"));
 });
 test("publication SQL uses RLS public approved read only, private bucket, no anon writes",()=>{
  const sql=readFileSync(new URL("../supabase/migrations/20261025094500_editorial_publications.sql",import.meta.url),"utf8");

@@ -72,9 +72,10 @@ test("owner Editorial and Presenter never enter the public Bluebelly route allow
     assert.equal(blueDeskHostAccess(path,"alchemy-live-market-desk.vercel.app"),"private");
   }
   const header=readFileSync(new URL("../components/blue-desk/BlueDeskHeader.tsx",import.meta.url),"utf8");
-  assert.match(header,/Editorial Studio.*\/owner\/editorial/);
-  assert.match(header,/Presenter Studio.*\/owner\/presenter/);
+  assert.match(header,/Writing Desk.*\/owner\/editorial/);
+  assert.match(header,/Presenter Prep.*\/hybrid-output\/prepare/);
   assert.match(header,/ownerWorkspace/);
+  assert.doesNotMatch(header.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0]||"",/\/owner\/presenter/);
   const presenter=readFileSync(new URL("../app/owner/presenter/page.tsx",import.meta.url),"utf8");
   assert.match(presenter,/PresenterTechnicalChecks/);
   assert.match(presenter,/hybrid-output\/prepare/);
