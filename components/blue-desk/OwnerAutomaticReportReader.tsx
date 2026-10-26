@@ -1,6 +1,6 @@
 import "server-only";
 import {createSupabaseServerClient} from "@/lib/supabase/server";
-import {getOwnerAutomaticDailyReports} from "@/lib/blue-desk-automated-report-reader";
+import {getOwnerAutomaticDailyReports,getOwnerLatestDailyPdfAttempt} from "@/lib/blue-desk-automated-report-reader";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import styles from "@/app/blue-desk/daily-report/daily-report.module.css";
 
@@ -14,8 +14,18 @@ export default async function OwnerAutomaticReportReader(){
  const {data:access,error:accessError}=await session.from("app_access_allowlist")
   .select("email").eq("email",user.email.trim().toLowerCase()).eq("active",true).maybeSingle();
  if(accessError||!access)return null;
- const reports=await getOwnerAutomaticDailyReports(12).catch(()=>[]);
+ const [reports,attempt]=await Promise.all([
+  getOwnerAutomaticDailyReports(12).catch(()=>[]),
+  getOwnerLatestDailyPdfAttempt().catch(()=>null),
+ ]);
  const current=reports[0];
+ const showAttempt=attempt&&attempt.status!=="ready"&&
+  (!current||Date.parse(attempt.created_at)>Date.parse(current.ready_at));
+ const explanation=showAttempt ? attempt.status==="blocked"
+  ? "The source-verification gate withheld this edition; no PDF was created."
+  : attempt.status==="failed"
+   ? "PDF generation or storage failed. The existing private edition, if any, remains available."
+   : "The scheduled source-qualified edition is being assembled." : null;
  return <section className={styles.automaticPdf} aria-labelledby="owner-automatic-pdf-title"
      data-owner-automatic-pdf="session-verified-private">
    <div className={styles.heading}>
@@ -24,6 +34,10 @@ export default async function OwnerAutomaticReportReader(){
     <p>Generated automatically from source-qualified research. This report is for your private viewing,
       never public publication. AI interpretation is distinct from its dated original sources.</p>
    </div>
+   {showAttempt?<p className={styles.pdfCoverage} data-owner-automatic-pdf-attempt="private">
+    <strong>Latest scheduled attempt:</strong> {attempt.report_day} · {attempt.slot} · {attempt.status.toUpperCase()}
+    {" · "}{attempt.source_count} dated factual sources. {explanation}
+   </p>:null}
    {current?<div>
     <div className={styles.pdfMeta}>
      <div><strong>{current.title}</strong>
