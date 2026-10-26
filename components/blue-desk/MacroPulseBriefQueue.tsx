@@ -9,8 +9,7 @@ type Brief={
 };
 export default function MacroPulseBriefQueue(){
  const [briefs,setBriefs]=useState<Brief[]>([]);
- const [checked,setChecked]=useState<Record<string,boolean[]>>({});
- const [state,setState]=useState<"idle"|"loading"|"publishing">("idle");
+ const [state,setState]=useState<"idle"|"loading">("idle");
  const [notice,setNotice]=useState("");
  const load=async()=>{
   if(state!=="idle")return;setState("loading");setNotice("");
@@ -18,33 +17,15 @@ export default function MacroPulseBriefQueue(){
    const r=await fetch("/api/owner/macropulse-briefs",{credentials:"same-origin",cache:"no-store"});
    const d=await r.json() as {briefs?:Brief[];error?:string};
    if(!r.ok||!d.briefs)throw Error(d.error||"Review queue unavailable");
-   setBriefs(d.briefs);setNotice(d.briefs.length?"Review original links and qualifications before publishing.":"No new digests awaiting review.");
+   setBriefs(d.briefs);setNotice(d.briefs.length?"Read original links and check dates before relying on a claim.":"No new digests awaiting review.");
   }catch(e){setNotice(e instanceof Error?e.message:"Review queue unavailable");}
   finally{setState("idle");}
  };
- const publish=async(id:string)=>{
-  if(state!=="idle"||!(checked[id]||[]).every(Boolean)||
-     (checked[id]||[]).length!==3)return;
-  if(!window.confirm("Publish this attributed MacroPulse research digest? It is NOT verified News and will be displayed as a dated, research-derived analysis."))return;
-  setState("publishing");setNotice("");
-  try{
-   const r=await fetch("/api/owner/macropulse-briefs",{
-    method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({id,action:"publish",sourcesChecked:true,qualificationsChecked:true,copyApproved:true}),
-   });
-   const d=await r.json() as {error?:string};
-   if(!r.ok)throw Error(d.error||"Publication rejected");
-   setBriefs(previous=>previous.filter(b=>b.id!==id));
-   setNotice("Research digest published to the public Daily Report, marked as research-derived rather than independently verified News.");
-  }catch(e){setNotice(e instanceof Error?e.message:"Publication failed");}
-  finally{setState("idle");}
- };
- return <section className={css.workbench} data-owner-macropulse-queue="approval-required">
+ return <section className={css.workbench} data-owner-macropulse-queue="private-reading">
   <div className={css.head}><div>
    <p className={css.kicker}>MACROPULSE → BLUEBELLY · EDITORIAL DELIVERY</p>
-   <h2>Research digest review</h2>
-   <p>Composio/ChatGPT may submit attributed drafts here. Dossier, Motion
-     verification and immutable approved PDF articles are separate workflows.</p>
+   <h2>My MacroPulse research</h2>
+   <p>Research briefs delivered here stay private. They are not source-verified News or canonical Dossier decisions.</p>
    </div>
    <button type="button" disabled={state!=="idle"} onClick={load}>
     {state==="loading"?"Reading review queue…":"Load proposed briefs"}</button>
@@ -62,19 +43,7 @@ export default function MacroPulseBriefQueue(){
     {brief.source_links.map(link=><p key={link.url}>
       {link.kind} · <a target="_blank" rel="noopener noreferrer" href={link.url}>{link.label}</a>
     </p>)}
-    {[
-      "I opened the sources and confirmed dates, attribution, units and any directly quoted claims.",
-      "I checked that unverified physical flows, price reactions and causal explanations remain labelled as uncertain.",
-      "I reviewed the reader-facing copy and permit this research-derived digest to appear publicly.",
-    ].map((label,i)=><label key={i} style={{display:"flex",alignItems:"start",gap:10}}>
-      <input type="checkbox" style={{width:18,marginTop:4}}
-       checked={Boolean(checked[brief.id]?.[i])}
-       onChange={e=>setChecked(old=>({...old,[brief.id]:
-         [0,1,2].map(j=>j===i?e.target.checked:Boolean(old[brief.id]?.[j]))}))}/>
-      {label}
-    </label>)}
-    <button type="button" disabled={state!=="idle"||checked[brief.id]?.filter(Boolean).length!==3}
-      onClick={()=>publish(brief.id)}>Approve research digest for Bluebelly</button>
+    <p className={css.warning}>PRIVATE RESEARCH ONLY · This is a source-attributed research lead, not independently verified News. Public publication is disabled.</p>
    </article>)}
   <p role="status" className={css.status}>{notice}</p>
  </section>;
