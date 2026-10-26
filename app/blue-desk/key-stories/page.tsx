@@ -43,29 +43,10 @@ export default async function KeyStories(){
   const topics = projectLivingMarketTopics(news);
   const calendar=buildPresenterCalendar(macro,earnings,now);
   const upcoming=selectBlueDeskUpcoming(calendar,now).slice(0,5);
-  return <main className={desk.page} data-bluebelly-stories="catalyst-led"
-    data-living-topics="dossier-independent">
-    <BlueDeskHeader activePath="/blue-desk/key-stories" />
-    <div className={desk.content}>
-      <header className={ui.intro}>
-        <p className={desk.kicker}>STORY DESK / CATALYSTS FIRST</p>
-        <h1>What happened — and why should anyone care?</h1>
-        <p>Start with the actual event, the people or businesses exposed and the decision investors face next.
-          Dated original reporting comes first. Longer-running market theses sit further down as context.</p>
-        <p>Where we can explain a possible market effect, we call it a possible effect — not a measured price reaction.
-          An earnings call that has already happened is never presented as an upcoming catalyst.</p>
-        <Link className={ui.returnLink}
-          href={blueDeskPublicHref("/blue-desk/daily-report",host)}>
-          Read the Daily Report
-        </Link>
-      </header>
-      <div className={ui.summary}>
-        <span>{theses.length} ongoing market stories</span>
-        <span>{topics.length} fresh news themes</span>
-        <span>{news.length} source-verified development{news.length === 1 ? "" : "s"}</span>
-        <span>As of <DualTimestamp value={now.toISOString()} /></span>
-      </div>
-      <section className={ui.section} aria-labelledby="catalysts-first" data-catalyst-led="verified-only">
+  // A missing verified-news feed should promote genuinely sourced upcoming events,
+  // not a blank live-headline panel or an unverified social claim.
+  const liveCatalystSection=(
+    <section className={ui.section} aria-labelledby="catalysts-first" data-catalyst-led="verified-only">
         <p className={ui.kicker}>WHAT IS ACTUALLY HAPPENING</p>
         <h2 id="catalysts-first">The events with consequences</h2>
         <p>These are dated, source-verified developments. The human stakes and possible transmission
@@ -99,7 +80,9 @@ export default async function KeyStories(){
         </div> : <p className={ui.empty}>No verified fresh catalyst could be admitted.
           The calendar and historical themes below remain available, but are not today's verified news.</p>}
       </section>
-      <section className={ui.section} aria-labelledby="upcoming-decisions" data-upcoming-decisions="source-calendar">
+  );
+  const upcomingDecisionSection=(
+    <section className={ui.section} aria-labelledby="upcoming-decisions" data-upcoming-decisions="source-calendar">
         <p className={ui.kicker}>WHAT COULD CHANGE THE PICTURE</p>
         <h2 id="upcoming-decisions">The next scheduled decisions</h2>
         <p>Company earnings and economic releases are where expectations meet actual numbers.
@@ -116,6 +99,35 @@ export default async function KeyStories(){
           That is a coverage gap, not a forecast of quiet markets.</p>}
         <p><Link href={blueDeskPublicHref("/blue-desk/calendar",host)}>Full dated catalyst calendar</Link></p>
       </section>
+  );
+  return <main className={desk.page} data-bluebelly-stories="catalyst-led"
+    data-living-topics="dossier-independent">
+    <BlueDeskHeader activePath="/blue-desk/key-stories" />
+    <div className={desk.content}>
+      <header className={ui.intro}>
+        <p className={desk.kicker}>STORY DESK / CATALYSTS FIRST</p>
+        <h1>What happened — and why should anyone care?</h1>
+        <p>Start with the actual event, the people or businesses exposed and the decision investors face next.
+          Dated original reporting comes first. Longer-running market theses sit further down as context.</p>
+        <p>Where we can explain a possible market effect, we call it a possible effect — not a measured price reaction.
+          An earnings call that has already happened is never presented as an upcoming catalyst.</p>
+        <Link className={ui.returnLink}
+          href={blueDeskPublicHref("/blue-desk/daily-report",host)}>
+          Read the Daily Report
+        </Link>
+      </header>
+      <div className={ui.summary}>
+        <span>{theses.length} ongoing market stories</span>
+        <span>{topics.length} fresh news themes</span>
+        <span>{news.length} source-verified development{news.length === 1 ? "" : "s"}</span>
+        <span>As of <DualTimestamp value={now.toISOString()} /></span>
+      </div>
+      {topics.length ? <>{liveCatalystSection}{upcomingDecisionSection}</> : <>
+        {upcomingDecisionSection}
+        <p className={ui.coverageNote}>No recent source-verified headline passed the Live News gate.
+          Scheduled catalysts are shown first instead of filling this space with unverified X speculation.
+          Historical Story research follows below.</p>
+      </>}
       <section className={ui.section} aria-labelledby="persistent-theses" data-persistent-thesis-ledger="source-identity">
         <h2 id="persistent-theses">The backstory: longer-running market theses</h2>
         <p>These are the recorded beliefs behind the headlines above. A dated linked Motion controls
