@@ -12,7 +12,7 @@ import {getForwardEarningsEvents} from "@/lib/forward-earnings-sources";
 import {buildPresenterCalendar} from "@/lib/presenter-calendar";
 import {selectBlueDeskUpcoming} from "@/lib/blue-desk-calendar";
 import {assembleAutomaticReportEvidence,buildAutomaticReportModelPrompt,
- parseAutomatedReportNarrative,reportEvidenceReady,type AutomaticReportSlot}
+ parseAutomatedReportNarrative,reportEvidenceReady,isAutomaticReportFinalisationWindow,type AutomaticReportSlot}
  from "@/lib/blue-desk-automated-report-contract";
 import {renderAutomatedReportPdf} from "@/lib/blue-desk-automated-report-pdf";
 
@@ -22,12 +22,7 @@ const yyyyMmDd=(now:Date)=>new Date(now.getTime()+MYT_HOURS*3600000).toISOString
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Pure cron window selector. The 2nd existing Dossier invocation runs this:
  * 02:40 UTC / 10:40 MYT, 15:20 UTC / 23:20 MYT. NO new cron entries. */
-export function isAutomaticReportFinalisationWindow(now:Date,slot:AutomaticReportSlot):boolean{
- if(!Number.isFinite(now.getTime()))return false;
- const minutes=now.getUTCHours()*60+now.getUTCMinutes();
- const target=slot==="morning"?2*60+40:15*60+20;
- return minutes>=target && minutes<target+16;
-}
+export {isAutomaticReportFinalisationWindow} from "@/lib/blue-desk-automated-report-contract";
 export async function runAutomatedDailyPdfReport(
  slot:AutomaticReportSlot, now=new Date(),
 ):Promise<ClaimResult>{
