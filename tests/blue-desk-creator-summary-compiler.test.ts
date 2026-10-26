@@ -114,7 +114,7 @@ test("rejects forged video citations, new numbers, invented latest position and 
  assert.equal(parseCreatorStoryDraft({...valid,latestClaimId:"claim_old"},prepared),null);
  assert.equal(parseCreatorStoryDraft({...valid,acts:[{...valid.acts[0],body:valid.acts[0].body+" Yield rose to 98765 basis points."},valid.acts[1]]},prepared),null);
  const incomplete={...prepared,sources:prepared.sources.filter(x=>x.videoId!==two)};
- assert.equal(parseCreatorStoryDraft(model(),incomplete)?.sourceLedger.length,2);
+ assert.equal(parseCreatorStoryDraft(model(),incomplete),null);
 });
 test("all creator assertions remain attribution, never Dossier evidence or external verification",()=>{
  const prepared=prepareCreatorStory(packet())!;
