@@ -72,7 +72,7 @@ export default function ResearchLibraryExplorer({intake}:{intake:NotionResearchB
   const [sort,setSort]=useState<"curated"|"title">("curated");
   const recent:ResearchEntry[]=useMemo(()=>intake.sources.map(source=>({
     id:source.pageId,title:source.title,description:shortText(source.text),
-    section:"Latest",discipline:source.kind==="MACROPULSE"?"MacroPulse":"Research Gap",
+    section:"Latest" as const,discipline:source.kind==="MACROPULSE"?"MacroPulse":"Research Gap",
     href:source.url,provenance:"Notion · retrieved source page",
     updated:source.retrievedAt,quality:"Research input · not canonical",
   })),[intake.sources]);
