@@ -65,7 +65,7 @@ test("public hosts cannot access machine ingestion or signed-in review API",()=>
  assert.match(receiver,/duplicate:true/);
  assert.doesNotMatch(receiver,/story_thesis_versions|market_motion_items|\.upsert\(/);
 });
-test("only owner-approved digests are publicly readable, without PDF or canonical side-effects",()=>{
+test("MacroPulse briefs stay private: review GET works and public POST is disabled",()=>{
  const migration=readFileSync(new URL("../supabase/migrations/20261025220902_blue_desk_macropulse_briefs.sql",import.meta.url),"utf8");
  assert.match(migration,/enable row level security/);
  assert.match(migration,/using\(status='published'\)/);
@@ -87,4 +87,11 @@ test("only owner-approved digests are publicly readable, without PDF or canonica
  assert.match(page,/getPublishedMacroPulseBriefs/);
  assert.match(page,/data-macropulse-editorial="attributed-research"/);
  assert.match(page,/not independently verified breaking News/);
+});
+
+test("MacroPulse owner component presents only private reading controls",()=>{
+ const ui=readFileSync(new URL("../components/blue-desk/MacroPulseBriefQueue.tsx",import.meta.url),"utf8");
+ assert.match(ui,/data-owner-macropulse-queue="private-reading"/);
+ assert.match(ui,/Public publication is disabled/);
+ assert.doesNotMatch(ui,/publish\\(brief\\.id\\)|Approve research digest for Bluebelly|action:"publish"/);
 });
