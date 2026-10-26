@@ -32,35 +32,7 @@ export async function GET(req:NextRequest){
    NextResponse.json({status:"REVIEW_REQUIRED",briefs:data||[]},{headers:HEADERS});
  }catch{return fail(503,"Brief review queue unavailable");}
 }
-export async function POST(req:NextRequest){
- const auth=await authenticated(req);if(auth.error)return auth.error;
- const origin=req.headers.get("origin"),host=req.headers.get("host")||req.nextUrl.hostname;
- if(!origin)return fail(403,"Same-origin request required");
- try{const u=new URL(origin);
-  if((u.protocol!=="https:"&&u.hostname!=="localhost")||u.host!==host)
-   return fail(403,"Origin not permitted");
- }catch{return fail(403,"Bad origin");}
- const raw=await req.text().catch(()=>"");
- if(raw.length>1500)return fail(413,"Request too large");
- let body:Record<string,unknown>;try{
-  const x=JSON.parse(raw);
-  if(!x||typeof x!=="object"||Array.isArray(x))return fail(400,"Invalid JSON");
-  body=x;
- }catch{return fail(400,"Invalid JSON");}
- if(typeof body.id!=="string"||!/^[0-9a-f-]{36}$/i.test(body.id)||
-   body.action!=="publish"||body.sourcesChecked!==true||
-   body.qualificationsChecked!==true||body.copyApproved!==true)
-   return fail(422,"Explicit reviewed publication checks required");
- try{
-  const admin=createSupabaseAdminClient();
-  const {data,error}=await admin.from("blue_desk_macropulse_briefs")
-   .update({status:"published",published_at:new Date().toISOString(),
-    reviewed_by:auth.email})
-   .eq("id",body.id).eq("status","review")
-   .select("id,status,published_at").maybeSingle();
-  if(error)return fail(503,"Publication failed");
-  if(!data)return fail(409,"Brief already published or missing");
-  return NextResponse.json({status:"PUBLISHED",id:data.id,publishedAt:data.published_at},
-   {status:200,headers:HEADERS});
- }catch{return fail(503,"Publication unavailable");}
+// Owner receives and reads research; no action publishes it publicly.
+export async function POST(){
+ return fail(410,"Public digest publication is disabled. MacroPulse remains private research.");
 }
