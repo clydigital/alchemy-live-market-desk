@@ -75,6 +75,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     pathname === "/" ||
     pathname === "/calendar" ||
     pathname === "/daily-report" ||
+    pathname === "/daily-report/pdf" ||
     pathname === "/blue-desk/daily-report" ||
     pathname === "/blue-desk" ||
     pathname === "/blue-desk/calendar" ||
