@@ -364,3 +364,66 @@ export function parseCreatorStoryDraft(raw:unknown,prepared:PreparedCreatorStory
     limitations:r.limitations,
   };
 }
+
+
+/** Produce the human-readable companion to the structured owner-review draft.
+ * Links and transcript timecodes come ONLY from prepared source IDs.
+ * Persistence, edition identity and authorisation belong to the caller. */
+export function renderCreatorStoryMarkdown(draft: CreatorStoryDraft): string {
+  const sources=new Map(draft.sourceLedger.map(s=>[s.videoId,s]));
+  const claims=new Map(draft.claimLedger.map(c=>[c.claimId,c]));
+  const cited=(claimIds: readonly string[])=>claimIds.map(id=>{
+    const claim=claims.get(id),source=claim&&sources.get(claim.videoId);
+    if(!claim||!source)throw Error("CREATOR_STORY_SOURCE_LEDGER_INCOMPLETE");
+    const url=new URL(source.url);
+    if(claim.transcriptSeconds!==null)
+      url.searchParams.set("t",String(claim.transcriptSeconds)+"s");
+    return "["+id+"]("+url.toString()+")";
+  }).join(", ");
+  const lines=[
+    "# "+draft.headline,
+    "",
+    "**Creator:** "+draft.creatorId+"  ",
+    "**Coverage:** "+draft.coverageStart+" to "+draft.coverageEnd+"  ",
+    "**As of:** "+draft.asOf+"  ",
+    "**Status:** Owner review draft — creator commentary, not independent market verification",
+    "",
+    draft.centralTension,
+    "",
+  ];
+  for(const act of draft.acts){
+    lines.push("## "+act.title,"",act.body,"",
+      "**Original video claims:** "+cited(act.claimIds),"");
+  }
+  if(draft.learningMoments.length){
+    lines.push("## Learning moments","");
+    for(const item of draft.learningMoments)
+      lines.push("**"+item.question+"**","",item.explanation,"",
+        "Sources: "+cited(item.claimIds),"");
+  }
+  lines.push("## Where the creator stands","",draft.latestCreatorView,
+    "","**Latest documented claim:** "+cited([draft.latestClaimId]),"");
+  if(draft.thesisChanges.length){
+    lines.push("## Thesis changes","");
+    for(const change of draft.thesisChanges)
+      lines.push("- **"+change.type+"**: "+cited([change.earlierClaimId])+
+        " → "+cited([change.laterClaimId]));
+    lines.push("");
+  }
+  if(draft.watchpoints.length){
+    lines.push("## What could change the view","");
+    for(const item of draft.watchpoints)
+      lines.push("- "+item.question+" — "+cited(item.claimIds));
+    lines.push("");
+  }
+  lines.push("## Source videos","");
+  for(const source of draft.sourceLedger){
+    const title=source.title.replaceAll("[","\\[").replaceAll("]","\\]");
+    lines.push("- ["+title+"]("+source.url+") — "+source.publishedAt+
+      " — "+(source.consumed?"transcript consumed":"pending/partial transcript"));
+  }
+  lines.push("","## Verification boundary","",
+    "These statements describe what the creator asserted in source videos. The Bluebelly narrative is an attributed interpretation for owner review, not canonical Dossier evidence.",
+    "",draft.limitations,"");
+  return lines.join("\n");
+}
