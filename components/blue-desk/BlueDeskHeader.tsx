@@ -14,7 +14,7 @@ const PRIVATE_NAV = [
   ["Markets", "/markets"],
   ["My Daily Report", "/owner/daily-report"],
   ["Writing Desk", "/owner/editorial"],
-  ["Presenter Prep", "/hybrid-output/prepare"],
+  ["Presenter Prep", "/owner/presenter"],
   ["Calendar", "/blue-desk/calendar"],
 ] as const;
 
