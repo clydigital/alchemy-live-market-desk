@@ -49,3 +49,22 @@ test("new editorial copy identifies Bluebelly without changing evidence authorit
   assert.match(source("lib/high-impact-calendar-intake.ts"), /Desk expectation/);
   assert.doesNotMatch(source("app/api/power-stack-context/route.ts"), /Alchemy (Live Desk|Live Market Desk|contradiction engine|research trigger)/);
 });
+
+
+test("generated diagnostics and article fallbacks do not re-introduce old branding", () => {
+  const sources = [
+    "lib/alchemy.ts",
+    "lib/scheduled-research-input.ts",
+    "lib/system-health.ts",
+    "lib/dossier-v2/canonical-market-crack-evidence.ts",
+  ];
+  for (const path of sources) {
+    assert.doesNotMatch(
+      source(path),
+      /Live Alchemy acquisition|Alchemy measured cross-market|Alchemy expectation and actual|original Alchemy Markets article/i,
+      path,
+    );
+  }
+  assert.match(source("lib/scheduled-research-input.ts"), /publisher: "Alchemy Markets"/);
+  assert.match(source("lib/alchemy.ts"), /\|\| "Uncredited"/);
+});
