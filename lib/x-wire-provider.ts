@@ -3,7 +3,7 @@
  * FxEmbed API. This is NOT persisted/canonical ingestion or a scheduled task.
  */
 import {
-  X_CORE_ROSTER, X_SWEEP_DEFAULTS, selectXSweepCandidates, xSourceHealth,
+  X_CORE_ROSTER, X_SWEEP_DEFAULTS, isExcludedXWireHandle, selectXSweepCandidates, xSourceHealth,
   xSweepWindow, type XCandidate, type XAccountAttempt,
 } from "./x-sweep-core.ts";
 
@@ -33,6 +33,7 @@ export type XWirePreview = {
 };
 type AccountData = { account: XAccountAttempt; candidates: XCandidate[]; detail: Map<string, XWirePost> };
 async function readAccount(handle: string, startAt: string, now: string, fetchImpl: typeof fetch): Promise<AccountData> {
+  if (isExcludedXWireHandle(handle)) throw new Error("X Wire source explicitly excluded");
   const base: XAccountAttempt = {
     handle, status: "unavailable", attemptedAt: new Date().toISOString(),
     lastSuccessAt: null, lastObservedPostAt: null, fetched: 0, newPosts: 0, error: null,
@@ -71,7 +72,7 @@ async function readAccount(handle: string, startAt: string, now: string, fetchIm
           !date || Date.parse(date) > Date.parse(now) + 300_000 || !body) { withheld++; continue; }
       const url = "https://x.com/" + screen + "/status/" + id;
       const quote = rec(item.quote), quoteId = str(quote.id, 25), quoteUser = str(rec(quote.author).screen_name, 20);
-      const quoteUrl = /^\d{6,25}$/.test(quoteId) && /^[A-Za-z0-9_]{1,15}$/.test(quoteUser)
+      const quoteUrl = !isExcludedXWireHandle(quoteUser) && /^\d{6,25}$/.test(quoteId) && /^[A-Za-z0-9_]{1,15}$/.test(quoteUser)
         ? "https://x.com/" + quoteUser + "/status/" + quoteId : null;
       const photos = rec(item.media).photos;
       const images = Array.isArray(photos) ? photos.map(photo => str(rec(photo).url, 600))
