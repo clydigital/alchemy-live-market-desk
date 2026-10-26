@@ -9,7 +9,8 @@ import { getOriginalPressNews } from "@/lib/blue-desk-original-press-news-server
 import { combineQualifiedNews } from "@/lib/blue-desk-qualified-news";
 import { projectLivingMarketTopics } from "@/lib/blue-desk-living-topics";
 import { getPublicThesisLedger } from "@/lib/blue-desk-thesis-ledger-server";
-import {storyMarketTransmission} from "@/lib/blue-desk-thesis-ledger";
+import {storyMarketTransmission,orderStoriesByLatestMotion} from "@/lib/blue-desk-thesis-ledger";
+import {getStoryMotionRecency} from "@/lib/blue-desk-story-motion-recency-server";
 import { getPublicSourceObservations } from "@/lib/blue-desk-source-observations";
 import desk from "../blue-desk.module.css";
 import ui from "./key-stories.module.css";
@@ -29,6 +30,8 @@ export default async function KeyStories(){
     getPublicSourceObservations(now,8).catch(() => []),
     getOriginalPressNews(now,18).catch(() => []),
   ]);
+  const motionRecency=await getStoryMotionRecency(theses.map(x=>x.id),now).catch(()=>[]);
+  const orderedTheses=orderStoriesByLatestMotion(theses,motionRecency,now);
   const motionNews = selectVerifiedNewsBriefs(raw, now, 18);
   const news = combineQualifiedNews(motionNews,originalPress,18);
   const topics = projectLivingMarketTopics(news);
@@ -56,14 +59,17 @@ export default async function KeyStories(){
         <span>As of <DualTimestamp value={now.toISOString()} /></span>
       </div>
       <section className={ui.section} aria-labelledby="persistent-theses" data-persistent-thesis-ledger="source-identity">
-        <h2 id="persistent-theses">The stories behind the market</h2>
+        <h2 id="persistent-theses">The stories behind the market — newest Motion first</h2>
         <p>Today's price action makes more sense when you know the longer-running issues.
           These stories keep that context in one place, even on days without a new verified headline.
-          Each explanation is based on its last recorded assessment, not a fresh call on prices.</p>
-        {theses.length ? <div className={ui.cards}>{theses.map(thesis=>
+          Stories with an exactly linked Motion are ordered by that event's date, newest first.
+          Otherwise they fall back to their last research update. An unverified Motion lead is not confirmed News or a changed thesis.</p>
+        {orderedTheses.length ? <div className={ui.cards}>{orderedTheses.map(thesis=>
           <article className={ui.card} id={"thesis-"+thesis.slug} key={thesis.id} data-stored-story={thesis.status}>
-            <p className={ui.kicker}>{thesis.status==="develop"?"STILL BEING INVESTIGATED":"ONGOING MARKET STORY"}
-              {" · "}Last updated <DualTimestamp value={thesis.updatedAt}/></p>
+            <p className={ui.kicker}>{thesis.latestMotionAt ?
+              <>LATEST LINKED MOTION · {thesis.latestMotionVerification==="VERIFIED"?"SOURCE-VERIFIED EVENT":"UNVERIFIED RESEARCH LEAD"}
+                {" · "}Event <DualTimestamp value={thesis.latestMotionAt}/></>:
+              <>NO RECENT LINKED MOTION · Last researched <DualTimestamp value={thesis.updatedAt}/></>}</p>
             <h3>{thesis.title}</h3>
             <p className={ui.storyIntro}><strong>Here's the issue.</strong> {thesis.thesis}</p>
             <p className={ui.storyExplanation}><strong>Why it could move markets.</strong> {storyMarketTransmission(thesis)}</p>
