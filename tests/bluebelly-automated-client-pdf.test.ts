@@ -57,6 +57,27 @@ test("source gate excludes creator or calendar-only claims, checks exact source 
   stories:[{...narrative.stories[0],reveal:"The latest oil price surged to $98765 without a source record. ".repeat(3)},narrative.stories[1]]},evidence),null);
  assert.equal(reportEvidenceReady({...evidence,sources:evidence.sources.filter(s=>s.type==="CALENDAR")}),false);
 });
+test("market-data-led briefing admits only dated provider values and explicitly flags missing verified news",()=>{
+ const monitored=["US 10Y yield","S&P 500","WTI oil","USD index"].map((label,i)=>({
+  label,level:100+i,previousClose:99+i,asOf:"2026-10-26T20:00:00Z",
+  sourceName:"Primary market-data provider",
+  sourceUrl:"https://fred.stlouisfed.org/series/TEST"+i,
+  frequency:"daily",
+ }));
+ const evidence=assembleAutomaticReportEvidence({now,slot:"morning",news:[],observations:[],
+  market:monitored,
+  calendar:[{title:"Upcoming FOMC meeting",when:"2026-10-28T18:00:00Z",
+   sourceName:"Federal Reserve",sourceUrl:"https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",
+   question:"How will the decision affect financing costs?"}]});
+ assert.equal(reportEvidenceReady(evidence),true);
+ assert.match(evidence.coverageNote,/NEWS COVERAGE GAP/);
+ assert.equal(evidence.sources.filter(s=>s.type==="OBSERVATION").length,4);
+ assert.equal(reportEvidenceReady({...evidence,sources:evidence.sources.filter(s=>s.type!=="CALENDAR")}),false);
+ const stale=assembleAutomaticReportEvidence({now,slot:"morning",news:[],observations:[],
+  market:monitored.map(v=>({...v,asOf:"2026-10-01T20:00:00Z"})),
+  calendar:[]});
+ assert.equal(reportEvidenceReady(stale),false);
+});
 test("client-ready report is valid, paginated PDF with evidence ledger and page count",()=>{
  const {evidence,narrative}=fixture();
  const parsed=parseAutomatedReportNarrative(narrative,evidence);
