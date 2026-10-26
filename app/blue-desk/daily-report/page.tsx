@@ -59,6 +59,10 @@ export default async function DailyReportPage() {
         <p className={styles.lead}>Markets rarely move for just one reason.
           Follow the developments we can source, the bigger stories behind them,
           how money and costs could move through the system, and what to watch next.</p>
+        <p className={styles.context} data-bluebelly-private-report-entry="login-required">
+          <Link href="/my-reports">Open my private PDF reports</Link>
+          {" · "}Google sign-in required. PDFs are for your viewing only.
+        </p>
         <div className={styles.meta}>
           <span>Read at <DualTimestamp value={now.toISOString()} /></span>
           <span>{news.length} source-verified update{news.length === 1 ? "" : "s"} in the latest 48-hour window</span>

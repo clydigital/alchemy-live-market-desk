@@ -84,7 +84,7 @@ test("Bluebelly exposes only explicitly approved public reading routes", () => {
   for (const path of [
     "/hybrid-output/prepare", "/dossier", "/articles",
     "/api/dossier-v2", "/api/presenter/technical-checks", "/api/cron/research/morning",
-    "/auth/callback", "/login", "/stories",
+    "/stories",
     "/api/owner/editorial-publish","/owner/publications","/owner/daily-articles",
     "/reports","/blue-desk/reports",
     "/reports/a2f040b6-1c87-48a4-9fe8-72f54398661a",
@@ -94,6 +94,43 @@ test("Bluebelly exposes only explicitly approved public reading routes", () => {
   ]) {
     assert.equal(blueDeskHostAccess(path, host), "blocked", path);
   }
+});
+
+test("Bluebelly My Reports enclave is login-protected and nothing else gains owner access",()=>{
+ const host="bluebelly-desk.vercel.app";
+ for(const path of ["/my-reports","/login","/auth/google","/auth/callback",
+   "/auth/signout","/api/owner/automated-report-pdf"]){
+  assert.equal(blueDeskHostAccess(path,host),"private",path);
+  assert.equal(blueDeskPresentationTarget(path,host),null,path);
+ }
+ for(const path of ["/my-reports/","/my-reports/other","/auth","/auth/callback/private",
+   "/owner/daily-report","/owner/editorial","/owner/publications",
+   "/api/owner/daily-research","/api/owner/editorial-generate",
+   "/api/cron/research/morning","/daily-report/pdf"]){
+  assert.equal(blueDeskHostAccess(path,host),"blocked",path);
+ }
+ const middleware=readFileSync(new URL("../middleware.ts",import.meta.url),"utf8");
+ assert.ok(middleware.indexOf('if (accessScope === "blocked")') <
+  middleware.indexOf('if (accessScope === "public")'));
+ assert.ok(middleware.indexOf('if (accessScope === "public")') <
+  middleware.indexOf("getClaims()"));
+ assert.ok(middleware.includes('app_access_allowlist'));
+ const reader=readFileSync(new URL("../components/blue-desk/OwnerAutomaticReportReader.tsx",import.meta.url),"utf8");
+ assert.ok(reader.includes("session.auth.getUser()"));
+ assert.ok(reader.includes('app_access_allowlist'));
+ const pdf=readFileSync(new URL("../app/api/owner/automated-report-pdf/route.ts",import.meta.url),"utf8");
+ assert.ok(pdf.includes("session.auth.getUser()"));
+ assert.ok(pdf.includes('app_access_allowlist'));
+ assert.ok(pdf.includes('data.pdf_path!==exact'));
+ const page=readFileSync(new URL("../app/my-reports/page.tsx",import.meta.url),"utf8");
+ assert.ok(page.includes("<OwnerAutomaticReportReader/>"));
+ assert.ok(!page.includes("ReportPublisher"));
+ assert.ok(page.includes("index:false,follow:false"));
+ const publicDaily=readFileSync(new URL("../app/blue-desk/daily-report/page.tsx",import.meta.url),"utf8");
+ assert.ok(publicDaily.includes('<Link href="/my-reports">Open my private PDF reports</Link>'));
+ const header=readFileSync(new URL("../components/blue-desk/BlueDeskHeader.tsx",import.meta.url),"utf8");
+ const pubnav=header.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0]||"";
+ assert.ok(!pubnav.includes("/my-reports"),"Preserve four-link public navigation");
 });
 
 test("Other aliases never gain access to the Bluebelly public allowlist", () => {
