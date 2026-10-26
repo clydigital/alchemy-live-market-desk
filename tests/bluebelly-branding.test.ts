@@ -24,11 +24,12 @@ test("visible research widgets do not use Alchemy as their product identity", ()
     "app/articles/page.tsx",
     "app/stories/[slug]/page.tsx",
     "app/data/positioning/page.tsx",
+    "app/data/macro/page.tsx",
     "components/EconomicCalendar.tsx",
   ]) {
     assert.doesNotMatch(
       source(path),
-      /Alchemy Markets|Alchemy Research Core|Alchemy View|ALCHEMY VIEW|ALCHEMY ARTICLE MEMORY|PRIOR ALCHEMY COVERAGE|Alchemy-first|Alchemy Challenger|ALCHEMY EXPECTATION/i,
+      /Alchemy Markets|Alchemy Research Core|Alchemy View|ALCHEMY VIEW|ALCHEMY ARTICLE MEMORY|PRIOR ALCHEMY COVERAGE|Alchemy-first|Alchemy Challenger|ALCHEMY EXPECTATION|Alchemy \{metric\.alchemy_expectation/i,
       path,
     );
   }
@@ -46,4 +47,5 @@ test("new editorial copy identifies Bluebelly without changing evidence authorit
   assert.match(source("lib/market-editorial-runtime.ts"), /not a second reasoning engine/);
   assert.match(source("lib/intelligence/runtime.ts"), /the reasoning layer behind Bluebelly/);
   assert.match(source("lib/high-impact-calendar-intake.ts"), /Desk expectation/);
+  assert.doesNotMatch(source("app/api/power-stack-context/route.ts"), /Alchemy (Live Desk|Live Market Desk|contradiction engine|research trigger)/);
 });
