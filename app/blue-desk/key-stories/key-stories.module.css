@@ -25,3 +25,29 @@
 .more summary{font-size:13px;font-weight:750;cursor:pointer;color:#8cdefe}
 .more p{font-size:13px;line-height:1.65}
 .timeNote{font-size:11px!important;color:#90b6c8!important}
+
+/* Catalyst-led stories: start with a dated event and visible real-world stakes. */
+.catalystGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:18px 0}
+.catalystCard{min-width:0;border:1px solid #3986a2;background:linear-gradient(150deg,#073d55,#062233);border-radius:11px;padding:clamp(18px,2.4vw,26px);scroll-margin-top:20px}
+.catalystCard h3{font-size:clamp(21px,2.5vw,30px);line-height:1.28;color:#f2faff;margin:10px 0;letter-spacing:-.02em}
+.catalystCard p{font-size:14px;line-height:1.7;color:#cbdfe9}
+.catalystCard .catalystFact{font-size:16px;color:#f0f5f9}
+.catalystClock{font-size:12px!important;color:#96c9dc!important}
+.humanStakes{margin:19px 0;border-left:3px solid #74c8e6;padding:12px 16px;background:#082d43}
+.humanStakes strong{font-size:13px;color:#def8ff}
+.humanStakes p{font-size:15px;line-height:1.75;color:#e5f1f6;margin:9px 0 0}
+.catalystMechanism,.catalystQuestion{font-size:13px!important;line-height:1.75!important}
+.catalystQuestion{margin-top:14px}
+.catalystCard a{color:#9ee3ff;font-size:13px;font-weight:700;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+.sourceTrail{margin-top:14px;border-top:1px solid #296178;padding-top:13px}
+.sourceTrail strong{font-size:12px;color:#bbdce9}
+.sourceTrail p{margin:9px 0 0}
+.calendarStrip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0}
+.calendarCard{min-width:0;border:1px solid #305d75;border-radius:9px;padding:18px;background:#06293e}
+.calendarCard h3{font-size:18px;line-height:1.35;color:#f1faff;margin:9px 0}
+.calendarCard p{font-size:13px;line-height:1.65;color:#c1dce9}
+.calendarCard a{font-size:12px;font-weight:700;color:#9cdef5;overflow-wrap:anywhere}
+.storyTests{margin-top:14px;border-top:1px solid #275268;padding:13px 0}
+.storyTests p{font-size:13px!important;line-height:1.6!important;margin:8px 0}
+@media(max-width:930px){.calendarStrip{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.catalystGrid,.calendarStrip{grid-template-columns:minmax(0,1fr)}}

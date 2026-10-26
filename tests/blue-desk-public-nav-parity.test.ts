@@ -18,7 +18,7 @@ test("all visible public header links target approved host paths and real anchor
     if (url.hash) assert.match(homepage, new RegExp('id="' + url.hash.slice(1) + '"'));
     if (url.pathname === "/key-stories") {
       const page=readFileSync(new URL("../app/blue-desk/key-stories/page.tsx",import.meta.url),"utf8");
-      assert.match(page,/data-bluebelly-stories="expanded"/);
+      assert.match(page,/data-bluebelly-stories="catalyst-led"/);
     }
   }
 });
