@@ -32,6 +32,40 @@ export function isAutomaticReportFinalisationWindow(now:Date,slot:AutomaticRepor
  const target=slot==="morning"?2*60+40:15*60+20;
  return minutes>=target&&minutes<target+16;
 }
+
+/** Existing Research Gap handoff cron (03:30/03:45 and 15:30/15:45 UTC)
+ * retries the PDF only after an already-finalised canonical Dossier.
+ * It does not change the Dossier, Story, research or cron schedules. */
+export function isAutomaticReportFallbackWindow(now:Date,slot:AutomaticReportSlot):boolean{
+ if(!Number.isFinite(now.getTime()))return false;
+ const minutes=now.getUTCHours()*60+now.getUTCMinutes();
+ const target=slot==="morning"?3*60+30:15*60+30;
+ return minutes>=target&&minutes<target+26;
+}
+
+/** A late PDF retry is authorised by the *canonical* persisted Dossier outcome,
+ * not a merely successful Research Gap handoff or a Motion lead. */
+export function isCompletedDossierForAutomaticReport(
+ run:{id:string;schedule_slot:string;scheduled_for:string;completed_at:string|null;status:string}|null,
+ slotRun:{research_run_id:string;slot_key:string;status:string;health_state:string|null;
+  live_publication_status:string|null;hybrid_handoff_status:string|null;
+  stage_summary:Record<string,unknown>|null}|null,
+ slot:AutomaticReportSlot,now:Date,
+):boolean{
+ if(!run||!slotRun||run.id!==slotRun.research_run_id||run.schedule_slot!==slot||slotRun.slot_key!==slot)return false;
+ if(run.status!=="completed"||slotRun.status!=="completed"||slotRun.health_state!=="healthy"
+  ||slotRun.live_publication_status!=="complete"||slotRun.hybrid_handoff_status!=="complete")return false;
+ const scheduled=Date.parse(run.scheduled_for),completed=Date.parse(run.completed_at||"");
+ if(!Number.isFinite(scheduled)||!Number.isFinite(completed)||completed>now.getTime()
+  ||scheduled>now.getTime()||now.getTime()-scheduled>5*3600_000)return false;
+ const summary=slotRun.stage_summary;
+ if(!summary||summary.evidence_gate_passed!==true||summary.required_sources_complete!==true
+   ||summary.accuracy_gate==="blocked")return false;
+ const checkpoint=summary.postResearchDossier;
+ return !!checkpoint&&typeof checkpoint==="object"&&!Array.isArray(checkpoint)
+  &&(checkpoint as Record<string,unknown>).contractVersion==="post-research-dossier/1"
+  &&(checkpoint as Record<string,unknown>).state==="DONE";
+}
 const MAX_AGE=48*3600_000;
 const dateValid=(s:string,now:number)=>Number.isFinite(Date.parse(s))
  && Date.parse(s)<=now+120000;
