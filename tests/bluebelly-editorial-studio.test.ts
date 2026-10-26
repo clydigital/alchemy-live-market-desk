@@ -73,10 +73,10 @@ test("owner Editorial and Presenter never enter the public Bluebelly route allow
   }
   const header=readFileSync(new URL("../components/blue-desk/BlueDeskHeader.tsx",import.meta.url),"utf8");
   assert.match(header,/Writing Desk.*\/owner\/editorial/);
-  assert.match(header,/Presenter Prep.*\/hybrid-output\/prepare/);
+  assert.match(header,/Presenter Prep.*\/owner\/presenter/);
   assert.match(header,/ownerWorkspace/);
-  assert.doesNotMatch(header.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0]||"",/\/owner\/presenter/);
+  assert.doesNotMatch(header.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0]||"",/\/hybrid-output\/prepare/);
   const presenter=readFileSync(new URL("../app/owner/presenter/page.tsx",import.meta.url),"utf8");
   assert.match(presenter,/PresenterTechnicalChecks/);
-  assert.match(presenter,/hybrid-output\/prepare/);
+  assert.match(presenter,/owner\/daily-report/);
 });
