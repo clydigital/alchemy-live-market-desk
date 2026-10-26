@@ -58,3 +58,19 @@ test("raw queue only exposes private host and never touches canonical research p
   assert.match(source,/page_cursor:cursor/);
   assert.doesNotMatch(source,/story_thesis_versions|collect_evidence|Notion/);
 });
+
+test("excluded account is rejected even when provider rows are passed directly",()=>{
+  assert.throws(()=>parseFxTimeline({code:200,results:[sample({author:{screen_name:"zerohedge"}})]},
+    "zerohedge","2026-10-23T03:30:00Z",now),/explicitly excluded/);
+  const quote=sample({quote:{id:"2113177723749420101",author:{screen_name:"zerohedge"}}});
+  const clean=parseFxTimeline({code:200,results:[quote]},"HFI_Research","2026-10-23T03:30:00Z",now);
+  assert.equal(clean.posts.length,1);
+  assert.equal(clean.posts[0].quoteUrl,null);
+  const db=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
+  const migration=readFileSync(new URL("../supabase/migrations/20261026124200_x_wire_zerohedge_exclusion.sql",import.meta.url),"utf8");
+  assert.match(db,/if\(isExcludedXWireHandle\(handle\)\)return/);
+  assert.match(db,/\.not\("handle","ilike","zerohedge"\)/);
+  assert.match(migration,/lower\(handle\) = 'zerohedge'/);
+  assert.match(migration,/lower\(a\.handle\) <> 'zerohedge'/);
+  assert.match(migration,/intake_status = 'rejected'/);
+});
