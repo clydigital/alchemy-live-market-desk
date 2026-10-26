@@ -70,7 +70,8 @@ export function selectFlagshipInvestorTest(
   const questions=themeQuestions(story);
   return {
     story,
-    ...questions,
+    fundingQuestion:questions.funding,
+    marketQuestion:questions.market,
     quality:complete(story.pricedAssessment)?"developed":"partial",
     evidenceNote:story.latestMotionVerification==="VERIFIED"
       ?"The linked event is source-verified, but this archived thesis and its pricing assessment are not a new live price reaction."
