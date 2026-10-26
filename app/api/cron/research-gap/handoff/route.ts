@@ -1,19 +1,18 @@
 import {handleScheduledResearchGapHandoff} from "@/lib/research-gap-cron";
 import {isAutomaticReportFallbackWindow,type AutomaticReportSlot}
  from "@/lib/blue-desk-automated-report-contract";
-import {attemptPrivateDailyPdfAfterLateDossier}
+import {attemptPrivateDailyPdfInExistingHandoff}
  from "@/lib/blue-desk-automated-report-late-handoff";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-/** Preserve the Research Gap handoff's canonical response. Only the existing
- * authorised 03:30/03:45, 15:30/15:45 UTC invocations can retry a completed
- * private PDF after a finalised Dossier; a PDF failure cannot undo research. */
+/** Existing authorised Research Gap cron is an independent private-PDF retry.
+ * No new schedule or Dossier precondition. No effect on canonical outcomes. */
 export async function GET(request:Request){
- const result=await handleScheduledResearchGapHandoff(request);
  const now=new Date();
+ const result=await handleScheduledResearchGapHandoff(request);
  const slot:AutomaticReportSlot=now.getUTCHours()<12?"morning":"evening";
  if(result.status!==200||!isAutomaticReportFallbackWindow(now,slot))return result;
  let payload:Record<string,unknown>;
