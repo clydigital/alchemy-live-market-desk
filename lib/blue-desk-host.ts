@@ -60,6 +60,11 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   if(hostname === BLUEBELLY_PRESENTATION_HOST && [
     "/my-reports", "/login", "/auth/google", "/auth/callback",
     "/auth/signout", "/api/owner/automated-report-pdf",
+    // Native Bluebelly owner tools only; every path still requires a
+    // valid Supabase session and the active user allowlist in middleware.
+    "/owner/editorial", "/owner/presenter",
+    "/api/owner/editorial-generate", "/api/owner/editorial-investigate",
+    "/api/presenter/technical-checks",
   ].includes(pathname)) return "private";
 
   // Temporary development-only UI viewer on the dedicated public host.
