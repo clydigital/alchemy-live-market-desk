@@ -3,6 +3,7 @@
 import {useState} from "react";
 import Link from "next/link";
 import css from "./daily-report-writer.module.css";
+import {DAILY_BRIEFING_STEPS} from "@/lib/blue-desk-narrative-playbook";
 
 type Handoff={
   contractVersion:string;assembledAt:string;notionStatus:string;
@@ -81,6 +82,12 @@ export default function DailyReportWriter(){
         {busy==="read"?"Reading sources…":"Read latest research"}
       </button>
     </div>
+    <aside className={css.narrativeMap} aria-label="Two research and storytelling desks, one evidence packet" data-two-desk-briefing="shared-evidence">
+      <p><strong>Research desk:</strong> gathers source-dated facts, comparisons, unknowns and opposing explanations.
+        {" "}<strong>Storytelling desk:</strong> explains those same facts in a chronological, Shark Tank-style market story.</p>
+      <p className={css.narrativeSpine}>{DAILY_BRIEFING_STEPS.map(step=>step.name).join(" → ")}</p>
+      <p>One source packet. No invented market reactions, new research engine or automatic publication.</p>
+    </aside>
     {research ? <div className={css.grid}>
       <section className={css.panel}>
         <h3>Research provenance</h3>
@@ -143,7 +150,7 @@ export default function DailyReportWriter(){
         </label>
         <div className={css.actions}>
           <button type="button" onClick={()=>generate("draft")} disabled={busy!=="idle"||!title.trim()}>
-            {busy==="draft"?"Drafting…":"Generate researched report draft"}
+            {busy==="draft"?"Explaining…":"Draft chronological market story"}
           </button>
           <button type="button" onClick={()=>generate("revise")} disabled={busy!=="idle"||!body.trim()}>
             {busy==="revise"?"Revising…":"Revise existing draft"}
@@ -154,10 +161,15 @@ export default function DailyReportWriter(){
             placeholder="Explain the physical oil-to-inflation mechanism more clearly…"
             onChange={e=>setRevision(e.target.value)}/>
         </label>
-        <label>Editable Daily Report — not reviewed, not published
+        <label>Editable chronological Daily Report — not reviewed, not published
           <textarea rows={28} value={body} onChange={e=>setBody(e.target.value.slice(0,15000))}
             placeholder="Generate a report from the research packet, or write your own evidence-based analysis."/>
         </label>
+        {body.trim() ? <details className={css.readAloud} data-private-narrative-preview="unverified">
+          <summary>Read-aloud briefing preview</summary>
+          <div>{body}</div>
+          <p>Private model draft. Check each sourced claim, comparison, date and countercase before relying on it.</p>
+        </details> : null}
         <label>Original-source URLs selected for your independent review (maximum 12)
           <textarea rows={5} value={selectedSources}
             placeholder={"https://www.example.gov/original-release\nhttps://www.example.com/issuer-filing"}
