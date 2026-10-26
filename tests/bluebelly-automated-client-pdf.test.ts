@@ -178,3 +178,25 @@ test("automatic PDF editions are private with owner session, allowlist and no pu
  assert.ok(job.includes('status:"ready"'));
  assert.ok(!job.includes('status:"published"'));
 });
+
+test("source-gate refusals retain owner-only attempt receipts without manufacturing PDFs",()=>{
+ const read=(path:string)=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
+ const job=read("lib/blue-desk-automated-report-job.ts");
+ const reader=read("lib/blue-desk-automated-report-reader.ts");
+ const owner=read("components/blue-desk/OwnerAutomaticReportReader.tsx");
+ const publicPage=read("app/blue-desk/daily-report/page.tsx");
+ const migration=read("supabase/migrations/20261027013000_automated_daily_pdf_reports.sql");
+ assert.ok(job.includes('noteWithheldEdition(db,reportDay,slot,now'));
+ assert.ok(job.includes('status:"blocked"'));
+ assert.ok(job.includes('error.code!=="23505"'));
+ assert.ok(job.includes('if(!reportEvidenceReady(evidence))'));
+ assert.ok(reader.includes("getOwnerLatestDailyPdfAttempt"));
+ assert.ok(reader.includes("createSupabaseAdminClient"));
+ assert.ok(owner.includes("getOwnerLatestDailyPdfAttempt"));
+ assert.ok(owner.includes('data-owner-automatic-pdf-attempt="private"'));
+ assert.ok(owner.includes("session.auth.getUser()"));
+ assert.ok(owner.includes("app_access_allowlist"));
+ assert.ok(!publicPage.includes("getOwnerLatestDailyPdfAttempt"));
+ assert.ok(migration.includes("unique(report_day,slot)"));
+ assert.ok(migration.includes("revoke all on public.blue_desk_automated_reports from anon,authenticated"));
+});
