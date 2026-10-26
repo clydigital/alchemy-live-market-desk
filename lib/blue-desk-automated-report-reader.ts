@@ -1,19 +1,19 @@
 import "server-only";
-import {createClient} from "@supabase/supabase-js";
-import {getSupabasePublicConfig} from "@/lib/supabase/config";
-export type PublishedAutomaticReport={
+import {createSupabaseAdminClient} from "@/lib/supabase/admin";
+
+/** Private owner reader. Never import into public Blue Desk pages or expose
+ * through RLS: the calling component must authenticate an approved owner. */
+export type ReadyAutomaticReport={
  id:string;report_day:string;slot:"morning"|"evening";title:string;deck:string;
- summary:string;source_count:number;coverage_note:string;published_at:string;
- status:"published";
+ summary:string;source_count:number;coverage_note:string;ready_at:string;
+ status:"ready";
 };
-export async function getAutomaticDailyReports(limit=8):Promise<PublishedAutomaticReport[]>{
- try{
-  const {url,key}=getSupabasePublicConfig();
-  const reader=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
-  const {data,error}=await reader.from("blue_desk_automated_reports")
-   .select("id,report_day,slot,title,deck,summary,source_count,coverage_note,published_at,status")
-   .eq("status","published").order("published_at",{ascending:false}).limit(Math.min(15,Math.max(1,limit)));
-  if(error)return [];
-  return (data||[]) as PublishedAutomaticReport[];
- }catch{return [];}
+export async function getOwnerAutomaticDailyReports(limit=8):Promise<ReadyAutomaticReport[]>{
+ const db=createSupabaseAdminClient();
+ const {data,error}=await db.from("blue_desk_automated_reports")
+   .select("id,report_day,slot,title,deck,summary,source_count,coverage_note,ready_at,status")
+   .eq("status","ready").order("ready_at",{ascending:false})
+   .limit(Math.min(15,Math.max(1,limit)));
+ if(error)throw new Error("Owner PDF editions unavailable");
+ return (data||[]) as ReadyAutomaticReport[];
 }

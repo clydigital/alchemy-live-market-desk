@@ -17,7 +17,7 @@ import {assembleAutomaticReportEvidence,buildAutomaticReportModelPrompt,
  from "@/lib/blue-desk-automated-report-contract";
 import {renderAutomatedReportPdf} from "@/lib/blue-desk-automated-report-pdf";
 
-type ClaimResult={status:"published"|"already_published"|"locked"|"coverage_blocked"|"failed";id?:string;reason?:string};
+type ClaimResult={status:"ready"|"already_ready"|"locked"|"coverage_blocked"|"failed";id?:string;reason?:string};
 const MYT_HOURS=8;
 const yyyyMmDd=(now:Date)=>new Date(now.getTime()+MYT_HOURS*3600000).toISOString().slice(0,10);
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -79,7 +79,7 @@ export async function runAutomatedDailyPdfReport(
  const {data:prior,error:priorError}=await db.from("blue_desk_automated_reports")
   .select("id,status,created_at").eq("report_day",reportDay).eq("slot",slot).maybeSingle();
  if(priorError)throw new Error("Automated report table unavailable (migration required)");
- if(prior?.status==="published")return {status:"already_published",id:prior.id};
+ if(prior?.status==="ready")return {status:"already_ready",id:prior.id};
  let id:string|null=null;
  if(prior){
   const elapsed=now.getTime()-Date.parse(prior.created_at);
@@ -87,7 +87,7 @@ export async function runAutomatedDailyPdfReport(
   const {data:claimed,error}=await db.from("blue_desk_automated_reports")
    .update({status:"building",created_at:now.toISOString(),error_code:null})
    .eq("id",prior.id).eq("status",prior.status).eq("created_at",prior.created_at)
-   .neq("status","published").select("id").maybeSingle();
+   .neq("status","ready").select("id").maybeSingle();
   if(error||!claimed)return {status:"locked",reason:"claim_not_acquired"};
   id=claimed.id;
  }else{
@@ -133,17 +133,17 @@ export async function runAutomatedDailyPdfReport(
    .upload(path,bytes,{contentType:"application/pdf",upsert:false,cacheControl:"86400"});
   if(upload.error)throw new Error("PDF_STORAGE_UNAVAILABLE");
   const sources=evidence.sources.map(s=>s.url);
-  const publication=await db.from("blue_desk_automated_reports").update({
-   status:"published",title:report.title,deck:report.deck,
+  const completion=await db.from("blue_desk_automated_reports").update({
+   status:"ready",title:report.title,deck:report.deck,
    summary:report.executiveSummary,source_urls:sources,
    source_count:evidence.sources.filter(s=>s.type!=="CALENDAR").length,
    coverage_note:evidence.coverageNote,pdf_path:path,pdf_sha256:sha,
-   published_at:new Date().toISOString(),error_code:null,
+   ready_at:new Date().toISOString(),error_code:null,
   }).eq("id",id).eq("status","building").select("id").maybeSingle();
-  if(publication.error||!publication.data)throw new Error("PDF_PUBLICATION_FAILED");
-  console.info(JSON.stringify({event:"automated_daily_pdf_published",slot,reportDay,id,
+  if(completion.error||!completion.data)throw new Error("PDF_PRIVATE_COMPLETION_FAILED");
+  console.info(JSON.stringify({event:"automated_daily_pdf_ready",slot,reportDay,id,
    sourceCount:evidence.sources.length,pdfBytes:bytes.length}));
-  return {status:"published",id};
+  return {status:"ready",id};
  }catch(error){
   const code=error instanceof Error?error.message:"UNEXPECTED";
   console.error(JSON.stringify({event:"automated_daily_pdf_failed",slot,reportDay,
