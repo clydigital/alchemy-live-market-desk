@@ -12,7 +12,7 @@ export async function getOwnerAutomaticDailyReports(limit=8):Promise<ReadyAutoma
  const db=createSupabaseAdminClient();
  const {data,error}=await db.from("blue_desk_automated_reports")
    .select("id,report_day,slot,title,deck,summary,source_count,coverage_note,ready_at,status")
-   .eq("status","ready").order("ready_at",{ascending:false})
+   .eq("status","ready").eq("report_kind","DAILY_MACRO").order("ready_at",{ascending:false})
    .limit(Math.min(15,Math.max(1,limit)));
  if(error)throw new Error("Owner PDF editions unavailable");
  return (data||[]) as ReadyAutomaticReport[];
@@ -29,7 +29,7 @@ export async function getOwnerLatestDailyPdfAttempt():Promise<PrivateDailyPdfAtt
  const db=createSupabaseAdminClient();
  const {data,error}=await db.from("blue_desk_automated_reports")
   .select("report_day,slot,status,created_at,error_code,source_count,coverage_note")
-  .order("created_at",{ascending:false}).limit(1).maybeSingle();
+  .eq("report_kind","DAILY_MACRO").order("created_at",{ascending:false}).limit(1).maybeSingle();
  if(error)throw new Error("Private PDF attempt receipt unavailable");
  return (data||null) as PrivateDailyPdfAttempt|null;
 }
