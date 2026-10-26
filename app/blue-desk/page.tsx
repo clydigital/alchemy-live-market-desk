@@ -17,6 +17,8 @@ import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { getOriginalPressNews } from "@/lib/blue-desk-original-press-news-server";
 import { combineQualifiedNews } from "@/lib/blue-desk-qualified-news";
+import { projectLivingMarketTopics } from "@/lib/blue-desk-living-topics";
+import catalyst from "./catalyst-note.module.css";
 
 
 import tracked from "./tracked-stories.module.css";
@@ -63,6 +65,7 @@ export default async function BlueDeskPage() {
   const motionNews = selectVerifiedNewsBriefs(verifiedMotions, now, 12);
   const verifiedNews = combineQualifiedNews(motionNews,originalPress,12);
   const newsFeature = verifiedNews[0] || null;
+  const featureTopic = newsFeature ? projectLivingMarketTopics([newsFeature])[0] : null;
   const observedFeature = observations[0] || null;
   const olderStory = !newsFeature && !observedFeature ? (theses[0]||null) : null;
   const yields = YIELD_IDS.map(id => monitor?.rows.find(row => row.id === id)).filter(
@@ -90,6 +93,11 @@ export default async function BlueDeskPage() {
               {newsFeature?.summary || (observedFeature ? "Recorded by "+observedFeature.sourceName+". This is an observed source value, not evidence of a new catalyst or its cause." : "") ||
                 (olderStory ? storyMarketTransmission(olderStory) : "Source verification or provider coverage may be incomplete. Check the calendar and market monitor.")}
             </p>
+            {newsFeature && featureTopic ? <div className={catalyst.featureTake} data-live-feature-stakes="verified-catalyst">
+              <p className={catalyst.eyebrow}>WHY THIS STORY MATTERS BEYOND THE HEADLINE</p>
+              <p>{featureTopic.humanStake}</p>
+              <p><strong>What investors need answered:</strong> {featureTopic.guidingQuestion}</p>
+            </div> : null}
             <div className={styles.tags}>
               <span className={styles.tag}>{newsFeature ? "SOURCE-VERIFIED FACT" : observedFeature ? "SOURCE-DOCUMENTED MARKET OBSERVATION" : olderStory ? "DATED STORY CONTEXT" : "NO VERIFIED UPDATE"}</span>
               <span className={styles.tag}>No Dossier approval required</span>
