@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   X_CORE_ROSTER,
   X_SWEEP_DEFAULTS,
+  isExcludedXWireHandle,
   configureXSweep,
   normaliseXPostUrl,
   selectXSweepCandidates,
@@ -24,18 +25,18 @@ function post(id: number, handle = "Bluekurtic", patch: Partial<XCandidate> = {}
   };
 }
 
-test("preserves exact approved normal settings and 10 registered handles", () => {
+test("preserves the X sweep settings while excluding ZeroHedge from nine monitored accounts", () => {
   assert.deepEqual(X_SWEEP_DEFAULTS, {
     sweep: "x", preset: "normal", lookbackHours: 2.5, overlapMinutes: 30,
     maxCandidatesPerRun: 250, softLimitPerAccount: 40, recoveryLookbackHours: 72,
     deepInvestigationsCap: 12, schedule: "existing MacroPulse only",
     newScheduledTask: false,
   });
-  assert.equal(X_CORE_ROSTER.length, 10);
+  assert.equal(X_CORE_ROSTER.length, 9);
   assert.deepEqual(X_CORE_ROSTER.map(item => item.handle), [
     "Bluekurtic", "HFI_Research", "OilandEnergy", "TheStudyofWar",
     "Currentreport1", "arena", "KobeissiLetter", "FirstSquawk",
-    "zerohedge", "GordianKnotDev",
+    "GordianKnotDev",
   ]);
 });
 
@@ -126,5 +127,18 @@ test("source-health does not call inaccessible accounts quiet", () => {
   }]);
   assert.equal(result.inaccessible, 1);
   assert.equal(result.complete, false);
-  assert.equal(result.monitored, 10);
+  assert.equal(result.monitored, 9);
+});
+
+test("X Wire excludes ZeroHedge at source regardless of case or account form", () => {
+  assert.equal(isExcludedXWireHandle("@ZeroHedge"), true);
+  assert.equal(isExcludedXWireHandle("zerohedge"), true);
+  assert.equal(isExcludedXWireHandle("zerohedge2"), false);
+  const selected=selectXSweepCandidates([
+    post(70,"ZeroHedge"),post(71,"zerohedge"),
+    post(72,"Bluekurtic"),post(73,"Bluekurtic",{accountHandle:"@ZEROHEDGE"}),
+  ],NOW);
+  assert.deepEqual(selected.selected.map(x=>x.accountHandle),["Bluekurtic"]);
+  assert.equal(selected.withheld.filter(x=>x.reason==="excluded_x_wire_source").length,3);
+  assert.ok(!X_CORE_ROSTER.some(x=>isExcludedXWireHandle(x.handle)));
 });

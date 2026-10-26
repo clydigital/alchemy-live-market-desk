@@ -23,8 +23,14 @@ Candidate and account limits are maximum workload budgets, not targets. Two-hour
 
 ## Approved X source registry
 
-The preserved, previously approved core roster is:
-@Bluekurtic, @HFI_Research, @OilandEnergy, @TheStudyofWar, @Currentreport1, @arena, @KobeissiLetter, @FirstSquawk, @zerohedge; plus Alchemy-linked @GordianKnotDev.
+**26 October 2026 override:** @zerohedge / ZeroHedge is explicitly EXCLUDED from the X Wire and X sweep account registry, discovery, queue, backlog, display and health counts. It is not an allowed X Wire account, even if present in historical data, fetched quotes or older instructions.
+
+Current nine-account roster:
+@Bluekurtic, @HFI_Research, @OilandEnergy, @TheStudyofWar, @Currentreport1, @arena, @KobeissiLetter, @FirstSquawk; plus Alchemy-linked @GordianKnotDev.
+
+This exclusion applies to X Wire/social sweep only. It does not remove ZeroHedge from separately governed article or research-feed workflows.
+
+The existing **MacroPulse Market Watch** scheduled task prompt was also updated in place on 26 October 2026 to use this nine-account roster and explicitly prohibit @zerohedge on the X discovery path. Schedule, enabled state, Notion publication and the other research instructions were preserved. This prompt change is effective independently of the X Wire repository PR; the database migration and UI changes require deployment.
 
 This is a registry of discovery targets, NOT a claim of ownership, reliability, identity validation, verified recent posts, or currently available timelines. Verify identity/handle at acquisition. Any future extra accounts require explicit registration and source-health checks, rather than duplicative hardcoded lists. The original reference is the approved WIRE_X_INTELLIGENCE_PIPELINE_SPEC.md.
 

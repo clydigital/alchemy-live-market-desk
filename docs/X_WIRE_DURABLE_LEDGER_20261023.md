@@ -1,7 +1,10 @@
 # X Wire P2 — persistent discovery ledger (23 October 2026)
 
 ## Scope
-Private /owner/x-wire reads a new service-role-only operational ledger. It uses the existing registered 10-account roster and no paid X API, independent reasoning engine, new research task or cron.
+Private /owner/x-wire reads a new service-role-only operational ledger. As of the 26 October 2026 exclusion, it uses the remaining registered nine-account roster and no paid X API, independent reasoning engine, new research task or cron.
+
+## ZeroHedge X Wire exclusion (26 October 2026)
+@zerohedge must never be fetched, queued, shown, counted as active/deferred, used as X Wire attribution, or promoted as an X Wire evidence lead. Remove it from the roster and fail closed in candidate parsing and durable scan. Historical posts remain retained for audit, but are marked rejected by the migration and omitted from X Wire readers/counts. Legacy clients must not claim a lease for this excluded handle. This restriction is scoped to X Wire and the X sweep, not unrelated news-source selection.
 
 ## Durable records and security
 Two operational public-schema tables are RLS-protected with all anon/authenticated privileges revoked:

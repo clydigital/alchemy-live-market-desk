@@ -1,4 +1,4 @@
-import { normaliseXPostUrl } from "./x-sweep-core.ts";
+import { isExcludedXWireHandle, normaliseXPostUrl } from "./x-sweep-core.ts";
 import type { XWirePost } from "./x-wire-provider.ts";
 
 /** Pure FxEmbed page parser. External metadata is untrusted discovery, never proof. */
@@ -19,6 +19,7 @@ export type FxPage = {
 };
 /** Cursor is a provider-supplied opaque token; never interpolate it into a path. */
 export function parseFxTimeline(json: unknown, handle: string, startAt: string, nowIso: string): FxPage {
+  if (isExcludedXWireHandle(handle)) throw new Error("X Wire source explicitly excluded");
   const data = rec(json);
   if (data.code !== 200 || !Array.isArray(data.results) || data.results.length > 50)
     throw new Error("Unexpected X provider page");
@@ -37,7 +38,7 @@ export function parseFxTimeline(json: unknown, handle: string, startAt: string, 
       const normalized = normaliseXPostUrl("https://x.com/"+screen+"/status/"+id);
       const quote=rec(row.quote), qs=text(rec(quote.author).screen_name,20), qid=text(quote.id,25);
       let quoteUrl: string | null = null;
-      try { if(qs && qid) quoteUrl=normaliseXPostUrl("https://x.com/"+qs+"/status/"+qid).url; } catch { /* no invented quote */ }
+      try { if(qs && qid && !isExcludedXWireHandle(qs)) quoteUrl=normaliseXPostUrl("https://x.com/"+qs+"/status/"+qid).url; } catch { /* no invented quote */ }
       const photos=rec(row.media).photos;
       const images=Array.isArray(photos)?photos.map(p=>text(rec(p).url,600)).filter(v=>v.startsWith("https://")).slice(0,4):[];
       posts.push({id:normalized.postId,url:normalized.url,handle:screen,publishedAt:date,
