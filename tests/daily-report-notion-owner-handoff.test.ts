@@ -97,8 +97,9 @@ test("existing authorised writer can draft a Daily Report, owner publication app
  assert.doesNotMatch(source,/createSupabaseAdminClient|insert\(|upsert\(|generateContent/);
  assert.match(writer,/kind:"DAILY_REPORT"/);
  assert.match(writer,/PRIVATE WORKSPACE/);
- assert.equal(blueDeskHostAccess("/api/owner/daily-research","bluebelly-desk.vercel.app"),"blocked");
- assert.equal(blueDeskHostAccess("/owner/daily-report","bluebelly-desk.vercel.app"),"blocked");
+ assert.equal(blueDeskHostAccess("/api/owner/daily-research","bluebelly-desk.vercel.app"),"private");
+ assert.equal(blueDeskHostAccess("/api/owner/macropulse-briefs","bluebelly-desk.vercel.app"),"private");
+ assert.equal(blueDeskHostAccess("/owner/daily-report","bluebelly-desk.vercel.app"),"private");
  assert.equal(blueDeskHostAccess("/api/owner/daily-research","preview.vercel.app"),"private");
 });
 
