@@ -100,15 +100,16 @@ test("Bluebelly My Reports enclave is login-protected and nothing else gains own
  const host="bluebelly-desk.vercel.app";
  for(const path of ["/my-reports","/login","/auth/google","/auth/callback",
    "/auth/signout","/api/owner/automated-report-pdf",
-   "/owner/editorial","/owner/presenter",
+   "/owner/editorial","/owner/presenter","/owner/daily-report",
+   "/api/owner/macropulse-briefs","/api/owner/daily-research",
    "/api/owner/editorial-generate","/api/owner/editorial-investigate",
    "/api/presenter/technical-checks"]){
   assert.equal(blueDeskHostAccess(path,host),"private",path);
   assert.equal(blueDeskPresentationTarget(path,host),null,path);
  }
  for(const path of ["/my-reports/","/my-reports/other","/auth","/auth/callback/private",
-   "/owner/daily-report","/owner/publications",
-   "/api/owner/daily-research","/api/owner/editorial-publish",
+   "/owner/publications",
+   "/api/owner/editorial-publish",
    "/api/cron/research/morning","/daily-report/pdf"]){
   assert.equal(blueDeskHostAccess(path,host),"blocked",path);
  }
