@@ -34,7 +34,7 @@ test("private OB/COTD research PDF preserves source URLs and uncertainty, never 
  assert.match(str,/%%EOF\s*$/);
  assert.match(str,/NOT FOR PUBLICATION/);
  assert.match(str,/UNKNOWN - 1D\/3D\/5D/);
- assert.match(str,/No plugin invocations are asserted/);
+ assert.match(read("lib/blue-desk-private-slate-pdf.ts"),/No plugin invocations are asserted/);
  assert.match(str,/\/Subtype \/Link/);
  assert.match(str,/federalreserve.gov/);
  assert.match(str,/home.treasury.gov/);
