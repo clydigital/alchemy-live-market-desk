@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {assembleAutomaticReportEvidence,parseAutomatedReportNarrative,reportEvidenceReady,isAutomaticReportFinalisationWindow,isAutomaticReportFallbackWindow,isCompletedDossierForAutomaticReport}
+import {assembleAutomaticReportEvidence,parseAutomatedReportNarrative,reportEvidenceReady,buildAutomaticReportModelPrompt,isAutomaticReportFinalisationWindow,isAutomaticReportFallbackWindow,isCompletedDossierForAutomaticReport}
  from "../lib/blue-desk-automated-report-contract.ts";
 import {renderAutomatedReportPdf} from "../lib/blue-desk-automated-report-pdf.ts";
 
@@ -240,4 +240,16 @@ test("source-qualified private PDF starts within the existing authorised cron ev
  assert.ok(privateApi.includes("session.auth.getUser()"));
  assert.ok(privateApi.includes("app_access_allowlist"));
  assert.ok(privateApi.includes("data.pdf_path!==exact"));
+});
+
+test("automated Daily PDF compiler receives versioned Bluebelly narrative rule without fabricating evidence",()=>{
+ const {evidence}=fixture();
+ const prompt=JSON.parse(buildAutomaticReportModelPrompt(evidence));
+ assert.equal(prompt.editorialStandard,"docs/editorial/BLUEBELLY_STORY_DRIVEN_DAILY_REPORTS.md@1.0");
+ assert.deepEqual(prompt.sources,evidence.sources);
+ assert.ok(prompt.editorialContract.some((s:string)=>s.includes("event time")&&s.includes("observation times")));
+ assert.ok(prompt.editorialContract.some((s:string)=>s.includes("UNKNOWN")&&s.includes("never fabricate")));
+ assert.ok(prompt.editorialContract.some((s:string)=>s.includes("three short learning moments")));
+ assert.ok(prompt.editorialContract.some((s:string)=>s.includes("confirmed observations separately")));
+ assert.match(prompt.instruction,/Cite by sourceIds from the packet ONLY/);
 });
