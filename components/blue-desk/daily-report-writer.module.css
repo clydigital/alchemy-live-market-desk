@@ -2,3 +2,12 @@
 .readiness{border:1px solid #4a7189;background:#0b2d3f;border-radius:8px;padding:14px 16px;margin:18px 0}
 .readiness h4{font-size:15px;margin:0 0 10px;color:#eaf7ff}
 .readiness p{overflow-wrap:anywhere}
+
+.narrativeMap{max-width:1328px;margin:0 0 18px;padding:13px 17px;border:1px solid #376680;border-left:3px solid #79cbed;border-radius:7px;background:#092b3f;color:#d5e8f2}
+.narrativeMap p{font-size:13px;line-height:1.65;margin:3px 0}
+.narrativeMap strong{color:#f1fbff}
+.narrativeMap .narrativeSpine{font-weight:750;color:#9fe5fc;font-size:13px;margin:9px 0}
+.readAloud{border:1px solid #375c70;background:#041d2c;border-radius:7px;margin:17px 0;padding:13px}
+.readAloud summary{font-size:13px;font-weight:750;cursor:pointer;color:#a3e3fa}
+.readAloud div{white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px;line-height:1.75;padding:14px 0;color:#e6eff5;max-height:540px;overflow:auto}
+.readAloud p{color:#a9cbdc}
