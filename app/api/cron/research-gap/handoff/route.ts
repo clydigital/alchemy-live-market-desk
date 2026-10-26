@@ -20,7 +20,7 @@ export async function GET(request:Request){
  catch{return result;}
  if(payload.status!=="completed")return result;
  try{
-  const report=await attemptPrivateDailyPdfAfterLateDossier(request,slot,now);
+  const report=await attemptPrivateDailyPdfInExistingHandoff(request,slot,now);
   return Response.json({...payload,automatedDailyPdf:report},{
    status:200,headers:{"Cache-Control":"private, no-store"}});
  }catch{
