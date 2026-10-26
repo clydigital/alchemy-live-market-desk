@@ -35,7 +35,7 @@ export function privateNarrativeInstructions(kind: DeskNarrativeKind): string {
     "End with a short 'what would change my mind' conclusion and source-dated next checks, including an opposing scenario.",
     "Use British English; speakable Year-8-level prose; paragraphs up to three sentences; avoid generic AI transitions, rhetorical padding, theatrical language and repetition.",
     "Include original source URLs next to important verifiable claims when already supplied; do not fabricate working links, citations or observations.",
-    "Make no public publication, database write, automatic approval or claim that a model draft is fact-checked.",
+    "No public publication, database write, automatic approval or claim that a model draft is fact-checked.",
   ];
   const format = kind === "DAILY_REPORT" ? [
     "DAILY REPORT: one opening snapshot and ONE dominant chronological story, then at most three genuinely material supporting developments.",
