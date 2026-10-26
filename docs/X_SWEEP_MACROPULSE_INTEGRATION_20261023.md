@@ -30,6 +30,8 @@ Current nine-account roster:
 
 This exclusion applies to X Wire/social sweep only. It does not remove ZeroHedge from separately governed article or research-feed workflows.
 
+The existing **MacroPulse Market Watch** scheduled task prompt was also updated in place on 26 October 2026 to use this nine-account roster and explicitly prohibit @zerohedge on the X discovery path. Schedule, enabled state, Notion publication and the other research instructions were preserved. This prompt change is effective independently of the X Wire repository PR; the database migration and UI changes require deployment.
+
 This is a registry of discovery targets, NOT a claim of ownership, reliability, identity validation, verified recent posts, or currently available timelines. Verify identity/handle at acquisition. Any future extra accounts require explicit registration and source-health checks, rather than duplicative hardcoded lists. The original reference is the approved WIRE_X_INTELLIGENCE_PIPELINE_SPEC.md.
 
 ## Admission and health rules
