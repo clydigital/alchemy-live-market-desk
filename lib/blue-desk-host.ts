@@ -62,7 +62,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     "/auth/signout", "/api/owner/automated-report-pdf",
     // Native Bluebelly owner tools only; every path still requires a
     // valid Supabase session and the active user allowlist in middleware.
-    "/owner/editorial", "/owner/presenter",
+    "/owner/editorial", "/owner/presenter", "/owner/research",
     "/api/owner/editorial-generate", "/api/owner/editorial-investigate",
     "/api/presenter/technical-checks",
   ].includes(pathname)) return "private";
