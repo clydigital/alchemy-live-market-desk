@@ -176,7 +176,8 @@ export function prepareCreatorStory(input: CreatorStoryInput): PreparedCreatorSt
   const ordered=[...videos.values()].sort((a,b)=>
     Date.parse(a.publishedAt)-Date.parse(b.publishedAt) || a.videoId.localeCompare(b.videoId));
   const consumed=ordered.filter(v=>v.transcriptStatus==="complete" &&
-    validText(v.transcriptText,60,1_000_000) &&
+    typeof v.transcriptText==="string" && v.transcriptText.trim().length>=60 &&
+    v.transcriptText.length<=1_000_000 &&
     !!v.transcriptRetrievedAt && validTime(v.transcriptRetrievedAt,cutoff));
   const acceptedIds=new Set(consumed.map(v=>v.videoId));
   const claims=new Map<string,CreatorSourceClaim>();
@@ -286,6 +287,12 @@ const numbers=(text:string)=>new Set(
 export function parseCreatorStoryDraft(raw:unknown,prepared:PreparedCreatorStory):CreatorStoryDraft|null {
   if(!raw||typeof raw!=="object"||Array.isArray(raw))return null;
   const r=raw as Record<string,unknown>;
+  // A response must not be able to relabel incomplete videos as consumed,
+  // or suppress a video from the immutable source ledger.
+  if(!sameSet(prepared.sources.map(s=>s.videoId),prepared.inputVideoIds) ||
+     !sameSet(prepared.sources.filter(s=>s.consumed).map(s=>s.videoId),prepared.consumedVideoIds) ||
+     !sameSet(prepared.sources.filter(s=>!s.consumed).map(s=>s.videoId),prepared.pendingTranscriptIds) ||
+     prepared.claims.some(c=>!prepared.consumedVideoIds.includes(c.videoId)))return null;
   if(!validText(r.headline,12,120)||!validText(r.centralTension,35,500)||
      !validText(r.latestCreatorView,45,1200)||!validText(r.limitations,30,900)||
      !validId(r.latestClaimId))return null;
@@ -332,7 +339,7 @@ export function parseCreatorStoryDraft(raw:unknown,prepared:PreparedCreatorStory
   ].join(" "));
   const prose=[
     r.headline,r.centralTension,r.latestCreatorView,r.limitations,
-    ...acts.flatMap(a=>[a.title,a.body]),
+    ...acts.flatMap(a=>[a.title.replace(/^Act [1-6]\s*[—:\-]?\s*/i,""),a.body]),
     ...moments.flatMap(m=>[m.question,m.explanation]),
     ...watchpoints.map(w=>w.question),
   ].join(" ");
