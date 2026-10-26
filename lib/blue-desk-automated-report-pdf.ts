@@ -105,9 +105,11 @@ export function renderAutomatedReportPdf(e:AutomaticReportEvidence,n:AutomatedRe
   item("Next evidence that matters",s.nextTest);
   sourcesFor(s.sourceIds,e.sources);
  });
- heading("Cross-market transmission","03 / equities, bonds, FX and commodities");
- for(const [i,s] of n.crossMarket.entries())item(`MARKET LENS ${i+1}`,s);
- heading("The watchlist","04 / upcoming decisions");
+ if(n.crossMarket.length){
+  heading("Cross-market transmission","03 / equities, bonds, FX and commodities");
+  for(const [i,s] of n.crossMarket.entries())item(`MARKET LENS ${i+1}`,s);
+ }
+ if(n.watchlist.length)heading("The watchlist","04 / upcoming decisions");
  for(const itemValue of n.watchlist){
   heading(itemValue.event,itemValue.when);
   item("The market question",itemValue.question);
