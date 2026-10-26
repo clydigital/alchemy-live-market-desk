@@ -22,10 +22,11 @@ test("Branch 01 allows only three exact owner research paths as private, never p
     assert.notEqual(blueDeskHostAccess(path, "preview-unauthorised.vercel.app"), "public");
   }
 
+  assert.equal(blueDeskHostAccess("/owner/research", bluebelly), "private");
   for (const path of [
     "/api/owner/editorial-publish", "/api/internal/canonical-feed",
     "/api/dossier-v2", "/api/hybrid-feed-v2", "/api/cron/research/morning",
-    "/owner/publications", "/owner/research", "/owner/x-wire",
+    "/owner/publications", "/owner/x-wire",
   ]) {
     assert.equal(blueDeskHostAccess(path, bluebelly), "blocked", path);
   }
