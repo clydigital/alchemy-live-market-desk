@@ -164,6 +164,13 @@ export async function runAutomatedDailyPdfReport(
   const completion=await db.from("blue_desk_automated_reports").update({
    status:"ready",title:report.title,deck:report.deck,
    summary:report.executiveSummary,source_urls:sources,
+   // Auditable input admission, not proof of a ChatGPT plugin invocation.
+   source_receipts:evidence.sources.map(src=>({
+    sourceId:src.id,sourceType:src.type,originalUrl:src.url,
+    sourceName:src.sourceName,eventAt:src.eventAt,
+    inputStage:"source_qualified_pdf_packet",
+    pluginCallsVerified:[],independentlyRecheckedByRenderer:false,
+   })),
    source_count:evidence.sources.filter(s=>s.type!=="CALENDAR").length,
    coverage_note:evidence.coverageNote,pdf_path:path,pdf_sha256:sha,
    ready_at:new Date().toISOString(),error_code:null,
