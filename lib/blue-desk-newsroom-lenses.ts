@@ -26,7 +26,7 @@ export const NEWSROOM_LENSES = [
     title: "Stocks / Trading",
     subtitle: "Earnings, price behaviour, breadth and valuation",
     question: "What was priced in, what did investors actually observe, and what is the downside case?",
-    pattern: /\b(?:stocks?|equities|equity|shares?|shareholders?|earnings?|revenue|operating margins?|cash flows?|free cash flow|capex|valuations?|guidance|ipos?|financing|dilution|credit ratings?|nasdaq|s&p\s?500|semiconductor stocks|nvidia|microsoft|alphabet|amazon|meta platforms|coreweave|trading|futures?|liquidity|market breadth|bond auctions?)\b/i,
+    pattern: /\b(?:stocks?|equities|equity|shares?|shareholders?|earnings?|revenue|operating margins?|cash flows?|free cash flow|capex|valuations?|guidance|ipos?|financing|dilution|credit ratings?|nasdaq|s&p\s?500|semiconductor stocks|nvidia|microsoft|alphabet|amazon|meta platforms|coreweave|trading|futures?|liquidity|market breadth)\b/i,
   },
 ] as const;
 
