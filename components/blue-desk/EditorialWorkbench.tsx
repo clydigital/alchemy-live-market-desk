@@ -260,7 +260,6 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
         <nav className={styles.subnav} aria-label="Private studio views">
           <Link href="/owner/editorial" aria-current={mode==="editorial"?"page":undefined}>Article writing</Link>
           <Link href="/owner/presenter" aria-current={mode==="presenter"?"page":undefined}>Presenter view</Link>
-          <Link href="/hybrid-output/prepare">Edition-pinned prep ↗</Link>
           <Link href="/owner/x-wire">X research leads ↗</Link>
         </nav>
       )}
