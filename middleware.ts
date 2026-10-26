@@ -103,7 +103,13 @@ export async function middleware(request: NextRequest) {
 
   // Preserve existing API consumers until every contract is scoped and audited.
   // Owner-facing pages are ALWAYS authenticated on non-public hosts.
-  if (pathname.startsWith("/api/") && !dashboardAuthRequired()) return NextResponse.next();
+  // These two owner review APIs must pass the same Supabase claims and active
+  // account allowlist check as owner pages even when legacy API auth is disabled.
+  // Their handlers also independently verify the user before reading research.
+  const ownerReviewApi = pathname === "/api/owner/macropulse-briefs"
+    || pathname === "/api/owner/daily-research";
+  if (pathname.startsWith("/api/") && !dashboardAuthRequired() && !ownerReviewApi)
+    return NextResponse.next();
 
   let config: ReturnType<typeof getSupabasePublicConfig>;
   try {

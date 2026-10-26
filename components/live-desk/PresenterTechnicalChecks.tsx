@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 
 import styles from "./presenter-technical-checks.module.css";
+import {
+  reconcilePresenterObservations,
+  type PresenterDossierSelection,
+} from "@/lib/presenter-technical-reconciliation";
 
 type Alignment = "unassessed" | "aligned" | "diverging" | "mixed";
 type Check = {
@@ -147,7 +151,9 @@ function normaliseCloud(value: CloudResponse): Stored | null {
   };
 }
 
-export default function PresenterTechnicalChecks({ compact = false }: { compact?: boolean }) {
+export default function PresenterTechnicalChecks({
+  compact = false, dossierContext = null,
+}: { compact?: boolean; dossierContext?: PresenterDossierSelection | null }) {
   const [data, setData] = useState<Stored>(seed);
   const [hydrated, setHydrated] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
@@ -160,6 +166,7 @@ export default function PresenterTechnicalChecks({ compact = false }: { compact?
   const [localCopy, setLocalCopy] = useState<Stored | null>(null);
   const [reviewImport, setReviewImport] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [clockIso, setClockIso] = useState("");
 
   async function refreshCloud(signal?: AbortSignal): Promise<void> {
     try {
@@ -177,6 +184,7 @@ export default function PresenterTechnicalChecks({ compact = false }: { compact?
       setCloudRevision(raw.revision);
       setCloudUpdatedAt(raw.updatedAt || "");
       setCloudMode("ready");
+      setClockIso(new Date().toISOString());
       setReviewImport(false);
       setMessage("");
     } catch {
@@ -191,6 +199,7 @@ export default function PresenterTechnicalChecks({ compact = false }: { compact?
     setLocalCopy(local);
     setData(local);
     setHydrated(true);
+    setClockIso(new Date().toISOString());
     const controller = new AbortController();
     void refreshCloud(controller.signal);
     return () => controller.abort();
@@ -293,6 +302,13 @@ export default function PresenterTechnicalChecks({ compact = false }: { compact?
   };
   const set = (change: Partial<Check>) => setDraft(current => current ? { ...current, ...change } : null);
   const visible = data.checks.filter((check) => check.group === "Core" || (!compact && showAdditional));
+  // Never claim reconciliation against the browser backup when cloud auth or
+  // revisioned storage fails. Dossier macro context remains presentation-only.
+  const reconciliation = reconcilePresenterObservations(
+    cloudMode === "ready" ? data.checks : null, dossierContext, clockIso,
+  );
+  const byReconciliationKey = new Map(reconciliation.rows.map(row => [row.key, row]));
+  const contextualRows = reconciliation.rows.filter(row => row.contextState === "SOURCE_LINKED_CONTEXT").length;
   const aligned = data.checks.filter((check) => check.updatedAt && check.alignment === "aligned" && sourceIsValid(check.evidenceUrl));
   return (
     <section className={styles.feed} aria-label="Presenter technical and fundamentals checklist">
@@ -305,8 +321,18 @@ export default function PresenterTechnicalChecks({ compact = false }: { compact?
       </header>
       <div className={styles.summary}>
         <span>{data.checks.filter((c) => !!c.updatedAt).length} / {data.checks.length} reviewed</span>
-        <span>{aligned.length} source-linked alignment{aligned.length === 1 ? "" : "s"}</span>
+        <span>{aligned.length} self-reported alignments with URLs · not independently verified</span>
         <span>{cloudMode === "ready" ? `Cloud revision ${cloudRevision ?? "?"}` : cloudMode === "loading" ? "Checking account" : "Local backup only · not synced"}</span>
+      </div>
+      <div className={styles.dossierBanner} role="status" data-dossier-reconciliation="read-only">
+        <strong>READ-ONLY DOSSIER RECONCILIATION</strong>
+        <span>{dossierContext?.presentation && dossierContext.selectedDossierId === dossierContext.presentation.dossierId
+          ? `Selected ${dossierContext.status} Dossier · ${dossierContext.presentation.asOf} · ${contextualRows} of 14 checks have source-linked macro context`
+          : "Verified Dossier selection unavailable · no source-linked context"}
+        </span>
+        <small>The Dossier is an independent macro read model, not proof of any chart band break.
+          All 14 instrument-level verdicts remain UNAVAILABLE until exact price/timeframe evidence is attached.
+          No presenter notes or manual alignment flags are sent to Dossier or Story writers.</small>
       </div>
       <div className={styles.feedback} role="status">
         {cloudMode === "ready"
@@ -336,6 +362,7 @@ export default function PresenterTechnicalChecks({ compact = false }: { compact?
       <div className={styles.nodes}>
         {visible.map((check) => {
           const supported = check.updatedAt && check.alignment === "aligned" && sourceIsValid(check.evidenceUrl);
+          const context = byReconciliationKey.get(check.key)!;
           return (
             <article key={check.key} className={styles.node}>
               <div className={styles.nodeTop}>
@@ -351,9 +378,27 @@ export default function PresenterTechnicalChecks({ compact = false }: { compact?
                 {check.key.startsWith("dxy-") ? <span>Last break: {check.lastBreak}</span> : null}
                 <span>Fundamentals: {check.alignment.toUpperCase()}</span>
               </div>
-              {supported ? <p className={styles.alignment}>TECH + FUNDAMENTALS ALIGN · Presenter assessment; check linked evidence.</p> : null}
+              {supported ? <p className={styles.alignment}>PRESENTER SELF-ASSESSMENT · URL attached; independent agreement unverified.</p> : null}
               {check.alignment === "aligned" && !supported ? <p className={styles.warning}>Alignment requires a dated update and source link.</p> : null}
               {check.fundamentals ? <p className={styles.small}>{check.fundamentals}</p> : null}
+              <div className={styles.dossierContext} data-verdict={context.verdict}>
+                <strong>Dossier × chart · {context.verdict}</strong>
+                <span>{context.contextState === "SOURCE_LINKED_CONTEXT"
+                  ? `Macro lens ${context.dossierLens} · Dossier ${context.dossierAsOf}`
+                  : "No independently linked Dossier macro lens for this monitor."}</span>
+                {context.dossierContext ? <p>{context.dossierContext}</p> : null}
+                <p>{context.observationState === "NOT_SAVED" ? "No dated account observation." :
+                   context.observationState === "STALE" ? "Saved chart note is older than seven days." :
+                   "Dated owner chart note is available; not independently verified."}</p>
+                <p><b>What to verify:</b> {context.confirmOrInvalidate}</p>
+                {context.canonicalEvidenceIds.length ? <details>
+                  <summary>Exact Dossier evidence IDs ({context.canonicalEvidenceIds.length})</summary>
+                  <code>{context.canonicalEvidenceIds.join(", ")}</code>
+                </details> : null}
+                <details><summary>Presenter explanation (not a market fact)</summary>
+                  <p>{context.presenterTalkingPoint}</p>
+                </details>
+              </div>
               <div className={styles.actions}>
                 <button type="button" onClick={() => startEdit(check)}>Update reading</button>
                 {!compact ? <a href={"https://chatgpt.com/?q=" + encodeURIComponent(promptFor(check))} target="_blank" rel="noreferrer">Review with ChatGPT ↗</a> : null}
