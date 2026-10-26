@@ -53,6 +53,15 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   if (hostname === "alchemy-blue-desk.vercel.app") return "blocked";
   if (hostname !== BLUEBELLY_PRESENTATION_HOST && hostname !== LIVE_DESK_PRESENTATION_HOST) return "private";
 
+  // Narrow approved-owner enclave on the Bluebelly hostname. This is
+  // NOT a public page: the normal middleware session+allowlist gate applies.
+  // Only exact paths can be used; legacy operational owner routes and all
+  // unrelated APIs remain blocked on the public presentation hostname.
+  if(hostname === BLUEBELLY_PRESENTATION_HOST && [
+    "/my-reports", "/login", "/auth/google", "/auth/callback",
+    "/auth/signout", "/api/owner/automated-report-pdf",
+  ].includes(pathname)) return "private";
+
   // Temporary development-only UI viewer on the dedicated public host.
   // No owner API, private provider data, canonical DB, secrets or writes.
   if (hostname === BLUEBELLY_PRESENTATION_HOST &&
