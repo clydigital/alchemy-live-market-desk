@@ -58,8 +58,8 @@ const COLLECTIONS: ResearchEntry[] = [
 const SECTIONS: Section[] = ["All","Latest","Themes","Gaps","Archives"];
 
 function shortText(text:string,max=320){
-  const trimmed=text.replace(/\\s+/g," ").trim();
-  return trimmed.length>max ? trimmed.slice(0,max).replace(/\\s+\\S*$/,"")+"…" : trimmed;
+  const trimmed=text.replace(/\s+/g," ").trim();
+  return trimmed.length>max ? trimmed.slice(0,max).replace(/\s+\\S*$/,"")+"…" : trimmed;
 }
 function safeDate(iso?:string) {
   if(!iso || Number.isNaN(Date.parse(iso)))return "Date unavailable";
