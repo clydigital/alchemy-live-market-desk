@@ -81,10 +81,12 @@ test("late PDF retry reuses authorised Research Gap cron without weakening publi
  const job=readFileSync(new URL("../lib/blue-desk-automated-report-job.ts",import.meta.url),"utf8");
  const schedule=readFileSync(new URL("../vercel.json",import.meta.url),"utf8");
  assert.ok(route.includes("handleScheduledResearchGapHandoff(request)"));
- assert.ok(route.includes("attemptPrivateDailyPdfAfterLateDossier(request,slot,now)"));
+ assert.ok(route.includes("attemptPrivateDailyPdfInExistingHandoff(request,slot,now)"));
  assert.ok(route.includes('payload.status!=="completed"'));
  assert.ok(retry.includes("acceptsResearchAuthorization"));
- assert.ok(retry.includes("isCompletedDossierForAutomaticReport"));
+ assert.ok(!retry.includes("isCompletedDossierForAutomaticReport"));
+ assert.ok(retry.includes("NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED"));
+ assert.ok(retry.includes("acceptsResearchAuthorization"));
  assert.ok(retry.includes("runAutomatedDailyPdfReport(slot,now)"));
  assert.ok(job.includes("isAutomaticReportFallbackWindow(now,slot)"));
  assert.ok(job.includes('status:"ready"'));
@@ -199,4 +201,43 @@ test("source-gate refusals retain owner-only attempt receipts without manufactur
  assert.ok(!publicPage.includes("getOwnerLatestDailyPdfAttempt"));
  assert.ok(migration.includes("unique(report_day,slot)"));
  assert.ok(migration.includes("revoke all on public.blue_desk_automated_reports from anon,authenticated"));
+});
+
+test("source-qualified private PDF starts within the existing authorised cron even if Dossier is pending",()=>{
+ const read=(path:string)=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
+ for(const file of ["app/api/cron/research/morning-dossier/route.ts","app/api/cron/research/evening-dossier/route.ts"]){
+  const content=read(file);
+  assert.ok(content.includes("acceptsResearchAuthorization"),file);
+  assert.ok(content.includes("NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED"),file);
+  assert.ok(content.includes("isAutomaticReportFinalisationWindow"),file);
+  assert.ok(content.includes("const result=await handleScheduledPostResearchDossier"),file);
+  assert.ok(content.indexOf("runAutomatedDailyPdfReport(")<content.indexOf("const result=await handleScheduledPostResearchDossier"),file);
+  assert.ok(!content.includes('payload.reason==="dossier_decision_recorded"'),file);
+  assert.ok(!content.includes("if(!ready)return result"),file);
+  assert.ok(content.includes("if(result.status!==200)return result"),file);
+ }
+ const late=read("lib/blue-desk-automated-report-late-handoff.ts");
+ assert.ok(!late.includes("postResearchDossier"));
+ assert.ok(!late.includes("createSupabaseAdminClient"));
+ assert.ok(late.includes("acceptsResearchAuthorization"));
+ const handoff=read("app/api/cron/research-gap/handoff/route.ts");
+ assert.ok(handoff.includes('payload.status!=="completed"'));
+ assert.ok(handoff.includes("isAutomaticReportFallbackWindow"));
+ const job=read("lib/blue-desk-automated-report-job.ts");
+ assert.ok(job.includes("reportEvidenceReady(evidence)"));
+ assert.ok(job.includes('status:"ready"'));
+ assert.ok(!job.includes('status:"published"'));
+ assert.ok(job.includes('pluginCallsVerified:[]'));
+ assert.ok(job.includes("source_receipts:evidence.sources.map"));
+ assert.ok(job.includes("ThinkingLevel.LOW"));
+ assert.ok(!job.includes("temperature:0.22"));
+ const contract=read("lib/blue-desk-automated-report-contract.ts");
+ assert.ok(contract.includes("TECHNOLOGY REALITY"));
+ assert.ok(contract.includes("MARKET REALITY"));
+ assert.ok(contract.includes("INVESTMENT TERMS"));
+ assert.ok(contract.includes("Separate technological improvement from investment return"));
+ const privateApi=read("app/api/owner/automated-report-pdf/route.ts");
+ assert.ok(privateApi.includes("session.auth.getUser()"));
+ assert.ok(privateApi.includes("app_access_allowlist"));
+ assert.ok(privateApi.includes("data.pdf_path!==exact"));
 });
