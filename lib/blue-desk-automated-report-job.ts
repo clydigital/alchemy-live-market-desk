@@ -21,6 +21,25 @@ type ClaimResult={status:"ready"|"already_ready"|"locked"|"coverage_blocked"|"fa
 const MYT_HOURS=8;
 const yyyyMmDd=(now:Date)=>new Date(now.getTime()+MYT_HOURS*3600000).toISOString().slice(0,10);
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Record a source-gate refusal, without creating a PDF or overwriting a
+ * completed edition. The unique (report_day,slot) claim is the write fence.
+ * Owner-only RLS makes this durable diagnostic invisible to public readers. */
+async function noteWithheldEdition(
+ db:ReturnType<typeof createSupabaseAdminClient>,reportDay:string,
+ slot:AutomaticReportSlot,now:Date,sourceCount:number,coverageNote:string,code:string,
+){
+ const {error}=await db.from("blue_desk_automated_reports").insert({
+  report_day:reportDay,slot,status:"blocked",created_at:now.toISOString(),
+  source_count:Math.min(25,Math.max(0,sourceCount)),coverage_note:coverageNote,
+  error_code:code,
+ });
+ // Never mutate a previous building/failed/ready edition when a new source
+ // check is insufficient. A later healthy attempt can reclaim after 12 min.
+ if(error&&error.code!=="23505")
+  console.warn(JSON.stringify({event:"private_pdf_attempt_receipt_failed",slot,
+   reason:"write_unavailable"}));
+}
+
 /** Pure cron window selector. The 2nd existing Dossier invocation runs this:
  * 02:40 UTC / 10:40 MYT, 15:20 UTC / 23:20 MYT. NO new cron entries. */
 export {isAutomaticReportFinalisationWindow} from "@/lib/blue-desk-automated-report-contract";
@@ -67,6 +86,9 @@ export async function runAutomatedDailyPdfReport(
   // The existing public edition is retained. Notion/X speculation is not a fallback.
   console.warn(JSON.stringify({event:"automated_daily_pdf_withheld",slot,reason:"insufficient_source_qualified_facts",
    qualified:evidence.sources.filter(s=>s.type!=="CALENDAR").length}));
+  await noteWithheldEdition(db,reportDay,slot,now,
+   evidence.sources.filter(s=>s.type!=="CALENDAR").length,evidence.coverageNote,
+   "insufficient_source_qualified_facts");
   return {status:"coverage_blocked",reason:"insufficient_source_qualified_facts"};
  }
  // Bound the ledger while retaining forward catalysts when observations are plentiful.
@@ -76,7 +98,12 @@ export async function runAutomatedDailyPdfReport(
   ...evidence.sources.filter(s=>s.type==="OBSERVATION").slice(0,8),
   ...evidence.sources.filter(s=>s.type==="CALENDAR").slice(0,6),
  ].slice(0,20);
- if(!reportEvidenceReady(evidence))return {status:"coverage_blocked",reason:"bounded_source_coverage_incomplete"};
+ if(!reportEvidenceReady(evidence)){
+  await noteWithheldEdition(db,reportDay,slot,now,
+   evidence.sources.filter(s=>s.type!=="CALENDAR").length,evidence.coverageNote,
+   "bounded_source_coverage_incomplete");
+  return {status:"coverage_blocked",reason:"bounded_source_coverage_incomplete"};
+ }
  const {data:prior,error:priorError}=await db.from("blue_desk_automated_reports")
   .select("id,status,created_at").eq("report_day",reportDay).eq("slot",slot).maybeSingle();
  if(priorError)throw new Error("Automated report table unavailable (migration required)");
