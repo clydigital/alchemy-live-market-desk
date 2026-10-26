@@ -13,7 +13,7 @@ import {getForwardEarningsEvents} from "@/lib/forward-earnings-sources";
 import {buildPresenterCalendar} from "@/lib/presenter-calendar";
 import {selectBlueDeskUpcoming} from "@/lib/blue-desk-calendar";
 import {assembleAutomaticReportEvidence,buildAutomaticReportModelPrompt,
- parseAutomatedReportNarrative,reportEvidenceReady,isAutomaticReportFinalisationWindow,type AutomaticReportSlot}
+ parseAutomatedReportNarrative,reportEvidenceReady,isAutomaticReportFinalisationWindow,isAutomaticReportFallbackWindow,type AutomaticReportSlot}
  from "@/lib/blue-desk-automated-report-contract";
 import {renderAutomatedReportPdf} from "@/lib/blue-desk-automated-report-pdf";
 
@@ -30,7 +30,8 @@ export async function runAutomatedDailyPdfReport(
  const db=createSupabaseAdminClient();
  const reportDay=yyyyMmDd(now);
  // Only exact scheduled slot writes are allowed, even if a cron path is manually hit.
- if(!isAutomaticReportFinalisationWindow(now,slot))return {status:"locked",reason:"outside_finalisation_window"};
+ if(!isAutomaticReportFinalisationWindow(now,slot)&&!isAutomaticReportFallbackWindow(now,slot))
+  return {status:"locked",reason:"outside_finalisation_window"};
  const [rawNews,press,observations,economic,earnings,market]=await Promise.all([
   getCurrentVerifiedMarketMotion({limit:24}).catch(()=>[]),
   getOriginalPressNews(now,12).catch(()=>[]),
