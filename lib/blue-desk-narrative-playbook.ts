@@ -4,6 +4,12 @@
  * evidence engine, research task, source verifier, or canonical Story writer.
  */
 export type DeskNarrativeKind = "DAILY_REPORT" | "OB" | "COTD";
+/** Single versioned source for Bluebelly Daily narrative behaviour.
+ * The canonical Markdown is imported verbatim under docs/editorial/ by ED-01.
+ * This is a prompt reference, not evidence admission or a new writer. */
+export const BLUEBELLY_DAILY_EDITORIAL_STANDARD = Object.freeze({
+ path:"docs/editorial/BLUEBELLY_STORY_DRIVEN_DAILY_REPORTS.md",version:"1.0",
+} as const);
 export const DAILY_BRIEFING_STEPS = Object.freeze([
   {name:"The setup", purpose:"One short big-picture interpretation, then the actual dated catalyst."},
   {name:"The reveal", purpose:"Show only one or two meaningful like-for-like numerical contrasts, with dates and units."},
@@ -38,6 +44,11 @@ export function privateNarrativeInstructions(kind: DeskNarrativeKind): string {
     "No public publication, database write, automatic approval or claim that a model draft is fact-checked.",
   ];
   const format = kind === "DAILY_REPORT" ? [
+    "DAILY REPORT: follow Bluebelly's canonical docs/editorial/BLUEBELLY_STORY_DRIVEN_DAILY_REPORTS.md v1.0 editorial standard; retain the market as the protagonist.",
+    "DAILY REPORT: open with one evidence-backed central tension. Use only verified chronological scenes; distinguish event, publication and market-observation times. If the sequence cannot be proved, use a thematic order and say so.",
+    "DAILY REPORT: quiet days need only two or three actual evidence-backed scenes. Never invent a catalyst, market reaction, scene or causal bridge merely to fill a template.",
+    "DAILY REPORT: explain finance jargon at the point of use with at most three natural learning moments; include the counterforce and one observable market tell.",
+    "DAILY REPORT: explicitly distinguish confirmed source facts, conditional interpretation and unknown or disputed market reactions. End with a time-dated confirms/challenges/next-test view.",
     "DAILY REPORT: one opening snapshot and ONE dominant chronological story, then at most three genuinely material supporting developments.",
     "Use the dominant story to connect the figures and mechanisms; bring in rates, oil, equity indices, currencies and named companies only when causally relevant and sourced.",
     "Make the read-aloud briefing educational rather than a collection of headlines or a long checklist. Finish with conditional paths and the next dated decision.",
