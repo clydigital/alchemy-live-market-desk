@@ -66,9 +66,9 @@ test("scoped source projection excludes undisclosed watchlist assets",()=>{
   const cards=projectEditorialPriceCards([row(),row({id:"hidden-private-asset"})],"2026-10-23T04:00:00Z");
   assert.deepEqual(cards.map(x=>x.id),["brent"]);
 });
-test("owner Editorial and Presenter never enter the public Bluebelly route allowlist",()=>{
+test("owner Editorial and Presenter are exact session-protected Bluebelly routes, not public readers",()=>{
   for(const path of ["/owner/editorial","/owner/presenter"]){
-    assert.equal(blueDeskHostAccess(path,"bluebelly-desk.vercel.app"),"blocked");
+    assert.equal(blueDeskHostAccess(path,"bluebelly-desk.vercel.app"),"private");
     assert.equal(blueDeskHostAccess(path,"alchemy-live-market-desk.vercel.app"),"private");
   }
   const header=readFileSync(new URL("../components/blue-desk/BlueDeskHeader.tsx",import.meta.url),"utf8");
@@ -78,5 +78,5 @@ test("owner Editorial and Presenter never enter the public Bluebelly route allow
   assert.doesNotMatch(header.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0]||"",/\/hybrid-output\/prepare/);
   const presenter=readFileSync(new URL("../app/owner/presenter/page.tsx",import.meta.url),"utf8");
   assert.match(presenter,/PresenterTechnicalChecks/);
-  assert.match(presenter,/owner\/daily-report/);
+  assert.match(presenter,/my-reports/);
 });
