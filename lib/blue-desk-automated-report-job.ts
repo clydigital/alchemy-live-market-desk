@@ -29,7 +29,7 @@ async function noteWithheldEdition(
  slot:AutomaticReportSlot,now:Date,sourceCount:number,coverageNote:string,code:string,
 ){
  const {error}=await db.from("blue_desk_automated_reports").insert({
-  report_day:reportDay,slot,status:"blocked",created_at:now.toISOString(),
+  report_day:reportDay,slot,report_kind:"DAILY_MACRO",status:"blocked",created_at:now.toISOString(),
   source_count:Math.min(25,Math.max(0,sourceCount)),coverage_note:coverageNote,
   error_code:code,
  });
@@ -105,7 +105,7 @@ export async function runAutomatedDailyPdfReport(
   return {status:"coverage_blocked",reason:"bounded_source_coverage_incomplete"};
  }
  const {data:prior,error:priorError}=await db.from("blue_desk_automated_reports")
-  .select("id,status,created_at").eq("report_day",reportDay).eq("slot",slot).maybeSingle();
+  .select("id,status,created_at").eq("report_day",reportDay).eq("slot",slot).eq("report_kind","DAILY_MACRO").maybeSingle();
  if(priorError)throw new Error("Automated report table unavailable (migration required)");
  if(prior?.status==="ready")return {status:"already_ready",id:prior.id};
  let id:string|null=null;
@@ -120,7 +120,7 @@ export async function runAutomatedDailyPdfReport(
   id=claimed.id;
  }else{
   const {data:claimed,error}=await db.from("blue_desk_automated_reports")
-   .insert({report_day:reportDay,slot,status:"building",
+   .insert({report_day:reportDay,slot,report_kind:"DAILY_MACRO",status:"building",
     created_at:now.toISOString(),coverage_note:evidence.coverageNote})
    .select("id").single();
   if(error?.code==="23505")return {status:"locked",reason:"parallel_generation_claim"};
