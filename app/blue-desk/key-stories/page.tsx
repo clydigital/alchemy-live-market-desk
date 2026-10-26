@@ -16,6 +16,7 @@ import { buildPresenterCalendar } from "@/lib/presenter-calendar";
 import { selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getForwardEarningsEvents } from "@/lib/forward-earnings-sources";
+import {calendarHumanStake} from "@/lib/blue-desk-calendar-human-stakes";
 import desk from "../blue-desk.module.css";
 import ui from "./key-stories.module.css";
 
@@ -92,6 +93,7 @@ export default async function KeyStories(){
             <p className={ui.kicker}>{event.kind.toUpperCase()} · {event.status}</p>
             <h3>{event.title}</h3>
             <p className={ui.catalystClock}>Scheduled <DualTimestamp value={event.scheduledAt} sourceDate={event.localDate}/></p>
+            <p><strong>Why this matters to people:</strong> {calendarHumanStake(event.title)}</p>
             <p><strong>What investors need answered:</strong> {event.decidingQuestion}</p>
             <p>Consensus {event.consensus||"not established"} · Previous {event.revisedPrevious||event.previous||"unavailable"}</p>
             <a href={event.sourceUrl} rel="noopener noreferrer" target="_blank">{event.sourceName} · release source</a>
