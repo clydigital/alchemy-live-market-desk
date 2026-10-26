@@ -40,7 +40,9 @@ test("Investor Test preserves the source fields and never fabricates finance or 
  assert.match(ui,/story\.pricedAssessment \?/);
  assert.match(ui,/No source-grounded pricing assessment is recorded/);
  assert.match(ui,/This is stored research support/);
- assert.match(ui,/not a new price observation/);
+ assert.match(ui,/What does the recorded research actually establish/);
+ assert.match(ui,/not an independently verified valuation/);
+ assert.doesNotMatch(ui,/What is the market paying for/);
  assert.doesNotMatch(ui,/BUY NOW|SELL NOW|UPSID[Ee] \d+%/);
 });
 
