@@ -25,6 +25,7 @@ create index if not exists blue_desk_automated_reports_ready_idx
   on public.blue_desk_automated_reports (ready_at desc)
   where status='ready';
 alter table public.blue_desk_automated_reports enable row level security;
+drop policy if exists blue_desk_automated_reports_public_read on public.blue_desk_automated_reports;
 drop policy if exists blue_desk_automated_reports_no_browser_read on public.blue_desk_automated_reports;
 -- RLS fail-closed: no anon or authenticated SELECT policies for private editions.
 -- A validated owner-only server reader may use the existing service-role client.
