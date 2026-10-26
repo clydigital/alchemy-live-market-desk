@@ -26,3 +26,15 @@
 .feedback{font-size:12px;font-weight:600;padding:8px;border:1px solid rgba(125,140,165,.4);border-radius:8px}
 .disclaimer{margin-top:12px}
 @media(max-width:780px){.nodes{grid-template-columns:1fr}.editor{grid-template-columns:1fr}}
+
+/* Source-linked macro context is read-only and distinct from saved user notes. */
+.dossierBanner{display:grid;gap:6px;border:1px solid rgba(101,155,201,.5);border-left:3px solid #5b9fce;background:rgba(24,69,100,.15);padding:12px 14px;border-radius:9px;font-size:12px;margin:12px 0}
+.dossierBanner strong{font-size:11px;letter-spacing:.07em}
+.dossierBanner small{font-size:11px;line-height:1.5;opacity:.85}
+.dossierContext{border-top:1px solid rgba(110,146,183,.3);margin:12px 0 2px;padding:12px 0 0;display:grid;gap:7px;font-size:12px}
+.dossierContext strong{font-size:12px}
+.dossierContext span{font-size:11px;opacity:.75}
+.dossierContext p{font-size:12px;line-height:1.5;margin:0;overflow-wrap:anywhere}
+.dossierContext details{font-size:11px;min-width:0}
+.dossierContext summary{cursor:pointer}
+.dossierContext code{font-size:10px;overflow-wrap:anywhere}
