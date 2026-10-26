@@ -5,6 +5,7 @@ export const TRANSCRIPT_WORKER_CREATORS = new Set([
   "Wall Street Truthbombs",
   "FX Evolution",
   "TraderNick",
+  "Casual Finance",
 ]);
 
 export type TranscriptJobStatus = "pending" | "running" | "retryable" | "blocked" | "completed" | "failed";
