@@ -728,7 +728,7 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
                 </aside>
               </div>
               <footer>{activeStory.assets.map((asset) => <span key={asset}>{asset}</span>)}</footer>
-              <div className="related-coverage"><div><small>PREVIOUS COVERAGE</small><b>Has this story moved enough to revisit?</b></div>{articleMemory.filter((article) => article.story?.id === activeStory.id).slice(0, 3).map((article) => <button className={`change-${article.changeKey}`} key={article.id} onClick={() => { setSelectedArticleId(article.id); setActiveTab("Articles"); }}><span>{article.title}</span><strong>{article.changeScore}</strong></button>)}{!articleMemory.some((article) => article.story?.id === activeStory.id) && <p>No recent Alchemy piece has a strong match with this story.</p>}</div>
+              <div className="related-coverage"><div><small>PREVIOUS COVERAGE</small><b>Has this story moved enough to revisit?</b></div>{articleMemory.filter((article) => article.story?.id === activeStory.id).slice(0, 3).map((article) => <button className={`change-${article.changeKey}`} key={article.id} onClick={() => { setSelectedArticleId(article.id); setActiveTab("Articles"); }}><span>{article.title}</span><strong>{article.changeScore}</strong></button>)}{!articleMemory.some((article) => article.story?.id === activeStory.id) && <p>No recent published article has a strong match with this story.</p>}</div>
             </article>
           </div>
         )}
