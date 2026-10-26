@@ -15,5 +15,5 @@ test("Bluebelly private PDF handoff panel only reads actual persisted research",
  assert.ok(panel.includes("data-private-report-handoff-health"));
  assert.ok(page.includes("<OwnerPrivatePdfInputHealth/>"));
  assert.ok(!read("app/blue-desk/daily-report/page.tsx").includes("OwnerPrivatePdfInputHealth"));
- assert.ok(!read("components/blue-desk/BlueDeskHeader.tsx").includes('"My Reports",'));
+ assert.ok(read("components/blue-desk/BlueDeskHeader.tsx").includes('"My Reports", "/my-reports"'));
 });
