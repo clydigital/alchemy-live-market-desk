@@ -46,6 +46,7 @@ export function assembleAutomaticReportEvidence(input:{
  now:Date;slot:AutomaticReportSlot;news:readonly NewsBriefV1[];
  observations:readonly PublicSourceObservation[];
  calendar:readonly {title:string;when:string|null;sourceName:string;sourceUrl:string|null;question:string}[];
+ market?:readonly {label:string;level:number|null;previousClose:number|null;asOf:string|null;sourceName:string;sourceUrl:string;frequency:string}[];
 }):AutomaticReportEvidence{
  const t=input.now.getTime();const sources:ReportSource[]=[];
  const seen=new Set<string>();
@@ -65,6 +66,20 @@ export function assembleAutomaticReportEvidence(input:{
   add({id:"O"+(sources.length+1),type:"OBSERVATION",title:row.description.slice(0,170),
    detail:row.description,sourceName:row.sourceName,url:row.sourceUrl,eventAt:row.eventAt});
  }
+ // Dated daily provider prices are observable facts, not causal evidence.
+ // Accept only explicit source URLs and recent daily as-of timestamps; monthly
+ // levels cannot be repackaged as today's price reaction.
+ for(const row of (input.market||[]).slice(0,10)){
+  const at=Date.parse(row.asOf||"");
+  if(row.frequency!=="daily"||row.level===null||!Number.isFinite(row.level)||
+   !Number.isFinite(at)||at>t||t-at>MAX_AGE)continue;
+  const prior=typeof row.previousClose==="number"&&Number.isFinite(row.previousClose)
+   ?` Previous close: ${row.previousClose} (comparison only, not event attribution).`:"";
+  add({id:"M"+(sources.length+1),type:"OBSERVATION",
+   title:row.label+" - dated market level "+row.level,
+   detail:`Provider-reported latest level: ${row.level} at ${row.asOf}.${prior} No event cause is established.`,
+   sourceName:row.sourceName,url:row.sourceUrl,eventAt:row.asOf!});
+ }
  // Calendar does not count towards the minimum independent factual event coverage.
  for(const row of input.calendar.slice(0,12)){
   if(!row.sourceUrl||!row.when||!qualified(row.sourceUrl))continue;
@@ -77,15 +92,21 @@ export function assembleAutomaticReportEvidence(input:{
    detail:row.question,sourceName:row.sourceName,url:row.sourceUrl,eventAt:row.when});
  }
  const actual=sources.filter(s=>s.type!=="CALENDAR").length;
+ const qualifiedNews=sources.some(s=>s.type==="NEWS");
  const coverageNote=actual<2
-  ?"Insufficient independent recent published facts for a comprehensive automatic report. Edition withheld."
-  :"Automated briefing: factual receipts were source-qualified upstream. Market causality, interpretation and scenario judgements are AI-assisted, not human reviewed. Each claim must be checked against its cited original.";
+  ?"Insufficient independent dated factual sources for a comprehensive automatic report. Edition withheld."
+  :qualifiedNews
+   ?"Automated briefing: original news and market observations are source-attributed. Market causality, interpretation and scenarios are AI-assisted, not human reviewed."
+   :"DATA-LED EDITION / NEWS COVERAGE GAP: No fresh source-verified news qualified. Dated provider market measurements and source-listed future decisions are presented as conditional interpretation, not a verified explanation of price moves. AI-assisted, not human reviewed.";
  return {asOf:input.now.toISOString(),slot:input.slot,sources,coverageNote};
 }
 export function reportEvidenceReady(evidence:AutomaticReportEvidence):boolean{
  const factual=evidence.sources.filter(s=>s.type!=="CALENDAR");
+ const news=factual.some(x=>x.type==="NEWS");
+ const dataLed=factual.filter(x=>x.type==="OBSERVATION").length>=4
+   &&evidence.sources.some(x=>x.type==="CALENDAR");
  return factual.length>=2&&new Set(factual.map(x=>x.url)).size>=2
-  &&factual.some(x=>x.type==="NEWS");
+  &&(news||dataLed);
 }
 function extractNumbers(s:string):Set<string>{
  return new Set((s.match(/\b\d+(?:[.,]\d+)*%?\b/g)||[])
@@ -138,6 +159,7 @@ export function buildAutomaticReportModelPrompt(e:AutomaticReportEvidence){
  return JSON.stringify({
   instruction:"Return STRICT JSON only. You are Bluebelly's automated client market report writer. Produce a substantial chronological Shark Tank-like briefing (not TV dialogue). Explain catalysts, meaningful source-supported numerical comparisons, real human financial consequences, causal mechanics, strongest alternative, source-dated next test. British English, short readable paragraphs. Cite by sourceIds from the packet ONLY. No new prices, numerical claims, quotes, headlines, dates or URLs. No unsupported claim that a market move was caused by a catalyst. If reaction unknown say unknown. Calendar entries are upcoming questions, never reported outcomes. Write clear scenarios, not directional promises. Prefer depth on 2-4 genuine linked stories. Label gaps. For source limitations state the model interpretation is automated and not independently human reviewed. Minimum lengths are substantive, avoid padding. Return fields title,deck,executiveSummary,bigPicture,stories[{headline,setup,reveal,humanStake,mechanism,countercase,nextTest,sourceIds}],crossMarket[string],watchlist[{event,when,question,positiveCase,negativeCase,sourceIds}],concludingAssessment,limitations. Follow sources; do not infer current prices.",
   asOf:e.asOf,edition:e.slot,
+  newsCoverage:e.sources.some(s=>s.type==="NEWS")?"SOURCE_QUALIFIED":"GAP_NO_RECENT_VERIFIED_NEWS",
   sources:e.sources,
  });
 }
