@@ -69,7 +69,7 @@ export default async function KeyStories(){
             <p className={ui.kicker}>{thesis.latestMotionAt ?
               <>LATEST LINKED MOTION · {thesis.latestMotionVerification==="VERIFIED"?"SOURCE-VERIFIED EVENT":"UNVERIFIED RESEARCH LEAD"}
                 {" · "}Event <DualTimestamp value={thesis.latestMotionAt}/></>:
-              <>NO RECENT LINKED MOTION · Last researched <DualTimestamp value={thesis.updatedAt}/></>}</p>
+              <>NO LINKED MOTION AVAILABLE · Last researched <DualTimestamp value={thesis.updatedAt}/></>}</p>
             <h3>{thesis.title}</h3>
             <p className={ui.storyIntro}><strong>Here's the issue.</strong> {thesis.thesis}</p>
             <p className={ui.storyExplanation}><strong>Why it could move markets.</strong> {storyMarketTransmission(thesis)}</p>
