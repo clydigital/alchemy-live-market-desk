@@ -6,34 +6,25 @@ import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-
 
 import styles from "@/app/blue-desk/blue-desk.module.css";
 
+// Keep the owner header task-focused. Specialist legacy routes remain reachable
+// from their workspaces, not as fifteen competing top-level destinations.
 const PRIVATE_NAV = [
   ["Live Market", "/blue-desk"],
-  ["Daily Report", "/blue-desk/daily-report"],
+  ["Key Stories", "/blue-desk/key-stories"],
   ["Markets", "/markets"],
-  ["Editorial Studio", "/owner/editorial"],
-  ["Daily Report Studio", "/owner/daily-report"],
-  ["Presenter Studio", "/owner/presenter"],
-  ["Deep Dive", "/articles"],
-  ["Research", "/whats-new"],
-  ["Data Library", "/data/macro"],
+  ["My Daily Report", "/owner/daily-report"],
+  ["Writing Desk", "/owner/editorial"],
   ["Presenter Prep", "/hybrid-output/prepare"],
-  ["X Wire", "/owner/x-wire"],
-  ["Private Daily Articles", "/owner/daily-articles"],
-  ["Publish Reports", "/owner/publications"],
   ["Calendar", "/blue-desk/calendar"],
-  ["Learn", "/concepts"],
 ] as const;
 
 // Public Bluebelly is deliberately limited to the route allowlist; never
 // advertise owner-only legacy links that its middleware correctly returns 404.
 const PUBLIC_NAV = [
   ["Live Market", "/"],
-  ["Daily Report", "/daily-report"],
-  ["Markets", "/markets"],
   ["Key Stories", "/key-stories"],
-  ["Rates", "/#rates-title"],
-  ["What Changed", "/#motion-title"],
-  ["Calendar + Earnings", "/calendar"],
+  ["Markets", "/markets"],
+  ["Calendar", "/calendar"],
 ] as const;
 
 const NAV_ICONS: Record<string, MarketIconName> = {
@@ -55,6 +46,8 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "COTD / OB": "library",
   "Daily Report": "deep-dive",
   "Daily Report Studio": "deep-dive",
+  "My Daily Report": "library",
+  "Writing Desk": "deep-dive",
   "Calendar + Earnings": "calendar",
   "Publish Reports": "library",
   "Private Daily Articles": "deep-dive",
