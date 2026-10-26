@@ -8,9 +8,9 @@ export type StoryFallbackImage = {
   label: string;
 };
 
-const MARKET_PET_01: StoryFallbackImage = { key: "market-pet-01", dataUri: STORY_FALLBACK_IMAGE_1, label: "Alchemy Markets fallback artwork" };
-const MARKET_PET_03: StoryFallbackImage = { key: "market-pet-03", dataUri: STORY_FALLBACK_IMAGE_3, label: "Alchemy Markets fallback artwork" };
-const MARKET_PET_04: StoryFallbackImage = { key: "market-pet-04", dataUri: STORY_FALLBACK_IMAGE_4, label: "Alchemy Markets fallback artwork" };
+const MARKET_PET_01: StoryFallbackImage = { key: "market-pet-01", dataUri: STORY_FALLBACK_IMAGE_1, label: "Bluebelly fallback artwork" };
+const MARKET_PET_03: StoryFallbackImage = { key: "market-pet-03", dataUri: STORY_FALLBACK_IMAGE_3, label: "Bluebelly fallback artwork" };
+const MARKET_PET_04: StoryFallbackImage = { key: "market-pet-04", dataUri: STORY_FALLBACK_IMAGE_4, label: "Bluebelly fallback artwork" };
 const FALLBACK_CACHE_VERSION = "20260808-reroll";
 
 // market-pet-02 has been retired. Keep its old hash slot empty so Stories that
