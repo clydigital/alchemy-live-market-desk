@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {readFileSync} from "node:fs";
-import {projectPublicTheses,storyMarketTransmission} from "../lib/blue-desk-thesis-ledger.ts";
+import {projectPublicTheses,storyMarketTransmission,orderStoriesByLatestMotion} from "../lib/blue-desk-thesis-ledger.ts";
 import {parseDailyArticlePlan,DESK_CHARTS} from "../lib/blue-desk-daily-article-plan.ts";
 import {blueDeskHostAccess,blueDeskPresentationTarget} from "../lib/blue-desk-host.ts";
 
@@ -69,7 +69,8 @@ test("private daily slate is behind login; no public COTD/OB or report download 
  const studio=readFileSync(new URL("../components/blue-desk/DailyArticleStudio.tsx",import.meta.url),"utf8");
  const publicNav=header.match(/const PUBLIC_NAV = \[([\s\S]*?)\] as const;/)?.[1]||"";
  assert.doesNotMatch(publicNav,/COTD|\/reports/);
- assert.match(header,/Private Daily Articles/);
+ assert.match(header,/My Daily Report/);
+ assert.match(header,/Writing Desk/);
  assert.ok(header.includes('activePath === "/owner/daily-articles"'));
  assert.ok(header.includes('activePath === "/owner/x-wire"'));
  assert.match(owner,/data-private-daily-articles-page="owner-authenticated"/);
@@ -86,4 +87,28 @@ test("private daily slate is behind login; no public COTD/OB or report download 
   assert.notEqual(blueDeskHostAccess("/reports",host),"public");
   assert.equal(blueDeskPresentationTarget("/reports",host),null);
  }
+});
+
+test("Key Stories uses latest exact Motion event chronology ahead of Story rank",()=>{
+ const date=new Date("2026-10-26T08:00:00.000Z");
+ const ids=["00000000-0000-4000-8000-000000000001","00000000-0000-4000-8000-000000000002","00000000-0000-4000-8000-000000000003"];
+ const rows=ids.map((id,i)=>({...base,id,slug:"story-"+i,rank:i+1,
+  updated_at:["2026-10-25T10:00:00Z","2026-10-24T10:00:00Z","2026-10-26T05:00:00Z"][i]}));
+ const projected=projectPublicTheses(rows,date,3);
+ assert.deepEqual(projected.map(s=>s.id),[ids[2],ids[0],ids[1]]);
+ const sorted=orderStoriesByLatestMotion(projected,[
+  {primary_story_id:ids[0],occurred_at:"2026-10-25T23:00:00Z",verification_state:"LEAD"},
+  {primary_story_id:ids[1],occurred_at:"2026-10-26T06:00:00Z",verification_state:"PARTIAL"},
+  {primary_story_id:ids[1],occurred_at:"2026-10-20T06:00:00Z",verification_state:"VERIFIED"},
+  {primary_story_id:ids[0],occurred_at:"2026-10-27T06:00:00Z",verification_state:"LEAD"},
+  {primary_story_id:"00000000-0000-4000-8000-000000000099",occurred_at:"2026-10-26T07:00:00Z",verification_state:"LEAD"},
+ ],date);
+ assert.deepEqual(sorted.map(s=>s.id),[ids[1],ids[0],ids[2]]);
+ assert.equal(sorted[0].latestMotionVerification,"PARTIAL");
+ assert.equal(sorted[1].latestMotionVerification,"LEAD");
+ assert.equal(sorted[2].latestMotionAt,null);
+ const keyPage=readFileSync(new URL("../app/blue-desk/key-stories/page.tsx",import.meta.url),"utf8");
+ assert.match(keyPage,/orderStoriesByLatestMotion/);
+ assert.match(keyPage,/getStoryMotionRecency/);
+ assert.match(keyPage,/UNVERIFIED RESEARCH LEAD/);
 });
