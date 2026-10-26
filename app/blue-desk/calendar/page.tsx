@@ -8,7 +8,7 @@ import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getForwardEarningsEvents, type ForwardEarningsResult } from "@/lib/forward-earnings-sources";
 import { buildPresenterCalendar, type PresenterCalendarEvent } from "@/lib/presenter-calendar";
-import { selectBlueDeskNext24Hours, selectBlueDeskReleasedWeek, selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
+import { selectBlueDeskEarningsWeek, selectBlueDeskNext24Hours, selectBlueDeskReleasedWeek, selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
 import { formatDualDeskTime } from "@/lib/blue-desk-time";
 import styles from "../blue-desk.module.css";
 
@@ -150,6 +150,13 @@ export default async function BlueDeskCalendarPage({
   // together without presenting vendor estimates as confirmed announcements.
   const earningsHub = selectBlueDeskUpcoming(calendar, now, 30)
     .filter(event => event.kind === "earnings").slice(0, 24);
+  const earningsWeek = selectBlueDeskEarningsWeek(calendar, now);
+  const thisWeekIds = new Set(earningsWeek.map(event => event.id));
+  const earningsLater = earningsHub.filter(event => !thisWeekIds.has(event.id));
+  const earningsGroups = [
+    { id: "this-week", title: "This US earnings week", records: earningsWeek },
+    { id: "later", title: "Later in the next 30 days", records: earningsLater },
+  ].filter(group => group.records.length > 0);
   const economicWindow = events.filter(event => event.kind === "economic");
 
   const nowDisplay = formatDualDeskTime(now);
@@ -211,39 +218,49 @@ export default async function BlueDeskCalendarPage({
 
         <section id="earnings-hub" className={styles.secondaryPanel}
           aria-labelledby="earnings-hub-title" data-calendar-earnings-hub="source-dated">
-          <p className={styles.kicker}>EARNINGS HUB / NEXT 30 DAYS</p>
+          <p className={styles.kicker}>EARNINGS HUB / THIS WEEK + THE NEXT 30 DAYS</p>
           <h2 id="earnings-hub-title">What companies are reporting next?</h2>
-          <p className={styles.muted}>An earnings date is not an earnings result. Issuer-announced
-            events are labelled official; third-party dates remain reported and must be checked
-            against the company investor-relations calendar. All times below follow the
-            original source precision, with Eastern Time and Malaysia time only when known.</p>
+          <p className={styles.muted}>Major tracked companies, grouped by the current US trading week.
+            Company-announced dates are confirmed; vendor estimates are not. A conference-call
+            time is not the results-release time. Times are shown in ET and Malaysia time only
+            when an original source establishes an exact instant. This is not an exhaustive
+            earnings calendar.</p>
           <div className={styles.calendarSummary}>
-            <span>{earningsHub.length} upcoming company record{earningsHub.length === 1 ? "" : "s"}</span>
+            <span>{earningsWeek.length} this week · {earningsLater.length} later</span>
             <span>Earnings coverage: {calendar.sourceHealth.earnings.replaceAll("_", " ")}</span>
           </div>
-          {earningsHub.length ? earningsHub.map(event =>
-            <article key={event.id} className={styles.eventRow} data-earnings-event={event.id}>
-              <div className={styles.eventHeading}>
-                <span className={styles.kicker}>{event.verificationState === "official"
-                  ? "ISSUER-ANNOUNCED" : "PROVIDER-REPORTED · DATE TO VERIFY"}</span>
-                <h3>{event.title}</h3>
-              </div>
-              <DualTimestamp value={event.scheduledAt} sourceDate={event.localDate}
-                className={styles.eventTime} />
-              {event.affectedAssets.length ? <p className={styles.muted}>
-                Company / ticker: {event.affectedAssets.join(" · ")}</p> : null}
-              {event.consensus ? <p><strong>Reported expectations:</strong>
-                {" "}{event.consensus}</p> : null}
-              <p><strong>Guiding question:</strong> {event.decidingQuestion ||
-                "Do results and forward guidance change the established sector thesis?"}</p>
-              <p className={styles.muted}>Check management's guidance, reported period,
-                operating costs, funding and capital spending before drawing sector or index conclusions.</p>
-              {sourceUrl(event.sourceUrl) ? <a className={styles.textLink}
-                href={event.sourceUrl} target="_blank" rel="noreferrer">
-                {event.sourceName} · source calendar ↗</a> : null}
-            </article>) :
-            <p className={styles.coverage}>No upcoming earnings were found in this
-              source-qualified 30-day window. This may reflect incomplete provider coverage.</p>}
+          {earningsGroups.length ? earningsGroups.map(group => (
+            <section key={group.id} aria-label={group.title} data-earnings-window={group.id}>
+              <h3>{group.title}</h3>
+              <p className={styles.muted}>{group.id === "this-week"
+                ? "Monday–Sunday in US Eastern Time. Confirmed company events first; exact source-date-only notices remain without an invented release hour."
+                : "Later source-listed companies. Provider dates, where available, are research leads until confirmed by issuer IR."}</p>
+              {group.records.map(event =>
+              <article key={event.id} className={styles.eventRow} data-earnings-event={event.id}>
+                <div className={styles.eventHeading}>
+                  <span className={styles.kicker}>{event.verificationState === "official"
+                    ? "ISSUER-ANNOUNCED" : "PROVIDER-REPORTED · DATE TO VERIFY"}</span>
+                  <h3>{event.title}</h3>
+                </div>
+                <DualTimestamp value={event.scheduledAt} sourceDate={event.localDate}
+                  className={styles.eventTime} />
+                {event.affectedAssets.length ? <p className={styles.muted}>
+                  Company / ticker: {event.affectedAssets.join(" · ")}</p> : null}
+                {event.consensus ? <p><strong>Reported expectations:</strong>
+                  {" "}{event.consensus}</p> : null}
+                <p><strong>Guiding question:</strong> {event.decidingQuestion ||
+                  "Do results and forward guidance change the established sector thesis?"}</p>
+                <p className={styles.muted}>Check management's guidance, reported period,
+                  operating costs, funding and capital spending before drawing sector or index conclusions.</p>
+                {sourceUrl(event.sourceUrl) ? <a className={styles.textLink}
+                  href={event.sourceUrl} target="_blank" rel="noreferrer">
+                  {event.sourceName} · source calendar ↗</a> : null}
+              </article>
+              )}
+            </section>
+          )) : <p className={styles.coverage}>No upcoming issuer-confirmed or approved-provider
+            earnings are available in the current 30-day window. This is incomplete
+            calendar coverage, not proof that no major companies are reporting.</p>}
         </section>
 
         <footer className={styles.footer}><span>Blue Desk</span></footer>
