@@ -303,7 +303,7 @@ export default function PresenterTechnicalChecks({ compact = false }: { compact?
           <h3>Technical × Fundamentals Check</h3>
           <p>Personal chart readings against current macro drivers. Undated initial readings are examples, not verified market data.</p>
         </div>
-        {compact ? <Link className={styles.action} href="/presenter/technical-checks">Open checklist ↗</Link> : null}
+        {compact ? <Link className={styles.action} href="/owner/presenter#technical-checks">Go to presenter checklist ↗</Link> : null}
       </header>
       <div className={styles.summary}>
         <span>{data.checks.filter((c) => !!c.updatedAt).length} / {data.checks.length} reviewed</span>
