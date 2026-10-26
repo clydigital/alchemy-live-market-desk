@@ -23,8 +23,12 @@ Candidate and account limits are maximum workload budgets, not targets. Two-hour
 
 ## Approved X source registry
 
-The preserved, previously approved core roster is:
-@Bluekurtic, @HFI_Research, @OilandEnergy, @TheStudyofWar, @Currentreport1, @arena, @KobeissiLetter, @FirstSquawk, @zerohedge; plus Alchemy-linked @GordianKnotDev.
+**26 October 2026 override:** @zerohedge / ZeroHedge is explicitly EXCLUDED from the X Wire and X sweep account registry, discovery, queue, backlog, display and health counts. It is not an allowed X Wire account, even if present in historical data, fetched quotes or older instructions.
+
+Current nine-account roster:
+@Bluekurtic, @HFI_Research, @OilandEnergy, @TheStudyofWar, @Currentreport1, @arena, @KobeissiLetter, @FirstSquawk; plus Alchemy-linked @GordianKnotDev.
+
+This exclusion applies to X Wire/social sweep only. It does not remove ZeroHedge from separately governed article or research-feed workflows.
 
 This is a registry of discovery targets, NOT a claim of ownership, reliability, identity validation, verified recent posts, or currently available timelines. Verify identity/handle at acquisition. Any future extra accounts require explicit registration and source-health checks, rather than duplicative hardcoded lists. The original reference is the approved WIRE_X_INTELLIGENCE_PIPELINE_SPEC.md.
 
