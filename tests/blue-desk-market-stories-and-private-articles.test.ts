@@ -59,7 +59,9 @@ test("public Bluebelly tells readable multi-paragraph Stories and full-source co
  assert.match(key,/lead\.headline/);
  assert.match(key,/lead\.occurredAt/);
  assert.match(key,/selectBlueDeskUpcoming/);
- assert.doesNotMatch(key,/<details className=\{ui\.more\}>/);
+ assert.match(key,/<details className=\{ui\.more\}>/);
+ assert.match(key,/Read the reasoning, risks and deciding tests/);
+ assert.match(key,/The full recorded thesis/);
  assert.match(home,/data-live-feature-stakes="verified-catalyst"/);
  assert.match(key,/storyIntro/);
  assert.match(key,/storyExplanation/);
