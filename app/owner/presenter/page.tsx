@@ -25,8 +25,8 @@ export default async function PresenterStudioPage(){
         </div>
         <div className={styles.calendarClock}>
           <span className={styles.kicker}>RESEARCH CONNECTION</span>
-          <strong>Edition-pinned</strong>
-          <small><Link href="/hybrid-output/prepare">Open exact Journey / Dossier prep ↗</Link></small>
+          <strong>Daily briefing</strong>
+          <small><Link href="/owner/daily-report">Open my automatic PDF and research context ↗</Link></small>
         </div>
       </header>
     </div>

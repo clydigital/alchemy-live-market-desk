@@ -271,7 +271,7 @@ export default async function BlueDeskPage() {
               <>
                 <Link href="/dossier">Current Dossier →</Link>
                 <Link href="/regimes">Market Regimes →</Link>
-                <Link href="/hybrid-output/prepare">Presenter Studio →</Link>
+                <Link href="/owner/presenter">Presenter Studio →</Link>
                 <Link href="/presenter/technical-checks">Technical Checks →</Link>
               </>
             )}
