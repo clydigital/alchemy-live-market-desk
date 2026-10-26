@@ -213,7 +213,7 @@ async function fetchText(url: string) {
     headers: { "user-agent": "Alchemy Live Desk article memory" },
     next: { revalidate: 3600 },
   });
-  if (!response.ok) throw new Error(`Alchemy fetch failed: ${response.status}`);
+  if (!response.ok) throw new Error(`Market Insights source request failed: ${response.status}`);
   return response.text();
 }
 
@@ -307,11 +307,11 @@ export async function getFreshAlchemyArticles(
   let feedArticles: AlchemyArticle[] = [];
   try {
     feedArticles = parseAlchemyMarketInsightsFeed(await fetchLiveText(MARKET_INSIGHTS_FEED), limit);
-    if (!feedArticles.length) diagnostics.push("The official Alchemy Market Insights feed returned no dated articles.");
+    if (!feedArticles.length) diagnostics.push("The original Market Insights feed returned no dated articles.");
   } catch (error) {
     diagnostics.push(error instanceof Error
-      ? `Alchemy Market Insights RSS failed: ${error.message}`
-      : "Alchemy Market Insights RSS failed.");
+      ? `Market Insights RSS retrieval failed: ${error.message}`
+      : "Market Insights RSS retrieval failed.");
   }
 
   const feedUrls = new Set(feedArticles.map((article) => article.url));
