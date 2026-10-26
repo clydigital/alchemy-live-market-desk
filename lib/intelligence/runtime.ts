@@ -369,7 +369,7 @@ const MAX_EVIDENCE = 180;
 const LOOKBACK_DAYS = 90;
 
 
-const CORE_RULES = `You are the reasoning layer inside the Alchemy Markets Live Desk. The Live Desk is the canonical research brain.
+const CORE_RULES = `You are the reasoning layer behind Bluebelly. This existing backend remains the canonical research brain.
 Dated ratesContext records are supporting context tied to triggerItemKeys, never a fresh catalyst. Cross-check their periods and currency against current evidence; retrieval time is not observation time. Missing rates inputs never block an otherwise publishable Story.
 Use only the evidence, Stories, hypotheses and scenario records supplied in this request. Never invent a source, fact, market move, consensus view, evidence ID or Story ID.
 This is not a news summarisation task. Synthesize across independent evidence, identify the most useful causal mechanism, and preserve uncertainty. The analytical edge may be confirming, convergent, cross-asset, second-order, structural, catalyst-led or divergent. Discuss an overlooked variable or countercase only when supplied evidence supports it and the current stage calls for it.

@@ -35,7 +35,7 @@ export default async function PositioningPage() {
     <LiveDeskShell
       activePath="/data/positioning"
       title="Positioning"
-      description="Official CFTC positioning with a raw Alchemy view and a clearly disclosed COTSignal-style 52-week scan."
+      description="Official CFTC positioning with a raw positioning view and a clearly disclosed COTSignal-style 52-week scan."
       meta={latestReport ? `Latest report ${dateLabel(latestReport)}` : "CFTC feed updating"}
     >
       <PositioningWorkspace snapshots={snapshots} storyLinks={storyLinks} />

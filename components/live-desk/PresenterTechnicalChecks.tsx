@@ -96,7 +96,7 @@ function readiness(check: Check): string {
 
 function promptFor(check: Check): string {
   return [
-    "Help me review this Alchemy Live Desk presenter technical checklist item. Do not assume the technical observation is verified.",
+    "Help me review this Bluebelly presenter technical checklist item. Do not assume the technical observation is verified.",
     "Indicator: " + check.title,
     "Presenter reading: " + check.technical,
     "Last EMA band breakout: " + check.lastBreak,
