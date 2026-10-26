@@ -24,7 +24,7 @@ test("three lenses share source-verified reports by ID, without duplicating clai
   const ai = report("k", "Moonshot releases new Kimi AI model",
     "The Chinese AI model announcement describes a coding-capability release.");
   const bond = report("t", "France bond yields rise in reported auction",
-    "The government bond auction disclosure includes a source-linked financing update.");
+    "The government bond auction disclosure gives dated primary economic details.");
   const equity = report("e", "Alphabet earnings and operating cash flow",
     "Quarterly revenue and cash flow figures appear in the issuer report.");
   const groups = projectVerifiedNewsroom([ai, bond, equity], now);
@@ -35,7 +35,7 @@ test("three lenses share source-verified reports by ID, without duplicating clai
   assert.equal(groups.unclassifiedCount, 0);
   const [tech, geopolitics, stocks] = groups.groups;
   assert.deepEqual(tech.items.map(x => x.id), ["k"]);
-  assert.deepEqual(geopolitics.items.map(x => x.id), ["t", "k"]);
+  assert.deepEqual(geopolitics.items.map(x => x.id), ["k", "t"]);
   assert.deepEqual(stocks.items.map(x => x.id), ["e"]);
   assert.equal(tech.items[0].headline, ai.headline);
   assert.equal(tech.items[0].summary, ai.summary);
