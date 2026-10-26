@@ -54,8 +54,8 @@ test("private desk blocks all new report publications at the server endpoint",()
  assert.doesNotMatch(src,/storage\.from|\.insert\(|status:"published"/);
  assert.match(owner,/Reports are private/);
  assert.doesNotMatch(owner,/ReportPublisher/);
- const privateNav=header.match(/const PRIVATE_NAV = \\[([\\s\\S]*?)\\] as const;/)?.[1]||"";
- assert.doesNotMatch(privateNav,/Publish Reports|\\/owner\\/publications/);
+ const privateNav=header.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0]||"";
+ assert.ok(!privateNav.includes("Publish Reports")&&!privateNav.includes("/owner/publications"));
 });
 test("publication SQL uses RLS public approved read only, private bucket, no anon writes",()=>{
  const sql=readFileSync(new URL("../supabase/migrations/20261025094500_editorial_publications.sql",import.meta.url),"utf8");
