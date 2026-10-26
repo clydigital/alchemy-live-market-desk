@@ -58,7 +58,7 @@ test("owner integration fails closed and cannot expose routes to unauthenticated
  assert.match(component,/cloudMode === "ready" \? data\.checks : null/);
  assert.match(component,/data-dossier-reconciliation="read-only"/);
  assert.match(component,/All 14 instrument-level verdicts remain UNAVAILABLE/);
- assert.doesNotMatch(component,/\/api\/dossier\/|fetch\("/api/dossier//);
+ assert.doesNotMatch(component,/\/api\/dossier\//);
  assert.doesNotMatch(adapter,/story_thesis_versions|\.insert\(|\.update\(|\.upsert\(/);
  assert.match(middleware,/app_access_allowlist/);
  assert.equal(blueDeskHostAccess("/owner/presenter","bluebelly-desk.vercel.app"),"private");
