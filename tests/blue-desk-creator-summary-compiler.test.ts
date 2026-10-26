@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {prepareCreatorStory,buildCreatorStoryPrompt,parseCreatorStoryDraft,
+import {prepareCreatorStory,buildCreatorStoryPrompt,parseCreatorStoryDraft,renderCreatorStoryMarkdown,
  CREATOR_STORY_EDITORIAL_STANDARD,type CreatorStoryInput} from "../lib/blue-desk-creator-summary-compiler.ts";
 
 const asOf="2026-10-27T01:00:00Z";
@@ -125,4 +125,19 @@ test("all creator assertions remain attribution, never Dossier evidence or exter
  assert.equal("canonicalEvidenceIds" in draft,false);
  assert.equal("isPublished" in draft,false);
  assert.ok(!JSON.stringify(draft).includes("transcriptText"));
+});
+
+test("Markdown companion preserves act citations, exact YouTube timecodes, pending videos and private label",()=>{
+ const prepared=prepareCreatorStory(packet())!;
+ const draft=parseCreatorStoryDraft(model(),prepared)!;
+ const markdown=renderCreatorStoryMarkdown(draft);
+ assert.match(markdown,/## Act 1/);
+ assert.match(markdown,/## Act 2/);
+ assert.match(markdown,/watch\?v=BBBBBBBBBBB&t=48s/);
+ assert.match(markdown,/## Thesis changes/);
+ assert.match(markdown,/## Source videos/);
+ assert.match(markdown,/pending\/partial transcript/);
+ assert.match(markdown,/Owner review draft/);
+ assert.match(markdown,/not canonical Dossier evidence/);
+ assert.ok(!markdown.includes("transcriptText"));
 });
