@@ -45,14 +45,14 @@ export default function InvestorTest({view}:Props){
           <h3>{INVESTOR_TEST_STAGES[1].question}</h3>
           <p className={styles.question}>{view.fundingQuestion}</p>
           <div className={styles.answerBoundary}>
-            <strong>What is the market paying for?</strong>
+            <strong>What does the recorded research actually establish?</strong>
             {story.pricedAssessment ? (
               <p>{story.pricedAssessment}</p>
             ) : (
               <p>No source-grounded pricing assessment is recorded for this thesis.
                 A valuation or return cannot be inferred from its headline.</p>
             )}
-            <small>Recorded assessment only · not a new price observation</small>
+            <small>Recorded thesis assessment · not an independently verified valuation, financing term or live price observation</small>
           </div>
         </article>
         <article className={styles.catch}>
