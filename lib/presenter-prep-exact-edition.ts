@@ -65,6 +65,6 @@ export function resolvePresenterPrepExactSelection(input: {
     current,
     selected,
     selectedSnapshot,
-    status: "historical" as const,
+    status: selected.snapshotId === current?.snapshotId ? "current" as const : "historical" as const,
   };
 }
