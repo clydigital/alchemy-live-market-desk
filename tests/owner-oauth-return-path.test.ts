@@ -4,8 +4,8 @@ import test from "node:test";
 import { safeOwnerReturnPath } from "../lib/supabase/owner-return-path.ts";
 
 test("Google OAuth returns to an internal owner route and preserves valid deep links", () => {
-  assert.equal(safeOwnerReturnPath(null), "/owner/live");
-  assert.equal(safeOwnerReturnPath(""), "/owner/live");
+  assert.equal(safeOwnerReturnPath(null), "/my-reports");
+  assert.equal(safeOwnerReturnPath(""), "/my-reports");
   assert.equal(safeOwnerReturnPath("/"), "/");
   assert.equal(safeOwnerReturnPath("/owner/live"), "/owner/live");
   assert.equal(safeOwnerReturnPath("/dossier?edition=abc#test"), "/dossier?edition=abc#test");
@@ -21,7 +21,7 @@ test("Google OAuth never redirects a completed login to an external host", () =>
     "/auth/google", "/auth/signout", "/login?next=%2Fowner%2Flive",
     "javascript:alert(1)", " owner/live", "/" + "a".repeat(2100),
   ]) {
-    assert.equal(safeOwnerReturnPath(raw), "/owner/live", JSON.stringify(raw));
+    assert.equal(safeOwnerReturnPath(raw), "/my-reports", JSON.stringify(raw));
   }
 });
 
