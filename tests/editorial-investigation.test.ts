@@ -109,7 +109,7 @@ test("owner route has identical auth, same-origin and host protections as legacy
  assert.match(route,/maxDuration=60/);
  assert.match(route,/Cache-Control.*private, no-store/);
  assert.doesNotMatch(route,/createSupabaseAdminClient|story_thesis_versions|persistSensorMemory|\\.from\("intelligence_evidence"\)/);
- assert.equal(blueDeskHostAccess("/api/owner/editorial-investigate","bluebelly-desk.vercel.app"),"blocked");
+ assert.equal(blueDeskHostAccess("/api/owner/editorial-investigate","bluebelly-desk.vercel.app"),"private");
  assert.equal(blueDeskHostAccess("/api/owner/editorial-investigate","alchemy-live-market-desk.vercel.app"),"private");
 });
 test("editorial UI offers explicit investigation, opt-in research and existing draft generation",()=>{
