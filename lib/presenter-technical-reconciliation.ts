@@ -6,6 +6,48 @@
 import { MONITOR_SPECS, type PresenterCheckItem } from "./presenter-technical-checks.ts";
 import type { DossierPresentationSelection } from "./dossier-v2/presentation-reader.ts";
 
+/** Minimal serializable projection; never ship the full immutable Dossier to a client. */
+export type PresenterDossierSelection = Pick<
+  DossierPresentationSelection, "status" | "selectedDossierId" | "selectedAsOf"
+> & {
+  presentation: {
+    dossierId: string;
+    asOf: string;
+    health: { degraded: boolean };
+    regimeStrip: Array<{
+      key: string;
+      observed: boolean;
+      reaction: string | null;
+      interpretation: string;
+      evidenceRefs: string[];
+    }>;
+  } | null;
+};
+
+export function projectPresenterDossierSelection(
+  selection: DossierPresentationSelection | null,
+): PresenterDossierSelection | null {
+  if (!selection) return null;
+  const presentation = selection.presentation;
+  return {
+    status: selection.status,
+    selectedDossierId: selection.selectedDossierId,
+    selectedAsOf: selection.selectedAsOf,
+    presentation: presentation ? {
+      dossierId: presentation.dossierId,
+      asOf: presentation.asOf,
+      health: { degraded: presentation.health.degraded },
+      regimeStrip: presentation.regimeStrip.map(lens => ({
+        key: lens.key,
+        observed: lens.observed,
+        reaction: lens.reaction,
+        interpretation: lens.interpretation,
+        evidenceRefs: [...lens.evidenceRefs],
+      })),
+    } : null,
+  };
+}
+
 export const PRESENTER_RECONCILIATION_CONTRACT = "presenter-reconciliation/1" as const;
 export type ReconciliationVerdict = "AGREEMENT" | "DISAGREEMENT" | "UNAVAILABLE";
 export type ReconciliationRow = {
@@ -61,7 +103,7 @@ function validDate(value: string | null | undefined): number | null {
   const epoch = Date.parse(value);
   return Number.isFinite(epoch) ? epoch : null;
 }
-function asReadModel(selection: DossierPresentationSelection | null, now: number) {
+function asReadModel(selection: PresenterDossierSelection | null, now: number) {
   if (!selection || !selection.presentation
     || !["current", "fallback_previous_healthy", "historical_exact"].includes(selection.status)
     || selection.presentation.health.degraded
@@ -80,7 +122,7 @@ function asReadModel(selection: DossierPresentationSelection | null, now: number
  */
 export function reconcilePresenterObservations(
   checks: readonly PresenterCheckItem[] | null,
-  dossierSelection: DossierPresentationSelection | null,
+  dossierSelection: PresenterDossierSelection | null,
   nowIso: string,
 ): { contractVersion: typeof PRESENTER_RECONCILIATION_CONTRACT; rows: ReconciliationRow[] } {
   const now = validDate(nowIso);

@@ -11,7 +11,7 @@ test("Bluebelly owner Presenter shows both core and additional technical monitor
   assert.equal(new Set(MONITOR_SPECS.map(m=>m.key)).size,14);
   assert.equal(MONITOR_SPECS.filter(m=>m.group==="Core").length,7);
   assert.equal(MONITOR_SPECS.filter(m=>m.group==="Additional").length,7);
-  assert.match(page,/<PresenterTechnicalChecks\s*\/>/);
+  assert.match(page,/<PresenterTechnicalChecks(?:\s+[^>]*)?\s*\/>/);
   assert.doesNotMatch(page,/<PresenterTechnicalChecks\s+compact/);
   assert.match(component,/!compact\s*\?\s*</);
   assert.match(component,/showAdditional\s*\?\s*"Hide"\s*:\s*"Show"/);
