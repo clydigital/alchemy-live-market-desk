@@ -17,7 +17,6 @@ import { getEconomicCalendar } from "@/lib/calendar";
 import { getForwardEarningsEvents } from "@/lib/forward-earnings-sources";
 import { buildPresenterCalendar } from "@/lib/presenter-calendar";
 import { selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
-import {getAutomaticDailyReports} from "@/lib/blue-desk-automated-report-reader";
 import styles from "./daily-report.module.css";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +30,7 @@ export default async function DailyReportPage() {
   const host = (await headers()).get("host");
   // All feeds are existing public read models. There is no Dossier, Story
   // adjudication or model completion in this GET path.
-  const [verified, macro, earnings, originalPress, macroDigests, stories, observations, automaticReports] = await Promise.all([
+  const [verified, macro, earnings, originalPress, macroDigests, stories, observations] = await Promise.all([
     getCurrentVerifiedMarketMotion({ limit: 36 }).catch(() => []),
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({ now }).catch(() => ({
@@ -41,7 +40,6 @@ export default async function DailyReportPage() {
     getPublishedMacroPulseBriefs(10).catch(() => []),
     getPublicThesisLedger(now,24).catch(() => []),
     getPublicSourceObservations(now,16).catch(() => []),
-    getAutomaticDailyReports(8).catch(() => []),
   ]);
   const motionNews = selectVerifiedNewsBriefs(verified, now, 18);
   const news = combineQualifiedNews(motionNews,originalPress,18);
@@ -72,47 +70,6 @@ export default async function DailyReportPage() {
           This is a broad view of available desk inputs, not proof that every market event
           or every MacroPulse post has been independently verified.</p>
       </header>
-
-      <section className={styles.automaticPdf} aria-labelledby="automated-report-title" data-automated-pdf-editions="source-gated">
-        <div className={styles.heading}>
-          <p className={styles.eyebrow}>AUTOMATED PDF / CLIENT BRIEFING</p>
-          <h2 id="automated-report-title">The complete market intelligence edition</h2>
-          <p>An automatically written and typeset market report from the desk's source-qualified inputs.
-             Read the fixed edition here, or download it for offline review.
-             Original publisher facts are distinguished from AI-assisted interpretations.</p>
-        </div>
-        {automaticReports.length ? <>
-          <div className={styles.pdfMeta}>
-            <div><strong>{automaticReports[0].title}</strong>
-              <p>{automaticReports[0].deck}</p>
-              <small>{automaticReports[0].slot.toUpperCase()} EDITION · {automaticReports[0].report_day}
-                {" · "}{automaticReports[0].source_count} source-qualified factual inputs
-                {" · "}Published <DualTimestamp value={automaticReports[0].published_at}/></small>
-            </div>
-            <div className={styles.pdfActions}>
-              <a href={"/daily-report/pdf?edition="+automaticReports[0].id} target="_blank" rel="noreferrer">Open PDF</a>
-              <a href={"/daily-report/pdf?edition="+automaticReports[0].id+"&download=1"}>Download edition</a>
-            </div>
-          </div>
-          <div className={styles.pdfFrameWrap}>
-            <iframe className={styles.pdfFrame}
-              title={"Read Bluebelly's published "+automaticReports[0].slot+" market intelligence PDF"}
-              src={"/daily-report/pdf?edition="+automaticReports[0].id+"#view=FitH"}
-              loading="lazy"/>
-          </div>
-          <p className={styles.pdfCoverage}>{automaticReports[0].coverage_note}</p>
-          <details className={styles.pdfArchive}>
-            <summary>Previous PDF editions ({automaticReports.length})</summary>
-            <ul>{automaticReports.map(edition=><li key={edition.id}>
-              <span>{edition.report_day} · {edition.slot} · {edition.title}</span>
-              <a href={"/daily-report/pdf?edition="+edition.id} target="_blank" rel="noreferrer">Read PDF</a>
-              <a href={"/daily-report/pdf?edition="+edition.id+"&download=1"}>Download</a>
-            </li>)}</ul>
-          </details>
-        </>:<p className={styles.empty}>No completed automated PDF has passed the source and evidence gates.
-          The live market summary below is still available, but incomplete or unverified inputs are
-          not turned into a purportedly comprehensive PDF.</p>}
-      </section>
 
       <section className={styles.section} aria-labelledby="daily-story-map" data-daily-story-coverage="persistent-and-dated">
         <div className={styles.heading}>
