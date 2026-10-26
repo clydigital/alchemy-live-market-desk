@@ -10,7 +10,7 @@ test("all visible public header links target approved host paths and real anchor
   const match = header.match(/const PUBLIC_NAV = \[([\s\S]*?)\] as const;/);
   assert.ok(match, "public navigation must be explicitly enumerated");
   const hrefs = [...match[1].matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m => m[1]);
-  assert.deepEqual(hrefs, ["/", "/daily-report", "/markets", "/key-stories", "/#rates-title", "/#motion-title", "/calendar"]);
+  assert.deepEqual(hrefs, ["/", "/key-stories", "/markets", "/calendar"]);
   for (const href of hrefs) {
     const url = new URL(href, "https://bluebelly-desk.vercel.app");
     assert.equal(blueDeskHostAccess(url.pathname, url.hostname), "public", href);
@@ -28,10 +28,16 @@ test("private legacy navigation remains available only on owner host", () => {
   assert.match(header, /activePath === "\/owner\/editorial"/);
   assert.match(header, /activePath === "\/owner\/presenter"/);
   assert.match(header, /isBlueDeskPublicReaderHost\(host\)/);
-  for (const privatePath of ["/articles", "/hybrid-output/prepare", "/data/macro", "/concepts"]) {
-    assert.ok(header.includes('"' + privatePath + '"'), privatePath + " must be preserved for private host");
-    assert.equal(blueDeskHostAccess(privatePath, "bluebelly-desk.vercel.app"), "blocked");
+  const privateNav=header.match(/const PRIVATE_NAV = \\[([\\s\\S]*?)\\] as const;/)?.[1]||"";
+  const privateLinks=[...privateNav.matchAll(/\\["[^"]+",\\s*"([^"]+)"\\]/g)].map(m=>m[1]);
+  assert.deepEqual(privateLinks, ["/blue-desk", "/blue-desk/key-stories", "/markets",
+    "/owner/daily-report", "/owner/editorial", "/hybrid-output/prepare", "/blue-desk/calendar"]);
+  for(const privatePath of ["/articles","/data/macro","/concepts","/owner/daily-articles","/owner/x-wire"]){
+    assert.equal(blueDeskHostAccess(privatePath,"bluebelly-desk.vercel.app"),"blocked");
+    assert.ok(!privateLinks.includes(privatePath),"legacy links stay outside the main navigation");
   }
+  assert.ok(!privateNav.includes("/owner/publications"));
+  assert.ok(!privateNav.includes("Publish Reports"));
   assert.match(homepage, /publicHost \? \(/);
   assert.match(homepage, /<Link href="\/hybrid-output\/prepare">Presenter Studio →<\/Link>/);
   assert.match(homepage, /<Link href="\/calendar">Public calendar →<\/Link>/);
