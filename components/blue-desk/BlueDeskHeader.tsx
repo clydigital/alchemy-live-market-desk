@@ -12,7 +12,7 @@ const PRIVATE_NAV = [
   ["Live Market", "/blue-desk"],
   ["Key Stories", "/blue-desk/key-stories"],
   ["Markets", "/markets"],
-  ["My Daily Report", "/owner/daily-report"],
+  ["My Reports", "/my-reports"],
   ["Writing Desk", "/owner/editorial"],
   ["Presenter Prep", "/owner/presenter"],
   ["Calendar", "/blue-desk/calendar"],
@@ -47,6 +47,7 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Daily Report": "deep-dive",
   "Daily Report Studio": "deep-dive",
   "My Daily Report": "library",
+  "My Reports": "library",
   "Writing Desk": "deep-dive",
   "Calendar + Earnings": "calendar",
   "Publish Reports": "library",
@@ -59,7 +60,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
   const publicHost = isBlueDeskPublicReaderHost(host);
   // Authenticated owner routes must retain their private workspace navigation,
   // even when opened on the canonical hostname that also serves public readers.
-  const ownerWorkspace = activePath === "/owner/editorial" || activePath === "/owner/presenter" || activePath === "/owner/publications" || activePath === "/owner/daily-report" || activePath === "/owner/daily-articles" || activePath === "/owner/x-wire";
+  const ownerWorkspace = activePath === "/my-reports" || activePath === "/owner/editorial" || activePath === "/owner/presenter" || activePath === "/owner/publications" || activePath === "/owner/daily-report" || activePath === "/owner/daily-articles" || activePath === "/owner/x-wire";
   const nav = publicHost && !ownerWorkspace ? PUBLIC_NAV : PRIVATE_NAV;
   return (
     <header className={styles.topbar}>
@@ -78,6 +79,10 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
             <span>{title}</span>
           </Link>
         ))}
+        {publicHost && !ownerWorkspace ? <Link href="/my-reports" className={styles.navItem}
+          aria-label="Open private Bluebelly workspace; sign-in required">
+          <MarketIcon name="studio" size={17} /><span>My Desk</span>
+        </Link> : null}
       </nav>
     </header>
   );
