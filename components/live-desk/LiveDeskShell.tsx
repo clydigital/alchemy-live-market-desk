@@ -50,16 +50,14 @@ export default function LiveDeskShell({ activePath, eyebrow = "Alchemy Research 
         <header className={styles.header}>
           <div className={styles.brandBlock}>
             <span className={styles.eyebrow}>Research workspace</span>
-            <h1>Live Market Desk</h1>
-            <p>Market view first. Source coverage and research diagnostics remain inspectable.</p>
+            <h1>Research backend — legacy workspace</h1>
+            <p>Bluebelly Desk is the primary website. This protected research workspace remains only for backward compatibility during retirement.</p>
           </div>
           <div className={styles.actions}>
             <span className={styles.status}>Source coverage varies by panel</span>
             <VideoResearchStatus />
             <DisplaySettings />
-            <Link className={styles.primaryButton} href="/blue-desk">Blue Desk preview →</Link>
-            <Link className={styles.button} href="/hybrid-output">Hybrid handoff audit</Link>
-            <a className={styles.primaryButton} href="https://alchemy-hybrid-market-desk.vercel.app/journey" target="_blank" rel="noreferrer">Presenter Journey ↗</a>
+            <a className={styles.primaryButton} href="https://bluebelly-desk.vercel.app/">Open Bluebelly Desk ↗</a>
             <Suspense fallback={<span className={styles.button} aria-label="Presenter Prep navigation loading">Presenter Prep</span>}>
               <PresenterPrepNavigationLink activePath={activePath} className={styles.button} />
             </Suspense>
