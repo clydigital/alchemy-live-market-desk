@@ -2,6 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import InvestorTest from "@/components/blue-desk/InvestorTest";
+import NewsroomLensExplorer from "@/components/blue-desk/NewsroomLensExplorer";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
@@ -120,6 +121,8 @@ export default async function KeyStories(){
           href={blueDeskPublicHref("/blue-desk/daily-report",host)}>
           Read the Daily Report
         </Link>
+        {" · "}
+        <Link className={ui.returnLink} href="#newsroom-title">Browse Newsroom topics</Link>
       </header>
       <div className={ui.summary}>
         <span>{theses.length} ongoing market stories</span>
@@ -134,6 +137,7 @@ export default async function KeyStories(){
           Scheduled catalysts are shown first instead of filling this space with unverified X speculation.
           Historical Story research follows below.</p>
       </>}
+      <NewsroomLensExplorer news={news} asOf={now.toISOString()} />
       <section className={ui.section} aria-labelledby="persistent-theses" data-persistent-thesis-ledger="source-identity">
         <h2 id="persistent-theses">The research behind the headlines</h2>
         <p>These are the recorded beliefs behind the headlines above. A dated linked Motion controls
