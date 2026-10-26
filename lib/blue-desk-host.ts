@@ -70,6 +70,12 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     "/api/presenter/technical-checks",
   ].includes(pathname)) return "private";
 
+  // Source-verified, field-allowlisted public-news/1 reader only. A direct
+  // handler host check also denies aliases and previews independently.
+  // No wildcard /api, legacy Dossier, private owner, or machine access.
+  if (hostname === BLUEBELLY_PRESENTATION_HOST &&
+      pathname === "/api/blue-desk/v1/public-news") return "public";
+
   // Temporary development-only UI viewer on the dedicated public host.
   // No owner API, private provider data, canonical DB, secrets or writes.
   if (hostname === BLUEBELLY_PRESENTATION_HOST &&
