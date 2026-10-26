@@ -97,9 +97,10 @@ export function reconcilePresenterObservations(
     const observationState = !dated ? "NOT_SAVED" as const
       : ageDays! > 7 ? "STALE" as const : "SAVED" as const;
     const lensKey = LENS_BY_CHECK[spec.key];
-    const lens = dossier && lensKey ? dossier.regimeStrip.find((row) => row.key === lensKey) : null;
-    const evidenceIds = lens?.observed
-      ? [...new Set(lens.evidenceRefs.filter((id) => UUID.test(id)))].slice(0, 12) : [];
+    const lens = dossier && lensKey && Array.isArray(dossier.regimeStrip)
+      ? dossier.regimeStrip.find((row) => row && row.key === lensKey) : null;
+    const evidenceIds = lens?.observed && Array.isArray(lens.evidenceRefs)
+      ? [...new Set(lens.evidenceRefs.filter((id) => typeof id === "string" && UUID.test(id)))].slice(0, 12) : [];
     const linked = Boolean(dossier && lens && evidenceIds.length && lens.observed);
     const nextCheck = NEXT_CHECK[spec.key];
     const ownerReading = dated ? item!.technical : null;
