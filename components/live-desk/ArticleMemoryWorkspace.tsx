@@ -64,7 +64,7 @@ function ArticleVisual({ article }: { article: ArticleMemoryItem }) {
       <img src={article.image} alt="" loading="lazy" referrerPolicy="no-referrer" />
     </a>
   ) : (
-    <div className={styles.imageFallback}><span>Alchemy Markets</span><b>{article.category}</b></div>
+    <div className={styles.imageFallback}><span>Bluebelly</span><b>{article.category}</b></div>
   );
 }
 
