@@ -21,9 +21,12 @@ function wrap(s:string,maxChars:number):string[]{
   if(!words.length){lines.push("");continue;}
   let row="";
   for(const word of words){
-   if(!row){row=word;continue;}
-   if(row.length+word.length+1>maxChars){lines.push(row);row=word;}
-   else row+=" "+word;
+   const pieces=word.match(new RegExp(".{1,"+maxChars+"}","g"))||[];
+   for(const part of pieces){
+    if(!row){row=part;continue;}
+    if(row.length+part.length+1>maxChars){lines.push(row);row=part;}
+    else row+=" "+part;
+   }
   }
   if(row)lines.push(row);
  }
