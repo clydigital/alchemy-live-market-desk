@@ -27,9 +27,13 @@ export async function GET(request:NextRequest){
  try{
   const db=createSupabaseAdminClient();
   const {data,error}=await db.from("blue_desk_automated_reports")
-   .select("pdf_path,report_day,slot,status").eq("id",id).eq("status","ready").maybeSingle();
+   .select("pdf_path,report_day,slot,status,report_kind").eq("id",id).eq("status","ready").maybeSingle();
   if(error||!data||!data.pdf_path)return denied(404);
-  const exact=`automated-daily/${data.report_day}/${data.slot}/${id}.pdf`;
+  const prefix=data.report_kind==="DAILY_MACRO"?"automated-daily":
+   data.report_kind==="COTD_OB_RESEARCH"?"private-packs/editorial-slate":null;
+  if(!prefix||!/^\\d{4}-\\d{2}-\\d{2}$/.test(data.report_day)||!
+    ["morning","evening"].includes(data.slot))return denied(404);
+  const exact=`${prefix}/${data.report_day}/${data.slot}/${id}.pdf`;
   if(data.pdf_path!==exact)return denied(404);
   const {data:blob,error:storageError}=await db.storage.from("editorial-pdfs").download(exact);
   if(storageError||!blob)return denied(404);
@@ -38,7 +42,7 @@ export async function GET(request:NextRequest){
   const mode=request.nextUrl.searchParams.get("download")==="1"?"attachment":"inline";
   return new NextResponse(bytes,{headers:{
    ...headers,"Content-Type":"application/pdf",
-   "Content-Disposition":`${mode}; filename="Bluebelly-Private-Market-Report-${data.report_day}-${data.slot}.pdf"`,
+   "Content-Disposition":`${mode}; filename="Bluebelly-Private-${data.report_kind}-${data.report_day}-${data.slot}.pdf"`,
    "Content-Length":String(bytes.byteLength),
   }});
  }catch{return denied(503);}

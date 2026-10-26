@@ -1,5 +1,6 @@
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import OwnerAutomaticReportReader from "@/components/blue-desk/OwnerAutomaticReportReader";
+import OwnerEditorialSlatePdfReader from "@/components/blue-desk/OwnerEditorialSlatePdfReader";
 import styles from "@/app/blue-desk/blue-desk.module.css";
 
 export const dynamic="force-dynamic";
@@ -19,11 +20,12 @@ export default function MyBluebellyReports(){
      <h1>Market intelligence library</h1>
      <p className={styles.heroDeck}>Your personal source-qualified PDF editions.
       Nothing here is publicly published. The automatic report currently has
-      morning and evening editions; other research and editorial report types
-      are separate workflows and are not yet automatic PDFs.</p>
+      morning and evening editions. The separate Writing Brain research-slate PDF
+      is generated from a valid persisted slate; Presenter and Regime PDFs remain unimplemented.</p>
     </div>
    </header>
   </div>
   <OwnerAutomaticReportReader/>
+  <OwnerEditorialSlatePdfReader/>
  </main>;
 }

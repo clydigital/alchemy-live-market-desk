@@ -4,6 +4,7 @@ import {acceptsResearchAuthorization} from "@/lib/research-auth";
 import {isAutomaticReportFallbackWindow,isCompletedDossierForAutomaticReport,
  type AutomaticReportSlot} from "@/lib/blue-desk-automated-report-contract";
 import {runAutomatedDailyPdfReport} from "@/lib/blue-desk-automated-report-job";
+import {runPrivateEditorialSlatePdf} from "@/lib/blue-desk-private-slate-job";
 
 /** Called only from the already-scheduled, authorised Research Gap handoff.
  * A late Dossier can finish after the earlier PDF window; the handoff slot
@@ -31,5 +32,10 @@ export async function attemptPrivateDailyPdfAfterLateDossier(
  if(checkpointError)return {status:"deferred" as const,reason:"dossier_checkpoint_unavailable"};
  if(!isCompletedDossierForAutomaticReport(run,checkpoint,slot,now))
   return {status:"deferred" as const,reason:"canonical_dossier_not_finalised"};
- return runAutomatedDailyPdfReport(slot,now);
+ const daily=await runAutomatedDailyPdfReport(slot,now);
+ if(slot!=="morning")return daily;
+ const slatePdf=await runPrivateEditorialSlatePdf(now).catch(()=>({
+  status:"failed" as const,reason:"slate_pdf_unavailable"
+ }));
+ return {...daily,privateEditorialSlatePdf:slatePdf};
 }

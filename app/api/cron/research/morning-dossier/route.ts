@@ -1,6 +1,7 @@
 import { handleScheduledPostResearchDossier } from "@/lib/dossier-post-research-trigger";
 import {isAutomaticReportFinalisationWindow,runAutomatedDailyPdfReport}
  from "@/lib/blue-desk-automated-report-job";
+import {runPrivateEditorialSlatePdf} from "@/lib/blue-desk-private-slate-job";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -20,8 +21,11 @@ export async function GET(request: Request) {
   (payload.status==="deferred"&&payload.reason==="dossier_decision_recorded");
  if(!ready)return result;
  try{
-  const report=await runAutomatedDailyPdfReport("morning",now);
-  return Response.json({...payload,automatedDailyPdf:report},{
+  const [report,slatePdf]=await Promise.all([
+   runAutomatedDailyPdfReport("morning",now).catch(()=>({status:"failed",reason:"daily_pdf_unavailable"})),
+   runPrivateEditorialSlatePdf(now).catch(()=>({status:"failed",reason:"slate_pdf_unavailable"})),
+  ]);
+  return Response.json({...payload,automatedDailyPdf:report,privateEditorialSlatePdf:slatePdf},{
    status:200,headers:{"Cache-Control":"private, no-store"}});
  }catch{
   // Never falsify or roll back a finished canonical Dossier because an editorial
