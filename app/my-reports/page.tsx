@@ -1,6 +1,7 @@
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import OwnerAutomaticReportReader from "@/components/blue-desk/OwnerAutomaticReportReader";
 import OwnerEditorialSlatePdfReader from "@/components/blue-desk/OwnerEditorialSlatePdfReader";
+import OwnerPrivatePdfInputHealth from "@/components/blue-desk/OwnerPrivatePdfInputHealth";
 import styles from "@/app/blue-desk/blue-desk.module.css";
 
 export const dynamic="force-dynamic";
@@ -27,5 +28,6 @@ export default function MyBluebellyReports(){
   </div>
   <OwnerAutomaticReportReader/>
   <OwnerEditorialSlatePdfReader/>
+  <OwnerPrivatePdfInputHealth/>
  </main>;
 }
