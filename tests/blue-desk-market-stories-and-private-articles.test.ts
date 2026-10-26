@@ -53,6 +53,14 @@ test("public Bluebelly tells readable multi-paragraph Stories and full-source co
  assert.match(reader,/getPublicThesisLedger\(now=new Date\(\),limit=24\)/);
  assert.doesNotMatch(reader,/not\("rank","is",null\)/);
  assert.match(key,/storyMarketTransmission\(thesis\)/);
+ assert.match(key,/data-catalyst-led="verified-only"/);
+ assert.match(key,/data-upcoming-decisions="source-calendar"/);
+ assert.match(key,/topic\.humanStake/);
+ assert.match(key,/lead\.headline/);
+ assert.match(key,/lead\.occurredAt/);
+ assert.match(key,/selectBlueDeskUpcoming/);
+ assert.doesNotMatch(key,/<details className=\{ui\.more\}>/);
+ assert.match(home,/data-live-feature-stakes="verified-catalyst"/);
  assert.match(key,/storyIntro/);
  assert.match(key,/storyExplanation/);
  assert.match(daily,/stories\.slice\(8\)/);
