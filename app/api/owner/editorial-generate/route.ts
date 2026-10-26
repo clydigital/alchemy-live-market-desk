@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { blueDeskHostAccess } from "@/lib/blue-desk-host";
 import {reviewSourceOverlap} from "@/lib/blue-desk-originality-review";
+import {privateNarrativeInstructions} from "@/lib/blue-desk-narrative-playbook";
 
 export const dynamic="force-dynamic";
 export const runtime="nodejs";
@@ -88,9 +89,8 @@ export async function POST(req:NextRequest){
     "confirmed an asset reaction unless dated chart evidence was in the supplied packet.",
     "Avoid melodrama, templated parallelism, and stock AI phrases.",
     "DAILY_REPORT: write a concise but substantial researched market briefing, not a headlines list.",
-    "DAILY_REPORT sections: What is new; market reaction and expectations;",
-    "Why it matters (step-by-step mechanism and exposed markets); What does not fit;",
-    "Conditional paths, next catalysts, economic calendar and earnings.",
+    "DAILY_REPORT: the shared-evidence narrative contract supplies chronological pacing;",
+    "do not turn the report into a mechanical list of headlines and labelled sections.",
     "Distinguish an original independently cited fact from MacroPulse/Gate synthesis.",
     "MacroPulse and Research Gap Notion pages are UNVERIFIED research inputs.",
     "A partial Gate or unread research backlog MUST be disclosed and must not be described as exhaustive.",
@@ -102,7 +102,7 @@ export async function POST(req:NextRequest){
     "Treat external social posts and creator commentary as attributed research leads.",
     "Do not claim that this article is verified, published, reviewed or investment advice.",
     "Output clean readable plain-text paragraphs without headings except where editorially useful."
-  ].join("\n");
+  ].join("\n")+"\n"+privateNarrativeInstructions(kind);
   const input=action==="revise"
     ? "REVISION REQUEST\nTitle: "+title+"\nMode: "+kind+
       "\nUser's editorial instruction: "+(instruction||"Improve flow, specificity and accuracy without new claims")+
@@ -125,7 +125,7 @@ export async function POST(req:NextRequest){
     if(draft.length<120) return fail(502,"Model did not produce a useful article draft");
     return NextResponse.json({body:draft,model,status:"PRIVATE_UNVERIFIED_DRAFT",
       originalityReview:reviewSourceOverlap(draft,packet),
-      message:"Review original sources, chart setups and every figure before publishing."},{headers:noStore});
+      message:"Private draft only. Check the original sources, chart setups, comparisons and every figure before personal use."},{headers:noStore});
   }catch(e){
     // Do not expose upstream SDK errors or secrets to the browser.
     const status=e&&typeof e==="object"&&"status" in e?
