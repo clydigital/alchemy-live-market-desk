@@ -146,7 +146,7 @@ const COMPOSER_SCHEMA = {
   },
 } as const;
 
-const COMPOSER_INSTRUCTIONS = `You are the edition-level Causal Storyline Composer inside the Alchemy Markets Live Desk.
+const COMPOSER_INSTRUCTIONS = `You are the edition-level Causal Storyline Composer inside the existing Bluebelly research backend.
 Your job is to organise supplied canonical Story snapshots into the smallest causal model that best explains the current market state. Do not create new research.
 
 Hard rules:
