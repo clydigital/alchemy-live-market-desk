@@ -53,3 +53,63 @@
 @media(max-width:760px){.catalystGrid,.calendarStrip{grid-template-columns:minmax(0,1fr)}}
 
 .coverageNote{font-size:13px;color:#a4c9da;border-left:2px solid #41738b;padding:11px 16px;margin:18px 0;background:#05283b;line-height:1.7}
+
+
+/* Ocean Editorial phase one: more intentional typography and progressive disclosure.
+   Reuses V6 colours and existing native page rather than another redesign route. */
+.intro{
+  background:
+    radial-gradient(ellipse at 83% 12%,rgba(41,152,182,.18),transparent 57%),
+    linear-gradient(132deg,#06354e 0%,#031f31 64%,#031925 100%);
+  border-color:#36728c;border-radius:15px;
+  padding:clamp(26px,4.4vw,54px);
+}
+.intro h1{
+  max-width:18ch;
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:clamp(37px,5.4vw,67px);
+  font-weight:600;line-height:1.06;letter-spacing:-.045em;
+  margin:12px 0 20px;
+}
+.intro p{max-width:63ch;font-size:clamp(14px,1.35vw,16px);line-height:1.75}
+.intro p:nth-of-type(3){color:#9fc0d0;font-size:13px}
+.summary{margin:22px 0 25px;gap:9px}
+.summary span{border-color:#234d61;background:#052435;border-radius:100px;padding:8px 13px}
+.section{margin-top:clamp(26px,4vw,48px)}
+.section h2{font-family:Georgia,"Times New Roman",serif;font-weight:600;
+  letter-spacing:-.035em;font-size:clamp(28px,3vw,38px);margin-bottom:12px}
+.cards{gap:13px;margin-top:22px}
+.card{
+  background:linear-gradient(155deg,#062d42,#041c2c);
+  border-color:#275469;border-radius:12px;
+  padding:clamp(20px,2.3vw,28px);
+  transition:border-color .15s ease;
+}
+.card:focus-within,.card:hover{border-color:#41809b}
+.card h3{font-family:Georgia,"Times New Roman",serif;font-size:clamp(21px,2.1vw,28px);
+  letter-spacing:-.028em;line-height:1.23;margin:13px 0}
+.storyIntro{
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;
+  overflow:hidden;max-width:none;
+  font-size:14px!important;line-height:1.7!important
+}
+.storyExplanation{font-size:13px!important;line-height:1.7!important;color:#aecddd!important}
+.more{margin-top:19px;border-top:1px solid #2c5367;padding-top:15px}
+.more summary{font-size:13px;font-weight:750;color:#a4e6f6;line-height:1.6}
+.more summary:focus-visible{outline:2px solid #b9f5ff;outline-offset:4px}
+.more[open]{padding-bottom:3px}
+.moreBody{padding-top:10px}
+.moreBody p{font-size:13px;line-height:1.75;color:#bfd9e7;padding:4px 0;overflow-wrap:anywhere}
+.moreBody strong{color:#e9f6fb}
+.timeNote{margin-top:17px;font-size:11px!important}
+@media(max-width:760px){
+ .intro{padding:27px 20px}
+ .intro h1{font-size:clamp(34px,8vw,48px)}
+ .cards{grid-template-columns:1fr}
+ .card{padding:22px 18px}
+ .summary{gap:7px}
+ .summary span{font-size:11px;padding:7px 11px}
+}
+@media(prefers-reduced-motion:reduce){
+ .card{transition:none}
+}

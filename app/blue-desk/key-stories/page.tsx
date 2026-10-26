@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import InvestorTest from "@/components/blue-desk/InvestorTest";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
@@ -10,6 +11,7 @@ import { combineQualifiedNews } from "@/lib/blue-desk-qualified-news";
 import { projectLivingMarketTopics } from "@/lib/blue-desk-living-topics";
 import { getPublicThesisLedger } from "@/lib/blue-desk-thesis-ledger-server";
 import {storyMarketTransmission,orderStoriesByLatestMotion} from "@/lib/blue-desk-thesis-ledger";
+import {selectFlagshipInvestorTest} from "@/lib/blue-desk-investor-test";
 import {getStoryMotionRecency} from "@/lib/blue-desk-story-motion-recency-server";
 import { getPublicSourceObservations } from "@/lib/blue-desk-source-observations";
 import { buildPresenterCalendar } from "@/lib/presenter-calendar";
@@ -39,6 +41,7 @@ export default async function KeyStories(){
   ]);
   const motionRecency=await getStoryMotionRecency(theses.map(x=>x.id),now).catch(()=>[]);
   const orderedTheses=orderStoriesByLatestMotion(theses,motionRecency,now);
+  const investorTest=selectFlagshipInvestorTest(orderedTheses);
   const motionNews = selectVerifiedNewsBriefs(raw, now, 18);
   const news = combineQualifiedNews(motionNews,originalPress,18);
   const topics = projectLivingMarketTopics(news);
@@ -109,10 +112,10 @@ export default async function KeyStories(){
       <header className={ui.intro}>
         <p className={desk.kicker}>STORY DESK / CATALYSTS FIRST</p>
         <h1>What happened — and why should anyone care?</h1>
-        <p>Start with the actual event, the people or businesses exposed and the decision investors face next.
-          Dated original reporting comes first. Longer-running market theses sit further down as context.</p>
-        <p>Where we can explain a possible market effect, we call it a possible effect — not a measured price reaction.
-          An earnings call that has already happened is never presented as an upcoming catalyst.</p>
+        <p>Events move markets. But is the opportunity worth the risk? Start with what happened,
+          see what investors are paying for, then examine what could change the verdict.</p>
+        <p>Source-verified developments and longer-running research are labelled separately.
+          A compelling thesis is not the same as an observed market reaction.</p>
         <Link className={ui.returnLink}
           href={blueDeskPublicHref("/blue-desk/daily-report",host)}>
           Read the Daily Report
@@ -124,6 +127,7 @@ export default async function KeyStories(){
         <span>{news.length} source-verified development{news.length === 1 ? "" : "s"}</span>
         <span>As of <DualTimestamp value={now.toISOString()} /></span>
       </div>
+      {investorTest ? <InvestorTest view={investorTest}/> : null}
       {topics.length ? <>{liveCatalystSection}{upcomingDecisionSection}</> : <>
         {upcomingDecisionSection}
         <p className={ui.coverageNote}>No recent source-verified headline passed the Live News gate.
@@ -131,7 +135,7 @@ export default async function KeyStories(){
           Historical Story research follows below.</p>
       </>}
       <section className={ui.section} aria-labelledby="persistent-theses" data-persistent-thesis-ledger="source-identity">
-        <h2 id="persistent-theses">The backstory: longer-running market theses</h2>
+        <h2 id="persistent-theses">The research behind the headlines</h2>
         <p>These are the recorded beliefs behind the headlines above. A dated linked Motion controls
           their order; it does not turn the old thesis into a newly verified event or trading call.</p>
         {orderedTheses.length ? <div className={ui.cards}>{orderedTheses.map(thesis=>
@@ -141,15 +145,21 @@ export default async function KeyStories(){
                 {" · "}Event <DualTimestamp value={thesis.latestMotionAt}/></>:
               <>NO LINKED MOTION AVAILABLE · Last researched <DualTimestamp value={thesis.updatedAt}/></>}</p>
             <h3>{thesis.title}</h3>
-            <p className={ui.storyIntro}><strong>Here's the issue.</strong> {thesis.thesis}</p>
-            <p className={ui.storyExplanation}><strong>Why it could move markets.</strong> {storyMarketTransmission(thesis)}</p>
-            {thesis.support ? <p className={ui.storyContext}><strong>What supports this view:</strong> {thesis.support}</p> : null}
-            {thesis.contradiction ? <p className={ui.storyContext}><strong>The catch:</strong> {thesis.contradiction}</p> : null}
-            {(thesis.confirmation||thesis.invalidation||thesis.nextTest)?<div className={ui.storyTests}>
-              {thesis.nextTest?<p><strong>Next test:</strong> {thesis.nextTest}</p>:null}
-              {thesis.confirmation?<p><strong>What would strengthen this view:</strong> {thesis.confirmation}</p>:null}
-              {thesis.invalidation?<p><strong>What could disprove it:</strong> {thesis.invalidation}</p>:null}
-            </div>:null}
+
+            <p className={ui.storyIntro}>{thesis.thesis}</p>
+            <p className={ui.storyExplanation}><strong>Why it matters:</strong> {storyMarketTransmission(thesis)}</p>
+            <details className={ui.more}>
+              <summary>Read the reasoning, risks and deciding tests</summary>
+              <div className={ui.moreBody}>
+                <p><strong>The full recorded thesis:</strong> {thesis.thesis}</p>
+                {thesis.support ? <p><strong>What the thesis cites:</strong> {thesis.support}</p> : null}
+                {thesis.pricedAssessment ? <p><strong>Recorded pricing view:</strong> {thesis.pricedAssessment}</p>:null}
+                {thesis.contradiction ? <p><strong>The competing case:</strong> {thesis.contradiction}</p> : null}
+                {thesis.nextTest ? <p><strong>Next test:</strong> {thesis.nextTest}</p> : null}
+                {thesis.confirmation ? <p><strong>Would strengthen this view:</strong> {thesis.confirmation}</p> : null}
+                {thesis.invalidation ? <p><strong>Would challenge this view:</strong> {thesis.invalidation}</p> : null}
+              </div>
+            </details>
             <p className={ui.timeNote}>Historical research snapshot, not an independently confirmed price reaction.
               {" "}The latest market observations are shown separately below.</p>
           </article>

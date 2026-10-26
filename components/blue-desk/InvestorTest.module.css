@@ -1,0 +1,75 @@
+/* Ocean Editorial — same Bluebelly palette, PowerStack-style decision hierarchy. */
+.feature{
+  position:relative;isolation:isolate;overflow:hidden;
+  margin:clamp(20px,3vw,36px) 0 30px;
+  border:1px solid #336985;border-radius:18px;
+  background:linear-gradient(148deg,#06354b 0%,#041d2e 55%,#021624 100%);
+  box-shadow:0 16px 45px rgba(0,8,17,.20);
+  color:#eaf6fb;scroll-margin-top:34px;
+}
+.feature::before{
+  content:"";position:absolute;pointer-events:none;z-index:-1;
+  inset:-90px -110px auto auto;width:580px;height:380px;
+  background:radial-gradient(ellipse at center,rgba(48,169,201,.14),transparent 67%);
+}
+.masthead{
+  display:grid;grid-template-columns:minmax(0,1.5fr) minmax(220px,.72fr);
+  gap:clamp(22px,4vw,55px);align-items:end;
+  padding:clamp(22px,3.6vw,44px);border-bottom:1px solid #28566c;
+}
+.eyebrow{font-size:11px;font-weight:800;color:#8bddf0;letter-spacing:.14em;margin:0 0 14px}
+.eyebrow span{color:#b4c6ce;padding:0 4px}
+.masthead h2{font-size:clamp(31px,4vw,53px);line-height:1.07;
+  max-width:19ch;letter-spacing:-.045em;color:#f6fbff;margin:0 0 17px;
+  font-family:Georgia,"Times New Roman",serif;font-weight:600}
+.deck{color:#bbd3df;max-width:60ch;line-height:1.65;font-size:clamp(14px,1.35vw,16px);margin:0}
+.storyIdentity{border-left:2px solid #6fc6df;padding:5px 0 5px 17px;
+  display:flex;flex-direction:column;gap:10px;overflow-wrap:anywhere}
+.storyIdentity span{color:#7fd3e9;font-size:10px;letter-spacing:.1em;font-weight:800}
+.storyIdentity strong{font-size:clamp(16px,1.75vw,20px);line-height:1.35;color:#f4fafc}
+.storyIdentity small{color:#aac6d5;font-size:12px;line-height:1.6}
+.questions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+.questions article{min-width:0;padding:clamp(21px,2.7vw,35px);border-right:1px solid #275268;border-bottom:1px solid #275268}
+.questions article:nth-child(even){border-right:0}
+.questions article:nth-last-child(-n+2){border-bottom:0}
+.step{font-size:11px;letter-spacing:.12em;color:#86cce2;font-weight:800;margin:0 0 14px;text-transform:uppercase}
+.questions h3{font-family:Georgia,"Times New Roman",serif;font-size:clamp(23px,2.4vw,33px);
+  letter-spacing:-.035em;line-height:1.17;color:#f6fbff;margin:0 0 15px;max-width:24ch}
+.questions article>p:not(.step){font-size:14px;line-height:1.75;color:#d4e5ed;overflow-wrap:anywhere}
+.sourceText{max-width:75ch}
+.recorded{margin-top:21px;padding:16px 19px;background:rgba(11,61,78,.7);border-left:2px solid #5499af}
+.recorded span{display:block;color:#9dd8e8;font-weight:750;font-size:10px;letter-spacing:.095em}
+.recorded p{font-size:12px;line-height:1.75;color:#cfdee7;margin:9px 0}
+.recorded small{font-size:11px;line-height:1.55;color:#9cbdcd}
+.money{background:rgba(22,73,88,.16)}
+.question{font-weight:620;color:#edf9fe!important}
+.answerBoundary{margin-top:23px;padding-top:19px;border-top:1px solid #2a576a}
+.answerBoundary strong{color:#c9eefa;font-size:13px}
+.answerBoundary p{font-size:13px;color:#bcd4df;line-height:1.75}
+.answerBoundary small{font-size:11px;color:#99bfd1}
+.catch{background:rgba(5,34,49,.38)}
+.verdict{background:rgba(9,69,82,.24)}
+.extra{margin-top:17px;border-top:1px solid #2c5a6d;padding-top:13px}
+.extra summary{cursor:pointer;color:#94ddf4;font-size:13px;font-weight:720}
+.extra summary:focus-visible,.foot a:focus-visible{outline:2px solid #b8f4ff;outline-offset:5px}
+.extra p{color:#c9dfeb;font-size:12px;line-height:1.75}
+.foot{display:flex;justify-content:space-between;align-items:center;gap:18px;
+  border-top:1px solid #275268;background:#031c2b;padding:18px clamp(21px,2.7vw,35px)}
+.foot p{max-width:81ch;color:#a3bdcb;font-size:11px;line-height:1.7;margin:0}
+.foot a{flex:0 0 auto;color:#a2e6f8;text-decoration:underline;text-underline-offset:5px;font-weight:750;font-size:12px}
+.foot a span{display:inline-block;margin-left:5px}
+@media(max-width:950px){
+  .masthead{grid-template-columns:minmax(0,1fr)}
+  .storyIdentity{max-width:650px}
+}
+@media(max-width:690px){
+  .feature{border-radius:12px;margin:18px 0 24px}
+  .masthead{padding:23px 20px;gap:23px}
+  .masthead h2{font-size:34px}
+  .questions{grid-template-columns:minmax(0,1fr)}
+  .questions article,.questions article:nth-child(even){
+    border-right:0;border-bottom:1px solid #275268;padding:23px 20px}
+  .questions article:last-child{border-bottom:0}
+  .foot{align-items:flex-start;flex-direction:column;padding:19px 20px}
+  .foot a{margin-top:2px}
+}
