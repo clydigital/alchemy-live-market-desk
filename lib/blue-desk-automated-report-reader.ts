@@ -17,3 +17,19 @@ export async function getOwnerAutomaticDailyReports(limit=8):Promise<ReadyAutoma
  if(error)throw new Error("Owner PDF editions unavailable");
  return (data||[]) as ReadyAutomaticReport[];
 }
+
+/** A minimal owner-only health receipt. Blocked attempts contain no PDF and
+ * no public article; they are evidence of a scheduled check, not completion. */
+export type PrivateDailyPdfAttempt={
+ report_day:string;slot:"morning"|"evening";
+ status:"building"|"blocked"|"failed"|"ready";
+ created_at:string;error_code:string|null;source_count:number;coverage_note:string;
+};
+export async function getOwnerLatestDailyPdfAttempt():Promise<PrivateDailyPdfAttempt|null>{
+ const db=createSupabaseAdminClient();
+ const {data,error}=await db.from("blue_desk_automated_reports")
+  .select("report_day,slot,status,created_at,error_code,source_count,coverage_note")
+  .order("created_at",{ascending:false}).limit(1).maybeSingle();
+ if(error)throw new Error("Private PDF attempt receipt unavailable");
+ return (data||null) as PrivateDailyPdfAttempt|null;
+}
