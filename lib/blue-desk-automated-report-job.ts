@@ -7,6 +7,7 @@ import {selectVerifiedNewsBriefs} from "@/lib/market-brief-news";
 import {getOriginalPressNews} from "@/lib/blue-desk-original-press-news-server";
 import {combineQualifiedNews} from "@/lib/blue-desk-qualified-news";
 import {getPublicSourceObservations} from "@/lib/blue-desk-source-observations";
+import {getMarketMonitor} from "@/lib/market-monitor-public";
 import {getEconomicCalendar} from "@/lib/calendar";
 import {getForwardEarningsEvents} from "@/lib/forward-earnings-sources";
 import {buildPresenterCalendar} from "@/lib/presenter-calendar";
@@ -30,7 +31,7 @@ export async function runAutomatedDailyPdfReport(
  const reportDay=yyyyMmDd(now);
  // Only exact scheduled slot writes are allowed, even if a cron path is manually hit.
  if(!isAutomaticReportFinalisationWindow(now,slot))return {status:"locked",reason:"outside_finalisation_window"};
- const [rawNews,press,observations,economic,earnings]=await Promise.all([
+ const [rawNews,press,observations,economic,earnings,market]=await Promise.all([
   getCurrentVerifiedMarketMotion({limit:24}).catch(()=>[]),
   getOriginalPressNews(now,12).catch(()=>[]),
   getPublicSourceObservations(now,12).catch(()=>[]),
@@ -38,6 +39,7 @@ export async function runAutomatedDailyPdfReport(
   getForwardEarningsEvents({now}).catch(()=>({
    events:[],coverage:"unavailable" as const,warning:"Earnings unavailable",
   })),
+  getMarketMonitor().catch(()=>null),
  ]);
  const news=combineQualifiedNews(selectVerifiedNewsBriefs(rawNews,now,12),press,12);
  const calendar=buildPresenterCalendar(economic,earnings,now);
@@ -49,6 +51,16 @@ export async function runAutomatedDailyPdfReport(
    sourceName:e.sourceName,sourceUrl:e.sourceUrl||null,
    question:e.decidingQuestion||"What could change investors' expectations?",
   })),
+  market:(market?.rows||[])
+   .filter(r=>r.last!==null&&r.asOf&&r.frequency==="daily"
+    &&["Rates","Major Index","Energy","Metal","FX","Credit / Risk"].includes(r.type))
+   .sort((a,b)=>{
+    const order=["Rates","Major Index","Energy","Metal","FX","Credit / Risk"];
+    return order.indexOf(a.type)-order.indexOf(b.type);
+   }).slice(0,10).map(r=>({
+    label:r.label,level:r.last,previousClose:r.previousClose,
+    asOf:r.asOf,sourceName:r.sourceName,sourceUrl:r.sourceUrl,frequency:r.frequency,
+   })),
  });
  if(!reportEvidenceReady(evidence)){
   // The existing public edition is retained. Notion/X speculation is not a fallback.
