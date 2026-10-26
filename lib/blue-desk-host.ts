@@ -63,6 +63,9 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     // Native Bluebelly owner tools only; every path still requires a
     // valid Supabase session and the active user allowlist in middleware.
     "/owner/editorial", "/owner/presenter",
+    // Exact private review/readback surfaces. Never route research into public pages.
+    "/owner/daily-report", "/api/owner/macropulse-briefs",
+    "/api/owner/daily-research",
     "/api/owner/editorial-generate", "/api/owner/editorial-investigate",
     "/api/presenter/technical-checks",
   ].includes(pathname)) return "private";
