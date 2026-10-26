@@ -88,7 +88,8 @@ export function orderStoriesByLatestMotion(
     ...story,latestMotionAt:latest.get(story.id)?.at||null,
     latestMotionVerification:latest.get(story.id)?.verification||null,
   })).sort((a,b)=>
-    Date.parse(b.latestMotionAt||b.updatedAt)-Date.parse(a.latestMotionAt||a.updatedAt)
+    Number(Boolean(b.latestMotionAt))-Number(Boolean(a.latestMotionAt))
+    || Date.parse(b.latestMotionAt||b.updatedAt)-Date.parse(a.latestMotionAt||a.updatedAt)
     || a.title.localeCompare(b.title)
   );
 }
