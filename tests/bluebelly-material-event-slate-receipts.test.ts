@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {computeMaterialEditorialRecall} from "../lib/bluebelly-material-editorial-recall.ts";
+import {computeMaterialEditorialRecall,materialEventKey} from "../lib/bluebelly-material-editorial-recall.ts";
 
 const url="https://www.sec.gov/Archives/edgar/data/2130357/000162828026067168/0001628280-26-067168-index.htm";
 const original={itemKey:"official-edgar:anthropic-sec-ipo-26",title:"Anthropic, PBC filed Form S-1 with the SEC",
@@ -47,4 +47,9 @@ test("material original-source receipts are mandatory only for new fully source-
  assert.match(sql,/drop trigger if exists/);
  assert.match(sql,/revoke all on public\.blue_desk_editorial_slates from public,anon,authenticated/);
  assert.doesNotMatch(sql,/create table|story_thesis_versions|new cron/i);
+});
+
+test("a Tesla material 8-K becomes an editorial candidate, not an invented completed deal",()=>{
+ assert.equal(materialEventKey("Tesla, Inc. filed Form 8-K with SEC (item codes 1.01)"),"tesla:material-filing");
+ assert.equal(materialEventKey("Tesla and SpaceX special committees discussing merger"),"spacex-tesla:merger");
 });
