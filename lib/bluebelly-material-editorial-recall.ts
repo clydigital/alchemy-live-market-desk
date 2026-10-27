@@ -5,7 +5,8 @@ export type RecallSource={
  sourceKind?:string;sourceQuality?:number;materiality?:number;publisher?:string;
 };
 export type RecallIdea={title:string;hook?:string;mechanism?:string;sourceUrls?:string[]};
-export type RecallSlate={producedAt:string;dayMyt:string;ideas:RecallIdea[];notes:string}|null;
+export type StructuredRecallReceipt={item_key:string;source_url:string;disposition:"SELECTED"|"EXCLUDED"|"NEEDS_SOURCE";reason:string};
+export type RecallSlate={producedAt:string;dayMyt:string;ideas:RecallIdea[];notes:string;receipts?:StructuredRecallReceipt[]}|null;
 export type RecallStatus="selected"|"excluded_with_reason"|"needs_source"|"unacknowledged"|"post_cutoff";
 export type RecallCandidate={
  key:string;title:string;url:string;eventAt:string;sourceState:"original_checked"|"reported_only"|"creator_lead";
@@ -74,10 +75,18 @@ export function computeMaterialEditorialRecall(
    const plain=[idea.title,idea.hook||"",idea.mechanism||""].join(" ");
    return materialEventKey(plain)===key;
   });
+  // Structured receipts are anchored to an exact original item_key + URL.
+  // Older notes remain fallback ONLY for historical slates before the new
+  // source-checked receipt constraint was installed.
+  const structured=slate?.receipts?.find(r=>
+    r.item_key===source.itemKey&&r.source_url===source.url);
   const receipt=(slate?.notes||"").toUpperCase();
   const prefix="RECALL["+key.toUpperCase()+"]=";
   const after=Number.isFinite(cutoff)&&Date.parse(source.publishedAt)>cutoff+5*60_000;
   const status:RecallStatus=after?"post_cutoff":matches?"selected":
+   structured?.disposition==="EXCLUDED"?"excluded_with_reason":
+   structured?.disposition==="NEEDS_SOURCE"?"needs_source":
+   structured?.disposition==="SELECTED"?"unacknowledged":
    receipt.includes(prefix+"EXCLUDED")?"excluded_with_reason":
    receipt.includes(prefix+"NEEDS_SOURCE")?"needs_source":"unacknowledged";
   const why=after?"Published after the slate cutoff; reconsider in the next edition.":
