@@ -9,7 +9,7 @@ export default function OwnerReportsPage(){
   <div className={desk.content}>
    <h1>Reports are private</h1>
    <p>Publishing is disabled. Your Daily Report, COTD and OB drafts are for your own reading, editing and copying.</p>
-   <p><Link href="/owner/daily-report">Open My Daily Report</Link> · <Link href="/owner/editorial">Open Writing Desk</Link></p>
+   <p><Link href="/owner/daily-report">Open My Daily Report</Link> · <Link href="/my-reports">Open My Desk</Link></p>
   </div>
  </main>;
 }
