@@ -17,7 +17,7 @@ test("both pre-existing private Dossier crons log only gate booleans and status,
   assert.match(s,/if\(reportWindow\)\{/);
   assert.match(s,/event:"bluebelly_pdf_cron_gate"/);
   assert.match(s,/event:"bluebelly_pdf_cron_outcome"/);
-  assert.match(s,/reportEligible\?/);
+  assert.match(s,/const reportEligible=authorised && scheduleEnabled && reportWindow/);
   assert.match(s,/JSON\.stringify\(\{event:"bluebelly_pdf_cron_gate",slot:"/);
   assert.match(s,/asOf:now\.toISOString\(\),authorised,scheduleEnabled,reportEligible/);
   assert.match(s,/const result=await handleScheduledPostResearchDossier/);
