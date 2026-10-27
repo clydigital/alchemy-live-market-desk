@@ -20,6 +20,7 @@ export const MACHINE_AUTH_PATHS = [
   "/api/internal/bluebelly-editorial", // dedicated scoped bearer; drafts only, no canonical mutation
   "/api/oil/hormuz", // authenticated source-cache read; no canonical mutation
   "/api/internal/canonical-feed", // distinct server-to-server canonical publication bearer
+  "/api/internal/legacy-evidence", // separate dedicated bearer; private noncanonical legacy Evidence only
   "/api/internal/dossier-v2", // handler requires dedicated server-to-server bearer
   "/api/research-update",
   "/api/research-gap/handoff",
