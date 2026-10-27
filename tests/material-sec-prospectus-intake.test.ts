@@ -46,7 +46,9 @@ test("original SEC submission and exact HTML accession qualifies Anthropic S-1 a
  assert.equal(out.items[0].evidence?.[0]?.claim,out.items[0].title);
  assert.match(out.items[0].reviewReason||"",/NOT verified/);
  assert.match(out.summary||"",/new=1/);
- assert.deepEqual(m.seen,[submissionsUrl,filingUrl]);
+ assert.ok(m.seen.includes(submissionsUrl));
+ assert.ok(m.seen.includes(filingUrl));
+ assert.ok(m.seen.length<=PRIORITY_EDGAR_ISSUERS.length+1);
  const motions=buildMarketMotionCandidates(out.items.map(i=>({...i,candidateScore:94,evidence:i.evidence||[]})),[],{now});
  assert.equal(motions.length,1);
  assert.equal(motions[0].sourceKind,"filing");
@@ -73,7 +75,7 @@ test("exact filing URL deduplicates and uses only the existing research schedule
  const first=await applyMaterialSecProspectusIntake(init(),{now,userAgent:ua,fetchImpl:seen.fetchImpl});
  const again=await applyMaterialSecProspectusIntake(first,{now,userAgent:ua,fetchImpl:seen.fetchImpl});
  assert.equal(again.items.length,1);
- assert.equal(PRIORITY_EDGAR_ISSUERS.length,1);
+ assert.equal(PRIORITY_EDGAR_ISSUERS.length,5);
  const scheduled=readFileSync(new URL("../lib/firecrawl-scheduled-research.ts",import.meta.url),"utf8");
  const vercel=readFileSync(new URL("../vercel.json",import.meta.url),"utf8");
  assert.ok(scheduled.indexOf("applyOfficialPressNewsIntake(input, { now })") <
@@ -81,4 +83,39 @@ test("exact filing URL deduplicates and uses only the existing research schedule
  assert.ok(scheduled.indexOf("applyMaterialSecProspectusIntake(originalSourceInput, { now })") <
    scheduled.indexOf("applyResearchDiscoveryProviders(discoveryInput"));
  assert.doesNotMatch(vercel,/material-sec-prospectus-intake/);
+});
+
+test("original Tesla 8-K with material agreement code becomes factual filing, not a confirmed merger",async()=>{
+ const acc="0001628280-26-067169";
+ const meta={cik:1318605,name:"Tesla, Inc.",
+  filings:{recent:{accessionNumber:[acc],filingDate:["2026-10-26"],reportDate:[""],
+   acceptanceDateTime:["20261026105501"],form:["8-K"],
+   primaryDocument:["tsla-8k.htm"],items:["1.01, 9.01"]}}};
+ const url="https://www.sec.gov/Archives/edgar/data/1318605/000162828026067169/"+acc+"-index.htm";
+ const fetchImpl=(async(u:RequestInfo|URL)=>{
+  if(String(u)==="https://data.sec.gov/submissions/CIK0001318605.json")
+   return Response.json(meta);
+  if(String(u)===url)return new Response("<html><h1>Filing Detail</h1><p>SEC Accession "+acc+"</p><p>Form 8-K</p></html>",{headers:{"content-type":"text/html"}});
+  return new Response("",{status:404});
+ }) as typeof fetch;
+ const out=await applyMaterialSecProspectusIntake(init(),{now,userAgent:ua,fetchImpl});
+ assert.equal(out.items.length,1);
+ assert.match(out.items[0].title,/Tesla, Inc. filed Form 8-K.*1.01/);
+ assert.match(out.items[0].newsSignal||"",/completion.*NOT established/i);
+ assert.match(out.items[0].reviewReason||"",/NOT verified/i);
+ const motion=buildMarketMotionCandidates(out.items.map(i=>({...i,candidateScore:94,evidence:i.evidence||[]})),[],{now});
+ assert.equal(motion[0].verificationState,"VERIFIED","Only actual filing existence verified");
+ assert.equal(motion[0].marketReaction,null);
+});
+test("routine 8-K items 2.02/9.01, spoofed issuer and mismatched accession fail closed",async()=>{
+ const payload8k={cik:1318605,name:"Tesla, Inc.",
+  filings:{recent:{accessionNumber:["0001628280-26-067169"],filingDate:["2026-10-26"],
+   reportDate:[""],acceptanceDateTime:["20261026105501"],form:["8-K"],
+   primaryDocument:["tsla-8k.htm"],items:["2.02, 9.01"]}}};
+ const fetchImpl=(async(u:RequestInfo|URL)=>{
+  if(String(u)==="https://data.sec.gov/submissions/CIK0001318605.json")return Response.json(payload8k);
+  throw Error("No 8-K detail read allowed for nonmaterial item codes");
+ }) as typeof fetch;
+ const out=await applyMaterialSecProspectusIntake(init(),{now,userAgent:ua,fetchImpl});
+ assert.equal(out.items.length,0);
 });

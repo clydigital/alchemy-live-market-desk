@@ -5,7 +5,8 @@ export type RecallSource={
  sourceKind?:string;sourceQuality?:number;materiality?:number;publisher?:string;
 };
 export type RecallIdea={title:string;hook?:string;mechanism?:string;sourceUrls?:string[]};
-export type RecallSlate={producedAt:string;dayMyt:string;ideas:RecallIdea[];notes:string}|null;
+export type StructuredRecallReceipt={item_key:string;source_url:string;disposition:"SELECTED"|"EXCLUDED"|"NEEDS_SOURCE";reason:string};
+export type RecallSlate={producedAt:string;dayMyt:string;ideas:RecallIdea[];notes:string;receipts?:StructuredRecallReceipt[]}|null;
 export type RecallStatus="selected"|"excluded_with_reason"|"needs_source"|"unacknowledged"|"post_cutoff";
 export type RecallCandidate={
  key:string;title:string;url:string;eventAt:string;sourceState:"original_checked"|"reported_only"|"creator_lead";
@@ -22,9 +23,10 @@ const ENTITIES=[
  ["federal-reserve",/\b(?:federal reserve|fomc|fed rate)\b/i],
 ] as const;
 const ACTIONS=[
- ["ipo",/\b(?:s-1|f-1|ipo|initial public offering|prospectus|public listing)\b/i],
- ["merger",/\b(?:merg(?:e|er|ing)|takeover|acquisition|special committees?|combination discussions|buyout)\b/i],
- ["capital",/\b(?:equity offering|priced offering|preferred shares|share offering|equity sale|mandatory.convertible|stock issuance)\b/i],
+ ["ipo",/\b(?:s-1|f-1|ipo|initial public offering|prospectus|public listing|files? to go public|plans? to list)\b/i],
+ ["material-filing",/\b8-k(?:\/a)?\b/i],
+ ["merger",/\b(?:merg(?:e|er|ing)|takeover|acquisition|special committees?|combination discussions|business combination|proposed combination|buyout)\b/i],
+ ["capital",/\b(?:equity offering|priced offering|preferred shares|share offering|equity sale|mandatory.convertible|stock issuance|(?:offering|sale|pricing).{0,45}(?:common stock|preferred stock|notes|securities|shares)|(?:stock|share|equity).{0,25}offering)\b/i],
  ["financing",/\b(?:equipment financing|loan facility|secured financing|spv financing|credit facility|debt financing|bond issuance)\b/i],
  ["guidance",/\b(?:guidance|earnings outlook|forecast revision|profit warning)\b/i],
  ["policy",/\b(?:central bank|rate decision|fomc decision|bank of japan decision)\b/i],
@@ -74,17 +76,26 @@ export function computeMaterialEditorialRecall(
    const plain=[idea.title,idea.hook||"",idea.mechanism||""].join(" ");
    return materialEventKey(plain)===key;
   });
-  const receipt=(slate?.notes||"").toUpperCase();
+  // Structured receipts are anchored to an exact original item_key + URL.
+  // Older notes remain fallback ONLY for historical slates before the new
+  // source-checked receipt constraint was installed.
+  const structured=slate?.receipts?.find(r=>
+    r.item_key===source.itemKey&&r.source_url===source.url);
+  const legacy=(slate?.dayMyt||"")<"2026-10-28";
+  const receipt=legacy?(slate?.notes||"").toUpperCase():"";
   const prefix="RECALL["+key.toUpperCase()+"]=";
   const after=Number.isFinite(cutoff)&&Date.parse(source.publishedAt)>cutoff+5*60_000;
   const status:RecallStatus=after?"post_cutoff":matches?"selected":
+   structured?.disposition==="EXCLUDED"?"excluded_with_reason":
+   structured?.disposition==="NEEDS_SOURCE"?"needs_source":
+   structured?.disposition==="SELECTED"?"unacknowledged":
    receipt.includes(prefix+"EXCLUDED")?"excluded_with_reason":
    receipt.includes(prefix+"NEEDS_SOURCE")?"needs_source":"unacknowledged";
   const why=after?"Published after the slate cutoff; reconsider in the next edition.":
    status==="unacknowledged"?"No explicit same-event decision found in the selected slate.":
    status==="selected"?"The same material company action appears in the three ideas.":
-   status==="excluded_with_reason"?"An excluded-candidate disposition was saved.":
-   "The slate records that original-source checking is needed.";
+   status==="excluded_with_reason"?(structured?.reason||"An excluded-candidate disposition was saved."):
+   structured?.reason||"The slate records that original-source checking is needed.";
   results.push({key,title:source.title,url:source.url,eventAt:source.publishedAt,
    sourceState:state,status,materiality:source.materiality??0,why});
  }
