@@ -4,6 +4,8 @@ import Link from "next/link";
 import { headers } from "next/headers";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import { EntityRow } from "@/components/blue-desk/EntityIdentity";
+import { entityForAsset } from "@/lib/bluebelly-entity-identity";
 import PublicGovernmentRateTrendChart from "@/components/blue-desk/PublicGovernmentRateTrendChart";
 import { MarketIcon, type MarketIconName } from "@/components/blue-desk/MarketIcon";
 import {
@@ -125,8 +127,8 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
                   {observations.map(row => (
                     <tr key={row.id}>
                       <th scope="row">
-                        <strong>{row.label}</strong>
-                        <span>{row.symbol} · {row.type}</span>
+                        <EntityRow identity={entityForAsset(row.symbol) || {kind:"asset",code:row.symbol}}
+                          title={row.label} subtitle={row.symbol+" · "+row.type} />
                       </th>
                       <td className={styles.publicMarketNumber}>{displayLevel(row)}</td>
                       <td className={styles.publicMarketNumber}>{displayChange(row)}</td>
