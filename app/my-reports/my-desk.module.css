@@ -21,3 +21,7 @@
 .driveItems article a{font-size:13px;color:#a2e4fd;font-weight:750;text-underline-offset:3px}
 .driveNote{font-size:11px;color:#b4d0dc;line-height:1.6;margin-top:16px}
 @media(max-width:760px){.driveItems{grid-template-columns:1fr}}
+
+/* HTML-first edition layout: three independent report types. */
+@media(min-width:1120px){.driveItems,.focus{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.driveItems article a:focus-visible{outline:2px solid #9ceadf;outline-offset:4px}
