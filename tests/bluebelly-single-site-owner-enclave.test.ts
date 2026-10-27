@@ -82,8 +82,8 @@ test("My Desk is one owner entry, not a new page or five more public navigation 
  assert.match(presenter,/href="\/my-reports"/);
  assert.match(presenter,/id="technical-checks"/);
  assert.doesNotMatch(presenter,/href="\/hybrid-output\/prepare"/);
- assert.match(editorial,/href="\/key-stories"/);
- assert.match(editorial,/href="\/my-reports"/);
+ assert.match(editorial,/redirect\("\/my-reports"\)/);
+ assert.doesNotMatch(editorial,/EditorialWorkbench/);
  assert.doesNotMatch(editorial,/href="\/owner\/x-wire"/);
  assert.doesNotMatch(workbench,/href="\/owner\/x-wire"/);
  for(const p of [presenter,editorial])assert.match(p,/robots:\{index:false,follow:false\}/);

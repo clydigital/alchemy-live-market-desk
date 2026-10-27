@@ -126,6 +126,24 @@ export default async function KeyStories(){
         {" · "}
         <Link className={ui.returnLink} href="#newsroom-title">Browse Newsroom topics</Link>
       </header>
+      <section className={ui.section} aria-labelledby="manual-feature-stories" data-independent-research-features="2026-10-27">
+        <h2 id="manual-feature-stories">Featured investigations</h2>
+        <p>Two independent, source-linked research stories with manual investigation queues. They are separate from automatically adjudicated Dossier theses.</p>
+        <div className={ui.cards}>
+          <article className={ui.card}>
+            <p className={ui.kicker}>ASIA EQUITIES · 27 OCTOBER 2026</p>
+            <h3>China's AI crash vs Korea, Taiwan, Hong Kong and Japan</h3>
+            <p>What fell, why the chip markets disagree and what would confirm a broader contagion.</p>
+            <Link href={blueDeskPublicHref("/blue-desk/features/asia-equities",host)}>Read Asia story and manual research →</Link>
+          </article>
+          <article className={ui.card}>
+            <p className={ui.kicker}>GLOBAL BONDS · FRANCE VS GREECE</p>
+            <h3>Greece's 2010 crisis versus France's bond scare</h3>
+            <p>What 178 basis points signalled, why the spread retreated and how to test sovereign contagion.</p>
+            <Link href={blueDeskPublicHref("/blue-desk/features/global-bonds",host)}>Read global bonds story and manual research →</Link>
+          </article>
+        </div>
+      </section>
       <div className={ui.summary}>
         <span>{theses.length} ongoing market stories</span>
         <span>{topics.length} fresh news themes</span>
