@@ -80,7 +80,8 @@ export function computeMaterialEditorialRecall(
   // source-checked receipt constraint was installed.
   const structured=slate?.receipts?.find(r=>
     r.item_key===source.itemKey&&r.source_url===source.url);
-  const receipt=(slate?.notes||"").toUpperCase();
+  const legacy=(slate?.dayMyt||"")<"2026-10-28";
+  const receipt=legacy?(slate?.notes||"").toUpperCase():"";
   const prefix="RECALL["+key.toUpperCase()+"]=";
   const after=Number.isFinite(cutoff)&&Date.parse(source.publishedAt)>cutoff+5*60_000;
   const status:RecallStatus=after?"post_cutoff":matches?"selected":
