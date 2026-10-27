@@ -22,7 +22,7 @@ export type PublicTrendCard={
  points:TrendDatum[];
  missingReason:string|null;
 };
-const DAY=86_400;
+const DAY=86_400_000;
 const DATE=/^\d{4}-\d{2}-\d{2}$/;
 const URL_OK=(url:string)=>{try{const u=new URL(url);return u.protocol==="https:"&&!u.username&&!u.password&&!!u.hostname;}catch{return false;}};
 const round=(n:number)=>Math.round((n+Number.EPSILON)*100)/100;
