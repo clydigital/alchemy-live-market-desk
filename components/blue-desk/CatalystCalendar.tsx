@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { CatalystCard, CatalystLane } from "@/lib/bluebelly-catalyst-calendar";
 import styles from "./CatalystCalendar.module.css";
+import { EntityMark } from "./EntityIdentity";
 
 type DisplayZone = "UTC" | "Asia/Kuala_Lumpur";
 type ViewMode = "week" | "agenda";
@@ -15,27 +16,10 @@ const FILTERS:{id:CatalystLane|"all";label:string}[] = [
   {id:"diplomacy",label:"Peace talks"},{id:"earnings",label:"Earnings"},
   {id:"technology",label:"Tech & AI"},{id:"energy",label:"Energy"},
 ];
-const FLAGS:Record<string,string> = {US:"🇺🇸",EU:"🇪🇺",GB:"🇬🇧",DE:"🇩🇪",JP:"🇯🇵",CA:"🇨🇦",AU:"🇦🇺",NZ:"🇳🇿"};
-const LOGOS:Record<string,{url:string;short:string}> = {
-  MSFT:{url:"https://www.microsoft.com/favicon.ico",short:"MS"},
-  AAPL:{url:"https://www.apple.com/favicon.ico",short:"AP"},
-  NVDA:{url:"https://www.nvidia.com/favicon.ico",short:"NV"},
-  GOOGL:{url:"https://www.google.com/favicon.ico",short:"GO"},
-  GOOG:{url:"https://www.google.com/favicon.ico",short:"GO"},
-  AMZN:{url:"https://www.amazon.com/favicon.ico",short:"AZ"},
-  META:{url:"https://about.meta.com/favicon.ico",short:"ME"},
-  TSLA:{url:"https://www.tesla.com/favicon.ico",short:"TS"},
-};
 function Logo({ticker,country}:{ticker:string|null;country:string|null}) {
-  const [failed,setFailed]=useState(false);
-  if(ticker) {
-    const meta=LOGOS[ticker],short=meta?.short||ticker.slice(0,2);
-    return <span className={styles.companyMark} aria-label={ticker+" company"}>
-      {meta && !failed ? <img alt="" src={meta.url} width="25" height="25" onError={()=>setFailed(true)} /> : short}
-    </span>;
-  }
-  return <span className={styles.countryBall} aria-label={(country||"Global")+" catalyst"}>
-    {FLAGS[country||""]||"🌐"}</span>;
+  return ticker ? <EntityMark kind="company" code={ticker}/> :
+    country ? <EntityMark kind="country" code={country}/> :
+      <EntityMark kind="asset" code="GLOBAL" label="Multi-country catalyst"/>;
 }
 function dayInZone(item:CatalystCard,zone:DisplayZone){
   if(!item.startAt) return item.date;

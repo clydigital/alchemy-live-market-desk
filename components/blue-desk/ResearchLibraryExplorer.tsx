@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import type { NotionResearchBundle } from "@/lib/notion-market-research";
+import { EntityMark } from "./EntityIdentity";
+import type { EntityIdentity } from "@/lib/bluebelly-entity-identity";
 import styles from "@/app/owner/research/research.module.css";
 
 type Section = "All" | "Latest" | "Themes" | "Gaps" | "Archives";
@@ -55,6 +57,11 @@ const COLLECTIONS: ResearchEntry[] = [
    description:"Research ownership, information flow, claim admission and the handoff into canonical Dossier and Hybrid systems.",
    href:"https://app.notion.com/p/3f3519b67a9481a0993be57443f9362f",provenance:"Notion · research operations",quality:"Reference"},
 ];
+// Only explicitly curated topic rows receive fixed visual identities.
+const CURATED_MARKS:Readonly<Record<string,EntityIdentity>> = {
+  rates:{kind:"country",code:"US"}, energy:{kind:"asset",code:"BRENT"},
+  europe:{kind:"country",code:"EU"}, ai:{kind:"asset",code:"AI"},
+};
 const SECTIONS: Section[] = ["All","Latest","Themes","Gaps","Archives"];
 
 function shortText(text:string,max=320){
@@ -134,7 +141,7 @@ export default function ResearchLibraryExplorer({intake}:{intake:NotionResearchB
       {results.map(entry=><article key={entry.id} className={styles.item}>
         <div className={styles.itemTop}><span className={styles.category}>{entry.discipline}</span>
           <span className={styles.quality}>{entry.quality}</span></div>
-        <h3><a href={entry.href} target="_blank" rel="noopener noreferrer">{entry.title}</a></h3>
+        <h3>{CURATED_MARKS[entry.id]?<EntityMark kind={CURATED_MARKS[entry.id].kind} code={CURATED_MARKS[entry.id].code} size="sm"/>:null}{" "}<a href={entry.href} target="_blank" rel="noopener noreferrer">{entry.title}</a></h3>
         <p>{entry.description || "Full original research available at the linked source."}</p>
         <div className={styles.itemFoot}><span>{entry.provenance}{entry.updated?" · "+safeDate(entry.updated):""}</span>
           <a href={entry.href} target="_blank" rel="noopener noreferrer" aria-label={"Open "+entry.title+" in Notion"}>Read source ↗</a></div>

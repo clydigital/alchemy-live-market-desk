@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
+import { ScopeStrip } from "@/components/blue-desk/EntityIdentity";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getHybridExactDailyBriefEdition } from "@/lib/hybrid-publication";
 import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
@@ -118,6 +119,7 @@ export default async function BlueDeskStoryPage({
           <p className={styles.kicker}>{article.category} · {article.interpretationStatus}</p>
           <h1>{article.title}</h1>
           <p className={styles.heroDeck}>{article.deck}</p>
+          <ScopeStrip assets={article.affectedAssets || []} label="Story scope · not evidence"/>
           <div className={styles.deepMeta}>
             <DualTimestamp value={article.generatedAt} />
             <span>Edition {article.editionId}</span>

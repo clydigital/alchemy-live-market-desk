@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import { EntityMark, ScopeStrip } from "@/components/blue-desk/EntityIdentity";
 import { MarketIcon } from "@/components/blue-desk/MarketIcon";
 import { buildPresenterCalendar } from "@/lib/presenter-calendar";
 import { selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
@@ -124,7 +125,7 @@ export default async function BlueDeskPage() {
             {yields.length ? yields.map(row => (
               <div className={styles.rateRow} key={row.id}>
                 <div>
-                  <span>{row.label}</span>
+                  <span><EntityMark kind="country" code="US" size="xs" /> {row.label}</span>
                   <small>{row.sourceName} · {row.frequency} series</small>
                   <DualTimestamp value={row.asOf} sourceDate={row.asOf} className={styles.rateTime} />
                 </div>
@@ -238,6 +239,7 @@ export default async function BlueDeskPage() {
                 <div className={styles.eventHeading}>
                   <span className={styles.kicker}>{event.kind.toUpperCase()} · {event.status}</span>
                   <h3>{event.title}</h3>
+                  <ScopeStrip assets={event.affectedAssets} max={3}/>
                 </div>
                 <DualTimestamp value={event.scheduledAt} sourceDate={event.localDate} className={styles.eventTime} />
                 <p>{event.decidingQuestion}</p>

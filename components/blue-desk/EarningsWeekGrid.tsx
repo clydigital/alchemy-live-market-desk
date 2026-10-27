@@ -6,6 +6,7 @@ import {
 } from "@/lib/blue-desk-earnings-grid";
 import { formatDualDeskTime } from "@/lib/blue-desk-time";
 import styles from "./EarningsWeekGrid.module.css";
+import { EntityMark } from "./EntityIdentity";
 
 const SESSIONS = [
   { key: "bmo", label: "Before open" },
@@ -22,11 +23,10 @@ function mondayEt(now: Date) {
 }
 
 function Tile({ tile }: { tile: EarningsTile }) {
-  const badge = tile.ticker === "—" ? "?" : tile.ticker.slice(0, 2);
   return (
     <article className={styles.tile} data-earnings-ticker={tile.ticker}>
       <div className={styles.tileTop}>
-        <span className={styles.monogram} aria-hidden="true">{badge}</span>
+        <EntityMark kind="company" code={tile.ticker} size="md" />
         <div className={styles.identity}>
           <strong>{tile.ticker}</strong>
           <span>{tile.name}</span>

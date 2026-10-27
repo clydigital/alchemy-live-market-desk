@@ -19,7 +19,7 @@
 
 * { box-sizing: border-box; }
 html { background: var(--page); scroll-behavior: smooth; }
-body { margin: 0; background: radial-gradient(circle at 50% -12%, rgba(125, 74, 224, .25) 0, transparent 38%), linear-gradient(180deg, #0b0618 0%, #100821 52%, #080511 100%); color: var(--ink); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+body { margin: 0; background: radial-gradient(circle at 50% -12%, rgba(125, 74, 224, .25) 0, transparent 38%), linear-gradient(180deg, #0b0618 0%, #100821 52%, #080511 100%); color: var(--ink); font-family: var(--font-figtree), Figtree, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 button { font: inherit; }
 .site-stage { min-height: 100vh; padding: clamp(16px, 2.4vw, 34px); }
 .workspace-shell { position: relative; width: min(1480px, 100%); min-height: calc(100vh - 68px); margin: 0 auto; padding: clamp(28px, 4vw, 66px); overflow: clip; border: 1px solid #39265f; border-radius: 34px; background:
@@ -780,3 +780,11 @@ button { font: inherit; }
   [data-print-local-draft] ul{padding-left:7mm;overflow-wrap:anywhere}
   @page{size:A4;margin:13mm}
 }
+
+/* Bluebelly global font: public, owner, navigation, forms, tables and chart labels.
+   Preserve monospace for code and numerical source snippets. */
+:root { --bluebelly-font: var(--font-figtree), Figtree, "Segoe UI", Arial, sans-serif; }
+html, body, button, input, select, textarea, table, th, td { font-family: var(--bluebelly-font); }
+button, input, select, textarea { font: inherit; }
+svg text, .recharts-text, .recharts-label { font-family: var(--bluebelly-font); }
+pre, code, kbd, samp { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; }

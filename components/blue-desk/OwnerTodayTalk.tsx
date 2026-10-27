@@ -3,6 +3,8 @@
 import {useState} from "react";
 import type {TodayTalk} from "@/lib/bluebelly-todays-talk";
 import styles from "./owner-todays-talk.module.css";
+import { EntityMark } from "./EntityIdentity";
+import { entityForAsset } from "@/lib/bluebelly-entity-identity";
 
 /**
  * Display a server-selected read-only packet. Only the explicit Copy action
@@ -70,7 +72,7 @@ export default function OwnerTodayTalk({brief}:{brief:TodayTalk}){
        <thead><tr><th scope="col">Asset / source</th><th scope="col">Latest level</th>
         <th scope="col">1 / 3 / 5 sessions</th></tr></thead>
        <tbody>{brief.prices.map(p=><tr key={p.id}>
-        <td><strong>{p.label}</strong><small>{p.status} · {p.asOf||"No valid date"}</small>
+        <td><EntityMark kind={(entityForAsset(p.symbol)||{kind:"asset",code:p.symbol}).kind} code={(entityForAsset(p.symbol)||{kind:"asset",code:p.symbol}).code} size="xs" /> <strong>{p.label}</strong><small>{p.status} · {p.asOf||"No valid date"}</small>
          {p.sourceUrl?<a href={p.sourceUrl} rel="noopener noreferrer" target="_blank">{p.sourceName}</a>:<small>{p.sourceName}</small>}
         </td>
         <td>{p.level}</td>
