@@ -53,3 +53,9 @@ test("a Tesla material 8-K becomes an editorial candidate, not an invented compl
  assert.equal(materialEventKey("Tesla, Inc. filed Form 8-K with SEC (item codes 1.01)"),"tesla:material-filing");
  assert.equal(materialEventKey("Tesla and SpaceX special committees discussing merger"),"spacex-tesla:merger");
 });
+
+test("issuer equity offering and proposed corporate combinations are distinct decisions",()=>{
+ assert.equal(materialEventKey("Meta Announces Pricing of Offering of Class A Common Stock"),"meta:capital");
+ assert.equal(materialEventKey("Anthropic files to go public ahead of listing"),"anthropic:ipo");
+ assert.equal(materialEventKey("Tesla and SpaceX consider proposed combination"),"spacex-tesla:merger");
+});
