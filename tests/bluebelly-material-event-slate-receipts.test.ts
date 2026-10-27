@@ -59,3 +59,12 @@ test("issuer equity offering and proposed corporate combinations are distinct de
  assert.equal(materialEventKey("Anthropic files to go public ahead of listing"),"anthropic:ipo");
  assert.equal(materialEventKey("Tesla and SpaceX consider proposed combination"),"spacex-tesla:merger");
 });
+
+test("editorial receipt DDL contains no truncated regex or trailing duplicated SQL",()=>{
+ const sql=readFileSync(new URL("../supabase/migrations/20261028033000_material_event_editorial_receipts.sql",import.meta.url),"utf8");
+ assert.ok(sql.includes("!~ '^https://[^ ]+$'"));
+ assert.ok(sql.includes("or char_length(coalesce(receipt->>'source_url',''))>1500"));
+ assert.equal(sql.split("create or replace function public.bluebelly_assert_material_event_receipts").length,2);
+ assert.equal(sql.split("revoke all on public.blue_desk_editorial_slates from public,anon,authenticated;").length,2);
+ assert.ok(sql.trimEnd().endsWith("revoke all on public.blue_desk_editorial_slates from public,anon,authenticated;"));
+});
