@@ -70,9 +70,9 @@ export function projectEarningsWeekTiles(
     // An official *results*-release session can be described without an exact
     // release minute. Never derive a session from a conference-call clock.
     const issuerSession = event.verificationState === "official" && isHttps(event.sourceUrl)
-      ? /\\bresults?\\s+(?:will\\s+be\\s+released\\s+)?after\\s+(?:the\\s+)?(?:us\\s+)?close\\b/i.test(event.timeLabel)
+      ? /\bresults?\s+(?:will\s+be\s+released\s+)?after\s+(?:the\s+)?(?:us\s+)?close\b/i.test(event.timeLabel)
         ? "amc"
-        : /\\bresults?\\s+(?:will\\s+be\\s+released\\s+)?before\\s+(?:the\\s+)?(?:us\\s+)?(?:market\\s+)?open\\b/i.test(event.timeLabel)
+        : /\bresults?\s+(?:will\s+be\s+released\s+)?before\s+(?:the\s+)?(?:us\s+)?(?:market\s+)?open\b/i.test(event.timeLabel)
           ? "bmo"
           : "unknown"
       : "unknown";
