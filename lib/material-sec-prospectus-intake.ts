@@ -64,7 +64,13 @@ export async function applyMaterialSecProspectusIntake(
  const fetchImpl=opts.fetchImpl??fetch;
  const originals=new Set(input.items.map(x=>x.url));
  const adds:IntakeItemInput[]=[],states:string[]=[];
- for(const issuer of PRIORITY_EDGAR_ISSUERS){
+ const issuerQueue=[...PRIORITY_EDGAR_ISSUERS];
+ // Bounded concurrency: one slow SEC issuer cannot serially delay the entire
+ // existing research run, and fewer than three requests remain in flight.
+ await Promise.all(Array.from({length:2},async()=>{
+ while(issuerQueue.length){
+ const issuer=issuerQueue.shift()!;
+
   try{
    const res=await fetchImpl(buildSecSubmissionsUrl(issuer.cik),{
     headers:{accept:"application/json","user-agent":ua},cache:"no-store",signal:AbortSignal.timeout(6500)
@@ -117,6 +123,7 @@ export async function applyMaterialSecProspectusIntake(
    states.push(issuer.name+":"+(admitted?"new="+admitted:"no_recent_verified_qualifying_filing"));
   }catch{states.push(issuer.name+":source_unavailable");}
  }
+ }));
  return {...input,items:[...input.items,...adds],summary:
    ((input.summary||"")+" SEC IPO filing discovery: "+states.join(" | ")+
     ". Original SEC filing confirms filing identity only; no completed deal or price move inferred.").slice(0,6000)};
