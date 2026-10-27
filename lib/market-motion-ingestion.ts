@@ -581,6 +581,11 @@ function sourceKind(item: ScoredIntakeItem): NonNullable<MarketMotionInput["sour
   // NVIDIA's first-party press domain is linked directly from NVIDIA IR.
   // Only source-read entries with sourceQuality >=90 may become VERIFIED.
   if (host === "nvidianews.nvidia.com") return "primary";
+  // These issuer hosts only count as original announcements when the existing
+  // source-read RSS+same-host HTML adapter issued its verified receipt.
+  // A news/creator claim merely linking to an issuer URL is not enough.
+  if ((host==="investors.broadcom.com"||host==="investor.atmeta.com") &&
+      item.itemKey.startsWith("official-press:")) return "primary";
   if (
     /(?:^|\.)(?:bls\.gov|bea\.gov|treasury\.gov|energy\.gov|federalreserve\.gov|newyorkfed\.org|ecb\.europa\.eu|boj\.or\.jp|mof\.go\.jp|statcan\.gc\.ca|ons\.gov\.uk|eurostat\.ec\.europa\.eu|abs\.gov\.au|stats\.govt\.nz|rba\.gov\.au|bankofengland\.co\.uk|bankofcanada\.ca|snb\.ch|imf\.org|bis\.org)$/.test(host)
   ) return "official";
