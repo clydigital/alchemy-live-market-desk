@@ -19,6 +19,11 @@ test("tech radar excludes generic partner press releases but retains material un
   assert.equal(isMaterialCatalystHeadline("technology","Tesla robotaxi roadshow begins"),true);
 });
 
+test("the Fed source admits newly appointed speakers without a hard-coded name list",()=>{
+  assert.equal(isMaterialCatalystHeadline("fed","New Governor delivers remarks at overseas conference"),true);
+  assert.equal(isMaterialCatalystHeadline("fed","Economic Outlook from Reserve Bank president"),true);
+});
+
 test("official feed is repaired and failed feeds remain distinct from not-configured adapters",()=>{
   const source=readFileSync(new URL("../lib/bluebelly-catalyst-sources.ts",import.meta.url),"utf8");
   const view=readFileSync(new URL("../components/blue-desk/CatalystCalendar.tsx",import.meta.url),"utf8");
