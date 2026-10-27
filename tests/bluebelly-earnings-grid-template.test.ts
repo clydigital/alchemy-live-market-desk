@@ -36,6 +36,26 @@ test("a verified conference-call clock never fabricates a results-release sessio
   assert.equal(tile.official, true);
 });
 
+test("issuer-confirmed results after close can populate AMC; call times cannot", () => {
+  const [resultSession] = projectEarningsWeekTiles([{
+    ...base,
+    id: "earnings:msft",
+    title: "Microsoft FY2027 Q1 earnings",
+    scheduledAt: null,
+    timePrecision: "date",
+    timeLabel: "Results after US close; exact release time unconfirmed",
+  }]);
+  assert.equal(resultSession.session, "amc");
+  assert.equal(resultSession.releaseSessionSourceUrl, base.sourceUrl);
+
+  const [callSession] = projectEarningsWeekTiles([{
+    ...base,
+    timeLabel: "16:30 ET earnings call (results before the call, release minute unconfirmed)",
+  }]);
+  assert.equal(callSession.session, "unknown");
+  assert.equal(callSession.releaseSessionSourceUrl, null);
+});
+
 test("new issuer records populate template without ticker-specific UI edits", () => {
   const [tile] = projectEarningsWeekTiles([{
     ...base, id: "earnings:example-2", affectedAssets: ["NEW"],
