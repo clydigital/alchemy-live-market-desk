@@ -38,6 +38,8 @@ test("the owner report category library offers pagination and removes duplicate 
  assert.match(page,/"market"/);
  assert.match(page,/"angles"/);
  assert.match(page,/"creators"/);
+ assert.match(page,/"audits"/);
+ assert.match(page,/const PAGE_SIZE=2/);
  const nav=header.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0]||"";
  assert.doesNotMatch(nav,/Writing Desk/);
  assert.match(nav,/My Desk/);
