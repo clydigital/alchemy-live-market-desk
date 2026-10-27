@@ -51,7 +51,7 @@ const WATCHLIST: readonly Candidate[] = [
     id: "databricks", name: "Databricks", proposedTicker: null,
     sourceUrl: "https://www.home.saxo/learn/guides/ipo/upcoming-tech-ipos-in-2026-and-beyond",
     sourceName: "Saxo · candidate overview (secondary)",
-    milestoneDate: "2026-09-01", milestone: "Potential IPO candidate; no public timetable verified",
+    milestoneDate: "2026-10-28", milestone: "Research watch only; no public timetable verified",
     certainty: "reported", priority: "watch",
     watchFor: "Direct company announcement or public SEC registration. Do not turn outside forecasts into a listing date.",
     why: "Data infrastructure is an AI spending and enterprise software theme. This is a research watch, not evidence of a scheduled offer.",
