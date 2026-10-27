@@ -17,12 +17,14 @@ const PRIVATE_NAV = [
   ["Calendar", "/blue-desk/calendar"],
 ] as const;
 
-// Public Bluebelly is deliberately limited to the route allowlist; never
-// advertise owner-only legacy links that its middleware correctly returns 404.
+// All six navigation destinations are visible on Bluebelly. The two owner
+// destinations remain protected by middleware and the active account allowlist.
 const PUBLIC_NAV = [
   ["Live Market", "/"],
   ["Key Stories", "/key-stories"],
   ["Markets", "/markets"],
+  ["My Desk", "/my-reports"],
+  ["Research Library", "/owner/research"],
   ["Calendar", "/calendar"],
 ] as const;
 
@@ -79,10 +81,6 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
             <span>{title}</span>
           </Link>
         ))}
-        {publicHost && !ownerWorkspace ? <Link href="/my-reports" className={styles.navItem}
-          aria-label="Open private Bluebelly workspace; sign-in required">
-          <MarketIcon name="studio" size={17} /><span>My Desk</span>
-        </Link> : null}
       </nav>
     </header>
   );
