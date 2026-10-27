@@ -56,6 +56,9 @@ test("one identity system is consumed by the highest-signal public and owner sur
     "components/blue-desk/OwnerTodayTalk.tsx",
     "components/blue-desk/PublicGovernmentRateTrendChart.tsx",
     "components/blue-desk/ResearchLibraryExplorer.tsx",
+    "app/blue-desk/daily-report/page.tsx",
+    "components/blue-desk/EditorialWorkbench.tsx",
+    "components/blue-desk/HormuzCrossings.tsx",
   ]) {
     assert.match(root(path),/Entity(?:Mark|Row|Chip|Stack)|ScopeStrip/,"Missing shared identity in "+path);
   }
