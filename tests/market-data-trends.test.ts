@@ -81,15 +81,15 @@ test("public market-data trend admits only exact Treasury/government nominal sou
     "Base public row contract remains unchanged; source-chart history is separately allowlisted.");
 });
 
-test("private Markets, public source-gated Markets and Macro Data all render trend components",()=>{
+test("private Markets retains source trend, public Bluebelly uses TradingView, and Macro Data retains official trends",()=>{
   const file=(name:string)=>readFileSync(new URL(name,import.meta.url),"utf8");
   const markets=file("../components/live-desk/MarketsMonitor.tsx");
   const blue=file("../app/blue-desk/markets/page.tsx");
   const macro=file("../app/data/macro/page.tsx");
   assert.match(markets,/<MarketTrendChart rows=\{monitor\.rows\}/);
   assert.match(markets,/setTrendSelectedId\(row\.id\)/);
-  assert.match(blue,/<PublicGovernmentRateTrendChart series=\{officialRateTrends\}/);
-  assert.match(blue,/publicGovernmentRateTrends\(monitor\?\.rows \|\| \[\]\)/);
+  assert.match(blue,/<TradingViewChart initial=\{TV_MARKET_GROUP_DEFAULTS\[group\]/);
+  assert.doesNotMatch(blue,/<PublicGovernmentRateTrendChart/);
   assert.match(macro,/<MacroTrendMonitor observations=\{data\.macroObservations\}/);
   assert.match(macro,/macroHistoryStale/);
 });
