@@ -53,12 +53,13 @@ export async function POST(req:NextRequest){
    if(!attested)return fail(422,"Original Notion source proof failed");
    // Replace schedule-supplied clocks with native page creation (proxy)
    // and this independent Notion retrieval time. Claim facts still research-only.
-   digest=parseMacroPulseDigest({
+   const verified=parseMacroPulseDigest({
     ...(input as Record<string,unknown>),
     sourcePublishedAt:attested.sourceCreatedAt,
     sourceRetrievedAt:attested.retrievedAt,
    },new Date());
-   if(!digest)return fail(422,"Invalid attested source clocks");
+   if(!verified)return fail(422,"Invalid attested source clocks");
+   digest=verified;
   }catch{return fail(503,"Original Notion source could not be read");}
  }
  const stable={pulse:digest.sourcePulseId,headline:digest.headline,
