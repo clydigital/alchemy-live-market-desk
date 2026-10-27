@@ -1,5 +1,9 @@
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
+import { Figtree } from "next/font/google";
+
+// One self-hosted, build-time optimised font for public Bluebelly and owner tools.
+const figtree = Figtree({ subsets: ["latin"], display: "swap", variable: "--font-figtree" });
 
 export const metadata: Metadata = {
   title: "Bluebelly | Market Intelligence Workspace",
@@ -13,5 +17,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}</body></html>;
+  return <html lang="en-GB"><body className={figtree.variable}>{children}</body></html>;
 }
