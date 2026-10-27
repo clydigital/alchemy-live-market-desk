@@ -1,0 +1,23 @@
+.focus{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:20px auto 32px}
+.focus article{min-width:0;border:1px solid #33627b;border-radius:12px;padding:clamp(20px,2.8vw,30px);background:linear-gradient(135deg,#0b3851,#052639);color:#e5f5fc}
+.focus article h2{margin:9px 0 13px;font-size:clamp(20px,2.2vw,29px);color:#f6fbff;letter-spacing:-.03em;line-height:1.25}
+.focus article p:not(.step){font-size:13px;line-height:1.75;color:#c0dbe9;max-width:64ch;margin:0}
+.step{font-size:10px;color:#82d8f5;letter-spacing:.1em;font-weight:850}
+.technical{max-width:1120px;margin:34px auto 65px;padding:0 18px}
+.technical details{background:#062538;border:1px solid #2a566f;border-radius:9px;padding:16px 20px}
+.technical summary{cursor:pointer;color:#bfe4f3;font-size:13px;font-weight:760}
+.technical summary:focus-visible{outline:2px solid #b6ebff;outline-offset:5px}
+@media(max-width:760px){.focus{grid-template-columns:1fr}.technical{padding:0 12px}}
+
+.driveArchive{border:1px solid #3b758b;background:linear-gradient(135deg,#0c3f56,#052636);border-radius:13px;margin:16px auto 25px;padding:clamp(18px,2.8vw,30px)}
+.driveHead{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;flex-wrap:wrap}
+.driveHead h2{color:#f3fcff;font-size:clamp(23px,2.5vw,32px);margin:9px 0}
+.driveHead p:not(:first-child){font-size:13px;line-height:1.65;color:#c2dce8;max-width:73ch}
+.driveHead>a{display:inline-flex;align-items:center;border:1px solid #74c7e8;color:#e4f7ff;padding:11px 13px;border-radius:7px;font-size:12px;font-weight:760;text-decoration:none}
+.driveItems{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:20px}
+.driveItems article{padding:18px;border-radius:10px;border:1px solid #3a6b7e;background:#082c40;display:flex;flex-direction:column;gap:9px}
+.driveItems strong{font-size:16px;color:#fff}.driveItems span{font-size:12px;color:#b4d2df}
+.driveItems article div{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
+.driveItems article a{font-size:13px;color:#a2e4fd;font-weight:750;text-underline-offset:3px}
+.driveNote{font-size:11px;color:#b4d0dc;line-height:1.6;margin-top:16px}
+@media(max-width:760px){.driveItems{grid-template-columns:1fr}}
