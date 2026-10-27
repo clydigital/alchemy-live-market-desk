@@ -177,7 +177,9 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
             <p className={ui.kicker}>{classifyPublicStory(thesis)} · ONGOING RESEARCH</p>
             <h3><Link href={indexHref+"?story="+encodeURIComponent(thesis.slug)}>{thesis.title}</Link></h3>
             <p className={ui.storyIntro}>{thesis.thesis}</p>
-            <p className={ui.timeNote}>Last researched <DualTimestamp value={thesis.updatedAt}/>. Historical thesis, not a confirmed live market reaction.</p>
+            <p className={ui.timeNote}>{thesis.latestMotionAt?
+              <>LINKED CONTEXT · {thesis.latestMotionVerification==="VERIFIED"?"SOURCE-VERIFIED EVENT":"UNVERIFIED RESEARCH LEAD"} · <DualTimestamp value={thesis.latestMotionAt}/> · </>:null}
+              Last researched <DualTimestamp value={thesis.updatedAt}/>. Historical thesis, not a confirmed live market reaction.</p>
             <Link className={ui.storyRead} href={indexHref+"?story="+encodeURIComponent(thesis.slug)}>
               Read the explanation, countercase and next test →
             </Link>
