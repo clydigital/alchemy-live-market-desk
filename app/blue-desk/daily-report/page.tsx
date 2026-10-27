@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { EntityChip, EntityScopeStrip } from "@/components/blue-desk/EntityIdentity";
+import { identityForCalendar, identityForSymbol } from "@/lib/bluebelly-entity-identity";
 import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
@@ -234,7 +236,9 @@ export default async function DailyReportPage() {
               <h3>{group.label}</h3>
               {group.rows.length ? group.rows.map(event =>
                 <article className={styles.event} key={event.id}>
+                  <div><EntityChip entity={identityForCalendar(event.kind,event.affectedAssets,event.sourceName)} tone={event.kind==="earnings"?"earnings":"macro"}/></div>
                   <strong>{event.title}</strong>
+                  <EntityScopeStrip label="MARKETS" entities={event.affectedAssets.map(identityForSymbol)} limit={4}/>
                   <span>{event.scheduledAt
                     ? formatDualDeskTime(event.scheduledAt)?.et || event.scheduledAt
                     : event.localDate + " · source date only"}</span>
