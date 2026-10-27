@@ -9,12 +9,13 @@ type DisplayZone = "UTC" | "Asia/Kuala_Lumpur";
 type ViewMode = "week" | "agenda";
 const LABELS:Record<CatalystLane,string> = {
   macro:"Macro",fed:"Fed",diplomacy:"Peace & geopolitics",earnings:"Earnings",
-  technology:"Big Tech & AI",energy:"Energy",other:"Other",
+  technology:"Big Tech & AI",energy:"Energy",ipo:"Major IPOs",other:"Other",
 };
 const FILTERS:{id:CatalystLane|"all";label:string}[] = [
   {id:"all",label:"All catalysts"},{id:"macro",label:"Macro"},{id:"fed",label:"Fed speakers"},
   {id:"diplomacy",label:"Peace talks"},{id:"earnings",label:"Earnings"},
   {id:"technology",label:"Tech & AI"},{id:"energy",label:"Energy"},
+  {id:"ipo",label:"Major IPOs"},
 ];
 function Logo({ticker,country}:{ticker:string|null;country:string|null}) {
   return ticker ? <EntityMark kind="company" code={ticker}/> :
@@ -28,7 +29,7 @@ function dayInZone(item:CatalystCard,zone:DisplayZone){
   return value("year")+"-"+value("month")+"-"+value("day");
 }
 function displayClock(item:CatalystCard,zone:DisplayZone) {
-  if(!item.startAt) return item.date?"Date only · time TBC":"Timing not established";
+  if(!item.startAt) return item.lane==="ipo"?"IPO date TBC":item.date?"Date only · time TBC":"Timing not established";
   const formatted=new Intl.DateTimeFormat("en-GB",{timeZone:zone,hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date(item.startAt));
   return formatted+" "+(zone==="UTC"?"UTC":"MYT");
 }
@@ -60,15 +61,16 @@ function EventDetail({item,zone}:{item:CatalystCard|null;zone:DisplayZone}){
         <h3>{item.title}</h3>
         <div className={styles.detailBadges}>
           <span>{item.certainty==="official"?"Original-source record":item.certainty+" source"}</span>
-          <span>{item.signalOnly?"Monitoring lead":item.callTimeOnly?"Call time · not release":item.timePrecision==="exact"?"Confirmed instant":item.date?"Confirmed/reported date":"Date TBC"}</span>
+          <span>{item.lane==="ipo"?"Listing date not verified":item.signalOnly?"Monitoring lead":item.callTimeOnly?"Call time · not release":item.timePrecision==="exact"?"Confirmed instant":item.date?"Confirmed/reported date":"Date TBC"}</span>
         </div>
         <dl className={styles.facts}>
-          <div><dt>When</dt><dd>{item.date||"Unscheduled"}{item.startAt?" · "+(item.callTimeOnly?"Earnings call at ":"")+displayClock(item,zone):" · time not verified"}</dd></div>
+          <div><dt>{item.lane==="ipo"?"Listing":"When"}</dt><dd>{item.lane==="ipo"?"IPO date TBC":item.date||"Unscheduled"}{item.startAt?" · "+(item.callTimeOnly?"Earnings call at ":"")+displayClock(item,zone):item.lane==="ipo"?"":" · time not verified"}</dd></div>
           <div><dt>Watch</dt><dd>{item.affectedAssets.length?item.affectedAssets.map(a=>item.country==="DE"?"DAX":a).join(" · "):"Pending market assessment"}</dd></div>
           <div><dt>Status</dt><dd>{item.status}</dd></div>
         </dl>
         <h4>Why it matters</h4><p>{item.why}</p>
-        {item.signalOnly?<p className={styles.radarCaution}>Source activity is not proof that a meeting is scheduled. We will not assign it an invented date or hour.</p>:null}
+        {item.lane==="ipo"?<p className={styles.radarCaution}>A filing, confidential submission or analyst watchlist is not an announced listing date. Proposed symbols are not tradeable tickers until actual listing.</p>
+          :item.signalOnly?<p className={styles.radarCaution}>Source activity is not proof that a meeting is scheduled. We will not assign it an invented date or hour.</p>:null}
         {item.callTimeOnly?<p className={styles.radarCaution}>This is the confirmed earnings-call time. The financial results may be released earlier; their publication time has not been established by this event.</p>:null}
         <a className={styles.sourceLink} href={item.sourceUrl} target="_blank" rel="noreferrer">
           Open original source ↗
@@ -87,11 +89,12 @@ export default function CatalystCalendar({items,sourceCoverage,nowISO}:{
   const week=useMemo(()=>Array.from({length:7},(_,i)=>({day:ymd(plusDays(start,i)),date:plusDays(start,i)})),[start]);
   const filtered=useMemo(()=>items.filter(item=>
     (lane==="all"||item.lane===lane)&&(!focus||item.priority==="must_watch")
-    &&(item.title+" "+item.ticker+" "+item.sourceName+" "+item.affectedAssets.join(" ")).toLowerCase().includes(q.toLowerCase())
+    &&(item.title+" "+item.ticker+" "+item.sourceName+" "+item.affectedAssets.join(" ")+" "+item.status).toLowerCase().includes(q.toLowerCase())
   ),[items,lane,focus,q]);
   const scheduled=filtered.filter(item=>item.date&&week.some(day=>day.day===dayInZone(item,zone)));
-  const leads=filtered.filter(item=>item.signalOnly).slice(0,12);
-  const details=filtered.find(item=>item.id===selectedId)||scheduled[0]||leads[0]||null;
+  const leads=filtered.filter(item=>item.signalOnly && item.lane!=="ipo").slice(0,12);
+  const ipos=filtered.filter(item=>item.lane==="ipo");
+  const details=filtered.find(item=>item.id===selectedId)||scheduled[0]||ipos[0]||leads[0]||null;
   const unavailable=sourceCoverage.filter(s=>s.state==="unavailable");
   const notConfigured=sourceCoverage.filter(s=>s.state==="not_configured");
   const stale=sourceCoverage.filter(s=>s.state==="stale");
@@ -100,7 +103,8 @@ export default function CatalystCalendar({items,sourceCoverage,nowISO}:{
   const counts={all:items.length,macro:items.filter(x=>x.lane==="macro").length,
     fed:items.filter(x=>x.lane==="fed").length,diplomacy:items.filter(x=>x.lane==="diplomacy").length,
     earnings:items.filter(x=>x.lane==="earnings").length,technology:items.filter(x=>x.lane==="technology").length,
-    energy:items.filter(x=>x.lane==="energy").length,other:0};
+    energy:items.filter(x=>x.lane==="energy").length,
+    ipo:items.filter(x=>x.lane==="ipo").length,other:0};
   function dayCards(day:string){
     const dayItems=scheduled.filter(e=>dayInZone(e,zone)===day);
     return dayItems.length?dayItems.map(e=><EventTile key={e.id} item={e} selected={details?.id===e.id}
@@ -111,7 +115,7 @@ export default function CatalystCalendar({items,sourceCoverage,nowISO}:{
     <div className={styles.header}>
       <div><span className={styles.kicker}>BLUEBELLY / CATALYST RADAR</span>
         <h2>The market week, at a glance.</h2>
-        <p>Official macro releases plus Fed appearances, peace negotiations, earnings follow-ups and big-tech catalysts.</p>
+        <p>Official macro releases plus Fed appearances, peace negotiations, earnings, major IPO filings and big-tech catalysts.</p>
       </div>
       <div className={styles.dateNav}>
         <button type="button" onClick={()=>setWeekShift(v=>v-1)} aria-label="Previous week">‹</button>
@@ -135,12 +139,13 @@ export default function CatalystCalendar({items,sourceCoverage,nowISO}:{
     <div className={styles.overview}>
       <span><strong>{scheduled.length}</strong> dated this week</span>
       <span><strong>{leads.length}</strong> off-calendar leads</span>
+      <span><strong>{ipos.length}</strong> major IPOs watched</span>
       <span><strong>{unavailable.length+stale.length}</strong> feeds needing review</span>
       <span className={styles.overviewNote}>Monday–Sunday · UTC default · missing times stay unknown</span>
     </div>
     <div className={styles.contentGrid}>
       <div className={styles.primary}>
-        {view==="week"?<>
+        {lane==="ipo"?<p className={styles.ipoNotice}>IPO filings belong in the watch below, not on a trading-day tile until the listing date is confirmed by a primary source.</p>:view==="week"?<>
           <div className={styles.board}>
             {week.slice(0,5).map(day=><section className={styles.day} key={day.day}>
               <div className={styles.dayHeading}><strong>{fmtDay(day.date)}</strong>
@@ -156,6 +161,15 @@ export default function CatalystCalendar({items,sourceCoverage,nowISO}:{
           {week.map(day=><section key={day.day} className={styles.agendaDay}><h3>{fmtDay(day.date)}</h3>
             <div>{dayCards(day.day)}</div></section>)}
         </div>}
+        {(lane==="all" || lane==="ipo") ? <section className={styles.ipoPanel} id="ipo-watch" data-major-ipo-watch="source-qualified">
+          <div className={styles.offCalendarHead}><div><strong>Major IPO watch</strong>
+            <p>Track filing stages, price-range announcements and eventual debuts. The dates in each status are past source milestones, not a scheduled IPO date.</p></div>
+            <small>{ipos.length} tracked candidate{ipos.length===1?"":"s"}</small>
+          </div>
+          <div className={styles.leadTiles}>{ipos.length ? ipos.map(item=><EventTile key={item.id} item={item}
+            selected={details?.id===item.id} zone={zone} onChoose={()=>setSelectedId(item.id)}/>)
+            :<p className={styles.unknown}>No matching sourced major IPO candidates. Missing results do not establish that the IPO pipeline is empty.</p>}</div>
+        </section>:null}
         <section className={styles.offCalendar}>
           <div className={styles.offCalendarHead}><div><strong>Developing / time not established</strong>
             <p>Official announcements and negotiations under review, not imaginary appointments.</p></div>
