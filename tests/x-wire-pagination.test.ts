@@ -44,8 +44,10 @@ test("rejects spoofed author, undated post, malformed envelope and future claims
   assert.equal(p.posts.length,1);assert.equal(p.malformed,3);
   assert.throws(()=>parseFxTimeline({code:500,results:[]},"HFI_Research",now,now));
 });
-test("raw queue only exposes private host and never touches canonical research paths",()=>{
-  assert.equal(blueDeskHostAccess("/owner/x-wire","bluebelly-desk.vercel.app"),"blocked");
+test("raw queue is protected on Bluebelly and owner hosts and never touches canonical research paths",()=>{
+  assert.equal(blueDeskHostAccess("/owner/x-wire","bluebelly-desk.vercel.app"),"private");
+  assert.equal(blueDeskHostAccess("/owner/x-wire/","bluebelly-desk.vercel.app"),"blocked");
+  assert.equal(blueDeskHostAccess("/owner/x-wire","alchemy-blue-desk.vercel.app"),"blocked");
   assert.equal(blueDeskHostAccess("/owner/x-wire","alchemy-live-market-desk.vercel.app"),"private");
   const sql=readFileSync(new URL("../supabase/migrations/20261023230000_x_wire_durable_intake.sql",import.meta.url),"utf8");
   assert.match(sql,/enable row level security/g);

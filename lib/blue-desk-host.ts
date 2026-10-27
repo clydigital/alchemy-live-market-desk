@@ -63,7 +63,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     "/auth/signout", "/api/owner/automated-report-pdf",
     // Native Bluebelly owner tools only; every path still requires a
     // valid Supabase session and the active user allowlist in middleware.
-    "/owner/editorial", "/owner/presenter", "/owner/research",
+    "/owner/editorial", "/owner/presenter", "/owner/research", "/owner/x-wire",
     "/owner/presenter/editions",
     // Exactly scoped private report and research review readback paths.
     "/owner/daily-report", "/api/owner/macropulse-briefs",

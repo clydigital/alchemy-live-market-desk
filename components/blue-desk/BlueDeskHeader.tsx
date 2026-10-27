@@ -14,10 +14,11 @@ const PRIVATE_NAV = [
   ["Markets", "/markets"],
   ["My Desk", "/my-reports"],
   ["Research Library", "/owner/research"],
+  ["X Wire", "/owner/x-wire"],
   ["Calendar", "/blue-desk/calendar"],
 ] as const;
 
-// All six navigation destinations are visible on Bluebelly. The two owner
+// All seven navigation destinations are visible on Bluebelly. The three owner
 // destinations remain protected by middleware and the active account allowlist.
 const PUBLIC_NAV = [
   ["Live Market", "/"],
@@ -25,6 +26,7 @@ const PUBLIC_NAV = [
   ["Markets", "/markets"],
   ["My Desk", "/my-reports"],
   ["Research Library", "/owner/research"],
+  ["X Wire", "/owner/x-wire"],
   ["Calendar", "/calendar"],
 ] as const;
 
