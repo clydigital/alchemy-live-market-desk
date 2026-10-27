@@ -38,18 +38,22 @@ export function parseFxTimeline(json: unknown, handle: string, startAt: string, 
   for (const raw of data.results) {
     const row=rec(raw), author=rec(row.author);
     const screen=text(author.screen_name,20), id=text(row.id,25), date=published(row), body=text(row.text);
-    // A truncated provider timeline may still have a continuation cursor.
+    // Reposts can carry their ORIGINAL author's historic timestamp rather
+    // than the moment this account reposted them. They prove neither ordered
+    // coverage nor a defect in the surrounding first-party post chronology.
+    // Exclude them from both persistence and chronological proof.
+    if(row.reposted_by)continue;
     // Only authenticated-to-handle, chronologically ordered original statuses
-    // can prove the requested lookback was crossed. Reposts, pinned/out-of-order
-    // records, and invalid timestamps cannot prove historical coverage.
-    if(row.reposted_by || row.type!=="status" || screen.toLowerCase()!==handle.toLowerCase() ||
+    // can prove the requested lookback was crossed. Large inversions,
+    // malformed records and unsupported timestamps invalidate that proof.
+    if(row.type!=="status" || screen.toLowerCase()!==handle.toLowerCase() ||
       !/^\d{6,25}$/.test(id) || !body || !date || Date.parse(date)>Date.parse(nowIso)+300_000) ordered=false;
     else {
       const stamp=Date.parse(date);
       if(orderedTimes.length && stamp>orderedTimes[orderedTimes.length-1]+TIMELINE_ORDER_JITTER_MS)ordered=false;
       orderedTimes.push(stamp);
     }
-    if (row.reposted_by || (date && Date.parse(date) < Date.parse(startAt))) continue;
+    if (date && Date.parse(date) < Date.parse(startAt)) continue;
     if (row.type !== "status" || screen.toLowerCase() !== handle.toLowerCase() ||
       !date || Date.parse(date) > Date.parse(nowIso) + 300_000 || !body) {malformed++;continue;}
     try {

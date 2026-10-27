@@ -96,6 +96,20 @@ test("strict lookback exhaustion succeeds before an unnecessary provider cursor 
  assert.equal(page.nextCursor,"may-404");
 });
 
+
+test("reposts are excluded without poisoning chronological proof from valid original statuses",()=>{
+ const originalRecent=sample({id:"2113177723749420101",created_at:"2026-10-23T05:20:00Z"});
+ const reshareOfOldPost=sample({id:"2113177723749420102",created_at:"2026-10-12T08:00:00Z",
+  reposted_by:{screen_name:"HFI_Research"}});
+ const originalOld=sample({id:"2113177723749420103",created_at:"2026-10-23T03:20:00Z"});
+ const page=(items:unknown[])=>parseFxTimeline({code:200,results:items,
+  cursor:{bottom:"provider-next"}},"HFI_Research","2026-10-23T03:30:00Z",now);
+ const covered=page([originalRecent,reshareOfOldPost,originalOld]);
+ assert.equal(covered.reachedWindowStart,true);
+ assert.deepEqual(covered.posts.map(x=>x.id),["2113177723749420101"]);
+ assert.equal(page([originalRecent,reshareOfOldPost]).reachedWindowStart,false);
+});
+
 test("small upstream timestamp inversions are tolerated, large pinned jumps are not",()=>{
  const recent=sample({id:"2113177723749420002",created_at:"2026-10-23T05:20:00Z"});
  const old=sample({id:"2113177723749420003",created_at:"2026-10-23T03:20:00Z"});
