@@ -21,7 +21,7 @@ test("homepage puts up to four historical Stories in one editorial lead grid wit
   assert.match(page, /index===0\?tracked\.lead:tracked\.card/);
   assert.match(page, /classifyPublicStory\(thesis\)/);
   assert.match(page, /ONGOING RESEARCH/);
-  assert.match(page, /#thesis-/);
+  assert.match(page, /\\?story=/);
   assert.doesNotMatch(page, /theses\.slice\(0,9\)/);
   const css=readFileSync(new URL("../app/blue-desk/tracked-stories.module.css",import.meta.url),"utf8");
   assert.match(css, /\.lead\{/);
