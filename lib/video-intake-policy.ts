@@ -5,6 +5,7 @@ export const TRANSCRIPT_CHANNEL_PRIORITY = [
   "wall-street-truth-bombs",
   "fx-evolution",
   "tradernick",
+  "casual-finance",
 ] as const;
 
 const TRANSCRIPT_CHANNEL_KEYS = new Set<string>(TRANSCRIPT_CHANNEL_PRIORITY);
