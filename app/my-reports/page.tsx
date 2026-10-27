@@ -26,6 +26,40 @@ export default function MyBluebellyReports(){
        If evidence is incomplete, the missing report stays explicitly unavailable.</p>
     </div>
    </header>
+   <section className={layout.driveArchive} data-drive-archive="kqdocuments88-private">
+     <div className={layout.driveHead}>
+       <div>
+         <p className={styles.kicker}>GOOGLE DRIVE · YOUR FILES, NOT VERCEL STORAGE</p>
+         <h2>Reports in KQ Documents</h2>
+         <p>Open the dated PDF, or edit its Google Docs master. Future editions belong in the same private Drive folder. Sign in with the Google account that has access to this folder.</p>
+       </div>
+       <a href="https://drive.google.com/drive/folders/19r-RATOo0vn89FDzs4UZBptPpm1Z9w5L"
+         target="_blank" rel="noopener noreferrer">Open all editions in Google Drive ↗</a>
+     </div>
+     <div className={layout.driveItems}>
+       <article>
+         <strong>27 Oct · Daily Market Brief</strong>
+         <span>Source-checked pilot · story-driven market overview</span>
+         <div>
+           <a href="https://drive.google.com/file/d/1vrlz5BO25HNTDFsftQQNb_Q0wsysRhhm/view?usp=drivesdk"
+             target="_blank" rel="noopener noreferrer">Read PDF ↗</a>
+           <a href="https://docs.google.com/document/d/12ZTqOZn86wxuInqfscBAnDS3-u63ONPcKh-VsDxRfME/edit?usp=drivesdk"
+             target="_blank" rel="noopener noreferrer">Edit master ↗</a>
+         </div>
+       </article>
+       <article>
+         <strong>27 Oct · Three OB/COTD Ideas</strong>
+         <span>Writing Brain slate · source-verified updates distinguished</span>
+         <div>
+           <a href="https://drive.google.com/file/d/1eXurYRfogx7M88BRvpo8KZF6ycfh-8Ao/view?usp=drivesdk"
+             target="_blank" rel="noopener noreferrer">Read PDF ↗</a>
+           <a href="https://docs.google.com/document/d/1bFDxSyT8gSfwEiztfNHQZXL-8bCl8XQEd07jHV3Ksqc/edit?usp=drivesdk"
+             target="_blank" rel="noopener noreferrer">Edit master ↗</a>
+         </div>
+       </article>
+     </div>
+     <p className={layout.driveNote}>These dated links are the 27 October pilot, not an automatically rolling “latest” feed. Use the folder link for new editions. A Drive file still requires its own Google account permissions.</p>
+   </section>
    <div className={layout.focus} aria-label="The two private daily outputs">
      <article>
        <p className={layout.step}>REPORT 01 · DAILY MARKET BRIEFING</p>
