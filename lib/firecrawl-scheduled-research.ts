@@ -2,6 +2,8 @@ import { applyFirecrawlResearchFallback } from "@/lib/firecrawl-research-fallbac
 import { applyHighImpactMarketDiscovery } from "@/lib/high-impact-market-discovery";
 import { applyOfficialPressNewsIntake } from "@/lib/official-press-news-intake";
 import { applyMaterialSecProspectusIntake } from "@/lib/material-sec-prospectus-intake";
+import {getXWireDurable} from "@/lib/x-wire-durable";
+import {attachXWireResearchLeads} from "@/lib/x-wire-scheduled-research-leads";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { selectStockMoveResearchTargets, type StockMoveResearchTarget } from "@/lib/stock-move-research-targets";
 import { applyResearchDiscoveryProviders } from "@/lib/research-discovery-providers";
@@ -28,7 +30,24 @@ export async function buildScheduledResearchInputWithFirecrawl(
   // 4) Firecrawl only for a specific blocked page/feed after direct access failed.
   // Search/index providers remain lead generators and the underlying publisher URL
   // remains the canonical provenance.
-  const discoveryInput = originalFilings as Parameters<typeof applyResearchDiscoveryProviders>[0];
+  let xEnrichedInput = originalFilings;
+  // X Wire's durable cursor/cooldown is reused inside the EXISTING scheduled
+  // morning/evening acquisition, not a new cron. Social posts remain LEADs.
+  // The service-role writer owns checkpoint persistence and never requests
+  // authenticated provider account credentials from a browser.
+  if (slot==="morning" || slot==="evening") {
+    try {
+      const wire=await getXWireDurable({now});
+      xEnrichedInput=attachXWireResearchLeads(originalFilings,wire,now);
+      if(!wire.storageHealthy||wire.health.inaccessible>0)
+        console.warn(JSON.stringify({event:"x_wire_scheduled_source_partial",
+         storageHealthy:wire.storageHealthy,inaccessible:wire.health.inaccessible}));
+    }catch{
+      xEnrichedInput={...originalFilings,
+       summary:(originalFilings.summary||"")+" X Wire scheduled retrieval unavailable; no X coverage claimed."};
+    }
+  }
+  const discoveryInput = xEnrichedInput as Parameters<typeof applyResearchDiscoveryProviders>[0];
   const discovered = await applyResearchDiscoveryProviders(discoveryInput, slot, { now });
   const highImpactInput = discovered as Parameters<typeof applyHighImpactMarketDiscovery>[0];
   // Existing monitor calculates and source-dates each market move. There is
