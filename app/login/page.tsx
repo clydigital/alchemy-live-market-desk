@@ -24,7 +24,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   return (
     <main className={styles.shell}>
       <section className={styles.card}>
-        <p className={styles.kicker}>Alchemy Markets</p>
+        <p className={styles.kicker}>Bluebelly</p>
         <h1 className={styles.title}>Bluebelly Desk Access</h1>
         <p className={styles.copy}>
           Sign in with an approved Google account. Access is currently assigned to

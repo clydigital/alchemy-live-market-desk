@@ -77,7 +77,7 @@ export default function StoryHeaderImage({
         onError={useFallback}
       />
       <figcaption>
-        <span>{usingFallback ? "Alchemy fallback artwork" : publisher || "Research image"}</span>
+        <span>{usingFallback ? "Bluebelly artwork" : publisher || "Research image"}</span>
         {sourceUrl ? (
           <a href={sourceUrl} target="_blank" rel="noreferrer" title={sourceTitle || undefined}>
             Open article ↗

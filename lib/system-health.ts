@@ -305,7 +305,7 @@ export async function getSystemHealth() {
       overdueMissingActuals: overdueMissingActuals.length,
       overdueReleaseIds: overdueMissingActuals.map((release) => release.id),
       probeError: calendarProbe.error,
-      fieldPolicy: "previous, revised previous, consensus, Alchemy expectation and actual are stored separately; released official Actuals are ingested independently from dashboard capture",
+      fieldPolicy: "previous, revised previous, consensus, separate desk expectation and actual are stored separately; released official Actuals are ingested independently from dashboard capture",
     },
     canonicalStories: {
       state: publication.available ? (publication.storyStates ? "healthy" : "awaiting_first_runtime_run") : "unavailable",

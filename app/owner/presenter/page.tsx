@@ -5,6 +5,8 @@ import PresenterTechnicalChecks from "@/components/live-desk/PresenterTechnicalC
 import { projectEditorialPriceCards } from "@/lib/editorial-price-context";
 import { getLatestEditorialSlate } from "@/lib/editorial-slate-server";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
+import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
+import { projectPresenterDossierSelection } from "@/lib/presenter-technical-reconciliation";
 import styles from "@/app/blue-desk/blue-desk.module.css";
 
 export const dynamic="force-dynamic";
@@ -13,7 +15,14 @@ export const metadata={title:"Presenter Studio | Private Blue Desk",
   description:"Owner-only presenter run of show, market checks and technical overlays.",robots:{index:false,follow:false}};
 
 export default async function PresenterStudioPage(){
-  const [monitor,editorialSlate]=await Promise.all([getMarketMonitor().catch(()=>null),getLatestEditorialSlate()]);
+  const [monitor,editorialSlate,dossierSelection]=await Promise.all([
+    getMarketMonitor().catch(()=>null),
+    getLatestEditorialSlate(),
+    getDossierV2PresentationSelection().catch(()=>null),
+  ]);
+  // Server-only admin Dossier read on a middleware/allowlist-protected owner page.
+  // Send only selected identity + source-linked Regime lens summaries to the client.
+  const dossierContext=projectPresenterDossierSelection(dossierSelection);
   const cards=projectEditorialPriceCards(monitor?.rows||[],new Date().toISOString());
   return <main className={styles.page} data-presenter-studio="owner-only">
     <BlueDeskHeader activePath="/owner/presenter"/>
@@ -27,6 +36,7 @@ export default async function PresenterStudioPage(){
           <span className={styles.kicker}>RESEARCH CONNECTION</span>
           <strong>Daily briefing</strong>
           <small><Link href="/my-reports">Open my source-qualified PDFs ↗</Link></small>
+          <small><Link href="/owner/presenter/editions">Browse exact historical editions ↗</Link></small>
         </div>
       </header>
     </div>
@@ -36,10 +46,10 @@ export default async function PresenterStudioPage(){
         <div className={styles.sectionHead}>
           <div><p className={styles.kicker}>MANUAL TECHNICAL RECONCILIATION</p>
             <h2>Technical checks</h2>
-            <p>Actual chart inspection and observation dates required. These notes do not change canonical evidence.</p>
+            <p>All 14 saved monitor keys are available: seven core checks first, then seven additional cross-asset checks under Show additional. Review chart dates and linked sources; presenter notes never change canonical evidence.</p>
           </div>
         </div>
-        <PresenterTechnicalChecks compact/>
+        <PresenterTechnicalChecks dossierContext={dossierContext}/>
       </section>
     </div>
   </main>;

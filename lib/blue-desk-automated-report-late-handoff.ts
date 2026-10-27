@@ -1,41 +1,33 @@
 import "server-only";
-import {createSupabaseAdminClient} from "@/lib/supabase/admin";
 import {acceptsResearchAuthorization} from "@/lib/research-auth";
-import {isAutomaticReportFallbackWindow,isCompletedDossierForAutomaticReport,
- type AutomaticReportSlot} from "@/lib/blue-desk-automated-report-contract";
+import {isAutomaticReportFallbackWindow,type AutomaticReportSlot}
+ from "@/lib/blue-desk-automated-report-contract";
 import {runAutomatedDailyPdfReport} from "@/lib/blue-desk-automated-report-job";
 import {runPrivateEditorialSlatePdf} from "@/lib/blue-desk-private-slate-job";
 
-/** Called only from the already-scheduled, authorised Research Gap handoff.
- * A late Dossier can finish after the earlier PDF window; the handoff slot
- * supplies a final idempotent retry without another cron or research run. */
-export async function attemptPrivateDailyPdfAfterLateDossier(
+/** Reuse the already-authorised late Research Gap handoff. The personal PDF
+ * applies its OWN dated-source admission contract and idempotent claim:
+ * this is not a Dossier judgement and cannot mutate canonical reasoning. */
+export async function attemptPrivateDailyPdfInExistingHandoff(
  request:Request,slot:AutomaticReportSlot,now=new Date(),
 ){
  if(!process.env.CRON_SECRET?.trim()
   ||!acceptsResearchAuthorization(request.headers.get("authorization"),[process.env.CRON_SECRET]))
   return {status:"unauthorized" as const};
+ if(process.env.NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED!=="true")
+  return {status:"locked" as const,reason:"research_schedule_disabled"};
  if(!isAutomaticReportFallbackWindow(now,slot))
   return {status:"locked" as const,reason:"outside_existing_handoff_window"};
- const db=createSupabaseAdminClient();
- const from=new Date(now.getTime()-5*3600_000).toISOString();
- const {data:run,error:runError}=await db.from("research_runs")
-  .select("id,schedule_slot,scheduled_for,completed_at,status")
-  .eq("schedule_slot",slot).eq("status","completed")
-  .gte("scheduled_for",from).lte("scheduled_for",now.toISOString())
-  .order("scheduled_for",{ascending:false}).limit(1).maybeSingle();
- if(runError)return {status:"deferred" as const,reason:"canonical_research_unavailable"};
- if(!run)return {status:"deferred" as const,reason:"no_completed_research_slot"};
- const {data:checkpoint,error:checkpointError}=await db.from("research_slot_runs")
-  .select("research_run_id,slot_key,status,health_state,live_publication_status,hybrid_handoff_status,stage_summary")
-  .eq("research_run_id",run.id).eq("slot_key",slot).maybeSingle();
- if(checkpointError)return {status:"deferred" as const,reason:"dossier_checkpoint_unavailable"};
- if(!isCompletedDossierForAutomaticReport(run,checkpoint,slot,now))
-  return {status:"deferred" as const,reason:"canonical_dossier_not_finalised"};
- const daily=await runAutomatedDailyPdfReport(slot,now);
- if(slot!=="morning")return daily;
- const slatePdf=await runPrivateEditorialSlatePdf(now).catch(()=>({
-  status:"failed" as const,reason:"slate_pdf_unavailable"
+ // Keep product failures independent of one another and of Research Gap.
+ const dailyTask=runAutomatedDailyPdfReport(slot,now).catch(()=>({
+  status:"failed" as const,reason:"daily_pdf_unavailable"
  }));
+ if(slot!=="morning")return dailyTask;
+ const [daily,slatePdf]=await Promise.all([
+  dailyTask,
+  runPrivateEditorialSlatePdf(now).catch(()=>({
+   status:"failed" as const,reason:"slate_pdf_unavailable"
+  })),
+ ]);
  return {...daily,privateEditorialSlatePdf:slatePdf};
 }

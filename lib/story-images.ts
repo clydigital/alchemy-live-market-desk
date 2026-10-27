@@ -128,7 +128,7 @@ function fallbackImage(storyId: string): StoryHeaderImage {
     imageUrl: fallback.dataUri,
     articleUrl: null,
     articleTitle: fallback.label,
-    publisher: "Alchemy Markets",
+    publisher: "Bluebelly",
     kind: "fallback",
     fallbackKey: fallback.key,
   };

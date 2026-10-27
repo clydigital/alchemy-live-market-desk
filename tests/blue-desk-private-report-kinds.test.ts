@@ -80,7 +80,10 @@ test("second private PDF is delivered only through existing authorised jobs and 
  const cron=read("vercel.json");
  assert.ok(morning.includes('runPrivateEditorialSlatePdf(now)'));
  assert.ok(late.includes('runPrivateEditorialSlatePdf(now)'));
- assert.ok(late.includes("isCompletedDossierForAutomaticReport"));
+ assert.ok(!late.includes("isCompletedDossierForAutomaticReport"));
+ assert.ok(late.includes("acceptsResearchAuthorization"));
+ assert.ok(late.includes("runAutomatedDailyPdfReport"));
+ assert.ok(late.includes("runPrivateEditorialSlatePdf"));
  assert.ok(!cron.includes("private-slate-job"));
  assert.ok(api.includes('data.report_kind==="COTD_OB_RESEARCH"'));
  assert.ok(api.includes("data.pdf_path!==exact"));

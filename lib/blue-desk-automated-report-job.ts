@@ -1,6 +1,6 @@
 import "server-only";
 import {createHash} from "node:crypto";
-import {GoogleGenAI} from "@google/genai";
+import {GoogleGenAI,ThinkingLevel} from "@google/genai";
 import {createSupabaseAdminClient} from "@/lib/supabase/admin";
 import {getCurrentVerifiedMarketMotion} from "@/lib/market-motion";
 import {selectVerifiedNewsBriefs} from "@/lib/market-brief-news";
@@ -140,7 +140,7 @@ export async function runAutomatedDailyPdfReport(
   try{
    generated=await Promise.race([
     ai.models.generateContent({model,contents:request,config:{
-     responseMimeType:"application/json",temperature:0.22,maxOutputTokens:9000,
+     responseMimeType:"application/json",thinkingConfig:{thinkingLevel:ThinkingLevel.LOW},maxOutputTokens:9000,
      systemInstruction:"Write the source-qualified Bluebelly market report in strict English JSON. Never introduce a new numerical fact; do not turn calendar questions into realised outcomes, or research uncertainty into verified claims. No links not supplied in the research packet. Cite every story and watchpoint with exact source IDs. Output client-ready narrative, not a research-process log.",
     }}),
     new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error("MODEL_TIMEOUT")),85_000);}),
@@ -164,6 +164,13 @@ export async function runAutomatedDailyPdfReport(
   const completion=await db.from("blue_desk_automated_reports").update({
    status:"ready",title:report.title,deck:report.deck,
    summary:report.executiveSummary,source_urls:sources,
+   // Auditable input admission, not proof of a ChatGPT plugin invocation.
+   source_receipts:evidence.sources.map(src=>({
+    sourceId:src.id,sourceType:src.type,originalUrl:src.url,
+    sourceName:src.sourceName,eventAt:src.eventAt,
+    inputStage:"source_qualified_pdf_packet",
+    pluginCallsVerified:[],independentlyRecheckedByRenderer:false,
+   })),
    source_count:evidence.sources.filter(s=>s.type!=="CALENDAR").length,
    coverage_note:evidence.coverageNote,pdf_path:path,pdf_sha256:sha,
    ready_at:new Date().toISOString(),error_code:null,

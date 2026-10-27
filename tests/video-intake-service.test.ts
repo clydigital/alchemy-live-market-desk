@@ -226,6 +226,7 @@ test("only the fixed creator universe enters the browser/manual work list", () =
     ]),
     channel("wall-street-truth-bombs", [video("wall-street-truth-bombs", "truth-upload")]),
     channel("tradernick", [video("tradernick", "nick-upload")]),
+    channel("casual-finance", [video("casual-finance", "casual-upload")]),
   ];
 
   const workList = selectedTranscriptChannels(channels);
@@ -234,17 +235,20 @@ test("only the fixed creator universe enters the browser/manual work list", () =
     "wall-street-truth-bombs",
     "fx-evolution",
     "tradernick",
+    "casual-finance",
   ]);
   assert.deepEqual(workList.flatMap((entry) => entry.videos.map((entryVideo) => entryVideo.videoId)), [
     "stock-upload",
     "truth-upload",
     "fx-upload",
     "nick-upload",
+    "casual-upload",
   ]);
   assert.equal(isTranscriptChannel("stockedup"), true);
   assert.equal(isTranscriptChannel("wall-street-truth-bombs"), true);
   assert.equal(isTranscriptChannel("fx-evolution"), true);
   assert.equal(isTranscriptChannel("tradernick"), true);
+  assert.equal(isTranscriptChannel("casual-finance"), true);
   assert.equal(isTranscriptChannel("traders-reality"), false);
   assert.equal(isTranscriptChannel("kevin-gerrity"), false);
   assert.equal(isTranscriptChannel("clearvalue-tax"), false);
