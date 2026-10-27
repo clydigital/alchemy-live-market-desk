@@ -12,7 +12,9 @@ import { getOriginalPressNews } from "@/lib/blue-desk-original-press-news-server
 import { combineQualifiedNews } from "@/lib/blue-desk-qualified-news";
 import { projectLivingMarketTopics } from "@/lib/blue-desk-living-topics";
 import { getPublicThesisLedger } from "@/lib/blue-desk-thesis-ledger-server";
-import {storyMarketTransmission,orderStoriesByLatestMotion} from "@/lib/blue-desk-thesis-ledger";
+import {orderStoriesByLatestMotion} from "@/lib/blue-desk-thesis-ledger";
+import {classifyPublicStory,PUBLIC_STORY_CATEGORIES} from "@/lib/blue-desk-story-categories";
+import StoryEditorialArticle from "@/components/blue-desk/StoryEditorialArticle";
 import {selectFlagshipInvestorTest} from "@/lib/blue-desk-investor-test";
 import {getStoryMotionRecency} from "@/lib/blue-desk-story-motion-recency-server";
 import { getPublicSourceObservations } from "@/lib/blue-desk-source-observations";
@@ -30,7 +32,8 @@ export const metadata = {
   description: "Dated market catalysts explained in human terms, upcoming company decisions and historical Story context.",
 };
 
-export default async function KeyStories(){
+export default async function KeyStories({searchParams}:{searchParams?:Promise<{story?:string;category?:string}>}){
+  const params=await searchParams;
   const now = new Date();
   const host = (await headers()).get("host");
   const [raw, theses, observations, originalPress, macro, earnings] = await Promise.all([
@@ -43,6 +46,28 @@ export default async function KeyStories(){
   ]);
   const motionRecency=await getStoryMotionRecency(theses.map(x=>x.id),now).catch(()=>[]);
   const orderedTheses=orderStoriesByLatestMotion(theses,motionRecency,now);
+  // Query-only reader: the existing /key-stories host rule applies unchanged.
+  const storySlug=typeof params?.story==="string"&&/^[a-z0-9-]{1,150}$/.test(params.story)?params.story:null;
+  if(storySlug){
+    const selected=orderedTheses.find(story=>story.slug===storySlug);
+    return <main className={desk.page} data-bluebelly-stories="source-limited-reading-mode">
+      <BlueDeskHeader activePath="/blue-desk/key-stories"/>
+      <div className={desk.content}>
+        {selected?<StoryEditorialArticle story={selected}
+          backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}/>:
+          <section className={ui.empty} data-article-not-found="true">
+            <h1>Story unavailable</h1>
+            <p>The requested Story is not in the approved public research index.</p>
+            <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>Return to all Stories</Link>
+          </section>}
+      </div>
+    </main>;
+  }
+  const requestedCategory=typeof params?.category==="string"?params.category:"All";
+  const activeCategory=PUBLIC_STORY_CATEGORIES.some(c=>c===requestedCategory)?requestedCategory:"All";
+  const visibleTheses=activeCategory==="All"?orderedTheses:
+    orderedTheses.filter(story=>classifyPublicStory(story)===activeCategory);
+  const indexHref=blueDeskPublicHref("/blue-desk/key-stories",host);
   const investorTest=selectFlagshipInvestorTest(orderedTheses);
   const motionNews = selectVerifiedNewsBriefs(raw, now, 18);
   const news = combineQualifiedNews(motionNews,originalPress,18);
@@ -132,6 +157,33 @@ export default async function KeyStories(){
         <span>{news.length} source-verified development{news.length === 1 ? "" : "s"}</span>
         <span>As of <DualTimestamp value={now.toISOString()} /></span>
       </div>
+      <section className={ui.section} aria-labelledby="persistent-theses" data-persistent-thesis-ledger="source-identity">
+        <p className={ui.kicker}>THE STORY LIBRARY</p>
+        <h2 id="persistent-theses">Key Stories by market theme</h2>
+        <p>Read the enduring market questions as articles, with recorded evidence limits and deciding tests.
+           Fresh source-verified developments appear separately below.</p>
+        <nav className={ui.categoryFilters} aria-label="Filter Key Stories by market category">
+          <Link href={indexHref} aria-current={activeCategory==="All"?"page":undefined}
+            className={activeCategory==="All"?ui.categorySelected:ui.categoryLink}>All Stories</Link>
+          {PUBLIC_STORY_CATEGORIES.map(category=><Link key={category}
+            href={indexHref+"?category="+encodeURIComponent(category)}
+            aria-current={activeCategory===category?"page":undefined}
+            className={activeCategory===category?ui.categorySelected:ui.categoryLink}>
+            {category}
+          </Link>)}
+        </nav>
+        {visibleTheses.length?<div className={ui.cards}>{visibleTheses.map(thesis=>
+          <article className={ui.card} id={"thesis-"+thesis.slug} key={thesis.id} data-stored-story={thesis.status}>
+            <p className={ui.kicker}>{classifyPublicStory(thesis)} · ONGOING RESEARCH</p>
+            <h3><Link href={indexHref+"?story="+encodeURIComponent(thesis.slug)}>{thesis.title}</Link></h3>
+            <p className={ui.storyIntro}>{thesis.thesis}</p>
+            <p className={ui.timeNote}>Last researched <DualTimestamp value={thesis.updatedAt}/>. Historical thesis, not a confirmed live market reaction.</p>
+            <Link className={ui.storyRead} href={indexHref+"?story="+encodeURIComponent(thesis.slug)}>
+              Read the explanation, countercase and next test →
+            </Link>
+          </article>)}</div>:
+          <p className={ui.empty}>No Stories are currently available in this category. Try All Stories; this does not imply an inactive market.</p>}
+      </section>
       {investorTest ? <InvestorTest view={investorTest}/> : null}
       {topics.length ? <>{liveCatalystSection}{upcomingDecisionSection}</> : <>
         {upcomingDecisionSection}
@@ -140,38 +192,6 @@ export default async function KeyStories(){
           Historical Story research follows below.</p>
       </>}
       <NewsroomLensExplorer news={news} asOf={now.toISOString()} />
-      <section className={ui.section} aria-labelledby="persistent-theses" data-persistent-thesis-ledger="source-identity">
-        <h2 id="persistent-theses">The research behind the headlines</h2>
-        <p>These are the recorded beliefs behind the headlines above. A dated linked Motion controls
-          their order; it does not turn the old thesis into a newly verified event or trading call.</p>
-        {orderedTheses.length ? <div className={ui.cards}>{orderedTheses.map(thesis=>
-          <article className={ui.card} id={"thesis-"+thesis.slug} key={thesis.id} data-stored-story={thesis.status}>
-            <p className={ui.kicker}>{thesis.latestMotionAt ?
-              <>LATEST LINKED MOTION · {thesis.latestMotionVerification==="VERIFIED"?"SOURCE-VERIFIED EVENT":"UNVERIFIED RESEARCH LEAD"}
-                {" · "}Event <DualTimestamp value={thesis.latestMotionAt}/></>:
-              <>NO LINKED MOTION AVAILABLE · Last researched <DualTimestamp value={thesis.updatedAt}/></>}</p>
-            <h3>{thesis.title}</h3>
-
-            <p className={ui.storyIntro}>{thesis.thesis}</p>
-            <p className={ui.storyExplanation}><strong>Why it matters:</strong> {storyMarketTransmission(thesis)}</p>
-            <details className={ui.more}>
-              <summary>Read the reasoning, risks and deciding tests</summary>
-              <div className={ui.moreBody}>
-                <p><strong>The full recorded thesis:</strong> {thesis.thesis}</p>
-                {thesis.support ? <p><strong>What the thesis cites:</strong> {thesis.support}</p> : null}
-                {thesis.pricedAssessment ? <p><strong>Recorded pricing view:</strong> {thesis.pricedAssessment}</p>:null}
-                {thesis.contradiction ? <p><strong>The competing case:</strong> {thesis.contradiction}</p> : null}
-                {thesis.nextTest ? <p><strong>Next test:</strong> {thesis.nextTest}</p> : null}
-                {thesis.confirmation ? <p><strong>Would strengthen this view:</strong> {thesis.confirmation}</p> : null}
-                {thesis.invalidation ? <p><strong>Would challenge this view:</strong> {thesis.invalidation}</p> : null}
-              </div>
-            </details>
-            <p className={ui.timeNote}>Historical research snapshot, not an independently confirmed price reaction.
-              {" "}The latest market observations are shown separately below.</p>
-          </article>
-        )}</div>:<p className={ui.empty}>We couldn't load the stored market stories.
-          That is a coverage problem, not evidence that there is nothing happening.</p>}
-      </section>
       <section className={ui.section} aria-labelledby="recent-originals">
         <h2 id="recent-originals">Latest original-source market observations</h2>
         <p>Exact dated measurements or official releases only. A market close does not explain its own cause,
