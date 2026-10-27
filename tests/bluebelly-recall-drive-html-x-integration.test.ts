@@ -52,7 +52,7 @@ test("future and stale leads fail closed; reports not verified by high materiali
   {...anthology,publishedAt:"2026-11-04T00:00:00Z"},
   {...merger,publishedAt:"2026-10-10T00:00:00Z"}
  ],slate,now).length,0);
- assert.equal(materialEventKey("Broadcom finances Anthropic GPU loans"),"anthropic:financing");
+ assert.equal(materialEventKey("Broadcom equipment financing for Anthropic compute"),"anthropic:financing");
  assert.equal(materialEventKey("Anthropic files IPO registration"),"anthropic:ipo");
 });
 test("scheduled X provider mirror keeps 3rd party tweet as low-quality unverified lead",()=>{
