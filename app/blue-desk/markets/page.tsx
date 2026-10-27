@@ -6,6 +6,8 @@ import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import PublicGovernmentRateTrendChart from "@/components/blue-desk/PublicGovernmentRateTrendChart";
 import { MarketIcon, type MarketIconName } from "@/components/blue-desk/MarketIcon";
+import { EntityMark } from "@/components/blue-desk/EntityIdentity";
+import { identityForSymbol } from "@/lib/bluebelly-entity-identity";
 import {
   PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations, publicGovernmentRateTrends,
   type PublicMarketObservation,
@@ -125,7 +127,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
                   {observations.map(row => (
                     <tr key={row.id}>
                       <th scope="row">
-                        <strong>{row.label}</strong>
+                        <span className={legibility.instrumentIdentity}><EntityMark entity={identityForSymbol(row.symbol)} size="sm" /><strong>{row.label}</strong></span>
                         <span>{row.symbol} · {row.type}</span>
                       </th>
                       <td className={styles.publicMarketNumber}>{displayLevel(row)}</td>
