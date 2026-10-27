@@ -5,7 +5,8 @@ import { parseFxTimeline, xWireRequestWindow, xWireRecoveryAnchor } from "./x-wi
 import type { XWirePost } from "./x-wire-provider.ts";
 
 const ORIGIN = "https://api.fxtwitter.com";
-const PAGE_LIMIT = 2; // bounded per-invocation; resume cursor stays durable
+const PAGE_LIMIT = 6; // high-output accounts may need several 20-post provider pages
+const MAX_SCAN_MS = 18_000; // 5 concurrent accounts, at most two bounded waves per SSR invocation
 const PAGE_SIZE = 50;
 const CONCURRENT_ACCOUNTS = 5;
 // Existing morning/evening acquisition is 12h apart; older completions are stale.
@@ -71,8 +72,10 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
   const completeGapMarker = {uncovered_before:unresolvedGap};
   let cursor:string|null=window.cursor, fetched=0, kept=0;
   const seenCursors=new Set<string>();
+  const startedAt=Date.now();
   try {
     for(let page=0;page<PAGE_LIMIT;page++) {
+      if(page>0 && Date.now()-startedAt>=MAX_SCAN_MS)break;
       const url=new URL(ORIGIN+"/2/profile/"+handle+"/statuses");
       url.searchParams.set("count",String(PAGE_SIZE));
       if(cursor)url.searchParams.set("cursor",cursor);
