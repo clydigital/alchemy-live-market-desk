@@ -36,7 +36,7 @@ function fakeNotion(o:Fixture={}){
     last_edited_time:o.futureCreated?"2026-10-28T22:09:00.000Z":"2026-10-26T22:09:00.000Z",
     archived:false,in_trash:false});
   }
-  if(path.endsWith("/pages/"+archiveId)){
+  if(path.endsWith("/pages/"+archiveId.replaceAll("-",""))){
    return Response.json({id:archiveId,parent:{type:"page_id",
     page_id:o.wrongRoot?"ffffffff-ffff-ffff-ffff-ffffffffffff":root},
     properties:{title:{type:"title",title:[{plain_text:"2026-10-27 — MacroPulse"}]}},
