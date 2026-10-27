@@ -80,10 +80,22 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
       url.searchParams.set("count",String(PAGE_SIZE));
       if(cursor)url.searchParams.set("cursor",cursor);
       else url.searchParams.set("since",String(Math.floor(Date.parse(window.startAt)/1000)));
-      const response=await fetchImpl(url.toString(), {
+      let response=await fetchImpl(url.toString(), {
         headers:{Accept:"application/json"},cache:"no-store",redirect:"error",
         signal:AbortSignal.timeout(7000),
       });
+      // FxEmbed sometimes returns 404 for a time-filtered first page even
+      // while the same original account timeline is available without since.
+      // One bounded same-host retry, then validate every row and the original
+      // observation window exactly as before. No extra provider or login.
+      if(response.status===404 && !cursor){
+        const fallback=new URL(url.toString());
+        fallback.searchParams.delete("since");
+        response=await fetchImpl(fallback.toString(), {
+          headers:{Accept:"application/json"},cache:"no-store",redirect:"error",
+          signal:AbortSignal.timeout(7000),
+        });
+      }
       if(response.status===204 && !cursor) {
         await finish(db,handle,token,{...completeGapMarker,health:unresolvedGap?"partial":"healthy",
           last_error:unresolvedGap?"Unrecovered historical coverage gap":null,last_fetched:fetched,
@@ -164,6 +176,8 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
       // Neither state is success; never advance last_completed_at.
       const hadPartialData=fetched>0;
       const invalidCursor=message==="Repeated pagination cursor";
+      const recentlyActive404=message==="HTTP 404" && latest>0 &&
+        ms(now)-latest<=X_SWEEP_DEFAULTS.recoveryLookbackHours*3_600_000;
       await finish(db,handle,token,{...gapMarker,
         ...(invalidCursor?{uncovered_before:missingBefore||window.startAt}:{}),
         health:invalidCursor||hadPartialData?"partial":
@@ -171,7 +185,7 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
         last_error:message,
         page_cursor:invalidCursor?null:hadPartialData?cursor:claim.resume_cursor,
         window_start_at:invalidCursor?null:hadPartialData?window.startAt:claim.resume_start_at,
-        next_attempt_at:plus(now,invalidCursor||hadPartialData?5:30),last_fetched:fetched});
+        next_attempt_at:plus(now,invalidCursor||hadPartialData||recentlyActive404?5:30),last_fetched:fetched});
     } catch{ /* Preserve the original lease and unfinished cursor; never pretend success */ }
   }
 }
