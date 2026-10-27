@@ -18,6 +18,9 @@ test("the existing private My Desk route leads with three HTML editions and main
  assert.match(page,/1ca425cmHacpdGtlebVSAdjh3q_s9lOUd/);
  assert.match(page,/data-my-desk-pdf-legacy="hidden-by-default"/);
  assert.match(page,/Download HTML/);
+ assert.match(page,/data-library-page=\{currentPage\}/);
+ assert.match(page,/CATEGORIES\.map/);
+ assert.match(page,/pageHref\(activeType,currentPage\+1\)/);
  assert.match(page,/One batch per creator/);
  assert.match(page,/automatic HTML uploads are not yet verified/);
  assert.match(page,/drive.google.com\/drive\/folders\/19r-RATOo0vn89FDzs4UZBptPpm1Z9w5L/);
