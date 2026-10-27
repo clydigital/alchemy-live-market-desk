@@ -8,6 +8,8 @@ const ORIGIN = "https://api.fxtwitter.com";
 const PAGE_LIMIT = 2; // bounded per-invocation; resume cursor stays durable
 const PAGE_SIZE = 50;
 const CONCURRENT_ACCOUNTS = 5;
+// Existing morning/evening acquisition is 12h apart; older completions are stale.
+const HEALTH_COMPLETION_MAX_AGE_HOURS = 15;
 type Db = ReturnType<typeof createSupabaseAdminClient>;
 type StoredAccount = {
   handle: string; health: XAccountAttempt["status"]; last_attempt_at: string | null;
@@ -208,11 +210,14 @@ export async function getXWireDurable(opts:{now?:Date;fetchImpl?:typeof fetch;db
       const found=byHandle.get(x.handle.toLowerCase());
       if(!found)return emptyAccount(x.handle,now,"Checkpoint missing");
       const failure=failures.get(x.handle);
-      return {handle:x.handle,status:failure?"unavailable":found.uncovered_before?"partial":found.health,
+      const stale=found.health==="healthy" &&
+        (ms(now)-ms(found.last_completed_at)>HEALTH_COMPLETION_MAX_AGE_HOURS*3_600_000);
+      return {handle:x.handle,status:failure?"unavailable":found.uncovered_before||stale?"partial":found.health,
         attemptedAt:found.last_attempt_at||"",lastSuccessAt:found.last_completed_at,
         lastObservedPostAt:found.last_observed_post_at,
         fetched:found.last_fetched,newPosts:0,
-        error:failure || (found.uncovered_before ? "Historical coverage gap older than 72 hours. "+(found.last_error||"") : found.last_error)};
+        error:failure || (stale ? "Last completed source check older than 15 hours; freshness unconfirmed." :
+          found.uncovered_before ? "Unresolved historical source coverage. "+(found.last_error||"") : found.last_error)};
     });
     const posts: (XWirePost & {intakeStatus:string})[] =
       ((postsRead.data||[]) as StoredPost[]).filter(x=>!isExcludedXWireHandle(x.handle)).map(x=>({
