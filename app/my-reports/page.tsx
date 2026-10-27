@@ -1,5 +1,7 @@
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import Link from "next/link";
+import {getPrivateHtmlEditions} from "@/lib/bluebelly-html-edition-index";
+import {getOwnerMaterialRecall} from "@/lib/bluebelly-owner-editorial-recall";
 import OwnerAutomaticReportReader from "@/components/blue-desk/OwnerAutomaticReportReader";
 import OwnerEditorialSlatePdfReader from "@/components/blue-desk/OwnerEditorialSlatePdfReader";
 import OwnerPrivatePdfInputHealth from "@/components/blue-desk/OwnerPrivatePdfInputHealth";
@@ -37,8 +39,15 @@ export const metadata={title:"My Desk | Bluebelly",robots:{index:false,follow:fa
  * only within the expandable compatibility area, retaining all auth checks. */
 export default async function MyBluebellyReports({searchParams}:{searchParams?:Promise<{type?:string;page?:string}>}){
  const params=await searchParams;
+ const [registry,recall]=await Promise.all([getPrivateHtmlEditions(),getOwnerMaterialRecall()]);
+ // Fresh verified upload receipts appear immediately without committing a file list.
+ // Fixed historical editions remain visible as a read-only legacy index.
+ const editions=[
+  ...registry.editions,
+  ...EDITIONS.filter(p=>!registry.editions.some(f=>f.id===p.id)),
+ ];
  const activeType:Categ= CATEGORIES.some(c=>c.id===params?.type)?params!.type as Categ:"all";
- const filtered=activeType==="all"?EDITIONS:EDITIONS.filter(e=>e.kind===activeType);
+ const filtered=activeType==="all"?editions:editions.filter(e=>e.kind===activeType);
  const pageCount=Math.max(1,Math.ceil(filtered.length/PAGE_SIZE));
  const desired=Number(params?.page);
  const currentPage=Number.isInteger(desired)&&desired>=1?Math.min(desired,pageCount):1;
@@ -72,7 +81,7 @@ export default async function MyBluebellyReports({searchParams}:{searchParams?:P
          href={category.id==="all"?"/my-reports":"/my-reports?type="+category.id}
          className={category.id===activeType?layout.editionTabSelected:layout.editionTab}
          aria-current={category.id===activeType?"page":undefined}>
-           <span>{category.title}</span><small>{category.id==="all"?EDITIONS.length:EDITIONS.filter(e=>e.kind===category.id).length} editions</small>
+           <span>{category.title}</span><small>{category.id==="all"?editions.length:editions.filter(e=>e.kind===category.id).length} editions</small>
          </Link>)}
      </nav>
      <div className={layout.libraryIntro}>
@@ -98,11 +107,41 @@ export default async function MyBluebellyReports({searchParams}:{searchParams?:P
        {currentPage>1?<Link href={pageHref(activeType,currentPage-1)}>← Previous</Link>:<span>Beginning</span>}
        {currentPage<pageCount?<Link href={pageHref(activeType,currentPage+1)}>Next →</Link>:<span>Latest available</span>}
      </nav>
+     <p className={layout.driveNote}>New scheduled HTML editions: {registry.status==="available"
+        ?"loaded from verified private report receipts"
+        :registry.status==="empty"?"no automated HTML receipt yet"
+        :"report receipt storage unavailable"}. Older files remain in a labelled, fixed historic index.</p>
      <p className={layout.driveNote}>These fixed links are 28 October V3 revisions of the dated 27 October source packet,
        not an automatically updating catalogue. The first four links are recommended deep editions. New files remain discoverable from the Drive
        folder until their edition metadata is indexed here. Drive preview may disable interactive
        embeds; download HTML and open it in a browser for the full report. Original PDFs remain
        under legacy reports below; new output is HTML-first.</p>
+   </section>
+   <section className={layout.driveArchive} data-material-editorial-recall="source-to-editor" aria-label="Material event editorial recall">
+     <div className={layout.driveHead}><div>
+       <p className={styles.kicker}>RESEARCH ASSURANCE · SOURCE TO EDITOR</p>
+       <h2>Major stories that need an editorial decision</h2>
+       <p>Machine-checked against the latest three-idea slate ({recall.editorialDate||"unavailable"}).
+         Collected headlines are <strong>not</strong> verified market facts.
+         Explicitly unacknowledged events are research-follow-up alerts, not proof of a missed public release.</p>
+     </div></div>
+     <div className={layout.recallList}>
+      {recall.candidates.length?recall.candidates.slice(0,8).map(item=><article key={item.key}>
+       <div className={layout.recallTop}>
+        <strong>{item.title}</strong>
+        <span>{item.status.replaceAll("_"," ").toUpperCase()}</span>
+       </div>
+       <p>{item.why}</p>
+       <small>Source: {item.sourceState.replaceAll("_"," ")} · Event recorded {new Date(item.eventAt).toLocaleString("en-GB",{timeZone:"Asia/Kuala_Lumpur",dateStyle:"medium",timeStyle:"short"})} MYT</small>
+       <a href={item.url} target="_blank" rel="noopener noreferrer">Original recorded link ↗</a>
+      </article>):<p>{recall.status==="unavailable"
+       ?"Research candidate readback unavailable. No completed sweep is claimed."
+       :"No eligible material corporate-action candidate was identified in the 72-hour review window."}</p>}
+     </div>
+     <p className={layout.driveNote}>This cross-source readback is a diagnostic over existing intake and Motion,
+       not a new evidence table or automatic acceptance decision. A publisher report stays
+       REPORTed and a creator claim stays LEAD until independently source-verified.
+       Any post-cutoff event belongs to the next editorial cycle.</p>
    </section>
   </div>
 
