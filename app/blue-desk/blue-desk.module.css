@@ -2,7 +2,7 @@
   min-height: 100vh;
   color: #eff8ff;
   background: #001726;
-  font-family: Figtree, Inter, "Segoe UI", Arial, sans-serif;
+  font-family: var(--bluebelly-font);
   line-height: 1.48;
 }
 .page * { box-sizing: border-box; }
