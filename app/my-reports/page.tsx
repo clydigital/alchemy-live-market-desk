@@ -105,6 +105,10 @@ export default async function MyBluebellyReports({searchParams}:{searchParams?:P
      <div className={layout.driveHead}><div>
        <p className={styles.kicker}>MANUAL RESEARCH · SOURCE CHECKS · 27 OCTOBER 2026</p>
        <h2>Bonds, China and the Asian AI trade</h2>
+       <p>These investigations are also available as two independent Bluebelly reader stories:
+        <Link href="/features/asia-equities">Asia's AI markets</Link> ·
+        <Link href="/features/global-bonds">Global Bonds: France and Greece</Link>.
+        Their source-linked chapters and worksheet checklists are dated and do not publish a canonical verdict.</p>
        <p>Research notes alongside the private PDF and HTML library. These are dated analyst investigations, not canonical Dossier conclusions or live technical readings.</p>
      </div></div>
      <div className={layout.driveItems}>
