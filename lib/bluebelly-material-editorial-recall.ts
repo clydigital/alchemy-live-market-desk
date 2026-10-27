@@ -24,6 +24,7 @@ const ENTITIES=[
 ] as const;
 const ACTIONS=[
  ["ipo",/\b(?:s-1|f-1|ipo|initial public offering|prospectus|public listing)\b/i],
+ ["material-filing",/\b8-k(?:\/a)?\b/i],
  ["merger",/\b(?:merg(?:e|er|ing)|takeover|acquisition|special committees?|combination discussions|buyout)\b/i],
  ["capital",/\b(?:equity offering|priced offering|preferred shares|share offering|equity sale|mandatory.convertible|stock issuance)\b/i],
  ["financing",/\b(?:equipment financing|loan facility|secured financing|spv financing|credit facility|debt financing|bond issuance)\b/i],
