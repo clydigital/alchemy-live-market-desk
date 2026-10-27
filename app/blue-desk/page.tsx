@@ -100,7 +100,6 @@ export default async function BlueDeskPage() {
             </div> : null}
             <div className={styles.tags}>
               <span className={styles.tag}>{newsFeature ? "SOURCE-VERIFIED FACT" : observedFeature ? "SOURCE-DOCUMENTED MARKET OBSERVATION" : olderStory ? "DATED STORY CONTEXT" : "NO VERIFIED UPDATE"}</span>
-              <span className={styles.tag}>No Dossier approval required</span>
             </div>
             <div className={styles.heroFooter}>
               {newsFeature ? (
@@ -132,7 +131,7 @@ export default async function BlueDeskPage() {
                 <strong>{row.last === null ? "—" : row.last.toFixed(2) + "%"}</strong>
               </div>
             )) : <p className={styles.empty}>Yield data unavailable.</p>}
-            <Link href={publicHost ? blueDeskPublicHref("/blue-desk/markets", host) : "/markets"} className={styles.textLink}>Cross-asset monitor →</Link>
+            <Link href={publicHost ? blueDeskPublicHref("/blue-desk/markets?group=rates", host) : "/markets"} className={styles.textLink}>Explore Treasury yield history →</Link>
           </aside>
         </section>
 
@@ -263,9 +262,11 @@ export default async function BlueDeskPage() {
             {publicHost ? (
               <>
                 <Link href="/key-stories">Key market stories and research watch →</Link>
-                <Link href="/#rates-title">Observed Treasury yields →</Link>
+                <Link href="/markets?group=rates">Observed Treasury yields and history →</Link>
                 <Link href="/markets">Public markets →</Link>
                 <Link href="/calendar">Public calendar →</Link>
+                <Link href="/calendar#earnings-hub">Company earnings this week →</Link>
+                <Link href="/daily-report">Daily Market Report →</Link>
               </>
             ) : (
               <>
