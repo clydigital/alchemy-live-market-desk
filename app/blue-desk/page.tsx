@@ -136,6 +136,35 @@ export default async function BlueDeskPage() {
           </aside>
         </section>
 
+        <section className={styles.section} aria-labelledby="feature-research-title" data-featured-manual-research="two-independent-stories">
+          <div className={styles.sectionHead}>
+            <div>
+              <p className={styles.kicker}>DEEP RESEARCH · 27 OCTOBER 2026 SNAPSHOT</p>
+              <h2 id="feature-research-title"><MarketIcon name="layers" size={22}/> Two market stories worth separating</h2>
+              <p>Source-linked, story-driven investigations with learning moments, scenarios and manual research worksheets. Editorial research only; not a newly accepted Dossier thesis or live feed.</p>
+            </div>
+            <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/key-stories",host)}>All Key Stories →</Link>
+          </div>
+          <div className={styles.storyGrid}>
+            <article className={styles.storyCard} data-feature="asia-equities">
+              <span className={styles.kicker}>ASIA · EQUITIES / AI EARNINGS</span>
+              <h3>Asia's AI Trade Is Splitting in Two</h3>
+              <p>China's AI stock de-rating continues while Korea, Taiwan and Japan recover unevenly. Compare profits, semiconductors, currency and the next earnings tests.</p>
+              <div className={styles.storyBottom}><span className={styles.cardTime}>Market closes · 27 Oct 2026</span>
+                <Link href={blueDeskPublicHref("/blue-desk/features/asia-equities",host)}>Read Asia research →</Link>
+              </div>
+            </article>
+            <article className={styles.storyCard} data-feature="global-bonds">
+              <span className={styles.kicker}>GLOBAL BONDS · FRANCE / GREECE</span>
+              <h3>France's Bond Scare: The Greece Lesson</h3>
+              <p>France's OAT–Bund spread touched crisis-era levels. What Greece's actual bailout tells us — and what would signal contagion rather than a French-only fiscal scare.</p>
+              <div className={styles.storyBottom}><span className={styles.cardTime}>Source observations · 22–27 Oct 2026</span>
+                <Link href={blueDeskPublicHref("/blue-desk/features/global-bonds",host)}>Read bonds research →</Link>
+              </div>
+            </article>
+          </div>
+        </section>
+
         {digestBriefs.length ? <section className={styles.section} aria-labelledby="macropulse-brief-head" data-home-macropulse="reviewed-digest">
           <div className={styles.sectionHead}>
             <div><p className={styles.kicker}>MACROPULSE / EDITOR-REVIEWED RESEARCH</p>
