@@ -71,9 +71,11 @@ test("withholds falsely attributed social content and flags provider incompleten
   assert.equal(result.accounts[0].status, "partial");
   assert.equal(result.health.complete, false);
 });
-test("protected owner Wire cannot be routed onto the public Bluebelly hostname", () => {
-  assert.equal(blueDeskHostAccess("/owner/x-wire", "bluebelly-desk.vercel.app"), "blocked");
+test("protected owner Wire stays private on Bluebelly and never exposes internal APIs", () => {
+  assert.equal(blueDeskHostAccess("/owner/x-wire", "bluebelly-desk.vercel.app"), "private");
   assert.equal(blueDeskHostAccess("/owner/x-wire", "alchemy-live-market-desk.vercel.app"), "private");
+  assert.equal(blueDeskHostAccess("/owner/x-wire/", "bluebelly-desk.vercel.app"), "blocked");
+  assert.equal(blueDeskHostAccess("/owner/x-wire", "alchemy-blue-desk.vercel.app"), "blocked");
   const page = readFileSync(new URL("../app/owner/x-wire/page.tsx", import.meta.url), "utf8");
   assert.match(page, /force-dynamic/);
   assert.match(page, /THIRD_PARTY|Third-party/);
