@@ -140,11 +140,18 @@ test("ambiguous FxEmbed continuation 404 resets the poisoned cursor but retains 
  assert.doesNotMatch(source,/response\.status===404 && cursor[\s\S]{0,700}health:"healthy"/);
 });
 
+
+test("repeating a provider cursor cannot permanently trap an account",()=>{
+ const source=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
+ assert.match(source,/const invalidCursor=message==="Repeated pagination cursor"/);
+ assert.match(source,/invalidCursor\?\{uncovered_before:missingBefore\|\|window\.startAt\}/);
+ assert.match(source,/page_cursor:invalidCursor\?null/);
+});
 test("later-page provider failure preserves partial X data and continuation cursor",()=>{
  const code=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
  assert.match(code,/const hadPartialData=fetched>0/);
  assert.match(code,/health:hadPartialData\?"partial"/);
- assert.match(code,/page_cursor:hadPartialData\?cursor:claim\.resume_cursor/);
- assert.match(code,/window_start_at:hadPartialData\?window\.startAt:claim\.resume_start_at/);
- assert.match(code,/next_attempt_at:plus\(now,hadPartialData\?5:30\)/);
+ assert.match(code,/page_cursor:invalidCursor\?null:hadPartialData\?cursor:claim\.resume_cursor/);
+ assert.match(code,/window_start_at:invalidCursor\?null:hadPartialData\?window\.startAt:claim\.resume_start_at/);
+ assert.match(code,/next_attempt_at:plus\(now,invalidCursor\|\|hadPartialData\?5:30\)/);
 });
