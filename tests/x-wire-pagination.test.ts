@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { parseFxTimeline, xWireRequestWindow } from "../lib/x-wire-pagination.ts";
+import { parseFxTimeline, xWireRequestWindow, xWireRecoveryAnchor } from "../lib/x-wire-pagination.ts";
 import { blueDeskHostAccess } from "../lib/blue-desk-host.ts";
 
 const now="2026-10-23T06:00:00.000Z";
@@ -78,6 +78,13 @@ test("excluded account is rejected even when provider rows are passed directly",
 });
 
 
+
+test("recoverable incomplete history anchors retry, expired history does not monopolise new scans",()=>{
+ assert.equal(xWireRecoveryAnchor(now,null,"2026-10-23T01:00:00Z"),"2026-10-23T01:00:00.000Z");
+ assert.equal(xWireRecoveryAnchor(now,"2026-10-23T04:00:00Z","2026-10-23T02:00:00Z"),"2026-10-23T02:00:00.000Z");
+ assert.equal(xWireRecoveryAnchor(now,"2026-10-23T04:00:00Z","2026-10-19T00:00:00Z"),"2026-10-23T04:00:00Z");
+ assert.equal(xWireRecoveryAnchor(now,null,"not-a-timestamp"),null);
+});
 test("strict lookback exhaustion succeeds before an unnecessary provider cursor call",()=>{
  const page=parseFxTimeline({code:200,results:[
   sample({id:"2113177723749420002"}),
