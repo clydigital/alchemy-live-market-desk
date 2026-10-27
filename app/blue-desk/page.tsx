@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import BluebellyNewsfront from "@/components/blue-desk/BluebellyNewsfront";
 import EditorialStoryArt from "@/components/blue-desk/EditorialStoryArt";
 import { EntityMark, ScopeStrip } from "@/components/blue-desk/EntityIdentity";
 import { MarketIcon } from "@/components/blue-desk/MarketIcon";
@@ -84,7 +85,13 @@ export default async function BlueDeskPage() {
     <main className={styles.page} data-blue-desk-convergence="phase-1">
       <BlueDeskHeader activePath="/blue-desk" />
       <div className={styles.content}>
-
+        <BluebellyNewsfront news={verifiedNews} theses={theses} host={host}
+          upcoming={upcoming.map(event=>({id:event.id,title:event.title,sourceName:event.sourceName,
+            scheduledAt:event.scheduledAt??null,localDate:event.localDate,sourceUrl:event.sourceUrl}))}/>
+        <details data-legacy-monitor="preserved-as-expandable-support">
+          <summary style={{marginTop:25,padding:"11px 16px",border:"1px solid #2c617b",cursor:"pointer",background:"#082f48",color:"#aee7fb",fontSize:13}}>
+            Expand source-dated lead detail and Treasury yields
+          </summary>
         <section className={styles.hero} aria-label="Latest source-dated market development">
           <div className={styles.heroStory}>
             <p className={styles.kicker}><MarketIcon name="market" size={16} />
@@ -138,6 +145,7 @@ export default async function BlueDeskPage() {
             <p><Link href={blueDeskPublicHref("/blue-desk/features/global-bonds",host)} className={styles.textLink}>Global bonds: France vs Greece →</Link></p>
           </aside>
         </section>
+        </details>
 
         <section className={styles.section} aria-labelledby="feature-research-title" data-featured-manual-research="two-independent-stories">
           <div className={styles.sectionHead}>
