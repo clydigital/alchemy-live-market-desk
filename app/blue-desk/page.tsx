@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import EditorialStoryArt from "@/components/blue-desk/EditorialStoryArt";
 import { EntityMark, ScopeStrip } from "@/components/blue-desk/EntityIdentity";
 import { MarketIcon } from "@/components/blue-desk/MarketIcon";
 import { buildPresenterCalendar } from "@/lib/presenter-calendar";
@@ -89,6 +90,7 @@ export default async function BlueDeskPage() {
             <p className={styles.kicker}><MarketIcon name="market" size={16} />
               {newsFeature ? "LATEST VERIFIED DEVELOPMENT" : observedFeature ? "LATEST DATED MARKET OBSERVATION" : olderStory ? "ONGOING STORY · HISTORICAL VIEW" : "MARKET NEWS"}
             </p>
+            {newsFeature ? <div style={{maxWidth:"280px",marginBottom:"13px"}} data-editorial-lead-art="generated-source-labelled"><EditorialStoryArt headline={newsFeature.headline} summary={newsFeature.summary} compact/></div> : null}
             <h1>{newsFeature?.headline || (observedFeature ? ellipsis(observedFeature.description,125) : "") || olderStory?.title || "No verified market headline available"}</h1>
             <p className={styles.heroDeck}>
               {newsFeature?.summary || (observedFeature ? "Recorded by "+observedFeature.sourceName+". This is an observed source value, not evidence of a new catalyst or its cause." : "") ||
@@ -149,6 +151,7 @@ export default async function BlueDeskPage() {
           <div className={styles.storyGrid}>
             <article className={styles.storyCard} data-feature="asia-equities">
               <span className={styles.kicker}>ASIA · EQUITIES / AI EARNINGS</span>
+              <div style={{width:"min(100%,350px)",marginBottom:14}}><EditorialStoryArt motif="china" headline="Asia AI chip markets" compact/></div>
               <h3>Asia's AI Trade Is Splitting in Two</h3>
               <p>China's AI stock de-rating continues while Korea, Taiwan and Japan recover unevenly. Compare profits, semiconductors, currency and the next earnings tests.</p>
               <div className={styles.storyBottom}><span className={styles.cardTime}>Market closes · 27 Oct 2026</span>
@@ -157,6 +160,7 @@ export default async function BlueDeskPage() {
             </article>
             <article className={styles.storyCard} data-feature="global-bonds">
               <span className={styles.kicker}>GLOBAL BONDS · FRANCE / GREECE</span>
+              <div style={{width:"min(100%,350px)",marginBottom:14}}><EditorialStoryArt motif="bonds" headline="France sovereign bonds" compact/></div>
               <h3>France's Bond Scare: The Greece Lesson</h3>
               <p>France's OAT–Bund spread touched crisis-era levels. What Greece's actual bailout tells us — and what would signal contagion rather than a French-only fiscal scare.</p>
               <div className={styles.storyBottom}><span className={styles.cardTime}>Source observations · 22–27 Oct 2026</span>
