@@ -14,6 +14,9 @@ const video=(id:string,publishedAt:string,excerpt:string,status:"complete"|"part
  transcriptText:status==="complete"?transcript(excerpt):null,
  transcriptRetrievedAt:status==="complete"?"2026-10-26T23:30:00Z":null,
  transcriptProvider:status==="complete"?"verified-backend":"none",
+ transcriptSegments:status==="complete"?[
+  {text:excerpt,startSeconds:48,endSeconds:53.25},
+ ]:[],
 });
 const claim=(claimId:string,id:string,excerpt:string,relationTo?:{claimId:string;type:"revises"|"reinforces"|"contradicts"})=>({
  claimId,creatorId:"market-creator",videoId:id,threadId:"financing",
@@ -77,6 +80,7 @@ test("one creator and two transcript-consumed videos make one revision-led draft
  assert.deepEqual(prompt.pendingTranscriptIds,[pending]);
  assert.ok(!JSON.stringify(prompt).includes("This should never be used."));
  assert.ok(!JSON.stringify(prompt).includes("transcriptText"));
+ assert.ok(!JSON.stringify(prompt).includes("transcriptSegments"));
 });
 test("no complete transcript backed claim blocks story; incomplete discoveries remain pending in mixed batches",()=>{
  const all=packet();
@@ -140,4 +144,35 @@ test("Markdown companion preserves act citations, exact YouTube timecodes, pendi
  assert.match(markdown,/Owner review draft/);
  assert.match(markdown,/not canonical Dossier evidence/);
  assert.ok(!markdown.includes("transcriptText"));
+});
+
+test("real provider segment positions, not merely matching transcript text, authorise video timecodes",()=>{
+ const x=packet();
+ assert.throws(()=>prepareCreatorStory({...x,claims:[
+  {...x.claims[0],transcriptSeconds:99},x.claims[1],x.claims[2],
+ ]}),/UNATTESTED_TRANSCRIPT_TIMECODE/);
+ assert.throws(()=>prepareCreatorStory({...x,videos:[
+  {...x.videos[0],transcriptSegments:[]},...x.videos.slice(1),
+ ]}),/UNATTESTED_TRANSCRIPT_TIMECODE/);
+ assert.throws(()=>prepareCreatorStory({...x,videos:[
+  {...x.videos[0],transcriptSegments:[{text:"An excerpt not in the transcript",startSeconds:48,endSeconds:49}]},
+  ...x.videos.slice(1),
+ ]}),/INVALID_TRANSCRIPT_SEGMENTS/);
+ const precise=prepareCreatorStory({...x,videos:[
+  {...x.videos[0],transcriptSegments:[{text:original,startSeconds:48.24,endSeconds:53.25}]},
+  ...x.videos.slice(1),
+ ],claims:[{...x.claims[0],transcriptSeconds:48.24},...x.claims.slice(1)]})!;
+ assert.equal(precise.claims[0].transcriptSeconds,48.24);
+ const draft=parseCreatorStoryDraft(model(),precise)!;
+ assert.match(renderCreatorStoryMarkdown(draft),/watch\?v=AAAAAAAAAAA&t=48s/);
+});
+test("untimed transcripts may be cited without fabricating a deep link or retrieval seconds",()=>{
+ const x=packet();
+ const claims=x.claims.map(c=>({...c,transcriptSeconds:null}));
+ const videos=x.videos.map(v=>({...v,transcriptSegments:undefined}));
+ const prepared=prepareCreatorStory({...x,videos,claims})!;
+ const draft=parseCreatorStoryDraft(model(),prepared)!;
+ const md=renderCreatorStoryMarkdown(draft);
+ assert.match(md,/watch\?v=AAAAAAAAAAA\)/);
+ assert.ok(!md.includes("t=48s"));
 });
