@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { EntityChip } from "@/components/blue-desk/EntityIdentity";
+import { identityForCalendar } from "@/lib/bluebelly-entity-identity";
 import { headers } from "next/headers";
 
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
@@ -237,6 +239,7 @@ export default async function BlueDeskPage() {
               <article key={event.id} className={styles.eventRow}>
                 <div className={styles.eventHeading}>
                   <span className={styles.kicker}>{event.kind.toUpperCase()} · {event.status}</span>
+                  <div><EntityChip entity={identityForCalendar(event.kind,event.affectedAssets,event.sourceName)} tone={event.kind==="earnings"?"earnings":"macro"}/></div>
                   <h3>{event.title}</h3>
                 </div>
                 <DualTimestamp value={event.scheduledAt} sourceDate={event.localDate} className={styles.eventTime} />
