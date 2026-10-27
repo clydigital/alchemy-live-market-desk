@@ -72,7 +72,7 @@ test("owner Editorial and Presenter are exact session-protected Bluebelly routes
     assert.equal(blueDeskHostAccess(path,"alchemy-live-market-desk.vercel.app"),"private");
   }
   const header=readFileSync(new URL("../components/blue-desk/BlueDeskHeader.tsx",import.meta.url),"utf8");
-  assert.match(header,/Writing Desk.*\/owner\/editorial/);
+  assert.doesNotMatch(header,/\["Writing Desk", "\/owner\/editorial"\]/);
   assert.match(header,/\["My Desk", "\/my-reports"\]/);
   assert.doesNotMatch(header,/\["Presenter Prep", "\/owner\/presenter"\]/);
   assert.match(header,/ownerWorkspace/);
