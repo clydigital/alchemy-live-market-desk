@@ -67,9 +67,21 @@ export function projectEarningsWeekTiles(
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return [];
     const extra = enrichments[event.id];
     const hasReleaseProvenance = isHttps(extra?.releaseSessionSourceUrl);
+    // An official *results*-release session can be described without an exact
+    // release minute. Never derive a session from a conference-call clock.
+    const issuerSession = event.verificationState === "official" && isHttps(event.sourceUrl)
+      ? /\\bresults?\\s+(?:will\\s+be\\s+released\\s+)?after\\s+(?:the\\s+)?(?:us\\s+)?close\\b/i.test(event.timeLabel)
+        ? "amc"
+        : /\\bresults?\\s+(?:will\\s+be\\s+released\\s+)?before\\s+(?:the\\s+)?(?:us\\s+)?(?:market\\s+)?open\\b/i.test(event.timeLabel)
+          ? "bmo"
+          : "unknown"
+      : "unknown";
     const session = hasReleaseProvenance && (extra?.releaseSession === "bmo" || extra?.releaseSession === "amc")
       ? extra.releaseSession
-      : "unknown";
+      : issuerSession;
+    const sessionSource = hasReleaseProvenance && (extra?.releaseSession === "bmo" || extra?.releaseSession === "amc")
+      ? extra.releaseSessionSourceUrl!
+      : issuerSession !== "unknown" ? event.sourceUrl : null;
     const ticker = event.affectedAssets.find((asset) => /^[A-Z][A-Z0-9.-]{0,11}$/.test(asset)) || "—";
     return [{
       id: event.id,
@@ -78,7 +90,7 @@ export function projectEarningsWeekTiles(
       calendarDay: day,
       calendarDayBasis: exactDay ? "et_instant" : "source_date_only",
       session,
-      releaseSessionSourceUrl: session === "unknown" ? null : extra!.releaseSessionSourceUrl!,
+      releaseSessionSourceUrl: sessionSource,
       official: event.verificationState === "official",
       sourceUrl: event.sourceUrl,
       timeLabel: event.timeLabel,
