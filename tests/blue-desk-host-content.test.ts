@@ -134,8 +134,10 @@ test("Bluebelly My Reports enclave is login-protected and nothing else gains own
  assert.ok(publicDaily.includes('<Link href="/my-reports">Open my private PDF reports</Link>'));
  const header=readFileSync(new URL("../components/blue-desk/BlueDeskHeader.tsx",import.meta.url),"utf8");
  const pubnav=header.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0]||"";
- assert.ok(pubnav.includes('["My Desk", "/my-reports"]'),"Show private My Desk link");
- assert.ok(pubnav.includes('["Research Library", "/owner/research"]'),"Show private Research Library link");
+ const privnav=header.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0]||"";
+ assert.ok(privnav.includes('["My Desk", "/my-reports"]'),"Show authenticated My Desk link");
+ assert.ok(privnav.includes('["Research Library", "/owner/research"]'),"Show authenticated Research Library link");
+ assert.ok(pubnav.includes('["Presenter Prep", "/owner/presenter"]'),"Presenter entry is visibly labelled yet session-gated");
  assert.equal(blueDeskHostAccess("/my-reports",host),"private");
  assert.equal(blueDeskHostAccess("/owner/research",host),"private");
 });
