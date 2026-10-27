@@ -1,4 +1,4 @@
-.layout{max-width:1540px;margin:0 auto;padding:0 22px 72px;color:#ecf5f2;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55}
+.layout{max-width:1540px;margin:0 auto;padding:0 22px 72px;color:#ecf5f2;font-family:var(--bb-font-sans,Figtree,sans-serif);font-size:14px;line-height:1.55}
 .layout *{box-sizing:border-box}.layout a{color:#a5e0ce;text-decoration:none}.layout a:hover{text-decoration:underline}
 .subnav{display:flex;gap:8px;flex-wrap:wrap;padding:15px 0 18px}
 .subnav a{border:1px solid #284840;border-radius:99px;padding:9px 15px;font-weight:600;font-size:13px;color:#accbbf}
