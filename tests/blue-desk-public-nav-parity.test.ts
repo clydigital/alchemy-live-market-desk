@@ -10,18 +10,18 @@ test("all visible public header links target approved host paths and real anchor
   const match = header.match(/const PUBLIC_NAV = \[([\s\S]*?)\] as const;/);
   assert.ok(match, "public navigation must be explicitly enumerated");
   const hrefs = [...match[1].matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m => m[1]);
-  assert.deepEqual(hrefs, ["/", "/key-stories", "/markets", "/my-reports",
-    "/owner/research", "/owner/x-wire", "/calendar"]);
+  assert.deepEqual(hrefs, ["/", "/newsroom", "/regime-watch", "/markets", "/calendar",
+    "/daily-report", "/owner/presenter"]);
   for (const href of hrefs) {
     const url = new URL(href, "https://bluebelly-desk.vercel.app");
-    const access = href === "/my-reports" || href === "/owner/research" || href === "/owner/x-wire"
+    const access = href === "/owner/presenter"
       ? "private" : "public";
     assert.equal(blueDeskHostAccess(url.pathname, url.hostname), access, href);
     assert.equal(blueDeskHostAccess(url.pathname, "alchemy-live-market-desk.vercel.app"), access, href);
     if (url.hash) assert.match(homepage, new RegExp('id="' + url.hash.slice(1) + '"'));
-    if (url.pathname === "/key-stories") {
-      const page=readFileSync(new URL("../app/blue-desk/key-stories/page.tsx",import.meta.url),"utf8");
-      assert.match(page,/data-bluebelly-stories="catalyst-led"/);
+    if (url.pathname === "/newsroom") {
+      const page=readFileSync(new URL("../app/blue-desk/newsroom/page.tsx",import.meta.url),"utf8");
+      assert.match(page,/data-public-newsroom="original-source-only"/);
     }
   }
 });

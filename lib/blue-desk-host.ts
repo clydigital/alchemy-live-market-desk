@@ -31,6 +31,8 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   if (pathname === "/calendar") return "/blue-desk/calendar";
   if (pathname === "/daily-report") return "/blue-desk/daily-report";
   if (pathname === "/key-stories") return "/blue-desk/key-stories";
+  if (pathname === "/newsroom") return "/blue-desk/newsroom";
+  if (pathname === "/regime-watch") return "/blue-desk/regime-watch";
   if (pathname === "/features/asia-equities" || pathname === "/features/global-bonds") return "/blue-desk" + pathname;
   // Temporary auth-free development lab uses strictly synthetic browser-local
   // inputs. Real owner pages, APIs and source records remain private.
@@ -105,6 +107,8 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     pathname === "/blue-desk/calendar" ||
     pathname === "/key-stories" ||
     pathname === "/blue-desk/key-stories" ||
+    pathname === "/newsroom" || pathname === "/blue-desk/newsroom" ||
+    pathname === "/regime-watch" || pathname === "/blue-desk/regime-watch" ||
     pathname === "/features/asia-equities" ||
     pathname === "/features/global-bonds" ||
     pathname === "/blue-desk/features/asia-equities" ||

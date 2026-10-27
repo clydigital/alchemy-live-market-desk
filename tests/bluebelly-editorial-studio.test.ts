@@ -74,7 +74,8 @@ test("owner Editorial and Presenter are exact session-protected Bluebelly routes
   const header=readFileSync(new URL("../components/blue-desk/BlueDeskHeader.tsx",import.meta.url),"utf8");
   assert.doesNotMatch(header,/\["Writing Desk", "\/owner\/editorial"\]/);
   assert.match(header,/\["My Desk", "\/my-reports"\]/);
-  assert.doesNotMatch(header,/\["Presenter Prep", "\/owner\/presenter"\]/);
+  assert.match(header,/\["Presenter Prep", "\/owner\/presenter"\]/);
+  assert.equal(blueDeskHostAccess("/owner/presenter","bluebelly-desk.vercel.app"),"private");
   assert.match(header,/ownerWorkspace/);
   assert.doesNotMatch(header.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0]||"",/\/hybrid-output\/prepare/);
   const presenter=readFileSync(new URL("../app/owner/presenter/page.tsx",import.meta.url),"utf8");
