@@ -49,15 +49,18 @@ begin
  end loop;
  if NEW.verification_status <> 'source_checked' then return NEW; end if;
  for source_row in
-   select distinct on (item_key) item_key,url,title
-   from public.research_intake_items
-   where item_type='news' and status='accepted'
-     and source_quality>=90 and materiality>=80
-     and (item_key like 'official-edgar:%' or item_key like 'official-press:%')
-     and published_at > NEW.produced_at - interval '72 hours'
-     and published_at <= NEW.produced_at
-     and created_at <= NEW.produced_at
-   order by item_key,created_at desc
+   select item_key,url,title from (
+     select distinct on (item_key) item_key,url,title,materiality,created_at
+     from public.research_intake_items
+     where item_type='news' and status='accepted'
+       and source_quality>=90 and materiality>=80
+       and (item_key like 'official-edgar:%' or item_key like 'official-press:%')
+       and published_at > NEW.produced_at - interval '72 hours'
+       and published_at <= NEW.produced_at
+       and created_at <= NEW.produced_at
+     order by item_key,created_at desc
+   ) deduped
+   order by materiality desc,created_at desc
    limit 12
  loop
    select r.value into receipt
