@@ -4,6 +4,7 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import { ScopeStrip } from "@/components/blue-desk/EntityIdentity";
 import InvestorTest from "@/components/blue-desk/InvestorTest";
 import NewsroomLensExplorer from "@/components/blue-desk/NewsroomLensExplorer";
+import EditorialStoryArt from "@/components/blue-desk/EditorialStoryArt";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
@@ -132,12 +133,14 @@ export default async function KeyStories(){
         <div className={ui.cards}>
           <article className={ui.card}>
             <p className={ui.kicker}>ASIA EQUITIES · 27 OCTOBER 2026</p>
+            <div style={{maxWidth:370,marginBottom:12}}><EditorialStoryArt motif="china" headline="Asia AI equities"/></div>
             <h3>China's AI crash vs Korea, Taiwan, Hong Kong and Japan</h3>
             <p>What fell, why the chip markets disagree and what would confirm a broader contagion.</p>
             <Link href={blueDeskPublicHref("/blue-desk/features/asia-equities",host)}>Read Asia story and manual research →</Link>
           </article>
           <article className={ui.card}>
             <p className={ui.kicker}>GLOBAL BONDS · FRANCE VS GREECE</p>
+            <div style={{maxWidth:370,marginBottom:12}}><EditorialStoryArt motif="bonds" headline="Sovereign bond stress"/></div>
             <h3>Greece's 2010 crisis versus France's bond scare</h3>
             <p>What 178 basis points signalled, why the spread retreated and how to test sovereign contagion.</p>
             <Link href={blueDeskPublicHref("/blue-desk/features/global-bonds",host)}>Read global bonds story and manual research →</Link>

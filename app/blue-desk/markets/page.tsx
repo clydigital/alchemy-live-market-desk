@@ -6,10 +6,11 @@ import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import { EntityRow } from "@/components/blue-desk/EntityIdentity";
 import { entityForAsset } from "@/lib/bluebelly-entity-identity";
-import PublicGovernmentRateTrendChart from "@/components/blue-desk/PublicGovernmentRateTrendChart";
+import TradingViewChart from "@/components/blue-desk/TradingViewChart";
+import {TV_MARKET_GROUP_DEFAULTS} from "@/lib/bluebelly-editorial-visuals";
 import { MarketIcon, type MarketIconName } from "@/components/blue-desk/MarketIcon";
 import {
-  PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations, publicGovernmentRateTrends,
+  PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations,
   type PublicMarketObservation,
 } from "@/lib/blue-desk-public-markets";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
@@ -61,8 +62,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
     group === "all" || group === "energy" ? getHormuzMonitor() : Promise.resolve(null),
   ]);
   const observations = publicMarketObservations(monitor?.rows || [], group);
-  const officialRateTrends = group === "all" || group === "rates"
-    ? publicGovernmentRateTrends(monitor?.rows || []) : [];
+
   const selected = PUBLIC_MARKET_GROUPS.find(item => item.id === group)!;
 
   return (
@@ -100,9 +100,13 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           ))}
         </nav>
 
-        {(group === "all" || group === "rates") && monitor ? (
-          <PublicGovernmentRateTrendChart series={officialRateTrends} nowIso={monitor.updatedAt} />
-        ) : null}
+        <section className={styles.section} aria-label="TradingView market chart" data-market-chart-provider="tradingview">
+          <div className={styles.sectionHead}><div>
+            <h2>Market charts · TradingView</h2>
+            <p>Interactive TradingView prices and yields. The source-dated observations below are separate; the widget is not evidence of a specific event reaction.</p>
+          </div></div>
+          <TradingViewChart initial={TV_MARKET_GROUP_DEFAULTS[group] || "us10y"} showPicker />
+        </section>
 
         <section aria-labelledby="market-group-heading" className={styles.section}>
           <div className={styles.sectionHead}>

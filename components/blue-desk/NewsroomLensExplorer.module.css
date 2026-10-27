@@ -47,3 +47,11 @@
   .lead { grid-column: auto; }
   .footer { flex-direction: column; }
 }
+
+/* BizNews-inspired editorial art; source facts remain distinct from the illustration. */
+.editorialArt{margin:-10px -10px 17px;overflow:hidden}
+.lead .editorialArt{max-height:300px}.card .editorialArt{max-height:185px}
+.editorialArt svg{width:100%;height:auto;display:block}
+.chartDetails{margin-top:14px;color:#b7d9ea;font-size:12px}
+.chartDetails summary{cursor:pointer;color:#8bdafa;padding:7px 0;font-weight:700}
+.chartDetails:focus-within{outline-offset:3px}
