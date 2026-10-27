@@ -23,10 +23,10 @@ const ENTITIES=[
  ["federal-reserve",/\b(?:federal reserve|fomc|fed rate)\b/i],
 ] as const;
 const ACTIONS=[
- ["ipo",/\b(?:s-1|f-1|ipo|initial public offering|prospectus|public listing)\b/i],
+ ["ipo",/\b(?:s-1|f-1|ipo|initial public offering|prospectus|public listing|files? to go public|plans? to list)\b/i],
  ["material-filing",/\b8-k(?:\/a)?\b/i],
- ["merger",/\b(?:merg(?:e|er|ing)|takeover|acquisition|special committees?|combination discussions|buyout)\b/i],
- ["capital",/\b(?:equity offering|priced offering|preferred shares|share offering|equity sale|mandatory.convertible|stock issuance)\b/i],
+ ["merger",/\b(?:merg(?:e|er|ing)|takeover|acquisition|special committees?|combination discussions|business combination|proposed combination|buyout)\b/i],
+ ["capital",/\b(?:equity offering|priced offering|preferred shares|share offering|equity sale|mandatory.convertible|stock issuance|(?:offering|sale|pricing).{0,45}(?:common stock|preferred stock|notes|securities|shares)|(?:stock|share|equity).{0,25}offering)\b/i],
  ["financing",/\b(?:equipment financing|loan facility|secured financing|spv financing|credit facility|debt financing|bond issuance)\b/i],
  ["guidance",/\b(?:guidance|earnings outlook|forecast revision|profit warning)\b/i],
  ["policy",/\b(?:central bank|rate decision|fomc decision|bank of japan decision)\b/i],
