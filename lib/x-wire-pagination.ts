@@ -16,6 +16,8 @@ function published(x: Rec) {
 export type FxPage = {
   posts: XWirePost[]; nextCursor: string | null;
   malformed: number; total: number; oldestAt: string | null;
+  /** Strictly ordered, attributable timeline has reached beyond the requested start. */
+  reachedWindowStart: boolean;
 };
 /** Cursor is a provider-supplied opaque token; never interpolate it into a path. */
 export function parseFxTimeline(json: unknown, handle: string, startAt: string, nowIso: string): FxPage {
@@ -27,10 +29,23 @@ export function parseFxTimeline(json: unknown, handle: string, startAt: string, 
     const date = published(rec(value)); return !date ? min : !min || date < min ? date : min;
   }, null);
   const posts: XWirePost[] = [];
+  const orderedTimes:number[]=[];
+  let ordered=true;
   let malformed = 0;
   for (const raw of data.results) {
     const row=rec(raw), author=rec(row.author);
     const screen=text(author.screen_name,20), id=text(row.id,25), date=published(row), body=text(row.text);
+    // A truncated provider timeline may still have a continuation cursor.
+    // Only authenticated-to-handle, chronologically ordered original statuses
+    // can prove the requested lookback was crossed. Reposts, pinned/out-of-order
+    // records, and invalid timestamps cannot prove historical coverage.
+    if(row.reposted_by || row.type!=="status" || screen.toLowerCase()!==handle.toLowerCase() ||
+      !/^\d{6,25}$/.test(id) || !body || !date || Date.parse(date)>Date.parse(nowIso)+300_000) ordered=false;
+    else {
+      const stamp=Date.parse(date);
+      if(orderedTimes.length && stamp>orderedTimes[orderedTimes.length-1])ordered=false;
+      orderedTimes.push(stamp);
+    }
     if (row.reposted_by || (date && Date.parse(date) < Date.parse(startAt))) continue;
     if (row.type !== "status" || screen.toLowerCase() !== handle.toLowerCase() ||
       !date || Date.parse(date) > Date.parse(nowIso) + 300_000 || !body) {malformed++;continue;}
@@ -46,7 +61,19 @@ export function parseFxTimeline(json: unknown, handle: string, startAt: string, 
     } catch {malformed++;}
   }
   const cursor=text(rec(data.cursor).bottom,2048);
-  return { posts, nextCursor:cursor || null, malformed,total:data.results.length,oldestAt };
+  const reachedWindowStart=ordered && orderedTimes.length>0 && malformed===0 &&
+    orderedTimes[orderedTimes.length-1] < Date.parse(startAt);
+  return { posts, nextCursor:cursor || null, malformed,total:data.results.length,oldestAt,reachedWindowStart };
+}
+
+/** Use the earliest recoverable source gap as the next lookback anchor.
+ * Older historical gaps remain visible, but cannot monopolise fresh source checks. */
+export function xWireRecoveryAnchor(nowIso:string, lastCompleteAt:string|null, uncoveredBefore:string|null, recoveryHours=72):string|null {
+ const now=Date.parse(nowIso), gap=uncoveredBefore?Date.parse(uncoveredBefore):NaN;
+ if(!Number.isFinite(now)||!Number.isFinite(gap)||gap>now||
+   now-gap>recoveryHours*3_600_000)return lastCompleteAt;
+ const last=lastCompleteAt?Date.parse(lastCompleteAt):NaN;
+ return !Number.isFinite(last)||gap<last?new Date(gap).toISOString():lastCompleteAt;
 }
 
 /** Resuming never advances a full-coverage checkpoint until the cursor is exhausted. */

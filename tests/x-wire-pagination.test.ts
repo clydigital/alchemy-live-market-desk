@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { parseFxTimeline, xWireRequestWindow } from "../lib/x-wire-pagination.ts";
+import { parseFxTimeline, xWireRequestWindow, xWireRecoveryAnchor } from "../lib/x-wire-pagination.ts";
 import { blueDeskHostAccess } from "../lib/blue-desk-host.ts";
 
 const now="2026-10-23T06:00:00.000Z";
@@ -77,11 +77,81 @@ test("excluded account is rejected even when provider rows are passed directly",
   assert.match(migration,/intake_status = 'rejected'/);
 });
 
+
+
+test("recoverable incomplete history anchors retry, expired history does not monopolise new scans",()=>{
+ assert.equal(xWireRecoveryAnchor(now,null,"2026-10-23T01:00:00Z"),"2026-10-23T01:00:00.000Z");
+ assert.equal(xWireRecoveryAnchor(now,"2026-10-23T04:00:00Z","2026-10-23T02:00:00Z"),"2026-10-23T02:00:00.000Z");
+ assert.equal(xWireRecoveryAnchor(now,"2026-10-23T04:00:00Z","2026-10-19T00:00:00Z"),"2026-10-23T04:00:00Z");
+ assert.equal(xWireRecoveryAnchor(now,null,"not-a-timestamp"),null);
+});
+test("strict lookback exhaustion succeeds before an unnecessary provider cursor call",()=>{
+ const page=parseFxTimeline({code:200,results:[
+  sample({id:"2113177723749420002"}),
+  sample({id:"2113177723749420003",created_at:"2026-10-23T03:20:00Z"})
+ ],cursor:{bottom:"may-404"}},
+ "HFI_Research","2026-10-23T03:30:00Z",now);
+ assert.equal(page.reachedWindowStart,true);
+ assert.equal(page.posts.length,1);
+ assert.equal(page.nextCursor,"may-404");
+});
+test("spoofed, pinned and reposted old items never prove lookback coverage",()=>{
+ const younger=sample({id:"2113177723749420002"});
+ const older=sample({id:"2113177723749420003",created_at:"2026-10-23T03:20:00Z"});
+ const sorted=[younger,older];
+ for(const rows of [
+  [older,younger],
+  [younger,{...older,author:{screen_name:"spoof"}}],
+  [younger,{...older,reposted_by:{screen_name:"HFI_Research"}}],
+  [younger,{...older,id:"not-a-post"}],
+  [younger,{...older,text:""}],
+ ]) {
+  const page=parseFxTimeline({code:200,results:rows,cursor:{bottom:"more"}},
+   "HFI_Research","2026-10-23T03:30:00Z",now);
+  assert.equal(page.reachedWindowStart,false);
+ }
+ assert.equal(sorted.length,2);
+});
+
+
+test("high-volume accounts have deeper paging under a per-source runtime ceiling",()=>{
+ const source=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
+ assert.match(source,/const PAGE_LIMIT = 6/);
+ assert.match(source,/const MAX_SCAN_MS = 18_000/);
+ assert.match(source,/if\(page>0 && Date\.now\(\)-startedAt>=MAX_SCAN_MS\)break/);
+ assert.match(source,/page_cursor:cursor,window_start_at:window\.startAt/);
+});
+
+test("persisted green source cannot stay healthy when its checkpoint is stale",()=>{
+ const source=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
+ assert.match(source,/HEALTH_COMPLETION_MAX_AGE_HOURS = 15/);
+ assert.match(source,/const stale=found\.health==="healthy"/);
+ assert.match(source,/found\.uncovered_before\|\|stale\?"partial"/);
+});
+
+test("ambiguous FxEmbed continuation 404 resets the poisoned cursor but retains a coverage gap",()=>{
+ const source=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
+ assert.match(source,/response\.status===404 && cursor/);
+ assert.match(source,/uncovered_before:missingBefore\|\|window\.startAt/);
+ assert.match(source,/health:"partial"/);
+ assert.match(source,/page_cursor:null,window_start_at:null,next_attempt_at:plus\(now,5\)/);
+ assert.match(source,/const complete=parsed\.reachedWindowStart \|\|/);
+ assert.match(source,/const completeGapMarker = \{uncovered_before:unresolvedGap\}/);
+ assert.doesNotMatch(source,/response\.status===404 && cursor[\s\S]{0,700}health:"healthy"/);
+});
+
+
+test("repeating a provider cursor cannot permanently trap an account",()=>{
+ const source=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
+ assert.match(source,/const invalidCursor=message==="Repeated pagination cursor"/);
+ assert.match(source,/invalidCursor\?\{uncovered_before:missingBefore\|\|window\.startAt\}/);
+ assert.match(source,/page_cursor:invalidCursor\?null/);
+});
 test("later-page provider failure preserves partial X data and continuation cursor",()=>{
  const code=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
  assert.match(code,/const hadPartialData=fetched>0/);
- assert.match(code,/health:hadPartialData\?"partial"/);
- assert.match(code,/page_cursor:hadPartialData\?cursor:claim\.resume_cursor/);
- assert.match(code,/window_start_at:hadPartialData\?window\.startAt:claim\.resume_start_at/);
- assert.match(code,/next_attempt_at:plus\(now,hadPartialData\?5:30\)/);
+ assert.match(code,/health:invalidCursor\|\|hadPartialData\?"partial"/);
+ assert.match(code,/page_cursor:invalidCursor\?null:hadPartialData\?cursor:claim\.resume_cursor/);
+ assert.match(code,/window_start_at:invalidCursor\?null:hadPartialData\?window\.startAt:claim\.resume_start_at/);
+ assert.match(code,/next_attempt_at:plus\(now,invalidCursor\|\|hadPartialData\?5:30\)/);
 });
