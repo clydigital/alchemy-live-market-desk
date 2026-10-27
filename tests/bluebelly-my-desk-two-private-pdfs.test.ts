@@ -4,21 +4,23 @@ import {readFileSync} from "node:fs";
 import {blueDeskHostAccess} from "../lib/blue-desk-host.ts";
 const read=(p:string)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 
-test("the existing My Desk private route leads with the two permitted PDF outputs",()=>{
+test("the existing private My Desk route leads with three HTML editions and maintains legacy PDF",()=>{
  const page=read("app/my-reports/page.tsx");
- assert.match(page,/data-private-desk="two-pdf-deliverables"/);
+ assert.match(page,/data-private-desk="html-first-three-formats"/);
  assert.match(page,/Market stories, explained/);
  assert.match(page,/Three article opportunities/);
  assert.match(page,/<OwnerAutomaticReportReader\/>/);
  assert.match(page,/<OwnerEditorialSlatePdfReader\/>/);
  assert.match(page,/data-my-desk-technical="collapsed-by-default"/);
- assert.match(page,/data-drive-archive="kqdocuments88-private"/);
+ assert.match(page,/data-drive-archive="kqdocuments88-html-primary"/);
+ assert.match(page,/1J3Ay7wxQQYC7BMzAv7nvxYAN9H6_Bzhk/);
+ assert.match(page,/1kiTU5XOuGCGOWy7RoLQVMoCYEUDR9vPN/);
+ assert.match(page,/1ca425cmHacpdGtlebVSAdjh3q_s9lOUd/);
+ assert.match(page,/data-my-desk-pdf-legacy="hidden-by-default"/);
+ assert.match(page,/Download HTML/);
+ assert.match(page,/One batch per creator/);
+ assert.match(page,/automatic HTML uploads are not yet verified/);
  assert.match(page,/drive.google.com\/drive\/folders\/19r-RATOo0vn89FDzs4UZBptPpm1Z9w5L/);
- assert.match(page,/drive.google.com\/file\/d\/1vrlz5BO25HNTDFsftQQNb_Q0wsysRhhm/);
- assert.match(page,/drive.google.com\/file\/d\/1eXurYRfogx7M88BRvpo8KZF6ycfh-8Ao/);
- assert.match(page,/docs.google.com\/document\/d\/12ZTqOZn86wxuInqfscBAnDS3-u63ONPcKh-VsDxRfME/);
- assert.match(page,/docs.google.com\/document\/d\/1bFDxSyT8gSfwEiztfNHQZXL-8bCl8XQEd07jHV3Ksqc/);
- assert.match(page,/dated links are the 27 October pilot/);
  assert.match(page,/<OwnerPrivatePdfInputHealth\/>/);
  assert.doesNotMatch(page,/Poster|new Date\(|generateContent|createSupabaseAdminClient/);
 });
