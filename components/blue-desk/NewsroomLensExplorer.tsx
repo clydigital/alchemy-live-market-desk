@@ -8,6 +8,9 @@ import {
   type NewsroomLensId,
 } from "@/lib/blue-desk-newsroom-lenses";
 import styles from "./NewsroomLensExplorer.module.css";
+import EditorialStoryArt from "./EditorialStoryArt";
+import TradingViewChart from "./TradingViewChart";
+import {storyTvInstrument} from "@/lib/bluebelly-editorial-visuals";
 
 type Props = {
   /** Supply the SAME combineQualifiedNews result already used by Today/Stories. */
@@ -80,9 +83,14 @@ export default function NewsroomLensExplorer({ news, asOf }: Props) {
           {selected.items.map((item, index) =>
             <article className={index === 0 ? styles.lead : styles.card}
               key={item.id} data-newsroom-record-id={item.id}>
+              <div className={styles.editorialArt}><EditorialStoryArt headline={item.headline} summary={item.summary} compact={index !== 0}/></div>
               <p className={styles.status}>{item.evidenceLabel} · {eventTime(item.occurredAt)}</p>
               <h4>{item.headline}</h4>
               <p className={styles.summary}>{item.summary}</p>
+              {storyTvInstrument(item.headline) ? <details className={styles.chartDetails}>
+                <summary>Explore the matching asset on TradingView</summary>
+                <TradingViewChart initial={storyTvInstrument(item.headline)!} compact/>
+              </details> : null}
               <div className={styles.footer}>
                 <span>Observed {eventTime(item.observedAt)}</span>
                 <a href={item.sourceUrl} rel="noopener noreferrer" target="_blank">
