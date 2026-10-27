@@ -2,6 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
+import { ScopeStrip } from "@/components/blue-desk/EntityIdentity";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { formatDualDeskTime } from "@/lib/blue-desk-time";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
@@ -235,6 +236,7 @@ export default async function DailyReportPage() {
               {group.rows.length ? group.rows.map(event =>
                 <article className={styles.event} key={event.id}>
                   <strong>{event.title}</strong>
+                  <ScopeStrip assets={event.affectedAssets} max={4} />
                   <span>{event.scheduledAt
                     ? formatDualDeskTime(event.scheduledAt)?.et || event.scheduledAt
                     : event.localDate + " · source date only"}</span>
