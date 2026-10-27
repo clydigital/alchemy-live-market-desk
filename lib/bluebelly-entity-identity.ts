@@ -66,7 +66,7 @@ export function entityForAsset(value:string):EntityIdentity|null{
   if(INSTITUTIONS[code])return {kind:"institution",code};
   if(CURRENCY[code])return {kind:"country",code:CURRENCY[code]};
   if(BLUEBELLY_COUNTRIES[code])return {kind:"country",code};
-  if(/^US(?:0?[257]|10|20|30)Y$/.test(code)||/^UST(?:2|5|10|20|30)$/.test(code))
+  if(/^US(?:0?[257]|10|20|30)Y$/.test(code)||/^UST(?:2|5|10|20|30)$/.test(code)||/^DGS(?:2|5|10|20|30)$/.test(code))
     return {kind:"country",code:"US"};
   if(/^JP(?:0?[257]|10|20|30)Y$/.test(code)||code==="JGB"||code==="NIKKEI")
     return {kind:"country",code:"JP"};
