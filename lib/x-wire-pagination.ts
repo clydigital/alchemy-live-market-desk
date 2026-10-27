@@ -66,6 +66,16 @@ export function parseFxTimeline(json: unknown, handle: string, startAt: string, 
   return { posts, nextCursor:cursor || null, malformed,total:data.results.length,oldestAt,reachedWindowStart };
 }
 
+/** Use the earliest recoverable source gap as the next lookback anchor.
+ * Older historical gaps remain visible, but cannot monopolise fresh source checks. */
+export function xWireRecoveryAnchor(nowIso:string, lastCompleteAt:string|null, uncoveredBefore:string|null, recoveryHours=72):string|null {
+ const now=Date.parse(nowIso), gap=uncoveredBefore?Date.parse(uncoveredBefore):NaN;
+ if(!Number.isFinite(now)||!Number.isFinite(gap)||gap>now||
+   now-gap>recoveryHours*3_600_000)return lastCompleteAt;
+ const last=lastCompleteAt?Date.parse(lastCompleteAt):NaN;
+ return !Number.isFinite(last)||gap<last?new Date(gap).toISOString():lastCompleteAt;
+}
+
 /** Resuming never advances a full-coverage checkpoint until the cursor is exhausted. */
 export function xWireRequestWindow(nowIso:string, lastCompleteAt:string|null,
   cursor:string|null, startAt:string|null, lookbackHours=2.5, overlapMinutes=30, recoveryHours=72) {
