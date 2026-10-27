@@ -61,6 +61,10 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
   let latest=ms(existing?.last_observed_post_at);
   const missingBefore = existing?.uncovered_before ?? (window.gap ? claim.checkpoint_at ?? window.startAt : null);
   const gapMarker = missingBefore ? {uncovered_before:missingBefore} : {};
+  // Clear a recoverable gap only after the requested start was actually covered.
+  // Gaps beyond the 72h provider recovery window remain explicitly unresolved.
+  const unresolvedGap = missingBefore && ms(window.startAt)>ms(missingBefore) ? missingBefore : null;
+  const completeGapMarker = {uncovered_before:unresolvedGap};
   let cursor:string|null=window.cursor, fetched=0, kept=0;
   const seenCursors=new Set<string>();
   try {
@@ -74,9 +78,20 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
         signal:AbortSignal.timeout(7000),
       });
       if(response.status===204 && !cursor) {
-        await finish(db,handle,token,{...gapMarker,health:missingBefore?"partial":"healthy",
-          last_error:missingBefore?"Unrecovered history older than 72 hours":null,last_fetched:fetched,
+        await finish(db,handle,token,{...completeGapMarker,health:unresolvedGap?"partial":"healthy",
+          last_error:unresolvedGap?"Unrecovered historical coverage gap":null,last_fetched:fetched,
           last_completed_at:now,window_start_at:null,page_cursor:null,next_attempt_at:plus(now,30),
+          last_observed_post_at:latest?new Date(latest).toISOString():null});
+        return;
+      }
+      if(response.status===404 && cursor) {
+        // FxEmbed documents 404 for either an empty timeline OR user failure.
+        // It does not prove that the cursor was exhausted. Drop the poisoned
+        // continuation token, retain the historical uncertainty, and retry the
+        // fresh head after cooldown. Already saved posts remain immutable.
+        await finish(db,handle,token,{...gapMarker,uncovered_before:missingBefore||window.startAt,
+          health:"partial",last_error:"HTTP 404 on continuation; incomplete coverage, restarting fresh head",
+          page_cursor:null,window_start_at:null,next_attempt_at:plus(now,5),last_fetched:fetched,
           last_observed_post_at:latest?new Date(latest).toISOString():null});
         return;
       }
@@ -111,13 +126,13 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
       if(next && (next===cursor || seenCursors.has(next)))throw new Error("Repeated pagination cursor");
       if(next)seenCursors.add(next);
       cursor=next;
-      const complete=next===null && parsed.total<PAGE_SIZE;
+      const complete=parsed.reachedWindowStart || (next===null && parsed.total<PAGE_SIZE);
       // A missing cursor on a full page is ambiguous, never a completed checkpoint.
-      if(!next && parsed.total===PAGE_SIZE)throw new Error("Full page without continuation cursor");
+      if(!next && parsed.total===PAGE_SIZE && !parsed.reachedWindowStart)throw new Error("Full page without continuation cursor");
       if(complete){
-        await finish(db,handle,token,{...gapMarker,
-          health:parsed.malformed||missingBefore?"partial":"healthy",
-          last_error:missingBefore?"Unrecovered history older than 72 hours":parsed.malformed?parsed.malformed+" untrusted row(s) withheld":null,
+        await finish(db,handle,token,{...completeGapMarker,
+          health:parsed.malformed||unresolvedGap?"partial":"healthy",
+          last_error:unresolvedGap?"Unrecovered historical coverage gap":parsed.malformed?parsed.malformed+" untrusted row(s) withheld":null,
           last_fetched:fetched,last_completed_at:now,window_start_at:null,page_cursor:null,
           next_attempt_at:plus(now,30),last_observed_post_at:latest?new Date(latest).toISOString():null});
         return;
