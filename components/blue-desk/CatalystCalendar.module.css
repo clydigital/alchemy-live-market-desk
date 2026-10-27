@@ -40,6 +40,7 @@
 .lane_earnings{border-left-color:#b9a5ff;background:linear-gradient(155deg,#293656,#17283f)}
 .lane_technology{border-left-color:#76b9ff;background:linear-gradient(155deg,#123c60,#132d46)}
 .lane_energy{border-left-color:#f1b57b;background:linear-gradient(155deg,#3a342c,#1b2e3a)}
+.lane_ipo{border-left-color:#72dfb7;background:linear-gradient(155deg,#16443f,#102c37)}
 .eventTile.priority{box-shadow:inset 0 0 0 1px #ffffff08}
 .tileTop{display:flex;justify-content:space-between;align-items:center;gap:5px;margin-bottom:10px}
 .typeLabel{font-size:9px;font-weight:850;color:#daf2fb;overflow-wrap:anywhere;line-height:1.2}
@@ -78,6 +79,8 @@
 .sourceLink{display:inline-flex;margin-top:8px;background:#115073;border:1px solid #4c88a5;color:#e1f9ff!important;padding:9px 11px;font-size:12px;font-weight:750;border-radius:8px;text-decoration:none}
 .sourceName{display:block;margin:10px 0 0;color:#97b3c6}
 .offCalendar{margin-top:14px;border:1px solid #315264;background:#092738;border-radius:11px;overflow:hidden}
+.ipoPanel{margin-top:14px;border:1px solid #35716b;background:#092b36;border-radius:11px;overflow:hidden;scroll-margin-top:18px}
+.ipoNotice{border:1px solid #35716b;border-radius:9px;padding:15px;background:#11343e;color:#c6e4ea;font-size:12px;line-height:1.6}
 .offCalendarHead{padding:15px;display:flex;justify-content:space-between;gap:10px}
 .offCalendarHead strong{font-size:14px}
 .offCalendarHead p{font-size:11px;color:#a1c1d0;margin:4px 0 0}
