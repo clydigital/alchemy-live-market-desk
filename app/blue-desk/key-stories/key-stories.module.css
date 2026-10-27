@@ -113,3 +113,14 @@
 @media(prefers-reduced-motion:reduce){
  .card{transition:none}
 }
+
+/* Categorised public Story index: navigation is not a new evidence verdict. */
+.categoryFilters{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin:22px 0 26px}
+.categoryLink,.categorySelected{display:inline-flex;align-items:center;min-height:38px;padding:8px 13px;border-radius:50px;border:1px solid #3b6c80;background:#082e44;color:#c5e5f1!important;font-size:12px;font-weight:700;text-decoration:none}
+.categoryLink:hover{border-color:#82c9e5;background:#0d415c}
+.categorySelected{background:#186083;border-color:#6fc6e7;color:#fff!important}
+.categoryFilters a:focus-visible,.storyRead:focus-visible{outline:2px solid #b3eaff;outline-offset:3px}
+.card h3 a{color:#f3fcff!important;text-decoration:none}
+.card h3 a:hover{text-decoration:underline;text-underline-offset:4px}
+.storyRead{display:inline-flex;margin-top:14px;color:#99e4ff!important;font-size:13px;font-weight:750;text-underline-offset:3px}
+@media(max-width:760px){.categoryFilters{gap:7px}.categoryLink,.categorySelected{padding:7px 10px;font-size:11px;min-height:36px}}
