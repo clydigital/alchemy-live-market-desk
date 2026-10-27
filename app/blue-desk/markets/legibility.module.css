@@ -60,3 +60,7 @@
     font-size: 15px;
   }
 }
+
+/* Entity-leading market rows: iconography never changes source data or units. */
+.instrumentIdentity{display:inline-flex;align-items:center;gap:8px;max-width:100%;vertical-align:middle}
+.instrumentIdentity strong{overflow-wrap:anywhere}
