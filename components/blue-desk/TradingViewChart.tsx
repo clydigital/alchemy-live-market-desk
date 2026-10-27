@@ -15,7 +15,16 @@ function ensureTradingView(): Promise<void> {
   scriptPromise = new Promise<void>((resolve, reject) => {
     const existing = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
     if (customElements.get("tv-advanced-chart")) { resolve(); return; }
+    let settled = false;
+    const timeout = window.setTimeout(() => {
+      if (!settled) { settled = true; reject(new Error("TradingView widget loading timed out")); }
+    }, 12000);
+    const pass = () => { if (!settled) { settled = true; window.clearTimeout(timeout); resolve(); } };
+    const fail = () => { if (!settled) { settled = true; window.clearTimeout(timeout); reject(new Error("TradingView widget script blocked")); } };
     const script = existing || document.createElement("script");
+    script.addEventListener("error", fail, {once:true});
+    // A loaded script must register its custom element. Avoid claiming that the market feed is ready.
+    customElements.whenDefined("tv-advanced-chart").then(pass, fail);
     if (!existing) {
       script.id = SCRIPT_ID;
       script.type = "module";
@@ -23,9 +32,6 @@ function ensureTradingView(): Promise<void> {
       script.src = SCRIPT_URL;
       document.head.appendChild(script);
     }
-    script.addEventListener("error", () => reject(new Error("TradingView widget script blocked")), {once:true});
-    // A loaded script must register its custom element. Avoid claiming that the market feed is ready.
-    customElements.whenDefined("tv-advanced-chart").then(resolve, reject);
   }).catch(error => { scriptPromise = null; throw error; });
   return scriptPromise;
 }
