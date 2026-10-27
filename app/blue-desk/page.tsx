@@ -27,6 +27,7 @@ import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { getPublicSourceObservations } from "@/lib/blue-desk-source-observations";
 import { getPublicThesisLedger } from "@/lib/blue-desk-thesis-ledger-server";
 import {storyMarketTransmission} from "@/lib/blue-desk-thesis-ledger";
+import {classifyPublicStory} from "@/lib/blue-desk-story-categories";
 import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
 
 import styles from "./blue-desk.module.css";
@@ -163,24 +164,25 @@ export default async function BlueDeskPage() {
         <section className={styles.section} aria-labelledby="ongoing-stories-head" data-public-thesis-ledger="read-only">
           <div className={styles.sectionHead}>
             <div><p className={styles.kicker}>PERSISTENT RESEARCH · DATED THESIS HISTORY</p>
-              <h2 id="ongoing-stories-head"><MarketIcon name="layers" size={24} /> What is shaping the market?</h2>
-              <p>These are stored interpretations, not today's verified headlines. Every thesis retains its last recorded update date.</p>
+              <h2 id="ongoing-stories-head"><MarketIcon name="layers" size={24} /> Key stories</h2>
+              <p>Four current research perspectives. These are dated interpretations, not a list of today's verified headlines.</p>
             </div>
             <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/key-stories",host)}>
               Explore evidence and countercases →
             </Link>
           </div>
-          {theses.length ? <div className={tracked.grid}>
-            {theses.slice(0,9).map(thesis =>
-              <article className={tracked.card} key={thesis.id}>
-                <span className={tracked.kicker}>ONGOING STORY · LAST RESEARCHED <DualTimestamp value={thesis.updatedAt}/></span>
-                <h3>{thesis.title}</h3>
-                <p><strong>The issue:</strong> {thesis.question}</p>
-                <p>{ellipsis(thesis.thesis,260)}</p>
+          {theses.length ? <div className={tracked.grid} data-home-stories="editorial-lead-four">
+            {theses.slice(0,4).map((thesis,index) =>
+              <article className={index===0?tracked.lead:tracked.card} key={thesis.id}>
+                <p className={tracked.kicker}>{classifyPublicStory(thesis)} · ONGOING RESEARCH</p>
+                <h3><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"#thesis-"+thesis.slug}>
+                  {thesis.title}
+                </Link></h3>
+                <p>{ellipsis(thesis.thesis,index===0?280:145)}</p>
                 <div className={tracked.bottom}>
-                  <DualTimestamp value={thesis.updatedAt} className={styles.cardTime} />
+                  <span>Last researched <DualTimestamp value={thesis.updatedAt} className={styles.cardTime}/></span>
                   <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"#thesis-"+thesis.slug}>
-                    Examine thesis →
+                    Read context and countercase →
                   </Link>
                 </div>
               </article>)}
