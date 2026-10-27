@@ -153,6 +153,16 @@ test("ambiguous FxEmbed continuation 404 resets the poisoned cursor but retains 
 });
 
 
+
+test("a filtered first-page 404 gets exactly one same-host unfiltered retry",()=>{
+ const source=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
+ assert.match(source,/if\(response\.status===404 && !cursor\)/);
+ assert.match(source,/const fallback=new URL\(url\.toString\(\)\)/);
+ assert.match(source,/fallback\.searchParams\.delete\("since"\)/);
+ assert.match(source,/response=await fetchImpl\(fallback\.toString\(\)/);
+ assert.match(source,/const recentlyActive404=message==="HTTP 404"/);
+ assert.doesNotMatch(source,/fallback\.hostname\s*=/);
+});
 test("repeating a provider cursor cannot permanently trap an account",()=>{
  const source=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
  assert.match(source,/const invalidCursor=message==="Repeated pagination cursor"/);
@@ -165,5 +175,5 @@ test("later-page provider failure preserves partial X data and continuation curs
  assert.match(code,/health:invalidCursor\|\|hadPartialData\?"partial"/);
  assert.match(code,/page_cursor:invalidCursor\?null:hadPartialData\?cursor:claim\.resume_cursor/);
  assert.match(code,/window_start_at:invalidCursor\?null:hadPartialData\?window\.startAt:claim\.resume_start_at/);
- assert.match(code,/next_attempt_at:plus\(now,invalidCursor\|\|hadPartialData\?5:30\)/);
+ assert.match(code,/next_attempt_at:plus\(now,invalidCursor\|\|hadPartialData\|\|recentlyActive404\?5:30\)/);
 });
