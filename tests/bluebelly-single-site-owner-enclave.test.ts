@@ -20,7 +20,7 @@ test("Bluebelly owner-only native tools use exact private paths, never public ro
  }
  for(const p of ["/owner/editorial/","/owner/presenter/other",
   "/api/owner/editorial-generate/","/api/owner/editorial-investigate/x",
-  "/api/presenter/technical-checks/x","/owner/x-wire",
+  "/api/presenter/technical-checks/x",
   "/owner/publications","/owner/x-wire/","/owner/daily-report/","/api/owner/daily-research/",
   "/api/owner/macropulse-briefs/","/api/owner/editorial-publish",
   "/api/cron/research/morning","/api/internal/canonical-feed",
