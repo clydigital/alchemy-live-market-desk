@@ -1,6 +1,7 @@
 import { applyFirecrawlResearchFallback } from "@/lib/firecrawl-research-fallback";
 import { applyHighImpactMarketDiscovery } from "@/lib/high-impact-market-discovery";
 import { applyOfficialPressNewsIntake } from "@/lib/official-press-news-intake";
+import { applyMaterialSecProspectusIntake } from "@/lib/material-sec-prospectus-intake";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { selectStockMoveResearchTargets, type StockMoveResearchTarget } from "@/lib/stock-move-research-targets";
 import { applyResearchDiscoveryProviders } from "@/lib/research-discovery-providers";
@@ -16,6 +17,9 @@ export async function buildScheduledResearchInputWithFirecrawl(
   // Bounded real first-party RSS + linked HTML read. The press release is
   // evidence for its own factual announcement, not an inferred stock move.
   const originalSourceInput = await applyOfficialPressNewsIntake(input, { now });
+  // Bounded material original SEC S-1/F-1 prospectus discovery uses the same
+  // existing scheduled research run. No new cron, source table or Story writer.
+  const originalFilings = await applyMaterialSecProspectusIntake(originalSourceInput, { now });
 
   // Preserve the desk's source hierarchy:
   // 1) deterministic first-party/direct acquisition,
@@ -24,7 +28,7 @@ export async function buildScheduledResearchInputWithFirecrawl(
   // 4) Firecrawl only for a specific blocked page/feed after direct access failed.
   // Search/index providers remain lead generators and the underlying publisher URL
   // remains the canonical provenance.
-  const discoveryInput = originalSourceInput as Parameters<typeof applyResearchDiscoveryProviders>[0];
+  const discoveryInput = originalFilings as Parameters<typeof applyResearchDiscoveryProviders>[0];
   const discovered = await applyResearchDiscoveryProviders(discoveryInput, slot, { now });
   const highImpactInput = discovered as Parameters<typeof applyHighImpactMarketDiscovery>[0];
   // Existing monitor calculates and source-dates each market move. There is
