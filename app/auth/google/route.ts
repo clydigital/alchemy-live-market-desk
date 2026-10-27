@@ -15,15 +15,28 @@ export async function GET(request: Request) {
 
   try {
     const supabase = await createSupabaseServerClient();
+    // Direct /auth/google visits should also reuse an approved existing
+    // Bluebelly session, not start another unnecessary Google sign-in roundtrip.
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
+    const email = typeof claimsData?.claims?.email === "string"
+      ? claimsData.claims.email.trim().toLowerCase() : "";
+    if (!claimsError && email) {
+      const { data: approved, error: accessError } = await supabase
+        .from("app_access_allowlist")
+        .select("email")
+        .eq("email", email)
+        .eq("active", true)
+        .maybeSingle();
+      if (!accessError && approved) {
+        return NextResponse.redirect(new URL(next, requestUrl.origin));
+      }
+    }
+
+    // Do not force Google's account picker on every visit. The provider may
+    // still request consent/account selection on first use or expired sessions.
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: {
-        redirectTo: callbackUrl.toString(),
-        queryParams: {
-          access_type: "offline",
-          prompt: "select_account",
-        },
-      },
+      options: { redirectTo: callbackUrl.toString() },
     });
 
     if (error || !data.url) {
