@@ -29,6 +29,8 @@ import { getPublicThesisLedger } from "@/lib/blue-desk-thesis-ledger-server";
 import {storyMarketTransmission} from "@/lib/blue-desk-thesis-ledger";
 import {classifyPublicStory} from "@/lib/blue-desk-story-categories";
 import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
+import {projectWhatsNewTrends} from "@/lib/blue-desk-whats-new-trends";
+import WhatsNewTrendDashboard from "@/components/blue-desk/WhatsNewTrendDashboard";
 
 import styles from "./blue-desk.module.css";
 
@@ -189,16 +191,20 @@ export default async function BlueDeskPage() {
           </div> : <p className={styles.empty}>No public Story records are available. Research topics and verified headlines are tracked separately.</p>}
         </section>
 
+        <WhatsNewTrendDashboard
+          cards={projectWhatsNewTrends(monitor?.rows||[],now)}
+          marketsHref={blueDeskPublicHref("/blue-desk/markets",host)}/>
+
         <div className={styles.lowerGrid}>
-          <section className={styles.secondaryPanel} aria-labelledby="motion-title">
+          <section className={styles.secondaryPanel} aria-labelledby="headline-context-title">
             <div className={styles.sectionHead}>
               <div>
-                <p className={styles.kicker}>MARKET MOTION</p>
-                <h2 id="motion-title"><MarketIcon name="divergence" size={24} /> What changed</h2>
+                <p className={styles.kicker}>SOURCE-VERIFIED HEADLINES</p>
+                <h2 id="headline-context-title"><MarketIcon name="divergence" size={24} /> In the news</h2>
               </div>
-              {!publicHost ? <Link className={styles.textLink} href="/whats-new">Investigate →</Link> : null}
+              <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/key-stories",host)+"#newsroom-title"}>Explore sourced stories →</Link>
             </div>
-            {verifiedNews.length ? verifiedNews.map(news => (
+            {verifiedNews.length ? verifiedNews.slice(0,4).map(news => (
               <article key={news.id} className={styles.motionRow}>
                 <p className={styles.kicker}>VERIFIED NEWS</p>
                 <h3>{news.headline}</h3>
