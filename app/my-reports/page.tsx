@@ -16,8 +16,9 @@ const CATEGORIES=[
 ] as const;
 type Categ=(typeof CATEGORIES)[number]["id"];
 const EDITIONS=[
- {id:"1J3Ay7wxQQYC7BMzAv7nvxYAN9H6_Bzhk",kind:"market",edition:"27 Oct 2026",title:"The AI Buildout Finds Its Bankers",description:"Broadcom–Anthropic financing, Meta issuance and BOJ services-price puzzle; source-checked pilot.",sourceState:"Issuer/central-bank primary sources · market reaction UNKNOWN"},
- {id:"1kiTU5XOuGCGOWy7RoLQVMoCYEUDR9vPN",kind:"angles",edition:"27 Oct 2026",title:"Three OB/COTD angles — expanded",description:"Ranked Broadcom, Meta and BOJ writing opportunities with missing market-evidence gates.",sourceState:"Original 09:00 slate partial · later Meta pricing separately checked"},
+ {id:"16CKyy1JOrBWHdl93uFo8_dOY2oiZ2f61",kind:"market",edition:"27 Oct 2026",title:"The AI Buildout Finds Its Bankers",description:"Broadcom–Anthropic financing, Meta issuance and BOJ services-price puzzle; source-checked pilot.",sourceState:"Issuer/central-bank primary sources · market reaction UNKNOWN"},
+ {id:"1oWPq5wrhlpmaK2sP7tsBfAT000kmteaI",kind:"angles",edition:"27 Oct 2026",title:"Three OB/COTD angles — expanded",description:"Ranked Broadcom, Meta and BOJ writing opportunities with missing market-evidence gates.",sourceState:"Original 09:00 slate partial · later Meta pricing separately checked"},
+ {id:"1oFv-vay4nlg85FgGWtbSOnxP4WrHbQVR",kind:"angles",edition:"27 Oct 2026",title:"What the live news audit found",description:"Source-first editorial shortlist, Anthropic SEC filing challenger, oil reversal and future-dated ingestion warnings.",sourceState:"Audit only; read-only live database/source checks"},
  {id:"1ca425cmHacpdGtlebVSAdjh3q_s9lOUd",kind:"creators",edition:"22–26 Oct 2026",title:"StockedUp: From Panic to the AI Funding Fork",description:"Three Supadata transcript-backed videos, same creator, chronological reasoning and unresolved claims.",sourceState:"Creator opinions attributed · no canonical market verification"}
 ] as const;
 const pageHref=(type:Categ,page:number)=>"/my-reports?"+(type==="all"?"":"type="+type+"&")+"page="+page;
@@ -91,7 +92,7 @@ export default async function MyBluebellyReports({searchParams}:{searchParams?:P
        {currentPage>1?<Link href={pageHref(activeType,currentPage-1)}>← Previous</Link>:<span>Beginning</span>}
        {currentPage<pageCount?<Link href={pageHref(activeType,currentPage+1)}>Next →</Link>:<span>Latest available</span>}
      </nav>
-     <p className={layout.driveNote}>The three current links are real dated 27 October pilot editions,
+     <p className={layout.driveNote}>These fixed links are real dated 27 October pilot and expanded editions,
        not an automatically updating catalogue. New files remain discoverable from the Drive
        folder until their edition metadata is indexed here. Drive preview may disable interactive
        embeds; download HTML and open it in a browser for the full report. Original PDFs remain
