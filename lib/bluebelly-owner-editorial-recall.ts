@@ -10,7 +10,7 @@ export async function getOwnerMaterialRecall(now=new Date()):Promise<{
  try{
   const db=createSupabaseAdminClient();
   const from=new Date(now.getTime()-72*3_600_000).toISOString();
-  const [news,motion,slateRead]=await Promise.all([
+  const [news,motion,slateRead,receiptRead]=await Promise.all([
    db.from("research_intake_items")
     .select("item_key,item_type,title,url,published_at,source_quality,materiality,publisher")
     .eq("item_type","news").gte("published_at",from)
@@ -21,6 +21,8 @@ export async function getOwnerMaterialRecall(now=new Date()):Promise<{
     .eq("source_kind","creator").gte("occurred_at",from)
     .gte("materiality",72).order("occurred_at",{ascending:false}).limit(80),
    getLatestEditorialSlate(),
+   db.from("blue_desk_editorial_slates").select("day_myt,material_event_receipts")
+    .order("day_myt",{ascending:false}).limit(1).maybeSingle(),
   ]);
   if(news.error||motion.error)throw new Error("Material event read unavailable");
   const sources:RecallSource[]=[
@@ -34,8 +36,20 @@ export async function getOwnerMaterialRecall(now=new Date()):Promise<{
    })),
   ];
   const s=slateRead.slate;
+  const rawReceipts=receiptRead.error?[]:Array.isArray(receiptRead.data?.material_event_receipts)?
+    receiptRead.data.material_event_receipts:[];
+  const validReceipts=rawReceipts.flatMap((item:unknown)=>{
+   if(!item||typeof item!=="object"||Array.isArray(item))return [];
+   const x=item as Record<string,unknown>;
+   if(typeof x.item_key!=="string"||typeof x.source_url!=="string"||
+     typeof x.reason!=="string"||
+     !["SELECTED","EXCLUDED","NEEDS_SOURCE"].includes(String(x.disposition)))return [];
+   return [{item_key:x.item_key,source_url:x.source_url,reason:x.reason,
+      disposition:x.disposition as "SELECTED"|"EXCLUDED"|"NEEDS_SOURCE"}];
+  });
   const candidates=computeMaterialEditorialRecall(sources,s?{
-   dayMyt:s.dayMyt,producedAt:s.producedAt,ideas:s.ideas,notes:s.notes
+   dayMyt:s.dayMyt,producedAt:s.producedAt,ideas:s.ideas,notes:s.notes,
+   receipts:receiptRead.data?.day_myt===s.dayMyt?validReceipts:[]
   }:null,now,12);
   return {status:slateRead.status==="available"?"available":"partial",candidates,
    editorialDate:s?.dayMyt||null,
