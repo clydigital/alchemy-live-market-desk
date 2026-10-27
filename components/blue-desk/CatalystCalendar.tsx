@@ -39,7 +39,9 @@ function Logo({ticker,country}:{ticker:string|null;country:string|null}) {
 }
 function dayInZone(item:CatalystCard,zone:DisplayZone){
   if(!item.startAt) return item.date;
-  return new Intl.DateTimeFormat("en-CA",{timeZone:zone,year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(item.startAt));
+  const parts=new Intl.DateTimeFormat("en-GB",{timeZone:zone,year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date(item.startAt));
+  const value=(kind:string)=>parts.find(part=>part.type===kind)?.value||"";
+  return value("year")+"-"+value("month")+"-"+value("day");
 }
 function displayClock(item:CatalystCard,zone:DisplayZone) {
   if(!item.startAt) return item.date?"Date only · time TBC":"Timing not established";
