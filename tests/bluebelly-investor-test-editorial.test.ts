@@ -73,9 +73,10 @@ test("Investor Test reuses Key Stories and only reveals older details on request
  assert.match(page,/selectFlagshipInvestorTest\(orderedTheses\)/);
  assert.match(page,/<InvestorTest view=\{investorTest\}/);
  assert.match(page,/data-living-topics="dossier-independent"/);
- assert.match(page,/<details className=\{ui\.more\}>/);
- assert.match(page,/Read the reasoning, risks and deciding tests/);
- assert.match(page,/Historical research snapshot, not an independently confirmed price reaction/);
+  const reader=text("components/blue-desk/StoryEditorialArticle.tsx");
+  assert.match(page,/StoryEditorialArticle story=\{selected\}/);
+  assert.match(reader,/THE DECIDING TEST/);
+  assert.match(reader,/not a verified report of new events/);
  assert.match(page,/getPublicThesisLedger\(now,24\)/);
  assert.match(page,/getCurrentVerifiedMarketMotion/);
  assert.doesNotMatch(page,/createSupabaseAdminClient|story_thesis_versions.*insert|use server/);
