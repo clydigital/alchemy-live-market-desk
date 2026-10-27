@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { EntityChip, EntityScopeStrip } from "@/components/blue-desk/EntityIdentity";
+import { EntityChip, EntityScopeStrip, ResearchStatus } from "@/components/blue-desk/EntityIdentity";
 import { identityForCalendar, identityForSymbol } from "@/lib/bluebelly-entity-identity";
 import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
@@ -62,6 +62,7 @@ export default async function KeyStories(){
           {topics.slice(0,5).map(topic=>{
             const lead=topic.updates[0];
             return <article className={ui.catalystCard} key={topic.id} id={topic.id}>
+              <ResearchStatus tone="ready">ORIGINAL-SOURCE DEVELOPMENT</ResearchStatus>
               <p className={ui.kicker}>REPORTED CATALYST · {topic.title.toUpperCase()}</p>
               <h3>{lead.headline}</h3>
               <p className={ui.catalystFact}>{lead.summary}</p>
@@ -148,6 +149,7 @@ export default async function KeyStories(){
           their order; it does not turn the old thesis into a newly verified event or trading call.</p>
         {orderedTheses.length ? <div className={ui.cards}>{orderedTheses.map(thesis=>
           <article className={ui.card} id={"thesis-"+thesis.slug} key={thesis.id} data-stored-story={thesis.status}>
+            <ResearchStatus tone="warn">PERSISTENT THESIS · NOT FRESH NEWS</ResearchStatus>
             <p className={ui.kicker}>{thesis.latestMotionAt ?
               <>LATEST LINKED MOTION · {thesis.latestMotionVerification==="VERIFIED"?"SOURCE-VERIFIED EVENT":"UNVERIFIED RESEARCH LEAD"}
                 {" · "}Event <DualTimestamp value={thesis.latestMotionAt}/></>:
