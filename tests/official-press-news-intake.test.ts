@@ -37,7 +37,7 @@ test("Fed monetary policy and SEC trading rules enter canonical intake after ori
   }) as typeof fetch;
   const result=await applyOfficialPressNewsIntake(input(),{now,fetchImpl});
   assert.deepEqual(result.items.map(x=>x.url),[fedUrl,secUrl]);
-  assert.equal(seen.length,5);
+  assert.equal(seen.length,7);
   const motions = buildMarketMotionCandidates(result.items.map(i => ({
     ...i, candidateScore: 84, evidence: i.evidence || [],
   })), [], { now });
@@ -72,6 +72,7 @@ test("meetings, forged URLs, and stale publication clocks do not count as origin
       item(secTitle,"http://www.sec.gov/newsroom/press-releases/2026-109"),
       item(secTitle,"https://www.sec.gov/other/2026-109"),
     ]),"text/xml");
+    if(OFFICIAL_PRESS_FEEDS.slice(2).some(feed=>feed.feed===uri)) return response(rss([]),"text/xml");
     throw new Error("No original HTML read should occur");
   }) as typeof fetch;
   assert.deepEqual((await applyOfficialPressNewsIntake(input(),{now,fetchImpl})).items,[]);
@@ -189,4 +190,45 @@ test("NVIDIA canonical trailing-slash original release is eligible; nested paths
   assert.equal(motions[0].sourceKind, "primary");
   assert.equal(motions[0].verificationState, "VERIFIED");
   assert.equal(motions[0].marketReaction, null, "Issuer announcement does not prove price reaction");
+});
+
+
+test("Broadcom and Meta financing primary releases enter original verified-news intake",async()=>{
+ const oldNow=new Date("2026-10-27T12:00:00Z");
+ const broadcom=OFFICIAL_PRESS_FEEDS.find(f=>f.host==="investors.broadcom.com")!;
+ const meta=OFFICIAL_PRESS_FEEDS.find(f=>f.host==="investor.atmeta.com")!;
+ const bTitle="Broadcom Announces Major AI Equipment Financing for Anthropic";
+ const mTitle="Meta Announces Pricing of Offering of Class A Common Stock";
+ const bUrl="https://investors.broadcom.com/news-releases/news-release-details/broadcom-announces-major-ai-equipment-financing";
+ const mUrl="https://investor.atmeta.com/investor-news/press-release-details/2026/Meta-Announces-Pricing-of-Offering/default.aspx";
+ const fetchImpl=(async (target:RequestInfo|URL)=>{
+  const url=String(target);
+  if(url===broadcom.feed)return response(rss([item(bTitle,bUrl,"Mon, 26 Oct 2026 17:00:00 GMT")]),"application/rss+xml");
+  if(url===meta.feed)return response(rss([item(mTitle,mUrl,"Tue, 27 Oct 2026 01:30:00 GMT")]),"application/rss+xml");
+  if(url===bUrl)return response(html(bTitle),"text/html");
+  if(url===mUrl)return response(html(mTitle),"text/html");
+  return response(rss([]),"text/xml");
+ }) as typeof fetch;
+ const result=await applyOfficialPressNewsIntake(input(),{now:oldNow,fetchImpl});
+ assert.deepEqual(result.items.map(x=>x.url).sort(),[bUrl,mUrl].sort());
+ assert.ok(result.items.every(x=>x.sourceQuality===95));
+ assert.ok(result.items.every(x=>x.evidence?.[0]?.claim===x.title));
+ assert.ok(result.items.every(x=>/not its financial effect/.test(x.reviewReason||"")));
+ const motions=buildMarketMotionCandidates(result.items.map(x=>({...x,
+  candidateScore:94,evidence:x.evidence||[]})),[],{now:oldNow});
+ assert.ok(motions.every(x=>x.verificationState==="VERIFIED"));
+ assert.ok(motions.every(x=>x.marketReaction===null));
+});
+test("Issuer RSS cannot forge other hosts or replace original page verification",async()=>{
+ const broadcom=OFFICIAL_PRESS_FEEDS.find(f=>f.host==="investors.broadcom.com")!;
+ const fake="https://investors.broadcom.com.evil.example/news-releases/news-release-details/malicious";
+ const fetchImpl=(async (target:RequestInfo|URL)=>{
+  if(String(target)===broadcom.feed)return response(rss([
+    item("Broadcom Announces Major AI Equipment Financing",fake),
+    item("Broadcom Announces Major AI Equipment Financing",
+      "https://investors.broadcom.com/blog/undated")
+  ]),"text/xml");
+  return response(rss([]),"text/xml");
+ }) as typeof fetch;
+ assert.deepEqual((await applyOfficialPressNewsIntake(input(),{now,fetchImpl})).items,[]);
 });
