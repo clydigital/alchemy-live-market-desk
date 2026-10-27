@@ -11,10 +11,10 @@ test("all visible public header links target approved host paths and real anchor
   assert.ok(match, "public navigation must be explicitly enumerated");
   const hrefs = [...match[1].matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m => m[1]);
   assert.deepEqual(hrefs, ["/", "/key-stories", "/markets", "/my-reports",
-    "/owner/research", "/calendar"]);
+    "/owner/research", "/owner/x-wire", "/calendar"]);
   for (const href of hrefs) {
     const url = new URL(href, "https://bluebelly-desk.vercel.app");
-    const access = href === "/my-reports" || href === "/owner/research"
+    const access = href === "/my-reports" || href === "/owner/research" || href === "/owner/x-wire"
       ? "private" : "public";
     assert.equal(blueDeskHostAccess(url.pathname, url.hostname), access, href);
     assert.equal(blueDeskHostAccess(url.pathname, "alchemy-live-market-desk.vercel.app"), access, href);
@@ -34,11 +34,13 @@ test("private legacy navigation remains available only on owner host", () => {
   const privateNav=header.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0]||"";
   const privateLinks=[...privateNav.matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m=>m[1]);
   assert.deepEqual(privateLinks, ["/blue-desk", "/blue-desk/key-stories", "/markets",
-    "/my-reports", "/owner/research", "/blue-desk/calendar"]);
-  for(const privatePath of ["/articles","/data/macro","/concepts","/owner/daily-articles","/owner/x-wire"]){
+    "/my-reports", "/owner/research", "/owner/x-wire", "/blue-desk/calendar"]);
+  for(const privatePath of ["/articles","/data/macro","/concepts","/owner/daily-articles"]){
     assert.equal(blueDeskHostAccess(privatePath,"bluebelly-desk.vercel.app"),"blocked");
     assert.ok(!privateLinks.includes(privatePath),"legacy links stay outside the main navigation");
   }
+  assert.equal(blueDeskHostAccess("/owner/x-wire","bluebelly-desk.vercel.app"),"private");
+  assert.equal(blueDeskHostAccess("/owner/x-wire/","bluebelly-desk.vercel.app"),"blocked");
   assert.ok(!privateNav.includes("/owner/publications"));
   assert.ok(!privateNav.includes('["Presenter Prep", "/owner/presenter"]'));
   assert.ok(privateNav.includes('["My Desk", "/my-reports"]'));
