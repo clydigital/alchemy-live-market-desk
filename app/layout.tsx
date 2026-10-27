@@ -17,5 +17,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en-GB"><body className={figtree.variable}>{children}</body></html>;
+  return <html lang="en-GB" className={figtree.variable}><body>{children}</body></html>;
 }
