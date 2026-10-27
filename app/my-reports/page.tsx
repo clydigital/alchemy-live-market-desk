@@ -132,7 +132,7 @@ export default async function MyBluebellyReports({searchParams}:{searchParams?:P
         <span>{item.status.replaceAll("_"," ").toUpperCase()}</span>
        </div>
        <p>{item.why}</p>
-       <small>Source: {item.sourceState.replaceAll("_"," ")} · Event recorded {new Date(item.eventAt).toLocaleString("en-GB",{timeZone:"Asia/Kuala_Lumpur",dateStyle:"medium",timeStyle:"short"})} MYT</small>
+       <small>Source: {item.sourceState.replaceAll("_"," ")} · Event recorded {new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kuala_Lumpur",dateStyle:"medium",timeStyle:"short"}).format(Date.parse(item.eventAt))} MYT</small>
        <a href={item.url} target="_blank" rel="noopener noreferrer">Original recorded link ↗</a>
       </article>):<p>{recall.status==="unavailable"
        ?"Research candidate readback unavailable. No completed sweep is claimed."
