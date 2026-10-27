@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import type { CatalystCard, CatalystLane } from "@/lib/bluebelly-catalyst-calendar";
 import styles from "./CatalystCalendar.module.css";
+import { EntityMark, EntityScopeStrip } from "./EntityIdentity";
+import { identityForSymbol } from "@/lib/bluebelly-entity-identity";
 
 type DisplayZone = "UTC" | "Asia/Kuala_Lumpur";
 type ViewMode = "week" | "agenda";
@@ -15,27 +17,8 @@ const FILTERS:{id:CatalystLane|"all";label:string}[] = [
   {id:"diplomacy",label:"Peace talks"},{id:"earnings",label:"Earnings"},
   {id:"technology",label:"Tech & AI"},{id:"energy",label:"Energy"},
 ];
-const FLAGS:Record<string,string> = {US:"🇺🇸",EU:"🇪🇺",GB:"🇬🇧",DE:"🇩🇪",JP:"🇯🇵",CA:"🇨🇦",AU:"🇦🇺",NZ:"🇳🇿"};
-const LOGOS:Record<string,{url:string;short:string}> = {
-  MSFT:{url:"https://www.microsoft.com/favicon.ico",short:"MS"},
-  AAPL:{url:"https://www.apple.com/favicon.ico",short:"AP"},
-  NVDA:{url:"https://www.nvidia.com/favicon.ico",short:"NV"},
-  GOOGL:{url:"https://www.google.com/favicon.ico",short:"GO"},
-  GOOG:{url:"https://www.google.com/favicon.ico",short:"GO"},
-  AMZN:{url:"https://www.amazon.com/favicon.ico",short:"AZ"},
-  META:{url:"https://about.meta.com/favicon.ico",short:"ME"},
-  TSLA:{url:"https://www.tesla.com/favicon.ico",short:"TS"},
-};
 function Logo({ticker,country}:{ticker:string|null;country:string|null}) {
-  const [failed,setFailed]=useState(false);
-  if(ticker) {
-    const meta=LOGOS[ticker],short=meta?.short||ticker.slice(0,2);
-    return <span className={styles.companyMark} aria-label={ticker+" company"}>
-      {meta && !failed ? <img alt="" src={meta.url} width="25" height="25" onError={()=>setFailed(true)} /> : short}
-    </span>;
-  }
-  return <span className={styles.countryBall} aria-label={(country||"Global")+" catalyst"}>
-    {FLAGS[country||""]||"🌐"}</span>;
+  return <EntityMark size="md" entity={ticker?{kind:"company",id:ticker}:country?{kind:"country",id:country}:{kind:"asset",id:"GLOBAL",label:"Global"}}/>;
 }
 function dayInZone(item:CatalystCard,zone:DisplayZone){
   if(!item.startAt) return item.date;
@@ -83,6 +66,7 @@ function EventDetail({item,zone}:{item:CatalystCard|null;zone:DisplayZone}){
           <div><dt>Watch</dt><dd>{item.affectedAssets.length?item.affectedAssets.map(a=>item.country==="DE"?"DAX":a).join(" · "):"Pending market assessment"}</dd></div>
           <div><dt>Status</dt><dd>{item.status}</dd></div>
         </dl>
+        {item.affectedAssets.length ? <EntityScopeStrip label="TRACKED ASSETS" entities={item.affectedAssets.map(identityForSymbol)} limit={5}/> : null}
         <h4>Why it matters</h4><p>{item.why}</p>
         {item.signalOnly?<p className={styles.radarCaution}>Source activity is not proof that a meeting is scheduled. We will not assign it an invented date or hour.</p>:null}
         {item.callTimeOnly?<p className={styles.radarCaution}>This is the confirmed earnings-call time. The financial results may be released earlier; their publication time has not been established by this event.</p>:null}
