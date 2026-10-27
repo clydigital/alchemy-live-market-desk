@@ -63,7 +63,7 @@ function EventTile({item,selected,onChoose,zone}:{item:CatalystCard;selected:boo
     <span className={styles.tileMid}><Logo ticker={item.ticker} country={item.country} />
       <span className={styles.nameBlock}><strong>{item.title}</strong>
         <span>{item.ticker||item.country||"Multi-party"}</span></span></span>
-    <span className={styles.tileFoot}><span>{displayClock(item,zone)}</span>
+    <span className={styles.tileFoot}><span>{item.callTimeOnly?"Earnings call · ":""}{displayClock(item,zone)}</span>
       <span className={item.priority==="must_watch"?styles.high:styles.normal}>{item.priority==="must_watch"?"High focus":"Watch"}</span></span>
   </button>;
 }
@@ -76,15 +76,16 @@ function EventDetail({item,zone}:{item:CatalystCard|null;zone:DisplayZone}){
         <h3>{item.title}</h3>
         <div className={styles.detailBadges}>
           <span>{item.certainty==="official"?"Original-source record":item.certainty+" source"}</span>
-          <span>{item.signalOnly?"Monitoring lead":item.timePrecision==="exact"?"Confirmed instant":item.date?"Confirmed/reported date":"Date TBC"}</span>
+          <span>{item.signalOnly?"Monitoring lead":item.callTimeOnly?"Call time · not release":item.timePrecision==="exact"?"Confirmed instant":item.date?"Confirmed/reported date":"Date TBC"}</span>
         </div>
         <dl className={styles.facts}>
-          <div><dt>When</dt><dd>{item.date||"Unscheduled"}{item.startAt?" · "+displayClock(item,zone):" · time not verified"}</dd></div>
+          <div><dt>When</dt><dd>{item.date||"Unscheduled"}{item.startAt?" · "+(item.callTimeOnly?"Earnings call at ":"")+displayClock(item,zone):" · time not verified"}</dd></div>
           <div><dt>Watch</dt><dd>{item.affectedAssets.length?item.affectedAssets.map(a=>item.country==="DE"?"DAX":a).join(" · "):"Pending market assessment"}</dd></div>
           <div><dt>Status</dt><dd>{item.status}</dd></div>
         </dl>
         <h4>Why it matters</h4><p>{item.why}</p>
         {item.signalOnly?<p className={styles.radarCaution}>Source activity is not proof that a meeting is scheduled. We will not assign it an invented date or hour.</p>:null}
+        {item.callTimeOnly?<p className={styles.radarCaution}>This is the confirmed earnings-call time. The financial results may be released earlier; their publication time has not been established by this event.</p>:null}
         <a className={styles.sourceLink} href={item.sourceUrl} target="_blank" rel="noreferrer">
           Open original source ↗
         </a><small className={styles.sourceName}>{item.sourceName}</small>
