@@ -56,7 +56,7 @@ test("shared presentation-only marks wired to both market and event contexts",()
  }
  const kit=read("components/blue-desk/EntityIdentity.tsx");
  assert.match(kit,/onError=\{\(\)=>setError\(true\)\}/);
- assert.match(kit,/tone_warn/);
+ assert.match(read("components/blue-desk/EntityIdentity.module.css"),/\.tone_warn\s*\{/);
  assert.doesNotMatch(kit,/service_role|story_thesis_versions|dossierId|SUPABASE_/);
 });
 test("Hybrid status semantics are retained as display-only not source truth",()=>{
