@@ -12,14 +12,17 @@ const CATEGORIES=[
  {id:"all",title:"All editions",description:"Latest editions across the three private report collections."},
  {id:"market",title:"Market briefs",description:"Verified events in chronological chapters, mechanics, market response or UNKNOWN, and what the next facts must show."},
  {id:"angles",title:"Article angles",description:"Three fully developed OB/COTD choices: proposed headline, narrative arc, worked mechanism, chart plan, countercase and editorial readiness."},
- {id:"creators",title:"Creator batches",description:"One creator per report, bundling multiple eligible transcript-backed videos and explaining how their thesis changes."}
+ {id:"creators",title:"Creator batches",description:"One creator per report, bundling multiple eligible transcript-backed videos and explaining how their thesis changes."},
+ {id:"audits",title:"Source audits",description:"Source-quality and handoff investigations; verified new events versus unverified leads and missing coverage."}
 ] as const;
 type Categ=(typeof CATEGORIES)[number]["id"];
 const EDITIONS=[
- {id:"16CKyy1JOrBWHdl93uFo8_dOY2oiZ2f61",kind:"market",edition:"27 Oct 2026",title:"The AI Buildout Finds Its Bankers",description:"Broadcom–Anthropic financing, Meta issuance and BOJ services-price puzzle; source-checked pilot.",sourceState:"Issuer/central-bank primary sources · market reaction UNKNOWN"},
- {id:"1oWPq5wrhlpmaK2sP7tsBfAT000kmteaI",kind:"angles",edition:"27 Oct 2026",title:"Three OB/COTD angles — expanded",description:"Ranked Broadcom, Meta and BOJ writing opportunities with missing market-evidence gates.",sourceState:"Original 09:00 slate partial · later Meta pricing separately checked"},
- {id:"1oFv-vay4nlg85FgGWtbSOnxP4WrHbQVR",kind:"angles",edition:"27 Oct 2026",title:"What the live news audit found",description:"Source-first editorial shortlist, Anthropic SEC filing challenger, oil reversal and future-dated ingestion warnings.",sourceState:"Audit only; read-only live database/source checks"},
- {id:"1ca425cmHacpdGtlebVSAdjh3q_s9lOUd",kind:"creators",edition:"22–26 Oct 2026",title:"StockedUp: From Panic to the AI Funding Fork",description:"Three Supadata transcript-backed videos, same creator, chronological reasoning and unresolved claims.",sourceState:"Creator opinions attributed · no canonical market verification"}
+ {id:"1sgr-FQnXyHglh53hL1n06M88QpUWHGRz",kind:"market",edition:"27 Oct 2026 · Deep V3",title:"The AI Buildout Finds Its Bankers — Deep Edition",description:"Longform Broadcom credit waterfall, Meta's future-settlement cash economics, BOJ SPPI and Anthropic's SEC S-1. Approximately 4,100 words.",sourceState:"Primary SEC/issuer/BOJ sources; price reaction UNKNOWN; recommended deep edition"},
+ {id:"15cggQ-TRb4W2Jy4vqjFaXCSJWLVbxbYX",kind:"angles",edition:"27 Oct 2026 · Deep V3",title:"Three Fully Commissioned OB/COTD Angles",description:"Approximately 5,000 words: ranked Broadcom, Meta and BOJ briefs plus the independently sourced Anthropic IPO challenger and comparative publish gates.",sourceState:"Original 09:00 slate retained; later issuer and S-1 source additions clearly distinguished"},
+ {id:"15vGOFXyIU2pGCufoR8vR2EjLCfNI1hfI",kind:"creators",edition:"22–26 Oct 2026 · Deep V3",title:"StockedUp — Three Videos, One Evolving Thesis",description:"About 3,800 words: individual transcript context, credit and rate mechanisms, a claim-versus-SEC check, dated chart conditions and a three-path decision tree.",sourceState:"Supadata transcripts (3 video IDs); creator opinion versus original SEC proof separated"},
+ {id:"1Ku7KBSLeIQwxB1plXXTrWmdy6YEmPks9",kind:"audits",edition:"27 Oct 2026 · Deep V3",title:"Where the News Selection Actually Broke",description:"About 2,600 words: original-source coverage, Anthropic S-1 handoff, 46/8/38 Gap overflow, five-candidate selection ledger and mechanical acceptance tests.",sourceState:"Fixed 27 Oct source/freshness audit; no synthetic market data"},
+ {id:"16aWhqFWKZbglodASWyAUN2gkXDkCjKV1",kind:"market",edition:"27 Oct 2026 · V3 alternative",title:"Daily Market Brief — Alternate V3 Layout",description:"A second rebuilt presentation of the same historical event packet, retained for editing comparison.",sourceState:"Historical edition; same evidence snapshot, not new news"},
+ {id:"1SEhaX-h-vSYGpLiHqlnGLKOlGO8f7kPe",kind:"angles",edition:"27 Oct 2026 · V3 alternative",title:"Writing Brain — Alternate V3 Layout",description:"Three original 09:00 slate angles plus the independently sourced SEC contender. Alternate editable layout.",sourceState:"Original three preserved; proposed new candidate not a fourth canonical slate idea"}
 ] as const;
 const pageHref=(type:Categ,page:number)=>"/my-reports?"+(type==="all"?"":"type="+type+"&")+"page="+page;
 
@@ -56,7 +59,7 @@ export default async function MyBluebellyReports({searchParams}:{searchParams?:P
        <div>
          <p className={styles.kicker}>PRIVATE EDITIONS · CATEGORY LIBRARY</p>
          <h2>Read, research, reuse</h2>
-         <p>Three separate HTML collections. Choose one below to avoid mixing market stories,
+         <p>Four separate HTML collections. Choose one below to avoid mixing market stories,
            editorial decisions and creator narratives. The documents live in your KQ Google Drive.</p>
        </div>
        <a href={DRIVE_FOLDER} target="_blank" rel="noopener noreferrer">Browse complete Drive archive ↗</a>
@@ -92,8 +95,8 @@ export default async function MyBluebellyReports({searchParams}:{searchParams?:P
        {currentPage>1?<Link href={pageHref(activeType,currentPage-1)}>← Previous</Link>:<span>Beginning</span>}
        {currentPage<pageCount?<Link href={pageHref(activeType,currentPage+1)}>Next →</Link>:<span>Latest available</span>}
      </nav>
-     <p className={layout.driveNote}>These fixed links are real dated 27 October pilot and expanded editions,
-       not an automatically updating catalogue. New files remain discoverable from the Drive
+     <p className={layout.driveNote}>These fixed links are 28 October V3 revisions of the dated 27 October source packet,
+       not an automatically updating catalogue. The first four links are recommended deep editions. New files remain discoverable from the Drive
        folder until their edition metadata is indexed here. Drive preview may disable interactive
        embeds; download HTML and open it in a browser for the full report. Original PDFs remain
        under legacy reports below; new output is HTML-first.</p>
