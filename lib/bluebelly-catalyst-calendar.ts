@@ -11,6 +11,7 @@ export type CatalystCard = {
   certainty: CatalystCertainty; status: string; ticker: string | null;
   country: string | null; affectedAssets: string[]; why: string;
   priority: "must_watch" | "watch"; signalOnly: boolean;
+  callTimeOnly: boolean;
 };
 
 /** The user's Economic Calendar Guide: high-impact only, 8 territories,
@@ -55,6 +56,7 @@ function fromPresenter(row: PresenterCalendarEvent): CatalystCard | null {
     affectedAssets: row.affectedAssets,
     why: row.decidingQuestion || (row.kind === "earnings" ? "Check earnings quality, margins and guidance." : "Watch the impact on rates, currencies and risk assets."),
     priority: priority === "must_watch" ? "must_watch" : "watch", signalOnly: false,
+    callTimeOnly: row.kind === "earnings" && /\b(?:conference call|earnings call|results call|webcast|q&a)\b/i.test(row.timeLabel),
   };
 }
 function inferCountry(row: PresenterCalendarEvent) {
@@ -96,6 +98,7 @@ function fromMarketEvent(row: MarketEventV1): CatalystCard | null {
     why: row.decisiveVariable || row.transmission || "Await the primary-source announcement and reassess market implications.",
     priority: lane === "fed" || lane === "diplomacy" || (ticker && MEGACAP.has(ticker)) ? "must_watch" : "watch",
     signalOnly: !day,
+    callTimeOnly: lane === "earnings" && /\b(?:conference call|earnings call|results call|webcast|q&a)\b/i.test(row.timeLabel || ""),
   };
 }
 export type OfficialSignal = {
@@ -109,7 +112,7 @@ function fromSignal(item: OfficialSignal): CatalystCard | null {
     date:null,startAt:null,timePrecision:"tbc",timeLabel:"Timing not established",sourceUrl:item.sourceUrl,sourceName:item.sourceName,
     certainty:"official",status:"monitoring",ticker:item.ticker || null,country:item.lane==="diplomacy"?null:item.lane==="fed"?"US":null,
     affectedAssets:[],why:"Official publication detected. Monitor for an event date, participants or follow-up; this is not a timed calendar appointment.",
-    priority:item.lane==="diplomacy" || item.lane==="fed"?"must_watch":"watch",signalOnly:true};
+    priority:item.lane==="diplomacy" || item.lane==="fed"?"must_watch":"watch",signalOnly:true,callTimeOnly:false};
 }
 export function projectBluebellyCatalysts(
   presenter: readonly PresenterCalendarEvent[],
