@@ -109,7 +109,7 @@ export default async function BlueDeskPage() {
               ) : observedFeature ? (
                 <a className={styles.primaryAction} href={observedFeature.sourceUrl} target="_blank" rel="noreferrer">Original market source ↗</a>
               ) : olderStory ? (
-                <Link className={styles.primaryAction} href={blueDeskPublicHref("/blue-desk/key-stories",host)+"#thesis-"+olderStory.slug}>Read the ongoing story →</Link>
+                <Link className={styles.primaryAction} href={blueDeskPublicHref("/blue-desk/key-stories",host)+"?story="+olderStory.slug}>Read the ongoing story →</Link>
               ) : (
                 <Link className={styles.primaryAction} href={blueDeskPublicHref("/blue-desk/daily-report", host)}>
                   Daily Report →</Link>
@@ -175,13 +175,13 @@ export default async function BlueDeskPage() {
             {theses.slice(0,4).map((thesis,index) =>
               <article className={index===0?tracked.lead:tracked.card} key={thesis.id}>
                 <p className={tracked.kicker}>{classifyPublicStory(thesis)} · ONGOING RESEARCH</p>
-                <h3><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"#thesis-"+thesis.slug}>
+                <h3><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"?story="+thesis.slug}>
                   {thesis.title}
                 </Link></h3>
                 <p>{ellipsis(thesis.thesis,index===0?280:145)}</p>
                 <div className={tracked.bottom}>
                   <span>Last researched <DualTimestamp value={thesis.updatedAt} className={styles.cardTime}/></span>
-                  <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"#thesis-"+thesis.slug}>
+                  <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"?story="+thesis.slug}>
                     Read context and countercase →
                   </Link>
                 </div>
