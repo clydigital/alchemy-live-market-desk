@@ -44,13 +44,23 @@ async function sourceSignals(feed:Feed,now:Date,fetchImpl:typeof fetch) {
     return {signals:[] as OfficialSignal[],state:{name:feed.name,state:"unavailable",detail:"Official feed unavailable; coverage incomplete."} as RadarSourceState};
   }
 }
+/** Never project private/editorial market-event rows to the public calendar. */
+function isOfficialPublicEvent(event:MarketEventV1){
+  if(event.verificationState!=="official")return false;
+  try {
+    const u=new URL(event.sourceUrl),host=u.hostname.toLowerCase();
+    if(u.protocol!=="https:"||u.username||u.password)return false;
+    const publicDomain = /(?:^|\\.)(?:gov|gov\\.uk|gov\\.au|gc\\.ca|federalreserve\\.gov|un\\.org|opec\\.org|ecb\\.europa\\.eu|boj\\.or\\.jp|bankofengland\\.co\\.uk|bankofcanada\\.ca|rba\\.gov\\.au|rbnz\\.govt\\.nz|tesla\\.com|apple\\.com|nvidia\\.com|microsoft\\.com|google\\.com|abc\\.xyz|amazon\\.com|aboutamazon\\.com|meta\\.com|atmeta\\.com)$/.test(host);
+    return publicDomain;
+  }catch{return false;}
+}
 async function storedEvents(now:Date):Promise<MarketEventV1[]>{
   try {
     const since=new Date(now.getTime()-2*86_400_000).toISOString().slice(0,10);
     const rows=await intelligenceRest<MarketEventRow[]>(
       "market_events?select=*&status=in.(scheduled,confirmed,reported)&start_at=gte."
       +encodeURIComponent(since)+"&order=start_at.asc&limit=240");
-    return rows.flatMap(row=>{const event=marketEventFromRow(row);return event?[event]:[]});
+    return rows.flatMap(row=>{const event=marketEventFromRow(row);return event&&isOfficialPublicEvent(event)?[event]:[]});
   }catch{return []}
 }
 export async function getBluebellyCatalystSources({
