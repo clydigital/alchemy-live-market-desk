@@ -36,6 +36,9 @@ test("IPO entries are source-linked monitoring, never invented trading dates",()
  assert.match(out[0].title,/ANT \(proposed\)/);
  assert.match(out[1].status,/Confidential draft S-1 announced/);
  assert.equal(out[2].certainty,"reported");
+ assert.deepEqual(projectMajorIpoWatch({now:new Date("2026-10-27T17:00:00Z")}).map(c=>c.id),
+  ["ipo:anthropic","ipo:openai","ipo:databricks"],
+  "MYT 28 Oct falls on UTC 27 Oct: the review card must already be present");
  assert.ok(!out[0].ticker,"Proposed ANT must not be presented as actively tradeable");
 });
 test("SEC index and submission verify latest Anthropic public filing as a historical milestone",async()=>{
