@@ -133,6 +133,7 @@ export default async function BlueDeskPage() {
               </div>
             )) : <p className={styles.empty}>Yield data unavailable.</p>}
             <Link href={publicHost ? blueDeskPublicHref("/blue-desk/markets?group=rates", host) : "/markets"} className={styles.textLink}>Explore Treasury yield history →</Link>
+            <p><Link href={blueDeskPublicHref("/blue-desk/features/global-bonds",host)} className={styles.textLink}>Global bonds: France vs Greece →</Link></p>
           </aside>
         </section>
 
