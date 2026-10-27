@@ -54,6 +54,12 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   if (hostname === "alchemy-blue-desk.vercel.app") return "blocked";
   if (hostname !== BLUEBELLY_PRESENTATION_HOST && hostname !== LIVE_DESK_PRESENTATION_HOST) return "private";
 
+  // One strictly bounded public X discovery handoff for the existing ChatGPT
+  // MacroPulse reader. It is a READ-ONLY redacted view of public original X
+  // posts; never expose owner pages, raw operational data, tokens or write APIs.
+  if(hostname===BLUEBELLY_PRESENTATION_HOST &&
+     pathname==="/api/x-wire/discovery")return "public";
+
   // Narrow approved-owner enclave on the Bluebelly hostname. This is
   // NOT a public page: the normal middleware session+allowlist gate applies.
   // Only exact paths can be used; legacy operational owner routes and all
