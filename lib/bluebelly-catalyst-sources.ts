@@ -31,7 +31,7 @@ export function classifyOfficialSignal(
   return {id:feed.name+":"+url,title:item.title,sourceUrl:url,sourceName:feed.name,
     publishedAt:item.publishedAt,lane:feed.lane,ticker:feed.ticker};
 }
-export type RadarSourceState={name:string;state:"checked"|"unavailable";detail:string};
+export type RadarSourceState={name:string;state:"checked"|"unavailable"|"not_configured"|"stale";detail:string};
 async function sourceSignals(feed:Feed,now:Date,fetchImpl:typeof fetch) {
   try {
     const resp=await fetchImpl(feed.url,{next:{revalidate:1800},headers:{Accept:"application/rss+xml,application/atom+xml,text/xml"},signal:AbortSignal.timeout(5_500)});
@@ -81,7 +81,7 @@ export async function getBluebellyCatalystSources({
     events,
     signals: feeds.flatMap(row=>row.signals),
     coverage:[
-      ...horizon.coverage.map(x=>({name:x.family,state:x.state==="covered"?"checked":"unavailable",detail:x.detail} as RadarSourceState)),
+      ...horizon.coverage.map(x=>({name:x.family,state:x.state==="covered"?"checked":x.state==="unsupported"?"not_configured":x.state==="stale"?"stale":"unavailable",detail:x.detail} as RadarSourceState)),
       ...feeds.map(x=>x.state),
     ],
     warnings:horizon.warnings,
