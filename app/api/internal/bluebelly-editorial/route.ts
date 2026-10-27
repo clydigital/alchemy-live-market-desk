@@ -5,6 +5,7 @@ import {createSupabaseAdminClient} from "@/lib/supabase/admin";
 import {blueDeskHostAccess,isBlueDeskPublicReaderHost} from "@/lib/blue-desk-host";
 import {acceptsMacroPulseIngest,scopedMacroPulseToken} from "@/lib/blue-desk-macropulse-ingest-auth";
 import {parseMacroPulseDigest} from "@/lib/blue-desk-macropulse-brief";
+import {attestMacroPulseNotionSource} from "@/lib/blue-desk-macropulse-notion-attestation";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 export const maxDuration=30;
@@ -32,8 +33,34 @@ export async function POST(req:NextRequest){
  try{raw=await req.text();}catch{return fail(400,"Invalid body");}
  if(raw.length>18000)return fail(413,"Digest too large");
  let input:unknown;try{input=JSON.parse(raw);}catch{return fail(400,"Invalid JSON");}
- const digest=parseMacroPulseDigest(input,new Date());
- if(!digest)return fail(422,"Invalid MacroPulse editorial digest");
+ const mode=input&&typeof input==="object"&&!Array.isArray(input)
+  ?(input as Record<string,unknown>).proofMode:undefined;
+ if(mode!==undefined&&mode!=="NOTION_SOURCE_ATTESTED")
+  return fail(422,"Unknown source proof mode");
+ if(process.env.BLUEBELLY_REQUIRE_NOTION_ATTESTATION==="true"&&
+    mode!=="NOTION_SOURCE_ATTESTED")
+  return fail(422,"Notion source attestation required");
+ const parsed=parseMacroPulseDigest(input,new Date());
+ if(!parsed)return fail(422,"Invalid MacroPulse editorial digest");
+ let digest=parsed;
+ if(mode==="NOTION_SOURCE_ATTESTED"){
+  // ChatGPT-side OAuth cannot be reused in this runtime. This requires a
+  // separately authorised, READ-ONLY Notion integration scoped to MacroPulse.
+  const readToken=process.env.BLUEBELLY_NOTION_RESEARCH_TOKEN?.trim();
+  if(!readToken)return fail(503,"Notion source verification unavailable");
+  try{
+   const attested=await attestMacroPulseNotionSource(parsed,readToken);
+   if(!attested)return fail(422,"Original Notion source proof failed");
+   // Replace schedule-supplied clocks with native page creation (proxy)
+   // and this independent Notion retrieval time. Claim facts still research-only.
+   digest=parseMacroPulseDigest({
+    ...(input as Record<string,unknown>),
+    sourcePublishedAt:attested.sourceCreatedAt,
+    sourceRetrievedAt:attested.retrievedAt,
+   },new Date());
+   if(!digest)return fail(422,"Invalid attested source clocks");
+  }catch{return fail(503,"Original Notion source could not be read");}
+ }
  const stable={pulse:digest.sourcePulseId,headline:digest.headline,
   standfirst:digest.standfirst,whatChanged:digest.whatChanged,
   whyItMatters:digest.whyItMatters,countercase:digest.countercase,
