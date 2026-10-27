@@ -29,7 +29,7 @@ test("deep-report contract gives creator, market and article engines separate so
   "SOURCE", "click-to-load","natural scheduled run"]){
   assert.match(s.toLowerCase(),new RegExp(text.toLowerCase()));
  }
- assert.match(s,/do not automatically fetch new reports/i);
+ assert.match(s,/does not automatically fetch new reports/i);
 });
 test("V3 private archive does not change public host or legacy owner PDF auth boundaries",()=>{
  const page=get("app/my-reports/page.tsx");
