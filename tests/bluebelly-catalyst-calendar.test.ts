@@ -62,6 +62,19 @@ test("an official article is monitoring-only; publication day never becomes inve
   assert.equal(signal.status,"monitoring");
 });
 
+test("confirmed call instant is not incorrectly labelled as earnings results release",()=>{
+  const call: PresenterCalendarEvent = {
+    ...macro, id:"earnings:googl",kind:"earnings",title:"Alphabet earnings",
+    affectedAssets:["GOOGL"],scheduledAt:"2026-10-28T20:30:00Z",
+    timeLabel:"16:30 ET earnings conference call",
+  };
+  const [tile]=projectBluebellyCatalysts([call],[]);
+  assert.equal(tile.timePrecision,"exact");
+  assert.equal(tile.callTimeOnly,true);
+  const [dateOnly]=projectBluebellyCatalysts([{...call,id:"earnings:msft",scheduledAt:null,timePrecision:"date",timeLabel:"Results after US close; time TBC"}],[]);
+  assert.equal(dateOnly.callTimeOnly,false);
+});
+
 test("unrelated low-value macro headlines do not fill the high impact grid",()=>{
   const r=projectBluebellyCatalysts([{...macro,id:"macro:survey",title:"Regional trucking sentiment survey"}],[]);
   assert.equal(r.length,0);
