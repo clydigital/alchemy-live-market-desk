@@ -1,7 +1,7 @@
 import "server-only";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
 import { X_CORE_ROSTER, X_SWEEP_DEFAULTS, isExcludedXWireHandle, normaliseXPostUrl, xSourceHealth, type XAccountAttempt } from "./x-sweep-core.ts";
-import { parseFxTimeline, xWireRequestWindow } from "./x-wire-pagination.ts";
+import { parseFxTimeline, xWireRequestWindow, xWireRecoveryAnchor } from "./x-wire-pagination.ts";
 import type { XWirePost } from "./x-wire-provider.ts";
 
 const ORIGIN = "https://api.fxtwitter.com";
@@ -54,10 +54,12 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
   const claim=Array.isArray(claimRows)?claimRows[0]:null;
   if(!claim)return; // fresh lease or cooldown held by another view
   const token=String(claim.claimed_token);
-  const window=xWireRequestWindow(now,claim.checkpoint_at,claim.resume_cursor,claim.resume_start_at,
-    X_SWEEP_DEFAULTS.lookbackHours,X_SWEEP_DEFAULTS.overlapMinutes,X_SWEEP_DEFAULTS.recoveryLookbackHours);
   const {data:existing}=await db.from("x_wire_accounts")
     .select("last_observed_post_at,uncovered_before").eq("handle",handle).maybeSingle();
+  const anchor=xWireRecoveryAnchor(now,claim.checkpoint_at,existing?.uncovered_before ?? null,
+    X_SWEEP_DEFAULTS.recoveryLookbackHours);
+  const window=xWireRequestWindow(now,anchor,claim.resume_cursor,claim.resume_start_at,
+    X_SWEEP_DEFAULTS.lookbackHours,X_SWEEP_DEFAULTS.overlapMinutes,X_SWEEP_DEFAULTS.recoveryLookbackHours);
   let latest=ms(existing?.last_observed_post_at);
   const missingBefore = existing?.uncovered_before ?? (window.gap ? claim.checkpoint_at ?? window.startAt : null);
   const gapMarker = missingBefore ? {uncovered_before:missingBefore} : {};
