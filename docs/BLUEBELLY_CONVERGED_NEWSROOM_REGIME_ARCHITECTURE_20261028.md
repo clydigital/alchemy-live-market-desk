@@ -56,7 +56,7 @@ Extend the merged Newsroom reader on an existing Bluebelly page with newest veri
 ## P4 — Regime overlays (next work)
 
 - **AI bubble**: capex-to-revenue/FCF conversion, financing terms, credit and semis, hyperscaler issuer results. Read the existing Notion 16-company hub; date every financial metric and carry prior verification.
-- **US rates/bonds**: Fed path; US 2Y/5Y/10Y/20Y/30Y; curve and real yields; auctions/refunding and term premium only if independently estimated; repo, credit/refinancing and cross-asset effects. Maintain a rolling *Bonds/Rates watch delta* in the existing Notion Research Gap/Registry, no sixth task.
+- **US rates/bonds**: Fed path; US 2Y/5Y/10Y/20Y/30Y; curve and real yields; auctions/refunding and term premium only if independently estimated; repo, credit/refinancing and cross-asset effects. Maintain a rolling *Bonds/Rates watch delta* in the existing Notion Research Gap/Registry **and the dedicated private, internal [US Rates & Bonds — Regime Watch](https://app.notion.com/p/406519b67a94812fbd88f6f975ab3396)** beneath the existing Financial Research hub. This page is initialised as EVIDENCE REFRESH PENDING, not live/canonical; existing Research Gap automation now points to the exact page. No sixth task.
 - **Oil/inflation, cross-asset**: related current observed evidence, countercases and next test. X/transcripts can propose a challenger, never prove it.
 
 Show `NO MATERIAL CHANGE`, `PENDING VERIFICATION`, `STALE` or `CHANGED WITH CANONICAL RECEIPT` explicitly. Do not conflate source collection with canonical evidence acceptance.
