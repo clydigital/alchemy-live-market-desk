@@ -1,0 +1,35 @@
+/* Visual identity: restrained Bluebelly ocean palette. Semantic status
+   inherits Hybrid's ready / warning / risk distinctions; neither mark colour
+   nor presence of a ball indicates canonical evidence or a market forecast. */
+.mark{display:inline-grid;place-items:center;flex-shrink:0;overflow:hidden;vertical-align:middle;
+  border:1px solid #38677a;background:#10394c;color:#d8f2fb;font:800 10px/1 var(--bb-font-sans,Figtree,sans-serif)}
+.mark.sm{width:24px;height:24px;border-radius:7px}
+.mark.md{width:32px;height:32px;border-radius:9px}
+.mark.lg{width:42px;height:42px;border-radius:11px}
+.mark.logo{background:linear-gradient(150deg,#17445c,#092a3e)}
+.mark.ball{border-radius:50%;background:radial-gradient(circle at 30% 25%,#426878,#082737);font-size:16px}
+.mark.ball.sm{font-size:15px}
+.mark.ball.lg{font-size:23px}
+.mark.asset{border-color:#34586d;background:#17364a;letter-spacing:-.03em}
+.mark img{display:block;width:77%;height:77%;object-fit:contain}
+.chip{display:inline-flex;align-items:center;gap:7px;min-width:0;max-width:100%;
+  padding:4px 9px 4px 5px;border:1px solid #335c72;border-radius:8px;
+  color:#dcf0f8;background:#0c2c3f;font:700 11px/1.35 var(--bb-font-sans,Figtree,sans-serif)}
+.chip>span:last-child{overflow-wrap:anywhere}
+.chip.compact{gap:5px;padding:3px 7px 3px 3px;font-size:10px}
+.scope{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:10px 0;
+  font-family:var(--bb-font-sans,Figtree,sans-serif)}
+.scopeLabel{font-size:10px;letter-spacing:.09em;color:#89aebe;font-weight:800}
+.scopeItems{display:flex;flex-wrap:wrap;gap:5px}
+.status{display:inline-flex;align-items:center;padding:5px 8px;min-height:25px;
+  background:#122e41;border:1px solid #34536b;border-radius:6px;color:#bbd6e7;
+  font:800 10px/1.3 var(--bb-font-sans,Figtree,sans-serif);letter-spacing:.02em}
+.tone_neutral{border-color:#34566d;color:#c4dce8;background:#153044}
+.tone_macro{border-color:#377789;color:#c3eff7;background:#103c49}
+.tone_earnings{border-color:#6c6099;color:#ded6ff;background:#282745}
+.tone_technology{border-color:#3977ad;color:#c9e4ff;background:#18374f}
+.tone_diplomacy{border-color:#9c733e;color:#ffe3ba;background:#443623}
+.tone_energy{border-color:#92704c;color:#f8d9b9;background:#3b3029}
+.tone_ready{border-color:#34765f;color:#a8edcd;background:#193e37}
+.tone_warn{border-color:#8e703f;color:#ffe0ad;background:#453725}
+.tone_risk{border-color:#a25160;color:#ffd0d8;background:#482a38}
