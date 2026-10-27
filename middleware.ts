@@ -21,7 +21,10 @@ function copyCookies(source: NextResponse, target: NextResponse) {
 
 function loginRedirect(request: NextRequest, reason?: string) {
   const url = request.nextUrl.clone();
-  url.pathname = "/login";
+  // Valid owner sessions never reach this branch. For an absent session,
+  // start Google OAuth directly instead of rendering an unnecessary sign-in page.
+  // Configuration and denied-account errors still reach the explanatory page.
+  url.pathname = reason ? "/login" : "/auth/google";
   url.search = "";
   url.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
   if (reason) url.searchParams.set("error", reason);

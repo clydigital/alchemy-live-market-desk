@@ -68,17 +68,20 @@ test("every browser API remains signed-in and field-specific, not a cross-site m
  assert.match(checklist,/expectedRevision/);
 });
 
-test("My Desk is one owner entry, not a new page or five more public navigation items",()=>{
+test("all six main Bluebelly links remain visible while private routes stay gated",()=>{
  const header=read("components/blue-desk/BlueDeskHeader.tsx");
  const presenter=read("app/owner/presenter/page.tsx");
  const editorial=read("app/owner/editorial/page.tsx");
  const workbench=read("components/blue-desk/EditorialWorkbench.tsx");
- assert.match(header,/href="\/my-reports" className=\{styles\.navItem\}/);
  assert.match(header,/activePath === "\/my-reports"/);
- assert.match(header,/\["My Desk", "\/my-reports"\]/);
  const nav=header.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0]||"";
- assert.ok(!nav.includes("/owner/"));
- assert.ok(!nav.includes("/my-reports"));
+ for (const [label,href] of [
+  ["Live Market","/"],["Key Stories","/key-stories"],["Markets","/markets"],
+  ["My Desk","/my-reports"],["Research Library","/owner/research"],
+  ["Calendar","/calendar"],
+ ]) assert.ok(nav.includes('["'+label+'", "'+href+'"]'),label);
+ assert.equal((nav.match(/\["/g)||[]).length,6);
+ assert.ok(!nav.includes("/api/"));
  assert.match(presenter,/href="\/my-reports"/);
  assert.match(presenter,/id="technical-checks"/);
  assert.doesNotMatch(presenter,/href="\/hybrid-output\/prepare"/);

@@ -17,12 +17,13 @@ test("Research Library is an exact private Bluebelly enclave, never an anonymous
   assert.match(middleware,/supabase\.auth\.getClaims\(\)/);
   assert.match(middleware,/app_access_allowlist/);
 });
-test("owner menu retains private research link without advertising it as public navigation",()=>{
+test("research link is visible in both menus but remains owner-only",()=>{
   const nav=read("components/blue-desk/BlueDeskHeader.tsx");
   assert.match(nav,/\["Research Library", "\/owner\/research"\]/);
   assert.match(nav,/activePath === "\/owner\/research"/);
   const pub=nav.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0] || "";
-  assert.doesNotMatch(pub,/\/owner\/research/);
+  assert.match(pub,/\["Research Library", "\/owner\/research"\]/);
+  assert.equal(blueDeskHostAccess("/owner/research","bluebelly-desk.vercel.app"),"private");
 });
 test("Research Library uses preexisting private read-only Notion intake and exposes provenance",()=>{
   const page=read("app/owner/research/page.tsx");

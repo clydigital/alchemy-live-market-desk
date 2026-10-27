@@ -1,4 +1,6 @@
 import styles from "./login.module.css";
+import { redirect } from "next/navigation";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { safeOwnerReturnPath } from "@/lib/supabase/owner-return-path";
 
 type LoginPageProps = {
@@ -20,6 +22,30 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const next = safeOwnerReturnPath(rawNext);
   const rawError = Array.isArray(params.error) ? params.error[0] : params.error;
   const error = rawError ? errorCopy[rawError] || "Sign-in failed. Please try again." : null;
+
+  // An authorised session must not be made to click "Continue with Google"
+  // simply because the visitor opened /login directly or followed an old link.
+  let approvedSession = false;
+  if (!rawError) {
+    try {
+      const supabase = await createSupabaseServerClient();
+      const { data, error: claimsError } = await supabase.auth.getClaims();
+      const email = typeof data?.claims?.email === "string"
+        ? data.claims.email.trim().toLowerCase() : "";
+      if (!claimsError && email) {
+        const { data: access, error: accessError } = await supabase
+          .from("app_access_allowlist")
+          .select("email")
+          .eq("email", email)
+          .eq("active", true)
+          .maybeSingle();
+        approvedSession = !accessError && !!access;
+      }
+    } catch {
+      // Keep the explicit error/help page accessible when auth is unavailable.
+    }
+  }
+  if (approvedSession) redirect(next);
 
   return (
     <main className={styles.shell}>

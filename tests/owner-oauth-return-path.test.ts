@@ -41,3 +41,16 @@ test("login, OAuth start and code exchange all enforce the same return-path boun
   assert.match(callback, /await supabase\.auth\.signOut\(\)/);
   assert.match(callback, /return NextResponse\.redirect\(new URL\(next, requestUrl\.origin\)\)/);
 });
+
+test("approved existing sessions skip sign-in pages and forced account selection", () => {
+  const middleware = readFileSync(new URL("../middleware.ts", import.meta.url), "utf8");
+  const google = readFileSync(new URL("../app/auth/google/route.ts", import.meta.url), "utf8");
+  const login = readFileSync(new URL("../app/login/page.tsx", import.meta.url), "utf8");
+  assert.match(middleware, /reason \? "\/login" : "\/auth\/google"/);
+  assert.match(middleware, /app_access_allowlist/);
+  assert.match(google, /supabase\.auth\.getClaims\(\)/);
+  assert.match(google, /app_access_allowlist/);
+  assert.doesNotMatch(google, /prompt:\s*"select_account"/);
+  assert.match(login, /if \(approvedSession\) redirect\(next\)/);
+  assert.match(login, /app_access_allowlist/);
+});
