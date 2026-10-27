@@ -5,6 +5,9 @@ import type { XWirePost } from "./x-wire-provider.ts";
 type Rec = Record<string, unknown>;
 const rec = (x: unknown): Rec => x && typeof x === "object" && !Array.isArray(x) ? x as Rec : {};
 const text = (x: unknown, n = 2000) => typeof x === "string" ? x.trim().slice(0,n) : "";
+// FxEmbed occasionally reverses neighbouring statuses by seconds. A large
+// inversion still invalidates the proof that our requested window was covered.
+const TIMELINE_ORDER_JITTER_MS = 60_000;
 function published(x: Rec) {
   const t = Date.parse(text(x.created_at, 100));
   if (Number.isFinite(t)) return new Date(t).toISOString();
@@ -43,7 +46,7 @@ export function parseFxTimeline(json: unknown, handle: string, startAt: string, 
       !/^\d{6,25}$/.test(id) || !body || !date || Date.parse(date)>Date.parse(nowIso)+300_000) ordered=false;
     else {
       const stamp=Date.parse(date);
-      if(orderedTimes.length && stamp>orderedTimes[orderedTimes.length-1])ordered=false;
+      if(orderedTimes.length && stamp>orderedTimes[orderedTimes.length-1]+TIMELINE_ORDER_JITTER_MS)ordered=false;
       orderedTimes.push(stamp);
     }
     if (row.reposted_by || (date && Date.parse(date) < Date.parse(startAt))) continue;
