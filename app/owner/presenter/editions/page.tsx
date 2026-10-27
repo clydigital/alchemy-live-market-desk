@@ -82,9 +82,10 @@ export default async function PresenterExactEditions({searchParams}:Props){
   ? await getDossierV2PresentationSelectionById(frozen.dossierId).catch(()=>null)
   : null;
  const exactDossier=dossier?.status==="historical_exact" &&
-   dossier.presentation && dossier.selectedDossierId===frozen?.dossierId &&
+   dossier.presentation && dossier.selectedDossierId && dossier.selectedAsOf &&
+   dossier.selectedDossierId===frozen?.dossierId &&
    dossier.selectedAsOf===frozen?.dossierAsOf
-   ? {id:dossier.selectedDossierId,asOf:dossier.selectedAsOf!}:null;
+   ? {id:dossier.selectedDossierId,asOf:dossier.selectedAsOf}:null;
  const source=buildPresenterPrepSourceProjection({
   requestedEditionId:requested.editionId,
   selectedEditionId:selection.selected?.snapshotId ?? null,
