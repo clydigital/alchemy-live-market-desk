@@ -24,6 +24,15 @@ export const OFFICIAL_PRESS_FEEDS = [
     publisher: "U.S. Securities and Exchange Commission",
   },
   {
+    // Official NVIDIA Investor Relations RSS points to the NVIDIA newsroom.
+    // Company events are not market-reaction evidence by themselves.
+    name: "NVIDIA company press releases",
+    feed: "https://nvidianews.nvidia.com/cats/press_release.xml",
+    host: "nvidianews.nvidia.com",
+    path: /^\/news\/[a-z0-9-]+\/?$/i,
+    publisher: "NVIDIA Newsroom",
+  },
+  {
     name:"Broadcom investor news releases",
     feed:"https://investors.broadcom.com/rss/news-releases.xml",
     host:"investors.broadcom.com",
@@ -36,15 +45,6 @@ export const OFFICIAL_PRESS_FEEDS = [
     host:"investor.atmeta.com",
     path:/^\/investor-news\/press-release-details\/[0-9]{4}\/[a-z0-9-]+\/default\.aspx$/i,
     publisher:"Meta Investor Relations",
-  },
-  {
-    // Official NVIDIA Investor Relations RSS points to the NVIDIA newsroom.
-    // Company events are not market-reaction evidence by themselves.
-    name: "NVIDIA company press releases",
-    feed: "https://nvidianews.nvidia.com/cats/press_release.xml",
-    host: "nvidianews.nvidia.com",
-    path: /^\/news\/[a-z0-9-]+\/?$/i,
-    publisher: "NVIDIA Newsroom",
   },
 ] as const;
 
