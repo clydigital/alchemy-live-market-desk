@@ -194,3 +194,70 @@ export function compileCreatorOwnerReviewBundle(
    draft,sourceReceipts:projection.sourceReceipts.map(s=>({...s})),
  };
 }
+
+
+/**
+ * Deterministic, model-free private preview. Useful for ED-03B review even
+ * before the verified editorial model and owner storage flow is connected.
+ * Merely attributes excerpts/selected research paraphrases; does not invent
+ * a market interpretation or assume that sequential videos imply revision.
+ */
+export function renderCreatorSourceTimeline(projection:CreatorSourceProjection):string{
+ const p=projection.prepared;
+ const safe=(s:string)=>s.replace(/[\r\n]+/g," ").replace(/[\[\]<>]/g,"");
+ const header=[
+  "# Creator research timeline — attributed draft",
+  "",
+  "**Creator:** "+safe(projection.creatorId),
+  "**As of:** "+projection.asOf,
+  "**Visibility:** owner only",
+  "**Verification:** Creator commentary, not independent financial evidence.",
+  "**Editorial status:** Awaiting human review and evidence-backed story compilation.",
+  "",
+ ];
+ if(!p)return [...header,"No completed transcript-backed selections are available."].join("\n");
+ const videos=new Map(p.sources.map(s=>[s.videoId,s]));
+ const changes=new Map(p.thesisChanges.map(c=>[c.laterClaimId,c]));
+ const lines=[...header];
+ let section=0;
+ for(const c of p.claims){
+   const video=videos.get(c.videoId);
+   if(!video||!video.consumed)throw Error("CREATOR_SOURCE_LEDGER_INCOMPLETE");
+   section++;
+   const url=new URL(video.url);
+   if(c.transcriptSeconds!==null)url.searchParams.set("t",String(Math.floor(c.transcriptSeconds))+"s");
+   lines.push(
+    "## Act "+section+" — "+safe(video.title),
+    "",
+    "**Published:** "+video.publishedAt,
+    "**Original transcript:** "+url.toString(),
+    "**Source claim ID:** "+c.claimId,
+    "",
+    "**Selected transcript excerpt:** "+safe(c.transcriptExcerpt),
+    "",
+    "**Attributed creator assertion (unverified):** "+safe(c.assertion),
+    "",
+   );
+   const change=changes.get(c.claimId);
+   if(change)lines.push(
+    "**Editorially linked to:** "+change.earlierClaimId+" ("+change.type+")",
+    "**Caution:** Relation is selected editorial metadata, not a market-verified finding.",
+    "",
+   );
+ }
+ if(!p.thesisChanges.length)lines.push(
+  "No thesis revision or reinforcement has been established by the supplied editorial anchors.","",
+ );
+ if(p.pendingTranscriptIds.length)lines.push(
+  "## Pending transcripts","",...p.pendingTranscriptIds.map(id=>"- "+id+" — not used as story evidence"),"",
+ );
+ lines.push(
+  "## Readback receipts","",
+  ...projection.sourceReceipts.map(r=>"- "+r.videoId+" | "+r.rowId+
+   " | run "+r.runId+" | transcript "+r.transcriptState),
+  "",
+  "This preview does not prove that the creator's quoted market claims are true.",
+  "The authorised source reader, model-generated story, review decision and durable owner GET are separate acceptance steps.",
+ );
+ return lines.join("\n");
+}
