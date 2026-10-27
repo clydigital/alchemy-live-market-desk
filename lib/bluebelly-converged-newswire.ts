@@ -140,7 +140,7 @@ export function rankConvergedNewswire(
   return [...grouped.entries()].map(([eventKey, sources]) => {
     sources.sort((a, b) => scoreAttention(b, nowMs) - scoreAttention(a, nowMs) || a.sourceId.localeCompare(b.sourceId));
     const primary = sources[0];
-    const allTopics = new Set(sources.flatMap(s => classifyNewsroomTopics(s.headline + " " + s.summary)));
+    const allTopics = new Set<NewsroomTopic>(sources.flatMap(s => classifyNewsroomTopics(s.headline + " " + s.summary)));
     if (allTopics.size > 1) allTopics.delete("other");
     const topics = NEWSROOM_TOPICS.filter(t => allTopics.has(t));
     const regimeRouteHints = [...new Set(topics.flatMap(t => t === "other" ? [] : ROUTE_HINTS[t]))];
