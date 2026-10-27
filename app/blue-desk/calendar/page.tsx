@@ -4,6 +4,9 @@ import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import EarningsWeekGrid from "@/components/blue-desk/EarningsWeekGrid";
+import CatalystCalendar from "@/components/blue-desk/CatalystCalendar";
+import { getBluebellyCatalystSources } from "@/lib/bluebelly-catalyst-sources";
+import { projectBluebellyCatalysts } from "@/lib/bluebelly-catalyst-calendar";
 import { MarketIcon } from "@/components/blue-desk/MarketIcon";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { getEconomicCalendar } from "@/lib/calendar";
@@ -16,7 +19,7 @@ import styles from "../blue-desk.module.css";
 export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Market Calendar | Blue Desk",
-  description: "Economic releases and earnings.",
+  description: "High-impact economics, Fed speakers, peace talks, earnings and major technology catalysts.",
 };
 
 type WindowName = "24h" | "7d" | "30d" | "released";
@@ -124,15 +127,18 @@ export default async function BlueDeskCalendarPage({
   const windowName: WindowName = raw === "24h" || raw === "7d" || raw === "released" ? raw : "30d";
   const now = new Date();
 
-  const [macroResult, earningsResult] = await Promise.allSettled([
+  const [macroResult, earningsResult, catalystResult] = await Promise.allSettled([
     getEconomicCalendar(),
     getForwardEarningsEvents({ now }),
+    getBluebellyCatalystSources({ now }),
   ]);
   const macro = macroResult.status === "fulfilled" ? macroResult.value : [];
   const earnings: ForwardEarningsResult = earningsResult.status === "fulfilled"
     ? earningsResult.value
     : { events: [], coverage: "unavailable", warning: "Earnings source could not be reached." };
   const calendar = buildPresenterCalendar(macro, earnings, now, macroResult.status === "rejected");
+  const radar = catalystResult.status === "fulfilled" ? catalystResult.value : {events:[],signals:[],coverage:[],warnings:["Catalyst monitoring sources unavailable."]};
+  const catalysts = projectBluebellyCatalysts(calendar.events, radar.events, radar.signals);
 
   const events = windowName === "24h"
     ? selectBlueDeskNext24Hours(calendar, now)
@@ -176,6 +182,12 @@ export default async function BlueDeskCalendarPage({
           </div>
         </section>
 
+        <CatalystCalendar items={catalysts} sourceCoverage={radar.coverage} nowISO={now.toISOString()} />
+
+        <details style={{ marginTop: 22, border: "1px solid #2d5267", borderRadius: 10, padding: "15px 18px", background: "#092637" }}>
+          <summary style={{ cursor: "pointer", color: "#bce8f5", fontWeight: 750 }}>
+            Detailed legacy economic and earnings source listings · open for full records
+          </summary>
         <nav className={styles.calendarTabs} aria-label="Calendar window">
           {WINDOWS.map(view => (
             <Link
@@ -266,6 +278,7 @@ export default async function BlueDeskCalendarPage({
             calendar coverage, not proof that no major companies are reporting.</p>}
         </section>
 
+        </details>
         <footer className={styles.footer}><span>Blue Desk</span></footer>
       </div>
     </main>
