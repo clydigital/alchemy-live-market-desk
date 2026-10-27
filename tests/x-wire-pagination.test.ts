@@ -95,6 +95,18 @@ test("strict lookback exhaustion succeeds before an unnecessary provider cursor 
  assert.equal(page.posts.length,1);
  assert.equal(page.nextCursor,"may-404");
 });
+
+test("small upstream timestamp inversions are tolerated, large pinned jumps are not",()=>{
+ const recent=sample({id:"2113177723749420002",created_at:"2026-10-23T05:20:00Z"});
+ const old=sample({id:"2113177723749420003",created_at:"2026-10-23T03:20:00Z"});
+ const swapped=sample({id:"2113177723749420004",created_at:"2026-10-23T03:20:30Z"});
+ const fakePinned=sample({id:"2113177723749420005",created_at:"2026-10-23T04:40:00Z"});
+ const page=(rows:unknown[])=>parseFxTimeline({code:200,results:rows,cursor:{bottom:"more"}},
+  "HFI_Research","2026-10-23T03:30:00Z",now);
+ assert.equal(page([recent,old,swapped]).reachedWindowStart,true);
+ assert.equal(page([recent,old,fakePinned]).reachedWindowStart,false);
+ assert.equal(page([recent,old,swapped]).posts.length,1);
+});
 test("spoofed, pinned and reposted old items never prove lookback coverage",()=>{
  const younger=sample({id:"2113177723749420002"});
  const older=sample({id:"2113177723749420003",created_at:"2026-10-23T03:20:00Z"});
