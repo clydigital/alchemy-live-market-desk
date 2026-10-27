@@ -1,11 +1,13 @@
 import { getXWireDurable } from "@/lib/x-wire-durable";
+import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import styles from "./x-wire.module.css";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const maxDuration = 60;
 export const metadata = {
-  title: "X Wire | Private Blue Desk",
+  title: "X Wire | Bluebelly",
+  robots: { index: false, follow: false },
   description: "Owner-only X source-attempt diagnostics and recent attributed leads.",
 };
 
@@ -19,9 +21,11 @@ function clock(value: string | null) {
 export default async function OwnerXWirePage() {
   const data = await getXWireDurable();
   return (
+    <>
+    <BlueDeskHeader activePath="/owner/x-wire" />
     <main className={styles.page} data-x-wire="private-durable-intake">
       <header className={styles.header}>
-        <p className={styles.eyebrow}>PRIVATE BLUE DESK / RESEARCH INPUTS</p>
+        <p className={styles.eyebrow}>BLUEBELLY / PRIVATE RESEARCH INPUTS</p>
         <h1>X Intelligence Wire</h1>
         <p>Recent attributed X posts from registered accounts. Discovery only, not verified market evidence.</p>
         <p className={styles.secondary}>FxEmbed public API · View generated {clock(data.retrievedAt)} · 2.5h normal lookback / 72h recovery cap · Storage {data.storageHealthy ? "connected" : "unavailable"}</p>
@@ -72,5 +76,6 @@ export default async function OwnerXWirePage() {
       </section>
       <footer className={styles.footer}>Opening this owner-only page may refresh the protected source cache and durable discovery queue when a lease is due. No Story, canonical evidence UUID, research schedule, or Notion research post is changed.</footer>
     </main>
+    </>
   );
 }
