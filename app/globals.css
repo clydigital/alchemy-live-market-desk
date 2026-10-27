@@ -780,3 +780,15 @@ button { font: inherit; }
   [data-print-local-draft] ul{padding-left:7mm;overflow-wrap:anywhere}
   @page{size:A4;margin:13mm}
 }
+
+
+/* Bluebelly typography foundation. Next's Figtree font is self-hosted and
+   available to public, private and legacy views from the root layout.
+   Do not alter evidence semantics or chart/price data in this stylesheet. */
+:root { --bb-font-sans: var(--font-figtree), Figtree, Inter, "Segoe UI", Arial, sans-serif;
+  --bb-status-ready: #9fe4c0; --bb-status-warn: #f4cd8b; --bb-status-risk: #f4a5af;
+  --bb-category-macro: #72d5e3; --bb-category-earnings: #baacfa;
+  --bb-category-diplomacy: #f6c47e; --bb-category-technology: #82baff; }
+html,body { font-family: var(--bb-font-sans); }
+button,input,select,textarea,option { font-family: var(--bb-font-sans); }
+svg text { font-family: var(--bb-font-sans); }
