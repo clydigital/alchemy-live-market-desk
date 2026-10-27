@@ -66,7 +66,7 @@
 }
 .intro h1{
   max-width:18ch;
-  font-family:Georgia,"Times New Roman",serif;
+  font-family:var(--bb-font-sans,Figtree,sans-serif);
   font-size:clamp(37px,5.4vw,67px);
   font-weight:600;line-height:1.06;letter-spacing:-.045em;
   margin:12px 0 20px;
@@ -76,7 +76,7 @@
 .summary{margin:22px 0 25px;gap:9px}
 .summary span{border-color:#234d61;background:#052435;border-radius:100px;padding:8px 13px}
 .section{margin-top:clamp(26px,4vw,48px)}
-.section h2{font-family:Georgia,"Times New Roman",serif;font-weight:600;
+.section h2{font-family:var(--bb-font-sans,Figtree,sans-serif);font-weight:600;
   letter-spacing:-.035em;font-size:clamp(28px,3vw,38px);margin-bottom:12px}
 .cards{gap:13px;margin-top:22px}
 .card{
@@ -86,7 +86,7 @@
   transition:border-color .15s ease;
 }
 .card:focus-within,.card:hover{border-color:#41809b}
-.card h3{font-family:Georgia,"Times New Roman",serif;font-size:clamp(21px,2.1vw,28px);
+.card h3{font-family:var(--bb-font-sans,Figtree,sans-serif);font-size:clamp(21px,2.1vw,28px);
   letter-spacing:-.028em;line-height:1.23;margin:13px 0}
 .storyIntro{
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;
