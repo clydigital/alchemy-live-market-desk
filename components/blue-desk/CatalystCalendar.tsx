@@ -163,7 +163,7 @@ export default function CatalystCalendar({items,sourceCoverage,nowISO}:{
         </div>}
         {(lane==="all" || lane==="ipo") ? <section className={styles.ipoPanel} id="ipo-watch" data-major-ipo-watch="source-qualified">
           <div className={styles.offCalendarHead}><div><strong>Major IPO watch</strong>
-            <p>Track filing stages, price-range announcements and eventual debuts. The dates in each status are past source milestones, not a scheduled IPO date.</p></div>
+            <p>Track filing stages, price-range announcements and eventual debuts. Dates refer to an original-source filing milestone or a labelled desk review, never an assumed IPO trading date.</p></div>
             <small>{ipos.length} tracked candidate{ipos.length===1?"":"s"}</small>
           </div>
           <div className={styles.leadTiles}>{ipos.length ? ipos.map(item=><EventTile key={item.id} item={item}
