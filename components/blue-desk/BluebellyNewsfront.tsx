@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { NewsBriefV1 } from "@/lib/market-brief-news";
 import type { PublicThesis } from "@/lib/blue-desk-thesis-ledger";
 import {groupPublicResearch, editorialNewsTopics} from "@/lib/bluebelly-editorial-architecture";
-import {editorialMotif} from "@/lib/bluebelly-editorial-visuals";
+import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import EditorialStoryArt from "./EditorialStoryArt";
 import DualTimestamp from "./DualTimestamp";
 import styles from "./bluebelly-newsfront.module.css";
@@ -45,7 +45,7 @@ export default function BluebellyNewsfront({news,theses,upcoming,host}:{
       <div><span className={styles.eyebrow}>THE BLUEBELLY DESK / TODAY</span>
       <h1>The stories driving the conversation.</h1>
       <p>News first, the financial consequences underneath, persistent research on the side.</p></div>
-      <Link href="/daily-report" className={styles.dailyQuick}>ONE SELECTIVE DAILY REPORT</Link>
+      <Link href={blueDeskPublicHref("/blue-desk/daily-report",host)} className={styles.dailyQuick}>ONE SELECTIVE DAILY REPORT</Link>
    </header>
    {leading.length?<div className={styles.heroGrid}>
      <StoryTile item={leading[0]} primary/>
