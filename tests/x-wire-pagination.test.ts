@@ -112,6 +112,14 @@ test("spoofed, pinned and reposted old items never prove lookback coverage",()=>
  }
  assert.equal(sorted.length,2);
 });
+
+test("persisted green source cannot stay healthy when its checkpoint is stale",()=>{
+ const source=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
+ assert.match(source,/HEALTH_COMPLETION_MAX_AGE_HOURS = 15/);
+ assert.match(source,/const stale=found\.health==="healthy"/);
+ assert.match(source,/found\.uncovered_before\|\|stale\?"partial"/);
+});
+
 test("ambiguous FxEmbed continuation 404 resets the poisoned cursor but retains a coverage gap",()=>{
  const source=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
  assert.match(source,/response\.status===404 && cursor/);
