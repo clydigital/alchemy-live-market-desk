@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import { ScopeStrip } from "@/components/blue-desk/EntityIdentity";
 import InvestorTest from "@/components/blue-desk/InvestorTest";
 import NewsroomLensExplorer from "@/components/blue-desk/NewsroomLensExplorer";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
@@ -96,6 +97,7 @@ export default async function KeyStories(){
           <article key={event.id} className={ui.calendarCard}>
             <p className={ui.kicker}>{event.kind.toUpperCase()} · {event.status}</p>
             <h3>{event.title}</h3>
+            <ScopeStrip assets={event.affectedAssets} max={4} />
             <p className={ui.catalystClock}>Scheduled <DualTimestamp value={event.scheduledAt} sourceDate={event.localDate}/></p>
             <p><strong>Why this matters to people:</strong> {calendarHumanStake(event.title)}</p>
             <p><strong>What investors need answered:</strong> {event.decidingQuestion}</p>
