@@ -25,3 +25,18 @@
 /* HTML-first edition layout: three independent report types. */
 @media(min-width:1120px){.driveItems,.focus{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .driveItems article a:focus-visible{outline:2px solid #9ceadf;outline-offset:4px}
+
+.editionTabs{display:flex;flex-wrap:wrap;gap:8px;margin:24px 0 18px}
+.editionTab,.editionTabSelected{display:flex;gap:8px;align-items:center;min-height:44px;padding:9px 13px;background:#0b3045;border:1px solid #396e83;border-radius:9px;color:#c8e2ed;text-decoration:none;font-size:12px;font-weight:750}
+.editionTabSelected{background:#1a5973;color:#fff;border-color:#83daed}
+.editionTabs small{font:10px ui-monospace,monospace;color:#a9c5d1}
+.libraryIntro{border-top:1px solid #35677a;padding:20px 0 7px}
+.libraryIntro h3{font-size:21px;color:#f3f9fb;margin:0 0 7px}
+.libraryIntro p{color:#c2dce5;font-size:13px;line-height:1.7}
+.editionType{font-size:10px;color:#85d6eb;letter-spacing:.08em;text-transform:uppercase;margin:0}
+.editionMeta{font-size:11px;color:#d1c3a5;line-height:1.6}
+.pagination{display:flex;align-items:center;flex-wrap:wrap;gap:15px;margin-top:22px;padding-top:15px;border-top:1px solid #326176;color:#b3d2dd;font-size:12px}
+.pagination span:first-child{margin-right:auto}
+.pagination a{border:1px solid #55879d;padding:8px 12px;border-radius:7px;color:#d2f5ff;font-weight:800}
+.editionTab:focus-visible,.editionTabSelected:focus-visible,.pagination a:focus-visible{outline:2px solid #9df1ee;outline-offset:4px}
+@media(max-width:760px){.editionTabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.editionTab,.editionTabSelected{justify-content:space-between}}

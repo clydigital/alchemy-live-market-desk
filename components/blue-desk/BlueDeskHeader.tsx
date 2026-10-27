@@ -13,7 +13,6 @@ const PRIVATE_NAV = [
   ["Key Stories", "/blue-desk/key-stories"],
   ["Markets", "/markets"],
   ["My Desk", "/my-reports"],
-  ["Writing Desk", "/owner/editorial"],
   ["Research Library", "/owner/research"],
   ["Calendar", "/blue-desk/calendar"],
 ] as const;
@@ -50,7 +49,6 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "My Daily Report": "library",
   "My Reports": "library",
   "My Desk": "library",
-  "Writing Desk": "deep-dive",
   "Calendar + Earnings": "calendar",
   "Publish Reports": "library",
   "Private Daily Articles": "deep-dive",
