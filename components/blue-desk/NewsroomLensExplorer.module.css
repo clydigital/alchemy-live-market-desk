@@ -5,7 +5,7 @@
   background: linear-gradient(145deg, #062b43, #011b2d 70%);
   border: 1px solid #285a77;
   border-radius: 12px;
-  font-family: Figtree, Inter, "Segoe UI", Arial, sans-serif;
+  font-family:var(--bluebelly-font);
 }
 .shell * { box-sizing: border-box; }
 .heading { display: flex; align-items: start; justify-content: space-between; gap: 25px; }
