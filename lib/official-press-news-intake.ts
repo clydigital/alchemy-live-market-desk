@@ -32,6 +32,20 @@ export const OFFICIAL_PRESS_FEEDS = [
     path: /^\/news\/[a-z0-9-]+\/?$/i,
     publisher: "NVIDIA Newsroom",
   },
+  {
+    name:"Broadcom investor news releases",
+    feed:"https://investors.broadcom.com/rss/news-releases.xml",
+    host:"investors.broadcom.com",
+    path:/^\/news-releases\/news-release-details\/[a-z0-9-]+\/?$/i,
+    publisher:"Broadcom Investor Relations",
+  },
+  {
+    name:"Meta investor press releases",
+    feed:"https://investor.atmeta.com/rss/pressrelease.aspx",
+    host:"investor.atmeta.com",
+    path:/^\/investor-news\/press-release-details\/[0-9]{4}\/[a-z0-9-]+\/default\.aspx$/i,
+    publisher:"Meta Investor Relations",
+  },
 ] as const;
 
 const WINDOW_MS = 36 * 60 * 60_000;
@@ -94,6 +108,9 @@ function recent(iso: string, now: Date) {
 export function materiallyActionableOfficialHeadline(feed: Feed, headline: string) {
   if (feed.host === "www.federalreserve.gov") return /\b(?:federal reserve|fomc|federal open market|monetary policy|federal funds|discount rate|balance sheet|policy rate)\b/i.test(headline)
     && /\b(?:announces?|issues?|releases?|statement|decision|raises?|cuts?|maintains?|approves?|updates?|votes?)\b/i.test(headline);
+  if (feed.host === "investors.broadcom.com"||feed.host === "investor.atmeta.com")
+    return /\b(?:announces?|reports?|prices?|files?|launches?|raises?|upsizes?|revises?|acquires?|agrees?|secures?|appoints?|enters?|completes?)\b/i.test(headline)
+      && /\b(?:earnings|revenue|guidance|dividend|offering|convertible|financing|capital|equity|stock|shares?|acquisition|merger|investment|chips?|ai|infrastructure|capex|cash|debt|credit|funding|buyback|sec)\b/i.test(headline);
   if (feed.host === "nvidianews.nvidia.com") return /\b(?:announces?|reports?|expands?|signs?|secures?|raises?|lowers?|revises?|commits?|introduces?|acquires?|partners?|launches?)\b/i.test(headline)
     && /\b(?:earnings|revenue|profits?|margin|guidance|capital expenditure|capex|investment|contract|partnership|data.center|ai factor(?:y|ies)|infrastructure|capacity|supply|semiconductor|gpu|hbm)\b/i.test(headline);
   return /\b(?:approves?|adopts?|proposes?|finaliz(?:e|es)|rescind(?:s)?|amends?|authoriz(?:e|es)|issues?)\b/i.test(headline)

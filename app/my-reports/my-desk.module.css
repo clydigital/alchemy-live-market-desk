@@ -40,3 +40,14 @@
 .pagination a{border:1px solid #55879d;padding:8px 12px;border-radius:7px;color:#d2f5ff;font-weight:800}
 .editionTab:focus-visible,.editionTabSelected:focus-visible,.pagination a:focus-visible{outline:2px solid #9df1ee;outline-offset:4px}
 @media(max-width:760px){.editionTabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.editionTab,.editionTabSelected{justify-content:space-between}}
+
+/* Read-only material-story recall: never imply creator/X reports are verified. */
+.recallList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0}
+.recallList article{border-radius:10px;border:1px solid #406b7c;background:#082d40;padding:15px;display:flex;flex-direction:column;gap:10px}
+.recallTop{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.recallTop strong{font-size:14px;color:#eef7fa;line-height:1.4;flex:1}
+.recallTop span{font-size:9px;letter-spacing:.06em;color:#bde4ef;background:#14445a;border:1px solid #527d8b;border-radius:6px;padding:5px}
+.recallList p{font-size:12px;color:#c0d7e2;line-height:1.6;margin:0}
+.recallList small{font-size:11px;color:#a7c4d4;line-height:1.5}
+.recallList a{font-size:12px;color:#9ce4fb;text-underline-offset:3px;font-weight:750}
+@media(max-width:750px){.recallList{grid-template-columns:1fr}}
