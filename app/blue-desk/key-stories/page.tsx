@@ -15,6 +15,7 @@ import { getPublicThesisLedger } from "@/lib/blue-desk-thesis-ledger-server";
 import {orderStoriesByLatestMotion} from "@/lib/blue-desk-thesis-ledger";
 import {classifyPublicStory,PUBLIC_STORY_CATEGORIES} from "@/lib/blue-desk-story-categories";
 import StoryEditorialArticle from "@/components/blue-desk/StoryEditorialArticle";
+import VerifiedCatalystArticle from "@/components/blue-desk/VerifiedCatalystArticle";
 import {selectFlagshipInvestorTest} from "@/lib/blue-desk-investor-test";
 import {getStoryMotionRecency} from "@/lib/blue-desk-story-motion-recency-server";
 import { getPublicSourceObservations } from "@/lib/blue-desk-source-observations";
@@ -32,7 +33,7 @@ export const metadata = {
   description: "Dated market catalysts explained in human terms, upcoming company decisions and historical Story context.",
 };
 
-export default async function KeyStories({searchParams}:{searchParams?:Promise<{story?:string;category?:string}>}){
+export default async function KeyStories({searchParams}:{searchParams?:Promise<{story?:string;category?:string;catalyst?:string}>}){
   const params=await searchParams;
   const now = new Date();
   const host = (await headers()).get("host");
@@ -72,6 +73,24 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
   const motionNews = selectVerifiedNewsBriefs(raw, now, 18);
   const news = combineQualifiedNews(motionNews,originalPress,18);
   const topics = projectLivingMarketTopics(news);
+  // The dated event explainer is rolling public news, not a thesis revision.
+  const catalystId=typeof params?.catalyst==="string"&&/^[a-z0-9-]{1,80}$/.test(params.catalyst)
+    ?params.catalyst:null;
+  if(catalystId){
+    const selected=topics.find(topic=>topic.id===catalystId);
+    return <main className={desk.page} data-bluebelly-stories="verified-catalyst-reading-mode">
+      <BlueDeskHeader activePath="/blue-desk/key-stories"/>
+      <div className={desk.content}>
+        {selected?<VerifiedCatalystArticle topic={selected} backHref={indexHref}/>:
+          <section className={ui.empty} data-catalyst-unavailable="true">
+            <h1>Verified event coverage unavailable</h1>
+            <p>The requested event theme is not in the current source-verified news window.
+              Historical Story research remains separate from fresh news.</p>
+            <Link href={indexHref}>Return to Key Stories</Link>
+          </section>}
+      </div>
+    </main>;
+  }
   const calendar=buildPresenterCalendar(macro,earnings,now);
   const upcoming=selectBlueDeskUpcoming(calendar,now).slice(0,5);
   // A missing verified-news feed should promote genuinely sourced upcoming events,
@@ -87,7 +106,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
             const lead=topic.updates[0];
             return <article className={ui.catalystCard} key={topic.id} id={topic.id}>
               <p className={ui.kicker}>REPORTED CATALYST · {topic.title.toUpperCase()}</p>
-              <h3>{lead.headline}</h3>
+              <h3><Link href={indexHref+"?catalyst="+encodeURIComponent(topic.id)}>{lead.headline}</Link></h3>
               <p className={ui.catalystFact}>{lead.summary}</p>
               <p className={ui.catalystClock}>Event <DualTimestamp value={lead.occurredAt}/></p>
               <div className={ui.humanStakes}>
@@ -96,6 +115,9 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
               </div>
               <p className={ui.catalystMechanism}><strong>How it could move markets:</strong> {topic.marketMechanism}</p>
               <p className={ui.catalystQuestion}><strong>The investor's next question:</strong> {topic.guidingQuestion}</p>
+              <p><Link className={ui.storyRead} href={indexHref+"?catalyst="+encodeURIComponent(topic.id)}>
+                Read the dated event sequence and what comes next →
+              </Link></p>
               <a href={lead.sourceUrl} rel="noopener noreferrer" target="_blank">
                 {lead.sourceName} · original dated report
               </a>
