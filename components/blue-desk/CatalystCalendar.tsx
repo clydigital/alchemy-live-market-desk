@@ -107,7 +107,10 @@ export default function CatalystCalendar({items,sourceCoverage,nowISO}:{
   const scheduled=filtered.filter(item=>item.date&&week.some(day=>day.day===dayInZone(item,zone)));
   const leads=filtered.filter(item=>item.signalOnly).slice(0,12);
   const details=filtered.find(item=>item.id===selectedId)||scheduled[0]||leads[0]||null;
-  const sourceBlocked=sourceCoverage.filter(s=>s.state!=="checked");
+  const unavailable=sourceCoverage.filter(s=>s.state==="unavailable");
+  const notConfigured=sourceCoverage.filter(s=>s.state==="not_configured");
+  const stale=sourceCoverage.filter(s=>s.state==="stale");
+  const sourceBlocked=[...unavailable,...stale,...notConfigured];
   const weekend=week.slice(5);
   const counts={all:items.length,macro:items.filter(x=>x.lane==="macro").length,
     fed:items.filter(x=>x.lane==="fed").length,diplomacy:items.filter(x=>x.lane==="diplomacy").length,
@@ -147,7 +150,7 @@ export default function CatalystCalendar({items,sourceCoverage,nowISO}:{
     <div className={styles.overview}>
       <span><strong>{scheduled.length}</strong> dated this week</span>
       <span><strong>{leads.length}</strong> off-calendar leads</span>
-      <span><strong>{sourceBlocked.length}</strong> sources incomplete</span>
+      <span><strong>{unavailable.length+stale.length}</strong> feeds needing review</span>
       <span className={styles.overviewNote}>Monday–Sunday · UTC default · missing times stay unknown</span>
     </div>
     <div className={styles.contentGrid}>
@@ -181,7 +184,7 @@ export default function CatalystCalendar({items,sourceCoverage,nowISO}:{
       <EventDetail item={details} zone={zone}/>
     </div>
     <div className={styles.coverage}>Source coverage: {sourceBlocked.length
-      ? sourceBlocked.slice(0,3).map(s=>s.name+" unavailable").join(" · ")+" · check sources before assuming no events"
-      : "Official event sources checked. Publication and event timing remain separate."}</div>
+      ? sourceBlocked.slice(0,5).map(s=>s.name+" — "+(s.state==="not_configured"?"not configured":s.state==="stale"?"stale":"unavailable")).join(" · ")+" · missing source coverage does not mean no events"
+      : "Configured official event sources checked. Publication and event timing remain separate."}</div>
   </section>;
 }
