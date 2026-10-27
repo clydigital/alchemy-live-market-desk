@@ -45,9 +45,6 @@
 .typeLabel{font-size:9px;font-weight:850;color:#daf2fb;overflow-wrap:anywhere;line-height:1.2}
 .certainty{font-size:8px;color:#a6c5d4;white-space:nowrap}
 .tileMid{display:flex;gap:8px;align-items:start}
-.companyMark,.countryBall{flex:0 0 30px;width:30px;height:30px;display:grid;place-items:center;border-radius:9px;background:#184863;border:1px solid #4b7790;font-weight:800;font-size:10px;color:#f4fbfe;overflow:hidden}
-.companyMark img{object-fit:contain;max-width:25px;max-height:25px}
-.countryBall{border-radius:50%;font-size:20px;background:radial-gradient(circle at 27% 25%,#335c6d,#102d3a);border-color:#50778c}
 .nameBlock{display:block;min-width:0;flex:1}
 .nameBlock strong{display:block;font-size:12px;font-weight:780;line-height:1.35;overflow-wrap:anywhere}
 .nameBlock>span{display:block;color:#a6c7d6;font-size:10px;margin-top:5px}
