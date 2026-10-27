@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import EarningsWeekGrid from "@/components/blue-desk/EarningsWeekGrid";
 import { MarketIcon } from "@/components/blue-desk/MarketIcon";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { getEconomicCalendar } from "@/lib/calendar";
@@ -229,6 +230,8 @@ export default async function BlueDeskCalendarPage({
             <span>{earningsWeek.length} this week · {earningsLater.length} later</span>
             <span>Earnings coverage: {calendar.sourceHealth.earnings.replaceAll("_", " ")}</span>
           </div>
+          {earningsWeek.length ? <EarningsWeekGrid records={earningsWeek} now={now} /> : null}
+          {earningsGroups.length ? <h3>Detailed earnings listings and source records</h3> : null}
           {earningsGroups.length ? earningsGroups.map(group => (
             <section key={group.id} aria-label={group.title} data-earnings-window={group.id}>
               <h3>{group.title}</h3>

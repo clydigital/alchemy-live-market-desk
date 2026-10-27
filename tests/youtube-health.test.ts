@@ -10,11 +10,13 @@ test("production discovery uses only the fixed creator universe and active FX Ev
     "wall-street-truth-bombs",
     "fx-evolution",
     "tradernick",
+    "casual-finance",
   ]);
   assert.equal(
     XWADA_VIDEO_CHANNELS.find((channel) => channel.key === "fx-evolution")?.handle,
     "@fxevolutionvideo",
   );
+  assert.equal(XWADA_VIDEO_CHANNELS.find((ch) => ch.key === "casual-finance")?.handle, "@casuallyfinance");
 });
 
 test("a latest YouTube discovery failure cannot be hidden by other successful channels", () => {
