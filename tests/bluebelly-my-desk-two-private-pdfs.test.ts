@@ -12,6 +12,13 @@ test("the existing My Desk private route leads with the two permitted PDF output
  assert.match(page,/<OwnerAutomaticReportReader\/>/);
  assert.match(page,/<OwnerEditorialSlatePdfReader\/>/);
  assert.match(page,/data-my-desk-technical="collapsed-by-default"/);
+ assert.match(page,/data-drive-archive="kqdocuments88-private"/);
+ assert.match(page,/drive.google.com\/drive\/folders\/19r-RATOo0vn89FDzs4UZBptPpm1Z9w5L/);
+ assert.match(page,/drive.google.com\/file\/d\/1vrlz5BO25HNTDFsftQQNb_Q0wsysRhhm/);
+ assert.match(page,/drive.google.com\/file\/d\/1eXurYRfogx7M88BRvpo8KZF6ycfh-8Ao/);
+ assert.match(page,/docs.google.com\/document\/d\/12ZTqOZn86wxuInqfscBAnDS3-u63ONPcKh-VsDxRfME/);
+ assert.match(page,/docs.google.com\/document\/d\/1bFDxSyT8gSfwEiztfNHQZXL-8bCl8XQEd07jHV3Ksqc/);
+ assert.match(page,/dated links are the 27 October pilot/);
  assert.match(page,/<OwnerPrivatePdfInputHealth\/>/);
  assert.doesNotMatch(page,/Poster|new Date\(|generateContent|createSupabaseAdminClient/);
 });
