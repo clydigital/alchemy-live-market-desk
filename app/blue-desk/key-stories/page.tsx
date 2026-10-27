@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { EntityChip, EntityScopeStrip } from "@/components/blue-desk/EntityIdentity";
+import { identityForCalendar, identityForSymbol } from "@/lib/bluebelly-entity-identity";
 import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import InvestorTest from "@/components/blue-desk/InvestorTest";
@@ -95,6 +97,8 @@ export default async function KeyStories(){
         {upcoming.length ? <div className={ui.calendarStrip}>{upcoming.map(event=>
           <article key={event.id} className={ui.calendarCard}>
             <p className={ui.kicker}>{event.kind.toUpperCase()} · {event.status}</p>
+            <EntityScopeStrip label="EXPOSED MARKETS" entities={event.affectedAssets.map(identityForSymbol)} limit={4}/>
+            <div><EntityChip entity={identityForCalendar(event.kind,event.affectedAssets,event.sourceName)} tone={event.kind==="earnings"?"earnings":"macro"}/></div>
             <h3>{event.title}</h3>
             <p className={ui.catalystClock}>Scheduled <DualTimestamp value={event.scheduledAt} sourceDate={event.localDate}/></p>
             <p><strong>Why this matters to people:</strong> {calendarHumanStake(event.title)}</p>
