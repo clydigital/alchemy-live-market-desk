@@ -11,7 +11,8 @@ type Feed = { name:string; url:string; host:string; lane:CatalystLane; ticker?:s
 export const CATALYST_OFFICIAL_FEEDS:readonly Feed[] = [
   {name:"Apple Newsroom",url:"https://www.apple.com/newsroom/rss-feed.rss",host:"www.apple.com",lane:"technology",ticker:"AAPL",test:/\b(launch|unveil|introduc|announce|ai|event|keynote|mac|iphone|chip)\b/i},
   {name:"NVIDIA Newsroom",url:"https://nvidianews.nvidia.com/cats/press_release.xml",host:"nvidianews.nvidia.com",lane:"technology",ticker:"NVDA",test:/\b(ai|gtc|keynote|product|introduc|reveal|chip|infrastructure|partnership|launch)\b/i},
-  {name:"White House statements",url:"https://www.whitehouse.gov/feed/",host:"www.whitehouse.gov",lane:"diplomacy",test:/\b(peace|ceasefire|truce|negotiat|talks|mediati|agreement|summit|sanctions relief|de.escalat)\b/i},
+  {name:"White House statements",url:"https://www.whitehouse.gov/briefings-statements/feed/",host:"www.whitehouse.gov",lane:"diplomacy",test:/\b(peace|ceasefire|truce|negotiat|talks|mediati|agreement|summit|sanctions relief|de.escalat)\b/i},
+  {name:"Federal Reserve speeches published",url:"https://www.federalreserve.gov/feeds/speeches.xml",host:"www.federalreserve.gov",lane:"fed",test:/\b(?:bowman|waller|cook|jefferson|warsh|barr|fed(?:eral reserve)?|monetary|policy|inflation|economy|supervision|rates|employment|bank)\b/i},
   {name:"UN News",url:"https://news.un.org/feed/subscribe/en/news/all/rss.xml",host:"news.un.org",lane:"diplomacy",test:/\b(peace|ceasefire|truce|negotiat|peace talks|mediat|deal|summit|de.escalat)\b/i},
 ];
 function publisherLink(url:string,host:string) {
