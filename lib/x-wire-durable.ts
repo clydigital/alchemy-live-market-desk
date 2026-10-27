@@ -163,13 +163,15 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
       // KobeissiLetter had 15 genuine posts but was labelled UNAVAILABLE.
       // Neither state is success; never advance last_completed_at.
       const hadPartialData=fetched>0;
+      const invalidCursor=message==="Repeated pagination cursor";
       await finish(db,handle,token,{...gapMarker,
-        health:hadPartialData?"partial":
+        ...(invalidCursor?{uncovered_before:missingBefore||window.startAt}:{}),
+        health:invalidCursor||hadPartialData?"partial":
           message.startsWith("HTTP 429")||message.startsWith("HTTP 403")?"blocked":"unavailable",
         last_error:message,
-        page_cursor:hadPartialData?cursor:claim.resume_cursor,
-        window_start_at:hadPartialData?window.startAt:claim.resume_start_at,
-        next_attempt_at:plus(now,hadPartialData?5:30),last_fetched:fetched});
+        page_cursor:invalidCursor?null:hadPartialData?cursor:claim.resume_cursor,
+        window_start_at:invalidCursor?null:hadPartialData?window.startAt:claim.resume_start_at,
+        next_attempt_at:plus(now,invalidCursor||hadPartialData?5:30),last_fetched:fetched});
     } catch{ /* Preserve the original lease and unfinished cursor; never pretend success */ }
   }
 }
