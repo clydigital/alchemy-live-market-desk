@@ -75,7 +75,7 @@ test("My Desk is one owner entry, not a new page or five more public navigation 
  const workbench=read("components/blue-desk/EditorialWorkbench.tsx");
  assert.match(header,/href="\/my-reports" className=\{styles\.navItem\}/);
  assert.match(header,/activePath === "\/my-reports"/);
- assert.match(header,/\["My Reports", "\/my-reports"\]/);
+ assert.match(header,/\["My Desk", "\/my-reports"\]/);
  const nav=header.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0]||"";
  assert.ok(!nav.includes("/owner/"));
  assert.ok(!nav.includes("/my-reports"));
