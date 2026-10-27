@@ -19,6 +19,13 @@ export type CreatorTranscriptVideo = {
   transcriptRetrievedAt?: string | null;
   transcriptProvider?: string | null;
   transcriptSha256?: string | null;
+  // Original provider transcript segments; used only to prove real citation
+  // times. Segments are not exposed in public model output/source ledgers.
+  transcriptSegments?: readonly {
+    text: string;
+    startSeconds: number;
+    endSeconds: number;
+  }[];
 };
 
 export type CreatorSourceClaim = {
@@ -179,6 +186,26 @@ export function prepareCreatorStory(input: CreatorStoryInput): PreparedCreatorSt
     typeof v.transcriptText==="string" && v.transcriptText.trim().length>=60 &&
     v.transcriptText.length<=1_000_000 &&
     !!v.transcriptRetrievedAt && validTime(v.transcriptRetrievedAt,cutoff));
+  // Trust the transcript itself for words; timecodes must be backed by the
+  // provider's exact segments (not an arbitrary matching line elsewhere).
+  for(const v of consumed){
+    if(v.transcriptSegments===undefined)continue;
+    if(!Array.isArray(v.transcriptSegments)||v.transcriptSegments.length>5000)
+      throw Error("INVALID_TRANSCRIPT_SEGMENTS");
+    let priorStart=-1;
+    for(const segment of v.transcriptSegments){
+      if(!segment||typeof segment!=="object"||
+        !validText(segment.text,1,2000)||
+        !v.transcriptText!.includes(segment.text)||
+        !Number.isFinite(segment.startSeconds)||
+        !Number.isFinite(segment.endSeconds)||
+        segment.startSeconds<0||segment.startSeconds>86400||
+        segment.endSeconds<segment.startSeconds||segment.endSeconds>86400||
+        segment.startSeconds<priorStart)
+        throw Error("INVALID_TRANSCRIPT_SEGMENTS");
+      priorStart=segment.startSeconds;
+    }
+  }
   const acceptedIds=new Set(consumed.map(v=>v.videoId));
   const claims=new Map<string,CreatorSourceClaim>();
   for(const claim of input.claims){
@@ -187,7 +214,9 @@ export function prepareCreatorStory(input: CreatorStoryInput): PreparedCreatorSt
       !validId(claim.threadId)||!validText(claim.assertion,12,1000)||
       !validText(claim.transcriptExcerpt,12,1000)||
       !(claim.transcriptSeconds===null ||
-        (Number.isInteger(claim.transcriptSeconds)&&claim.transcriptSeconds>=0)))
+        (typeof claim.transcriptSeconds==="number" &&
+         Number.isFinite(claim.transcriptSeconds)&&
+         claim.transcriptSeconds>=0&&claim.transcriptSeconds<=86400)))
       throw Error("INVALID_CREATOR_CLAIM");
     claims.set(claim.claimId,claim);
   }
@@ -198,6 +227,11 @@ export function prepareCreatorStory(input: CreatorStoryInput): PreparedCreatorSt
     const source=videos.get(c.videoId)!;
     if(!source.transcriptText!.includes(c.transcriptExcerpt))
       throw Error("CLAIM_EXCERPT_NOT_IN_TRANSCRIPT");
+    if(c.transcriptSeconds!==null &&
+      !source.transcriptSegments?.some(segment=>
+        segment.startSeconds===c.transcriptSeconds &&
+        segment.text.includes(c.transcriptExcerpt)))
+      throw Error("UNATTESTED_TRANSCRIPT_TIMECODE");
   }
   if(eligible.length===0)return null;
   const orderClaim=(a:CreatorSourceClaim,b:CreatorSourceClaim)=>{
@@ -377,7 +411,7 @@ export function renderCreatorStoryMarkdown(draft: CreatorStoryDraft): string {
     if(!claim||!source)throw Error("CREATOR_STORY_SOURCE_LEDGER_INCOMPLETE");
     const url=new URL(source.url);
     if(claim.transcriptSeconds!==null)
-      url.searchParams.set("t",String(claim.transcriptSeconds)+"s");
+      url.searchParams.set("t",String(Math.floor(claim.transcriptSeconds))+"s");
     return "["+id+"]("+url.toString()+")";
   }).join(", ");
   const lines=[
