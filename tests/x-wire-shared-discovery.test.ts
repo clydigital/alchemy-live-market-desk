@@ -52,7 +52,7 @@ test("market-catalyst ranking covers Hormuz and yields, with social claims never
 test("dedupe and bounded account and category diversification remain enforceable",()=>{
  const posts=Array.from({length:30},(_,i)=>source("KobeissiLetter",i+10,
  "Treasury yields and Fed rate decision could affect markets."));
- const ranked=rankXWireMarketCandidates([...posts,...posts[0]] as never,now,100);
+ const ranked=rankXWireMarketCandidates([...posts,posts[0]] as never,now,100);
  assert.ok(ranked.length<=3);
  assert.equal(new Set(ranked.map(x=>x.post.id)).size,ranked.length);
 });
