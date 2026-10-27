@@ -9,8 +9,12 @@ import type {IntakeItemInput,ResearchRunInput} from "./research-update.ts";
  * an explicit wider source adapter, not a claim that this watches all EDGAR. */
 export const PRIORITY_EDGAR_ISSUERS=[
  {cik:"0002130357",name:"Anthropic, PBC",forms:["S-1","F-1"]},
+ {cik:"0001318605",name:"Tesla, Inc.",forms:["8-K","S-1","F-1"]},
+ {cik:"0001326801",name:"Meta Platforms, Inc.",forms:["8-K","S-1","F-1"]},
+ {cik:"0001730168",name:"Broadcom Inc.",forms:["8-K","S-1","F-1"]},
+ {cik:"0001045810",name:"NVIDIA Corp",forms:["8-K","S-1","F-1"]},
 ] as const;
-const AGE_MS=48*60*60_000;
+const AGE_MS=72*60*60_000;
 const USER_AGENT=/^[^\r\n]{12,200}$/;
 const ACCESSION=/^\d{10}-\d{2}-\d{6}$/;
 type FetchLike=typeof fetch;
@@ -76,6 +80,9 @@ export async function applyMaterialSecProspectusIntake(
    let admitted=0;
    for(const filing of parsed.filings.slice(0,30)){
     if(!issuer.forms.some(f=>f===filing.form))continue;
+    // Not all 8-Ks represent consequential deals: require specified item codes.
+    const itemCodes=(filing.items||"").split(",").map(x=>x.trim());
+    if(filing.form==="8-K"&&!itemCodes.some(x=>["1.01","2.01","5.01"].includes(x)))continue;
     const iso=etAcceptedToUtc(filing.acceptanceDateTime);
     const timestamp=iso?Date.parse(iso):NaN;
     if(!Number.isFinite(timestamp)||timestamp>now.getTime()||
@@ -90,25 +97,28 @@ export async function applyMaterialSecProspectusIntake(
        (detail.url&&detail.url!==url))continue;
     const html=(await detail.text()).slice(0,250_000);
     if(!matchingOfficialIndex(html,filing.accessionNumber,filing.form))continue;
-    const title=issuer.name+" filed Form "+filing.form+" with the SEC";
+    const title=issuer.name+" filed Form "+filing.form+" with the SEC"+
+      (filing.form==="8-K"?" (item codes "+itemCodes.filter(x=>["1.01","2.01","5.01"].includes(x)).join(", ")+")":"");
     adds.push({
       itemKey:"official-edgar:"+createHash("sha256").update(url).digest("hex").slice(0,24),
       itemType:"news",publisher:"U.S. Securities and Exchange Commission",
       title,url,publishedAt:iso!,summary:title,
-      sourceQuality:95,relevance:92,novelty:95,materiality:90,
+      sourceQuality:95,relevance:92,novelty:90,materiality:filing.form==="8-K"?84:90,
       recommendedAction:"collect_evidence",
-      newsSignal:"Original SEC filing became public; offering terms, effectiveness, IPO cash and market-price response are not established.",
+      newsSignal:filing.form==="8-K"?
+        "Original SEC 8-K with qualifying item codes; deal completion and market-price response NOT established.":
+        "Original SEC registration became public; offering effectiveness, IPO cash and price response NOT established.",
       evidence:[{title,url,publisher:"U.S. Securities and Exchange Commission",publishedAt:iso!,claim:title}],
-      reviewReason:"SEC submissions accession, form, issuer and acceptance clock cross-checked against original SEC filing detail HTML. Filing observation only; IPO completion and price reaction NOT verified."
+      reviewReason:"SEC submissions accession, form, issuer and acceptance clock cross-checked against original SEC filing detail HTML. Filing existence only; deal completion and price reaction NOT verified."
     });
     originals.add(url);admitted++;
     if(admitted>=2||input.items.length+adds.length>=250)break;
    }
-   states.push(issuer.name+":"+(admitted?"new="+admitted:"no_fresh_verified_prospectus"));
+   states.push(issuer.name+":"+(admitted?"new="+admitted:"no_recent_verified_qualifying_filing"));
   }catch{states.push(issuer.name+":source_unavailable");}
  }
  return {...input,items:[...input.items,...adds],summary:
    ((input.summary||"")+" SEC IPO filing discovery: "+states.join(" | ")+
-    ". Original EDGAR filing confirms filing identity only; no IPO or market move inferred.").slice(0,6000)};
+    ". Original SEC filing confirms filing identity only; no completed deal or price move inferred.").slice(0,6000)};
 }
 export {etAcceptedToUtc};
