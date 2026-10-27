@@ -5,6 +5,7 @@ import { marketEventFromRow, type MarketEventRow } from "./market-event-persiste
 import { intelligenceRest } from "./intelligence/supabase.ts";
 import type { MarketEventV1 } from "./market-events.ts";
 import type { OfficialSignal, CatalystLane } from "./bluebelly-catalyst-calendar.ts";
+import { isMaterialCatalystHeadline } from "./bluebelly-catalyst-headline-policy.ts";
 
 type Feed = { name:string; url:string; host:string; lane:CatalystLane; ticker?:string; test:RegExp };
 /** Original-publisher feeds. These are discovery leads, NOT confirmed appointments. */
@@ -27,7 +28,7 @@ export function classifyOfficialSignal(
 ):OfficialSignal|null {
   const url=publisherLink(item.url,feed.host),at=Date.parse(item.publishedAt);
   if(!url || !Number.isFinite(at) || at>now.getTime()+300_000 || at<now.getTime()-7*86_400_000) return null;
-  if(!feed.test.test(item.title)) return null;
+  if(!feed.test.test(item.title) || !isMaterialCatalystHeadline(feed.lane==="technology"?"technology":feed.lane==="diplomacy"?"diplomacy":"fed",item.title)) return null;
   return {id:feed.name+":"+url,title:item.title,sourceUrl:url,sourceName:feed.name,
     publishedAt:item.publishedAt,lane:feed.lane,ticker:feed.ticker};
 }
