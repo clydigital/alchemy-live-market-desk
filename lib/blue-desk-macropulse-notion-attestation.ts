@@ -36,7 +36,7 @@ export async function attestMacroPulseNotionSource(
  if(!/^20\d\d-\d\d-\d\d$/.test(pulseDay))return null;
  const api=async(path:string):Promise<Json>=>{
   const controller=new AbortController();
-  const timeout=setTimeout(()=>controller.abort(),9000);
+  const timeout=setTimeout(()=>controller.abort(),3500);
   try{
    const res=await fetcher(NOTION_API+path,{
     method:"GET",cache:"no-store",signal:controller.signal,
@@ -98,7 +98,11 @@ export async function attestMacroPulseNotionSource(
  }
  if(!complete||!text.includes(digest.sourcePulseId))return null;
  if(!digest.sourceLinks.every(link=>linkSet.has(new URL(link.url).href)))return null;
+ // Capture retrieval AFTER all bounded Notion block reads, not before them.
+ // Combined worst-case request timeout remains below the receiver's 30s cap.
+ const retrieved=clock().getTime();
+ if(!Number.isFinite(retrieved)||retrieved<t||retrieved>t+30000)return null;
  return {sourceCreatedAt:new Date(created).toISOString(),
   sourceLastEditedAt:new Date(edited).toISOString(),
-  retrievedAt:new Date(t).toISOString()};
+  retrievedAt:new Date(retrieved).toISOString()};
 }
