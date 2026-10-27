@@ -10,6 +10,8 @@ import {parseExternalResearch,chatResearchTransferPrompt} from "@/lib/editorial-
 import { mergeInvestigationIntoDraftPacket, type InvestigationResult } from "@/lib/editorial-investigation";
 import { editorialGuidingQuestions } from "@/lib/editorial-question-guide";
 import styles from "./editorial-studio.module.css";
+import { EntityRow } from "./EntityIdentity";
+import { entityForAsset } from "@/lib/bluebelly-entity-identity";
 
 type Kind = "COTD" | "OB";
 type Draft = {
@@ -524,6 +526,7 @@ function PriceContext({card,readError}:{
     "Market monitor unavailable; historical returns UNKNOWN.":"Select a market to inspect dated price context."}</p>;
   return <div className={styles.price}>
     <p className={styles.kicker}>{card.status} · {card.lastDate||"UNDATED"}</p>
+    <EntityRow identity={entityForAsset(card.symbol) || {kind:"asset",code:card.symbol}} title={card.label} subtitle={card.symbol} />
     <strong>{card.lastClose===null?"UNKNOWN":card.lastClose.toLocaleString("en-GB",{maximumFractionDigits:3})}
       <span>{card.levelUnit}</span></strong>
     <p className={styles.small}>Source: {card.source}
