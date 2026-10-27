@@ -10,8 +10,8 @@ import type {ResearchRunInput} from "../lib/research-update.ts";
 const now=new Date("2026-10-28T00:00:00Z");
 const source=(handle:string,id:number,text:string,time="2026-10-27T23:05:00Z",
  status="discovery")=>({
- id:String(2115210000000000000n+BigInt(id)),
- handle,url:"https://x.com/"+handle+"/status/"+String(2115210000000000000n+BigInt(id)),
+ id:"211521000000000"+String(id).padStart(4,"0"),
+ handle,url:"https://x.com/"+handle+"/status/"+"211521000000000"+String(id).padStart(4,"0"),
  publishedAt:time,text,images:[],quoteUrl:null,attribution:"THIRD_PARTY_ONLY",intakeStatus:status
 });
 const run:ResearchRunInput={runKey:"xwire-market",scheduleSlot:"morning",
