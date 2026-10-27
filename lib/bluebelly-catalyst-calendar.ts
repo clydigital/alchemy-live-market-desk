@@ -30,7 +30,8 @@ function validUrl(value: string) {
 }
 function dateKey(value: string | null | undefined) {
   const day = value?.slice(0, 10) || "";
-  return /^\d{4}-\d{2}-\d{2}$/.test(day) && new Date(day+"T00:00:00Z").toISOString().slice(0,10) === day ? day : null;
+  const parsed = Date.parse(day+"T00:00:00Z");
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) && Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0,10) === day ? day : null;
 }
 function idKey(value: string) { return value.toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,120); }
 function timeOf(event: PresenterCalendarEvent) {
