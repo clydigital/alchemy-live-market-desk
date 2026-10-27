@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {CREATOR_SOURCE_PACKET_VERSION,projectCreatorIntakeForReview,
+import {CREATOR_SOURCE_PACKET_VERSION,projectCreatorIntakeForReview,renderCreatorSourceTimeline,
  compileCreatorOwnerReviewBundle,type CreatorIntakeReadRow,
  type CreatorEditorialAnchor} from "../lib/blue-desk-creator-source-projection.ts";
 
@@ -159,4 +159,25 @@ test("revisions require explicit chronology-valid relation; broken source IDs ar
  assert.throws(()=>projectCreatorIntakeForReview({...packet(),selectedAnchors:[
   {...anchors[0],relationTo:{claimId:lastClaim,type:"revises"}},anchors[1]
  ]}),/INVALID_THESIS_CHANGE_LINEAGE/);
+});
+
+test("model-free timeline exposes only selected attributed excerpts and exact private read receipts",()=>{
+ const projection=projectCreatorIntakeForReview(packet());
+ const md=renderCreatorSourceTimeline(projection);
+ assert.match(md,/## Act 1/);
+ assert.match(md,/## Act 2/);
+ assert.match(md,/watch\?v=o1Q2zBpwNxM&t=100s/);
+ assert.match(md,/watch\?v=AkTXAcMgO3E&t=2s/);
+ assert.match(md,/No thesis revision or reinforcement has been established/);
+ assert.match(md,/Awaiting human review/);
+ assert.match(md,/Creator commentary/);
+ assert.ok(md.includes(oldSource.id));
+ assert.ok(md.includes(newSource.run_id));
+ assert.ok(!md.includes("Prior view: ten-year yields were lower"));
+ assert.ok(!md.includes("transcript_text"));
+ const unavailable={...newSource,video_review_status:"pending"};
+ const partial=projectCreatorIntakeForReview({...packet(),rows:[oldSource,unavailable],
+  selectedAnchors:[anchors[0]]});
+ assert.match(renderCreatorSourceTimeline(partial),/Pending transcripts/);
+ assert.match(renderCreatorSourceTimeline(partial),/AkTXAcMgO3E — not used as story evidence/);
 });
