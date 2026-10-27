@@ -8,23 +8,35 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-/** Existing authorised Research Gap cron is an independent private-PDF retry.
- * No new schedule or Dossier precondition. No effect on canonical outcomes. */
+/** The existing Research Gap handoff and the private-PDF retry are independent.
+ * Start each at the authorised invocation time; neither can convert a source
+ * gap into fabricated evidence or alter canonical Dossier outcomes.
+ * The PDF helper enforces its own CRON_SECRET, schedule flag and exact window. */
 export async function GET(request:Request){
  const now=new Date();
- const result=await handleScheduledResearchGapHandoff(request);
  const slot:AutomaticReportSlot=now.getUTCHours()<12?"morning":"evening";
- if(result.status!==200||!isAutomaticReportFallbackWindow(now,slot))return result;
+ const reportTask=isAutomaticReportFallbackWindow(now,slot)
+  ?attemptPrivateDailyPdfInExistingHandoff(request,slot,now).catch(()=>({
+    status:"failed" as const,reason:"private_pdf_retry_unavailable"
+   }))
+  :null;
+ // Start both concurrently. A slow/partial Research Gap result must not make
+ // the PDF miss the same pre-existing Vercel cron window.
+ const result=await handleScheduledResearchGapHandoff(request);
+ if(!reportTask)return result;
+ const report=await reportTask;
+ if(result.status!==200)return result;
  let payload:Record<string,unknown>;
  try{payload=await result.clone().json() as Record<string,unknown>;}
  catch{return result;}
- if(payload.status!=="completed")return result;
- try{
-  const report=await attemptPrivateDailyPdfInExistingHandoff(request,slot,now);
-  return Response.json({...payload,automatedDailyPdf:report},{
-   status:200,headers:{"Cache-Control":"private, no-store"}});
- }catch{
-  return Response.json({...payload,automatedDailyPdf:{status:"failed",reason:"private_pdf_retry_unavailable"}},{
-   status:200,headers:{"Cache-Control":"private, no-store"}});
- }
+ // Even when the Research Gap status is partial, independent source-qualified
+ // PDF attempts and their blocked/ready status remain visible on the private
+ // cron response. Public or unauthorised callers never get an accessible PDF.
+ console.info(JSON.stringify({
+  event:"bluebelly_private_pdf_handoff_observed",slot,
+  reportStatus:report.status,
+  reportReason:("reason" in report?report.reason:null)||null,
+ }));
+ return Response.json({...payload,automatedDailyPdf:report},{
+  status:200,headers:{"Cache-Control":"private, no-store"}});
 }

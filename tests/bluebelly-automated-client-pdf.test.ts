@@ -46,7 +46,7 @@ test("only existing final Dossier retry times can author an automatic edition",(
  assert.equal(isAutomaticReportFinalisationWindow(new Date("2026-10-27T02:20:00Z"),"morning"),false);
  assert.equal(isAutomaticReportFinalisationWindow(new Date("2026-10-27T14:59:00Z"),"evening"),false);
 });
-test("only existing late Research Gap handoff calls provide Dossier-backed PDF retries",()=>{
+test("only existing late Research Gap handoff times may retry source-gated private PDFs",()=>{
  const utc=(when:string)=>new Date(when);
  assert.equal(isAutomaticReportFallbackWindow(utc("2026-10-27T03:30:00Z"),"morning"),true);
  assert.equal(isAutomaticReportFallbackWindow(utc("2026-10-27T03:45:00Z"),"morning"),true);
@@ -82,7 +82,8 @@ test("late PDF retry reuses authorised Research Gap cron without weakening publi
  const schedule=readFileSync(new URL("../vercel.json",import.meta.url),"utf8");
  assert.ok(route.includes("handleScheduledResearchGapHandoff(request)"));
  assert.ok(route.includes("attemptPrivateDailyPdfInExistingHandoff(request,slot,now)"));
- assert.ok(route.includes('payload.status!=="completed"'));
+ assert.ok(!route.includes('payload.status!=="completed"'));
+  assert.ok(route.includes("const reportTask=isAutomaticReportFallbackWindow(now,slot)"));
  assert.ok(retry.includes("acceptsResearchAuthorization"));
  assert.ok(!retry.includes("isCompletedDossierForAutomaticReport"));
  assert.ok(retry.includes("NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED"));
@@ -221,7 +222,8 @@ test("source-qualified private PDF starts within the existing authorised cron ev
  assert.ok(!late.includes("createSupabaseAdminClient"));
  assert.ok(late.includes("acceptsResearchAuthorization"));
  const handoff=read("app/api/cron/research-gap/handoff/route.ts");
- assert.ok(handoff.includes('payload.status!=="completed"'));
+ assert.ok(!handoff.includes('payload.status!=="completed"'));
+  assert.ok(handoff.indexOf("attemptPrivateDailyPdfInExistingHandoff") < handoff.indexOf("await handleScheduledResearchGapHandoff(request)"));
  assert.ok(handoff.includes("isAutomaticReportFallbackWindow"));
  const job=read("lib/blue-desk-automated-report-job.ts");
  assert.ok(job.includes("reportEvidenceReady(evidence)"));
