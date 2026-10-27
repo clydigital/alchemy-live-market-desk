@@ -19,7 +19,7 @@ test("Public Stories mounts one reused source-qualified Newsroom with the existi
 test("Newsroom is a real anchored Stories section, not a blocked new public route", () => {
   assert.match(stories, /href="#newsroom-title">Browse Newsroom topics/);
   assert.match(newsroom, /id="newsroom-title"/);
-  assert.ok(stories.indexOf("<NewsroomLensExplorer ") < stories.indexOf('aria-labelledby="persistent-theses"'));
+  assert.ok(stories.indexOf('aria-labelledby="persistent-theses"') < stories.indexOf("<NewsroomLensExplorer "));
   assert.equal(blueDeskHostAccess("/key-stories", "bluebelly-desk.vercel.app"), "public");
   assert.equal(blueDeskHostAccess("/newsroom", "bluebelly-desk.vercel.app"), "blocked");
 });
