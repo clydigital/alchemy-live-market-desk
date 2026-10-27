@@ -94,8 +94,8 @@ export function computeMaterialEditorialRecall(
   const why=after?"Published after the slate cutoff; reconsider in the next edition.":
    status==="unacknowledged"?"No explicit same-event decision found in the selected slate.":
    status==="selected"?"The same material company action appears in the three ideas.":
-   status==="excluded_with_reason"?"An excluded-candidate disposition was saved.":
-   "The slate records that original-source checking is needed.";
+   status==="excluded_with_reason"?(structured?.reason||"An excluded-candidate disposition was saved."):
+   structured?.reason||"The slate records that original-source checking is needed.";
   results.push({key,title:source.title,url:source.url,eventAt:source.publishedAt,
    sourceState:state,status,materiality:source.materiality??0,why});
  }
