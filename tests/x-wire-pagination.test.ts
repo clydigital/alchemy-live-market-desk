@@ -113,6 +113,15 @@ test("spoofed, pinned and reposted old items never prove lookback coverage",()=>
  assert.equal(sorted.length,2);
 });
 
+
+test("high-volume accounts have deeper paging under a per-source runtime ceiling",()=>{
+ const source=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
+ assert.match(source,/const PAGE_LIMIT = 6/);
+ assert.match(source,/const MAX_SCAN_MS = 18_000/);
+ assert.match(source,/if\(page>0 && Date\.now\(\)-startedAt>=MAX_SCAN_MS\)break/);
+ assert.match(source,/page_cursor:cursor,window_start_at:window\.startAt/);
+});
+
 test("persisted green source cannot stay healthy when its checkpoint is stale",()=>{
  const source=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
  assert.match(source,/HEALTH_COMPLETION_MAX_AGE_HOURS = 15/);
