@@ -99,6 +99,38 @@ export default async function MyBluebellyReports({searchParams}:{searchParams?:P
        under legacy reports below; new output is HTML-first.</p>
    </section>
   </div>
+
+  <div className={styles.content}>
+   <section className={layout.driveArchive} data-bluebelly-manual-research="2026-10-27" aria-label="Manual Asia and global bonds research">
+     <div className={layout.driveHead}><div>
+       <p className={styles.kicker}>MANUAL RESEARCH · SOURCE CHECKS · 27 OCTOBER 2026</p>
+       <h2>Bonds, China and the Asian AI trade</h2>
+       <p>Research notes alongside the private PDF and HTML library. These are dated analyst investigations, not canonical Dossier conclusions or live technical readings.</p>
+     </div></div>
+     <div className={layout.driveItems}>
+      <article><p className={layout.editionType}>01 · CHINA</p>
+       <strong>What if the sell-off is valuation, not collapsing industrial profit?</strong>
+       <span>September industrial profits rose 14.4% year on year; electronics earnings grew rapidly while domestic-demand sectors diverged. Test STAR50 breadth, earnings revisions and policy support before selecting a cause.</span>
+       <div><a href="https://www.xinhuanet.com/fortune/20261027/76a7397c615a47cc96e567ca3de6b964/c.html" target="_blank" rel="noopener noreferrer">Official NBS figures ↗</a></div>
+      </article>
+      <article><p className={layout.editionType}>02 · KOREA</p>
+       <strong>Will the chip rebound survive SK Hynix and Samsung earnings?</strong>
+       <span>Q3 GDP increased 1.0% quarter on quarter and 3.4% year on year. Verify memory prices, HBM backlog, 2027 margins and capacity investments in the 28–29 October results.</span>
+       <div><a href="https://www.bok.or.kr/eng/bbs/E0000634/view.do?nttId=11065943" target="_blank" rel="noopener noreferrer">Bank of Korea GDP release ↗</a></div>
+      </article>
+      <article><p className={layout.editionType}>03 · TAIWAN / JAPAN</p>
+       <strong>Distinguish realised chip profits from index concentration and FX</strong>
+       <span>TSMC reported third-quarter revenue growth of 50.9% in local currency, yet Taiwan corrected from its early-October level. Japan's yen weakened on 27 October; cross-check Nikkei, TOPIX, exporters and JGB yields before blaming the currency.</span>
+       <div><a href="https://pr.tsmc.com/schinese/news/3346" target="_blank" rel="noopener noreferrer">TSMC original earnings ↗</a>
+        <a href="https://www.twse.com.tw/en/exchangeReport/FMTQIK?date=&amp;response=html" target="_blank" rel="noopener noreferrer">TWSE closing data ↗</a></div>
+      </article>
+     </div>
+     <div className={layout.libraryIntro}>
+      <h3>Manual rates evidence queue</h3>
+      <p>Record as-of times for US02Y, US10Y, US30Y, real yields, breakevens, investment-grade and high-yield spreads, DXY and USD/JPY. Test the inflation/fiscal-stress explanation against the competing flight-to-safety explanation. Keep pre-event expectation, immediate reaction, close, next-session result and the falsifier separate.</p>
+     </div>
+   </section>
+  </div>
   <div className={layout.technical}>
    <details data-my-desk-pdf-legacy="hidden-by-default">
      <summary>Previous PDF editions (legacy)</summary>
