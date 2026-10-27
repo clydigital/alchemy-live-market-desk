@@ -1,7 +1,7 @@
 import type { PresenterCalendarEvent } from "./presenter-calendar.ts";
 import type { MarketEventV1 } from "./market-events.ts";
 
-export const CATALYST_LANES = ["macro", "fed", "diplomacy", "earnings", "technology", "energy", "other"] as const;
+export const CATALYST_LANES = ["macro", "fed", "diplomacy", "earnings", "technology", "energy", "ipo", "other"] as const;
 export type CatalystLane = typeof CATALYST_LANES[number];
 export type CatalystCertainty = "official" | "reported" | "desk_record" | "unverified";
 export type CatalystCard = {
