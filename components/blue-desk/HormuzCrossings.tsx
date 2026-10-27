@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { HORMUZ_SOURCE, crossingTrend, hormuzFreshness, type HormuzMonitor } from '@/lib/hormuz-monitor-core';
 import styles from './hormuz-crossings.module.css';
+import { EntityMark } from './EntityIdentity';
 
 export default function HormuzCrossings({ monitor }: { monitor: HormuzMonitor }) {
   const [now, setNow] = useState(() => Date.parse(monitor.checkedAt));
@@ -15,7 +16,7 @@ export default function HormuzCrossings({ monitor }: { monitor: HormuzMonitor })
   const trend = snapshot ? crossingTrend(snapshot) : null;
   const max = Math.max(1, ...(snapshot?.daily.flatMap(d => [d.inbound || 0, d.outbound || 0]) || []));
   return <section className={styles.panel} aria-label="Hormuz crossing trends">
-    <header className={styles.header}><div><p>OIL · PHYSICAL SHIPPING</p><h2>Hormuz crossings</h2></div><strong role="status" className={styles[status]}>{status === 'current' ? 'Recent observation' : status === 'stale' ? 'Stale · last available data' : 'Data unavailable'}</strong></header>
+    <header className={styles.header}><div><p>OIL · PHYSICAL SHIPPING</p><h2><EntityMark kind="asset" code="OIL" size="sm" /> Hormuz crossings</h2></div><strong role="status" className={styles[status]}>{status === 'current' ? 'Recent observation' : status === 'stale' ? 'Stale · last available data' : 'Data unavailable'}</strong></header>
     {snapshot ? <>
       <p className={styles.totals}><b>{snapshot.total}</b> completed crossings over the source’s rolling 24 hours: <b>{snapshot.inbound}</b> inbound · <b>{snapshot.outbound}</b> outbound.</p>
       <p>{trend ? <>Last 7 complete UTC days: <b>{trend.latest}</b> vs <b>{trend.previous}</b> in the preceding 7 ({trend.delta > 0 ? '+' : ''}{trend.delta} crossings{trend.percent === null ? '; percentage unavailable from zero baseline' : `; ${trend.percent > 0 ? '+' : ''}${trend.percent.toFixed(1)}%`}).</> : 'Weekly comparison unavailable: 14 consecutive complete days are required.'}</p>
