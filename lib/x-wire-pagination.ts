@@ -40,7 +40,7 @@ export function parseFxTimeline(json: unknown, handle: string, startAt: string, 
     // can prove the requested lookback was crossed. Reposts, pinned/out-of-order
     // records, and invalid timestamps cannot prove historical coverage.
     if(row.reposted_by || row.type!=="status" || screen.toLowerCase()!==handle.toLowerCase() ||
-      !date || Date.parse(date)>Date.parse(nowIso)+300_000) ordered=false;
+      !/^\d{6,25}$/.test(id) || !body || !date || Date.parse(date)>Date.parse(nowIso)+300_000) ordered=false;
     else {
       const stamp=Date.parse(date);
       if(orderedTimes.length && stamp>orderedTimes[orderedTimes.length-1])ordered=false;
