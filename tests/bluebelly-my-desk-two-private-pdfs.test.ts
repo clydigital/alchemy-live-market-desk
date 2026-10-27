@@ -13,9 +13,10 @@ test("the existing private My Desk route leads with three HTML editions and main
  assert.match(page,/<OwnerEditorialSlatePdfReader\/>/);
  assert.match(page,/data-my-desk-technical="collapsed-by-default"/);
  assert.match(page,/data-drive-archive="kqdocuments88-html-primary"/);
- assert.match(page,/1J3Ay7wxQQYC7BMzAv7nvxYAN9H6_Bzhk/);
- assert.match(page,/1kiTU5XOuGCGOWy7RoLQVMoCYEUDR9vPN/);
+ assert.match(page,/16CKyy1JOrBWHdl93uFo8_dOY2oiZ2f61/);
+ assert.match(page,/1oWPq5wrhlpmaK2sP7tsBfAT000kmteaI/);
  assert.match(page,/1ca425cmHacpdGtlebVSAdjh3q_s9lOUd/);
+ assert.match(page,/1oFv-vay4nlg85FgGWtbSOnxP4WrHbQVR/);
  assert.match(page,/data-my-desk-pdf-legacy="hidden-by-default"/);
  assert.match(page,/Download HTML/);
  assert.match(page,/data-library-page=\{currentPage\}/);
