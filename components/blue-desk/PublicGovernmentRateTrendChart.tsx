@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { marketTrend, type TrendWindow } from "@/lib/market-trend-series";
 import type { PublicGovernmentRateTrend } from "@/lib/blue-desk-public-markets";
 import styles from "./public-government-rate-trend.module.css";
+import { EntityMark } from "./EntityIdentity";
 
 type Props = { series: PublicGovernmentRateTrend[]; nowIso: string };
 
@@ -36,7 +37,7 @@ export default function PublicGovernmentRateTrendChart({ series, nowIso }: Props
   return <section aria-label="Government yield historical trend" className={styles.panel} data-testid="blue-public-government-trend">
     <div className={styles.head}>
       <div><span className={styles.kicker}>MARKET DATA · SOURCE HISTORY</span>
-        <h2>Government yield trend</h2>
+        <h2><EntityMark kind="country" code="US" size="sm" /> Government yield trend</h2>
         <p>Original US Treasury nominal-yield observations, or US Treasury series distributed by FRED. Other provider price histories are not available in this public chart.</p>
       </div>
       <div className={styles.controls}>
