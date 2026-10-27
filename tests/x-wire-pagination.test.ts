@@ -150,7 +150,7 @@ test("repeating a provider cursor cannot permanently trap an account",()=>{
 test("later-page provider failure preserves partial X data and continuation cursor",()=>{
  const code=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
  assert.match(code,/const hadPartialData=fetched>0/);
- assert.match(code,/health:hadPartialData\?"partial"/);
+ assert.match(code,/health:invalidCursor\|\|hadPartialData\?"partial"/);
  assert.match(code,/page_cursor:invalidCursor\?null:hadPartialData\?cursor:claim\.resume_cursor/);
  assert.match(code,/window_start_at:invalidCursor\?null:hadPartialData\?window\.startAt:claim\.resume_start_at/);
  assert.match(code,/next_attempt_at:plus\(now,invalidCursor\|\|hadPartialData\?5:30\)/);
