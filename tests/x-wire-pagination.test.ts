@@ -74,3 +74,12 @@ test("excluded account is rejected even when provider rows are passed directly",
   assert.match(migration,/lower\(a\.handle\) <> 'zerohedge'/);
   assert.match(migration,/intake_status = 'rejected'/);
 });
+
+test("later-page provider failure preserves partial X data and continuation cursor",()=>{
+ const code=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
+ assert.match(code,/const hadPartialData=fetched>0/);
+ assert.match(code,/health:hadPartialData\?"partial"/);
+ assert.match(code,/page_cursor:hadPartialData\?cursor:claim\.resume_cursor/);
+ assert.match(code,/window_start_at:hadPartialData\?window\.startAt:claim\.resume_start_at/);
+ assert.match(code,/next_attempt_at:plus\(now,hadPartialData\?5:30\)/);
+});
