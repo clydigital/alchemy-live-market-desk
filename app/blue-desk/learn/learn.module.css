@@ -1,7 +1,7 @@
 .content{max-width:1390px;margin:0 auto;padding:26px clamp(17px,3vw,40px) 90px;color:#eaf5fc}
 .hero{border:1px solid #245979;border-radius:14px;background:linear-gradient(122deg,#062a40,#0a3b54 65%,#042334);padding:clamp(25px,4.5vw,57px)}
 .eyebrow{font-size:11px;font-weight:800;letter-spacing:.16em;color:#77d7f5;margin:0 0 16px}
-.hero h1{font-family:Georgia,serif;font-weight:600;font-size:clamp(34px,4vw,56px);line-height:1.12;letter-spacing:-.02em;margin:0 0 14px;color:#f2faff}
+.hero h1{font-family:var(--bluebelly-font);font-weight:600;font-size:clamp(34px,4vw,56px);line-height:1.12;letter-spacing:-.02em;margin:0 0 14px;color:#f2faff}
 .hero p:not(.eyebrow){font-size:15px;line-height:1.7;max-width:740px;color:#c6e2ef}
 .hero .caution{font-size:12px!important;color:#a4c9dc!important}
 .library{margin-top:24px}
