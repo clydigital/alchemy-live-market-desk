@@ -2,11 +2,9 @@ import Link from "next/link";
 import EditorialStoryArt from "./EditorialStoryArt";
 import DualTimestamp from "./DualTimestamp";
 import type {NewsBriefV1} from "@/lib/market-brief-news";
-import type {PresenterCalendarEvent} from "@/lib/presenter-calendar";
 import type {VerifiedEarningsScorecard} from "@/lib/blue-desk-earnings-results";
 import {projectLivingMarketTopics} from "@/lib/blue-desk-living-topics";
 import {decisionTopics} from "@/lib/bluebelly-decision-brief";
-import type {PresenterCalendar} from "@/lib/presenter-calendar";
 import ui from "./ShortNewsRecap.module.css";
 
 type Recap={
