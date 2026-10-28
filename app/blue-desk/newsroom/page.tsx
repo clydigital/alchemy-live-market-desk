@@ -1,4 +1,5 @@
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import Link from "next/link";
 import {headers} from "next/headers";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import BluebellyNewsWire from "@/components/blue-desk/BluebellyNewsWire";
@@ -44,6 +45,10 @@ export default async function NewsroomPage({searchParams}:Props){
   <BlueDeskHeader activePath="/blue-desk/newsroom"/>
   <div className={desk.content}>
     <BluebellyNewsWire news={news} initialQuery={query} now={now.toISOString()} readerHref={readerHref}>
+      <div style={{margin:"3px 0 16px",padding:"12px 15px",background:"#0b3246",border:"1px solid #346d83",borderRadius:"8px",fontSize:"13px",lineHeight:1.6}}>
+       <strong style={{color:"#f0d39e"}}>HORMUZ / OIL & REFINED FUELS</strong> · Track maritime disruption against Brent, diesel/gasoil crack proxies, refinery runs and US distillate inventories.
+       {" "}<Link href={blueDeskPublicHref("/blue-desk/hormuz",host)}>Open the physical-versus-market watch →</Link>
+      </div>
       <Newsroom48hTimeline banks={bankDecisions} reports={reported} readerHref={readerHref}/>
       <NextBankCatalysts items={nextBanks}/>
       <NewsroomBriefableEvents topics={briefableNoDuplicate} readerHref={readerHref}/>
