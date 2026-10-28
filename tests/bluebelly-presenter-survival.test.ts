@@ -55,5 +55,9 @@ test("copyable presenter card and source-backed comparison SVG are public read-o
  assert.match(graphic,/83\.3338/);
  assert.match(graphic,/not a verified forecast or share-price reaction/);
  assert.match(brief,/<EarningsEvidenceGraphic scorecard=\{r\}/);
+ const home=code("app/blue-desk/page.tsx");
+ assert.equal((home.match(/<WhatsNewTrendDashboard/g)||[]).length,1);
+ assert.ok(home.indexOf("<WhatsNewTrendDashboard")<home.indexOf("<details><summary>Explore dated observations"),
+   "dated actual market trend SVGs must precede the collapsed source archive");
  assert.doesNotMatch(ui,/createSupabaseAdminClient|fetch\(|service_role|story_thesis_versions/);
 });
