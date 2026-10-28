@@ -29,7 +29,7 @@
 .editionTabs{display:flex;flex-wrap:wrap;gap:8px;margin:24px 0 18px}
 .editionTab,.editionTabSelected{display:flex;gap:8px;align-items:center;min-height:44px;padding:9px 13px;background:#0b3045;border:1px solid #396e83;border-radius:9px;color:#c8e2ed;text-decoration:none;font-size:12px;font-weight:750}
 .editionTabSelected{background:#1a5973;color:#fff;border-color:#83daed}
-.editionTabs small{font:10px ui-monospace,monospace;color:#a9c5d1}
+.editionTabs small{font:10px var(--bluebelly-font);color:#a9c5d1}
 .libraryIntro{border-top:1px solid #35677a;padding:20px 0 7px}
 .libraryIntro h3{font-size:21px;color:#f3f9fb;margin:0 0 7px}
 .libraryIntro p{color:#c2dce5;font-size:13px;line-height:1.7}
