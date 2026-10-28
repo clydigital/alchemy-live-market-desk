@@ -48,7 +48,7 @@ test("copyable presenter card and source-backed comparison SVG are public read-o
  assert.match(ui,/navigator.clipboard.writeText/);
  assert.match(ui,/role="status"/);
  assert.match(ui,/Open source-dated markets/);
- assert.match(ui,/my next test/i);
+ assert.match(code("lib/bluebelly-presenter-one-minute.ts"),/My next test:/);
  assert.match(graphic,/79\.3187/);
  assert.match(graphic,/104\.6155/);
  assert.match(graphic,/60\.5426/);
