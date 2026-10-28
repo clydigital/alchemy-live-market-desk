@@ -54,4 +54,4 @@ async function fetchProviderReadiness():Promise<{checkedAt:string;providers:Prov
  * Cached for an hour to avoid burning Alpha Vantage's small free daily quota.
  * Not part of automated Cron, canonical research, Story or Regime ingestion.
  */
-export const getMarketToolsProviderReadiness=unstable_cache(fetchProviderReadiness,["market-tools-provider-readiness-v3"],{revalidate:3600});
+export const getMarketToolsProviderReadiness=unstable_cache(fetchProviderReadiness,["market-tools-provider-readiness-v4"],{revalidate:3600});
