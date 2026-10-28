@@ -55,7 +55,9 @@ test("private legacy navigation remains available only on owner host", () => {
 test("no dead public links are advertised in the homepage special panels", () => {
   assert.match(homepage, /publicHost \? blueDeskPublicHref\("\/blue-desk\/markets\?group=rates", host\) : "\/markets"/);
   assert.doesNotMatch(homepage, /listPublishedReports/);
-  assert.match(homepage, /!publicHost \? <Link className=\{styles\.textLink\} href="\/whats-new"/);
+  assert.match(homepage,/blueDeskPublicHref\("\/blue-desk\/key-stories",host\)\+"#newsroom-title"/);
+  assert.doesNotMatch(homepage,/href="\/whats-new"/);
+  assert.match(homepage,/<WhatsNewTrendDashboard/);
   assert.match(homepage, /publicHost \? "Explore public research" : "Dossier, Journey and presenter preparation"/);
   assert.match(homepage, /newsFeature\.sourceUrl/);
 });

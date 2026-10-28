@@ -1,3 +1,4 @@
+import DecisionBrief from "@/components/blue-desk/DecisionBrief";
 import Link from "next/link";
 import { headers } from "next/headers";
 
@@ -29,7 +30,10 @@ import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { getPublicSourceObservations } from "@/lib/blue-desk-source-observations";
 import { getPublicThesisLedger } from "@/lib/blue-desk-thesis-ledger-server";
 import {storyMarketTransmission} from "@/lib/blue-desk-thesis-ledger";
+import {classifyPublicStory} from "@/lib/blue-desk-story-categories";
 import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
+import {projectWhatsNewTrends} from "@/lib/blue-desk-whats-new-trends";
+import WhatsNewTrendDashboard from "@/components/blue-desk/WhatsNewTrendDashboard";
 
 import styles from "./blue-desk.module.css";
 
@@ -85,6 +89,8 @@ export default async function BlueDeskPage() {
     <main className={styles.page} data-blue-desk-convergence="phase-1">
       <BlueDeskHeader activePath="/blue-desk" />
       <div className={styles.content}>
+        <DecisionBrief news={verifiedNews} calendar={calendar} now={now} host={host}/>
+        <details><summary>Explore dated observations and previous research</summary>
         <BluebellyNewsfront news={verifiedNews} observations={observations} theses={theses} host={host} now={now}
           upcoming={upcoming.map(event=>({id:event.id,title:event.title,sourceName:event.sourceName,
             scheduledAt:event.scheduledAt??null,localDate:event.localDate,sourceUrl:event.sourceUrl}))}/>
@@ -117,7 +123,7 @@ export default async function BlueDeskPage() {
               ) : observedFeature ? (
                 <a className={styles.primaryAction} href={observedFeature.sourceUrl} target="_blank" rel="noreferrer">Original market source ↗</a>
               ) : olderStory ? (
-                <Link className={styles.primaryAction} href={blueDeskPublicHref("/blue-desk/key-stories",host)+"#thesis-"+olderStory.slug}>Read the ongoing story →</Link>
+                <Link className={styles.primaryAction} href={blueDeskPublicHref("/blue-desk/key-stories",host)+"?story="+olderStory.slug}>Read the ongoing story →</Link>
               ) : (
                 <Link className={styles.primaryAction} href={blueDeskPublicHref("/blue-desk/daily-report", host)}>
                   Daily Report →</Link>
@@ -205,40 +211,45 @@ export default async function BlueDeskPage() {
         <section className={styles.section} aria-labelledby="ongoing-stories-head" data-public-thesis-ledger="read-only">
           <div className={styles.sectionHead}>
             <div><p className={styles.kicker}>PERSISTENT RESEARCH · DATED THESIS HISTORY</p>
-              <h2 id="ongoing-stories-head"><MarketIcon name="layers" size={24} /> What is shaping the market?</h2>
-              <p>These are stored interpretations, not today's verified headlines. Every thesis retains its last recorded update date.</p>
+              <h2 id="ongoing-stories-head"><MarketIcon name="layers" size={24} /> Key stories</h2>
+              <p>Four current research perspectives. These are dated interpretations, not a list of today's verified headlines.</p>
             </div>
             <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/key-stories",host)}>
               Explore evidence and countercases →
             </Link>
           </div>
-          {theses.length ? <div className={tracked.grid}>
-            {theses.slice(0,9).map(thesis =>
-              <article className={tracked.card} key={thesis.id}>
-                <span className={tracked.kicker}>ONGOING STORY · LAST RESEARCHED <DualTimestamp value={thesis.updatedAt}/></span>
-                <h3>{thesis.title}</h3>
-                <p><strong>The issue:</strong> {thesis.question}</p>
-                <p>{ellipsis(thesis.thesis,260)}</p>
+          {theses.length ? <div className={tracked.grid} data-home-stories="editorial-lead-four">
+            {theses.slice(0,4).map((thesis,index) =>
+              <article className={index===0?tracked.lead:tracked.card} key={thesis.id}>
+                <p className={tracked.kicker}>{classifyPublicStory(thesis)} · ONGOING RESEARCH</p>
+                <h3><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"?story="+thesis.slug}>
+                  {thesis.title}
+                </Link></h3>
+                <p>{ellipsis(thesis.thesis,index===0?280:145)}</p>
                 <div className={tracked.bottom}>
-                  <DualTimestamp value={thesis.updatedAt} className={styles.cardTime} />
-                  <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"#thesis-"+thesis.slug}>
-                    Examine thesis →
+                  <span>Last researched <DualTimestamp value={thesis.updatedAt} className={styles.cardTime}/></span>
+                  <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"?story="+thesis.slug}>
+                    Read context and countercase →
                   </Link>
                 </div>
               </article>)}
           </div> : <p className={styles.empty}>No public Story records are available. Research topics and verified headlines are tracked separately.</p>}
         </section>
 
+        <WhatsNewTrendDashboard
+          cards={projectWhatsNewTrends(monitor?.rows||[],now)}
+          marketsHref={blueDeskPublicHref("/blue-desk/markets",host)}/>
+
         <div className={styles.lowerGrid}>
-          <section className={styles.secondaryPanel} aria-labelledby="motion-title">
+          <section className={styles.secondaryPanel} aria-labelledby="headline-context-title">
             <div className={styles.sectionHead}>
               <div>
-                <p className={styles.kicker}>MARKET MOTION</p>
-                <h2 id="motion-title"><MarketIcon name="divergence" size={24} /> What changed</h2>
+                <p className={styles.kicker}>SOURCE-VERIFIED HEADLINES</p>
+                <h2 id="headline-context-title"><MarketIcon name="divergence" size={24} /> In the news</h2>
               </div>
-              {!publicHost ? <Link className={styles.textLink} href="/whats-new">Investigate →</Link> : null}
+              <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/key-stories",host)+"#newsroom-title"}>Explore sourced stories →</Link>
             </div>
-            {verifiedNews.length ? verifiedNews.map(news => (
+            {verifiedNews.length ? verifiedNews.slice(0,4).map(news => (
               <article key={news.id} className={styles.motionRow}>
                 <p className={styles.kicker}>VERIFIED NEWS</p>
                 <h3>{news.headline}</h3>
@@ -324,6 +335,7 @@ export default async function BlueDeskPage() {
         </section>
 
         <footer className={styles.footer}><span>Blue Desk</span></footer>
+        </details>
       </div>
     </main>
   );

@@ -14,7 +14,10 @@ import { getOriginalPressNews } from "@/lib/blue-desk-original-press-news-server
 import { combineQualifiedNews } from "@/lib/blue-desk-qualified-news";
 import { projectLivingMarketTopics } from "@/lib/blue-desk-living-topics";
 import { getPublicThesisLedger } from "@/lib/blue-desk-thesis-ledger-server";
-import {storyMarketTransmission,orderStoriesByLatestMotion} from "@/lib/blue-desk-thesis-ledger";
+import {orderStoriesByLatestMotion} from "@/lib/blue-desk-thesis-ledger";
+import {classifyPublicStory,PUBLIC_STORY_CATEGORIES} from "@/lib/blue-desk-story-categories";
+import StoryEditorialArticle from "@/components/blue-desk/StoryEditorialArticle";
+import VerifiedCatalystArticle from "@/components/blue-desk/VerifiedCatalystArticle";
 import {selectFlagshipInvestorTest} from "@/lib/blue-desk-investor-test";
 import {getStoryMotionRecency} from "@/lib/blue-desk-story-motion-recency-server";
 import { getPublicSourceObservations } from "@/lib/blue-desk-source-observations";
@@ -32,7 +35,8 @@ export const metadata = {
   description: "Dated market catalysts explained in human terms, upcoming company decisions and historical Story context.",
 };
 
-export default async function KeyStories(){
+export default async function KeyStories({searchParams}:{searchParams?:Promise<{story?:string;category?:string;catalyst?:string;feature?:string;page?:string}>}){
+  const params=await searchParams;
   const now = new Date();
   const host = (await headers()).get("host");
   const [raw, theses, observations, originalPress, macro, earnings] = await Promise.all([
@@ -43,12 +47,55 @@ export default async function KeyStories(){
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({now}).catch(() => ({events:[],coverage:"unavailable" as const,warning:"Earnings coverage unavailable"})),
   ]);
+  if(params?.feature === "rbnz-october-2026") return <main className={desk.page}><BlueDeskHeader activePath="/blue-desk/key-stories"/><div className={desk.content}><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link><RbnzDecisionFeature /></div></main>;
   const motionRecency=await getStoryMotionRecency(theses.map(x=>x.id),now).catch(()=>[]);
   const orderedTheses=orderStoriesByLatestMotion(theses,motionRecency,now);
+  // Query-only reader: the existing /key-stories host rule applies unchanged.
+  const storySlug=typeof params?.story==="string"&&/^[a-z0-9-]{1,150}$/.test(params.story)?params.story:null;
+  if(storySlug){
+    const selected=orderedTheses.find(story=>story.slug===storySlug);
+    return <main className={desk.page} data-bluebelly-stories="source-limited-reading-mode">
+      <BlueDeskHeader activePath="/blue-desk/key-stories"/>
+      <div className={desk.content}>
+        {selected?<StoryEditorialArticle story={selected}
+          backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}/>:
+          <section className={ui.empty} data-article-not-found="true">
+            <h1>Story unavailable</h1>
+            <p>The requested Story is not in the approved public research index.</p>
+            <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>Return to all Stories</Link>
+          </section>}
+      </div>
+    </main>;
+  }
+  const requestedCategory=typeof params?.category==="string"?params.category:"All";
+  const activeCategory=PUBLIC_STORY_CATEGORIES.some(c=>c===requestedCategory)?requestedCategory:"All";
+  const visibleTheses=activeCategory==="All"?orderedTheses:
+    orderedTheses.filter(story=>classifyPublicStory(story)===activeCategory);
+  const pageNumber=Math.max(1,Math.min(Math.ceil(visibleTheses.length/6)||1,Number.parseInt(params?.page||"1",10)||1));
+  const pageTheses=visibleTheses.slice((pageNumber-1)*6,pageNumber*6);
+  const indexHref=blueDeskPublicHref("/blue-desk/key-stories",host);
   const investorTest=selectFlagshipInvestorTest(orderedTheses);
   const motionNews = selectVerifiedNewsBriefs(raw, now, 18);
   const news = combineQualifiedNews(motionNews,originalPress,18);
   const topics = projectLivingMarketTopics(news);
+  // The dated event explainer is rolling public news, not a thesis revision.
+  const catalystId=typeof params?.catalyst==="string"&&/^[a-z0-9-]{1,80}$/.test(params.catalyst)
+    ?params.catalyst:null;
+  if(catalystId){
+    const selected=topics.find(topic=>topic.id===catalystId);
+    return <main className={desk.page} data-bluebelly-stories="verified-catalyst-reading-mode">
+      <BlueDeskHeader activePath="/blue-desk/key-stories"/>
+      <div className={desk.content}>
+        {selected?<VerifiedCatalystArticle topic={selected} backHref={indexHref}/>:
+          <section className={ui.empty} data-catalyst-unavailable="true">
+            <h1>Verified event coverage unavailable</h1>
+            <p>The requested event theme is not in the current source-verified news window.
+              Historical Story research remains separate from fresh news.</p>
+            <Link href={indexHref}>Return to Key Stories</Link>
+          </section>}
+      </div>
+    </main>;
+  }
   const calendar=buildPresenterCalendar(macro,earnings,now);
   const upcoming=selectBlueDeskUpcoming(calendar,now).slice(0,5);
   // A missing verified-news feed should promote genuinely sourced upcoming events,
@@ -64,7 +111,7 @@ export default async function KeyStories(){
             const lead=topic.updates[0];
             return <article className={ui.catalystCard} key={topic.id} id={topic.id}>
               <p className={ui.kicker}>REPORTED CATALYST · {topic.title.toUpperCase()}</p>
-              <h3>{lead.headline}</h3>
+              <h3><Link href={indexHref+"?catalyst="+encodeURIComponent(topic.id)}>{lead.headline}</Link></h3>
               <p className={ui.catalystFact}>{lead.summary}</p>
               <p className={ui.catalystClock}>Event <DualTimestamp value={lead.occurredAt}/></p>
               <div className={ui.humanStakes}>
@@ -73,6 +120,9 @@ export default async function KeyStories(){
               </div>
               <p className={ui.catalystMechanism}><strong>How it could move markets:</strong> {topic.marketMechanism}</p>
               <p className={ui.catalystQuestion}><strong>The investor's next question:</strong> {topic.guidingQuestion}</p>
+              <p><Link className={ui.storyRead} href={indexHref+"?catalyst="+encodeURIComponent(topic.id)}>
+                Read the dated event sequence and what comes next →
+              </Link></p>
               <a href={lead.sourceUrl} rel="noopener noreferrer" target="_blank">
                 {lead.sourceName} · original dated report
               </a>
@@ -119,28 +169,65 @@ export default async function KeyStories(){
         <h1>Key stories, explained.</h1>
         <p>Start with what surprised the market. Follow the decision, the money, the contradiction and the next test—with original sources close at hand.</p>
         <nav className={ui.indexNav} aria-label="Key Stories sections">
-          <a href="#rbnz-october-2026">Lead story <span aria-hidden="true">↓</span></a>
-          {topics.length ? <a href="#catalysts-first">Latest developments</a> : null}
+          {topics.length ? <a href="#current-developments">Latest developments</a> : null}
+          <a href="#persistent-theses">Browse by topic</a>
           <a href="#upcoming-decisions">What's next</a>
-          <a href="#manual-feature-stories">Deep research</a>
-          <a href="#newsroom-title">Newsroom</a>
+          <Link href={indexHref+"?feature=rbnz-october-2026"}>RBNZ explainer</Link>
         </nav>
       </header>
-      <RbnzDecisionFeature />
+
       <div className={ui.summary} aria-label="Desk coverage">
         <span>{news.length} source-verified news updates</span>
         <span>{topics.length} active news themes</span>
         <span>{theses.length} ongoing research stories</span>
         <span>Feed checked <DualTimestamp value={now.toISOString()} /></span>
       </div>
-      {topics.length ? liveCatalystSection : <p className={ui.coverageNote}>No fresh verified catalyst is currently available from the qualifying news feed. The dated lead feature, calendar and historical research remain readable below.</p>}
-      <NewsroomLensExplorer news={news} asOf={now.toISOString()} />
+      <section className={ui.section} id="current-developments" aria-label="Current event readers"><h2>Current developments</h2><div className={ui.cards}>{topics.map(topic=><article className={ui.card} key={topic.id}><p className={ui.kicker}>VERIFIED NEWS · <DualTimestamp value={topic.latestObservedAt}/></p><h3><Link href={indexHref+"?catalyst="+topic.id}>{topic.updates[0].headline}</Link></h3><p>{topic.guidingQuestion}</p></article>)}<article className={ui.card}><p className={ui.kicker}>DATED FEATURE · 28 OCTOBER 2026</p><h3><Link href={indexHref+"?feature=rbnz-october-2026"}>New Zealand’s surprise pause</Link></h3><p>Why a hold can surprise: follow expectations, the decision and the reported currency response.</p></article></div></section>
+      <section className={ui.section} aria-labelledby="persistent-theses" data-persistent-thesis-ledger="source-identity">
+        <p className={ui.kicker}>THE STORY LIBRARY</p>
+        <h2 id="persistent-theses">Key Stories by market theme</h2>
+        <p>Read the enduring market questions as articles, with recorded evidence limits and deciding tests.
+           Fresh source-verified developments appear separately below.</p>
+        <nav className={ui.categoryFilters} aria-label="Filter Key Stories by market category">
+          <Link href={indexHref} aria-current={activeCategory==="All"?"page":undefined}
+            className={activeCategory==="All"?ui.categorySelected:ui.categoryLink}>All Stories</Link>
+          {PUBLIC_STORY_CATEGORIES.map(category=><Link key={category}
+            href={indexHref+"?category="+encodeURIComponent(category)}
+            aria-current={activeCategory===category?"page":undefined}
+            className={activeCategory===category?ui.categorySelected:ui.categoryLink}>
+            {category}
+          </Link>)}
+        </nav>
+        {visibleTheses.length?<div className={ui.cards}>{pageTheses.map(thesis=>
+          <article className={ui.card} id={"thesis-"+thesis.slug} key={thesis.id} data-stored-story={thesis.status}>
+            <p className={ui.kicker}>{classifyPublicStory(thesis)} · ONGOING RESEARCH</p>
+            <h3><Link href={indexHref+"?story="+encodeURIComponent(thesis.slug)}>{thesis.title}</Link></h3>
+            <p className={ui.storyIntro}>{thesis.question}</p>
+            <p><strong>Next test:</strong> {thesis.nextTest || "No dated test recorded."}</p>
+            <details><summary>Supporting and contradicting signals</summary><p>{thesis.support || "Supporting evidence unavailable in this snapshot."}</p><p>{thesis.contradiction || "Counter-evidence unavailable in this snapshot."}</p></details>
+            <p className={ui.timeNote}>{thesis.latestMotionAt?
+              <>LINKED CONTEXT · {thesis.latestMotionVerification==="VERIFIED"?"SOURCE-VERIFIED EVENT":"UNVERIFIED RESEARCH LEAD"} · <DualTimestamp value={thesis.latestMotionAt}/> · </>:null}
+              Last researched <DualTimestamp value={thesis.updatedAt}/>. Historical thesis, not a confirmed live market reaction.</p>
+            <Link className={ui.storyRead} href={indexHref+"?story="+encodeURIComponent(thesis.slug)}>
+              Read the explanation, countercase and next test →
+            </Link>
+          </article>)}</div>:
+          <p className={ui.empty}>No Stories are currently available in this category. Try All Stories; this does not imply an inactive market.</p>}
+      </section>
+      <nav className={ui.categoryFilters} aria-label="Research pages">{Array.from({length:Math.ceil(visibleTheses.length/6)},(_,i)=><Link key={i} aria-current={pageNumber===i+1?"page":undefined} href={indexHref+"?category="+encodeURIComponent(activeCategory)+"&page="+(i+1)}>Page {i+1}</Link>)}</nav>
       {upcomingDecisionSection}
+      <details><summary>Research tools, source observations and further reading</summary>
+      {investorTest ? <InvestorTest view={investorTest}/> : null}
+      {topics.length ? liveCatalystSection :
+        <p className={ui.coverageNote}>No recent source-verified headline passed the Live News gate.
+          The scheduled decisions above remain visible, while unverified X speculation is excluded.</p>}
+      <NewsroomLensExplorer news={news} asOf={now.toISOString()} />
       <section className={ui.section} aria-labelledby="manual-feature-stories" data-independent-research-features="source-linked-archive">
         <p className={ui.kicker}>EXPLORE THE BIGGER PICTURE</p>
         <h2 id="manual-feature-stories">Deep research and historical comparisons</h2>
         <p>The market does not begin and end with today’s headlines. Read the wider investigations and their unresolved questions.</p>
         <div className={ui.cards}>
+          <article className={ui.card}><h3>New Zealand’s surprise pause</h3><p>Expectations, the rate decision and the currency response — a dated October 2026 feature.</p><Link href={indexHref+"?feature=rbnz-october-2026"}>Read the RBNZ story →</Link></article>
           <article className={ui.card}>
             <p className={ui.kicker}>ASIA EQUITIES · 27 OCTOBER 2026</p>
             <div style={{maxWidth:370,marginBottom:12}}><EditorialStoryArt motif="china" headline="Asia AI equities"/></div>
@@ -158,39 +245,7 @@ export default async function KeyStories(){
         </div>
       </section>
 
-      {investorTest ? <div className={ui.investorTest}><InvestorTest view={investorTest}/></div> : null}
-      <section className={ui.section} aria-labelledby="persistent-theses" data-persistent-thesis-ledger="source-identity">
-        <h2 id="persistent-theses">The research behind the headlines</h2>
-        <p>These are the recorded beliefs behind the headlines above. A dated linked Motion controls
-          their order; it does not turn the old thesis into a newly verified event or trading call.</p>
-        {orderedTheses.length ? <div className={ui.cards}>{orderedTheses.map(thesis=>
-          <article className={ui.card} id={"thesis-"+thesis.slug} key={thesis.id} data-stored-story={thesis.status}>
-            <p className={ui.kicker}>{thesis.latestMotionAt ?
-              <>LATEST LINKED MOTION · {thesis.latestMotionVerification==="VERIFIED"?"SOURCE-VERIFIED EVENT":"UNVERIFIED RESEARCH LEAD"}
-                {" · "}Event <DualTimestamp value={thesis.latestMotionAt}/></>:
-              <>NO LINKED MOTION AVAILABLE · Last researched <DualTimestamp value={thesis.updatedAt}/></>}</p>
-            <h3>{thesis.title}</h3>
 
-            <p className={ui.storyIntro}>{thesis.thesis}</p>
-            <p className={ui.storyExplanation}><strong>Why it matters:</strong> {storyMarketTransmission(thesis)}</p>
-            <details className={ui.more}>
-              <summary>Read the reasoning, risks and deciding tests</summary>
-              <div className={ui.moreBody}>
-                <p><strong>The full recorded thesis:</strong> {thesis.thesis}</p>
-                {thesis.support ? <p><strong>What the thesis cites:</strong> {thesis.support}</p> : null}
-                {thesis.pricedAssessment ? <p><strong>Recorded pricing view:</strong> {thesis.pricedAssessment}</p>:null}
-                {thesis.contradiction ? <p><strong>The competing case:</strong> {thesis.contradiction}</p> : null}
-                {thesis.nextTest ? <p><strong>Next test:</strong> {thesis.nextTest}</p> : null}
-                {thesis.confirmation ? <p><strong>Would strengthen this view:</strong> {thesis.confirmation}</p> : null}
-                {thesis.invalidation ? <p><strong>Would challenge this view:</strong> {thesis.invalidation}</p> : null}
-              </div>
-            </details>
-            <p className={ui.timeNote}>Historical research snapshot, not an independently confirmed price reaction.
-              {" "}The latest market observations are shown separately below.</p>
-          </article>
-        )}</div>:<p className={ui.empty}>We couldn't load the stored market stories.
-          That is a coverage problem, not evidence that there is nothing happening.</p>}
-      </section>
       <section className={ui.section} aria-labelledby="recent-originals">
         <h2 id="recent-originals">Latest original-source market observations</h2>
         <p>Exact dated measurements or official releases only. A market close does not explain its own cause,
@@ -205,6 +260,7 @@ export default async function KeyStories(){
         )}</div>:<p className={ui.empty}>No qualifying recent original-source measurements. This is not evidence of an inactive market.</p>}
       </section>
 
+      </details>
     </div>
   </main>;
 }

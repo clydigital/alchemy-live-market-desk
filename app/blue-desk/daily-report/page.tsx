@@ -1,3 +1,4 @@
+import DecisionBrief from "@/components/blue-desk/DecisionBrief";
 import Link from "next/link";
 import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
@@ -55,6 +56,8 @@ export default async function DailyReportPage() {
   return <main className={styles.page} data-daily-report="editorial-first-v3">
     <BlueDeskHeader activePath="/blue-desk/daily-report" />
     <div className={styles.shell}>
+      <DecisionBrief news={news} calendar={calendar} now={now} host={host} report/>
+      <details className={styles.moreStories}><summary>Explore previous research, dated editorial features and source inventory</summary>
       <header className={styles.hero}>
         <p className={styles.eyebrow}>MARKET INTELLIGENCE / DAILY REPORT</p>
         <h1>The market today. Your next story.</h1>
@@ -113,7 +116,7 @@ export default async function DailyReportPage() {
             {story.contradiction?<p className={styles.storyCaveat}><strong>What could challenge it:</strong> {story.contradiction}</p>:null}
             <p className={styles.readingFoot}>
               <span>Story last updated <DualTimestamp value={story.updatedAt}/></span>
-              <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"#thesis-"+story.slug}>Read the full story →</Link>
+              <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"?story="+story.slug}>Read the full story →</Link>
             </p>
           </article>)}
         </div>:<p className={styles.empty}>The stored Stories couldn't be read. This is a research coverage gap, not a quiet market.</p>}
@@ -125,7 +128,7 @@ export default async function DailyReportPage() {
             <p className={styles.storyParagraph}><strong>Market connection:</strong> {storyMarketTransmission(story)}</p>
             {story.contradiction?<p className={styles.storyCaveat}><strong>What doesn't fit:</strong> {story.contradiction}</p>:null}
             <p className={styles.readingFoot}><span>Last amended <DualTimestamp value={story.updatedAt}/></span>
-              <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"#thesis-"+story.slug}>Read more →</Link></p>
+              <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"?story="+story.slug}>Read more →</Link></p>
           </article>)}</div>
         </details>:null}
       </section>
@@ -279,6 +282,7 @@ export default async function DailyReportPage() {
         history, recent eligible original observations and the upcoming calendar. It is not
         an exhaustive transcript of every MacroPulse post or every market print.
         Event impact is conditional unless matched market measurements establish it.</footer>
+      </details>
     </div>
   </main>;
 }

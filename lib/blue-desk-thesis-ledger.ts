@@ -46,13 +46,13 @@ export function projectPublicTheses(rows:readonly RecordInput[],now=new Date(),l
  * evidence. They explain an economic transmission path, not observed prices. */
 export function storyMarketTransmission(story:Pick<PublicThesis,"slug"|"title">):string{
  const s=(story.slug+" "+story.title).toLowerCase();
- if(/hormuz|iran|oil|brent|crude|refin|distillat|diesel|tanker|gas|lng/.test(s))
+ if(/backwardation|contango|hormuz|iran|oil|brent|crude|refin|distillat|diesel|tanker|gas|lng/.test(s))
   return "When fuel or shipping becomes harder to secure, buyers can face higher transport and energy bills. That may lift inflation expectations, squeeze company margins and make interest-rate cuts harder. Brent, diesel, bond yields and transport-sensitive shares are worth watching together; the direction of a price move still needs a dated market observation.";
  if(/japan|jgb|yen|boj|carry/.test(s))
   return "Higher Japanese yields can draw money back into domestic bonds and unsettle yen-funded positions overseas. That could affect USD/JPY, global bond yields and risk assets, but the actual flow must be observed rather than assumed.";
  if(/fomc|fed|cpi|rates|yield|bond|treasur|credit|funding|mortgage|housing/.test(s))
   return "A change in inflation or rate expectations alters what it costs to borrow and the return investors can earn from safer bonds. That can move Treasury yields, the dollar, gold and equity valuations. The key is whether the relevant yields and assets actually responded in the same market session.";
- if(/ai|nvidia|capex|tech|compute|semiconduct|data.cent|financ/.test(s))
+ if(/\bai\b|nvidia|capex|tech|compute|semiconduct|data.cent/.test(s))
   return "AI orders and spending do not immediately become cash profits. Companies must pay for equipment, power and financing before they earn those returns. That makes debt costs, cash flow and delivery timelines important checks on technology valuations.";
  if(/china|tariff|trade|yuan|renminbi/.test(s))
   return "A change in Chinese demand or trade policy can work through factory orders, raw-material imports and currencies before it reaches company earnings. Copper, regional equities and exposed exporters can react differently, so the transmission needs to be checked asset by asset.";

@@ -64,7 +64,7 @@ const OCTOBER_28: readonly Idea[] = [
       { name: "ABS September CPI", url: "https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/consumer-price-index-australia/sep-2026" },
       { name: "Reuters currency reaction", url: "https://www.reuters.com/business/dollar-holds-gains-ahead-fed-policy-signal-rbnz-decision-2026-10-28/" }
     ],
-    link: "/key-stories#rbnz-october-2026"
+    link: "/key-stories?feature=rbnz-october-2026"
   }
 ];
 
