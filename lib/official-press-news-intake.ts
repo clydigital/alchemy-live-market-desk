@@ -7,6 +7,7 @@
 import { createHash } from "node:crypto";
 import type { ResearchRunInput, IntakeItemInput } from "./research-update.ts";
 import { normaliseDirectFeedText } from "./direct-news-evidence-triage.ts";
+import { extractOfficialPressFacts } from "./official-press-facts.ts";
 
 export const OFFICIAL_PRESS_FEEDS = [
   {
@@ -166,6 +167,7 @@ async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch):
         const html = (await response.text()).slice(0, 150_000);
         if (!materialTitleFound(html, entry.title)) return null;
         const title = entry.title.slice(0, 500);
+        const sourceFacts=extractOfficialPressFacts(html,title);
         return {
           itemKey: "official-press:" + createHash("sha256").update(entry.url).digest("hex").slice(0, 24),
           itemType: "news" as const,
@@ -173,7 +175,7 @@ async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch):
           title,
           url: entry.url,
           publishedAt: entry.publishedAt,
-          summary: title,
+          summary: sourceFacts.length?sourceFacts.join(" "):title,
           sourceQuality: 95,
           relevance: 84,
           materiality: 80,
@@ -183,7 +185,10 @@ async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch):
           evidence: [{
             title, url: entry.url, publisher: feed.publisher,
             publishedAt: entry.publishedAt, claim: title,
-          }],
+          }, ...sourceFacts.map(fact=>({
+            title, url:entry.url, publisher:feed.publisher,
+            publishedAt:entry.publishedAt, claim:"OFFICIAL_FACT: "+fact,
+          }))],
           reviewReason: "Original official RSS publication clock and directly linked same-host press-release HTML checked. Headline describes the announcement only, not its financial effect.",
         };
       } catch {
