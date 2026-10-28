@@ -48,6 +48,22 @@ export const OFFICIAL_PRESS_FEEDS = [
     publisher:"U.S. Energy Information Administration",
   },
   {
+    // Direct, original-policy newsroom source. Do not treat policy previews as
+    // realised decisions; the announcement must pass the headline + HTML gate.
+    name: "Bank of Canada press releases",
+    feed: "https://www.bankofcanada.ca/content_type/press-releases/feed/",
+    host: "www.bankofcanada.ca",
+    path: /^\/20[0-9]{2}\/[0-9]{2}\/[a-z0-9-]+\/?$/i,
+    publisher: "Bank of Canada",
+  },
+  {
+    name: "RBNZ official news",
+    feed: "https://www.rbnz.govt.nz/feeds/news",
+    host: "www.rbnz.govt.nz",
+    path: /^\/news-and-events\/news\/20[0-9]{2}\/[0-9]{2}\/[a-z0-9-]+\/?$/i,
+    publisher: "Reserve Bank of New Zealand",
+  },
+  {
     name:"Meta investor press releases",
     feed:"https://investor.atmeta.com/rss/pressrelease.aspx",
     host:"investor.atmeta.com",
@@ -127,6 +143,14 @@ export function materiallyActionableOfficialHeadline(feed: Feed, headline: strin
         && /\b(?:decides?|decision|raises?|cuts?|maintains?|holds?|changes?|increases?|lowers?|updates?)\b/i.test(headline));
   if (feed.host === "www.eia.gov") return /\b(?:oil|crude|petroleum|gas|gasoline|diesel|electricity|energy|production|outlook|inventor(?:y|ies)|hormuz|refin(?:ery|eries)|lng)\b/i.test(headline)
     && /\b(?:forecasts?|expects?|raises?|lowers?|increases?|decreases?|revises?|reports?|releases?|updates?|projects?)\b/i.test(headline);
+  if (feed.host === "www.bankofcanada.ca")
+    return /\b(?:bank of canada|policy rate|overnight rate)\b/i.test(headline)
+      && /\b(?:raises?|raised|hikes?|hiked|increases?|increased|holds?|held|maintains?|maintained|cuts?|cut|lowers?|lowered)\b/i.test(headline)
+      && /\b(?:rate|rates|overnight)\b/i.test(headline);
+  if (feed.host === "www.rbnz.govt.nz")
+    return /\b(?:rbnz|reserve bank of new zealand|ocr|official cash rate|monetary policy committee)\b/i.test(headline)
+      && /\b(?:holds?|held|unchanged|maintains?|maintained|raises?|raised|hikes?|hiked|increases?|increased|cuts?|cut|lowers?|lowered)\b/i.test(headline)
+      && /\b(?:rate|ocr|cash)\b/i.test(headline);
   if (feed.host === "www.federalreserve.gov") return /\b(?:federal reserve|fomc|federal open market|monetary policy|federal funds|discount rate|balance sheet|policy rate)\b/i.test(headline)
     && /\b(?:announces?|issues?|releases?|statement|decision|raises?|cuts?|maintains?|approves?|updates?|votes?)\b/i.test(headline);
   if (feed.host === "investors.broadcom.com"||feed.host === "investor.atmeta.com")
@@ -139,6 +163,15 @@ export function materiallyActionableOfficialHeadline(feed: Feed, headline: strin
 }
 
 function materialTitleFound(html: string, title: string) {
+function materialTitleFound(html: string, title: string) {
+  // An exact H1 match also proves very short official policy titles such as
+  // "OCR held at 2.75%"; the old >=3 long-word rule silently dropped these.
+  // Only evaluated after the RSS permalink has passed the exact HTTPS host gate.
+  const normalise=(value:string)=>value.replace(/<[^>]+>/g," ")
+    .replace(/&amp;/gi,"&").replace(/&nbsp;/gi," ")
+    .toLowerCase().replace(/\s+/g," ").trim();
+  const h1=html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1]||"";
+  if(title.trim().length>=12 && normalise(h1)===normalise(title)) return true;
   const header = [
     html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "",
     html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1] || "",
