@@ -12,6 +12,10 @@ export type NotionResearchSource = {
   retrievedAt: string;
   text: string;
   originalLinks: string[];
+  /** MYT day of the source edition, distinct from the fetch timestamp. */
+  editionDay?: string;
+  /** Source-owned run quality, not a Bluebelly verification grade. */
+  coverageStatus?: string;
 };
 export type NotionResearchBundle = {
   status: "READY_FOR_REVIEW" | "PARTIAL" | "NOT_CONFIGURED" | "UNAVAILABLE";
@@ -115,7 +119,7 @@ export function selectNotionResearchPages(searchResults:unknown,day:string,macro
   const gates=items.filter(p=>{
     const title=name(p);
     const parent=obj(p.parent);
-    return title.startsWith(day+" ")&&/Research Gap Gate$/i.test(title) &&
+    return title.startsWith(day+" ")&&/Research Gap (?:Gate|Investigation)(?: \(\d{1,2}:\d{2} slot\))?$/i.test(title) &&
       (sameId(parent.data_source_id,gateSource)||sameId(parent.database_id,gateSource));
   }).sort((a,b)=>name(b).localeCompare(name(a)));
   return {archiveId:safePageId(macro?.id),gateId:safePageId(gates[0]?.id)};
@@ -243,7 +247,7 @@ export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionRes
       gateId:today.gateId||previous.gateId,
     };
     if(!today.gateId&&selected.gateId)warnings.push(
-      "Latest accessible Research Gap Gate is from "+previousDay+" MYT; today's Gate is not yet available.");
+      "Latest accessible Research Gap run is from "+previousDay+" MYT; no current-day run was found.");
     if(!today.archiveId&&selected.archiveId)warnings.push(
       "Latest accessible full MacroPulse posts are from "+previousDay+" MYT; today's daily archive is not yet available.");
     if(selected.gateId){
@@ -261,9 +265,12 @@ export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionRes
         const incomplete=[select("Status"),select("Coverage"),select("Input Health")]
           .some(v=>/^(PARTIAL|FAILED|MATERIAL GAP|INSUFFICIENT)$/i.test(v));
         if(incomplete||/(?:Coverage\s+PARTIAL|Input Health\s+PARTIAL|Run\s+PARTIAL|eligible overflow|unconsumed eligible)/i.test(parsed.text))
-          warnings.push("The latest Research Gap Gate explicitly reports partial coverage, failed inputs or unread overflow. Treat its findings as bounded.");
-        if(parsed.text) sources.push({kind:"RESEARCH_GAP",title:(today.gateId?day:previousDay)+" — latest Research Gap Gate",
+          warnings.push("The latest Research Gap run explicitly reports partial coverage, failed inputs or unread overflow. Treat its findings as bounded.");
+        const title=rows(obj(props.Run).title).map(v=>txt(v.plain_text,300)||txt(obj(v.text).content,300)).join("") ||
+          (today.gateId?day:previousDay)+" — latest Research Gap run";
+        if(parsed.text) sources.push({kind:"RESEARCH_GAP",title,
           url:"https://www.notion.so/"+selected.gateId,pageId:selected.gateId,
+          editionDay:today.gateId?day:previousDay,coverageStatus:select("Coverage")||select("Status")||undefined,
           retrievedAt:fetchedAt,text:parsed.text,originalLinks:parsed.links});
       }catch(error) {warnings.push("Research Gap run could not be read ("+notionResearchErrorHint(error)+"); coverage unknown.");}
     }else warnings.push(warnings.some(w=>/Research Gap data source could not be queried/i.test(w))
@@ -277,6 +284,7 @@ export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionRes
             const parsed=blocksText(await children(token,page.id,2),9500);
             if(parsed.text)sources.push({kind:"MACROPULSE",title:page.title,
               url:"https://www.notion.so/"+page.id,pageId:page.id,
+              editionDay:today.archiveId?day:previousDay,
               retrievedAt:fetchedAt,text:parsed.text,originalLinks:parsed.links});
           }catch(error){warnings.push("A selected MacroPulse post could not be read ("+notionResearchErrorHint(error)+"); slot coverage partial.");}
         }
@@ -291,6 +299,7 @@ export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionRes
   const readBlocked=sources.length===0&&warnings.some(w=>
     /(?:root page could not be listed|data source could not be queried|archive could not be read|run could not be read)/i.test(w));
   return {status:readBlocked?"UNAVAILABLE":
-      sources.length===3&&warnings.length===0?"READY_FOR_REVIEW":"PARTIAL",
+      sources.some(s=>s.kind==="MACROPULSE")&&sources.some(s=>s.kind==="RESEARCH_GAP")&&warnings.length===0
+        ?"READY_FOR_REVIEW":"PARTIAL",
     sources,warnings,fetchedAt};
 }
