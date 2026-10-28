@@ -17,7 +17,7 @@ test("Public Stories mounts one reused source-qualified Newsroom with the existi
 });
 
 test("Newsroom retains the legacy anchored section and adds a separately source-gated public route", () => {
-  assert.match(stories, /href="#newsroom-title">Browse Newsroom topics/);
+  assert.match(stories, /href="#newsroom-title">Newsroom<\\/a>/);
   assert.match(newsroom, /id="newsroom-title"/);
   assert.ok(stories.indexOf("<NewsroomLensExplorer ") < stories.indexOf('aria-labelledby="persistent-theses"'));
   assert.equal(blueDeskHostAccess("/key-stories", "bluebelly-desk.vercel.app"), "public");
