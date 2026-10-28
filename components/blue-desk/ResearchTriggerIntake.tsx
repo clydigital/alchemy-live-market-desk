@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
+import type { MarketMonitor } from "@/lib/market-monitor";
 
-export default async function ResearchTriggerIntake() {
-  const monitor = await getMarketMonitor().catch(() => null);
+export default async function ResearchTriggerIntake({monitor: provided}: {monitor?: MarketMonitor | null} = {}) {
+  const monitor = provided === undefined ? await getMarketMonitor().catch(() => null) : provided;
   const triggers = (monitor?.researchTriggers || []).slice(0, 6);
   return (
     <section style={{marginBottom:32,padding:22,border:"1px solid #365348",borderRadius:16,background:"#142b2d"}} aria-label="Market research trigger intake">
