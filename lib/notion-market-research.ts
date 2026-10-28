@@ -31,7 +31,7 @@ export function notionResearchErrorHint(error:unknown):string {
   if(error instanceof Error && error.name==="AbortError")
     return "request timeout";
   const status=error instanceof Error
-    ? Number(error.message.match(/^Notion read failed: (\\d{3})$/)?.[1]||0) : 0;
+    ? Number(error.message.match(/^Notion read failed: (\d{3})$/)?.[1]||0) : 0;
   switch(status){
     case 400:return "HTTP 400: Notion API request/schema incompatible";
     case 401:return "HTTP 401: Notion token rejected or expired";
