@@ -27,6 +27,13 @@ test("Figtree is one self-hosted site font across all CSS including print views"
  const display=readFileSync(join(base,"components/live-desk/DisplaySettings.tsx"),"utf8");
  assert.match(display,/Typeface: Figtree/);
  assert.doesNotMatch(display,/font\.stack|"Serif", stack|"Mono", stack/);
+ for(const icon of ["divergence","yields-gold","transmission","regime-matrix","capex-cashflow","catalyst-timeline"]){
+  const svg=readFileSync(join(base,"public/market-iconography/graphics/"+icon+".svg"),"utf8");
+  assert.match(svg,/font-family="Figtree,sans-serif"/,icon);
+  assert.doesNotMatch(svg,/font-family="Inter/,icon);
+ }
+ const brand=readFileSync(join(base,"public/blue-desk-wordmark.svg"),"utf8");
+ assert.match(brand,/font-family="Figtree,sans-serif"/);
  const art=readFileSync(join(base,"components/blue-desk/EditorialStoryArt.tsx"),"utf8");
  assert.doesNotMatch(art,/fontFamily="Arial/);
 });
