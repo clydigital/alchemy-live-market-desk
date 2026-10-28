@@ -33,8 +33,9 @@ export default async function NewsroomPage({searchParams}:Props){
  return <main className={desk.page} data-public-newsroom="original-source-only">
   <BlueDeskHeader activePath="/blue-desk/newsroom"/>
   <div className={desk.content}>
-    <NewsroomBriefableEvents topics={briefable} readerHref={readerHref}/>
-    <BluebellyNewsWire news={news} initialQuery={query} now={now.toISOString()} readerHref={readerHref}/>
+    <BluebellyNewsWire news={news} initialQuery={query} now={now.toISOString()} readerHref={readerHref}>
+      <NewsroomBriefableEvents topics={briefable} readerHref={readerHref}/>
+    </BluebellyNewsWire>
   </div>
  </main>;
 }
