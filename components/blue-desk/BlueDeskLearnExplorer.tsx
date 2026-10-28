@@ -40,7 +40,7 @@ export default function BlueDeskLearnExplorer({ concepts }: { concepts: Concept[
       <label className={ui.searchLabel} htmlFor="concept-search">Search terms and market topics</label>
       <input id="concept-search" className={ui.search} value={query}
         onChange={(event) => setQuery(event.target.value)}
-        placeholder="Try: CDS, real yields, crack spread, HBM…" type="search" />
+        placeholder="Try: real yields, crack spread, HBM…" type="search" />
       <nav className={ui.filters} aria-label="Filter glossary by market">
         {categories.map((item) => <button key={item.slug} type="button"
           aria-pressed={category === item.slug}
