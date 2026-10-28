@@ -2,7 +2,7 @@ import Link from "next/link";
 import styles from "./DailyEditorialRundown.module.css";
 
 type NewsSignal = { headline: string; summary: string; sourceUrl: string; sourceName: string; occurredAt: string };
-type CalendarSignal = { title: string; decidingQuestion: string; sourceUrl: string; sourceName: string; scheduledAt: string };
+type CalendarSignal = { title: string; decidingQuestion: string; sourceUrl: string; sourceName: string; scheduledAt: string | null };
 type Props = { asOf: string; news: readonly NewsSignal[]; upcoming: readonly CalendarSignal[] };
 
 type Source = { name: string; url: string };
@@ -107,7 +107,7 @@ export default function DailyEditorialRundown({ asOf, news, upcoming }: Props) {
     sourceUrl: n.sourceUrl, at: n.occurredAt, preview: false
   })), ...upcoming.map(e => ({
     title: e.title, summary: e.decidingQuestion || "Compare the result with expectations.",
-    sourceName: e.sourceName, sourceUrl: e.sourceUrl, at: e.scheduledAt, preview: true
+    sourceName: e.sourceName, sourceUrl: e.sourceUrl, at: e.scheduledAt || "", preview: true
   }))];
   const seen = new Set<string>();
   const fallback = candidates.sort((a,b) => {
