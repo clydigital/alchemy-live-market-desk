@@ -62,6 +62,8 @@ test("X embeds are genuine original posts, automatically matched; facts never de
  const server=src("lib/bluebelly-event-social-server.ts");
  assert.match(embed,/twitter-tweet/);
  assert.match(embed,/platform\.twitter\.com\/widgets\.js/);
+ assert.match(embed,/onReady=\{hydrateEmbeds\}/);
+ assert.match(embed,/twttr\?\.widgets\?\.load\(containerRef\.current\)/);
  assert.match(embed,/data-dnt="true"/);
  assert.match(embed,/UNVERIFIED COMMENTARY/);
  assert.match(embed,/Open original post if embed is unavailable/);
