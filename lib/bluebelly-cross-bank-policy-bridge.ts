@@ -14,12 +14,13 @@ const BANKS: readonly Bank[] = [
 ];
 
 type PolicyAction = "raised" | "held";
-type Observation = { bank: Bank; action: PolicyAction; news: NewsBriefV1; clock: number };
+type Observation = { bank: Bank; action: PolicyAction; news: NewsBriefV1; clock: number; energyInflationSupported: boolean };
 export type CrossBankPolicyBridge = {
   question: string;
   explanation: string;
   nextTest: string;
   nextEvent: PresenterCalendarEvent;
+  sharedEnergyStatus: "SOURCE_SUMMARIES" | "UNVERIFIED";
   sources: Array<{ bank: string; action: PolicyAction; url: string; occurredAt: string }>;
 };
 
@@ -49,12 +50,13 @@ function observedPolicy(news: NewsBriefV1, nowMs: number): Observation | null {
   if (clock > nowMs || observed > nowMs || observed < clock || nowMs - clock > 36 * 3_600_000) return null;
   const action = policyAction(news.headline);
   if (!action) return null;
-  // Both original-source-qualified releases must independently mention the
-  // shared energy/inflation theme; do not derive it from nearby oil headlines.
+  // The original-press projection currently contains a generic summary.
+  // Its verified headline proves the action, NOT the full policy rationale.
   const message = news.headline + " " + news.summary;
-  if (!/\b(?:oil|energy|fuel|diesel|gasoline|crude)\b/i.test(message) ||
-      !/\b(?:inflation|cpi|consumer prices|price pressures?)\b/i.test(message)) return null;
-  return { bank, action, news, clock };
+  const energyInflationSupported =
+    /\b(?:oil|energy|fuel|diesel|gasoline|crude)\b/i.test(message) &&
+    /\b(?:inflation|cpi|consumer prices|price pressures?)\b/i.test(message);
+  return { bank, action, news, clock, energyInflationSupported };
 }
 
 function nextPolicyDecision(calendar: PresenterCalendar, nowMs: number, usedBankIds: ReadonlySet<string>): PresenterCalendarEvent | null {
@@ -88,9 +90,15 @@ export function selectCrossBankPolicyBridge(
   if (!raised || !held) return null;
   const nextEvent = nextPolicyDecision(calendar, nowMs, new Set([raised.bank.id, held.bank.id]));
   if (!nextEvent) return null;
+  const commonDriverSupported = raised.energyInflationSupported && held.energyInflationSupported;
   return {
-    question: "Why did " + raised.bank.name + " raise rates while " + held.bank.name + " held despite energy-related inflation?",
-    explanation: "These verified policy announcements describe energy-related inflation pressure but different immediate decisions. Their domestic demand, labour and inflation outlooks need to be compared before extending the argument to another central bank.",
+    sharedEnergyStatus: commonDriverSupported ? "SOURCE_SUMMARIES" : "UNVERIFIED",
+    question: commonDriverSupported
+      ? "Why did " + raised.bank.name + " raise rates while " + held.bank.name + " held despite energy-related inflation?"
+      : "Why did " + raised.bank.name + " raise rates while " + held.bank.name + " held? Was energy inflation a shared constraint?",
+    explanation: commonDriverSupported
+      ? "Both source-qualified summaries mention energy-related inflation, but the reasons for different policy timing still need the banks' full rationale and domestic labour/demand evidence."
+      : "The separately verified announcements establish different policy actions, NOT a shared oil-inflation cause. Check both original statements for energy prices, employment, demand and inflation persistence before asserting a common driver.",
     nextTest: "Ahead of " + nextEvent.title + ", compare its guidance with contemporaneous expectations, then verify the relevant two-year yields and currencies with time-matched observations. No third-bank outcome or market reaction is established here.",
     nextEvent,
     sources: [
