@@ -37,5 +37,5 @@
 .copy{padding:10px 12px;cursor:pointer}
 .empty{padding:25px;border:1px dashed #386079;color:#abcada;font-size:13px}
 @media(max-width:820px){.columns{grid-template-columns:1fr}.rail{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.panel{margin:0}}
-@media(max-width:540px){.sectionTitle{display:block}.search{margin-top:12px}.item{grid-template-columns:111px minmax(0,1fr);gap:11px}.art,.art>div{height:103px}.item h2{font-size:18px}.item p{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+@media(max-width:540px){.intro h1{font-size:clamp(24px,7vw,30px);line-height:1.16;overflow-wrap:break-word}.sectionTitle{display:block}.search{margin-top:12px}.item{grid-template-columns:111px minmax(0,1fr);gap:11px}.art,.art>div{height:103px}.item h2{font-size:18px}.item p{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
 .item .detailBody p{display:block}.rail{grid-template-columns:1fr}.metadata{display:block;margin:6px 0 0}}
