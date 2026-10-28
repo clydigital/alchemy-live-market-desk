@@ -55,6 +55,7 @@ test("ECB forged domains, speeches and stale feeds cannot pass the original-sour
  let htmlFetches=0;
  const request=(async (target:RequestInfo|URL)=>{
   if(String(target)===feed.feed)return resp(malformed,"text/xml");
+  if(OFFICIAL_PRESS_FEEDS.some(f=>f.feed===String(target)))return resp("<rss><channel></channel></rss>","text/xml");
   htmlFetches++;return resp(html,"text/html");
  }) as typeof fetch;
  const got=await applyOfficialPressNewsIntake(input,{now,fetchImpl:request});
