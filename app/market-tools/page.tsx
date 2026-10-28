@@ -29,7 +29,7 @@ const connectors = [
 ];
 export const dynamic = "force-dynamic";
 
-export default async function MarketToolsPage({searchParams}:{searchParams?:Promise<{check?:string}>} = {}) {
+export default async function MarketToolsPage({searchParams}:{searchParams:Promise<{check?:string}>}) {
   const options = await searchParams;
   const checkProviders=options?.check==="providers";
   const [market, monitor, readiness] = await Promise.all([
