@@ -16,6 +16,9 @@ When asked for market trade ideas, cross-asset correlations, technical divergenc
 6. Presenter and editorial consumers may use a candidate as a question to investigate; never promote it to a verified claim without independent receipts.
 7. Do not modify PowerStack, schedule a new job, or publish to retired Live Desk/Hybrid surfaces.
 
+## COT positioning decision contract (28 October 2026)
+For market ideas involving FX carry, Treasuries, gold, oil or equity-index crowding, use original CFTC vintages and report-family-specific participant groups first. Treat https://www.cotsignal.com as a secondary visual/explanatory source, never a canonical provider, API, trade signal or proof that price must reverse. Its configurable historical min/max range score is distinct from Alchemy’s 52-week percentile rank; disclose lookback, formula and inverted Commercial display. Preserve Tuesday report as-of versus Friday publication and all intervening catalysts. The existing MacroPulse and Research Gap tasks now ask for these checks conditionally; the plugin archives still need a tested release update to embed this policy in plugin-owned skills.
+
 ## Plugin implementation checklist
 - Update both private plugin archives' workflow instructions and relevant tool descriptions.
 - Add explicit link to /market-tools and the workflow contract in docs/bluebelly-market-tools-workflow-contract.md.
