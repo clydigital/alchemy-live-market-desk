@@ -11,9 +11,29 @@ export function decisionTopics(news: readonly NewsBriefV1[], calendar: Presenter
     id:t.id,title:t.updates[0].headline, fact:t.updates[0].summary,
     why:t.humanStake,test:t.guidingQuestion,at:t.latestObservedAt,
     sourceUrl:t.updates[0].sourceUrl,sourceName:t.updates[0].sourceName,
-    href:'?news='+encodeURIComponent(t.updates[0].id),status:'NEW' as 'NEW'|'UPCOMING',
+    href:'?news='+encodeURIComponent(t.updates[0].id),status:'NEW' as 'NEW'|'UPCOMING'|'FEATURE',
     mechanism:t.marketMechanism, assets:[] as string[], priority:2,
   }));
+  // The separately editor-published RBNZ feature is an approved, dated article,
+  // not a new research-engine admission or an inferred market price reaction.
+  // Surface it for 48 hours only, and suppress it if a current news brief
+  // already contains the same original policy decision.
+  const rbnzAt="2026-10-28T01:00:00.000Z";
+  const age=+now-Date.parse(rbnzAt);
+  if(age>=0 && age<=48*3600000 && !current.some(n=>/rbnz|reserve bank of new zealand|ocr held at 2\.75/i.test(n.headline))){
+    topics.push({
+      id:"rbnz-october-2026-editorial",title:"RBNZ surprised markets with a narrow 4–3 rate hold",
+      fact:"The RBNZ held the OCR at 2.75% by a 4–3 vote. September-quarter inflation was 3.7% and the bank forecast 4.4% for December, largely reflecting fuel costs.",
+      why:"A hold is not automatically dovish: compare what markets expected with what the bank said it may do next.",
+      test:"Next RBNZ decision on 9 December 2026; check New Zealand short yields and NZD/USD on matched timestamps.",
+      at:rbnzAt,
+      sourceUrl:"https://www.rbnz.govt.nz/news-and-events/news/2026/10/ocr-held-at-2-75-percent",
+      sourceName:"Reserve Bank of New Zealand · decision and meeting record",
+      href:"?feature=rbnz-october-2026",status:"FEATURE",
+      mechanism:"A surprise pause can shift the relative interest-rate outlook for the New Zealand dollar, but the effect must be measured against pre-announcement pricing and other FX drivers.",
+      assets:["NZDUSD"],priority:3,
+    });
+  }
   for(const result of getRecentVerifiedEarningsScorecards(now,7)) {
     topics.push({id:result.id,title:result.headline,fact:result.company+" · "+result.fiscalPeriod+": "+result.metrics.filter(m=>m.state==='measured').map(m=>m.name+" "+m.value).join("; "),why:result.conclusion,test:result.nextTest,at:result.releaseDay,sourceUrl:result.sourceUrl,sourceName:result.sourceName,href:'?brief='+encodeURIComponent(result.id),status:'NEW',mechanism:result.outlook,assets:[result.ticker],priority:3});
   }
