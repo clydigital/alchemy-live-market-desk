@@ -59,7 +59,7 @@ export function projectOriginalPressNews(
     id,headline:title,
     summary:"The original publisher issued this dated announcement. Its market-price reaction and wider causal effects have not been established.",
     sourceName:feed.publisher,sourceUrl:url,
-    sourceKind:feed.host==="www.federalreserve.gov"?"official":
+    sourceKind:feed.host==="www.federalreserve.gov"||feed.host==="www.eia.gov"?"official":
       feed.host==="www.sec.gov"?"filing":"primary",
     occurredAt:new Date(published).toISOString(),
     observedAt:new Date(checked).toISOString(),
