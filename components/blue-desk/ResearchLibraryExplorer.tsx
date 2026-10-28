@@ -5,6 +5,7 @@ import type { NotionResearchBundle } from "@/lib/notion-market-research";
 import { EntityMark } from "./EntityIdentity";
 import type { EntityIdentity } from "@/lib/bluebelly-entity-identity";
 import styles from "@/app/owner/research/research.module.css";
+import { researchIntakeDisplay } from "@/lib/blue-desk/research-intake-display";
 
 type Section = "All" | "Latest" | "Themes" | "Gaps" | "Archives";
 type ResearchEntry = {
@@ -20,10 +21,10 @@ type ResearchEntry = {
 };
 
 const COLLECTIONS: ResearchEntry[] = [
-  {id:"pulse-26",title:"26 October — full MacroPulse archive",section:"Archives",discipline:"Daily research",
+  {id:"pulse-26",title:"26 October — historical MacroPulse archive",section:"Archives",discipline:"Daily research",
    description:"Every source-qualified two-hour post from 26 October. Read individual original posts and their source timestamps.",href:"https://app.notion.com/p/404519b67a94815197cbcf21b9a19a8a",
    provenance:"Notion · dated full posts",quality:"Research archive",updated:"2026-10-26"},
-  {id:"reader-index",title:"Research Library — 26 October market map",section:"Archives",discipline:"Research briefing",
+  {id:"reader-index",title:"26 October — archived market map",section:"Archives",discipline:"Research briefing",
    description:"The dated 26 October index of oil, US rates, Europe credit, FX, AI and the next deciding tests. Updated separately from recurring research posts.",
    href:"https://app.notion.com/p/405519b67a9481738bdacc9dae6e8589",provenance:"Notion · curated navigation",quality:"Research synthesis",updated:"2026-10-26"},
   {id:"rates",title:"US Rate Regime and macro transmission",section:"Themes",discipline:"Rates / FX",
@@ -77,6 +78,12 @@ export default function ResearchLibraryExplorer({intake}:{intake:NotionResearchB
   const [term,setTerm]=useState("");
   const [section,setSection]=useState<Section>("All");
   const [sort,setSort]=useState<"curated"|"title">("curated");
+  const connection=researchIntakeDisplay(intake);
+  // The most recent actual post is only known when the server read succeeds.
+  // When it cannot, take the owner to the persistent archive, not a dated
+  // hard-coded "latest" page or an invented today's URL.
+  const latestPulse=intake.sources.find(source=>source.kind==="MACROPULSE");
+  const pulseLink=latestPulse?.url ?? "https://app.notion.com/p/3ea519b67a948161ba4dec8f97ebf658";
   const recent:ResearchEntry[]=useMemo(()=>intake.sources.map(source=>({
     id:source.pageId,title:source.title,description:shortText(source.text),
     section:"Latest" as const,discipline:source.kind==="MACROPULSE"?"MacroPulse":"Research Gap",
@@ -102,16 +109,17 @@ export default function ResearchLibraryExplorer({intake}:{intake:NotionResearchB
           longer-running themes, open questions and dated source records. One place to start, without
           flattening every source into the same level of authority.</p>
         <div className={styles.actionRow}>
-          <a className={styles.primary} href="https://app.notion.com/p/405519b67a9481738bdacc9dae6e8589" target="_blank" rel="noopener noreferrer">Open 26 October market map ↗</a>
+          <a className={styles.primary} href={pulseLink} target="_blank" rel="noopener noreferrer">{latestPulse?"Read latest retrieved MacroPulse":"Browse MacroPulse archives"} ↗</a>
           <a href="https://app.notion.com/p/3ea519b67a9481d0910ff8d54c5b40b3" target="_blank" rel="noopener noreferrer">Full Financial Research workspace ↗</a>
         </div>
       </div>
       <aside className={styles.status}>
-        <p className={styles.eyebrow}>TODAY'S RESEARCH INTAKE</p>
-        <strong>{intake.sources.length} <span>source pages retrieved</span></strong>
-        <p className={styles.statusText}>Notion reader: {intake.status.replaceAll("_"," ").toLowerCase()}</p>
-        <p className={styles.small}>Checked {safeDate(intake.fetchedAt)} · The full archive is reached through the links below. The search covers the visible index and recent retrieved page previews, not every archived paragraph.</p>
-        {intake.warnings.length>0 && <details><summary>Coverage limitations ({intake.warnings.length})</summary>
+        <p className={styles.eyebrow}>RESEARCH CONNECTION / RECENT INTAKE</p>
+        <strong>{connection.connected?intake.sources.length:"—"} <span>{connection.connected?"recent source-page previews retrieved":"live previews unavailable"}</span></strong>
+        <p className={styles.statusText}>{connection.label}</p>
+        <p className={styles.small}>{connection.connected?"Checked":"Attempted"} {safeDate(intake.fetchedAt)} · {connection.detail}</p>
+        {!connection.connected && <p className={styles.small}>Open the original <a href="https://app.notion.com/p/3ea519b67a948161ba4dec8f97ebf658" target="_blank" rel="noopener noreferrer">MacroPulse archive</a> or <a href="https://app.notion.com/p/3489f73be6f8476bb8baf5eb9ed150de" target="_blank" rel="noopener noreferrer">Research Gap Runs</a> directly. A failed Bluebelly read is not evidence that the research is missing.</p>}
+        {intake.warnings.length>0 && <details open={!connection.connected}><summary>Coverage limitations ({intake.warnings.length})</summary>
           <ul>{intake.warnings.map((w,i)=><li key={i}>{w}</li>)}</ul></details>}
       </aside>
     </header>
@@ -147,8 +155,8 @@ export default function ResearchLibraryExplorer({intake}:{intake:NotionResearchB
           <a href={entry.href} target="_blank" rel="noopener noreferrer" aria-label={"Open "+entry.title+" in Notion"}>Read source ↗</a></div>
       </article>)}
     </div> : <div className={styles.noResults}>
-      <h3>No matching items in this index</h3>
-      <p>Searches do not index all historical Notion content. Try another topic or open the full archive.</p>
+      <h3>{section==="Latest"&&!connection.connected?"Live source previews unavailable":"No matching items in this index"}</h3>
+      <p>Searches do not index all historical Notion content. When the server reader is unavailable, use the direct Notion archive links above.</p>
       <button type="button" onClick={()=>{setTerm("");setSection("All");}}>Clear filters</button>
     </div>}
     <footer className={styles.footer}>
