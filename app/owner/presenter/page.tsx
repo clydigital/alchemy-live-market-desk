@@ -44,6 +44,7 @@ export default async function PresenterStudioPage(){
           <span className={styles.kicker}>RESEARCH CONNECTION</span>
           <strong>Daily briefing</strong>
           <small><Link href="/my-reports">Open my source-qualified PDFs ↗</Link></small>
+          <small><Link href="/market-tools">Market tools · correlation and trade-idea research ↗</Link></small>
           <small><Link href="/owner/presenter/editions">Browse exact historical editions ↗</Link></small>
           <small><a href="#todays-talk">Read today’s source-ranked talk ↗</a></small>
         </div>
