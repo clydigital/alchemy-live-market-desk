@@ -26,6 +26,7 @@ const PRIVATE_NAV = [
 const PUBLIC_NAV = [
   ["Today", "/"],
   ["Newsroom", "/newsroom"],
+  ["Hormuz Watch", "/hormuz"],
   ["Regime Watch", "/regime-watch"],
   ["Markets", "/markets"],
   ["Calendar", "/calendar"],
@@ -38,6 +39,7 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Live Market": "market",
   "Today": "market",
   "Newsroom": "layers",
+  "Hormuz Watch": "oil",
   "Regime Watch": "divergence",
   "Markets": "chart",
   "Deep Dive": "deep-dive",
