@@ -108,14 +108,14 @@ export default function BluebellyNewsfront({news,observations,theses,upcoming,ho
          <p>Public Story snapshots, grouped by research topic—not newly adjudicated regime verdicts.</p></div>
          <Link href={regimes}>All regime lenses →</Link></div>
        <div className={styles.teaserGrid}>{lenses.filter(l=>["fed","bonds","ai","energy"].includes(l.id)).map(lens=>
-         <Link href={regimes+"#"+lens.id} className={styles.teaser} key={lens.id}>
+         <Link href={regimes+"/"+lens.id} className={styles.teaser} key={lens.id}>
            <span>{lens.code}</span><strong>{lens.name}</strong>
            <small>{lens.stories.length} public Story snapshot{lens.stories.length===1?"":"s"} · View question</small>
          </Link>)}</div>
      </div>
      <aside className={styles.rail}>
        <div className={styles.sidebox}><h3>Regime watch</h3><p>Ongoing questions, not new daily articles.</p>
-         {lenses.slice(0,6).map(l=><Link key={l.id} className={styles.railLine} href={regimes+"#"+l.id}>
+         {lenses.slice(0,6).map(l=><Link key={l.id} className={styles.railLine} href={regimes+"/"+l.id}>
            <span><strong>{l.name}</strong><small>{l.stories.length} related public Stories</small></span><em>{l.code.split("/")[0]}</em>
          </Link>)}<Link className={styles.railAction} href={regimes}>Open regime board →</Link>
        </div>
