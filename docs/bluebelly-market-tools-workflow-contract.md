@@ -63,3 +63,11 @@ Implementation candidate in `lib/market-tools-correlations.ts`:
 - A source's original observation date governs freshness. No `updatedAt` cache time is sufficient proof of an updated market quote. Label age > 7 days as STALE, and do not call these statistical co-movements signals. Correlation and source success do not grant canonical evidence admission.
 
 Follow-up before enabling decision feedback: provider audit, 60/120-window coverage upgrade, spot-vs-proxy choice, separate persistence for source receipts and canonical evidence IDs, actual Research Gap receipt, and governance tests for owner-only publication.
+
+## Manually test installed provider keys (28 October 2026)
+- Go to the authenticated `/market-tools?check=providers` page. This checks exactly one FRED DGS10 daily observation, the existing EIA weekly petroleum v2 snapshot and a single compact, free-tier Alpha Vantage SPY daily history request. It is read-only and no scheduled job is added.
+- The check runs only when the owner opens that URL. Responses are cached for 60 minutes to preserve free-tier API limits. Plain `/market-tools` does not request API-key smoke checks.
+- The provider panel shows ready / unconfigured / unavailable / limited, the most recent source observation date and valid row count; it never sends credentials, raw vendor error payloads or credential-bearing request URLs to the page.
+- `ALPHA_VANTAGE_API_KEY` currently powers only an explicitly labelled smoke test, **not** a replacement for existing Nasdaq/ECB/EIA market prices, verified signals, correlation calculations, Story/Regime updates or production financial evidence.
+- Project-level Vercel variables and team Shared Environment Variables are different scopes. A key is usable only after it is linked to the project and environment and a new deployment is built. On source failure show a gap, do not infer a broken API key merely from an unavailable price.
+- Auth remains the exact Bluebelly owner allowlist. If deployed and signed-in readback is not verified, label release as unverified.
