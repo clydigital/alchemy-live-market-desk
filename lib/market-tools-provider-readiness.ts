@@ -38,7 +38,7 @@ async function fetchProviderReadiness():Promise<{checkedAt:string;providers:Prov
     asOf:e?.asOf??null,
     observationCount:Object.keys(e?.metrics??{}).length,
     retrievedAt:e?.retrievedAt??null,
-    note:e?.state==="ready" && Object.keys(e.metrics).length<8?"Partial EIA coverage: "+Object.keys(e.metrics).length+"/8 metrics; "+(e.note??"one or more series missing"):e?.state==="ready"?"Verified EIA weekly petroleum API observation":e?.state==="unconfigured"?"EIA_API_KEY not available to this deployment":"EIA v2 API response unavailable or invalid",
+    note:e?.state==="ready" && Object.keys(e.metrics).length<8?"Partial EIA coverage: "+Object.keys(e.metrics).length+"/8 metrics; "+(e.note??"one or more series missing"):e?.state==="ready"?"Verified EIA weekly petroleum API observation":e?.state==="unconfigured"?"EIA_API_KEY not available to this deployment":"EIA v2 unable to read rows: "+(e?.note??"unknown server response"),
     sourceUrl:"https://www.eia.gov/opendata/"},
    {provider:"Alpha Vantage",
     state:a?.state??"unavailable",
@@ -54,4 +54,4 @@ async function fetchProviderReadiness():Promise<{checkedAt:string;providers:Prov
  * Cached for an hour to avoid burning Alpha Vantage's small free daily quota.
  * Not part of automated Cron, canonical research, Story or Regime ingestion.
  */
-export const getMarketToolsProviderReadiness=unstable_cache(fetchProviderReadiness,["market-tools-provider-readiness-v2"],{revalidate:3600});
+export const getMarketToolsProviderReadiness=unstable_cache(fetchProviderReadiness,["market-tools-provider-readiness-v3"],{revalidate:3600});
