@@ -66,11 +66,12 @@ export default async function BlueDeskPage() {
     getCurrentVerifiedMarketMotion({ limit: 24 }).catch(() => []),
     getPublicSourceObservations(now,12).catch(() => []),
     getPublicThesisLedger(now,24).catch(() => []),
-    getOriginalPressNews(now,12).catch(() => []),
+    getOriginalPressNews(now,18,7).catch(() => []),
     getPublishedMacroPulseBriefs(2).catch(() => []),
   ]);
   const motionNews = selectVerifiedNewsBriefs(verifiedMotions, now, 12);
-  const verifiedNews = combineQualifiedNews(motionNews,originalPress,12);
+  const recentNews = combineQualifiedNews(motionNews,originalPress,18);
+  const verifiedNews = recentNews.filter(n=>Date.parse(n.occurredAt)<=+now && +now-Date.parse(n.occurredAt)<=48*3600000);
   const newsFeature = verifiedNews[0] || null;
   const featureTopic = newsFeature ? projectLivingMarketTopics([newsFeature])[0] : null;
   const observedFeature = observations[0] || null;
@@ -89,7 +90,7 @@ export default async function BlueDeskPage() {
     <main className={styles.page} data-blue-desk-convergence="phase-1">
       <BlueDeskHeader activePath="/blue-desk" />
       <div className={styles.content}>
-        <DecisionBrief news={verifiedNews} calendar={calendar} now={now} host={host}/>
+        <DecisionBrief news={verifiedNews} recentNews={recentNews} calendar={calendar} now={now} host={host}/>
         <details><summary>Explore dated observations and previous research</summary>
         <BluebellyNewsfront news={verifiedNews} observations={observations} theses={theses} host={host} now={now}
           upcoming={upcoming.map(event=>({id:event.id,title:event.title,sourceName:event.sourceName,
