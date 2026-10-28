@@ -11,6 +11,7 @@ import EarningsEvidenceGraphic from './EarningsEvidenceGraphic';
 import PresenterOneMinute from './PresenterOneMinute';
 import {buildPresenterOneMinute} from '@/lib/bluebelly-presenter-one-minute';
 import s from './DecisionBrief.module.css';
+import {ScopeStrip,EntityMark} from './EntityIdentity';
 
 function Event({event}:{event:PresenterCalendarEvent}){
  return <article className={s.event}><strong>{event.title}</strong>
@@ -36,7 +37,7 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
  const additional=recentNews.filter(n=>!topics.some(t=>t.href==='?news='+encodeURIComponent(n.id))).slice(0,8);
  return <section className={s.brief} data-decision-first="public-v1">
   <header className={s.header}>
-   <div className={s.headlineRow}>
+   <div className={s.headlineRow}><svg className={s.circuit} viewBox="0 0 600 400" aria-hidden="true"><path d="M35 320h170l70-70h130l90-90h105M100 370h155l55-55h140l50-50h100M240 200h90l70-70h100l65-65M300 50h100l40 40h160"/><circle cx="275" cy="250" r="7"/><circle cx="400" cy="130" r="7"/><path d="M320 180h40v40h-40zM450 290h35v35h-35z"/></svg>
     <div>
      <p className={s.kicker}>{report?'DAILY REPORT':'TODAY'} / SOURCE-QUALIFIED BRIEFING</p>
      <h1>{report?'Today’s decisions, explained.':'Market in 30 seconds'}</h1>
@@ -56,7 +57,7 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
   <div className={s.topics}>{topics.map((t,i)=><article className={i===0?s.lead:s.topic} key={t.id}>
     <p className={s.kicker}>{String(i+1).padStart(2,'0')} / {t.status}</p>
     <div className={s.art}><EditorialStoryArt headline={t.title} summary={t.fact} compact/></div>
-    <h2><Link href={reader+t.href}>{t.title}</Link></h2>
+    <ScopeStrip assets={t.assets} max={2} label="In focus"/><h2><Link href={reader+t.href}>{t.title}</Link></h2>
     <p>{t.status==='UPCOMING'?t.why:t.fact}</p>
     <small>{t.status==='UPCOMING'?'Scheduled':t.status==='FEATURE'?'Dated editorial feature':'Source event'} <DualTimestamp value={t.at.includes('T')?t.at:null} sourceDate={t.at}/></small>
     {t.assets.length?<small>{t.assets.join(' · ')}</small>:null}
@@ -64,7 +65,7 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
   </article>)}</div>
   <div className={s.lanes} aria-label="Results and forward catalysts">
    {[{title:'Released · last 7 days',rows:lanes.released},{title:'Next policy & macro · 72h / 7d',rows:lanes.policy},{title:'Upcoming earnings · 7 days',rows:lanes.earnings}].map(l=><section key={l.title}><h2>{l.title}</h2>
-    {l.title.startsWith('Released')?earningsResults.map(r=><article className={s.event} key={r.id}><strong>{r.company} · {r.fiscalPeriod}</strong><small>{r.releaseDay} · source date only · {r.basis}</small><p>{r.metrics.filter(m=>m.state==='measured').map(m=>m.name+': '+m.value).join(' · ')}</p><small>ACTUAL REPORTED · CONSENSUS COMPARISON UNAVAILABLE</small><EarningsEvidenceGraphic scorecard={r}/><details><summary>Cash flow, spending and outlook</summary><p>{r.beatMiss}</p>{r.metrics.map(m=><p key={m.name}><strong>{m.name}:</strong> {m.value||'Not yet verified'} · {m.comparison||'Comparison unavailable'} {m.note}</p>)}<p>{r.conclusion}</p><p>{r.nextTest}</p><a href={r.sourceUrl}>{r.sourceName} ↗</a></details></article>):null}
+    {l.title.startsWith('Released')?earningsResults.map(r=><article className={s.event} key={r.id}><strong><EntityMark kind="company" code={r.ticker}/> {r.company} · {r.fiscalPeriod}</strong><small>{r.releaseDay} · source date only · {r.basis}</small><p>{r.metrics.filter(m=>m.state==='measured').map(m=>m.name+': '+m.value).join(' · ')}</p><small>ACTUAL REPORTED · CONSENSUS COMPARISON UNAVAILABLE</small><EarningsEvidenceGraphic scorecard={r}/><details><summary>Cash flow, spending and outlook</summary><p>{r.beatMiss}</p>{r.metrics.map(m=><p key={m.name}><strong>{m.name}:</strong> {m.value||'Not yet verified'} · {m.comparison||'Comparison unavailable'} {m.note}</p>)}<p>{r.conclusion}</p><p>{r.nextTest}</p><a href={r.sourceUrl}>{r.sourceName} ↗</a></details></article>):null}
     {l.rows.length?l.rows.slice(0,3).map(e=><Event key={e.id} event={e}/>):l.title.startsWith('Released')&&earningsResults.length?null:<p>No qualifying records available. Coverage may be incomplete.</p>}
     {l.rows.length>3?<details><summary>{l.rows.length-3} more events</summary>{l.rows.slice(3).map(e=><Event key={e.id} event={e}/>)}</details>:null}
    </section>)}

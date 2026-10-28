@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./bluebelly-tokens.css";
 import type { Metadata, Viewport } from "next";
 import { Figtree } from "next/font/google";
 

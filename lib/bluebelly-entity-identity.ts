@@ -5,6 +5,7 @@
 export type EntityKind = "country" | "company" | "asset" | "institution";
 export type EntityIdentity = {kind:EntityKind; code:string; label?:string};
 export const BLUEBELLY_COMPANIES:Readonly<Record<string,{name:string;favicon:string}>> = {
+  "000660.KS":{name:"SK hynix",favicon:"https://news.skhynix.com/favicon.ico"},
   MSFT:{name:"Microsoft",favicon:"https://www.microsoft.com/favicon.ico"},
   AAPL:{name:"Apple",favicon:"https://www.apple.com/favicon.ico"},
   NVDA:{name:"NVIDIA",favicon:"https://www.nvidia.com/favicon.ico"},
@@ -105,4 +106,13 @@ export function entityForCalendarEvent(kind:"economic"|"earnings",assets:readonl
   }
   for(const asset of assets){const id=entityForAsset(asset);if(id&&(id.kind==="country"||id.kind==="company"))return id;}
   return {kind:"asset",code:"MARKET"} as EntityIdentity;
+}
+
+/** Asset slugs are artwork names, never inferred production tickers. */
+export function entityPortrait(kind:EntityKind,value:string):string|null{
+ const code=normaliseEntityCode(value);
+ const country=kind==='institution'?institutionCountry(code):kind==='country'?code:null;
+ if(country&&['US','JP','NZ','CN','SA','KR'].includes(country))return '/bluebelly/actors/'+country.toLowerCase()+'.svg';
+ const issuers:Record<string,string>={AMZN:'amazon',NVDA:'nvidia',ORCL:'oracle','000660.KS':'sk'};
+ return kind==='company'&&issuers[code]?'/bluebelly/actors/'+issuers[code]+'.svg':null;
 }

@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import {
   BLUEBELLY_COMPANIES, BLUEBELLY_COUNTRIES, ASSET_CODES,
-  companyFavicon, entityName, identitiesFromAssets, institutionCountry,
+  companyFavicon, entityPortrait, entityName, identitiesFromAssets, institutionCountry,
   normaliseEntityCode, type EntityIdentity, type EntityKind,
 } from "@/lib/bluebelly-entity-identity";
 import styles from "./EntityIdentity.module.css";
@@ -14,6 +14,8 @@ export function EntityMark({kind,code,size="sm",className="",label}:{
 }){
   const normalized=normaliseEntityCode(code);
   const [brokenUrl,setBrokenUrl]=useState<string|null>(null);
+  const [brokenPortrait,setBrokenPortrait]=useState<string|null>(null);
+  const portrait=entityPortrait(kind,normalized);
   const companyUrl=kind==="company"?companyFavicon(normalized):null;
   const flagCountry=kind==="institution"?institutionCountry(normalized):kind==="country"?normalized:null;
   const country=flagCountry?BLUEBELLY_COUNTRIES[flagCountry]:null;
@@ -24,7 +26,7 @@ export function EntityMark({kind,code,size="sm",className="",label}:{
   const initial=kind==="company"?normalized.slice(0,2):kind==="institution"?normalized.slice(0,3):assetSymbol;
   return <span className={[styles.mark,styles[mark],styles[size],className].filter(Boolean).join(" ")}
     title={name} data-entity-kind={kind} data-entity-code={normalized} role="img" aria-label={name}>
-    {country?country.flag:companyUrl&&brokenUrl!==companyUrl?
+    {portrait&&brokenPortrait!==portrait?<img className={styles.portrait} src={portrait} alt="" width="40" height="44" loading="lazy" onError={()=>setBrokenPortrait(portrait)}/>:country?country.flag:companyUrl&&brokenUrl!==companyUrl?
       <img src={companyUrl} alt="" width="22" height="22" loading="lazy" referrerPolicy="no-referrer"
         onError={()=>setBrokenUrl(companyUrl)}/>:initial||"•"}
   </span>;

@@ -33,3 +33,15 @@
  .navLink,.navActive{padding:12px 14px}
  .brand img{width:clamp(150px,46vw,185px)}
 }
+
+/* Original cyberpunk masthead; production route contracts retained. */
+.utility{background:var(--bb-accent);color:#080a0c;font:700 12px/1.4 var(--bb-mono)}.utilityInner strong{color:inherit}.utilityInner{padding-block:5px}
+.masthead{background:var(--bb-canvas);border-color:var(--bb-line)}.mastInner{min-height:84px}.brandText{color:var(--bb-muted);font-size:11px}
+.logoSymbol{width:41px;height:41px;display:grid;place-items:center;background:var(--bb-accent);color:#090a0c;font:900 26px var(--bb-display);clip-path:polygon(0 0,80% 0,100% 20%,100% 100%,20% 100%,0 80%)}
+.logoText{font:900 clamp(23px,2.4vw,32px)/1 var(--bb-display);letter-spacing:-.065em;color:var(--bb-text)}.logoText span{color:var(--bb-accent)}
+.mastRight>span{color:var(--bb-muted)}.micro{border-radius:0;background:var(--bb-surface);border-color:var(--bb-line);color:var(--bb-text);font-size:12px}.micro:hover{background:var(--bb-raised)}
+.navbar{background:#101317;border-color:var(--bb-line)}.navLink,.navActive{font:700 12px/1.4 var(--bb-mono);border-color:var(--bb-line);color:var(--bb-muted)!important;padding:14px 11px}.navActive{background:#1b2025;color:var(--bb-accent)!important;box-shadow:inset 0 -3px var(--bb-accent)}.navLink:hover{background:#22282e}.search{background:#171c21;border-color:var(--bb-line);border-radius:0}.search button{color:var(--bb-accent)}
+.preferences{position:relative;font-size:12px;color:var(--bb-text)}.preferences summary{cursor:pointer;border:1px solid var(--bb-line);padding:8px 10px}.preferences fieldset{position:absolute;right:0;top:100%;z-index:90;min-width:190px;margin:5px 0;padding:13px;background:#14181c;border:1px solid var(--bb-accent);box-shadow:0 12px 28px #0009}.preferences legend{font-size:12px}.preferences label{display:flex;align-items:center;gap:9px;padding:8px;cursor:pointer}.preferences input{accent-color:var(--bb-accent)}
+.mobileNav{display:none}.masthead a:focus-visible,.navbar a:focus-visible,.preferences summary:focus-visible{outline:2px solid var(--bb-accent);outline-offset:3px}
+@media(max-width:1000px){.navInner{display:flex;padding:0 14px;align-items:center;gap:12px}.links{display:none}.mobileNav{display:block;position:relative}.mobileNav summary{cursor:pointer;padding:12px 5px;color:var(--bb-accent);font-size:13px}.mobileNav nav{position:absolute;z-index:80;top:100%;left:0;width:230px;background:#14181c;border:1px solid var(--bb-line);padding:8px;box-shadow:0 12px 24px #0008}.mobileNav a{display:block;padding:11px;color:var(--bb-text)}.search{display:flex;margin-left:auto;max-width:310px;min-width:0}.search input{font-size:13px}.brandText{display:none}}
+@media(max-width:680px){.mastInner{min-height:65px;padding:10px 14px}.mastRight .micro{display:none!important}.mastRight{gap:0}.logoSymbol{width:30px;height:32px;font-size:22px}.logoText{font-size:24px}.brand{gap:7px}.preferences summary{padding:7px;font-size:12px}.navInner{gap:15px}.search{max-width:240px}.search input{width:100%;padding:9px 5px}.search button{padding:8px}.utility{display:none}}

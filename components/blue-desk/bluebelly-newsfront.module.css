@@ -4,7 +4,7 @@
 .breaking a,.breaking span{min-width:0;flex:1;font-size:12px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;padding:8px 14px;color:#eaf8ff}
 .breaking small{color:#a7cadd;padding-right:12px;white-space:nowrap;font-size:10px}
 .intro{display:flex;justify-content:space-between;align-items:end;gap:24px;margin:0 0 17px}
-.eyebrow{font-size:10px;color:#62d7fc;font-weight:800;letter-spacing:.14em}
+.eyebrow{font-size:10px;color:var(--bb-accent);font-weight:800;letter-spacing:.14em}
 .intro h1{font:550 clamp(30px,3.2vw,40px)/1.17 var(--bluebelly-font);color:#f2faff;margin:5px 0 7px;letter-spacing:-.018em}
 .intro p{color:#b1ccdc;font-size:13px}
 .dailyQuick{border:1px solid #285d7b;padding:9px 12px;border-radius:4px;color:#b7e5f8;white-space:nowrap;font-size:11px}
