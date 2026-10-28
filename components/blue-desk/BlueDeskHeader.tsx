@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import ThemePreferences from "./ThemePreferences";
 import { MarketIcon, type MarketIconName } from "./MarketIcon";
 import { headers } from "next/headers";
 import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
@@ -85,15 +85,16 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
       </div></div>
       <div className={chrome.masthead}><div className={chrome.mastInner}>
         <Link href={blueDeskPublicHref("/blue-desk",host)} className={chrome.brand} aria-label="Bluebelly Today">
-          <Image src="/blue-desk-wordmark.svg" alt="Bluebelly" width={272} height={60} priority unoptimized/>
+          <span className={chrome.logoSymbol} aria-hidden="true">B</span><span className={chrome.logoText}>BLUE<span>BELLY</span></span>
           <span className={chrome.brandText}>MARKET INTELLIGENCE</span>
         </Link>
-        <div className={chrome.mastRight}><span>Markets, without the noise.</span>
+        <div className={chrome.mastRight}><ThemePreferences/><span>Markets, without the noise.</span>
           <Link className={chrome.micro} href={blueDeskPublicHref("/blue-desk/regime-watch",host)}>Research lenses</Link>
           <Link className={chrome.micro} href="/owner/presenter">Presenter Prep ↗</Link>
         </div>
       </div></div>
       <div className={chrome.navbar}><div className={chrome.navInner}>
+        <details className={chrome.mobileNav}><summary>Sections</summary><nav aria-label="Bluebelly mobile">{nav.map(([label,path])=><Link key={path} href={blueDeskPublicHref(path,host)}>{label}</Link>)}</nav></details>
         <nav className={chrome.links} aria-label="Bluebelly primary">
           {nav.map(([label,path])=>{
             const href=blueDeskPublicHref(path,host);

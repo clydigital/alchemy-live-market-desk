@@ -1,7 +1,7 @@
 .article{width:min(1190px,100%);margin:18px auto 90px;color:#edf7fc}
-.back{font-size:13px;padding:8px 0 22px}.back a{color:#9ce1ff;text-decoration:none}
+.back{font-size:13px;padding:8px 0 22px}.back a{color:var(--bb-accent);text-decoration:none}
 .hero{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(240px,.9fr);gap:28px;align-items:center;padding:24px 0 30px;border-bottom:1px solid #31576b}
-.head{min-width:0}.kicker{font-size:11px!important;color:#79d9e7!important;font-weight:800;letter-spacing:.1em}
+.head{min-width:0}.kicker{font-size:11px!important;color:var(--bb-accent)!important;font-weight:800;letter-spacing:.1em}
 .hero h1{font-size:clamp(31px,4vw,51px);letter-spacing:-.035em;line-height:1.12;color:#fff;margin:9px 0 15px;overflow-wrap:anywhere}
 .deck{font-size:clamp(16px,1.8vw,20px);line-height:1.55;color:#c5dce9}
 .time{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin:16px 0;color:#9bcedf;font-size:12px}
@@ -16,3 +16,6 @@
 .source{margin:26px auto 0;max-width:850px;border-top:2px solid #79d6d8;padding:20px 0 40px;font-size:13px;color:#b8d5e2}
 .source a{color:#8adefa;overflow-wrap:anywhere}
 @media(max-width:700px){.hero{grid-template-columns:1fr;gap:16px;padding-top:8px}.hero h1{font-size:32px}.metrics{grid-template-columns:1fr}.chapters section{padding:13px 0 18px}.chapters p{font-size:15px}}
+
+.story p,.chapters p,.body p,.chapter p,.section p,.lead,.reader p{font-size:17px;line-height:1.75;color:#d4dadb;max-width:68ch}.story section,.sourceCard{background:var(--bb-surface);border-color:var(--bb-line);border-radius:0;box-shadow:none}.hero{border-radius:0;background:var(--bb-surface);border-top-color:var(--bb-accent)}.story h2,.chapters h2,.chapter h2{font-size:24px;text-transform:none}.eyebrow,.kicker,.topicInfo p,.sourceCard span,.rateStrip span{font-size:12px!important}.sourceCard p{font-size:16px;line-height:1.7}.header{padding-top:8px}.header h1{margin:10px 0 16px}.meta{margin:12px 0}.chapter{padding:22px 0}
+@media(max-width:650px){.story p,.chapters p,.body p,.chapter p,.section p,.lead,.reader p{font-size:16px;line-height:1.75}.hero{padding:16px;gap:10px}.art{display:none}.header h1,.hero h1{font-size:30px;line-height:1.15}.topicLine{margin-bottom:10px}.countryBall{width:42px!important;height:42px!important}.story h2,.chapters h2{font-size:22px}}
