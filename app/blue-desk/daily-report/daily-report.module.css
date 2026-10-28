@@ -58,3 +58,13 @@
 .pdfArchive li{display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;align-items:center;border-bottom:1px solid #194257;padding:12px 0;font-size:13px}
 .pdfArchive li span{flex:1 1 250px;color:#d9e9f1}
 @media(max-width:760px){.automaticPdf{padding:17px}.pdfFrame{min-height:410px;height:70vh}.pdfMeta strong{font-size:20px}}
+
+
+/* Editorial-first Daily Report: section index stays separate from source status. */
+.quickNav{display:flex;gap:7px;flex-wrap:wrap;margin:16px 0 0}
+.quickNav a{display:inline-flex;align-items:center;padding:8px 12px;border-radius:7px;background:#0a3a50;border:1px solid #3b7285;text-decoration:none;font-size:12px;font-weight:750;color:#c1e7f1}
+.quickNav a:hover,.quickNav a:focus-visible{background:#15556c;color:#ffffff;border-color:#7ec9dd}
+.section{scroll-margin-top:100px}
+.hero h1{font-size:clamp(33px,3.75vw,47px)}
+.hero .lead{max-width:790px;font-size:15px;line-height:1.7}
+@media(max-width:760px){.quickNav{gap:6px}.quickNav a{font-size:11px;padding:8px 10px}}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import DailyEditorialRundown from "@/components/blue-desk/DailyEditorialRundown";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { ScopeStrip } from "@/components/blue-desk/EntityIdentity";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
@@ -51,15 +52,13 @@ export default async function DailyReportPage() {
   const results = upcoming.filter(e => e.kind === "earnings").slice(0, 6);
   const calendarHref = blueDeskPublicHref("/blue-desk/calendar", host);
 
-  return <main className={styles.page} data-daily-report="dossier-independent-v2">
+  return <main className={styles.page} data-daily-report="editorial-first-v3">
     <BlueDeskHeader activePath="/blue-desk/daily-report" />
     <div className={styles.shell}>
       <header className={styles.hero}>
         <p className={styles.eyebrow}>MARKET INTELLIGENCE / DAILY REPORT</p>
-        <h1>The market today: what happened, why it matters</h1>
-        <p className={styles.lead}>Markets rarely move for just one reason.
-          Follow the developments we can source, the bigger stories behind them,
-          how money and costs could move through the system, and what to watch next.</p>
+        <h1>The market today. Your next story.</h1>
+        <p className={styles.lead}>Start with the topics worth discussing or writing about today. Then go deeper into the evidence, the alternative explanations and the next catalysts.</p>
         <p className={styles.context} data-bluebelly-private-report-entry="login-required">
           <Link href="/my-reports">Open my private PDF reports</Link>
           {" · "}Google sign-in required. PDFs are for your viewing only.
@@ -70,11 +69,19 @@ export default async function DailyReportPage() {
           <span>{stories.length} ongoing market stories</span>
           <span>{observations.length} dated original-source observations</span>
         </div>
+        <nav className={styles.quickNav} aria-label="Daily report sections">
+          <a href="#editorial-rundown">Today's presentation and article picks</a>
+          <a href="#developments">Verified headlines</a>
+          <a href="#reasoning">Market mechanisms</a>
+          <a href="#forward">Upcoming catalysts</a>
+        </nav>
         <p className={styles.context}>A new report, an observed price and a market explanation are
           three different things. We keep their dates and source status separate.
           This is a broad view of available desk inputs, not proof that every market event
           or every MacroPulse post has been independently verified.</p>
       </header>
+
+      <DailyEditorialRundown asOf={now.toISOString()} news={news} upcoming={upcoming} />
 
       <section className={styles.section} aria-labelledby="featured-ai-warning" data-editorial-status="attributed-investigation">
         <div className={styles.heading}>
