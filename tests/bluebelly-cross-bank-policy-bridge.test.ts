@@ -45,6 +45,7 @@ test("28 October: BoC hike + RBNZ hold creates a linked question ahead of Fed, n
   const bridge = selectCrossBankPolicyBridge([rbnz, boc], calendar(), now);
   assert.ok(bridge);
   assert.match(bridge.question, /Bank of Canada raise rates while RBNZ held/);
+  assert.equal(bridge.sharedEnergyStatus, "SOURCE_SUMMARIES");
   assert.equal(bridge.sources.length, 2);
   assert.deepEqual(bridge.sources.map(item => item.action), ["raised", "held"]);
   assert.equal(bridge.sources[0].url, boc.sourceUrl);
@@ -61,11 +62,15 @@ test("no bridge without two independently original-source-qualified opposite act
   assert.equal(selectCrossBankPolicyBridge([rbnz, {...boc,headline:"Bank of Canada holds policy rate"}], calendar(), now), null);
 });
 
-test("an oil story alone cannot supply the central bank's missing inflation rationale", () => {
+test("two verified decisions can surface a question but never invent the shared oil rationale", () => {
   const missingOil = {...rbnz, summary:"Employment remains weak and the rate is unchanged."};
-  assert.equal(selectCrossBankPolicyBridge([missingOil, boc], calendar(), now), null);
+  const unverified = selectCrossBankPolicyBridge([missingOil, boc], calendar(), now);
+  assert.ok(unverified);
+  assert.equal(unverified.sharedEnergyStatus, "UNVERIFIED");
+  assert.match(unverified.question, /Was energy inflation a shared constraint/);
+  assert.match(unverified.explanation, /NOT a shared oil-inflation cause/);
   const missingInflation = {...boc,summary:"Oil supply is constrained and the board voted to raise rates."};
-  assert.equal(selectCrossBankPolicyBridge([missingInflation, rbnz], calendar(), now), null);
+  assert.equal(selectCrossBankPolicyBridge([missingInflation, rbnz], calendar(), now)?.sharedEnergyStatus, "UNVERIFIED");
 });
 
 test("pre-release, future-dated and past/Fed-completed clocks fail closed", () => {
