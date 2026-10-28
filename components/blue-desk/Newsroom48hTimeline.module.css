@@ -13,4 +13,4 @@
 .footer{font-size:11px;line-height:1.5;color:#a7bfcd;margin:10px 0 0}
 .empty{font-size:12px;border:1px dashed #47738a;padding:12px}
 @media(max-width:930px){.grid{grid-template-columns:1fr}}
-@media(max-width:580px){.section{padding:12px}.heading{display:block}.count{display:block;margin-top:8px;white-space:normal}.card{grid-template-columns:84px minmax(0,1fr);gap:10px;padding:9px}.image>div{height:80px}.card h3{font-size:16px}.fact,.mechanism{font-size:11px}.labels small{display:none}.actions a{font-size:11px}}
+@media(max-width:580px){.fact{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}.mechanism{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}.section{padding:12px}.heading{display:block}.count{display:block;margin-top:8px;white-space:normal}.card{grid-template-columns:84px minmax(0,1fr);gap:10px;padding:9px}.image>div{height:80px}.card h3{font-size:16px}.fact,.mechanism{font-size:11px}.labels small{display:none}.actions a{font-size:11px}}
