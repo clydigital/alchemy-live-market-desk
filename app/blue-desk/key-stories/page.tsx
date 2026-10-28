@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import { ScopeStrip } from "@/components/blue-desk/EntityIdentity";
 import InvestorTest from "@/components/blue-desk/InvestorTest";
+import RbnzDecisionFeature from "@/components/blue-desk/RbnzDecisionFeature";
 import NewsroomLensExplorer from "@/components/blue-desk/NewsroomLensExplorer";
 import EditorialStoryArt from "@/components/blue-desk/EditorialStoryArt";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
@@ -114,40 +115,32 @@ export default async function KeyStories(){
     <BlueDeskHeader activePath="/blue-desk/key-stories" />
     <div className={desk.content}>
       <header className={ui.intro}>
-        <p className={desk.kicker}>STORY DESK / CATALYSTS FIRST</p>
-        <h1>What happened — and why should anyone care?</h1>
-        <p>Events move markets. But is the opportunity worth the risk? Start with what happened,
-          see what investors are paying for, then examine what could change the verdict.</p>
-        <p>Source-verified developments and longer-running research are labelled separately.
-          A compelling thesis is not the same as an observed market reaction.</p>
-        <Link className={ui.returnLink}
-          href={blueDeskPublicHref("/blue-desk/daily-report",host)}>
-          Read the Daily Report
-        </Link>
-        {" · "}
-        <Link className={ui.returnLink} href="#newsroom-title">Browse Newsroom topics</Link>
+        <p className={desk.kicker}>BLUEBELLY / THE STORY DESK</p>
+        <h1>Key stories, explained.</h1>
+        <p>Start with what surprised the market. Follow the decision, the money, the contradiction and the next test—with original sources close at hand.</p>
+        <nav className={ui.indexNav} aria-label="Key Stories sections">
+          <a href="#rbnz-october-2026">Lead story <span aria-hidden="true">↓</span></a>
+          {topics.length ? <a href="#catalysts-first">Latest developments</a> : null}
+          <a href="#upcoming-decisions">What's next</a>
+          <a href="#manual-feature-stories">Deep research</a>
+          <a href="#newsroom-title">Newsroom</a>
+        </nav>
       </header>
-      <section className={ui.section} aria-labelledby="manual-feature-stories" data-independent-research-features="2026-10-27">
-        <h2 id="manual-feature-stories">Featured investigations</h2>
-        <p>Three independent, source-linked research stories with manual investigation queues. They are separate from automatically adjudicated Dossier theses.</p>
+      <RbnzDecisionFeature />
+      <div className={ui.summary} aria-label="Desk coverage">
+        <span>{news.length} source-verified news updates</span>
+        <span>{topics.length} active news themes</span>
+        <span>{theses.length} ongoing research stories</span>
+        <span>Feed checked <DualTimestamp value={now.toISOString()} /></span>
+      </div>
+      {topics.length ? liveCatalystSection : <p className={ui.coverageNote}>No fresh verified catalyst is currently available from the qualifying news feed. The dated lead feature, calendar and historical research remain readable below.</p>}
+      <NewsroomLensExplorer news={news} asOf={now.toISOString()} />
+      {upcomingDecisionSection}
+      <section className={ui.section} aria-labelledby="manual-feature-stories" data-independent-research-features="source-linked-archive">
+        <p className={ui.kicker}>EXPLORE THE BIGGER PICTURE</p>
+        <h2 id="manual-feature-stories">Deep research and historical comparisons</h2>
+        <p>The market does not begin and end with today’s headlines. Read the wider investigations and their unresolved questions.</p>
         <div className={ui.cards}>
-          <article className={ui.card} id="rbnz-october-2026" data-source-grounded-editorial="2026-10-28">
-            <p className={ui.kicker}>CENTRAL BANKS / NZDUSD · 28 OCTOBER 2026 · FACTUAL BRIEF</p>
-            <h3>RBNZ holds when markets expected a hike. NZD/USD tumbles.</h3>
-            <p className={ui.storyIntro}>Traders expected New Zealand's central bank to lift its Official Cash Rate from 2.75% to 3.00%. Instead, the RBNZ held it at 2.75%, with four members voting to wait and three voting to raise rates. NZD/USD dropped as much as 1.7%, touching US$0.55831 in Reuters' 28 October Asian-session report.</p>
-            <details className={ui.more}>
-              <summary>Read the decision, the market reaction and what comes next</summary>
-              <div className={ui.moreBody}>
-                <p><strong>The setup:</strong> With New Zealand inflation still above the 1–3% target band, markets had positioned for a 25-basis-point rate hike. The official decision landed at 2:00 PM NZDT on Wednesday 28 October (9:00 AM MYT; 9:00 PM EDT on 27 October).</p>
-                <p><strong>The surprise:</strong> The committee voted 4–3 to hold. Annual CPI inflation eased to 3.7% in the September quarter from 4.1%, but the RBNZ expects 4.4% in the December quarter as higher energy costs feed through. Members agreed that tighter policy would probably be required, but differed over whether to act immediately.</p>
-                <p><strong>Why NZD/USD fell:</strong> Currency traders had already priced in higher New Zealand interest rates. When that increase failed to arrive, the immediate case for holding NZD weakened. Reuters reported a fall of up to 1.7% to US$0.55831. That is a reported session low, not a verified tick-matched five-minute reaction.</p>
-                <p><strong>The catch:</strong> This was a surprise pause, not a promise to abandon tightening. The 4–3 vote and the governor's subsequent hawkish guidance leave a December increase in play. US-dollar demand and the Fed's own policy outlook are separate drivers of NZD/USD.</p>
-                <p><strong>The next test:</strong> The RBNZ's next rate decision is scheduled for 9 December 2026. Compare New Zealand two-year rate expectations with the US and Australia, then see whether NZD/USD sustains the initial break or recovers as markets reprice December. No unverified live technical levels are implied.</p>
-                <p><strong>Original evidence:</strong> <a href="https://www.rbnz.govt.nz/news-and-events/news/2026/10/ocr-held-at-2-75-percent" target="_blank" rel="noopener noreferrer">RBNZ decision and 4–3 committee record</a>. <a href="https://www.reuters.com/business/dollar-holds-gains-ahead-fed-policy-signal-rbnz-decision-2026-10-28/" target="_blank" rel="noopener noreferrer">Reuters' dated NZD/USD reaction report</a>. <a href="https://www.rbnz.govt.nz/monetary-policy/about-monetary-policy/the-official-cash-rate" target="_blank" rel="noopener noreferrer">Official next-meeting schedule</a>.</p>
-              </div>
-            </details>
-            <p className={ui.timeNote}>Reviewed event brief · Sources dated 28 October 2026 · Not a new Dossier thesis, canonical Motion or live-price feed.</p>
-          </article>
           <article className={ui.card}>
             <p className={ui.kicker}>ASIA EQUITIES · 27 OCTOBER 2026</p>
             <div style={{maxWidth:370,marginBottom:12}}><EditorialStoryArt motif="china" headline="Asia AI equities"/></div>
@@ -164,20 +157,8 @@ export default async function KeyStories(){
           </article>
         </div>
       </section>
-      <div className={ui.summary}>
-        <span>{theses.length} ongoing market stories</span>
-        <span>{topics.length} fresh news themes</span>
-        <span>{news.length} source-verified development{news.length === 1 ? "" : "s"}</span>
-        <span>As of <DualTimestamp value={now.toISOString()} /></span>
-      </div>
-      {investorTest ? <InvestorTest view={investorTest}/> : null}
-      {topics.length ? <>{liveCatalystSection}{upcomingDecisionSection}</> : <>
-        {upcomingDecisionSection}
-        <p className={ui.coverageNote}>No recent source-verified headline passed the Live News gate.
-          Scheduled catalysts are shown first instead of filling this space with unverified X speculation.
-          Historical Story research follows below.</p>
-      </>}
-      <NewsroomLensExplorer news={news} asOf={now.toISOString()} />
+
+      {investorTest ? <div className={ui.investorTest}><InvestorTest view={investorTest}/></div> : null}
       <section className={ui.section} aria-labelledby="persistent-theses" data-persistent-thesis-ledger="source-identity">
         <h2 id="persistent-theses">The research behind the headlines</h2>
         <p>These are the recorded beliefs behind the headlines above. A dated linked Motion controls
