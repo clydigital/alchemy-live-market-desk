@@ -22,7 +22,9 @@ export function decisionTopics(news: readonly NewsBriefV1[], calendar: Presenter
   for(const kind of ['economic','earnings'] as const){
     const event=upcoming.find(e=>e.kind===kind && e.verificationState==='official');
     if(!event) continue;
-    const related=kind==='earnings' ? topics.find(t=>t.id==='equities-earnings'||t.id==='ai-technology') : topics.find(t=>t.id==='rates-bonds-credit');
+    // A scheduled issuer report is a distinct decision even if current AI news
+    // shares the broad sector. Do not hide the earnings receipt in another topic.
+    const related=kind==='economic'?topics.find(t=>t.id==='rates-bonds-credit'):null;
     if(related){related.test=event.title+' · '+(event.scheduledAt||event.localDate)+' · '+event.decidingQuestion;continue;}
     topics.push({id:event.id,title:event.title,fact:'Scheduled decision; no verified outcome yet.',
       why:event.decidingQuestion,test:event.decidingQuestion,at:event.scheduledAt||event.localDate,
