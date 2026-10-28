@@ -57,10 +57,12 @@ function observedPolicy(news: NewsBriefV1, nowMs: number): Observation | null {
   return { bank, action, news, clock };
 }
 
-function nextPolicyDecision(calendar: PresenterCalendar, nowMs: number): PresenterCalendarEvent | null {
+function nextPolicyDecision(calendar: PresenterCalendar, nowMs: number, usedBankIds: ReadonlySet<string>): PresenterCalendarEvent | null {
   const eligible = calendar.events.filter(event => {
     if (event.kind !== "economic" || event.status !== "scheduled" ||
         event.verificationState !== "official" || !event.scheduledAt) return false;
+    const sourceBank = bankFromUrl(event.sourceUrl);
+    if (!sourceBank || usedBankIds.has(sourceBank.id)) return false;
     const time = Date.parse(event.scheduledAt);
     if (!Number.isFinite(time) || time <= nowMs || time - nowMs > 12 * 3_600_000) return false;
     return /\b(?:fomc|federal reserve|reserve bank|central bank|bank of canada|bank of england|bank of japan|ecb|rbnz|rba|policy decision|policy rate|official cash rate)\b/i.test(event.title);
@@ -84,10 +86,8 @@ export function selectCrossBankPolicyBridge(
   const raised = latest.find(item => item.action === "raised");
   const held = latest.find(item => item.action === "held" && item.bank.id !== raised?.bank.id);
   if (!raised || !held) return null;
-  const nextEvent = nextPolicyDecision(calendar, nowMs);
+  const nextEvent = nextPolicyDecision(calendar, nowMs, new Set([raised.bank.id, held.bank.id]));
   if (!nextEvent) return null;
-  const nextBank = bankFromUrl(nextEvent.sourceUrl);
-  if (nextBank && [raised.bank.id, held.bank.id].includes(nextBank.id)) return null;
   return {
     question: "Why did " + raised.bank.name + " raise rates while " + held.bank.name + " held despite energy-related inflation?",
     explanation: "These verified policy announcements describe energy-related inflation pressure but different immediate decisions. Their domestic demand, labour and inflation outlooks need to be compared before extending the argument to another central bank.",
