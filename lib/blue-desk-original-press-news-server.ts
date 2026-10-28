@@ -13,7 +13,7 @@ export async function getOriginalPressNews(now=new Date(),limit=8,lookbackDays=2
  const db=createSupabaseAdminClient();
  const cutoff=new Date(now.getTime()-lookbackDays*86400000).toISOString();
  const {data,error}=await db.from("research_intake_items")
-   .select("id,item_key,item_type,status,publisher,title,url,published_at,created_at,source_quality,relevance,novelty,materiality,candidate_score,review_reason,evidence_links")
+   .select("id,item_key,item_type,status,publisher,title,summary,url,published_at,created_at,source_quality,relevance,novelty,materiality,candidate_score,review_reason,evidence_links")
    .eq("item_type","news").eq("status","accepted")
    .like("item_key","official-press:%")
    .gte("published_at",cutoff).lte("published_at",now.toISOString())
