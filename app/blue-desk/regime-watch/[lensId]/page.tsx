@@ -5,7 +5,9 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import EditorialStoryArt from "@/components/blue-desk/EditorialStoryArt";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import {getPublicThesisLedger} from "@/lib/blue-desk-thesis-ledger-server";
+import {getPublicSourceObservations} from "@/lib/blue-desk-source-observations";
 import {EDITORIAL_REGIME_LENSES,groupPublicResearch} from "@/lib/bluebelly-editorial-architecture";
+import {REGIME_LENS_WORKBOOKS,matchRecentLensObservations} from "@/lib/bluebelly-regime-lens-workbook";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import type {EditorialMotif} from "@/lib/bluebelly-editorial-visuals";
 import desk from "../../blue-desk.module.css";
@@ -29,8 +31,14 @@ export default async function ResearchLensPage({params}:Props){
  const definition=EDITORIAL_REGIME_LENSES.find(item=>item.id===lensId);
  if(!definition)notFound();
  const now=new Date(),host=(await headers()).get("host");
- const publicTheses=await getPublicThesisLedger(now,38).catch(()=>null);
+ const [publicTheses,sourceObservations]=await Promise.all([
+  getPublicThesisLedger(now,38).catch(()=>null),
+  getPublicSourceObservations(now,12).catch(()=>null),
+ ]);
  const lens=groupPublicResearch(publicTheses||[]).find(item=>item.id===lensId)!;
+ const workbook=REGIME_LENS_WORKBOOKS[lens.id];
+ const recent=matchRecentLensObservations(lens.id,sourceObservations||[],now);
+ const newest=lens.stories[0]||null;
  const base=blueDeskPublicHref("/blue-desk/regime-watch",host);
  return <main className={desk.page} data-public-research-lens={lens.id} data-evidence-scope="public-historical-story-snapshots">
   <BlueDeskHeader activePath="/blue-desk/regime-watch"/>
@@ -43,64 +51,156 @@ export default async function ResearchLensPage({params}:Props){
      <span className={styles.kicker}>{lens.code} · DEDICATED RESEARCH LENS</span>
      <h1>{lens.name}</h1>
      <p className={styles.question}>{lens.question}</p>
-     <p className={styles.scope}>A persistent investigation, not a daily headline or a current directional call. Trace the stored argument, its countercase and the observations that could settle it.</p>
+     <p className={styles.scope}>{workbook.lead}</p>
      <div className={styles.meta}>
-      <span>{publicTheses===null?"Story read unavailable":lens.stories.length+" associated public Story snapshot"+(lens.stories.length===1?"":"s")}</span>
-      <span>Viewed <DualTimestamp value={now.toISOString()}/></span>
+      <span>{publicTheses===null?"Stored Story read unavailable":lens.stories.length+" associated public Story record"+(lens.stories.length===1?"":"s")}</span>
+      <span>Page viewed <DualTimestamp value={now.toISOString()}/></span>
      </div>
     </div>
     <div className={styles.heroArt}><EditorialStoryArt headline={lens.name} motif={lens.motif as EditorialMotif}/></div>
    </header>
+
+   <nav className={styles.pageNav} aria-label="Sections in this research lens">
+    <a href="#research-position">Recorded position</a>
+    <a href="#mechanism">Transmission</a>
+    <a href="#signals">Monitoring desk</a>
+    <a href="#recent-sources">Recent sources</a>
+    <a href="#decision-fork">Decision tests</a>
+    <a href="#story-history">Story records</a>
+   </nav>
+
+   <section id="research-position" className={styles.atGlance} aria-labelledby="research-position-heading">
+    <div className={styles.atGlanceMain}>
+     <span className={styles.kicker}>RESEARCH POSITION / STORED CONTEXT</span>
+     <h2 id="research-position-heading">{newest?newest.title:"The question is open"}</h2>
+     <p>{newest?newest.thesis:"No public Story record is currently available for this theme. The research question and monitoring plan still stand."}</p>
+     <div className={styles.snapshotMeta}>
+      {newest?<><span>Recorded status: {newest.status.toUpperCase()}</span><span>Last stored update <DualTimestamp value={newest.updatedAt}/></span></>:null}
+      {publicTheses===null?<span>Public Story service unavailable — not evidence of no activity.</span>:null}
+     </div>
+     {newest?<a className={styles.jump} href={"#story-"+newest.slug}>Examine the supporting and opposing case →</a>:null}
+    </div>
+    <div className={styles.atGlanceAside}>
+     <span className={styles.kicker}>THE SINGLE MOST IMPORTANT TEST</span>
+     <p>{lens.nextTest}</p>
+     <small>This is the deciding research question, not a completed measurement or trading trigger.</small>
+    </div>
+   </section>
+
+   <section className={styles.section} id="mechanism" aria-labelledby="mechanism-heading">
+    <span className={styles.kicker}>01 / HOW THE THEME COULD REACH MARKETS</span>
+    <h2 id="mechanism-heading">Follow the economic transmission</h2>
+    <p>A conditional explanation of where the pressure travels. The arrows do not assert that every link has happened.</p>
+    <ol className={styles.mechanismRail}>
+     {workbook.causalPath.map((step,index)=><li key={step}>
+      <span className={styles.stepNum}>{String(index+1).padStart(2,"0")}</span>
+      <strong>{step}</strong>
+     </li>)}
+    </ol>
+    <p className={styles.mechanismNote}><strong>The important limitation:</strong> {workbook.mechanismCaution}</p>
+   </section>
+
+   <section className={styles.section} id="signals" aria-labelledby="signals-heading">
+    <span className={styles.kicker}>02 / SIGNAL MONITOR</span>
+    <h2 id="signals-heading">What to check before making a call</h2>
+    <p>Each reading answers a different part of the question. These are monitoring specifications, not live quotes or measurements.</p>
+    <div className={styles.monitorGrid}>{workbook.monitors.map((monitor,index)=>
+     <article className={styles.monitor} key={monitor.name}>
+      <div className={styles.monitorTop}><span>{String(index+1).padStart(2,"0")} / WATCH</span><small>{monitor.cadence}</small></div>
+      <h3>{monitor.name}</h3>
+      <p>{monitor.purpose}</p>
+      <div className={styles.discriminator}><strong>Deciding question</strong><p>{monitor.discriminator}</p></div>
+      <a href={monitor.sourceUrl} target="_blank" rel="noopener noreferrer">Check {monitor.sourceName} ↗</a>
+      <small className={styles.measurementState}>Value / observation date: not supplied by this research plan</small>
+     </article>)}</div>
+    <p className={styles.caveat}>Sources are reference entry points, not verified observations until their specific dates, units and readings are captured.</p>
+   </section>
+
+   <section className={styles.section} id="recent-sources" aria-labelledby="recent-sources-heading">
+    <span className={styles.kicker}>03 / RECENT ORIGINAL-SOURCE CONTEXT</span>
+    <h2 id="recent-sources-heading">Source observations from the last 48 hours</h2>
+    <p>Only already qualified, source-linked public observations are eligible. A text match places an item in this research lens for reading; it does not establish a causal link, prove the thesis or change canonical Regime state. This is a bounded sample, not an exhaustive source scan.</p>
+    {sourceObservations===null?
+     <div className={styles.empty}><strong>Source observation service unavailable.</strong><p>Do not infer that nothing has happened. Check official sources and the Newsroom.</p></div>:
+     recent.length===0?
+      <div className={styles.empty}><strong>No matching original-source observation in this limited 48-hour sample.</strong><p>This is a coverage result, not proof of a quiet market or confirmation of a theory.</p></div>:
+      <div className={styles.recentList}>{recent.map(item=>
+       <article key={item.id} className={styles.recentItem}>
+        <span className={styles.kicker}>{item.kind==="MARKET_OBSERVATION"?"DATED MARKET OBSERVATION":"ORIGINAL-SOURCE RELEASE"} · EDITORIAL TOPIC MATCH</span>
+        <p>{item.description}</p>
+        <small>Event <DualTimestamp value={item.eventAt}/> · {item.sourceName}</small>
+        <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">Read original source ↗</a>
+       </article>)}</div>}
+    <p className={styles.sourceFooter}><Link href={blueDeskPublicHref("/blue-desk/newsroom",host)}>See verified Newsroom coverage →</Link> <Link href={blueDeskPublicHref("/blue-desk/calendar",host)}>Upcoming event calendar →</Link></p>
+   </section>
+
+   <section className={styles.section} id="decision-fork" aria-labelledby="decision-fork-heading">
+    <span className={styles.kicker}>04 / THE INVESTOR TEST</span>
+    <h2 id="decision-fork-heading">What would change the interpretation?</h2>
+    <p>The following are conditional, forward-looking tests. Neither outcome is asserted as current fact.</p>
+    <div className={styles.forkGrid}>
+     <div className={styles.fork}>
+      <span className={styles.kicker}>STRENGTHENS THE HYPOTHESIS</span>
+      <p>{workbook.strengthen}</p>
+     </div>
+     <div className={styles.fork}>
+      <span className={styles.kicker}>WEAKENS THE HYPOTHESIS</span>
+      <p>{workbook.challenge}</p>
+     </div>
+    </div>
+    <div className={styles.decision}><strong>The next discriminator</strong><p>{lens.nextTest}</p></div>
+   </section>
+
    <div className={styles.layout}>
     <div className={styles.primary}>
-     <section className={styles.section} aria-labelledby="lens-investigation">
-      <span className={styles.kicker}>01 / THE INVESTIGATION</span>
-      <h2 id="lens-investigation">What would settle this question?</h2>
-      <p>We need observations that can distinguish the competing explanations, rather than another headline that merely repeats the theme.</p>
-      <div className={styles.decision}><strong>Deciding evidence to seek</strong><p>{lens.nextTest}</p></div>
-      <p className={styles.caveat}>This is a research checklist. A listed observation is not necessarily available, current or admitted as canonical evidence.</p>
-     </section>
      <section className={styles.section} id="story-history" aria-labelledby="lens-story-history">
-      <span className={styles.kicker}>02 / STORED RESEARCH</span>
-      <h2 id="lens-story-history">The Story history behind this lens</h2>
-      <p>These are up to six public Story snapshots associated by topic. Their recorded views and dates are preserved here so a newer headline does not silently rewrite an earlier argument.</p>
+      <span className={styles.kicker}>05 / STORED RESEARCH CONTEXT</span>
+      <h2 id="lens-story-history">The public Story records behind this lens</h2>
+      <p>These are up to six currently stored public Story records, ordered by update date and grouped by a topic match. They are not a complete immutable edition history. A revised stored field must not be mistaken for the exact wording of an earlier publication.</p>
       {publicTheses===null?
        <div className={styles.empty}><strong>Public Story history could not be loaded.</strong><p>The research question remains available. No market conclusion is implied by this retrieval failure.</p></div>
       :lens.stories.length===0?
-       <div className={styles.empty}><strong>No matching public Story snapshots yet.</strong><p>That does not mean the theme is inactive. The next evidence test remains open.</p></div>
+       <div className={styles.empty}><strong>No matching public Story records in this bounded sample.</strong><p>That does not mean the theme is inactive. The next evidence test remains open.</p></div>
       :<div className={styles.stories}>{lens.stories.map((story,index)=>
        <article className={styles.story} key={story.id} id={"story-"+story.slug}>
         <header className={styles.storyHead}>
-         <span className={styles.kicker}>STORY {String(index+1).padStart(2,"0")} · RECORDED {story.status.toUpperCase()}</span>
+         <span className={styles.kicker}>RECORD {String(index+1).padStart(2,"0")} · STORED {story.status.toUpperCase()}</span>
          <h3>{story.title}</h3>
-         <p className={styles.recorded}>Stored Story updated <DualTimestamp value={story.updatedAt}/></p>
+         <p className={styles.recorded}>Record last updated <DualTimestamp value={story.updatedAt}/></p>
         </header>
         <div className={styles.thesis}><strong>Recorded thesis</strong><p>{story.thesis}</p></div>
-        <div className={styles.evidenceGrid}>
-         <div><h4>What the snapshot cited in support</h4>
-          <p>{story.support||"No supporting statement is present in the available public snapshot."}</p>
+        <details className={styles.storyEvidence} open={index===0}>
+         <summary>Read the supporting case, countercase and next tests</summary>
+         <div className={styles.evidenceGrid}>
+          <div><h4>What the snapshot cites in support</h4>
+           <p>{story.support||"No supporting statement is present in this public record."}</p>
+          </div>
+          <div><h4>What challenges the argument</h4>
+           <p>{story.contradiction||"No competing statement is present in this public record."}</p>
+          </div>
          </div>
-         <div><h4>What could challenge the argument</h4>
-          <p>{story.contradiction||"No competing statement is present in the available public snapshot."}</p>
+         {story.pricedAssessment?<p className={styles.pricing}><strong>Recorded market-pricing interpretation:</strong> {story.pricedAssessment}</p>:null}
+         <div className={styles.tests}>
+          <h4>What the stored Story proposes to watch</h4>
+          {story.confirmation?<p><strong>Would strengthen:</strong> {story.confirmation}</p>:null}
+          {story.invalidation?<p><strong>Would weaken:</strong> {story.invalidation}</p>:null}
+          {story.nextTest?<p><strong>Next recorded test:</strong> {story.nextTest}</p>:null}
+          {!story.confirmation&&!story.invalidation&&!story.nextTest?<p>Specific confirmation and invalidation tests are not in this public record.</p>:null}
          </div>
-        </div>
-        {story.pricedAssessment?<p className={styles.pricing}><strong>Recorded market-pricing interpretation:</strong> {story.pricedAssessment}</p>:null}
-        <div className={styles.tests}>
-         <h4>What to watch before changing the interpretation</h4>
-         {story.confirmation?<p><strong>Would strengthen:</strong> {story.confirmation}</p>:null}
-         {story.invalidation?<p><strong>Would weaken:</strong> {story.invalidation}</p>:null}
-         {story.nextTest?<p><strong>Next recorded catalyst or test:</strong> {story.nextTest}</p>:null}
-         {!story.confirmation&&!story.invalidation&&!story.nextTest?<p>Specific confirmation and invalidation tests are not in this public snapshot.</p>:null}
-        </div>
+        </details>
        </article>)}</div>}
      </section>
     </div>
     <aside className={styles.sidebar} aria-label="Research navigation and limitations">
      <section className={styles.railCard}>
-      <span className={styles.kicker}>HOW TO USE THIS PAGE</span>
-      <h2>Read the argument, then test it.</h2>
-      <p>Start with what the research claims. Compare the supporting and opposing cases. Then check the next measurable catalyst.</p>
-      <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>Browse the wider public Story library →</Link>
+      <span className={styles.kicker}>CONTINUE THE INVESTIGATION</span>
+      <h2>Cross-market checks</h2>
+      <p>These neighbouring questions may help test the transmission pathway, without inheriting this lens&apos;s conclusion.</p>
+      {workbook.related.map(item=><Link key={item.id}
+       href={blueDeskPublicHref("/blue-desk/regime-watch/"+item.id,host)}>
+       <strong>{EDITORIAL_REGIME_LENSES.find(x=>x.id===item.id)?.name}</strong><small>{item.why}</small>
+      </Link>)}
+      <Link href={blueDeskPublicHref("/blue-desk/markets",host)}>Open dated Markets observations →</Link>
      </section>
      {lens.stories.length>0?<nav className={styles.railCard} aria-label="Stories in this research lens">
       <span className={styles.kicker}>JUMP TO A RECORDED STORY</span>
@@ -109,8 +209,8 @@ export default async function ResearchLensPage({params}:Props){
      <section className={styles.railCard}>
       <span className={styles.kicker}>EVIDENCE BOUNDARY</span>
       <h2>What this page cannot claim</h2>
-      <p>Keyword-based Story associations are navigational only. Public snapshot text is not a fresh price observation, an original-source receipt or a new System 2 Regime verdict.</p>
-      <p>Exact evidence admission, private technical readings and changes to the canonical thesis remain with their existing authorised systems.</p>
+      <p>Topic associations and transmission diagrams are editorial navigation, not a fresh price observation, verified causal explanation, evidence UUID link or new System 2 Regime verdict.</p>
+      <p>Private technical readings, exact historical editions and changes to the canonical thesis remain with their existing authorised systems.</p>
      </section>
     </aside>
    </div>
