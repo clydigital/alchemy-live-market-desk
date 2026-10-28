@@ -2,6 +2,10 @@
 export const BLUEBELLY_PRESENTATION_HOST = "bluebelly-desk.vercel.app";
 export const LIVE_DESK_PRESENTATION_HOST = "alchemy-live-market-desk.vercel.app";
 
+// Only the eight public editorial lens IDs are reachable anonymously.
+// Do not expose arbitrary dynamic segments on the public presentation hosts.
+const PUBLIC_REGIME_LENS_PATH = /^\/(?:blue-desk\/)?regime-watch\/(?:fed|bonds|ai|china|energy|yen|breadth|gold)$/;
+
 function normalizedHost(host: string | null | undefined) {
   return (host || "").trim().toLowerCase().replace(/:443$/, "");
 }
@@ -33,6 +37,7 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   if (pathname === "/key-stories") return "/blue-desk/key-stories";
   if (pathname === "/newsroom") return "/blue-desk/newsroom";
   if (pathname === "/regime-watch") return "/blue-desk/regime-watch";
+  if (pathname.startsWith("/regime-watch/") && PUBLIC_REGIME_LENS_PATH.test(pathname)) return "/blue-desk" + pathname;
   if (pathname === "/features/asia-equities" || pathname === "/features/global-bonds") return "/blue-desk" + pathname;
   // Temporary auth-free development lab uses strictly synthetic browser-local
   // inputs. Real owner pages, APIs and source records remain private.
@@ -109,6 +114,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     pathname === "/blue-desk/key-stories" ||
     pathname === "/newsroom" || pathname === "/blue-desk/newsroom" ||
     pathname === "/regime-watch" || pathname === "/blue-desk/regime-watch" ||
+    PUBLIC_REGIME_LENS_PATH.test(pathname) ||
     pathname === "/features/asia-equities" ||
     pathname === "/features/global-bonds" ||
     pathname === "/blue-desk/features/asia-equities" ||
