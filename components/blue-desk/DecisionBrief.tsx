@@ -5,6 +5,7 @@ import type {PresenterCalendar,PresenterCalendarEvent} from '@/lib/presenter-cal
 import {decisionTopics,decisionCalendar,calendarOutcome} from '@/lib/bluebelly-decision-brief';
 import {blueDeskPublicHref} from '@/lib/blue-desk-host';
 import DualTimestamp from './DualTimestamp';
+import EditorialStoryArt from './EditorialStoryArt';
 import s from './DecisionBrief.module.css';
 
 function Event({event}:{event:PresenterCalendarEvent}){
@@ -21,11 +22,12 @@ function Event({event}:{event:PresenterCalendarEvent}){
    </details>
  </article>;
 }
-export default function DecisionBrief({news,calendar,now,host,report=false}:{news:readonly NewsBriefV1[];calendar:PresenterCalendar;now:Date;host:string|null;report?:boolean}){
+export default function DecisionBrief({news,recentNews=[],calendar,now,host,report=false}:{news:readonly NewsBriefV1[];recentNews?:readonly NewsBriefV1[];calendar:PresenterCalendar;now:Date;host:string|null;report?:boolean}){
  const topics=decisionTopics(news,calendar,now), lanes=decisionCalendar(calendar,now);
  const reader=blueDeskPublicHref('/blue-desk/key-stories',host), calendarHref=blueDeskPublicHref('/blue-desk/calendar',host);
  const lead=topics[0];
  const earningsResults=getRecentVerifiedEarningsScorecards(now,7);
+ const additional=recentNews.filter(n=>!topics.some(t=>t.href==='?news='+encodeURIComponent(n.id))).slice(0,8);
  return <section className={s.brief} data-decision-first="public-v1">
   <header className={s.header}>
    <div className={s.headlineRow}>
@@ -44,7 +46,8 @@ export default function DecisionBrief({news,calendar,now,host,report=false}:{new
   </header>
   <div className={s.topics}>{topics.map((t,i)=><article className={i===0?s.lead:s.topic} key={t.id}>
     <p className={s.kicker}>{String(i+1).padStart(2,'0')} / {t.status}</p>
-    <h2><Link href={t.href?reader+t.href:t.sourceUrl}>{t.title}</Link></h2>
+    <div className={s.art}><EditorialStoryArt headline={t.title} summary={t.fact} compact/></div>
+    <h2><Link href={reader+t.href}>{t.title}</Link></h2>
     <p>{t.status==='NEW'?t.fact:t.why}</p>
     <small>{t.status==='NEW'?'Source event':'Scheduled'} <DualTimestamp value={t.at.includes('T')?t.at:null} sourceDate={t.at}/></small>
     {t.assets.length?<small>{t.assets.join(' · ')}</small>:null}
@@ -57,6 +60,17 @@ export default function DecisionBrief({news,calendar,now,host,report=false}:{new
     {l.rows.length>3?<details><summary>{l.rows.length-3} more events</summary>{l.rows.slice(3).map(e=><Event key={e.id} event={e}/>)}</details>:null}
    </section>)}
   </div>
+  {additional.length ? <section className={s.latest} aria-label="More recent verified reports">
+   <div className={s.latestHead}><div><p className={s.kicker}>RECENT ORIGINAL SOURCES / SEVEN-DAY WINDOW</p><h2>More news, with a quick explanation</h2></div><small>Earlier releases are dated, not presented as breaking news.</small></div>
+   <div className={s.latestGrid}>{additional.map(n=><article key={n.id} className={s.latestCard}>
+    <div className={s.latestArt}><EditorialStoryArt headline={n.headline} summary={n.summary} compact/></div>
+    <div><p className={s.kicker}>{+now-Date.parse(n.occurredAt)>48*3600000?'EARLIER THIS WEEK':'VERIFIED NEWS'}</p>
+    <h3><Link href={reader+'?news='+encodeURIComponent(n.id)}>{n.headline}</Link></h3>
+    <small><DualTimestamp value={n.occurredAt}/></small>
+    <p><Link href={reader+'?news='+encodeURIComponent(n.id)}>Read Bluebelly recap →</Link></p>
+    <small>Source: {n.sourceName}</small></div>
+   </article>)}</div>
+  </section>:null}
   {report?<div className={s.explainers}>{topics.map(t=><article key={t.id} id={'topic-'+t.id}><p className={s.kicker}>{t.status} / THE DECIDING QUESTION</p><h2>{t.title}</h2><p>{t.fact}</p><p>{t.mechanism}</p><p><strong>What would change the reading:</strong> {t.test}</p><p>Consensus comparison and independently attributable price reaction are not established by this source summary.</p><details><summary>Source and event clock</summary><DualTimestamp value={t.at.includes('T')?t.at:null} sourceDate={t.at}/><p><a href={t.sourceUrl}>{t.sourceName}</a></p></details></article>)}</div>:<p><Link href={blueDeskPublicHref('/blue-desk/daily-report',host)}>Read the Daily Report →</Link> · <Link href={reader}>Browse Key Stories →</Link></p>}
  </section>;
 }
