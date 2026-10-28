@@ -19,6 +19,9 @@ import {classifyPublicStory,PUBLIC_STORY_CATEGORIES} from "@/lib/blue-desk-story
 import StoryEditorialArticle from "@/components/blue-desk/StoryEditorialArticle";
 import VerifiedCatalystArticle from "@/components/blue-desk/VerifiedCatalystArticle";
 import ShortNewsRecap, {recapFromDecision,recapFromNews} from "@/components/blue-desk/ShortNewsRecap";
+import NewsroomEventReader from "@/components/blue-desk/NewsroomEventReader";
+import {bankDecisionById} from "@/lib/bluebelly-bank-decision-snapshots";
+import {reportedEditorialById} from "@/lib/bluebelly-reported-editorial";
 import {decisionTopics} from "@/lib/bluebelly-decision-brief";
 import {getRecentVerifiedEarningsScorecards} from "@/lib/blue-desk-earnings-results";
 import {selectFlagshipInvestorTest} from "@/lib/blue-desk-investor-test";
@@ -38,10 +41,20 @@ export const metadata = {
   description: "Dated market catalysts explained in human terms, upcoming company decisions and historical Story context.",
 };
 
-export default async function KeyStories({searchParams}:{searchParams?:Promise<{story?:string;category?:string;catalyst?:string;feature?:string;page?:string;news?:string;brief?:string}>}){
+export default async function KeyStories({searchParams}:{searchParams?:Promise<{story?:string;category?:string;catalyst?:string;feature?:string;page?:string;news?:string;brief?:string;policy?:string;reported?:string}>}){
   const params=await searchParams;
   const now = new Date();
   const host = (await headers()).get("host");
+  // Dated and bounded on-site editor-verified policy / reported-rumour readers.
+  // They are NOT accepted original-RSS NewsBrief records or private research.
+  const policy=typeof params?.policy==="string"?bankDecisionById(params.policy,now):null;
+  const reported=typeof params?.reported==="string"?reportedEditorialById(params.reported,now):null;
+  if(policy||reported) return <main className={desk.page}>
+    <BlueDeskHeader activePath="/blue-desk/key-stories"/>
+    <div className={desk.content}><NewsroomEventReader
+      event={policy?{kind:"bank",value:policy}:{kind:"reported",value:reported!}}
+      backHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/></div>
+  </main>;
   const [raw, theses, observations, originalPress, macro, earnings] = await Promise.all([
     getCurrentVerifiedMarketMotion({ limit: 36 }).catch(() => []),
     getPublicThesisLedger(now,24).catch(() => []),
