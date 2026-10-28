@@ -34,7 +34,8 @@ test("eight research lenses only index public historical Story snapshots",()=>{
  assert.match(read,/getPublicThesisLedger/);
  assert.doesNotMatch(read,/createSupabaseAdminClient|story_thesis_versions|system2|market_regime_current/i);
  const home=file("components/blue-desk/BluebellyNewsfront.tsx");
- assert.match(home,/SOURCE VERIFIED|VERIFIED SOURCE/);
+ assert.match(home,/VERIFIED ANNOUNCEMENT/);
+ assert.match(home,/DATED MARKET DATA/);
  assert.doesNotMatch(home,/x_wire_posts|market_motion_items|createSupabaseAdminClient/);
 });
 test("Newsroom keeps the original verified public admission contract",()=>{

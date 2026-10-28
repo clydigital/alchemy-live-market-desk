@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { NewsBriefV1 } from "@/lib/market-brief-news";
 import type { PublicThesis } from "@/lib/blue-desk-thesis-ledger";
+import type {PublicSourceObservation} from "@/lib/blue-desk-source-observations-projector";
+import {curateHomeSourceCoverage,type HomeSourceItem} from "@/lib/bluebelly-home-48h-coverage";
 import {groupPublicResearch, editorialNewsTopics} from "@/lib/bluebelly-editorial-architecture";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import EditorialStoryArt from "./EditorialStoryArt";
@@ -10,65 +12,99 @@ import styles from "./bluebelly-newsfront.module.css";
 type CalendarCard = {id:string;title:string;sourceName:string;scheduledAt:string|null;localDate:string;sourceUrl:string};
 const safe=(str:string)=>str.length>175?str.slice(0,172)+"…":str;
 
-function StoryTile({item,primary}:{item:NewsBriefV1;primary?:boolean}){
- return <article className={primary?styles.primary:styles.tile} data-newsfront-verified={item.id}>
+function ageLabel(at:string,now:Date){
+ return now.getTime()-Date.parse(at)>24*60*60*1000?"PRIOR 24H":"LAST 24H";
+}
+function itemText(item:HomeSourceItem){
+ if(item.kind==="NEWS"){
+  return {headline:item.news.headline,summary:item.news.summary,sourceName:item.news.sourceName,
+    status:"VERIFIED ANNOUNCEMENT",observation:false};
+ }
+ const o=item.observation;
+ const headline=o.kind==="MARKET_OBSERVATION"
+  ?o.description.split(":")[0].slice(0,110):o.description.split(/[.;]/)[0].slice(0,110);
+ return {headline:headline||o.description.slice(0,110),summary:o.description,sourceName:o.sourceName,
+   status:o.kind==="MARKET_OBSERVATION"?"DATED MARKET DATA":"ORIGINAL SOURCE RELEASE",observation:true};
+}
+function StoryTile({item,primary,now}:{item:HomeSourceItem;primary?:boolean;now:Date}){
+ const v=itemText(item);
+ return <article className={primary?styles.primary:styles.tile}
+    data-newsfront-verified={item.kind==="NEWS"?item.id:undefined}
+    data-newsfront-observation={item.kind==="OBSERVATION"?item.id:undefined}>
    <div className={styles.tileArt}>
       {primary?<div className={styles.whaleArt} aria-hidden="true"/>:
-       <EditorialStoryArt headline={item.headline} summary={item.summary} compact/>}
+       <EditorialStoryArt headline={v.headline} summary={v.summary} compact/>}
    </div>
    <div className={styles.tileShade}/>
    <div className={styles.tileBody}>
-     <span className={styles.chip}>{editorialNewsTopics(item)[0].toUpperCase()} · VERIFIED SOURCE</span>
-     <h2><a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">{item.headline}</a></h2>
-     {primary?<p>{safe(item.summary)}</p>:null}
-     <span className={styles.meta}>{item.sourceName} · Event <DualTimestamp value={item.occurredAt}/></span>
+     <span className={v.observation?styles.dataChip:styles.chip}>
+       {item.kind==="NEWS"?editorialNewsTopics(item.news)[0].toUpperCase()+" · ":null}
+       {v.status} · {ageLabel(item.at,now)}
+     </span>
+     <h2><a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">{v.headline}</a></h2>
+     {primary?<p>{safe(v.summary)}</p>:null}
+     <span className={styles.meta}>{v.sourceName} · Source date <DualTimestamp value={item.at}/></span>
    </div>
  </article>;
 }
 
-export default function BluebellyNewsfront({news,theses,upcoming,host}:{
- news:readonly NewsBriefV1[];theses:readonly PublicThesis[];upcoming:readonly CalendarCard[];host:string|null;
+export default function BluebellyNewsfront({news,observations,theses,upcoming,host,now}:{
+ news:readonly NewsBriefV1[];observations:readonly PublicSourceObservation[];
+ theses:readonly PublicThesis[];upcoming:readonly CalendarCard[];host:string|null;now:Date;
 }){
  const lenses=groupPublicResearch(theses);
- const leading=news.slice(0,5);
- const rest=news.slice(5,12);
+ const {lead,feed,newsCount,observationCount}=curateHomeSourceCoverage(news,observations,now);
+ const latestVerified=lead.find(item=>item.kind==="NEWS");
+ const latestNews=latestVerified?.kind==="NEWS"?latestVerified.news:null;
  const newsroom=host==="bluebelly-desk.vercel.app"||host==="alchemy-live-market-desk.vercel.app"?"/newsroom":"/blue-desk/newsroom";
  const regimes=host==="bluebelly-desk.vercel.app"||host==="alchemy-live-market-desk.vercel.app"?"/regime-watch":"/blue-desk/regime-watch";
  const calendar=host==="bluebelly-desk.vercel.app"||host==="alchemy-live-market-desk.vercel.app"?"/calendar":"/blue-desk/calendar";
  return <div className={styles.shell} data-editorial-front="mockup-rewired-real-sources">
    <div className={styles.breaking}>
      <strong>ORIGINAL-SOURCE UPDATE</strong>
-     {news[0]?<a href={news[0].sourceUrl} target="_blank" rel="noopener noreferrer">{news[0].headline}</a>:<span>No recent development currently clears the verified-news gate.</span>}
-     {news[0]?<small><DualTimestamp value={news[0].occurredAt}/></small>:null}
+     {latestNews?<a href={latestNews.sourceUrl} target="_blank" rel="noopener noreferrer">{latestNews.headline}</a>:<span>No recent development currently clears the verified-news gate.</span>}
+     {latestNews?<small><DualTimestamp value={latestNews.occurredAt}/></small>:null}
    </div>
    <header className={styles.intro}>
       <div><span className={styles.eyebrow}>THE BLUEBELLY DESK / TODAY</span>
       <h1>The stories driving the conversation.</h1>
-      <p>News first, the financial consequences underneath, persistent research on the side.</p></div>
+      <p>Rolling 48-hour coverage, including the previous day. Verified announcements and dated market measurements carry separate labels.</p></div>
       <Link href={blueDeskPublicHref("/blue-desk/daily-report",host)} className={styles.dailyQuick}>ONE SELECTIVE DAILY REPORT</Link>
    </header>
-   {leading.length?<div className={styles.heroGrid}>
-     <StoryTile item={leading[0]} primary/>
-     <div className={styles.miniGrid}>{leading.slice(1).map(item=><StoryTile key={item.id} item={item}/>)}
-       {leading.length<5?Array.from({length:5-leading.length},(_,i)=><div className={styles.vacancy} key={i}>
-         <span>VERIFIED COVERAGE</span><strong>Awaiting another qualified original-source update.</strong>
-       </div>):null}
-     </div>
-   </div>:<div className={styles.newsEmpty}><strong>Source-qualified breaking coverage unavailable.</strong>
-      <p>This is a coverage gap, not a claim that markets are quiet. Browse historical research or upcoming releases.</p>
-   </div>}
-   <div className={styles.columns}>
+   <p className={styles.coverageNote} data-home-window="rolling-48h">
+   Last 48 hours · {newsCount} verified announcement{newsCount===1?"":"s"}
+   {" · "}{observationCount} distinct dated source observation{observationCount===1?"":"s"}
+   {" · "}Older items are not presented as new breaking news.
+ </p>
+ {lead.length?<div className={styles.heroGrid}>
+   <StoryTile item={lead[0]} primary now={now}/>
+   <div className={styles.miniGrid}>{lead.slice(1).map(item=><StoryTile key={item.kind+item.id} item={item} now={now}/>)}
+     {lead.length<5?Array.from({length:5-lead.length},(_,i)=><div className={styles.vacancy} key={i}>
+       <span>48-HOUR SOURCE COVERAGE</span><strong>Awaiting another independently qualified update.</strong>
+     </div>):null}
+   </div>
+ </div>:<div className={styles.newsEmpty}><strong>Source-qualified coverage unavailable in the past 48 hours.</strong>
+    <p>This is a source coverage gap, not a claim that markets were quiet. Browse previous research or the calendar.</p>
+ </div>}
+ <div className={styles.columns}>
      <div className={styles.mainCol}>
-       <div className={styles.sectionHeading}><div><h2>Latest News</h2>
-         <p>Recent source-dated developments. Publication time is not an invented market reaction.</p></div>
-         <Link href={newsroom}>Browse Newsroom →</Link></div>
-       {rest.length?<div className={styles.feed}>{rest.map(item=><article className={styles.feedRow} key={item.id}>
-         <div className={styles.thumb}><EditorialStoryArt headline={item.headline} summary={item.summary} compact/></div>
-         <div><span className={styles.feedStatus}>SOURCE VERIFIED · {item.sourceName} · <DualTimestamp value={item.occurredAt}/></span>
-           <h3><a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">{item.headline}</a></h3>
-           <p>{safe(item.summary)}</p><Link href={newsroom}>Explore the Newsroom →</Link></div>
-       </article>)}</div>:<div className={styles.emptySmall}>No additional source-verified updates in the 48-hour qualification window.</div>}
-       <div className={styles.sectionHeading}><div><h2>From headlines to the regime</h2>
+       <div className={styles.sectionHeading}><div><h2>More from the past 48 hours</h2>
+     <p>Original-source announcements remain distinct from dated market observations. Source dates—not retrieval dates—determine the window.</p></div>
+     <Link href={newsroom}>Browse Newsroom →</Link></div>
+ {feed.length?<div className={styles.feed}>{feed.map(item=>{
+   const v=itemText(item);
+   return <article className={styles.feedRow} key={item.kind+item.id}
+     data-feed-evidence-type={item.kind}>
+    <div className={styles.thumb}><EditorialStoryArt headline={v.headline} summary={v.summary} compact/></div>
+    <div><span className={styles.feedStatus}>{v.status} · {ageLabel(item.at,now)} · {v.sourceName} · <DualTimestamp value={item.at}/></span>
+      <h3><a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">{v.headline}</a></h3>
+      <p>{safe(v.summary)}</p>
+      {item.kind==="NEWS"?<Link href={newsroom}>Explore the Newsroom →</Link>:
+       <span className={styles.dataNote}>Source observation · not a verified causal explanation</span>}
+    </div>
+   </article>;
+ })}</div>:<div className={styles.emptySmall}>No additional qualified updates in the rolling 48-hour window.</div>}
+ <div className={styles.sectionHeading}><div><h2>From headlines to the regime</h2>
          <p>Public Story snapshots, grouped by research topic—not newly adjudicated regime verdicts.</p></div>
          <Link href={regimes}>All regime lenses →</Link></div>
        <div className={styles.teaserGrid}>{lenses.filter(l=>["fed","bonds","ai","energy"].includes(l.id)).map(lens=>

@@ -60,7 +60,7 @@ export default async function BlueDeskPage() {
     })),
     getMarketMonitor().catch(() => null),
     getCurrentVerifiedMarketMotion({ limit: 24 }).catch(() => []),
-    getPublicSourceObservations(now,8).catch(() => []),
+    getPublicSourceObservations(now,12).catch(() => []),
     getPublicThesisLedger(now,24).catch(() => []),
     getOriginalPressNews(now,12).catch(() => []),
     getPublishedMacroPulseBriefs(2).catch(() => []),
@@ -85,7 +85,7 @@ export default async function BlueDeskPage() {
     <main className={styles.page} data-blue-desk-convergence="phase-1">
       <BlueDeskHeader activePath="/blue-desk" />
       <div className={styles.content}>
-        <BluebellyNewsfront news={verifiedNews} theses={theses} host={host}
+        <BluebellyNewsfront news={verifiedNews} observations={observations} theses={theses} host={host} now={now}
           upcoming={upcoming.map(event=>({id:event.id,title:event.title,sourceName:event.sourceName,
             scheduledAt:event.scheduledAt??null,localDate:event.localDate,sourceUrl:event.sourceUrl}))}/>
         <details data-legacy-monitor="preserved-as-expandable-support">

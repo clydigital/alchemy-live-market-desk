@@ -66,3 +66,8 @@
 @media(max-width:1080px){.teaserGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:800px){.heroGrid{grid-template-columns:1fr;height:auto}.primary{height:320px}.miniGrid{min-height:320px}.columns{grid-template-columns:1fr}.rail{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.sidebox{margin:0}}
 @media(max-width:540px){.intro{display:block}.dailyQuick{display:inline-block;margin-top:10px}.miniGrid{grid-template-columns:1fr;grid-template-rows:none}.miniGrid .tile,.miniGrid .vacancy{height:114px}.miniGrid .tileBody h2{font-size:17px}.primary{height:340px}.breaking small{display:none}.feedRow{grid-template-columns:108px minmax(0,1fr);gap:10px}.thumb,.thumb>div{height:94px}.feedRow h3{font-size:17px}.feedRow p{display:none}.sectionHeading{align-items:start}.sectionHeading h2{font-size:23px}.rail{grid-template-columns:1fr}.teaserGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.teaser{padding:11px}.teaser strong{font-size:15px}}
+
+/* Rolling 48-hour source admission: observations are visibly distinct from verified announcements. */
+.coverageNote{font-size:11px;color:#a9cedf;margin:0 0 12px;line-height:1.5;letter-spacing:.02em}
+.dataChip{display:inline-block;background:#153f53;color:#d1f0f3;border:1px solid #68a7c1;border-radius:2px;font-weight:800;letter-spacing:.055em;font-size:9px;padding:5px 7px}
+.dataNote{display:inline-block;font-size:11px;color:#a5ccdb;margin-top:4px}
