@@ -18,6 +18,7 @@ export type LensWorkbook={
  monitors:readonly LensMonitor[];
  related:readonly {id:EditorialRegimeId; why:string}[];
  sourcePattern:RegExp;
+ leadHeadlinePattern:RegExp;
 };
 const monitor=(name:string,purpose:string,discriminator:string,sourceName:string,sourceUrl:string,cadence:string):LensMonitor=>
  ({name,purpose,discriminator,sourceName,sourceUrl,cadence});
@@ -39,6 +40,7 @@ export const REGIME_LENS_WORKBOOKS:Record<EditorialRegimeId,LensWorkbook>={
    monitor("Front-end yields","US 2Y compared with 10Y and the relevant pre-event close","Test whether the market repriced policy expectations","US Treasury",T,"Dated market close")
   ],
   related:[{id:"bonds",why:"Term premium can offset Fed easing"},{id:"gold",why:"Real yields help frame gold's reaction"}],
+  leadHeadlinePattern:/\b(?:fomc|federal reserve|fed policy|fed rate|inflation|cpi|pce|payroll|rate expectations)\b/i,
   sourcePattern:/\b(?:fomc|federal reserve|fed funds|consumer price index|personal consumption expenditures|cpi|pce inflation|payrolls?|employment situation|two.year treasury)\b/i,
  },
  bonds:{
@@ -53,6 +55,7 @@ export const REGIME_LENS_WORKBOOKS:Record<EditorialRegimeId,LensWorkbook>={
    monitor("High-yield credit spread","Option-adjusted spread with observation date","Determine whether sovereign stress is reaching corporate risk","FRED / ICE",CREDIT,"Daily series")
   ],
   related:[{id:"fed",why:"Separate expected policy from term premium"},{id:"ai",why:"Financing costs affect infrastructure returns"}],
+  leadHeadlinePattern:/\b(?:treasury|treasuries|bond|credit|yield|funding|term premium|duration)\b/i,
   sourcePattern:/\b(?:treasur(?:y|ies)|auction|bond yields?|term premium|debt issuance|credit spread|high.yield|refinancing|municipal bond|yield curve)\b/i,
  },
  ai:{
@@ -67,6 +70,7 @@ export const REGIME_LENS_WORKBOOKS:Record<EditorialRegimeId,LensWorkbook>={
    monitor("Financing burden","Debt maturity, leases, capex guidance and borrowing terms","Identify which expansion plans need outside money","SEC EDGAR",SEC,"Filings and financing disclosures")
   ],
   related:[{id:"bonds",why:"Credit conditions can raise build-out costs"},{id:"china",why:"Compute competition changes pricing power"}],
+  leadHeadlinePattern:/\b(?:ai|artificial intelligence|semiconductor|nvidia|hyperscaler|gpu|capex|compute|data.cent)\b/i,
   sourcePattern:/\b(?:artificial intelligence|ai infrastruc|hyperscaler|semiconductor|gpu|nvidia|microsoft|alphabet|google cloud|amazon web services|meta platforms|data cent(?:re|er)|capex)\b/i,
  },
  china:{
@@ -81,6 +85,7 @@ export const REGIME_LENS_WORKBOOKS:Record<EditorialRegimeId,LensWorkbook>={
    monitor("Adoption and revenue","Paid usage, pricing and customer disclosures","Distinguish access from financially meaningful market share","SEC EDGAR",SEC,"Issuer filing")
   ],
   related:[{id:"ai",why:"Demand growth can coexist with margin compression"},{id:"breadth",why:"Market leadership may become less concentrated"}],
+  leadHeadlinePattern:/\b(?:china|chinese|beijing|deepseek|export control|us.china|chip restriction)\b/i,
   sourcePattern:/\b(?:export controls?|semiconductor restrictions?|bis rule|china|chinese|beijing|deepseek|advanced computing|hbm|memory chip)\b/i,
  },
  energy:{
@@ -95,6 +100,7 @@ export const REGIME_LENS_WORKBOOKS:Record<EditorialRegimeId,LensWorkbook>={
    monitor("Shipping and gas","Verified vessel crossings, LNG routes and freight basis","Check delivered supply rather than geopolitical assertion","EIA Natural Gas","https://www.eia.gov/naturalgas/","Weekly/route observations")
   ],
   related:[{id:"fed",why:"Energy inflation can alter the policy path"},{id:"bonds",why:"Inflation expectations affect long yields"}],
+  leadHeadlinePattern:/\b(?:oil|brent|crude|diesel|distillate|lng|refining|hormuz|shipping|energy)\b/i,
   sourcePattern:/\b(?:eia|petroleum|crude oil|distillate|diesel|refiner|refinery|brent|wti|lng|natural gas|tanker|hormuz|opec|pipeline)\b/i,
  },
  yen:{
@@ -109,6 +115,7 @@ export const REGIME_LENS_WORKBOOKS:Record<EditorialRegimeId,LensWorkbook>={
    monitor("Funding stress","Basis, cross-border holdings or corroborated funding costs","Separate mechanical FX moves from real deleveraging","BIS Statistics","https://www.bis.org/statistics/","Quarterly or observed")
   ],
   related:[{id:"bonds",why:"Cross-border funding can affect sovereign demand"},{id:"breadth",why:"Risk-asset exposure can amplify yen shocks"}],
+  leadHeadlinePattern:/\b(?:japan|japanese|yen|jgb|boj|carry|usd.?jpy)\b/i,
   sourcePattern:/\b(?:bank of japan|boj|jgb|japanese government bond|yen|usd.?jpy|jpy|japan policy|carry trade|yen funding)\b/i,
  },
  breadth:{
@@ -123,6 +130,7 @@ export const REGIME_LENS_WORKBOOKS:Record<EditorialRegimeId,LensWorkbook>={
    monitor("High-yield spreads","Compare OAS direction with equity risk appetite","Check whether lenders confirm or reject the rally","FRED / ICE",CREDIT,"Daily series")
   ],
   related:[{id:"ai",why:"Megacap technology can dominate index weighting"},{id:"bonds",why:"Financing pressure can reveal weaker businesses"}],
+  leadHeadlinePattern:/\b(?:breadth|equal.weight|market participation|equity leadership|small.cap|narrow leadership)\b/i,
   sourcePattern:/\b(?:equity breadth|equal.weight|advance.decline|s&p 500|nasdaq|small.cap|financial sector|earnings breadth|credit spread|bank provisions?)\b/i,
  },
  gold:{
@@ -137,6 +145,7 @@ export const REGIME_LENS_WORKBOOKS:Record<EditorialRegimeId,LensWorkbook>={
    monitor("USD and gold timing","Spot gold with dollar and matched intraday/close window","Separate rate, dollar and residual risk explanations","US Treasury",T,"Matched market observation")
   ],
   related:[{id:"fed",why:"Policy and real yields affect gold's carry trade-off"},{id:"energy",why:"Geopolitical and inflation premia can overlap"}],
+  leadHeadlinePattern:/\b(?:gold|bullion|xau|reserve allocation|central.bank buying)\b/i,
   sourcePattern:/\b(?:gold|xau|bullion|central bank reserves?|official reserves|real yield|gold holdings|monetary gold)\b/i,
  }
 };
