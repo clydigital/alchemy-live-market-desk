@@ -1,5 +1,6 @@
 import Link from "next/link";
 import EditorialStoryArt from "./EditorialStoryArt";
+import EarningsEvidenceGraphic from "./EarningsEvidenceGraphic";
 import DualTimestamp from "./DualTimestamp";
 import type {NewsBriefV1} from "@/lib/market-brief-news";
 import type {VerifiedEarningsScorecard} from "@/lib/blue-desk-earnings-results";
@@ -62,10 +63,10 @@ export default function ShortNewsRecap({recap,backHref}:{recap:Recap;backHref:st
    <section><p className={ui.kicker}>02 / THE NEW INFORMATION</p>
     <h2>{recap.isScheduled?"The decision still ahead":"What the source confirms"}</h2>
     <p>{recap.fact}</p>
-    {recap.earnings?<div className={ui.metrics}>
+    {recap.earnings?<><div className={ui.metrics}>
      {recap.earnings.metrics.filter(m=>m.state==="measured").map(m=>
       <div key={m.name}><span>{m.name}</span><strong>{m.value}</strong><small>{m.comparison||"Same-basis comparison unavailable"}</small></div>)}
-    </div>:null}
+    </div><EarningsEvidenceGraphic scorecard={recap.earnings}/></>:null}
     {recap.isScheduled?<p className={ui.caution}>No vote, announcement or market response is inferred before the verified release.</p>:null}
    </section>
    <section><p className={ui.kicker}>03 / THE LEARNING MOMENT</p>
