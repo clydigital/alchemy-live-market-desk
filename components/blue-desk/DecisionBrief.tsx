@@ -27,12 +27,20 @@ export default function DecisionBrief({news,calendar,now,host,report=false}:{new
  const lead=topics[0];
  const earningsResults=getRecentVerifiedEarningsScorecards(now,7);
  return <section className={s.brief} data-decision-first="public-v1">
-  <header className={s.header}><p className={s.kicker}>{report?'DAILY REPORT':'TODAY'} / SOURCE-QUALIFIED BRIEFING</p>
-   <h1>{report?'Today’s decisions, explained.':'Market in 30 seconds'}</h1>
-   <p className={s.verdict}>{lead ? <>{lead.title} <span>{lead.why}</span></> : 'Current verified coverage is insufficient for a market verdict.'}</p>
-   <p className={s.limit}>Working interpretation: announcements establish events, not investment returns. A matched price reaction or contrary evidence may change the reading. {lead ? 'Next test: '+lead.test : 'Check the source-listed calendar below.'}</p>
-   <small>Read cutoff <DualTimestamp value={now.toISOString()}/> · ET first; secondary clock UTC+8.</small>
-   <p className={s.delta}>Since the last edition: no verified claim-level delta available.</p>
+  <header className={s.header}>
+   <div className={s.headlineRow}>
+    <div>
+     <p className={s.kicker}>{report?'DAILY REPORT':'TODAY'} / SOURCE-QUALIFIED BRIEFING</p>
+     <h1>{report?'Today’s decisions, explained.':'Market in 30 seconds'}</h1>
+    </div>
+    <small className={s.cutoff}>Read cutoff <DualTimestamp value={now.toISOString()}/></small>
+   </div>
+   <p className={s.verdict}>{lead ? <><strong>{lead.status==='UPCOMING'?'Next decision':'Verified development'}: {lead.title}.</strong> <span>{lead.status==='UPCOMING'?'The outcome is pending. Check the release against expectations before assigning a market reaction.':lead.why}</span></> : 'Current verified coverage is insufficient for a market verdict.'}</p>
+   <p className={s.next}><strong>What would change the reading:</strong> {lead ? lead.test : 'Check the source-listed calendar below.'}</p>
+   <details className={s.evidence}><summary>Evidence limits and edition changes</summary>
+    <p>Announcements establish events, not investment returns. Independently matched asset prices and contrary evidence may change the interpretation.</p>
+    <p>Since the last edition: no verified claim-level delta available.</p>
+   </details>
   </header>
   <div className={s.topics}>{topics.map((t,i)=><article className={i===0?s.lead:s.topic} key={t.id}>
     <p className={s.kicker}>{String(i+1).padStart(2,'0')} / {t.status}</p>

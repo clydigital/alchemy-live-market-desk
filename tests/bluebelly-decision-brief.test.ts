@@ -1,5 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {decisionTopics,decisionCalendar,compareRelease,calendarOutcome} from '../lib/bluebelly-decision-brief.ts';
 import {buildPresenterCalendar} from '../lib/presenter-calendar.ts';
 import {storyMarketTransmission} from '../lib/blue-desk-thesis-ledger.ts';
@@ -35,4 +36,17 @@ test('backwardation never receives an AI explanation from the substring in susta
  assert.doesNotMatch(explanation,/AI orders/);
  assert.match(explanation,/fuel|energy/);
  assert.doesNotMatch(storyMarketTransmission({slug:'uncertain-chain',title:'Uncertain chain remains'}),/AI orders/);
+});
+
+test('decision-first layout keeps market verdict compact and evidence limits expandable',()=>{
+ const ui=readFileSync(new URL('../components/blue-desk/DecisionBrief.tsx',import.meta.url),'utf8');
+ const css=readFileSync(new URL('../components/blue-desk/DecisionBrief.module.css',import.meta.url),'utf8');
+ assert.match(ui,/className=\{s\.headlineRow\}/);
+ assert.match(ui,/className=\{s\.verdict\}/);
+ assert.match(ui,/className=\{s\.next\}/);
+ assert.match(ui,/<details className=\{s\.evidence\}>/);
+ assert.match(ui,/The outcome is pending/);
+ assert.ok(ui.indexOf('<details className={s.evidence}>')<ui.indexOf('<div className={s.topics}>'));
+ assert.match(css,/\.headlineRow\{display:flex/);
+ assert.match(css,/@media\(max-width:700px\)/);
 });
