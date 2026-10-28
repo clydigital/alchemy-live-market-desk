@@ -5,14 +5,14 @@
  * recent tape when their verified release instant ages out.
  */
 export type BankDecisionSnapshot={
- id:string;headline:string;bank:string;sourceUrl:string;sourceName:string;
+ id:string;headline:string;bank:string;countryCode:"US"|"CA"|"NZ";sourceUrl:string;sourceName:string;
  releaseAt:string;observedStatement:string;expectedStatus:string;
  financialMechanism:string;alternative:string;nextTest:string;
  affectedAssets:readonly string[];rateLabel:string;decision:string;
 };
 const SNAPSHOTS:readonly BankDecisionSnapshot[]=[
  {
- id:"fed-2026-10-28",bank:"Federal Reserve",headline:"Fed holds at 3.75–4.00%; two officials wanted a hike",
+ id:"fed-2026-10-28",bank:"Federal Reserve",countryCode:"US",headline:"Fed holds at 3.75–4.00%; two officials wanted a hike",
  releaseAt:"2026-10-28T18:00:00.000Z",
  sourceUrl:"https://www.federalreserve.gov/newsevents/pressreleases/monetary20261028a.htm",
  sourceName:"Federal Reserve · 28 October FOMC statement",decision:"HOLD",rateLabel:"3.75–4.00%",
@@ -24,7 +24,7 @@ const SNAPSHOTS:readonly BankDecisionSnapshot[]=[
  affectedAssets:["US02Y","DXY","SPX","GOLD"],
  },
  {
- id:"boc-2026-10-28",bank:"Bank of Canada",headline:"Bank of Canada raises rates 25bp to 2.50%",
+ id:"boc-2026-10-28",bank:"Bank of Canada",countryCode:"CA",headline:"Bank of Canada raises rates 25bp to 2.50%",
  releaseAt:"2026-10-28T13:45:00.000Z",
  sourceUrl:"https://www.bankofcanada.ca/2026/10/fad-press-release-2026-10-28/",
  sourceName:"Bank of Canada · 28 October policy statement",decision:"HIKE +25bp",rateLabel:"2.50%",
@@ -36,7 +36,7 @@ const SNAPSHOTS:readonly BankDecisionSnapshot[]=[
  affectedAssets:["USDCAD","CA02Y","DXY"],
  },
  {
- id:"rbnz-2026-10-28",bank:"Reserve Bank of New Zealand",headline:"RBNZ holds at 2.75% in a narrow 4–3 vote",
+ id:"rbnz-2026-10-28",bank:"Reserve Bank of New Zealand",countryCode:"NZ",headline:"RBNZ holds at 2.75% in a narrow 4–3 vote",
  releaseAt:"2026-10-28T01:00:00.000Z",
  sourceUrl:"https://www.rbnz.govt.nz/news-and-events/news/2026/10/ocr-held-at-2-75-percent",
  sourceName:"RBNZ · Monetary Policy Review and meeting record",decision:"HOLD",rateLabel:"2.75%",
