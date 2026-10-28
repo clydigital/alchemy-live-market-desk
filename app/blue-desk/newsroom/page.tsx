@@ -1,4 +1,6 @@
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import {headers} from "next/headers";
+import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import BluebellyNewsWire from "@/components/blue-desk/BluebellyNewsWire";
 import {getCurrentVerifiedMarketMotion} from "@/lib/market-motion";
 import {selectVerifiedNewsBriefs} from "@/lib/market-brief-news";
@@ -10,6 +12,7 @@ export const metadata={title:"Newsroom | Bluebelly",description:"Source-verified
 type Props={searchParams:Promise<{q?:string|string[]}>};
 export default async function NewsroomPage({searchParams}:Props){
  const now=new Date();
+ const host=(await headers()).get("host");
  const [raw,official,params]=await Promise.all([
   getCurrentVerifiedMarketMotion({limit:36}).catch(()=>[]),
   getOriginalPressNews(now,18,7).catch(()=>[]),searchParams,
@@ -18,6 +21,6 @@ export default async function NewsroomPage({searchParams}:Props){
  const query=typeof params.q==="string"?params.q:"";
  return <main className={desk.page} data-public-newsroom="original-source-only">
   <BlueDeskHeader activePath="/blue-desk/newsroom"/>
-  <div className={desk.content}><BluebellyNewsWire news={news} initialQuery={query} now={now.toISOString()}/></div>
+  <div className={desk.content}><BluebellyNewsWire news={news} initialQuery={query} now={now.toISOString()} readerHref={blueDeskPublicHref("/blue-desk/key-stories",host)}/></div>
  </main>;
 }
