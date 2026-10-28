@@ -3,6 +3,7 @@ import {headers} from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import HormuzCrossings from "@/components/blue-desk/HormuzCrossings";
 import {getGlobalFlowMonitor} from "@/lib/global-flow-monitor";
+import {getHormuzMonitor} from "@/lib/hormuz-monitor";
 import {getHormuzIncidents} from "@/lib/bluebelly-hormuz-incidents";
 import {projectHormuzPublicWatch,type HormuzWatchTile} from "@/lib/bluebelly-hormuz-public";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
@@ -34,8 +35,8 @@ function reading(tile:HormuzWatchTile){
 }
 export default async function HormuzTracker(){
  const now=new Date(),host=(await headers()).get("host");
- const [raw,incidents]=await Promise.all([getGlobalFlowMonitor().catch(()=>({
-  hormuz:{snapshot:null,checkedAt:now.toISOString(),nextAttemptAt:null,refreshFailed:true},
+ const [raw,incidents]=await Promise.all([getGlobalFlowMonitor().catch(async()=>({
+  hormuz:await getHormuzMonitor().catch(()=>({snapshot:null,checkedAt:now.toISOString(),nextAttemptAt:null,refreshFailed:true})),
   updatedAt:now.toISOString(),oil:[],gold:[],researchTriggers:[],coverageGaps:[]
  } satisfies GlobalFlowMonitor)),getHormuzIncidents(now)]);
  const watch=projectHormuzPublicWatch(raw,now);
