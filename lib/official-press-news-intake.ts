@@ -221,6 +221,12 @@ async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch):
       // release minute. Only the separately attested official event clock may
       // be used for those domains. Reject un-attested future policy releases.
       if (specialPolicyClock && !scheduled) return [];
+      const feedAt = Date.parse(item.publishedAt);
+      const attestedAt = scheduled ? Date.parse(scheduled.releaseAt) : null;
+      // The feed date must still be plausible for this dated original event.
+      // A future-dated or unrelated item cannot borrow the attested clock.
+      if (scheduled && (!Number.isFinite(feedAt) || feedAt > now.getTime() + 5*60_000 ||
+          Math.abs(feedAt - attestedAt!) > 24*3_600_000)) return [];
       const publishedAt = scheduled?.releaseAt ?? item.publishedAt;
       return recent(publishedAt, now) && materiallyActionableOfficialHeadline(feed,item.title)
         ? [{ ...item, url, publishedAt, scheduleSource: scheduled?.scheduleSource ?? null }] : [];
