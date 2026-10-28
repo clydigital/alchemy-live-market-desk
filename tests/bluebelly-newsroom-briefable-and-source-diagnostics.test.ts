@@ -14,6 +14,7 @@ test("newsroom provides distinct dated approved decision explainers without fals
  assert.match(page,/decisionTopics\(news,calendar,now\)/);
  assert.match(page,/<NewsroomBriefableEvents topics=\{briefable\} readerHref=\{readerHref\}/);
  assert.match(page,/<BluebellyNewsWire news=\{news\}/);
+ assert.match(wire,/\{children\}/);
  assert.match(page,/getOriginalPressNews\(now,18,7\)/);
  assert.match(component,/data-newsroom-briefable="separate-from-news-wire"/);
  assert.match(component,/t\.status==="UPCOMING"\|\|t\.status==="FEATURE"\|\|t\.href\.startsWith\("\?brief="\)/);
