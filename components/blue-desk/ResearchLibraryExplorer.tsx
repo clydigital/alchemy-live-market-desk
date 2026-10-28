@@ -97,7 +97,11 @@ export default function ResearchLibraryExplorer({intake}:{intake:NotionResearchB
       (!needle || [entry.title,entry.description,entry.discipline,entry.provenance,entry.quality]
         .some(value=>value.toLocaleLowerCase("en-GB").includes(needle)))
     );
-    return sort==="title"?entries.sort((a,b)=>a.title.localeCompare(b.title)):entries;
+    if(sort==="title") return entries.sort((a,b)=>a.title.localeCompare(b.title));
+    // Live research first; otherwise active themes/gaps before dated historical
+    // index entries. An old archive is never presented as a current intake.
+    const rank:Record<Exclude<Section,"All">,number>={Latest:0,Themes:1,Gaps:2,Archives:3};
+    return entries.sort((a,b)=>rank[a.section]-rank[b.section]);
   },[term,section,sort,recent]);
 
   return <div className={styles.shell}>
@@ -119,6 +123,12 @@ export default function ResearchLibraryExplorer({intake}:{intake:NotionResearchB
         <p className={styles.statusText}>{connection.label}</p>
         <p className={styles.small}>{connection.connected?"Checked":"Attempted"} {safeDate(intake.fetchedAt)} · {connection.detail}</p>
         {!connection.connected && <p className={styles.small}>Open the original <a href="https://app.notion.com/p/3ea519b67a948161ba4dec8f97ebf658" target="_blank" rel="noopener noreferrer">MacroPulse archive</a> or <a href="https://app.notion.com/p/3489f73be6f8476bb8baf5eb9ed150de" target="_blank" rel="noopener noreferrer">Research Gap Runs</a> directly. A failed Bluebelly read is not evidence that the research is missing.</p>}
+        {connection.sourcePermissionWarning && <p className={styles.small}>
+          <strong>Owner action:</strong> In each linked Notion source, open the page menu, then
+          More → Connections → Add connection and select the existing <strong>Vercel</strong> integration.
+          Keep the pages private; do not enable public sharing or create another token.
+          Reload this page after permission changes to verify retrieval.
+        </p>}
         {intake.warnings.length>0 && <details open={!connection.connected}><summary>Coverage limitations ({intake.warnings.length})</summary>
           <ul>{intake.warnings.map((w,i)=><li key={i}>{w}</li>)}</ul></details>}
       </aside>

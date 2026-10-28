@@ -266,7 +266,9 @@ export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionRes
           url:"https://www.notion.so/"+selected.gateId,pageId:selected.gateId,
           retrievedAt:fetchedAt,text:parsed.text,originalLinks:parsed.links});
       }catch(error) {warnings.push("Research Gap run could not be read ("+notionResearchErrorHint(error)+"); coverage unknown.");}
-    }else warnings.push("Today's Research Gap Gate not found in the authorised Notion source.");
+    }else warnings.push(warnings.some(w=>/Research Gap data source could not be queried/i.test(w))
+      ?"Research Gap Gate availability cannot be determined because Notion data-source access failed."
+      :"Today's Research Gap Gate not found in the authorised Notion source.");
     if(selected.archiveId){
       try{
         const available=selectPulseChildPages(await children(token,selected.archiveId,2),2);
@@ -280,7 +282,9 @@ export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionRes
         }
         if(!available.length)warnings.push("No full MacroPulse posts found for today's day archive.");
       }catch(error){warnings.push("MacroPulse day archive could not be read ("+notionResearchErrorHint(error)+").");}
-    }else warnings.push("Today's MacroPulse archive not found in authorised Notion source.");
+    }else warnings.push(warnings.some(w=>/MacroPulse root page could not be listed/i.test(w))
+      ?"MacroPulse archive availability cannot be determined because Notion root-page access failed."
+      :"Today's MacroPulse archive not found in authorised Notion source.");
     if(today.searchPaginated)warnings.push("Notion search results were paginated; latest-page discovery may be partial.");
   }catch{return {status:"UNAVAILABLE",sources:[],fetchedAt,
     warnings:["Notion read could not complete. Do not reuse an undated cached report."]};}
