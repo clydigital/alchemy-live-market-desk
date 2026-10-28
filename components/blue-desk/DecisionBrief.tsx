@@ -43,7 +43,7 @@ export default function DecisionBrief({news,calendar,now,host,report=false}:{new
    <details className={s.evidence}><summary>Evidence limits and edition changes</summary>
     <p>Announcements establish events, not investment returns. Independently matched asset prices and contrary evidence may change the interpretation.</p>
     <p>Since the last edition: no verified claim-level delta available.</p>
-    {crossBank?<><p data-cross-bank-evidence="source-qualified"><strong>Shared inflation shock, different responses:</strong> {crossBank.explanation}</p><p>{crossBank.nextTest} <DualTimestamp value={crossBank.nextEvent.scheduledAt}/></p><p>Original policy decisions: {crossBank.sources.map(source=><span key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer">{source.bank} ({source.action})</a>{" · "}</span>)}</p></>:null}
+    {crossBank?<><p data-cross-bank-evidence="source-qualified"><strong>{crossBank.sharedEnergyStatus==='SOURCE_SUMMARIES'?'Shared energy-inflation evidence:':'Policy contrast, cause unverified:'}</strong> {crossBank.explanation}</p><p>{crossBank.nextTest} <DualTimestamp value={crossBank.nextEvent.scheduledAt}/></p><p>Original policy decisions: {crossBank.sources.map(source=><span key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer">{source.bank} ({source.action})</a>{" · "}</span>)}</p></>:null}
    </details>
   </header>
   <div className={s.topics}>{topics.map((t,i)=><article className={i===0?s.lead:s.topic} key={t.id}>
