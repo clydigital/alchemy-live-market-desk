@@ -781,9 +781,8 @@ button { font: inherit; }
   @page{size:A4;margin:13mm}
 }
 
-/* Bluebelly global font: public, owner, navigation, forms, tables and chart labels.
-   Preserve monospace for code and numerical source snippets. */
-:root { --bluebelly-font: var(--font-figtree), Figtree, "Segoe UI", var(--bluebelly-font); }
+/* One Bluebelly Figtree system for public, owner, code, print and chart labels. */
+:root { --bluebelly-font: var(--font-figtree), Figtree, ui-sans-serif, system-ui, sans-serif; }
 html, body, button, input, select, textarea, table, th, td { font-family: var(--bluebelly-font); }
 button, input, select, textarea { font: inherit; }
 svg text, .recharts-text, .recharts-label { font-family: var(--bluebelly-font); }
