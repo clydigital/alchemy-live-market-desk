@@ -81,7 +81,7 @@ test("all nine main Bluebelly links remain visible while private routes stay gat
   ["Learn","/learn"],
   ["Presenter Prep","/owner/presenter"],
  ]) assert.ok(nav.includes('["'+label+'", "'+href+'"]'),label);
- assert.equal((nav.match(/\["/g)||[]).length,8);
+ assert.equal((nav.match(/\["/g)||[]).length,9);
  assert.ok(!nav.includes("/api/"));
  assert.match(presenter,/href="\/my-reports"/);
  assert.match(presenter,/id="technical-checks"/);
