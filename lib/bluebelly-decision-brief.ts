@@ -1,3 +1,4 @@
+import {getRecentVerifiedEarningsScorecards} from "./blue-desk-earnings-results.ts";
 import type { NewsBriefV1 } from './market-brief-news.ts';
 import type { PresenterCalendar, PresenterCalendarEvent } from './presenter-calendar.ts';
 import { projectLivingMarketTopics } from './blue-desk-living-topics.ts';
@@ -13,6 +14,9 @@ export function decisionTopics(news: readonly NewsBriefV1[], calendar: Presenter
     href:'?catalyst='+t.id,status:'NEW' as 'NEW'|'UPCOMING',
     mechanism:t.marketMechanism, assets:[] as string[], priority:2,
   }));
+  for(const result of getRecentVerifiedEarningsScorecards(now,7)) {
+    topics.push({id:result.id,title:result.headline,fact:result.company+" · "+result.fiscalPeriod+": "+result.metrics.filter(m=>m.state==='measured').map(m=>m.name+" "+m.value).join("; "),why:result.conclusion,test:result.nextTest,at:result.releaseDay,sourceUrl:result.sourceUrl,sourceName:result.sourceName,href:'',status:'NEW',mechanism:result.outlook,assets:[result.ticker],priority:3});
+  }
   const upcoming = selectBlueDeskUpcoming(calendar,now,7);
   // One policy decision and one earnings theme; never pad the slate with tickers.
   for(const kind of ['economic','earnings'] as const){

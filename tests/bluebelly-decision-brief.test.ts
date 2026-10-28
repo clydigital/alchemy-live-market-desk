@@ -4,7 +4,7 @@ import {decisionTopics,decisionCalendar,compareRelease,calendarOutcome} from '..
 import {buildPresenterCalendar} from '../lib/presenter-calendar.ts';
 import {storyMarketTransmission} from '../lib/blue-desk-thesis-ledger.ts';
 import type {NewsBriefV1} from '../lib/market-brief-news.ts';
-const now=new Date('2026-10-28T12:00:00Z');
+const now=new Date('2026-11-10T12:00:00Z');
 const calendar=buildPresenterCalendar([],{events:[],coverage:'unavailable',warning:'test'},now);
 const news=(headline:string,id:string)=>({id,headline,summary:headline,occurredAt:now.toISOString(),sourceName:'Issuer',sourceUrl:'https://example.com/'+id} as NewsBriefV1);
 test('one topic stays one; five independent topics stay five without filler',()=>{
@@ -12,7 +12,7 @@ test('one topic stays one; five independent topics stay five without filler',()=
  const rows=['Oil supply','Treasury yields','NVIDIA chips','Company earnings','Yen currency'].map((h,i)=>news(h,String(i)));
  assert.equal(decisionTopics(rows,calendar,now).length,5);
  assert.equal(decisionTopics([],calendar,now).length,0);
- assert.equal(decisionTopics([{...rows[0],occurredAt:'2026-11-01T00:00:00Z'}],calendar,now).length,0);
+ assert.equal(decisionTopics([{...rows[0],occurredAt:'2026-11-11T00:00:00Z'}],calendar,now).length,0);
 });
 test('same basis comparisons and missing or mismatched evidence',()=>{
  const base={value:2,metric:'EPS',period:'2026Q3',basis:'GAAP',unit:'USD/share',releaseId:'issuer-q3',sourceUrl:'https://example.com',asOf:'2026-10-27T12:00:00Z',verified:true};
@@ -25,6 +25,7 @@ test('same basis comparisons and missing or mismatched evidence',()=>{
 test('future FOMC remains scheduled; no result inferred from elapsed clock',()=>{
  const e={id:'fed',kind:'economic',title:'FOMC',status:'scheduled',localDate:'2026-10-28',scheduledAt:'2026-10-28T18:00:00Z',verificationState:'official',actual:null,consensus:null,decidingQuestion:'Next policy path?',sourceUrl:'https://federalreserve.gov',sourceName:'Fed',affectedAssets:['US02Y']} as const;
  const c={...calendar,events:[e as any]};
+ const now=new Date('2026-10-28T12:00:00Z');
  assert.equal(decisionCalendar(c,now).policy.length,1);
  assert.equal(decisionCalendar(c,new Date('2026-10-28T19:00:00Z')).released.length,0);
  assert.equal(calendarOutcome(e as any),'Verified actual unavailable');
