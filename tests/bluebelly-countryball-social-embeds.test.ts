@@ -54,7 +54,8 @@ test("policy reader restores countryballs and keeps all original explanatory sec
  assert.match(ball,/useId\(\)/);
  assert.match(ball,/code==="US"/);
  assert.match(ball,/code==="CA"/);
- assert.match(ball,/code==="NZ"/);
+ assert.match(ball,/type CountryCode="US"\|"CA"\|"NZ"/);
+ assert.match(ball,/code==="CA"\?<\>/);
  assert.match(ball,/<ellipse cx="59"/);
  assert.doesNotMatch(ball,/🇺🇸|🇨🇦|🇳🇿/);
  assert.match(reader,/SourceTweetEmbeds posts=\{socialPosts\}/);
