@@ -62,6 +62,7 @@ test("policy reader restores countryballs and keeps all original explanatory sec
  assert.match(page,/getEventSocialContext\(policy.id,policy.releaseAt,now\)/);
  assert.match(news,/data-news-countryball=\{item.countryCode\}/);
  assert.match(css,/\.countryBall\{/);
+ assert.match(css,/\.rateStrip div:last-child\{grid-column:1\/-1\}/);
  assert.match(reader,/bank\?\.expectedStatus/);
  assert.match(reader,/bank\?\.alternative/);
  assert.match(reader,/bank\?\.nextTest/);
