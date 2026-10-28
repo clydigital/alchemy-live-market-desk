@@ -10,8 +10,8 @@ The single production font is **Figtree** via `next/font/google` on root layout,
 
 Both installed user-scoped plugins were inspected through their actual current manifest/skill sources, not inferred from a name.
 
-- `alchemy-research-suite`, version 0.1.4: its `bluebelly-platform-router` and original-source audit instructions name Bluebelly the intended destination and preserve upstream research ownership.
-- `alchemy-research-workflows`, version 0.1.4: its `bluebelly-story-compiler` produces source-labelled story writing and creator commentary; it does not itself admit canonical evidence.
+- `alchemy-research-suite`, version 0.1.5: its `bluebelly-platform-router` and original-source audit instructions name Bluebelly the intended destination and preserve upstream research ownership.
+- `alchemy-research-workflows`, version 0.1.5: its `bluebelly-story-compiler` produces source-labelled story writing and creator commentary; it does not itself admit canonical evidence.
 
 The current **implemented** destinations are:
 
@@ -42,4 +42,4 @@ The current **implemented** destinations are:
 
 ## Specialist plugin compatibility follow-up
 
-Some specialist skill text still says Live/Hybrid layout when discussing legacy Dossier provenance. The current controlling Bluebelly-first platform skills override the *destination* but not the Dossier's evidence ownership. Revise the legacy phrasing in a separately versioned plugin release after confirming the Creator Summary/public-Regime feature status; do not release fabricated routes. The font/preproduction PR does **not** silently mutate installed plugin releases.
+Both installed plugin releases were updated to 0.1.5 with corrected Bluebelly navigation prompts and a deployed-route reference, and readback confirmed prior skill files persisted. Some specialist skill text still says Live/Hybrid layout when discussing legacy Dossier provenance. The current controlling Bluebelly-first platform skills override the *destination* but not the Dossier's evidence ownership. Revise the legacy phrasing in a separately versioned plugin release after confirming the Creator Summary/public-Regime feature status; do not release fabricated routes. The plugin release updates were performed separately via owned Plugin Creator release IDs; they are **not** application repository code and do not prove backend source ingestion.
