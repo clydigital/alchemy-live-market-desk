@@ -702,7 +702,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
         <Panel
           title="Now — canonical market view"
           description={`Exact selected Dossier as of ${formatDeskDate(presenterDossier.asOf)} · ${presenterEditionStatus === "historical" ? "frozen historical replay" : "current desk read"}`}
-          action={<a className={styles.link} href="/owner/presenter">Open Bluebelly Presenter Studio ↗</a>}
+          action={<a className={styles.link} href="https://bluebelly-desk.vercel.app/owner/presenter">Open Bluebelly Presenter Studio ↗</a>}
         >
           {presenterEditionStatus !== "historical" ? (
             verifiedMotionJourney.length ? (
@@ -1464,7 +1464,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
 
         <a
           className={styles.primaryButton}
-          href="/owner/presenter"
+          href="https://bluebelly-desk.vercel.app/owner/presenter"
         >
           Open Bluebelly Presenter Studio ↗
         </a>
