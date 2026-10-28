@@ -57,8 +57,8 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
     <p className={s.kicker}>{String(i+1).padStart(2,'0')} / {t.status}</p>
     <div className={s.art}><EditorialStoryArt headline={t.title} summary={t.fact} compact/></div>
     <h2><Link href={reader+t.href}>{t.title}</Link></h2>
-    <p>{t.status==='NEW'?t.fact:t.why}</p>
-    <small>{t.status==='NEW'?'Source event':'Scheduled'} <DualTimestamp value={t.at.includes('T')?t.at:null} sourceDate={t.at}/></small>
+    <p>{t.status==='UPCOMING'?t.why:t.fact}</p>
+    <small>{t.status==='UPCOMING'?'Scheduled':t.status==='FEATURE'?'Dated editorial feature':'Source event'} <DualTimestamp value={t.at.includes('T')?t.at:null} sourceDate={t.at}/></small>
     {t.assets.length?<small>{t.assets.join(' · ')}</small>:null}
     <a className={s.source} href={t.sourceUrl} target="_blank" rel="noreferrer">{t.sourceName} ↗</a>
   </article>)}</div>
