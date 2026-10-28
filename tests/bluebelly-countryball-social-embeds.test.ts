@@ -76,6 +76,9 @@ test("X embeds are genuine original posts, automatically matched; facts never de
  assert.match(embed,/data-dnt="true"/);
  assert.match(embed,/UNVERIFIED COMMENTARY/);
  assert.match(embed,/Open original post if embed is unavailable/);
+ assert.match(embed,/Captured post excerpt, not fact-checked/);
+ assert.match(embed,/post\.caption/);
+ assert.match(src("lib/bluebelly-event-social.ts"),/slice\(0,22\)\.join/);
  assert.match(server,/server-only/);
  assert.match(server,/\.eq\("source_quality",35\)/);
  assert.match(server,/\.like\("publisher","X\/@%"\)/);

@@ -49,7 +49,7 @@ export function selectEventSocialContext(
   seen.add(link.id);
   output.push({id:link.id,handle:link.handle,url:link.url,
    postedAt:new Date(published).toISOString(),
-   caption:r.title.slice(0,210).trim(),
+   caption:r.title.trim().split(/\s+/).slice(0,22).join(" "),
    phase:published<release?"BEFORE DECISION":"AFTER DECISION"});
  }
  return output.sort((a,b)=>Date.parse(b.postedAt)-Date.parse(a.postedAt)).slice(0,limit);
