@@ -24,8 +24,9 @@ export default function PresenterOneMinute({brief,marketsHref}:{brief:Brief;mark
    setNotice("Copied the briefing and evidence limits.");
   }catch{setNotice("Clipboard unavailable. Select the script to copy it.");}
  };
- return <section className={s.panel} data-bluebelly-presenter-one-minute="source-only" aria-label="Ready-to-present market brief">
-  <div className={s.top}><div><p className={s.eyebrow}>PRESENT THIS IN 60 SECONDS · {brief.state}</p>
+ return <details className={s.panel} data-bluebelly-presenter-one-minute="source-only" aria-label="Ready-to-present market brief">
+  <summary className={s.summary}>Present in 60 seconds · Open speaking notes and chart checks</summary>
+  <div className={s.body}><div className={s.top}><div><p className={s.eyebrow}>PRESENT THIS IN 60 SECONDS · {brief.state}</p>
    <h2>What I'd say live</h2></div><button type="button" onClick={()=>void copy()}>Copy on-air brief</button></div>
   <p className={s.script}>{brief.opening} <span>{brief.evidence}</span></p>
   <div className={s.below}>
@@ -43,5 +44,5 @@ export default function PresenterOneMinute({brief,marketsHref}:{brief:Brief;mark
    {brief.releasedUrl?<a href={brief.releasedUrl} target="_blank" rel="noreferrer">Original earnings results ↗</a>:null}
   </details>
   <p className={s.feedback} role="status" aria-live="polite">{notice}</p>
- </section>;
+ </div></details>;
 }
