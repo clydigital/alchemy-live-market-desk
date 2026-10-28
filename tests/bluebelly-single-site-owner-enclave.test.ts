@@ -76,7 +76,7 @@ test("all nine main Bluebelly links remain visible while private routes stay gat
  assert.match(header,/activePath === "\/my-reports"/);
  const nav=header.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0]||"";
  for (const [label,href] of [
-  ["Today","/"],["Newsroom","/newsroom"],["Regime Watch","/regime-watch"],
+  ["Today","/"],["Newsroom","/newsroom"],["Hormuz Watch","/hormuz"],["Regime Watch","/regime-watch"],
   ["Markets","/markets"],["Calendar","/calendar"],["Daily Report","/daily-report"],
   ["Learn","/learn"],
   ["Presenter Prep","/owner/presenter"],
