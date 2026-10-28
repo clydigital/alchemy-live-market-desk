@@ -19,6 +19,10 @@ test("newsroom provides distinct dated approved decision explainers without fals
  assert.match(component,/data-newsroom-briefable="separate-from-news-wire"/);
  assert.match(component,/t\.status==="UPCOMING"\|\|t\.status==="FEATURE"\|\|t\.href\.startsWith\("\?brief="\)/);
  assert.match(component,/UPCOMING · OUTCOME UNKNOWN/);
+ // A pending result teaches the financial mechanism; its next test is
+ // separately action-oriented, not the same question repeated twice.
+ assert.match(component,/item.status==="UPCOMING"\?item.mechanism:item.fact/);
+ assert.match(component,/<strong>Next check:<\/strong> \{item.test\}/);
  assert.match(component,/ISSUER-VERIFIED RESULTS · COMPARISON UNVERIFIED/);
  assert.match(component,/href=\{readerHref\+item\.href\}/);
  assert.match(component,/not additional accepted news-wire records/);
