@@ -64,3 +64,16 @@ test("copyable presenter card and source-backed comparison SVG are public read-o
    "dated actual market trend SVGs must precede the collapsed source archive");
  assert.doesNotMatch(ui,/createSupabaseAdminClient|fetch\(|service_role|story_thesis_versions/);
 });
+
+test("dated already-published RBNZ explainer enters current story slate but never becomes everlasting breaking news",()=>{
+ const before=decisionTopics([],empty,new Date("2026-10-28T00:00:00Z"));
+ assert.equal(before.some(t=>t.id==="rbnz-october-2026-editorial"),false);
+ const active=decisionTopics([],empty,new Date("2026-10-28T16:00:00Z"));
+ const found=active.find(t=>t.id==="rbnz-october-2026-editorial");
+ assert.equal(found?.status,"FEATURE");
+ assert.equal(found?.href,"?feature=rbnz-october-2026");
+ assert.match(found?.fact||"",/4–3 vote/);
+ assert.match(found?.sourceUrl||"",/rbnz\.govt\.nz/);
+ const expired=decisionTopics([],empty,new Date("2026-10-30T01:01:00Z"));
+ assert.equal(expired.some(t=>t.id==="rbnz-october-2026-editorial"),false);
+});
