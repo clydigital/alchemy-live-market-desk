@@ -11,7 +11,7 @@ function clock(value:string){
  const d=new Date(value);
  return Number.isFinite(d.getTime())?new Intl.DateTimeFormat("en-GB",{timeZone:"America/New_York",day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",timeZoneName:"short"}).format(d):"Time unavailable";
 }
-export default function BluebellyNewsWire({news,initialQuery="",now}:{news:readonly NewsBriefV1[];initialQuery?:string;now:string}){
+export default function BluebellyNewsWire({news,initialQuery="",now,readerHref}:{news:readonly NewsBriefV1[];initialQuery?:string;now:string;readerHref:string}){
  const [topic,setTopic]=useState<EditorialTopicId>("all");
  const [query,setQuery]=useState(initialQuery.slice(0,100));
  const [shortlist,setShortlist]=useState<string[]>([]);
@@ -48,10 +48,10 @@ export default function BluebellyNewsWire({news,initialQuery="",now}:{news:reado
       <div className={styles.content}>
        <span className={styles.chip}>{Date.parse(now)-Date.parse(item.occurredAt)>48*3600000?"VERIFIED · EARLIER THIS WEEK":"SOURCE VERIFIED · LAST 48H"}</span>
        <small className={styles.metadata}>{editorialNewsTopics(item).join(" · ").toUpperCase()} · {clock(item.occurredAt)}</small>
-       <h2><Link href={"/key-stories?news="+encodeURIComponent(item.id)}>{item.headline}</Link></h2>
+       <h2><Link href={readerHref+"?news="+encodeURIComponent(item.id)}>{item.headline}</Link></h2>
        <p>{item.summary}</p>
        <div className={styles.actions}>
-        <Link href={"/key-stories?news="+encodeURIComponent(item.id)}>Read short Bluebelly recap →</Link>
+        <Link href={readerHref+"?news="+encodeURIComponent(item.id)}>Read short Bluebelly recap →</Link>
         <a href={item.sourceUrl} rel="noopener noreferrer" target="_blank">{item.sourceName} · original report ↗</a>
         <button type="button" onClick={()=>setShortlist(ids=>ids.includes(item.id)?ids.filter(i=>i!==item.id):[...ids,item.id])}
           aria-pressed={shortlist.includes(item.id)}>{shortlist.includes(item.id)?"✓ Shortlisted":"+ Brief shortlist"}</button>
