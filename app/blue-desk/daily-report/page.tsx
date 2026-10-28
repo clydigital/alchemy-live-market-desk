@@ -76,6 +76,20 @@ export default async function DailyReportPage() {
           or every MacroPulse post has been independently verified.</p>
       </header>
 
+      <section className={styles.section} aria-labelledby="featured-ai-warning" data-editorial-status="attributed-investigation">
+        <div className={styles.heading}>
+          <p className={styles.eyebrow}>FEATURED INVESTIGATION · 28 OCT 2026 · CREATOR-ATTRIBUTED</p>
+          <h2 id="featured-ai-warning">The warning beneath the AI rally</h2>
+          <p>Semiconductor buying, extreme-short-positioning claims, bond-market disagreement and the cost of financing AI expansion: a thesis-first investigation inspired by FXEvolution. This is a conditional research hypothesis, not a source-verified market event.</p>
+        </div>
+        <article className={styles.reading}>
+          <h3>What if the chip suppliers are winning while the customers financing the boom are becoming vulnerable?</h3>
+          <p className={styles.storyParagraph}>The bearish chain runs from financing pressure to weaker project economics, capex revisions, chip-order downgrades and ultimately equity repricing. The constructive countercase requires stronger cash conversion, stable credit and improving earnings breadth—not merely a claim that markets can rally.</p>
+          <p className={styles.storyCaveat}><strong>Evidence boundary:</strong> The precise FXEvolution short-interest series and historical analogue remain unverified. Warsh's possible policy constraint is our independent hypothesis, not a confirmed quotation from the video.</p>
+          <p className={styles.readingFoot}><span>Expanded COTD-style research · Not a published verified COTD</span><Link href={blueDeskPublicHref("/blue-desk/ai-rally-warning",host)}>Read the full investigation</Link></p>
+        </article>
+      </section>
+
       <section className={styles.section} aria-labelledby="daily-story-map" data-daily-story-coverage="persistent-and-dated">
         <div className={styles.heading}>
           <p className={styles.eyebrow}>THE BIG PICTURE</p>
