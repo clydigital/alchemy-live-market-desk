@@ -87,8 +87,11 @@ export default function ResearchLibraryExplorer({intake}:{intake:NotionResearchB
   const recent:ResearchEntry[]=useMemo(()=>intake.sources.map(source=>({
     id:source.pageId,title:source.title,description:shortText(source.text),
     section:"Latest" as const,discipline:source.kind==="MACROPULSE"?"MacroPulse":"Research Gap",
-    href:source.url,provenance:"Notion · retrieved source page",
-    updated:source.retrievedAt,quality:"Research input · not canonical",
+    href:source.url,
+    provenance:"Notion · "+(source.editionDay?"edition "+safeDate(source.editionDay+"T00:00:00+08:00"):"undated edition")+
+      " · checked "+safeDate(source.retrievedAt),
+    quality:source.coverageStatus?"Research input · "+source.coverageStatus+" coverage · not canonical":
+      "Research input · not canonical",
   })),[intake.sources]);
   const results = useMemo(()=>{
     const needle=term.trim().toLocaleLowerCase("en-GB");
@@ -129,7 +132,7 @@ export default function ResearchLibraryExplorer({intake}:{intake:NotionResearchB
           Keep the pages private; do not enable public sharing or create another token.
           Reload this page after permission changes to verify retrieval.
         </p>}
-        {intake.warnings.length>0 && <details open={!connection.connected}><summary>Coverage limitations ({intake.warnings.length})</summary>
+        {intake.warnings.length>0 && <details open={intake.status==="PARTIAL"||!connection.connected}><summary>Coverage and freshness notes ({intake.warnings.length})</summary>
           <ul>{intake.warnings.map((w,i)=><li key={i}>{w}</li>)}</ul></details>}
       </aside>
     </header>
