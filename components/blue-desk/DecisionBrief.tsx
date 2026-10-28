@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type {NewsBriefV1} from '@/lib/market-brief-news';
 import type {PresenterCalendar,PresenterCalendarEvent} from '@/lib/presenter-calendar';
 import {decisionTopics,decisionCalendar,calendarOutcome} from '@/lib/bluebelly-decision-brief';
+import {selectCrossBankPolicyBridge} from '@/lib/bluebelly-cross-bank-policy-bridge';
 import {blueDeskPublicHref} from '@/lib/blue-desk-host';
 import DualTimestamp from './DualTimestamp';
 import s from './DecisionBrief.module.css';
@@ -23,6 +24,7 @@ function Event({event}:{event:PresenterCalendarEvent}){
 }
 export default function DecisionBrief({news,calendar,now,host,report=false}:{news:readonly NewsBriefV1[];calendar:PresenterCalendar;now:Date;host:string|null;report?:boolean}){
  const topics=decisionTopics(news,calendar,now), lanes=decisionCalendar(calendar,now);
+ const crossBank=selectCrossBankPolicyBridge(news,calendar,now);
  const reader=blueDeskPublicHref('/blue-desk/key-stories',host), calendarHref=blueDeskPublicHref('/blue-desk/calendar',host);
  const lead=topics[0];
  const earningsResults=getRecentVerifiedEarningsScorecards(now,7);
@@ -37,9 +39,11 @@ export default function DecisionBrief({news,calendar,now,host,report=false}:{new
    </div>
    <p className={s.verdict}>{lead ? <><strong>{lead.status==='UPCOMING'?'Next decision':'Verified development'}: {lead.title}.</strong> <span>{lead.status==='UPCOMING'?'The outcome is pending. Check the release against expectations before assigning a market reaction.':lead.why}</span></> : 'Current verified coverage is insufficient for a market verdict.'}</p>
    <p className={s.next}><strong>What would change the reading:</strong> {lead ? lead.test : 'Check the source-listed calendar below.'}</p>
+   {crossBank?<p className={s.next} data-cross-bank-bridge="source-qualified"><strong>Cross-bank question:</strong> {crossBank.question} <span>Next decision <DualTimestamp value={crossBank.nextEvent.scheduledAt}/>.</span></p>:null}
    <details className={s.evidence}><summary>Evidence limits and edition changes</summary>
     <p>Announcements establish events, not investment returns. Independently matched asset prices and contrary evidence may change the interpretation.</p>
     <p>Since the last edition: no verified claim-level delta available.</p>
+    {crossBank?<><p data-cross-bank-evidence="source-qualified"><strong>Shared inflation shock, different responses:</strong> {crossBank.explanation}</p><p>{crossBank.nextTest} <DualTimestamp value={crossBank.nextEvent.scheduledAt}/></p><p>Original policy decisions: {crossBank.sources.map(source=><span key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer">{source.bank} ({source.action})</a>{" · "}</span>)}</p></>:null}
    </details>
   </header>
   <div className={s.topics}>{topics.map((t,i)=><article className={i===0?s.lead:s.topic} key={t.id}>
