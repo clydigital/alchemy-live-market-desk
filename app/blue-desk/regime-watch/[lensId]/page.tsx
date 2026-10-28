@@ -38,7 +38,7 @@ export default async function ResearchLensPage({params}:Props){
  const lens=groupPublicResearch(publicTheses||[]).find(item=>item.id===lensId)!;
  const workbook=REGIME_LENS_WORKBOOKS[lens.id];
  const recent=matchRecentLensObservations(lens.id,sourceObservations||[],now);
- const newest=lens.stories[0]||null;
+ const newest=lens.stories.find(story=>workbook.leadHeadlinePattern.test(story.title))||null;
  const base=blueDeskPublicHref("/blue-desk/regime-watch",host);
  return <main className={desk.page} data-public-research-lens={lens.id} data-evidence-scope="public-historical-story-snapshots">
   <BlueDeskHeader activePath="/blue-desk/regime-watch"/>
@@ -72,8 +72,8 @@ export default async function ResearchLensPage({params}:Props){
    <section id="research-position" className={styles.atGlance} aria-labelledby="research-position-heading">
     <div className={styles.atGlanceMain}>
      <span className={styles.kicker}>RESEARCH POSITION / STORED CONTEXT</span>
-     <h2 id="research-position-heading">{newest?newest.title:"The question is open"}</h2>
-     <p>{newest?newest.thesis:"No public Story record is currently available for this theme. The research question and monitoring plan still stand."}</p>
+     <h2 id="research-position-heading">{newest?newest.title:"No directly relevant Story lead yet"}</h2>
+     <p>{newest?newest.thesis:publicTheses===null?"Stored Story retrieval is unavailable. The monitoring plan is still readable.":lens.stories.length?"Related public Story records are listed below, but none has a sufficiently direct headline to represent this lens as its lead.":"No public Story record is currently associated with this theme. The monitoring plan still stands."}</p>
      <div className={styles.snapshotMeta}>
       {newest?<><span>Recorded status: {newest.status.toUpperCase()}</span><span>Last stored update <DualTimestamp value={newest.updatedAt}/></span></>:null}
       {publicTheses===null?<span>Public Story service unavailable — not evidence of no activity.</span>:null}
