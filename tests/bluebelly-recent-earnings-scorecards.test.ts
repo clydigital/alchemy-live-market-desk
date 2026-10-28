@@ -34,11 +34,22 @@ test("real revenue and operating results are distinct from missing CFO, FCF and 
   ]);
   assert.equal(r.metrics[0].state,"measured");
   assert.equal(r.metrics[1].state,"measured");
-  assert.equal(r.metrics[2].state,"not_verified");
-  assert.equal(r.metrics[2].value,null);
-  assert.equal(r.metrics[3].state,"not_verified");
-  assert.equal(r.metrics[3].value,null);
-  assert.match(r.metrics[3].note||"",/not established|not verified/i);
+  if(r.id==="sk-hynix-2026q3"){
+    assert.equal(r.metrics[2].state,"not_verified");
+    assert.equal(r.metrics[2].value,null);
+    assert.equal(r.metrics[3].state,"not_verified");
+    assert.equal(r.metrics[3].value,null);
+    assert.match(r.metrics[3].note||"",/not established|not verified/i);
+  }else{
+    assert.equal(r.metrics[2].state,"measured");
+    assert.equal(r.metrics[2].value,"NT$476.56bn");
+    assert.equal(r.metrics[3].state,"measured");
+    assert.match(r.metrics[3].value??"",/NT\$443\.21bn/);
+    assert.match(r.metrics[2].comparison??"",/241\.9% YoY/);
+    assert.match(r.metrics[3].comparison??"",/54\.2% YoY/);
+    assert.match(r.metrics[3].note??"",/planned FULL-YEAR 2026/);
+    assert.ok(r.additionalSourceUrl?.endsWith(".pdf"));
+  }
   assert.ok(r.conclusion.length>90);
  }
  const hynix=rows[0];
