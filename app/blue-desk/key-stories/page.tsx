@@ -169,11 +169,10 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
         <h1>Key stories, explained.</h1>
         <p>Start with what surprised the market. Follow the decision, the money, the contradiction and the next test—with original sources close at hand.</p>
         <nav className={ui.indexNav} aria-label="Key Stories sections">
+          {topics.length ? <a href="#current-developments">Latest developments</a> : null}
           <a href="#persistent-theses">Browse by topic</a>
-          {topics.length ? <a href="#catalysts-first">Latest developments</a> : null}
           <a href="#upcoming-decisions">What's next</a>
-          <a href="#manual-feature-stories">Deep research</a>
-          <a href="#newsroom-title">Newsroom</a>
+          <Link href={indexHref+"?feature=rbnz-october-2026"}>RBNZ explainer</Link>
         </nav>
       </header>
 
@@ -183,7 +182,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
         <span>{theses.length} ongoing research stories</span>
         <span>Feed checked <DualTimestamp value={now.toISOString()} /></span>
       </div>
-      <section className={ui.section} aria-label="Current event readers"><h2>Current developments</h2><div className={ui.cards}>{topics.map(topic=><article className={ui.card} key={topic.id}><p className={ui.kicker}>VERIFIED NEWS · <DualTimestamp value={topic.latestObservedAt}/></p><h3><Link href={indexHref+"?catalyst="+topic.id}>{topic.updates[0].headline}</Link></h3><p>{topic.guidingQuestion}</p></article>)}<article className={ui.card}><p className={ui.kicker}>DATED FEATURE · 28 OCTOBER 2026</p><h3><Link href={indexHref+"?feature=rbnz-october-2026"}>New Zealand’s surprise pause</Link></h3><p>Why a hold can surprise: follow expectations, the decision and the reported currency response.</p></article></div></section>
+      <section className={ui.section} id="current-developments" aria-label="Current event readers"><h2>Current developments</h2><div className={ui.cards}>{topics.map(topic=><article className={ui.card} key={topic.id}><p className={ui.kicker}>VERIFIED NEWS · <DualTimestamp value={topic.latestObservedAt}/></p><h3><Link href={indexHref+"?catalyst="+topic.id}>{topic.updates[0].headline}</Link></h3><p>{topic.guidingQuestion}</p></article>)}<article className={ui.card}><p className={ui.kicker}>DATED FEATURE · 28 OCTOBER 2026</p><h3><Link href={indexHref+"?feature=rbnz-october-2026"}>New Zealand’s surprise pause</Link></h3><p>Why a hold can surprise: follow expectations, the decision and the reported currency response.</p></article></div></section>
       <section className={ui.section} aria-labelledby="persistent-theses" data-persistent-thesis-ledger="source-identity">
         <p className={ui.kicker}>THE STORY LIBRARY</p>
         <h2 id="persistent-theses">Key Stories by market theme</h2>
@@ -216,14 +215,12 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
           <p className={ui.empty}>No Stories are currently available in this category. Try All Stories; this does not imply an inactive market.</p>}
       </section>
       <nav className={ui.categoryFilters} aria-label="Research pages">{Array.from({length:Math.ceil(visibleTheses.length/6)},(_,i)=><Link key={i} aria-current={pageNumber===i+1?"page":undefined} href={indexHref+"?category="+encodeURIComponent(activeCategory)+"&page="+(i+1)}>Page {i+1}</Link>)}</nav>
+      {upcomingDecisionSection}
       <details><summary>Research tools, source observations and further reading</summary>
       {investorTest ? <InvestorTest view={investorTest}/> : null}
-      {topics.length ? <>{liveCatalystSection}{upcomingDecisionSection}</> : <>
-        {upcomingDecisionSection}
+      {topics.length ? liveCatalystSection :
         <p className={ui.coverageNote}>No recent source-verified headline passed the Live News gate.
-          Scheduled catalysts are shown first instead of filling this space with unverified X speculation.
-          Historical Story research follows below.</p>
-      </>}
+          The scheduled decisions above remain visible, while unverified X speculation is excluded.</p>}
       <NewsroomLensExplorer news={news} asOf={now.toISOString()} />
       <section className={ui.section} aria-labelledby="manual-feature-stories" data-independent-research-features="source-linked-archive">
         <p className={ui.kicker}>EXPLORE THE BIGGER PICTURE</p>
