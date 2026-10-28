@@ -18,13 +18,6 @@ export const OFFICIAL_PRESS_FEEDS = [
     publisher: "Federal Reserve Board",
   },
   {
-    name:"ECB monetary policy press decisions",
-    feed:"https://www.ecb.europa.eu/rss/press.html",
-    host:"www.ecb.europa.eu",
-    path:/^\/press\/pr\/date\/20[0-9]{2}\/html\/ecb\.(?:mp|pr)[0-9]{6}~[a-f0-9]{6,16}\.en\.html$/i,
-    publisher:"European Central Bank",
-  },
-  {
     name: "SEC press releases",
     feed: "https://www.sec.gov/news/pressreleases.rss",
     host: "www.sec.gov",
@@ -60,6 +53,13 @@ export const OFFICIAL_PRESS_FEEDS = [
     host:"investor.atmeta.com",
     path:/^\/investor-news\/press-release-details\/[0-9]{4}\/[a-z0-9-]+\/default\.aspx$/i,
     publisher:"Meta Investor Relations",
+  },
+  {
+    name:"ECB monetary policy press decisions",
+    feed:"https://www.ecb.europa.eu/rss/press.html",
+    host:"www.ecb.europa.eu",
+    path:/^\/press\/pr\/date\/20[0-9]{2}\/html\/ecb\.(?:mp|pr)[0-9]{6}~[a-f0-9]{6,16}\.en\.html$/i,
+    publisher:"European Central Bank",
   },
 ] as const;
 
