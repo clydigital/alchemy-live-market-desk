@@ -13,6 +13,23 @@ export const EIA_WEEKLY_SERIES = {
 
 export type EiaWeeklyMetricKey = keyof typeof EIA_WEEKLY_SERIES;
 
+export const EIA_WEEKLY_ROUTE_GROUPS = {
+  stocks: {
+    url: "https://api.eia.gov/v2/petroleum/stoc/wstk/data/",
+    series: ["crudeStocksExSpr", "gasolineStocks", "distillateStocks", "sprStocks"],
+  },
+  refinery: {
+    url: "https://api.eia.gov/v2/petroleum/pnp/wiup/data/",
+    series: ["refineryUtilisation", "refineryCrudeInputs"],
+  },
+  supply: {
+    url: EIA_WEEKLY_PETROLEUM_ROUTE,
+    series: ["crudeProduction", "gasolineProductSupplied"],
+  },
+} as const;
+export type EiaWeeklyRouteGroup = keyof typeof EIA_WEEKLY_ROUTE_GROUPS;
+
+
 export type EiaWeeklyObservation = {
   period: string;
   value: number;
@@ -140,13 +157,17 @@ export function parseEiaWeeklyPetroleumPayload(
   };
 }
 
-export function buildEiaWeeklyPetroleumUrl(apiKey: string) {
-  const url = new URL(EIA_WEEKLY_PETROLEUM_ROUTE);
+/** EIA v2 exposes stock, refinery and supply series under DISTINCT routes.
+ * A single /sum/sndw query for all eight series cannot correctly retrieve stocks/utilisation.
+ */
+export function buildEiaWeeklyPetroleumUrl(apiKey: string, group: EiaWeeklyRouteGroup = "supply") {
+  const route = EIA_WEEKLY_ROUTE_GROUPS[group];
+  const url = new URL(route.url);
   url.searchParams.set("api_key", apiKey);
   url.searchParams.set("frequency", "weekly");
   url.searchParams.set("data[0]", "value");
-  for (const definition of Object.values(EIA_WEEKLY_SERIES)) {
-    url.searchParams.append("facets[series][]", definition.id);
+  for (const key of route.series) {
+    url.searchParams.append("facets[series][]", EIA_WEEKLY_SERIES[key].id);
   }
   url.searchParams.set("sort[0][column]", "period");
   url.searchParams.set("sort[0][direction]", "desc");
@@ -155,8 +176,14 @@ export function buildEiaWeeklyPetroleumUrl(apiKey: string) {
   return url.toString();
 }
 
+export function buildEiaWeeklyPetroleumUrls(apiKey: string) {
+  return (Object.keys(EIA_WEEKLY_ROUTE_GROUPS) as EiaWeeklyRouteGroup[])
+    .map(group => ({group, url:buildEiaWeeklyPetroleumUrl(apiKey, group)}));
+}
+
 export async function fetchEiaWeeklyPetroleumSnapshot(
   apiKey = process.env.EIA_API_KEY?.trim(),
+  options: { fetchImpl?: typeof fetch } = {},
 ): Promise<EiaWeeklyPetroleumSnapshot> {
   if (!apiKey) {
     return {
@@ -171,36 +198,39 @@ export async function fetchEiaWeeklyPetroleumSnapshot(
   }
 
   const retrievedAt = new Date().toISOString();
-  try {
-    const response = await fetch(buildEiaWeeklyPetroleumUrl(apiKey), {
-      headers: {
-        accept: "application/json",
-        "user-agent": "Alchemy Live Desk EIA v2 adapter",
-      },
-      next: { revalidate: 15 * 60 },
-      signal: AbortSignal.timeout(8_000),
-    });
-    if (!response.ok) {
-      return {
-        state: "unavailable",
-        asOf: null,
-        retrievedAt,
-        metrics: {},
-        sourceName: "U.S. Energy Information Administration",
-        sourceUrl: EIA_WEEKLY_PETROLEUM_ROUTE,
-        note: `EIA Open Data API returned HTTP ${response.status}.`,
-      };
+  const sourceGroups = buildEiaWeeklyPetroleumUrls(apiKey);
+  const results = await Promise.all(sourceGroups.map(async ({group,url}) => {
+    try {
+      const response = await (options.fetchImpl ?? fetch)(url, {
+        headers: {
+          accept: "application/json",
+          "user-agent": "Alchemy Live Desk EIA v2 adapter",
+        },
+        next: { revalidate: 15 * 60 },
+        signal: AbortSignal.timeout(8_000),
+      });
+      if (!response.ok) return {group, snapshot:null, error:"HTTP_"+response.status};
+      const snapshot=parseEiaWeeklyPetroleumPayload(await response.json(),{retrievedAt});
+      if (snapshot.state!=="ready") return {group, snapshot:null, error:"NO_VALID_ROWS"};
+      return {group,snapshot,error:null};
+    } catch {
+      // Never expose provider request URLs because they contain the API key.
+      return {group,snapshot:null,error:"REQUEST_FAILED"};
     }
-    return parseEiaWeeklyPetroleumPayload(await response.json(), { retrievedAt });
-  } catch (error) {
-    return {
-      state: "unavailable",
-      asOf: null,
-      retrievedAt,
-      metrics: {},
-      sourceName: "U.S. Energy Information Administration",
-      sourceUrl: EIA_WEEKLY_PETROLEUM_ROUTE,
-      note: error instanceof Error ? `EIA Open Data API unavailable: ${error.message}` : "EIA Open Data API unavailable.",
-    };
+  }));
+  const metrics: EiaWeeklyPetroleumSnapshot["metrics"] = {};
+  for (const result of results) {
+    if (result.snapshot) Object.assign(metrics, result.snapshot.metrics);
   }
+  const asOf=Object.values(metrics).map(x=>x?.latest.period??"").filter(Boolean).sort().at(-1)??null;
+  const missing=results.filter(x=>x.error).map(x=>x.group+":"+x.error);
+  return {
+    state: asOf?"ready":"unavailable",
+    asOf,
+    retrievedAt,
+    metrics,
+    sourceName: "U.S. Energy Information Administration",
+    sourceUrl: "https://www.eia.gov/opendata/",
+    note: missing.length ? "EIA route coverage missing: "+missing.join(", ") : null,
+  };
 }

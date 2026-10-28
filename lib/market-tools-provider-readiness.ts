@@ -6,7 +6,7 @@ import { readAlphaVantageDailyPilot } from "@/lib/providers/alpha-vantage-daily-
 
 export type ProviderReadiness = {
  provider:"FRED/ALFRED"|"EIA Open Data"|"Alpha Vantage";
- state:"ready"|"unconfigured"|"unavailable"|"limited";
+ state:"ready"|"partial"|"unconfigured"|"unavailable"|"limited";
  asOf:string|null;
  observationCount:number;
  retrievedAt:string|null;
@@ -34,11 +34,11 @@ async function fetchProviderReadiness():Promise<{checkedAt:string;providers:Prov
     note:f?.state==="ready"?"Verified official DGS10 observation":f?.state==="unconfigured"?"FRED_API/FRED_API_KEY not available to this deployment":"FRED authenticated request unavailable",
     sourceUrl:"https://fred.stlouisfed.org/series/DGS10"},
    {provider:"EIA Open Data",
-    state:e?.state??"unavailable",
+    state:e?.state==="ready" && Object.keys(e.metrics).length<8?"partial":(e?.state??"unavailable"),
     asOf:e?.asOf??null,
     observationCount:Object.keys(e?.metrics??{}).length,
     retrievedAt:e?.retrievedAt??null,
-    note:e?.state==="ready"?"Verified EIA weekly petroleum API observation":e?.state==="unconfigured"?"EIA_API_KEY not available to this deployment":"EIA v2 API response unavailable or invalid",
+    note:e?.state==="ready" && Object.keys(e.metrics).length<8?"Partial EIA coverage: "+Object.keys(e.metrics).length+"/8 metrics; "+(e.note??"one or more series missing"):e?.state==="ready"?"Verified EIA weekly petroleum API observation":e?.state==="unconfigured"?"EIA_API_KEY not available to this deployment":"EIA v2 API response unavailable or invalid",
     sourceUrl:"https://www.eia.gov/opendata/"},
    {provider:"Alpha Vantage",
     state:a?.state??"unavailable",
@@ -54,4 +54,4 @@ async function fetchProviderReadiness():Promise<{checkedAt:string;providers:Prov
  * Cached for an hour to avoid burning Alpha Vantage's small free daily quota.
  * Not part of automated Cron, canonical research, Story or Regime ingestion.
  */
-export const getMarketToolsProviderReadiness=unstable_cache(fetchProviderReadiness,["market-tools-provider-readiness-v1"],{revalidate:3600});
+export const getMarketToolsProviderReadiness=unstable_cache(fetchProviderReadiness,["market-tools-provider-readiness-v2"],{revalidate:3600});
