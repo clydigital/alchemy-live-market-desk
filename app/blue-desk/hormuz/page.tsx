@@ -5,6 +5,7 @@ import HormuzCrossings from "@/components/blue-desk/HormuzCrossings";
 import {getGlobalFlowMonitor} from "@/lib/global-flow-monitor";
 import {getHormuzMonitor} from "@/lib/hormuz-monitor";
 import {getHormuzIncidents} from "@/lib/bluebelly-hormuz-incidents";
+import {formatHormuzET} from "@/lib/bluebelly-hormuz-time";
 import {projectHormuzPublicWatch,type HormuzWatchTile} from "@/lib/bluebelly-hormuz-public";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import type {GlobalFlowMonitor} from "@/lib/global-flow-monitor-core";
@@ -54,7 +55,7 @@ export default async function HormuzTracker(){
      <h1>Hormuz: the route, the barrels, the diesel squeeze.</h1>
      <p className={s.lede}>War headlines tell you what might be interrupted. Ship transits show part of what is actually moving. Crude, fuel cracks and inventories reveal whether downstream markets are absorbing the shock.</p>
      <div className={s.metaLine}>
-      <span>Checked <time dateTime={now.toISOString()}>{new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",dateStyle:"medium",timeStyle:"short",timeZoneName:"short"}).format(now)}</time></span>
+      <span>Checked <time dateTime={now.toISOString()}>{formatHormuzET(now)}</time></span>
       <span>{watch.available}/{watch.tiles.length} market and fuel indicators within their date windows</span>
      </div>
      <nav className={s.actions} aria-label="Related market research">
@@ -97,7 +98,7 @@ export default async function HormuzTracker(){
     {incidents.reports.length?<div className={s.incidents}>
      {incidents.reports.slice(0,6).map(report=><article key={report.id} className={s.incidentCard}>
       <div className={s.incidentTop}><strong>{report.id} · {report.type}</strong>
-       <time dateTime={report.occurredAt}>{new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",dateStyle:"medium",timeStyle:"short",timeZoneName:"short"}).format(new Date(report.occurredAt))}</time></div>
+       <time dateTime={report.occurredAt}>{formatHormuzET(new Date(report.occurredAt))}</time></div>
       <h3>{report.place}</h3><p>{report.description}</p>
       <div className={s.incidentFlags}><span>{report.vesselType}</span>
        {report.timeLate?<span>TIME-LATE REPORT</span>:null}
