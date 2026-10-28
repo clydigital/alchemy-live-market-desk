@@ -98,7 +98,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
          <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>All Key Stories</Link></section>}</div>
     </main>;
   }
-  const briefId=typeof params?.brief==="string"&&/^[a-z0-9_-]{1,150}$/i.test(params.brief)?params.brief:null;
+  const briefId=typeof params?.brief==="string"&&/^[a-z0-9_:-]{1,150}$/i.test(params.brief)?params.brief:null;
   if(briefId){
     const selected=decisionTopics(news,calendar,now).find(t=>t.id===briefId);
     const earningsReceipt=getRecentVerifiedEarningsScorecards(now,7).find(e=>e.id===briefId)||null;
