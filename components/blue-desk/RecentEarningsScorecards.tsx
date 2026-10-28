@@ -59,7 +59,7 @@ export default function RecentEarningsScorecards({
           <span>{record.basis}</span>
           <span className={styles.sourceLinks}>
             <a href={record.sourceUrl} target="_blank" rel="noopener noreferrer">{record.sourceName} ↗</a>
-            {record.additionalSourceUrl?<a href={record.additionalSourceUrl} target="_blank" rel="noopener noreferrer">Management transcript ↗</a>:null}
+            {record.additionalSourceUrl?<a href={record.additionalSourceUrl} target="_blank" rel="noopener noreferrer">Issuer cash-flow slides ↗</a>:null}
           </span>
         </footer>
       </article>)}
