@@ -3,8 +3,7 @@
   "git": {
     "deploymentEnabled": {
       "*": false,
-      "main": true,
-      "fix/bluebelly-figtree-preprod-guard-20261028": true
+      "main": true
     }
   },
   "crons": [
