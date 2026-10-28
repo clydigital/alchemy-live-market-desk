@@ -19,6 +19,9 @@ test("decision-first topic links keep the user inside the source-gated Bluebelly
  assert.match(route,/data-bluebelly-news="decision-recap-reader"/);
  assert.match(route,/const event=recentNews\.find\(n=>n\.id===newsId\)/);
  assert.match(route,/getRecentVerifiedEarningsScorecards\(now,7\)/);
+ // Real approved IDs include "macro:us-fomc-..." and "earnings:mev_...".
+ // The URL query is decoded by Next before the whitelist check.
+ assert.match(route,/\[a-z0-9_:-\]\{1,150\}/);
  assert.doesNotMatch(route,/createSupabaseAdminClient|generateContent\(/);
 });
 
