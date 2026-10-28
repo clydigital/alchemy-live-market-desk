@@ -81,3 +81,12 @@ test("cannot use future observation timestamps or stale policy releases", () => 
   assert.equal(selectCrossBankPolicyBridge([{...rbnz,observedAt:"2026-10-29T01:00:00Z"}, boc],calendar(),now),null);
   assert.equal(selectCrossBankPolicyBridge([{...rbnz,occurredAt:"2026-10-26T01:00:00Z"}, boc],calendar(),now),null);
 });
+
+test("public briefing places the comparison beside the decision, not in another unverified panel", async () => {
+  const { readFileSync } = await import("node:fs");
+  const ui = readFileSync(new URL("../components/blue-desk/DecisionBrief.tsx", import.meta.url), "utf8");
+  assert.match(ui, /selectCrossBankPolicyBridge\(news,calendar,now\)/);
+  assert.match(ui, /data-cross-bank-bridge="source-qualified"/);
+  assert.match(ui, /data-cross-bank-evidence="source-qualified"/);
+  assert.match(ui, /crossBank\.sources\.map/);
+});
