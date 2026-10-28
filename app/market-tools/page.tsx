@@ -1,5 +1,6 @@
 import Link from "next/link";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import ResearchTriggerIntake from "@/components/blue-desk/ResearchTriggerIntake";
 import styles from "./market-tools.module.css";
 
 export const metadata = { title: "Market Tools | Bluebelly", description: "Research sources, correlation watchlists and trade-idea discovery." };
@@ -39,6 +40,7 @@ export default function MarketToolsPage() {
       <section className={styles.hero}><div><p className={styles.eyebrow}>RESEARCH TOOLKIT / BLUEBELLY</p><h1>Market tools<span>.</span><br/>Better signals, less noise.</h1><p className={styles.intro}>One workspace for finding trade candidates, checking cross-market relationships and opening primary-source evidence.</p></div><div className={styles.heroSide}><span className={styles.statusDot}/> Source directory ready <small>Live scanner pending market-data connection</small></div></section>
       <div className={styles.stats}><div><strong>{sources.length}</strong><span>Curated sources</span></div><div><strong>{pairs.length}</strong><span>Correlation pairs</span></div><div><strong>0</strong><span>Verified live signals</span></div><div><strong>—</strong><span>Last price observation</span></div></div>
       <section className={styles.workflow} aria-labelledby="workflow-title"><div><p className={styles.eyebrow}>RESEARCH HANDOFF / NOT AN AUTOMATIC SIGNAL</p><h2 id="workflow-title">Turn a screen into a sourced investigation</h2><p>Screen for an unusual move → compare cross-market relationships → check the original catalyst → verify price timestamps and invalidation → submit a candidate to Bluebelly research. Unverified observations must not appear as published ideas.</p></div><div className={styles.workflowActions}><Link href="/owner/research">Open Research Library →</Link><Link href="/owner/presenter">Presenter technical checks →</Link><Link href="/my-reports">Editorial reports →</Link></div></section>
+      <ResearchTriggerIntake />
       <div className={styles.layout}>
         <div className={styles.primary}>
           <section className={styles.section}><div className={styles.sectionHead}><div><p className={styles.eyebrow}>01 / SOURCE DIRECTORY</p><h2>Research shortcuts</h2></div><span className={styles.hint}>External tools · open in new tab</span></div><div className={styles.sourceGrid}>{sources.map(s=><a className={styles.source} href={s.url} key={s.name} target="_blank" rel="noopener noreferrer"><div className={styles.sourceTop}><span className={styles.group}>{s.group}</span><span className={styles.tag}>{s.tag}</span></div><h3>{s.name}<span aria-hidden="true"> ↗</span></h3><p>{s.desc}</p></a>)}</div></section>
