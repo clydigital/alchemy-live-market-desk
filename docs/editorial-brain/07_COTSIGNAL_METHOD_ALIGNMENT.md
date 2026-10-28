@@ -66,7 +66,7 @@ The earlier walkthrough used a **52-week lookback**. The current website allows 
 
 Interpretation:
 
-- darker green means positioning is more crowded relative to its own 52-week history;
+- darker green means relatively greater long exposure within the selected historical window;
 - darker red means positioning is more washed out or under-owned;
 - lighter colours near grey mean positioning is closer to neutral;
 - the number inside the tile is the selected-window min/max-normalised position score (not an empirical percentile rank).
@@ -109,7 +109,7 @@ Any COTSignal-style comparison must visibly state:
 
 > Commercial score inverted for visual consistency.
 
-This inversion should only be used in the explicitly labelled **COTSignal-style Legacy View**.
+This inversion is used only in an explicitly labelled legacy display: COTSignal-style range scores or Alchemy’s independently defined rank view. Preserve raw observations and clarify which calculation is shown.
 
 Alchemy's canonical TFF and Disaggregated views should retain their normal participant definitions and raw direction.
 
@@ -141,11 +141,11 @@ Required calculation:
 net_position_pct_open_interest = (gross_long - gross_short) / total_open_interest * 100
 ```
 
-The five-year series is separate from the 52-week heatmap percentile.
+The five-year series is separate from the selected-window range-position heatmap score.
 
 ### 3. Positioning versus price
 
-The detail view shows the 52-week positioning score alongside the asset price history.
+The detail view shows a selected-window positioning score alongside the asset price history.
 
 This is used to inspect:
 
@@ -166,7 +166,7 @@ Alchemy may show:
 - most crowded shorts;
 - most washed-out markets;
 - largest week-over-week selected-window range-score changes;
-- new 52-week extremes.
+- new extremes within the stated lookback window.
 
 The title should be **Weekly Positioning Extremes**, not Top Trades or Trade Signals.
 
