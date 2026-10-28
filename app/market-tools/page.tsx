@@ -12,7 +12,7 @@ const sources = [
   { name:"InfoLib Correlations", group:"Correlation", tag:"COMPARE", desc:"Compare ticker relationships and correlation matrices.", url:"https://infolib.org/market-dashboard/ticker-correlations" },
   { name:"FRED", group:"Macro evidence", tag:"OFFICIAL", desc:"Rates, spreads, real yields and macroeconomic time series.", url:"https://fred.stlouisfed.org/" },
   { name:"CME FedWatch", group:"Macro evidence", tag:"RATES", desc:"Market-implied US policy-rate probabilities.", url:"https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html" },
-  { name:"CFTC COT", group:"Positioning", tag:"OFFICIAL", desc:"Futures positioning and crowded-trade context.", url:"https://www.cftc.gov/MarketReports/CommitmentsofTraders/index.htm" },
+  { name:"COT Signal", group:"Positioning", tag:"ANALYTICS", desc:"COT positioning signals and crowded-trade context.", url:"https://www.cotsignal.com" },
   { name:"SEC EDGAR", group:"Fundamentals", tag:"OFFICIAL", desc:"Primary-source filings, earnings and risk disclosures.", url:"https://www.sec.gov/edgar/search/" },
   { name:"EIA", group:"Energy", tag:"OFFICIAL", desc:"Oil and gas inventories, production and energy releases.", url:"https://www.eia.gov/" },
 ];
