@@ -8,7 +8,7 @@ The Original remains the canonical research layer and the most detailed product.
 
 The [COT Positioning Lens](06_COT_POSITIONING_LENS.md) is a required extension of the shared processing contract whenever an active story maps directly to a covered futures market.
 
-The [COTSignal Method Alignment](07_COTSIGNAL_METHOD_ALIGNMENT.md) refines the COTSignal-style view using the supplied Big Picture Trading walkthrough. It defines the 52-week heatmap, legacy trader groups, five-year percentage-of-open-interest detail and the commercial-score inversion disclosure.
+The [COTSignal Method Alignment](07_COTSIGNAL_METHOD_ALIGNMENT.md) refines the COTSignal-style view using the supplied Big Picture Trading walkthrough. It distinguishes COTSignal’s selectable-window min/max heatmap (currently 52–260 weeks, typically three years) from Alchemy’s own 52-week percentile rank, alongside legacy trader groups, five-year percentage-of-open-interest detail and commercial-score inversion disclosure.
 
 ## Documents
 

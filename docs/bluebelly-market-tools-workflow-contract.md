@@ -1,6 +1,6 @@
 # Bluebelly Market Tools — research workflow contract (v0)
 
-Status: **UI and links implemented in PR #1119; automatic ingestion not yet implemented**.
+Status: **UI and links merged in PR #1119 and deployed to Bluebelly (28 October 2026); automatic candidate ingestion not yet implemented**.
 
 ## Boundaries
 - Bluebelly is the only new presentation target; no PowerStack or legacy Live Desk routing.
@@ -22,6 +22,15 @@ Status: **UI and links implemented in PR #1119; automatic ingestion not yet impl
 5. **Publication**: verified claims may inform Bluebelly Newsroom, Daily Report, and owner Presenter Studio; speculative trade candidates remain in private research context.
 6. **Readback**: verify published identity, source links, timestamps, status and invalidation conditions on Bluebelly itself.
 
+## COT Signal / official CFTC positioning input
+- Existing MacroPulse and Research Gap scheduled prompts were updated on 28 October 2026 to add *conditional* COT positioning checks; original task schedules and Notion destinations were preserved. This updates research instructions, not unattended website-to-canonical ingestion.
+- COTSignal (https://www.cotsignal.com) is a secondary reference to spot and interpret the weekly CFTC Legacy Futures Only positioning context, not an official data source, realtime indicator, owned API or automatic trade signal.
+- Prefer original CFTC **TFF** for currency/rates/equity financial futures and **Disaggregated** for energy/metals/commodities, with Legacy where explicitly relevant. Do not equate incompatible participant categories.
+- Record original Tuesday observation/report date, Friday release date, retrieval date, lookback window, participant, open interest and price-catalyst clock. If a market-moving event happened after Tuesday, mark the positioning pre-catalyst.
+- COTSignal’s current 0–100 historical range score is min/max-normalised over a selectable 52–260-week lookback; its Commercial display is inverted. Alchemy’s pre-existing 52-week rank is a *different statistic*. Never cross-compare scores without formula labels or imply numeric parity.
+- Qualify the outcome as support / challenge / catalyst amplification / neutral / stale, using independent price, rates, macro, policy or physical-market evidence. COT alone cannot promote an Idea, Story or Regime.
+- If public site retrieval fails, mark that comparison unavailable and retain independently sourced CFTC observations. No automated scraping, new schedule or publication rights.
+
 ## Integration gates
 - Verify existing FRED/FMP/market monitor feeds before buying or requesting new API plans.
 - Compute correlations from aligned **returns**, not a mix of price levels and yield percentages; document exceptions such as yield changes in basis points.
@@ -30,11 +39,11 @@ Status: **UI and links implemented in PR #1119; automatic ingestion not yet impl
 - Do not change existing schedule or publication contracts until end-to-end evidence receipts and readback are proven.
 
 ## Verification checklist
-- [x] Source directory and candidate relationship watchlist implemented in a review branch
-- [x] Presenter Studio and Bluebelly navigation link to the workspace in that branch
+- [x] Source directory and candidate relationship watchlist implemented and merged
+- [x] Presenter Studio and Bluebelly navigation link to the workspace
 - [x] Manual workflow handoff links implemented
-- [ ] Build/test and preview readback
-- [ ] Merge/deploy
+- [x] GitHub validation passed for PR #1119
+- [x] Merged to main; Vercel production deployment READY with Bluebelly alias
 - [ ] Historical price adapter and correlation calculation
 - [ ] Candidate persistence with provenance
 - [ ] Research Gap intake and canonical evidence admission
