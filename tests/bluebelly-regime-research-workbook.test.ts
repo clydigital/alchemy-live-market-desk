@@ -70,3 +70,18 @@ test("home Regime teaser and sidebar links use new detail routes rather than sta
  assert.match(home,/href=\{regimes\+"\/"\+l\.id\}/);
  assert.doesNotMatch(home,/href=\{regimes\+"#"/);
 });
+
+test("a cross-theme historical Story cannot hijack the featured lens position",()=>{
+ const plans=REGIME_LENS_WORKBOOKS;
+ assert.equal(plans.fed.leadHeadlinePattern.test("Distillate Scarcity Persists Despite Crude-Flow Recovery"),false);
+ assert.equal(plans.china.leadHeadlinePattern.test("Rates-led same-session repricing overwhelms summit optics"),false);
+ assert.equal(plans.breadth.leadHeadlinePattern.test("Rates-led same-session repricing overwhelms summit optics"),false);
+ assert.equal(plans.gold.leadHeadlinePattern.test("Real Yields and Funding Pressure Keep Rates Restrictive"),false);
+ assert.equal(plans.energy.leadHeadlinePattern.test("Distillate Scarcity Persists Despite Crude-Flow Recovery"),true);
+ assert.equal(plans.ai.leadHeadlinePattern.test("AI orders/backlog are real but cash conversion uncertain"),true);
+ assert.equal(plans.fed.leadHeadlinePattern.test("Fed inflation decision and the policy path"),true);
+ const page=read("app/blue-desk/regime-watch/[lensId]/page.tsx");
+ assert.match(page,/lens\.stories\.find\(story=>workbook\.leadHeadlinePattern\.test\(story\.title\)\)/);
+ assert.match(page,/Related public Story records are listed below/);
+ assert.doesNotMatch(page,/const newest=lens\.stories\[0\]/);
+});
