@@ -33,8 +33,10 @@ test("Research Library uses preexisting private read-only Notion intake and expo
   assert.match(page,/fetchTodayNotionResearch/);
   assert.match(page,/data-owner-research-library="private-read-only"/);
   assert.match(explorer,/Research is not a Dossier decision/);
-  assert.match(explorer,/The search covers the visible index and recent retrieved page previews/);
-  assert.match(explorer,/Open 26 October market map/);
+  assert.match(explorer,/recent source-page previews retrieved/);
+  assert.match(explorer,/Browse MacroPulse archives/);
+  assert.match(explorer,/latestPulse\?\.url/);
+  assert.doesNotMatch(explorer,/Open 26 October market map/);
   assert.doesNotMatch(page+explorer,/service_role|createSupabaseClient|insert\(|update\(|delete\(|upsert\(/);
   assert.doesNotMatch(page+explorer,/process\.env|NOTION_TOKEN|NEXT_PUBLIC_NOTION/);
 });
