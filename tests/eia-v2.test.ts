@@ -5,6 +5,7 @@ import { buildGlobalFlowMonitorFromInputs } from "../lib/global-flow-monitor-cor
 import {
   buildEiaWeeklyPetroleumUrl,
   buildEiaWeeklyPetroleumUrls,
+  classifyEiaApiFailure,
   EIA_WEEKLY_ROUTE_GROUPS,
   EIA_WEEKLY_SERIES,
   fetchEiaWeeklyPetroleumSnapshot,
@@ -70,6 +71,19 @@ test("EIA route failures retain partial primary observations and explicit missin
  assert.equal(result.metrics.refineryUtilisation,undefined);
  assert.match(result.note||"",/refinery:HTTP_400/);
  assert.equal(JSON.stringify(result).includes("fixture-key"),false);
+});
+
+
+test("EIA 403 identifies only supported auth rejection codes, never echoes vendor secrets",async()=>{
+ assert.equal(classifyEiaApiFailure(403,{error:{code:"API_KEY_INVALID",message:"secret"}}),"HTTP_403:API_KEY_INVALID");
+ assert.equal(classifyEiaApiFailure(403,{error:{code:"ATTACKER_SECRET",message:"secret"}}),"HTTP_403");
+ assert.equal(classifyEiaApiFailure(429,{error:{code:"OVER_RATE_LIMIT"}}),"HTTP_429:OVER_RATE_LIMIT");
+ const answer=async()=>new Response(JSON.stringify({error:{code:"API_KEY_UNVERIFIED",message:"No such key: secret"}}),{status:403});
+ const x=await fetchEiaWeeklyPetroleumSnapshot("fixture-secret",{fetchImpl:answer as typeof fetch});
+ assert.equal(x.state,"unavailable");
+ assert.match(x.note??"",/stocks:HTTP_403:API_KEY_UNVERIFIED/);
+ assert.equal(JSON.stringify(x).includes("fixture-secret"),false);
+ assert.equal(JSON.stringify(x).includes("No such key"),false);
 });
 
 test("EIA payload parser keeps latest and previous values by stable series identity and sets retrievedAt", () => {
