@@ -75,6 +75,7 @@ test("pre-release, future-dated and past/Fed-completed clocks fail closed", () =
   assert.equal(selectCrossBankPolicyBridge([rbnz, boc], calendar([{...fomc,verificationState:"reported"}]), now), null);
   assert.equal(selectCrossBankPolicyBridge([rbnz, boc], calendar([{...fomc,scheduledAt:"2026-10-30T18:00:00Z"}]), now), null);
   assert.equal(selectCrossBankPolicyBridge([rbnz, boc], calendar([{...fomc,sourceUrl:boc.sourceUrl}]), now), null);
+  assert.equal(selectCrossBankPolicyBridge([rbnz, boc], calendar([{...fomc,sourceUrl:"https://example.com/claimed-fed"}]), now), null);
 });
 
 test("cannot use future observation timestamps or stale policy releases", () => {
