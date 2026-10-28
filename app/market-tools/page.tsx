@@ -3,6 +3,7 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import ResearchTriggerIntake from "@/components/blue-desk/ResearchTriggerIntake";
 import { getMarketData } from "@/lib/market";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
+import { loadExtras } from "@/lib/market-monitor";
 import { buildMarketToolsCorrelations, CORRELATION_WINDOWS } from "@/lib/market-tools-correlations";
 import { getMarketToolsProviderReadiness } from "@/lib/market-tools-provider-readiness";
 import styles from "./market-tools.module.css";
@@ -32,12 +33,13 @@ export const dynamic = "force-dynamic";
 export default async function MarketToolsPage({searchParams}:{searchParams:Promise<{check?:string}>}) {
   const options = await searchParams;
   const checkProviders=options?.check==="providers";
-  const [market, monitor, readiness] = await Promise.all([
+  const [market, monitor, readiness, extendedHistory] = await Promise.all([
     getMarketData().catch(() => null),
     getMarketMonitor().catch(() => null),
     checkProviders ? getMarketToolsProviderReadiness().catch(() => null) : Promise.resolve(null),
+    loadExtras().catch(() => []),
   ]);
-  const pairs = buildMarketToolsCorrelations(market?.series ?? [], monitor?.rows ?? []);
+  const pairs = buildMarketToolsCorrelations(market?.series ?? [], monitor?.rows ?? [], new Date(), extendedHistory);
   const measuredCount = pairs.filter(p => p.status === "measured").length;
   const newestCommonDate = pairs.filter(p => p.status === "measured").map(p => p.asOf).filter((v): v is string => Boolean(v)).sort().at(-1) ?? null;
   return <main className={styles.page}>
@@ -73,7 +75,7 @@ export default async function MarketToolsPage({searchParams}:{searchParams:Promi
           <section className={styles.section}><div className={styles.sectionHead}><div><p className={styles.eyebrow}>01 / SOURCE DIRECTORY</p><h2>Research shortcuts</h2></div><span className={styles.hint}>External tools · open in new tab</span></div><div className={styles.sourceGrid}>{sources.map(s=><a className={styles.source} href={s.url} key={s.name} target="_blank" rel="noopener noreferrer"><div className={styles.sourceTop}><span className={styles.group}>{s.group}</span><span className={styles.tag}>{s.tag}</span></div><h3>{s.name}<span aria-hidden="true"> ↗</span></h3><p>{s.desc}</p></a>)}</div></section>
           <section className={styles.section}>
             <div className={styles.sectionHead}><div><p className={styles.eyebrow}>02 / RELATIONSHIP WATCH</p><h2>Cross-asset correlations</h2></div><span className={styles.pending}>DAILY HISTORY · NOT LIVE QUOTES</span></div>
-            <p className={styles.sectionDesc}>Measured 20 / 60 / 120 matched-session relationships from existing Bluebelly sources. Price and ETF series use log returns; Treasury yields and breakevens use basis-point changes. Data gaps, missing windows and older source dates remain visible. Proxies do not equal the named cash index or spot market.</p>
+            <p className={styles.sectionDesc}>Measured 20 / 60 / 120 matched-session relationships from existing Bluebelly sources, using the longer cached provider histories when available. Price and ETF series use log returns; Treasury yields and breakevens use basis-point changes. Data gaps, missing windows and older source dates remain visible. Proxies do not equal the named cash index or spot market.</p>
             <div className={styles.pairs}>{pairs.map(p=><article className={`${styles.pair} ${styles.pairCorrelation}`} key={p.id}>
               <div className={styles.pairInfo}>
                 <strong>{p.label}</strong><p>{p.relationship}</p>
