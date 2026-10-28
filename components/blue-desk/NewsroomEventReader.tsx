@@ -1,7 +1,8 @@
 import Link from "next/link";
 import DualTimestamp from "./DualTimestamp";
 import EditorialStoryArt from "./EditorialStoryArt";
-import {EntityMark,ScopeStrip} from "./EntityIdentity";
+import {ScopeStrip} from "./EntityIdentity";
+import BankCountryBall from "./BankCountryBall";
 import SourceTweetEmbeds from "./SourceTweetEmbeds";
 import type {EmbeddedSocialContext} from "@/lib/bluebelly-event-social";
 import type {BankDecisionSnapshot} from "@/lib/bluebelly-bank-decision-snapshots";
@@ -27,7 +28,7 @@ export default function NewsroomEventReader({event,backHref,socialPosts=[]}:{
   <header className={s.hero}>
    <div className={s.heroCopy}>
     <div className={s.topicLine}>
-     {bank?<EntityMark kind="country" code={bank.countryCode} size="lg" className={s.countryBall}/>
+     {bank?<BankCountryBall code={bank.countryCode} size="lg" className={s.countryBall}/>
        :<span className={s.reportIcon} aria-label="Unconfirmed cross-border deal" role="img">?</span>}
      <div className={s.topicInfo}>
       <p className={bank?s.verified:s.reported}>{bank?"ORIGINAL CENTRAL-BANK STATEMENT · OFFICIAL OUTCOME":"SECONDARY REPORTING · NOT INDEPENDENTLY CONFIRMED"}</p>

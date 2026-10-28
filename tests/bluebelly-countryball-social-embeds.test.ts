@@ -48,7 +48,16 @@ test("policy reader restores countryballs and keeps all original explanatory sec
  const page=src("app/blue-desk/key-stories/page.tsx");
  for(const heading of ["THE SCENE","THE NEW INFORMATION","THE MONEY QUESTION","THE CATCH","THE NEXT TEST"])
   assert.ok(reader.includes(heading),"missing "+heading);
- assert.match(reader,/kind="country" code=\{bank.countryCode\}/);
+ assert.match(reader,/<BankCountryBall code=\{bank.countryCode\}/);
+ const ball=src("components/blue-desk/BankCountryBall.tsx");
+ assert.match(ball,/data-countryball-svg=\{code\}/);
+ assert.match(ball,/useId\(\)/);
+ assert.match(ball,/code==="US"/);
+ assert.match(ball,/code==="CA"/);
+ assert.match(ball,/type CountryCode="US"\|"CA"\|"NZ"/);
+ assert.match(ball,/code==="CA"\?<\>/);
+ assert.match(ball,/<ellipse cx="59"/);
+ assert.doesNotMatch(ball,/🇺🇸|🇨🇦|🇳🇿/);
  assert.match(reader,/SourceTweetEmbeds posts=\{socialPosts\}/);
  assert.match(page,/getEventSocialContext\(policy.id,policy.releaseAt,now\)/);
  assert.match(news,/data-news-countryball=\{item.countryCode\}/);

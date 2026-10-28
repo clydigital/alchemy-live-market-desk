@@ -1,7 +1,7 @@
 import Link from "next/link";
 import DualTimestamp from "./DualTimestamp";
 import EditorialStoryArt from "./EditorialStoryArt";
-import {EntityMark} from "./EntityIdentity";
+import BankCountryBall from "./BankCountryBall";
 import type {BankDecisionSnapshot} from "@/lib/bluebelly-bank-decision-snapshots";
 import type {ReportedEditorial} from "@/lib/bluebelly-reported-editorial";
 import s from "./Newsroom48hTimeline.module.css";
@@ -32,7 +32,7 @@ export default function Newsroom48hTimeline({
    {items.map((item,i)=><article className={s.card} key={item.id}>
     <div className={s.image}><EditorialStoryArt headline={item.title} summary={item.detail} compact/>
      {item.countryCode?<span className={s.countryBadge} data-news-countryball={item.countryCode}>
-       <EntityMark kind="country" code={item.countryCode} size="md"/>
+       <BankCountryBall code={item.countryCode as "US"|"CA"|"NZ"} size="sm"/>
      </span>:null}</div>
     <div className={s.content}>
      <div className={s.labels}><strong className={item.verified?s.verified:s.unconfirmed}>{item.label}</strong><small>{item.topic}</small></div>
