@@ -43,7 +43,7 @@
 .automaticPdf .heading h2{font-family:var(--bluebelly-font);font-size:clamp(24px,3vw,33px);margin:7px 0 12px}
 .automaticPdf .heading p:not(.eyebrow){line-height:1.65;color:#b8d4df}
 .pdfMeta{display:flex;gap:15px;justify-content:space-between;flex-wrap:wrap;align-items:flex-start;padding:16px 0}
-.pdfMeta strong{font:600 23px Georgia,serif;color:#f2fbff;display:block}
+.pdfMeta strong{font:600 23px var(--bluebelly-font);color:#f2fbff;display:block}
 .pdfMeta p{font-size:15px;line-height:1.6;max-width:720px;color:#c7e2ed}
 .pdfMeta small{font-size:11px;color:#93c3d4;line-height:1.6;display:block}
 .pdfActions{display:flex;gap:10px;flex-wrap:wrap}

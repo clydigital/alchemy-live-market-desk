@@ -36,12 +36,12 @@ test("scope strips dedupe repeated tickers and cap marks without modifying evide
   assert.deepEqual(entityForCalendarEvent("earnings",["USD","MSFT"]),{kind:"company",code:"MSFT"});
 });
 
-test("Figtree is loaded at root rather than per-page and retains code monospace",()=>{
+test("Figtree is loaded at root rather than per-page, including code and draft print views",()=>{
   const layout=root("app/layout.tsx"),css=root("app/globals.css");
   assert.match(layout,/Figtree\(\{ subsets: \["latin"\]/);
   assert.match(layout,/className=\{figtree.variable\}/);
   assert.match(css,/--bluebelly-font/);
-  assert.match(css,/pre, code, kbd, samp/);
+  assert.match(css,/pre, code, kbd, samp\s*\{\s*font-family:\s*var\(--bluebelly-font\)/);
   assert.match(root("app/blue-desk/blue-desk.module.css"),/font-family: var\(--bluebelly-font\)/);
 });
 

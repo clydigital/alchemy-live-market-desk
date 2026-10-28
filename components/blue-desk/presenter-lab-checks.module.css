@@ -1,6 +1,6 @@
 .root{margin:22px 0 32px;padding:22px;border:1px solid #286181;border-radius:12px;background:#072337;color:#e8f5fe}
 .header{display:flex;justify-content:space-between;gap:24px;align-items:flex-start}
-.header h2{font:600 30px Georgia,serif;margin:8px 0 10px}
+.header h2{font:600 30px var(--bluebelly-font);margin:8px 0 10px}
 .header p{font-size:13px;line-height:1.6;color:#b6d0df;max-width:80ch}
 .kicker{font-size:11px;font-weight:800;letter-spacing:.1em;color:#82d8f7}
 .total{font-size:26px;font-weight:700;white-space:nowrap}
@@ -17,7 +17,7 @@
 .item strong,.selected strong{font-size:13px;line-height:1.4}
 .item small,.selected small{font-size:11px;color:#bed9e9}
 .detail{border:1px solid #285b7c;border-radius:9px;background:#041c2c;padding:22px}
-.detail h3{font:600 24px Georgia,serif;margin:10px 0 18px}
+.detail h3{font:600 24px var(--bluebelly-font);margin:10px 0 18px}
 .detail label{display:grid;gap:6px;color:#d0e3f1;font-size:12px;margin:12px 0}
 .detail select,.detail textarea{width:100%;border:1px solid #387493;border-radius:6px;background:#082d43;color:white;padding:10px;font:inherit}
 .facts{display:grid;grid-template-columns:140px minmax(0,1fr);gap:12px;padding-top:18px;border-top:1px solid #25516a;margin-top:20px;font-size:12px}

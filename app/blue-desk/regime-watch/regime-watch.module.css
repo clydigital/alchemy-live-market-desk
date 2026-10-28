@@ -1,13 +1,13 @@
 .intro{padding-bottom:22px}.intro>span,.kicker{font-size:10px;letter-spacing:.13em;color:#70d2fa;font-weight:800}
-.intro h1{font:550 clamp(31px,3vw,40px) Georgia,serif;letter-spacing:-.018em;margin:8px 0;color:#f0faff}
+.intro h1{font:550 clamp(31px,3vw,40px) var(--bluebelly-font);letter-spacing:-.018em;margin:8px 0;color:#f0faff}
 .intro p{font-size:13px;color:#aecada;max-width:100ch}
 .heading{display:flex;justify-content:space-between;align-items:end;gap:12px;border-bottom:2px solid #2c607e;padding-bottom:10px;margin-bottom:15px}
-.heading h2,.transmission h2{font:550 27px Georgia,serif;margin:0}
+.heading h2,.transmission h2{font:550 27px var(--bluebelly-font);margin:0}
 .heading span{font-size:11px;color:#a6c5d5}
 .cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
 .card{display:grid;grid-template-columns:126px minmax(0,1fr);gap:13px;padding:13px;border:1px solid #2b5e7a;border-radius:7px;background:#082a42;min-width:0;align-items:start;scroll-margin-top:30px}
 .art>div{height:116px;aspect-ratio:auto}.art svg{height:100%;width:100%}
-.content{min-width:0}.content h3{font:550 20px Georgia,serif;margin:7px 0;color:#f3f9ff}.content>p{color:#b2cfdd;font-size:12px;line-height:1.55;margin:0 0 7px}
+.content{min-width:0}.content h3{font:550 20px var(--bluebelly-font);margin:7px 0;color:#f3f9ff}.content>p{color:#b2cfdd;font-size:12px;line-height:1.55;margin:0 0 7px}
 .coverage{color:#95b8cc;font-size:11px;margin-top:10px}
 .content details{margin:12px 0 0}.content summary{cursor:pointer;color:#8cdafa;font-size:12px;font-weight:750;line-height:1.5;padding:5px 0}
 .details{background:#062136;padding:14px;border:1px solid #2d5d79;border-radius:5px;margin-top:8px}
@@ -21,7 +21,7 @@
 .pathGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .path{background:#082b44;border:1px solid #2e637b;padding:13px;border-radius:5px}
 .path span{color:#9fd1e2;font-size:9px;letter-spacing:.07em;display:block}
-.path strong{display:block;color:#f2faff;font:550 16px/1.34 Georgia,serif;margin-top:9px}
+.path strong{display:block;color:#f2faff;font:550 16px/1.34 var(--bluebelly-font);margin-top:9px}
 @media(max-width:1050px){.pathGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:750px){.cards{grid-template-columns:1fr}.heading{align-items:start}.heading span{display:none}}
 @media(max-width:540px){.card{grid-template-columns:105px minmax(0,1fr);gap:10px}.art>div{height:100px}.content h3{font-size:18px}.pathGrid{grid-template-columns:1fr}}

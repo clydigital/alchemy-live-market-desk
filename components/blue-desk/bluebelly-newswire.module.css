@@ -1,9 +1,9 @@
 .shell{color:#edf7fc;font-family:var(--bluebelly-font);padding-bottom:40px}
 .intro span{color:#65cfee;font-size:10px;font-weight:800;letter-spacing:.15em}
-.intro h1{font:550 clamp(30px,3vw,39px) Georgia,serif;letter-spacing:-.015em;margin:5px 0 8px}
+.intro h1{font:550 clamp(30px,3vw,39px) var(--bluebelly-font);letter-spacing:-.015em;margin:5px 0 8px}
 .intro p{font-size:13px;color:#b0cad8;max-width:85ch}
 .sectionTitle{display:flex;justify-content:space-between;align-items:end;gap:15px;border-bottom:2px solid #28617e;margin-top:24px;padding-bottom:12px}
-.sectionTitle h2{font:550 27px Georgia,serif;margin:0}
+.sectionTitle h2{font:550 27px var(--bluebelly-font);margin:0}
 .sectionTitle p{color:#a9c6d5;font-size:12px;margin:4px 0}
 .search{display:grid;gap:5px;font-size:11px;color:#b9d5e2;min-width:215px}
 .search input{background:#092f48;border:1px solid #286586;border-radius:5px;color:#fff;padding:10px;font-size:12px}
@@ -18,7 +18,7 @@
 .content{min-width:0}
 .chip{background:#44c6ef;padding:4px 6px;font-size:9px;letter-spacing:.045em;font-weight:850;color:#052a40}
 .metadata{color:#91bed1;font-size:10px;margin-left:8px;line-height:1.7}
-.item h2{font:550 21px/1.22 Georgia,serif;margin:8px 0 6px;color:#f0faff}
+.item h2{font:550 21px/1.22 var(--bluebelly-font);margin:8px 0 6px;color:#f0faff}
 .item p{color:#bcd4e1;font-size:12px;line-height:1.65;margin:0 0 10px}
 .actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .actions a{font-size:11px;color:#8ddcff}
@@ -26,13 +26,13 @@
 .readMore{margin:13px 0 0;font-size:12px;color:#aad4e8}
 .readMore summary{color:#91d9fa;cursor:pointer;font-weight:750;padding:6px 0}
 .detailBody{background:#092c42;border:1px solid #2b5770;padding:14px;border-radius:5px;margin-top:8px}
-.detailBody h3{font:550 18px Georgia,serif;color:#f5fbff;margin:10px 0 6px}
+.detailBody h3{font:550 18px var(--bluebelly-font);color:#f5fbff;margin:10px 0 6px}
 .detailBody p{font-size:12px;color:#c6d9e6;line-height:1.6}
 .panel{border:1px solid #285974;background:linear-gradient(140deg,#0a2d46,#041e33);padding:16px;border-radius:6px;margin-bottom:13px}
-.panel h2{font:550 21px Georgia,serif;margin:0 0 8px}
+.panel h2{font:550 21px var(--bluebelly-font);margin:0 0 8px}
 .panel p{font-size:12px;color:#bad1dd;line-height:1.65}
 .statusLine{display:flex;gap:12px;align-items:baseline;border-block:1px solid #2d5268;padding:10px 0;margin:10px 0}
-.statusLine strong{font:550 28px Georgia,serif;color:#78d8f8}
+.statusLine strong{font:550 28px var(--bluebelly-font);color:#78d8f8}
 .statusLine span{color:#9dbed1;font-size:11px}
 .copy{padding:10px 12px;cursor:pointer}
 .empty{padding:25px;border:1px dashed #386079;color:#abcada;font-size:13px}

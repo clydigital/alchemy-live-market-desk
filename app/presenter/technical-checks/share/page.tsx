@@ -80,7 +80,7 @@ export default function SharePresenterTechnicalChecksPage() {
       setStatus("Live's browser-local checklist could not be read. Nothing was shared.");
     }
   }
-  return <main style={{ background: "#151027", color: "#f6f2ff", minHeight: "100vh", padding: "clamp(20px,6vw,72px)", fontFamily: "Arial, sans-serif" }}>
+  return <main style={{ background: "#151027", color: "#f6f2ff", minHeight: "100vh", padding: "clamp(20px,6vw,72px)", fontFamily: "var(--bluebelly-font)" }}>
     <section style={{ maxWidth: 690, margin: "auto", border: "1px solid #645582", borderRadius: 20, padding: 28 }}>
       <small style={{ letterSpacing: 2, color: "#c6a7fd" }}>PRESENTER-OWNED · NON-CANONICAL · MANUAL TRANSFER</small>
       <h1>Share technical readings with Hybrid</h1>
