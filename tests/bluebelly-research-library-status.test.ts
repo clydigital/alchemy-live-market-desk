@@ -103,7 +103,7 @@ test("midnight MYT intake carries yesterday's exact PM run, preserves PARTIAL an
     const pfx="/v1/blocks/";
     const respond=(value:unknown)=>new Response(JSON.stringify(value),{status:200,
       headers:{"content-type":"application/json"}});
-    if(path==="/v1/search")return respond({results:[],has_more:false});
+    if(path==="/v1/search")return respond({results:[],has_more:true});
     if(path==="/v1/data_sources/"+GATE_SOURCE+"/query"){
       const body=JSON.parse(String(init?.body||"{}"));
       return respond({results:body?.filter?.title?.contains==="2026-10-28"?[am,pm]:[],has_more:false});
@@ -144,6 +144,9 @@ test("midnight MYT intake carries yesterday's exact PM run, preserves PARTIAL an
     assert.ok(bundle.warnings.some(w=>w.includes("Latest accessible Research Gap run is from 2026-10-28")));
     assert.ok(bundle.warnings.some(w=>w.includes("explicitly reports partial coverage")));
     assert.ok(bundle.warnings.every(w=>!w.includes("HTTP 404")));
+    // Search pagination is not missing research when explicit source reads succeed.
+    assert.ok(bundle.warnings.every(w=>!/paginated/i.test(w)));
+    assert.equal(bundle.warnings.length,2);
   }finally{
     globalThis.fetch=originalFetch;
     if(originalToken===undefined)delete process.env.NOTION_API_TOKEN;

@@ -240,7 +240,9 @@ export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionRes
       const prior=await discoverNotionDay(token,previousDay,macroRoot,gateSource);
       previous=prior;
       warnings.push(...prior.fallbackWarnings.map(w=>"Previous-day lookup: "+w));
-      if(prior.searchPaginated)warnings.push("Previous MYT day Notion discovery may be partial: search results paginated.");
+      // Exact parent-scoped MacroPulse and data-source Gate fallbacks already
+      // validated the absent title-search hits. Workspace search pagination
+      // alone is not a source-coverage failure; preserve real fallback errors.
     }
     const selected={
       archiveId:today.archiveId||previous.archiveId,
@@ -293,7 +295,7 @@ export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionRes
     }else warnings.push(warnings.some(w=>/MacroPulse root page could not be listed/i.test(w))
       ?"MacroPulse archive availability cannot be determined because Notion root-page access failed."
       :"Today's MacroPulse archive not found in authorised Notion source.");
-    if(today.searchPaginated)warnings.push("Notion search results were paginated; latest-page discovery may be partial.");
+
   }catch{return {status:"UNAVAILABLE",sources:[],fetchedAt,
     warnings:["Notion read could not complete. Do not reuse an undated cached report."]};}
   const readBlocked=sources.length===0&&warnings.some(w=>
