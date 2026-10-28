@@ -1,4 +1,5 @@
 import DecisionBrief from "@/components/blue-desk/DecisionBrief";
+import {EDITORIAL_FEATURES} from "@/components/blue-desk/AmazonFomcFeatures";
 import Link from "next/link";
 import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
@@ -58,6 +59,7 @@ export default async function DailyReportPage() {
     <BlueDeskHeader activePath="/blue-desk/daily-report" />
     <div className={styles.shell}>
       <DecisionBrief news={news} recentNews={recentNews} calendar={calendar} now={now} host={host} report/>
+      {now.getTime()>=Date.parse("2026-10-28T18:00:00Z")&&now.getTime()<Date.parse("2026-11-05T00:00:00Z")?<section className={styles.section} aria-label="Dated Amazon and FOMC analysis"><p className={styles.eyebrow}>DATED EDITORIAL · 29 OCTOBER 2026</p><h2>Follow the decision and the money</h2>{EDITORIAL_FEATURES.map(feature=><article className={styles.reading} key={feature.id}><h3><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"?feature="+feature.id}>{feature.title}</Link></h3><p>{feature.summary}</p></article>)}</section>:null}
       <details className={styles.moreStories}><summary>Explore previous research, dated editorial features and source inventory</summary>
       <header className={styles.hero}>
         <p className={styles.eyebrow}>MARKET INTELLIGENCE / DAILY REPORT</p>

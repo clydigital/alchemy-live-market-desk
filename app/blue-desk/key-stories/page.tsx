@@ -4,6 +4,7 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import { ScopeStrip } from "@/components/blue-desk/EntityIdentity";
 import InvestorTest from "@/components/blue-desk/InvestorTest";
 import RbnzDecisionFeature from "@/components/blue-desk/RbnzDecisionFeature";
+import AmazonFomcFeatures, {EDITORIAL_FEATURES} from "@/components/blue-desk/AmazonFomcFeatures";
 import NewsroomLensExplorer from "@/components/blue-desk/NewsroomLensExplorer";
 import EditorialStoryArt from "@/components/blue-desk/EditorialStoryArt";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
@@ -46,6 +47,8 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
   const params=await searchParams;
   const now = new Date();
   const host = (await headers()).get("host");
+  const editorialKind=params?.feature==="amazon-cash-test-october-2026"?"amazon":params?.feature==="fomc-october-2026"?"fomc":null;
+  if(editorialKind)return <main className={desk.page}><BlueDeskHeader activePath="/blue-desk/key-stories"/><div className={desk.content}><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link><AmazonFomcFeatures kind={editorialKind}/></div></main>;
   // Dated and bounded on-site editor-verified policy / reported-rumour readers.
   // They are NOT accepted original-RSS NewsBrief records or private research.
   const policy=typeof params?.policy==="string"?bankDecisionById(params.policy,now):null;
@@ -234,6 +237,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
         <span>{theses.length} ongoing research stories</span>
         <span>Feed checked <DualTimestamp value={now.toISOString()} /></span>
       </div>
+      <section className={ui.section} aria-label="Dated editorial features"><h2>The decision and the money</h2><div className={ui.cards}>{EDITORIAL_FEATURES.map(feature=><article className={ui.card} key={feature.id}><p className={ui.kicker}>DATED EDITORIAL · 29 OCTOBER 2026</p><h3><Link href={indexHref+"?feature="+feature.id}>{feature.title}</Link></h3><p>{feature.summary}</p></article>)}</div></section>
       <section className={ui.section} id="current-developments" aria-label="Current event readers"><h2>Current developments</h2><div className={ui.cards}>{topics.map(topic=><article className={ui.card} key={topic.id}><p className={ui.kicker}>VERIFIED NEWS · <DualTimestamp value={topic.latestObservedAt}/></p><h3><Link href={indexHref+"?catalyst="+topic.id}>{topic.updates[0].headline}</Link></h3><p>{topic.guidingQuestion}</p></article>)}<article className={ui.card}><p className={ui.kicker}>DATED FEATURE · 28 OCTOBER 2026</p><h3><Link href={indexHref+"?feature=rbnz-october-2026"}>New Zealand’s surprise pause</Link></h3><p>Why a hold can surprise: follow expectations, the decision and the reported currency response.</p></article></div></section>
       {earlierNews.length?<section className={ui.section} id="recent-reports" aria-label="More verified reports from this week">
         <p className={ui.kicker}>SOURCE-VERIFIED / DATED PREVIOUS DAYS</p>
