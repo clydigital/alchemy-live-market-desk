@@ -11,7 +11,7 @@ export type OfficialPressReceipt = {
   novelty:unknown; materiality:unknown; candidate_score:unknown;
   review_reason:unknown; evidence_links:unknown;
 };
-const MAX_AGE_MS=48*60*60*1000;
+const MAX_LOOKBACK_DAYS=7;
 const PROOF_REASON="Original official RSS publication clock and directly linked same-host press-release HTML checked. Headline describes the announcement only, not its financial effect.";
 
 function feedFor(urlText:string){
@@ -22,10 +22,10 @@ function feedFor(urlText:string){
  }catch{return null;}
 }
 export function projectOriginalPressNews(
- rows:readonly OfficialPressReceipt[],now=new Date(),limit=8,
+ rows:readonly OfficialPressReceipt[],now=new Date(),limit=8,lookbackDays=2,
 ):NewsBriefV1[]{
  const t=now.getTime(),seen=new Set<string>();
- if(!Number.isFinite(t))return [];
+ if(!Number.isFinite(t)||!Number.isInteger(lookbackDays)||lookbackDays<1||lookbackDays>MAX_LOOKBACK_DAYS)return [];
  const out:NewsBriefV1[]=[];
  for(const item of [...rows].sort((a,b)=>Date.parse(String(b.published_at))-Date.parse(String(a.published_at)))){
   if(item.item_type!=="news"||item.status!=="accepted"||item.review_reason!==PROOF_REASON)continue;
@@ -40,7 +40,7 @@ export function projectOriginalPressNews(
   const published=Date.parse(String(item.published_at||""));
   const checked=Date.parse(String(item.created_at||""));
   if(!Number.isFinite(published)||!Number.isFinite(checked)||published>t||
-     checked>t||checked<published||t-published>MAX_AGE_MS)continue;
+     checked>t||checked<published||t-published>lookbackDays*86400000)continue;
   const evidence=Array.isArray(item.evidence_links)?item.evidence_links:[];
   if(evidence.length===0||!evidence.some(link=>{
    if(!link||typeof link!=="object")return false;

@@ -39,13 +39,14 @@ export default async function DailyReportPage() {
     getForwardEarningsEvents({ now }).catch(() => ({
       events: [], coverage: "unavailable" as const, warning: "Earnings source unavailable",
     })),
-    getOriginalPressNews(now,18).catch(() => []),
+    getOriginalPressNews(now,18,7).catch(() => []),
     getPublishedMacroPulseBriefs(10).catch(() => []),
     getPublicThesisLedger(now,24).catch(() => []),
     getPublicSourceObservations(now,16).catch(() => []),
   ]);
   const motionNews = selectVerifiedNewsBriefs(verified, now, 18);
-  const news = combineQualifiedNews(motionNews,originalPress,18);
+  const recentNews = combineQualifiedNews(motionNews,originalPress,18);
+  const news = recentNews.filter(n=>Date.parse(n.occurredAt)<=+now && +now-Date.parse(n.occurredAt)<=48*3600000);
   const topics = projectLivingMarketTopics(news);
   const calendar = buildPresenterCalendar(macro, earnings, now);
   const upcoming = selectBlueDeskUpcoming(calendar, now, 14).slice(0, 12);
@@ -56,7 +57,7 @@ export default async function DailyReportPage() {
   return <main className={styles.page} data-daily-report="editorial-first-v3">
     <BlueDeskHeader activePath="/blue-desk/daily-report" />
     <div className={styles.shell}>
-      <DecisionBrief news={news} calendar={calendar} now={now} host={host} report/>
+      <DecisionBrief news={news} recentNews={recentNews} calendar={calendar} now={now} host={host} report/>
       <details className={styles.moreStories}><summary>Explore previous research, dated editorial features and source inventory</summary>
       <header className={styles.hero}>
         <p className={styles.eyebrow}>MARKET INTELLIGENCE / DAILY REPORT</p>
