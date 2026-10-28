@@ -46,6 +46,9 @@ test("copyable presenter card and source-backed comparison SVG are public read-o
  const graphic=code("components/blue-desk/EarningsEvidenceGraphic.tsx");
  assert.match(brief,/<PresenterOneMinute brief=\{onAir\}/);
  assert.match(ui,/navigator.clipboard.writeText/);
+ assert.match(ui,/<details className=\{s\.panel\} data-bluebelly-presenter-one-minute/);
+ assert.match(ui,/<summary className=\{s\.summary\}>Present in 60 seconds/);
+ assert.doesNotMatch(ui,/<details className=\{s\.panel\}[^>]*\bopen\b/);
  assert.match(ui,/role="status"/);
  assert.match(ui,/Open source-dated markets/);
  assert.match(code("lib/bluebelly-presenter-one-minute.ts"),/My next test:/);
