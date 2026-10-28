@@ -10,8 +10,8 @@ test("Daily Report shows practical story selection before archived investigation
   assert.match(daily, /<DailyEditorialRundown asOf=\{now\.toISOString\(\)\} news=\{news\} upcoming=\{upcoming\} \/>/);
   assert.ok(daily.indexOf("<DailyEditorialRundown ") < daily.indexOf('aria-labelledby="featured-ai-warning"'));
   assert.ok(daily.indexOf("<DailyEditorialRundown ") < daily.indexOf('aria-labelledby="daily-story-map"'));
-  assert.match(daily, /const recentNews = combineQualifiedNews\\(motionNews,originalPress,18\\)/);
-  assert.match(daily, /const news = recentNews\\.filter/);
+  assert.match(daily, /const recentNews = combineQualifiedNews\(motionNews,originalPress,18\)/);
+  assert.match(daily, /const news = recentNews\.filter/);
   assert.match(daily, /const upcoming = selectBlueDeskUpcoming\(calendar, now, 14\)/);
   assert.match(daily, /href="#editorial-rundown"/);
   assert.match(daily, /aria-labelledby="developments"/);
