@@ -184,7 +184,6 @@ export function materiallyActionableOfficialHeadline(feed: Feed, headline: strin
 }
 
 function materialTitleFound(html: string, title: string) {
-function materialTitleFound(html: string, title: string) {
   // An exact H1 match also proves very short official policy titles such as
   // "OCR held at 2.75%"; the old >=3 long-word rule silently dropped these.
   // Only evaluated after the RSS permalink has passed the exact HTTPS host gate.
