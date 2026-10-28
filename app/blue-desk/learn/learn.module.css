@@ -1,0 +1,28 @@
+.content{max-width:1390px;margin:0 auto;padding:26px clamp(17px,3vw,40px) 90px;color:#eaf5fc}
+.hero{border:1px solid #245979;border-radius:14px;background:linear-gradient(122deg,#062a40,#0a3b54 65%,#042334);padding:clamp(25px,4.5vw,57px)}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:.16em;color:#77d7f5;margin:0 0 16px}
+.hero h1{font-family:Georgia,serif;font-weight:600;font-size:clamp(34px,4vw,56px);line-height:1.12;letter-spacing:-.02em;margin:0 0 14px;color:#f2faff}
+.hero p:not(.eyebrow){font-size:15px;line-height:1.7;max-width:740px;color:#c6e2ef}
+.hero .caution{font-size:12px!important;color:#a4c9dc!important}
+.library{margin-top:24px}
+.tools{border:1px solid #254e66;border-radius:11px;background:#062235;padding:20px}
+.searchLabel{display:block;margin-bottom:9px;font-weight:700;font-size:13px;color:#d2edfa}
+.search{width:100%;max-width:620px;padding:13px 15px;border:1px solid #377696;border-radius:8px;color:#f6fdff;background:#031a2b;font:inherit;font-size:14px}
+.search:focus-visible,.filter:focus-visible,.selected:focus-visible,.empty button:focus-visible{outline:2px solid #75dfff;outline-offset:3px}
+.filters{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}
+.filter,.selected{border:1px solid #2e617c;border-radius:7px;padding:9px 12px;background:#0b3047;color:#c5e0f0;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.selected{border-color:#75d4f8;background:#135375;color:#fff}
+.count{margin:15px 0 0;color:#a0bfd1;font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:17px}
+.entry{border:1px solid #25536e;border-radius:12px;padding:24px;background:#05263a;scroll-margin-top:90px}
+.entry:target{outline:2px solid #6dd5fa}
+.entry h2{font:600 clamp(22px,2.4vw,28px)/1.25 Georgia,serif;color:#f0faff;margin:0 0 15px}
+.entry h3{font-size:12px;letter-spacing:.03em;margin:18px 0 6px;color:#9cddf6}
+.entry p{font-size:14px;line-height:1.72;color:#c3daeb;margin:0}
+.entry .definition{color:#f4f9fc;font-size:15px}
+.entry footer{display:flex;flex-wrap:wrap;gap:6px;margin-top:19px;padding-top:14px;border-top:1px solid #234a62}
+.entry footer span{font-size:11px;color:#b6d5e9;border:1px solid #275d7b;border-radius:5px;padding:4px 8px}
+.empty{margin-top:16px;padding:28px;border:1px dashed #48778a;border-radius:10px}
+.empty button{padding:10px;border:1px solid #67bde3;border-radius:7px;background:#083c5c;color:#eaf8ff;cursor:pointer}
+.footnote{font-size:12px;color:#8fafc2;line-height:1.6;margin:24px 0 0}
+@media(max-width:730px){.grid{grid-template-columns:1fr}.entry{padding:20px}.content{padding:16px 15px 65px}.hero{padding:25px}.tools{padding:16px}}
