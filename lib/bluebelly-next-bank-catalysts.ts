@@ -22,10 +22,12 @@ const SOURCES:readonly NextBankCatalyst[]=[
   nextTest:"Verify the actual statement release time before describing USD/JPY, JGB yields or carry-unwind reactions."
  }
 ];
-export function sourceScheduledBankWatch(now:Date){
+export type BankWatchStatus="SCHEDULED"|"PUBLICATION DUE · OUTCOME UNVERIFIED"|"DATE ONLY · CHECK SOURCE"|"DATE ONLY · SCHEDULED";
+export type DatedBankWatch=NextBankCatalyst&{phase:BankWatchStatus};
+export function sourceScheduledBankWatch(now:Date):DatedBankWatch[]{
  const t=now.getTime();
  if(!Number.isFinite(t))return [];
- return SOURCES.flatMap(event=>{
+ return SOURCES.flatMap<DatedBankWatch>(event=>{
   if(event.scheduledAt){
    const at=Date.parse(event.scheduledAt);
    if(t<at && at-t<=72*3600000)return [{...event,phase:"SCHEDULED" as const}];
