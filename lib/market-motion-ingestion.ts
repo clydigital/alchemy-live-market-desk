@@ -587,7 +587,7 @@ function sourceKind(item: ScoredIntakeItem): NonNullable<MarketMotionInput["sour
   if ((host==="investors.broadcom.com"||host==="investor.atmeta.com") &&
       item.itemKey.startsWith("official-press:")) return "primary";
   if (
-    /(?:^|\.)(?:bls\.gov|bea\.gov|treasury\.gov|energy\.gov|federalreserve\.gov|newyorkfed\.org|ecb\.europa\.eu|boj\.or\.jp|mof\.go\.jp|statcan\.gc\.ca|ons\.gov\.uk|eurostat\.ec\.europa\.eu|abs\.gov\.au|stats\.govt\.nz|rba\.gov\.au|bankofengland\.co\.uk|bankofcanada\.ca|snb\.ch|imf\.org|bis\.org)$/.test(host)
+    /(?:^|\.)(?:bls\.gov|bea\.gov|treasury\.gov|energy\.gov|federalreserve\.gov|newyorkfed\.org|ecb\.europa\.eu|boj\.or\.jp|mof\.go\.jp|statcan\.gc\.ca|ons\.gov\.uk|eurostat\.ec\.europa\.eu|abs\.gov\.au|stats\.govt\.nz|rba\.gov\.au|bankofengland\.co\.uk|bankofcanada\.ca|rbnz\.govt\.nz|snb\.ch|imf\.org|bis\.org)$/.test(host)
   ) return "official";
   return "reporting";
 }

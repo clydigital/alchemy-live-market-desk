@@ -48,6 +48,22 @@ export const OFFICIAL_PRESS_FEEDS = [
     publisher:"U.S. Energy Information Administration",
   },
   {
+    // Direct, original-policy newsroom source. Do not treat policy previews as
+    // realised decisions; the announcement must pass the headline + HTML gate.
+    name: "Bank of Canada press releases",
+    feed: "https://www.bankofcanada.ca/content_type/press-releases/feed/",
+    host: "www.bankofcanada.ca",
+    path: /^\/20[0-9]{2}\/[0-9]{2}\/[a-z0-9-]+\/?$/i,
+    publisher: "Bank of Canada",
+  },
+  {
+    name: "RBNZ official news",
+    feed: "https://www.rbnz.govt.nz/feeds/news",
+    host: "www.rbnz.govt.nz",
+    path: /^\/news-and-events\/news\/20[0-9]{2}\/[0-9]{2}\/[a-z0-9-]+\/?$/i,
+    publisher: "Reserve Bank of New Zealand",
+  },
+  {
     name:"Meta investor press releases",
     feed:"https://investor.atmeta.com/rss/pressrelease.aspx",
     host:"investor.atmeta.com",
@@ -66,6 +82,27 @@ export const OFFICIAL_PRESS_FEEDS = [
 const WINDOW_MS = 36 * 60 * 60_000;
 const FETCH_TIMEOUT_MS = 6500;
 const MAX_PER_FEED = 3;
+/**
+ * Dated original-release clock attestations for the 28 Oct 2026 policy
+ * incident. The BoC RSS exposes 09:47 +00 (its local newsroom clock, not the
+ * actual 13:45Z decision), while RBNZ RSS publishes a DATE ONLY as local
+ * midnight. Never mistake either feed clock for the announcement instant.
+ *
+ * Corroboration: the named bank's independently published official decision
+ * schedule and the linked first-party decision HTML, which is read separately.
+ * Future bank policy releases fail closed until their exact release clocks
+ * have equally independent provenance. This is not a general timezone offset.
+ */
+const POLICY_RELEASE_CLOCKS: Readonly<Record<string,{releaseAt:string;scheduleSource:string}>> = {
+  "https://www.bankofcanada.ca/2026/10/fad-press-release-2026-10-28/": {
+    releaseAt:"2026-10-28T13:45:00.000Z",
+    scheduleSource:"https://www.bankofcanada.ca/core-functions/monetary-policy/key-interest-rate/",
+  },
+  "https://www.rbnz.govt.nz/news-and-events/news/2026/10/ocr-held-at-2-75-percent": {
+    releaseAt:"2026-10-28T01:00:00.000Z",
+    scheduleSource:"https://www.rbnz.govt.nz/news-and-events/how-we-release-information/ocr-decision-dates-and-financial-stability-report-dates-to-feb-2028",
+  },
+};
 type Feed = typeof OFFICIAL_PRESS_FEEDS[number];
 /** Pure RSS/Atom parser: no Next aliases or runtime network imports. */
 export function parseOfficialPressFeed(xml: string) {
@@ -127,6 +164,14 @@ export function materiallyActionableOfficialHeadline(feed: Feed, headline: strin
         && /\b(?:decides?|decision|raises?|cuts?|maintains?|holds?|changes?|increases?|lowers?|updates?)\b/i.test(headline));
   if (feed.host === "www.eia.gov") return /\b(?:oil|crude|petroleum|gas|gasoline|diesel|electricity|energy|production|outlook|inventor(?:y|ies)|hormuz|refin(?:ery|eries)|lng)\b/i.test(headline)
     && /\b(?:forecasts?|expects?|raises?|lowers?|increases?|decreases?|revises?|reports?|releases?|updates?|projects?)\b/i.test(headline);
+  if (feed.host === "www.bankofcanada.ca")
+    return /\b(?:bank of canada|policy rate|overnight rate)\b/i.test(headline)
+      && /\b(?:raises?|raised|hikes?|hiked|increases?|increased|holds?|held|maintains?|maintained|cuts?|cut|lowers?|lowered)\b/i.test(headline)
+      && /\b(?:rate|rates|overnight)\b/i.test(headline);
+  if (feed.host === "www.rbnz.govt.nz")
+    return /\b(?:rbnz|reserve bank of new zealand|ocr|official cash rate|monetary policy committee)\b/i.test(headline)
+      && /\b(?:holds?|held|unchanged|maintains?|maintained|raises?|raised|hikes?|hiked|increases?|increased|cuts?|cut|lowers?|lowered)\b/i.test(headline)
+      && /\b(?:rate|ocr|cash)\b/i.test(headline);
   if (feed.host === "www.federalreserve.gov") return /\b(?:federal reserve|fomc|federal open market|monetary policy|federal funds|discount rate|balance sheet|policy rate)\b/i.test(headline)
     && /\b(?:announces?|issues?|releases?|statement|decision|raises?|cuts?|maintains?|approves?|updates?|votes?)\b/i.test(headline);
   if (feed.host === "investors.broadcom.com"||feed.host === "investor.atmeta.com")
@@ -139,6 +184,14 @@ export function materiallyActionableOfficialHeadline(feed: Feed, headline: strin
 }
 
 function materialTitleFound(html: string, title: string) {
+  // An exact H1 match also proves very short official policy titles such as
+  // "OCR held at 2.75%"; the old >=3 long-word rule silently dropped these.
+  // Only evaluated after the RSS permalink has passed the exact HTTPS host gate.
+  const normalise=(value:string)=>value.replace(/<[^>]+>/g," ")
+    .replace(/&amp;/gi,"&").replace(/&nbsp;/gi," ")
+    .toLowerCase().replace(/\s+/g," ").trim();
+  const h1=html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1]||"";
+  if(title.trim().length>=12 && normalise(h1)===normalise(title)) return true;
   const header = [
     html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "",
     html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1] || "",
@@ -160,9 +213,22 @@ async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch):
     const xml = (await resp.text()).slice(0, 250_000);
     const candidates = parseOfficialPressFeed(xml).flatMap(item => {
       const url = fixedUrl(item.url, feed);
-      return url && recent(item.publishedAt, now) &&
-        materiallyActionableOfficialHeadline(feed, item.title)
-        ? [{ ...item, url }] : [];
+      if (!url) return [];
+      const specialPolicyClock = feed.host === "www.bankofcanada.ca" || feed.host === "www.rbnz.govt.nz";
+      const scheduled = specialPolicyClock ? POLICY_RELEASE_CLOCKS[url] : null;
+      // Bank calendar day or local-time RSS fields do not establish the
+      // release minute. Only the separately attested official event clock may
+      // be used for those domains. Reject un-attested future policy releases.
+      if (specialPolicyClock && !scheduled) return [];
+      const feedAt = Date.parse(item.publishedAt);
+      const attestedAt = scheduled ? Date.parse(scheduled.releaseAt) : null;
+      // The feed date must still be plausible for this dated original event.
+      // A future-dated or unrelated item cannot borrow the attested clock.
+      if (scheduled && (!Number.isFinite(feedAt) || feedAt > now.getTime() + 5*60_000 ||
+          Math.abs(feedAt - attestedAt!) > 24*3_600_000)) return [];
+      const publishedAt = scheduled?.releaseAt ?? item.publishedAt;
+      return recent(publishedAt, now) && materiallyActionableOfficialHeadline(feed,item.title)
+        ? [{ ...item, url, publishedAt, scheduleSource: scheduled?.scheduleSource ?? null }] : [];
     }).slice(0, MAX_PER_FEED);
     const results = await Promise.all(candidates.map(async entry => {
       try {
@@ -192,7 +258,9 @@ async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch):
           materiality: 80,
           novelty: 76,
           recommendedAction: "collect_evidence" as const,
-          newsSignal: "Original issuer/regulator announcement. A related price move or market impact has not been established.",
+          newsSignal: entry.scheduleSource
+            ? "Original policy release verified. Exact decision clock independently drawn from the official bank event schedule: " + entry.scheduleSource + ". Publisher RSS time is NOT the event release time. No asset reaction is established."
+            : "Original issuer/regulator announcement. A related price move or market impact has not been established.",
           evidence: [{
             title, url: entry.url, publisher: feed.publisher,
             publishedAt: entry.publishedAt, claim: title,

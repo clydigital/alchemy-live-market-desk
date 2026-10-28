@@ -36,7 +36,11 @@ export function projectOriginalPressNews(
   const expected="official-press:"+createHash("sha256").update(url).digest("hex").slice(0,24);
   if(item.item_key!==expected)continue;
   const title=typeof item.title==="string"?item.title.trim():"";
-  if(title.length<18||title.length>500||!materiallyActionableOfficialHeadline(feed,title))continue;
+  // The original RBNZ policy headline "OCR held at 2.75%" is only 17 chars.
+  // Retain the independently original-source-qualified policy action, while
+  // rejecting short generic headlines or short unqualified publisher text.
+  const shortOriginalRbnzAction=feed.host==="www.rbnz.govt.nz" && title.length>=12;
+  if((title.length<18&&!shortOriginalRbnzAction)||title.length>500||!materiallyActionableOfficialHeadline(feed,title))continue;
   const published=Date.parse(String(item.published_at||""));
   const checked=Date.parse(String(item.created_at||""));
   if(!Number.isFinite(published)||!Number.isFinite(checked)||published>t||
@@ -76,7 +80,7 @@ export function projectOriginalPressNews(
     summary:qualified && exactSummary===qualified ? qualified :
       "The original publisher issued this dated announcement. Its market-price reaction and wider causal effects have not been established.",
     sourceName:feed.publisher,sourceUrl:url,
-    sourceKind:feed.host==="www.federalreserve.gov"||feed.host==="www.eia.gov"||feed.host==="www.ecb.europa.eu"?"official":
+    sourceKind:["www.federalreserve.gov","www.eia.gov","www.ecb.europa.eu","www.bankofcanada.ca","www.rbnz.govt.nz"].includes(feed.host)?"official":
       feed.host==="www.sec.gov"?"filing":"primary",
     occurredAt:new Date(published).toISOString(),
     observedAt:new Date(checked).toISOString(),

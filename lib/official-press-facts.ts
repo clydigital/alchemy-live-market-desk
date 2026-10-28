@@ -32,6 +32,14 @@ export function extractOfficialPressFacts(html:string,headline:string):string[]{
  const anchors=[...new Set((headline.toLowerCase().match(/[a-z]{5,}/g)||[]).filter(t=>!STOP.has(t)))];
  if(!anchors.length)return [];
  const result:string[]=[];
+ // The standard Fed FOMC headline is only "Federal Reserve issues FOMC
+ // statement". Extract the actual rate action from the same validated source
+ // page, rather than pretending the headline itself states "held" or "hiked".
+ const bankPolicy=/\b(?:fomc|federal reserve|bank of canada|rbnz|reserve bank of new zealand|official cash rate|ocr)\b/i.test(headline);
+ const sourceRateDecision=(line:string)=>bankPolicy
+   && /\b(?:committee|council|bank|reserve)\b/i.test(line)
+   && /\b(?:decided to|voted to|continues? to|maintains?|maintained|held|holds?|raised|raises?|increased|increases|unchanged|cut|lowered)\b/i.test(line)
+   && /\b(?:federal funds rate|target range|overnight rate|policy rate|official cash rate|ocr)\b/i.test(line);
  const p=/<p\b[^>]*>([\s\S]*?)<\/p>/gi;
  for(const match of safe.matchAll(p)){
   const text=cleanText(match[1]);
@@ -42,7 +50,7 @@ export function extractOfficialPressFacts(html:string,headline:string):string[]{
   const ecbPolicy=headline.trim().toLowerCase()==="monetary policy decisions" &&
     /\b(?:governing council|ecb|deposit facility|refinancing operations)\b/i.test(sentence) &&
     NUMERIC.test(sentence);
-  if(!ecbPolicy&&!anchors.some(a=>lower.includes(a)))continue;
+  if(!ecbPolicy&&!anchors.some(a=>lower.includes(a))&&!sourceRateDecision(sentence))continue;
   // A specific numerical/commercial announcement is more useful than
   // source boilerplate. Non-numeric sentences are admitted only if they
   // describe an actual action with an identifiable subject.

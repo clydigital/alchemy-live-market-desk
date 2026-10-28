@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { projectOriginalPressNews } from "../lib/blue-desk-original-press-news.ts";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { applyOfficialPressNewsIntake, OFFICIAL_PRESS_FEEDS, materiallyActionableOfficialHeadline } from "../lib/official-press-news-intake.ts";
@@ -37,7 +39,7 @@ test("Fed monetary policy and SEC trading rules enter canonical intake after ori
   }) as typeof fetch;
   const result=await applyOfficialPressNewsIntake(input(),{now,fetchImpl});
   assert.deepEqual(result.items.map(x=>x.url),[fedUrl,secUrl]);
-  assert.equal(seen.length,9);
+  assert.equal(seen.length,11);
   const motions = buildMarketMotionCandidates(result.items.map(i => ({
     ...i, candidateScore: 84, evidence: i.evidence || [],
   })), [], { now });
@@ -231,4 +233,94 @@ test("Issuer RSS cannot forge other hosts or replace original page verification"
   return response(rss([]),"text/xml");
  }) as typeof fetch;
  assert.deepEqual((await applyOfficialPressNewsIntake(input(),{now,fetchImpl})).items,[]);
+});
+
+test("28 Oct Fed, BoC and RBNZ original decision releases enter existing accepted intake after RSS+same-host HTML",async()=>{
+ const at=new Date("2026-10-28T18:35:00.000Z");
+ const fed=OFFICIAL_PRESS_FEEDS.find(f=>f.host==="www.federalreserve.gov")!;
+ const boc=OFFICIAL_PRESS_FEEDS.find(f=>f.host==="www.bankofcanada.ca")!;
+ const rbnz=OFFICIAL_PRESS_FEEDS.find(f=>f.host==="www.rbnz.govt.nz")!;
+ const releases=[
+  {feed:fed, title:"Federal Reserve issues FOMC statement",
+   url:"https://www.federalreserve.gov/newsevents/pressreleases/monetary20261028a.htm",date:"Wed, 28 Oct 2026 18:00:00 GMT",
+   body:"<p>The Federal Open Market Committee approved the following statement for release by a 10–2 vote.</p><p>The Committee decided to maintain the target range for the federal funds rate at 3-3/4 to 4 percent.</p>"},
+  {feed:boc,title:"Bank of Canada raises policy rate to 2.50%",
+   url:"https://www.bankofcanada.ca/2026/10/fad-press-release-2026-10-28/",date:"Wed, 28 Oct 2026 09:47:20 GMT",
+   body:"<p>The Bank of Canada increased the overnight rate by 25 basis points to 2.50%, citing risks that higher oil prices could spread into inflation.</p>"},
+  {feed:rbnz,title:"OCR held at 2.75%",
+   url:"https://www.rbnz.govt.nz/news-and-events/news/2026/10/ocr-held-at-2-75-percent",date:"Tue, 27 Oct 2026 11:00:00 GMT",
+   body:"<p>The Monetary Policy Committee decided to maintain the Official Cash Rate at 2.75% by a 4–3 vote.</p>"}
+ ];
+ const fetchImpl=(async (target:RequestInfo|URL)=>{
+  const url=String(target);
+  const feed=releases.find(r=>r.feed.feed===url);
+  if(feed)return response(rss([item(feed.title,feed.url,feed.date)]),"application/rss+xml");
+  const page=releases.find(r=>r.url===url);
+  if(page)return response("<html><head><title>"+page.title+"</title></head><body><h1>"+page.title+"</h1><main>"+page.body+"</main></body></html>","text/html");
+  return response(rss([]),"application/rss+xml");
+ }) as typeof fetch;
+ const result=await applyOfficialPressNewsIntake(input(),{now:at,fetchImpl});
+ assert.deepEqual(result.items.map(x=>x.url).sort(),releases.map(x=>x.url).sort());
+ assert.ok(result.items.every(x=>x.itemKey.startsWith("official-press:")));
+ assert.deepEqual(Object.fromEntries(result.items.map(x=>[x.publisher,x.publishedAt])),{
+   "Federal Reserve Board":"2026-10-28T18:00:00.000Z",
+   "Bank of Canada":"2026-10-28T13:45:00.000Z",
+   "Reserve Bank of New Zealand":"2026-10-28T01:00:00.000Z",
+ });
+ assert.ok(result.items.filter(x=>x.publisher!=="Federal Reserve Board").every(x=>/official bank event schedule/.test(x.newsSignal||"")));
+ assert.ok(result.items.every(x=>x.evidence?.[0].claim===x.title));
+ const fedItem=result.items.find(x=>x.publisher==="Federal Reserve Board")!;
+ assert.match(fedItem.summary,/10–2 vote/);
+ assert.match(fedItem.summary,/maintain the target range for the federal funds rate/);
+ const motions=buildMarketMotionCandidates(result.items.map(x=>({...x,candidateScore:85,evidence:x.evidence||[]})),[],{now:at});
+ assert.equal(motions.length,3);
+ assert.ok(motions.every(x=>x.verificationState==="VERIFIED"&&x.sourceKind==="official"&&x.marketReaction===null));
+});
+
+test("BoC/RBNZ official policy gate excludes advisory, preview, forged host and future clock",async()=>{
+ const now=new Date("2026-10-28T18:30:00Z");
+ const boc=OFFICIAL_PRESS_FEEDS.find(f=>f.host==="www.bankofcanada.ca")!;
+ const rbnz=OFFICIAL_PRESS_FEEDS.find(f=>f.host==="www.rbnz.govt.nz")!;
+ let seenOriginal=0;
+ const fetchImpl=(async (target:RequestInfo|URL)=>{
+  const url=String(target);
+  if(url===boc.feed)return response(rss([
+   item("Bank of Canada announces an upcoming interest rate decision","https://www.bankofcanada.ca/2026/10/announcement-preview/","Wed, 28 Oct 2026 11:00:00 GMT"),
+   item("Bank of Canada raises policy rate to 2.50%","https://www.bankofcanada.ca.evil.example/2026/10/malicious/","Wed, 28 Oct 2026 13:45:00 GMT")
+  ]),"text/xml");
+  if(url===rbnz.feed)return response(rss([
+   item("OCR held at 2.75%","https://www.rbnz.govt.nz/news-and-events/news/2026/10/ocr-held-at-2-75-percent","Thu, 29 Oct 2026 18:00:00 GMT"),
+   item("RBNZ holds a public consultation on money and banking","https://www.rbnz.govt.nz/news-and-events/news/2026/10/public-consultation","Wed, 28 Oct 2026 04:00:00 GMT")
+  ]),"text/xml");
+  if(OFFICIAL_PRESS_FEEDS.some(f=>f.feed===url))return response(rss([]),"text/xml");
+  seenOriginal++;
+  return response("not verified","text/html");
+ }) as typeof fetch;
+ const result=await applyOfficialPressNewsIntake(input(),{now,fetchImpl});
+ assert.deepEqual(result.items,[]);
+ assert.equal(seenOriginal,0,"No mismatched or premature publisher HTML can become a receipt");
+});
+
+
+test("public original-source projection preserves all three verified policy releases and factual Fed vote",()=>{
+ const at=new Date("2026-10-28T19:00:00Z");
+ const release=[
+  ["Federal Reserve Board","Federal Reserve issues FOMC statement","https://www.federalreserve.gov/newsevents/pressreleases/monetary20261028a.htm","2026-10-28T18:00:00.000Z","The Committee decided to maintain the target range for the federal funds rate at 3-3/4 to 4 percent."],
+  ["Bank of Canada","Bank of Canada raises policy rate to 2.50%","https://www.bankofcanada.ca/2026/10/fad-press-release-2026-10-28/","2026-10-28T13:45:00.000Z","The Bank of Canada increased the overnight rate by 25 basis points to 2.50%, citing risks that higher oil prices could spread into inflation."],
+  ["Reserve Bank of New Zealand","OCR held at 2.75%","https://www.rbnz.govt.nz/news-and-events/news/2026/10/ocr-held-at-2-75-percent","2026-10-28T01:00:00.000Z","The Monetary Policy Committee decided to maintain the Official Cash Rate at 2.75% by a 4–3 vote."]
+ ] as const;
+ const rows=release.map(([publisher,title,url,published_at,fact],i)=>({
+  id:"00000000-0000-4000-8000-"+(i+1).toString().padStart(12,"0"),
+  item_key:"official-press:"+createHash("sha256").update(url).digest("hex").slice(0,24),
+  item_type:"news",status:"accepted",publisher,title,url,published_at,created_at:"2026-10-28T18:55:00Z",
+  summary:fact,source_quality:95,relevance:84,materiality:80,novelty:76,candidate_score:86,
+  review_reason:"Original official RSS publication clock and directly linked same-host press-release HTML checked. Headline describes the announcement only, not its financial effect.",
+  evidence_links:[{title,url,publisher,publishedAt:published_at,claim:title},
+   {title,url,publisher,publishedAt:published_at,claim:"OFFICIAL_FACT: "+fact}],
+ }));
+ const publicNews=projectOriginalPressNews(rows,at,8,2);
+ assert.deepEqual(publicNews.map(n=>n.sourceName),["Federal Reserve Board","Bank of Canada","Reserve Bank of New Zealand"]);
+ assert.ok(publicNews.every(n=>n.verification==="SOURCE_VERIFIED"&&n.sourceKind==="official"));
+ assert.match(publicNews[0].summary,/maintain the target range/);
+ assert.match(publicNews[2].headline,/OCR held/);
 });
