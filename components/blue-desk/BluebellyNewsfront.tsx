@@ -26,14 +26,13 @@ function itemText(item:HomeSourceItem){
  return {headline:headline||o.description.slice(0,110),summary:o.description,sourceName:o.sourceName,
    status:o.kind==="MARKET_OBSERVATION"?"DATED MARKET DATA":"ORIGINAL SOURCE RELEASE",observation:true};
 }
-function StoryTile({item,primary,now}:{item:HomeSourceItem;primary?:boolean;now:Date}){
+function StoryTile({item,primary,now,host}:{item:HomeSourceItem;primary?:boolean;now:Date;host:string|null}){
  const v=itemText(item);
  return <article className={primary?styles.primary:styles.tile}
     data-newsfront-verified={item.kind==="NEWS"?item.id:undefined}
     data-newsfront-observation={item.kind==="OBSERVATION"?item.id:undefined}>
    <div className={styles.tileArt}>
-      {primary?<div className={styles.whaleArt} aria-hidden="true"/>:
-       <EditorialStoryArt headline={v.headline} summary={v.summary} compact/>}
+      <EditorialStoryArt headline={v.headline} summary={v.summary} compact/>
    </div>
    <div className={styles.tileShade}/>
    <div className={styles.tileBody}>
@@ -41,7 +40,9 @@ function StoryTile({item,primary,now}:{item:HomeSourceItem;primary?:boolean;now:
        {item.kind==="NEWS"?editorialNewsTopics(item.news)[0].toUpperCase()+" · ":null}
        {v.status} · {ageLabel(item.at,now)}
      </span>
-     <h2><a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">{v.headline}</a></h2>
+     <h2>{item.kind==="NEWS"?
+        <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"?news="+encodeURIComponent(item.news.id)}>{v.headline}</Link>:
+        <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">{v.headline}</a>}</h2>
      {primary?<p>{safe(v.summary)}</p>:null}
      <span className={styles.meta}>{v.sourceName} · Source date <DualTimestamp value={item.at}/></span>
    </div>
@@ -62,7 +63,7 @@ export default function BluebellyNewsfront({news,observations,theses,upcoming,ho
  return <div className={styles.shell} data-editorial-front="mockup-rewired-real-sources">
    <div className={styles.breaking}>
      <strong>ORIGINAL-SOURCE UPDATE</strong>
-     {latestNews?<a href={latestNews.sourceUrl} target="_blank" rel="noopener noreferrer">{latestNews.headline}</a>:<span>No recent development currently clears the verified-news gate.</span>}
+     {latestNews?<Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"?news="+encodeURIComponent(latestNews.id)}>{latestNews.headline}</Link>:<span>No recent development currently clears the verified-news gate.</span>}
      {latestNews?<small><DualTimestamp value={latestNews.occurredAt}/></small>:null}
    </div>
    <header className={styles.intro}>
@@ -77,8 +78,8 @@ export default function BluebellyNewsfront({news,observations,theses,upcoming,ho
    {" · "}Older items are not presented as new breaking news.
  </p>
  {lead.length?<div className={styles.heroGrid}>
-   <StoryTile item={lead[0]} primary now={now}/>
-   <div className={styles.miniGrid}>{lead.slice(1).map(item=><StoryTile key={item.kind+item.id} item={item} now={now}/>)}
+   <StoryTile item={lead[0]} primary now={now} host={host}/>
+   <div className={styles.miniGrid}>{lead.slice(1).map(item=><StoryTile key={item.kind+item.id} item={item} now={now} host={host}/>)}
      {lead.length<5?Array.from({length:5-lead.length},(_,i)=><div className={styles.vacancy} key={i}>
        <span>48-HOUR SOURCE COVERAGE</span><strong>Awaiting another independently qualified update.</strong>
      </div>):null}
@@ -97,9 +98,11 @@ export default function BluebellyNewsfront({news,observations,theses,upcoming,ho
      data-feed-evidence-type={item.kind}>
     <div className={styles.thumb}><EditorialStoryArt headline={v.headline} summary={v.summary} compact/></div>
     <div><span className={styles.feedStatus}>{v.status} · {ageLabel(item.at,now)} · {v.sourceName} · <DualTimestamp value={item.at}/></span>
-      <h3><a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">{v.headline}</a></h3>
+      <h3>{item.kind==="NEWS"?
+        <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"?news="+encodeURIComponent(item.news.id)}>{v.headline}</Link>:
+        <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">{v.headline}</a>}</h3>
       <p>{safe(v.summary)}</p>
-      {item.kind==="NEWS"?<Link href={newsroom}>Explore the Newsroom →</Link>:
+      {item.kind==="NEWS"?<Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"?news="+encodeURIComponent(item.news.id)}>Read short Bluebelly recap →</Link>:
        <span className={styles.dataNote}>Source observation · not a verified causal explanation</span>}
     </div>
    </article>;
