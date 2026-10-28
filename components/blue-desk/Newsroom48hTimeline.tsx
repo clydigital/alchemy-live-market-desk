@@ -1,6 +1,7 @@
 import Link from "next/link";
 import DualTimestamp from "./DualTimestamp";
 import EditorialStoryArt from "./EditorialStoryArt";
+import {EntityMark} from "./EntityIdentity";
 import type {BankDecisionSnapshot} from "@/lib/bluebelly-bank-decision-snapshots";
 import type {ReportedEditorial} from "@/lib/bluebelly-reported-editorial";
 import s from "./Newsroom48hTimeline.module.css";
@@ -14,12 +15,12 @@ export default function Newsroom48hTimeline({
   detail:b.observedStatement,why:b.financialMechanism,question:b.nextTest,
   sourceName:b.sourceName,sourceUrl:b.sourceUrl,
   href:readerHref+"?policy="+encodeURIComponent(b.id),
-  verified:true})),
+  countryCode:b.countryCode as string|null,verified:true})),
  ...reports.map(r=>({id:r.id,at:r.publishedAt,title:r.headline,
   label:"REPORTED TALKS · NOT CONFIRMED",topic:"DEVELOPING / RUMOUR",
   detail:r.reporting,why:r.why,question:r.nextTest,
   sourceName:r.publisher,sourceUrl:r.sourceUrl,
-  href:readerHref+"?reported="+encodeURIComponent(r.id),verified:false}))
+  href:readerHref+"?reported="+encodeURIComponent(r.id),countryCode:null as string|null,verified:false}))
  ].sort((a,b)=>Date.parse(b.at)-Date.parse(a.at));
  return <section className={s.section} aria-label="Previous 48 hours market developments" data-newsroom-window="48h">
   <header className={s.heading}><div><p className={s.eyebrow}>THE LAST 48 HOURS · RELEASE-CLOCK ORDER</p>
@@ -29,7 +30,10 @@ export default function Newsroom48hTimeline({
   </header>
   {items.length?<div className={s.grid}>
    {items.map((item,i)=><article className={s.card} key={item.id}>
-    <div className={s.image}><EditorialStoryArt headline={item.title} summary={item.detail} compact/></div>
+    <div className={s.image}><EditorialStoryArt headline={item.title} summary={item.detail} compact/>
+     {item.countryCode?<span className={s.countryBadge} data-news-countryball={item.countryCode}>
+       <EntityMark kind="country" code={item.countryCode} size="md"/>
+     </span>:null}</div>
     <div className={s.content}>
      <div className={s.labels}><strong className={item.verified?s.verified:s.unconfirmed}>{item.label}</strong><small>{item.topic}</small></div>
      <h3><Link href={item.href}>{item.title}</Link></h3>
