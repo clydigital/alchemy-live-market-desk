@@ -18,6 +18,9 @@ import {orderStoriesByLatestMotion} from "@/lib/blue-desk-thesis-ledger";
 import {classifyPublicStory,PUBLIC_STORY_CATEGORIES} from "@/lib/blue-desk-story-categories";
 import StoryEditorialArticle from "@/components/blue-desk/StoryEditorialArticle";
 import VerifiedCatalystArticle from "@/components/blue-desk/VerifiedCatalystArticle";
+import ShortNewsRecap, {recapFromDecision,recapFromNews} from "@/components/blue-desk/ShortNewsRecap";
+import {decisionTopics} from "@/lib/bluebelly-decision-brief";
+import {getRecentVerifiedEarningsScorecards} from "@/lib/blue-desk-earnings-results";
 import {selectFlagshipInvestorTest} from "@/lib/blue-desk-investor-test";
 import {getStoryMotionRecency} from "@/lib/blue-desk-story-motion-recency-server";
 import { getPublicSourceObservations } from "@/lib/blue-desk-source-observations";
@@ -35,7 +38,7 @@ export const metadata = {
   description: "Dated market catalysts explained in human terms, upcoming company decisions and historical Story context.",
 };
 
-export default async function KeyStories({searchParams}:{searchParams?:Promise<{story?:string;category?:string;catalyst?:string;feature?:string;page?:string}>}){
+export default async function KeyStories({searchParams}:{searchParams?:Promise<{story?:string;category?:string;catalyst?:string;feature?:string;page?:string;news?:string;brief?:string}>}){
   const params=await searchParams;
   const now = new Date();
   const host = (await headers()).get("host");
@@ -43,7 +46,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     getCurrentVerifiedMarketMotion({ limit: 36 }).catch(() => []),
     getPublicThesisLedger(now,24).catch(() => []),
     getPublicSourceObservations(now,8).catch(() => []),
-    getOriginalPressNews(now,18).catch(() => []),
+    getOriginalPressNews(now,18,7).catch(() => []),
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({now}).catch(() => ({events:[],coverage:"unavailable" as const,warning:"Earnings coverage unavailable"})),
   ]);
@@ -76,8 +79,39 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
   const indexHref=blueDeskPublicHref("/blue-desk/key-stories",host);
   const investorTest=selectFlagshipInvestorTest(orderedTheses);
   const motionNews = selectVerifiedNewsBriefs(raw, now, 18);
-  const news = combineQualifiedNews(motionNews,originalPress,18);
+  const recentNews = combineQualifiedNews(motionNews,originalPress,18);
+  const news = recentNews.filter(n=>Date.parse(n.occurredAt)<=+now && +now-Date.parse(n.occurredAt)<=48*3600000);
+  const earlierNews=recentNews.filter(n=>!news.some(current=>current.id===n.id));
   const topics = projectLivingMarketTopics(news);
+  const calendar=buildPresenterCalendar(macro,earnings,now);
+  // The same bounded public page serves read-only, source-qualified short explainers.
+  // A query never admits an arbitrary URL, record, unpublished research item, or owner document.
+  const newsId=typeof params?.news==="string"&&/^[a-z0-9_-]{1,150}$/i.test(params.news)?params.news:null;
+  if(newsId){
+    const event=recentNews.find(n=>n.id===newsId);
+    return <main className={desk.page} data-bluebelly-news="single-receipt-reader">
+      <BlueDeskHeader activePath="/blue-desk/key-stories"/>
+      <div className={desk.content}>{event?
+        <ShortNewsRecap recap={recapFromNews(event)} backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}/>:
+        <section className={ui.empty}><h1>Report unavailable</h1>
+         <p>That report is outside the verified public news window.</p>
+         <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>All Key Stories</Link></section>}</div>
+    </main>;
+  }
+  const briefId=typeof params?.brief==="string"&&/^[a-z0-9_-]{1,150}$/i.test(params.brief)?params.brief:null;
+  if(briefId){
+    const selected=decisionTopics(news,calendar,now).find(t=>t.id===briefId);
+    const earningsReceipt=getRecentVerifiedEarningsScorecards(now,7).find(e=>e.id===briefId)||null;
+    return <main className={desk.page} data-bluebelly-news="decision-recap-reader">
+      <BlueDeskHeader activePath="/blue-desk/key-stories"/>
+      <div className={desk.content}>{selected?
+        <ShortNewsRecap recap={recapFromDecision(selected,earningsReceipt)}
+           backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}/>:
+        <section className={ui.empty}><h1>Decision brief unavailable</h1>
+         <p>The requested event is not in the current approved source-qualified slate.</p>
+         <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>All Key Stories</Link></section>}</div>
+    </main>;
+  }
   // The dated event explainer is rolling public news, not a thesis revision.
   const catalystId=typeof params?.catalyst==="string"&&/^[a-z0-9-]{1,80}$/.test(params.catalyst)
     ?params.catalyst:null;
@@ -96,7 +130,6 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
       </div>
     </main>;
   }
-  const calendar=buildPresenterCalendar(macro,earnings,now);
   const upcoming=selectBlueDeskUpcoming(calendar,now).slice(0,5);
   // A missing verified-news feed should promote genuinely sourced upcoming events,
   // not a blank live-headline panel or an unverified social claim.
@@ -170,6 +203,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
         <p>Start with what surprised the market. Follow the decision, the money, the contradiction and the next test—with original sources close at hand.</p>
         <nav className={ui.indexNav} aria-label="Key Stories sections">
           {topics.length ? <a href="#current-developments">Latest developments</a> : null}
+          {earlierNews.length?<a href="#recent-reports">Earlier this week</a>:null}
           <a href="#persistent-theses">Browse by topic</a>
           <a href="#upcoming-decisions">What's next</a>
           <Link href={indexHref+"?feature=rbnz-october-2026"}>RBNZ explainer</Link>
@@ -183,6 +217,19 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
         <span>Feed checked <DualTimestamp value={now.toISOString()} /></span>
       </div>
       <section className={ui.section} id="current-developments" aria-label="Current event readers"><h2>Current developments</h2><div className={ui.cards}>{topics.map(topic=><article className={ui.card} key={topic.id}><p className={ui.kicker}>VERIFIED NEWS · <DualTimestamp value={topic.latestObservedAt}/></p><h3><Link href={indexHref+"?catalyst="+topic.id}>{topic.updates[0].headline}</Link></h3><p>{topic.guidingQuestion}</p></article>)}<article className={ui.card}><p className={ui.kicker}>DATED FEATURE · 28 OCTOBER 2026</p><h3><Link href={indexHref+"?feature=rbnz-october-2026"}>New Zealand’s surprise pause</Link></h3><p>Why a hold can surprise: follow expectations, the decision and the reported currency response.</p></article></div></section>
+      {earlierNews.length?<section className={ui.section} id="recent-reports" aria-label="More verified reports from this week">
+        <p className={ui.kicker}>SOURCE-VERIFIED / DATED PREVIOUS DAYS</p>
+        <h2>More news from the past seven days</h2>
+        <p>These are previously published original-source announcements, not new breaking events.</p>
+        <div className={ui.cards}>{earlierNews.map(n=><article className={ui.card} key={n.id}>
+          <div style={{maxWidth:240,marginBottom:12}}><EditorialStoryArt headline={n.headline} summary={n.summary} compact/></div>
+          <p className={ui.kicker}>EARLIER REPORT · <DualTimestamp value={n.occurredAt}/></p>
+          <h3><Link href={indexHref+"?news="+encodeURIComponent(n.id)}>{n.headline}</Link></h3>
+          <p>What changed, the financial mechanism, the complication and the next source check.</p>
+          <Link className={ui.storyRead} href={indexHref+"?news="+encodeURIComponent(n.id)}>Read short Bluebelly recap →</Link>
+          <p><small>{n.sourceName} · verified original report</small></p>
+        </article>)}</div>
+      </section>:null}
       <section className={ui.section} aria-labelledby="persistent-theses" data-persistent-thesis-ledger="source-identity">
         <p className={ui.kicker}>THE STORY LIBRARY</p>
         <h2 id="persistent-theses">Key Stories by market theme</h2>
