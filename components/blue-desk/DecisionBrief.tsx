@@ -7,6 +7,8 @@ import {selectCrossBankPolicyBridge} from '@/lib/bluebelly-cross-bank-policy-bri
 import {blueDeskPublicHref} from '@/lib/blue-desk-host';
 import DualTimestamp from './DualTimestamp';
 import EditorialStoryArt from './EditorialStoryArt';
+import PresenterOneMinute from './PresenterOneMinute';
+import {buildPresenterOneMinute} from '@/lib/bluebelly-presenter-one-minute';
 import s from './DecisionBrief.module.css';
 
 function Event({event}:{event:PresenterCalendarEvent}){
@@ -26,6 +28,7 @@ function Event({event}:{event:PresenterCalendarEvent}){
 export default function DecisionBrief({news,recentNews=[],calendar,now,host,report=false}:{news:readonly NewsBriefV1[];recentNews?:readonly NewsBriefV1[];calendar:PresenterCalendar;now:Date;host:string|null;report?:boolean}){
  const topics=decisionTopics(news,calendar,now), lanes=decisionCalendar(calendar,now);
  const crossBank=selectCrossBankPolicyBridge(news,calendar,now);
+ const onAir=buildPresenterOneMinute(news,calendar,now);
  const reader=blueDeskPublicHref('/blue-desk/key-stories',host), calendarHref=blueDeskPublicHref('/blue-desk/calendar',host);
  const lead=topics[0];
  const earningsResults=getRecentVerifiedEarningsScorecards(now,7);
@@ -48,6 +51,7 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
     {crossBank?<><p data-cross-bank-evidence="source-qualified"><strong>{crossBank.sharedEnergyStatus==='SOURCE_SUMMARIES'?'Shared energy-inflation evidence:':'Policy contrast, cause unverified:'}</strong> {crossBank.explanation}</p><p>{crossBank.nextTest} <DualTimestamp value={crossBank.nextEvent.scheduledAt}/></p><p>Original policy decisions: {crossBank.sources.map(source=><span key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer">{source.bank} ({source.action})</a>{" · "}</span>)}</p></>:null}
    </details>
   </header>
+  <PresenterOneMinute brief={onAir} marketsHref={blueDeskPublicHref('/blue-desk/markets',host)}/>
   <div className={s.topics}>{topics.map((t,i)=><article className={i===0?s.lead:s.topic} key={t.id}>
     <p className={s.kicker}>{String(i+1).padStart(2,'0')} / {t.status}</p>
     <div className={s.art}><EditorialStoryArt headline={t.title} summary={t.fact} compact/></div>
