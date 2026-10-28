@@ -16,6 +16,10 @@ export function selectBlueDeskUpcoming(
   if (!etNow || !Number.isInteger(days) || days < 1 || days > 90) return [];
   const end = new Date(Date.parse(etNow + "T00:00:00Z") + days * 86_400_000).toISOString().slice(0, 10);
   const asOf = now.getTime();
+  // Date-only source records carry an MYT calendar day, not a US/Eastern
+  // instant. Once that MYT day ends, they cannot remain UPCOMING.
+  // Do not infer a release or an exact time when the day expires.
+  const mytToday = new Date(asOf + 8 * 3_600_000).toISOString().slice(0, 10);
   return calendar.events
     .filter(event => {
       if (event.status !== "scheduled") return false;
@@ -26,7 +30,7 @@ export function selectBlueDeskUpcoming(
       }
       // Calendar.localDate is supplied as an MYT/source date for imprecise
       // events. Keep them on a separate "date only" track, never call it ET.
-      return event.localDate >= etNow && event.localDate < end;
+      return event.localDate >= mytToday && event.localDate >= etNow && event.localDate < end;
     })
     .sort((a, b) => {
       const aExact = a.scheduledAt ? Date.parse(a.scheduledAt) : Number.POSITIVE_INFINITY;
