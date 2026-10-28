@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { projectOriginalPressNews } from "../lib/blue-desk-original-press-news.ts";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { applyOfficialPressNewsIntake, OFFICIAL_PRESS_FEEDS, materiallyActionableOfficialHeadline } from "../lib/official-press-news-intake.ts";
@@ -291,4 +293,28 @@ test("BoC/RBNZ official policy gate excludes advisory, preview, forged host and 
  const result=await applyOfficialPressNewsIntake(input(),{now,fetchImpl});
  assert.deepEqual(result.items,[]);
  assert.equal(seenOriginal,0,"No mismatched or premature publisher HTML can become a receipt");
+});
+
+
+test("public original-source projection preserves all three verified policy releases and factual Fed vote",()=>{
+ const at=new Date("2026-10-28T19:00:00Z");
+ const release=[
+  ["Federal Reserve Board","Federal Reserve issues FOMC statement","https://www.federalreserve.gov/newsevents/pressreleases/monetary20261028a.htm","2026-10-28T18:00:00.000Z","The Committee decided to maintain the target range for the federal funds rate at 3-3/4 to 4 percent."],
+  ["Bank of Canada","Bank of Canada raises policy rate to 2.50%","https://www.bankofcanada.ca/2026/10/fad-press-release-2026-10-28/","2026-10-28T13:45:00.000Z","The Bank of Canada increased the overnight rate by 25 basis points to 2.50%, citing risks that higher oil prices could spread into inflation."],
+  ["Reserve Bank of New Zealand","OCR held at 2.75%","https://www.rbnz.govt.nz/news-and-events/news/2026/10/ocr-held-at-2-75-percent","2026-10-28T01:00:00.000Z","The Monetary Policy Committee decided to maintain the Official Cash Rate at 2.75% by a 4–3 vote."]
+ ] as const;
+ const rows=release.map(([publisher,title,url,published_at,fact],i)=>({
+  id:"00000000-0000-4000-8000-"+(i+1).toString().padStart(12,"0"),
+  item_key:"official-press:"+createHash("sha256").update(url).digest("hex").slice(0,24),
+  item_type:"news",status:"accepted",publisher,title,url,published_at,created_at:"2026-10-28T18:55:00Z",
+  summary:fact,source_quality:95,relevance:84,materiality:80,novelty:76,candidate_score:86,
+  review_reason:"Original official RSS publication clock and directly linked same-host press-release HTML checked. Headline describes the announcement only, not its financial effect.",
+  evidence_links:[{title,url,publisher,publishedAt:published_at,claim:title},
+   {title,url,publisher,publishedAt:published_at,claim:"OFFICIAL_FACT: "+fact}],
+ }));
+ const publicNews=projectOriginalPressNews(rows,at,8,2);
+ assert.deepEqual(publicNews.map(n=>n.sourceName),["Federal Reserve Board","Bank of Canada","Reserve Bank of New Zealand"]);
+ assert.ok(publicNews.every(n=>n.verification==="SOURCE_VERIFIED"&&n.sourceKind==="official"));
+ assert.match(publicNews[0].summary,/maintain the target range/);
+ assert.match(publicNews[2].headline,/OCR held/);
 });
