@@ -65,7 +65,7 @@ export async function readFredSeries(
   url.searchParams.set("api_key", key);
   url.searchParams.set("file_type", "json");
   url.searchParams.set("sort_order", "desc");
-  url.searchParams.set("limit", String(Math.min(100, Math.max(1, Math.trunc(options.limit ?? 12)))));
+  url.searchParams.set("limit", String(Math.min(320, Math.max(1, Math.trunc(options.limit ?? 12)))));
   if (options.vintageDate) {
     url.searchParams.set("vintage_dates", options.vintageDate);
     url.searchParams.set("observation_end", options.vintageDate);

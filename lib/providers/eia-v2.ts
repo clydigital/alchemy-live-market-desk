@@ -181,6 +181,22 @@ export function buildEiaWeeklyPetroleumUrls(apiKey: string) {
     .map(group => ({group, url:buildEiaWeeklyPetroleumUrl(apiKey, group)}));
 }
 
+const SAFE_EIA_API_ERROR_CODES = new Set([
+  "API_KEY_MISSING", "API_KEY_INVALID", "API_KEY_DISABLED",
+  "API_KEY_UNVERIFIED", "API_KEY_UNAUTHORIZED", "OVER_RATE_LIMIT",
+  "NOT_FOUND",
+]);
+/** EIA's public gateway returns structured 403 causes. Keep only known codes;
+ * never surface raw bodies, secret keys, echo URLs, or arbitrary error text.
+ */
+export function classifyEiaApiFailure(status:number, body:unknown):string {
+  const nested=body && typeof body==="object" && !Array.isArray(body)
+    ? (body as {error?:unknown}).error:null;
+  const code=nested && typeof nested==="object" && !Array.isArray(nested)
+    ? (nested as {code?:unknown}).code:null;
+  return "HTTP_"+status+(typeof code==="string" && SAFE_EIA_API_ERROR_CODES.has(code)?":"+code:"");
+}
+
 export async function fetchEiaWeeklyPetroleumSnapshot(
   apiKey = process.env.EIA_API_KEY?.trim(),
   options: { fetchImpl?: typeof fetch } = {},
@@ -209,7 +225,16 @@ export async function fetchEiaWeeklyPetroleumSnapshot(
         next: { revalidate: 15 * 60 },
         signal: AbortSignal.timeout(8_000),
       });
-      if (!response.ok) return {group, snapshot:null, error:"HTTP_"+response.status};
+      if (!response.ok) {
+        let errorBody:unknown=null;
+        // Only parse EIA's small gateway error response. Never retain untrusted
+        // error messages or query URLs, which contain the API key.
+        try {
+          const raw=(await response.text()).slice(0,2048);
+          errorBody=JSON.parse(raw) as unknown;
+        } catch { /* gateway may return HTML */ }
+        return {group,snapshot:null,error:classifyEiaApiFailure(response.status,errorBody)};
+      }
       const snapshot=parseEiaWeeklyPetroleumPayload(await response.json(),{retrievedAt});
       if (snapshot.state!=="ready") return {group, snapshot:null, error:"NO_VALID_ROWS"};
       return {group,snapshot,error:null};

@@ -272,7 +272,7 @@ async function mapLimit<T, R>(items: T[], limit: number, worker: (item: T) => Pr
 async function fetchNasdaqHistory(spec: ExtraSpec): Promise<RawSeries> {
   const end = new Date();
   const start = new Date(end.getTime() - HISTORY_DAYS * 86400000);
-  const endpoint = `https://api.nasdaq.com/api/quote/${encodeURIComponent(spec.providerSymbol)}/historical?assetclass=${spec.assetClass}&fromdate=${isoDate(start)}&todate=${isoDate(end)}&limit=50`;
+  const endpoint = `https://api.nasdaq.com/api/quote/${encodeURIComponent(spec.providerSymbol)}/historical?assetclass=${spec.assetClass}&fromdate=${isoDate(start)}&todate=${isoDate(end)}&limit=260`;
   const response = await fetch(endpoint, {
     headers: {
       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36",
@@ -313,7 +313,7 @@ async function fetchFredSeries(spec: FredSpec): Promise<RawSeries> {
   // The authenticated endpoint is preferred for Treasury yields; other series
   // retain the existing public CSV reader. Never log an API key or request URL.
   if (spec.id in NOMINAL_TREASURY_TENORS) {
-    const api = await readFredSeries(spec.seriesId, { limit: 100 });
+    const api = await readFredSeries(spec.seriesId, { limit: 260 });
     if (api.state === "ready" && api.observations.length) {
       const points = api.observations.map((observation) => ({
         time: Date.parse(observation.date + "T00:00:00Z") / 1000,
@@ -528,7 +528,7 @@ export const loadExtras = unstable_cache(async () => {
       : null)
     .catch(() => null);
   return [...extraRows, ...rateRows, ...creditRows, ...globalRateRows, moveRow].filter((row): row is RawSeries => Boolean(row));
-}, ["alchemy-market-monitor-extras-v6"], { revalidate: EXTRA_REVALIDATE });
+}, ["alchemy-market-monitor-extras-v7"], { revalidate: EXTRA_REVALIDATE });
 
 export const loadCashAnchors = unstable_cache(async () => {
   const rows = await Promise.all([
