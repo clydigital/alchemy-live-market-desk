@@ -11,10 +11,10 @@ export const EDITORIAL_FEATURES=[
 export default function AmazonFomcFeatures({kind}:{kind:"amazon"|"fomc"}){
  const amazon=kind==="amazon";
  return <article className={s.feature} data-editorial-feature={amazon?EDITORIAL_FEATURES[0].id:EDITORIAL_FEATURES[1].id}>
-  <header className={s.hero}><div className={s.heroMain}>
+  <header className={s.hero} style={{gridTemplateColumns:"1fr"}}><div className={s.heroMain}>
    <p className={s.eyebrow}>BLUEBELLY / {amazon?"AMAZON EARNINGS PREVIEW":"FOMC EXPLAINED"}</p>
    <p className={s.edition}>DATED EDITORIAL ANALYSIS · 29 OCTOBER 2026</p>
-   <h1>{EDITORIAL_FEATURES[amazon?0:1].title}</h1>
+   <h1 style={{fontSize:"clamp(32px,4.6vw,60px)",lineHeight:1.1,letterSpacing:"-.035em",maxWidth:"22ch",margin:"0 0 20px"}}>{EDITORIAL_FEATURES[amazon?0:1].title}</h1>
    <p className={s.deck}>{amazon?"A full order book gets Amazon into the room. Investors still need to know what the expansion costs, who funds it and when the cash comes back.":"The Fed left rates alone. Two officials wanted a hike, while longer-term borrowing costs rose. The decision bought time without settling the inflation argument."}</p>
    <p className={s.heroTime}>{amazon?"PRE-RESULTS EDITION · Call scheduled 29 Oct 2026, 17:00 ET. This is not a Q3 results report.":"Decision: 28 Oct 2026, 14:00 ET · Treasury observations near 15:30 ET. These are dated observations, not live quotes."}</p>
   </div></header>
