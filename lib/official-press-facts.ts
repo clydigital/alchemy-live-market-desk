@@ -39,7 +39,10 @@ export function extractOfficialPressFacts(html:string,headline:string):string[]{
   const sentence=text.split(/(?<=[.!?])\s+(?=[A-Z\d])/)[0]?.trim()||"";
   if(sentence.length<55||sentence.length>235||NON_FACT.test(sentence))continue;
   const lower=sentence.toLowerCase();
-  if(!anchors.some(a=>lower.includes(a)))continue;
+  const ecbPolicy=headline.trim().toLowerCase()==="monetary policy decisions" &&
+    /\b(?:governing council|ecb|deposit facility|refinancing operations)\b/i.test(sentence) &&
+    NUMERIC.test(sentence);
+  if(!ecbPolicy&&!anchors.some(a=>lower.includes(a)))continue;
   // A specific numerical/commercial announcement is more useful than
   // source boilerplate. Non-numeric sentences are admitted only if they
   // describe an actual action with an identifiable subject.

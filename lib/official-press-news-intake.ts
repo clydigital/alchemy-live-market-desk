@@ -54,6 +54,13 @@ export const OFFICIAL_PRESS_FEEDS = [
     path:/^\/investor-news\/press-release-details\/[0-9]{4}\/[a-z0-9-]+\/default\.aspx$/i,
     publisher:"Meta Investor Relations",
   },
+  {
+    name:"ECB monetary policy press decisions",
+    feed:"https://www.ecb.europa.eu/rss/press.html",
+    host:"www.ecb.europa.eu",
+    path:/^\/press\/pr\/date\/20[0-9]{2}\/html\/ecb\.(?:mp|pr)[0-9]{6}~[a-f0-9]{6,16}\.en\.html$/i,
+    publisher:"European Central Bank",
+  },
 ] as const;
 
 const WINDOW_MS = 36 * 60 * 60_000;
@@ -114,6 +121,10 @@ function recent(iso: string, now: Date) {
 
 /** Claim-shaped titles are necessary; meetings and general website updates are not. */
 export function materiallyActionableOfficialHeadline(feed: Feed, headline: string) {
+  if (feed.host === "www.ecb.europa.eu")
+    return /^monetary policy decisions$/i.test(headline.trim()) ||
+      (/\b(?:ECB|governing council|monetary policy|key interest rates?|deposit facility)\b/i.test(headline)
+        && /\b(?:decides?|decision|raises?|cuts?|maintains?|holds?|changes?|increases?|lowers?|updates?)\b/i.test(headline));
   if (feed.host === "www.eia.gov") return /\b(?:oil|crude|petroleum|gas|gasoline|diesel|electricity|energy|production|outlook|inventor(?:y|ies)|hormuz|refin(?:ery|eries)|lng)\b/i.test(headline)
     && /\b(?:forecasts?|expects?|raises?|lowers?|increases?|decreases?|revises?|reports?|releases?|updates?|projects?)\b/i.test(headline);
   if (feed.host === "www.federalreserve.gov") return /\b(?:federal reserve|fomc|federal open market|monetary policy|federal funds|discount rate|balance sheet|policy rate)\b/i.test(headline)
