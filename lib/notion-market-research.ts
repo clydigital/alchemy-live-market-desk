@@ -265,7 +265,7 @@ export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionRes
         const incomplete=[select("Status"),select("Coverage"),select("Input Health")]
           .some(v=>/^(PARTIAL|FAILED|MATERIAL GAP|INSUFFICIENT)$/i.test(v));
         if(incomplete||/(?:Coverage\s+PARTIAL|Input Health\s+PARTIAL|Run\s+PARTIAL|eligible overflow|unconsumed eligible)/i.test(parsed.text))
-          warnings.push("The latest Research Gap Gate explicitly reports partial coverage, failed inputs or unread overflow. Treat its findings as bounded.");
+          warnings.push("The latest Research Gap run explicitly reports partial coverage, failed inputs or unread overflow. Treat its findings as bounded.");
         const title=rows(obj(props.Run).title).map(v=>txt(v.plain_text,300)||txt(obj(v.text).content,300)).join("") ||
           (today.gateId?day:previousDay)+" — latest Research Gap run";
         if(parsed.text) sources.push({kind:"RESEARCH_GAP",title,
