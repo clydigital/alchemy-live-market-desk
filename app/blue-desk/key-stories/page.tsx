@@ -129,8 +129,25 @@ export default async function KeyStories(){
       </header>
       <section className={ui.section} aria-labelledby="manual-feature-stories" data-independent-research-features="2026-10-27">
         <h2 id="manual-feature-stories">Featured investigations</h2>
-        <p>Two independent, source-linked research stories with manual investigation queues. They are separate from automatically adjudicated Dossier theses.</p>
+        <p>Three independent, source-linked research stories with manual investigation queues. They are separate from automatically adjudicated Dossier theses.</p>
         <div className={ui.cards}>
+          <article className={ui.card} id="rbnz-october-2026" data-source-grounded-editorial="2026-10-28">
+            <p className={ui.kicker}>CENTRAL BANKS / NZDUSD · 28 OCTOBER 2026 · FACTUAL BRIEF</p>
+            <h3>RBNZ holds when markets expected a hike. NZD/USD tumbles.</h3>
+            <p className={ui.storyIntro}>Traders expected New Zealand's central bank to lift its Official Cash Rate from 2.75% to 3.00%. Instead, the RBNZ held it at 2.75%, with four members voting to wait and three voting to raise rates. NZD/USD dropped as much as 1.7%, touching US$0.55831 in Reuters' 28 October Asian-session report.</p>
+            <details className={ui.more}>
+              <summary>Read the decision, the market reaction and what comes next</summary>
+              <div className={ui.moreBody}>
+                <p><strong>The setup:</strong> With New Zealand inflation still above the 1–3% target band, markets had positioned for a 25-basis-point rate hike. The official decision landed at 2:00 PM NZDT on Wednesday 28 October (9:00 AM MYT; 9:00 PM EDT on 27 October).</p>
+                <p><strong>The surprise:</strong> The committee voted 4–3 to hold. Annual CPI inflation eased to 3.7% in the September quarter from 4.1%, but the RBNZ expects 4.4% in the December quarter as higher energy costs feed through. Members agreed that tighter policy would probably be required, but differed over whether to act immediately.</p>
+                <p><strong>Why NZD/USD fell:</strong> Currency traders had already priced in higher New Zealand interest rates. When that increase failed to arrive, the immediate case for holding NZD weakened. Reuters reported a fall of up to 1.7% to US$0.55831. That is a reported session low, not a verified tick-matched five-minute reaction.</p>
+                <p><strong>The catch:</strong> This was a surprise pause, not a promise to abandon tightening. The 4–3 vote and the governor's subsequent hawkish guidance leave a December increase in play. US-dollar demand and the Fed's own policy outlook are separate drivers of NZD/USD.</p>
+                <p><strong>The next test:</strong> The RBNZ's next rate decision is scheduled for 9 December 2026. Compare New Zealand two-year rate expectations with the US and Australia, then see whether NZD/USD sustains the initial break or recovers as markets reprice December. No unverified live technical levels are implied.</p>
+                <p><strong>Original evidence:</strong> <a href="https://www.rbnz.govt.nz/news-and-events/news/2026/10/ocr-held-at-2-75-percent" target="_blank" rel="noopener noreferrer">RBNZ decision and 4–3 committee record</a>. <a href="https://www.reuters.com/business/dollar-holds-gains-ahead-fed-policy-signal-rbnz-decision-2026-10-28/" target="_blank" rel="noopener noreferrer">Reuters' dated NZD/USD reaction report</a>. <a href="https://www.rbnz.govt.nz/monetary-policy/about-monetary-policy/the-official-cash-rate" target="_blank" rel="noopener noreferrer">Official next-meeting schedule</a>.</p>
+              </div>
+            </details>
+            <p className={ui.timeNote}>Reviewed event brief · Sources dated 28 October 2026 · Not a new Dossier thesis, canonical Motion or live-price feed.</p>
+          </article>
           <article className={ui.card}>
             <p className={ui.kicker}>ASIA EQUITIES · 27 OCTOBER 2026</p>
             <div style={{maxWidth:370,marginBottom:12}}><EditorialStoryArt motif="china" headline="Asia AI equities"/></div>
