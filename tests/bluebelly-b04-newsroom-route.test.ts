@@ -16,8 +16,9 @@ test("Public Stories mounts one reused source-qualified Newsroom with the existi
   assert.doesNotMatch(home, /NewsroomLensExplorer/);
 });
 
-test("Newsroom retains the legacy anchored section and adds a separately source-gated public route", () => {
-  assert.match(stories, /href="#newsroom-title">Newsroom<\/a>/);
+test("Newsroom stays source-gated but no longer has a link into collapsed content", () => {
+  assert.doesNotMatch(stories, /href="#newsroom-title">Newsroom<\/a>/);
+  assert.match(stories, /<details><summary>Research tools, source observations and further reading<\/summary>/);
   assert.match(newsroom, /id="newsroom-title"/);
   assert.ok(stories.indexOf('aria-labelledby="persistent-theses"') < stories.indexOf("<NewsroomLensExplorer "));
   assert.equal(blueDeskHostAccess("/key-stories", "bluebelly-desk.vercel.app"), "public");
