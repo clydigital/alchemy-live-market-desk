@@ -45,7 +45,8 @@ const PAIRS: PairSpec[] = [
     proxyNote:"SPY proxy versus VIXY futures ETF; VIXY is NOT the VIX spot index and has roll decay." },
 ];
 
-type SourceSeries = { label: string; sourceName: string; sourceUrl: string; points: PricePoint[]; frequency?: string };
+export type CorrelationHistorySource = { id:string; label:string; sourceName:string; sourceUrl:string; points:PricePoint[]; frequency?:string };
+type SourceSeries = Omit<CorrelationHistorySource,"id">;
 const emptyCell = (): CorrelationCell => ({ coefficient:null, observations:0 });
 const emptyValues = (): Record<CorrelationWindow, CorrelationCell> => ({20:emptyCell(),60:emptyCell(),120:emptyCell()});
 
@@ -119,10 +120,25 @@ function computePair(pair:PairSpec,core:Map<string,SourceSeries>,monitor:Map<str
   return basic;
 }
 
+/** Use long, cached internal histories only for the owner research page. The
+ * usual MarketMonitorRow keeps the smaller public/hybrid series payload.
+ * Never replace a newer observed source with an older longer cached one.
+ */
 export function buildMarketToolsCorrelations(
   marketSeries:MarketSeries[], monitorRows:MarketMonitorRow[], now=new Date(),
+  extendedSources:CorrelationHistorySource[]=[],
 ):CorrelationReadout[] {
   const core=new Map<string,SourceSeries>(marketSeries.map(s=>[s.symbol,s]));
   const monitor=new Map<string,SourceSeries>(monitorRows.map(s=>[s.id,s]));
+  for(const extra of extendedSources){
+    const base=monitor.get(extra.id);
+    if(extra.frequency==="monthly"||extra.points.length<2)continue;
+    if(base?.frequency==="monthly")continue;
+    const rawLatest=extra.points.at(-1)?.time??0;
+    const baseLatest=base?.points.at(-1)?.time??0;
+    // Prefer the public row when history is short or source observations differ.
+    if((!base||extra.points.length>base.points.length) && rawLatest>=baseLatest)
+      monitor.set(extra.id,extra);
+  }
   return PAIRS.map(pair=>computePair(pair,core,monitor,now));
 }
