@@ -91,6 +91,10 @@ export default async function BlueDeskPage() {
       <BlueDeskHeader activePath="/blue-desk" />
       <div className={styles.content}>
         <DecisionBrief news={verifiedNews} recentNews={recentNews} calendar={calendar} now={now} host={host}/>
+        {/* Historical, source-dated price SVGs stay visible before the long archive. */}
+<WhatsNewTrendDashboard
+          cards={projectWhatsNewTrends(monitor?.rows||[],now)}
+          marketsHref={blueDeskPublicHref("/blue-desk/markets",host)}/>
         <details><summary>Explore dated observations and previous research</summary>
         <BluebellyNewsfront news={verifiedNews} observations={observations} theses={theses} host={host} now={now}
           upcoming={upcoming.map(event=>({id:event.id,title:event.title,sourceName:event.sourceName,
@@ -237,9 +241,7 @@ export default async function BlueDeskPage() {
           </div> : <p className={styles.empty}>No public Story records are available. Research topics and verified headlines are tracked separately.</p>}
         </section>
 
-        <WhatsNewTrendDashboard
-          cards={projectWhatsNewTrends(monitor?.rows||[],now)}
-          marketsHref={blueDeskPublicHref("/blue-desk/markets",host)}/>
+
 
         <div className={styles.lowerGrid}>
           <section className={styles.secondaryPanel} aria-labelledby="headline-context-title">
