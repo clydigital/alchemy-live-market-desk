@@ -6,7 +6,7 @@ import type { NewsBriefV1 } from "./market-brief-news.ts";
  * This projects its persisted receipts, not arbitrary research-intake headlines. */
 export type OfficialPressReceipt = {
   id:unknown; item_key:unknown; item_type:unknown; status:unknown;
-  publisher:unknown; title:unknown; url:unknown; published_at:unknown;
+  publisher:unknown; title:unknown; summary?:unknown; url:unknown; published_at:unknown;
   created_at:unknown; source_quality:unknown; relevance:unknown;
   novelty:unknown; materiality:unknown; candidate_score:unknown;
   review_reason:unknown; evidence_links:unknown;
@@ -52,12 +52,29 @@ export function projectOriginalPressNews(
   if(seen.has(url))continue;
   const id=String(item.id||"");
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))continue;
+  // A secondary factual line is shown only if it exactly matches the
+  // original publisher's evidence on the same permalink, clock and company.
+  // It is not inferred from the headline or trusted from a mutable summary.
+  const factLines=evidence.flatMap(link=>{
+   if(!link||typeof link!=="object")return [];
+   const x=link as Record<string,unknown>;
+   const claim=typeof x.claim==="string"?x.claim:"";
+   const text=claim.startsWith("OFFICIAL_FACT: ")?claim.slice(15):"";
+   return text.length>=55&&text.length<=235&&
+      x.url===url&&x.publisher===feed.publisher&&x.title===title&&
+      Date.parse(String(x.publishedAt||""))===published&&
+      Number.isFinite(Date.parse(String(x.publishedAt||"")))
+        ?[text]:[];
+  }).slice(0,2);
+  const qualified=factLines.join(" ");
+  const exactSummary=typeof item.summary==="string"?item.summary.trim():"";
   seen.add(url);
   out.push({
     contractVersion:"news-brief/1",
     contentType:"NEWS_BRIEF",
     id,headline:title,
-    summary:"The original publisher issued this dated announcement. Its market-price reaction and wider causal effects have not been established.",
+    summary:qualified && exactSummary===qualified ? qualified :
+      "The original publisher issued this dated announcement. Its market-price reaction and wider causal effects have not been established.",
     sourceName:feed.publisher,sourceUrl:url,
     sourceKind:feed.host==="www.federalreserve.gov"||feed.host==="www.eia.gov"?"official":
       feed.host==="www.sec.gov"?"filing":"primary",
