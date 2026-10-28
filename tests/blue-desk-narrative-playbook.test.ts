@@ -55,3 +55,20 @@ test("private studio shows the same evidence and story desks without changing pu
  assert.match(research,/assessDailyResearchHealth/);
  assert.doesNotMatch(research,/insert\(|upsert\(|generateContent/);
 });
+
+test("all private writing formats explain earnings beat cash flow capex and missing comparisons",()=>{
+ for(const kind of ["DAILY_REPORT","OB","COTD"] as const){
+  const p=privateNarrativeInstructions(kind);
+  assert.match(p,/MATERIAL RELEASED COMPANY EARNINGS/);
+  assert.match(p,/PRE-RELEASE same-metric consensus/);
+  assert.match(p,/free cash flow amount/);
+  assert.match(p,/cash capex amount/);
+  assert.match(p,/capex with commitments/);
+  assert.match(p,/NO COMPARABLE CONSENSUS/);
+  assert.doesNotMatch(p,/₩104\.6tn|₩83\.3tn/);
+ }
+ const contract=readFileSync(new URL("../lib/blue-desk-automated-report-contract.ts",import.meta.url),"utf8");
+ assert.match(contract,/MATERIAL EARNINGS RELEASE/);
+ assert.match(contract,/FCF amount and direction or NOT REPORTED/);
+ assert.match(contract,/Never invent missing consensus, FCF, capex/);
+});
