@@ -18,7 +18,7 @@ function record(x:unknown):Rec|null{
 }
 const RELEVANT=/\b(?:Strait of Hormuz|Hormuz|Gulf of Oman|Northern Arabian Gulf|Persian Gulf|Sohar|Khasab|Fujairah|Al.Faw)\b/i;
 export function decodeHormuzIncidents(payload:unknown,now:Date):HormuzIncidentRead{
- const checkedAt=now.toISOString(),base={checkedAt,builtAt:null,reports:[],totalWindow:0} as const;
+ const checkedAt=now.toISOString(),base:Pick<HormuzIncidentRead,"checkedAt"|"builtAt"|"reports"|"totalWindow">={checkedAt,builtAt:null,reports:[],totalWindow:0};
  const p=record(payload),t=record(p?.t);
  if(p?.v!==1||typeof p?.attribution!=="string"||!p.attribution.includes("UKMTO")||
     !Array.isArray(p.s)||p.s.length>12000||!p.s.every(x=>typeof x==="string"&&x.length<6000)||
