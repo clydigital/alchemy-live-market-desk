@@ -113,8 +113,7 @@ function recent(iso: string, now: Date) {
 
 /** Claim-shaped titles are necessary; meetings and general website updates are not. */
 export function materiallyActionableOfficialHeadline(feed: Feed, headline: string) {
-  if (feed.host === "www.eia.gov") return
-    /\b(?:oil|crude|petroleum|gas|gasoline|diesel|electricity|energy|production|outlook|inventor(?:y|ies)|hormuz|refin(?:ery|eries)|lng)\b/i.test(headline)
+  if (feed.host === "www.eia.gov") return /\b(?:oil|crude|petroleum|gas|gasoline|diesel|electricity|energy|production|outlook|inventor(?:y|ies)|hormuz|refin(?:ery|eries)|lng)\b/i.test(headline)
     && /\b(?:forecasts?|expects?|raises?|lowers?|increases?|decreases?|revises?|reports?|releases?|updates?|projects?)\b/i.test(headline);
   if (feed.host === "www.federalreserve.gov") return /\b(?:federal reserve|fomc|federal open market|monetary policy|federal funds|discount rate|balance sheet|policy rate)\b/i.test(headline)
     && /\b(?:announces?|issues?|releases?|statement|decision|raises?|cuts?|maintains?|approves?|updates?|votes?)\b/i.test(headline);
