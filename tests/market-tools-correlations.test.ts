@@ -72,3 +72,28 @@ test("spot VIX is not silently fabricated from a futures ETF",()=>{
  assert.equal(row.values[60].coefficient,null);
  assert.match(row.proxyNote,/NOT the VIX spot index/);
 });
+
+test("private long-history override unlocks 120-session results without changing public 64-point view",()=>{
+  const market=prices("GLD",1);
+  const rate=monitor("us10y-real",prices("DFII10",-1));
+  const publicRate={...rate,points:rate.points.slice(-64)};
+  const without=buildMarketToolsCorrelations([market],[publicRate],NOW)
+    .find(p=>p.id==="gold-real-yield")!;
+  assert.equal(without.values[120].coefficient,null);
+  const withExtended=buildMarketToolsCorrelations([market],[publicRate],NOW,[rate])
+    .find(p=>p.id==="gold-real-yield")!;
+  assert.equal(withExtended.values[120].observations,120);
+  assert.equal(withExtended.status,"measured");
+  assert.equal(publicRate.points.length,64);
+});
+test("private override never substitutes an older history over a newer source date",()=>{
+  const market=prices("GLD",1);
+  const newer=monitor("us10y-real",prices("DFII10",-1));
+  newer.points=newer.points.slice(-64);
+  const older=monitor("us10y-real",prices("DFII10",-1));
+  older.points=older.points.slice(0,-20);
+  const p=buildMarketToolsCorrelations([market],[newer],NOW,[older])
+    .find(p=>p.id==="gold-real-yield")!;
+  assert.equal(p.values[120].coefficient,null);
+  assert.equal(p.dateRight,"2026-10-27");
+});
