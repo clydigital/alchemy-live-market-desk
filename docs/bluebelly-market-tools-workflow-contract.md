@@ -44,7 +44,22 @@ Status: **UI and links merged in PR #1119 and deployed to Bluebelly (28 October 
 - [x] Manual workflow handoff links implemented
 - [x] GitHub validation passed for PR #1119
 - [x] Merged to main; Vercel production deployment READY with Bluebelly alias
-- [ ] Historical price adapter and correlation calculation
+- [x] Read-only 20/60/120 matched-session correlations using existing cached Nasdaq/Treasury-FRED/ECB/EIA and monitor history (subject to CI and deployment)
+- [ ] Direct DXY, EURUSD, BTC spot and spot VIX feeds: current equivalents are clearly labelled ETF/index/futures proxies
+- [ ] Extend history beyond the existing 64-point market-monitor payload for all 120-session cross-asset windows without inflating canonical public payloads
 - [ ] Candidate persistence with provenance
 - [ ] Research Gap intake and canonical evidence admission
 - [ ] Newsroom/Presenter readback with verified candidate association
+
+
+## Existing-feed correlation pilot (28 October 2026)
+
+Implementation candidate in `lib/market-tools-correlations.ts`:
+
+- Seven named research relationships use the existing `getMarketData()` and `getMarketMonitor()` cached historical data, **no new subscriptions, credentials, third-party scraping or scheduled jobs**.
+- Dollar UUP ETF versus gold GLD ETF; dollar UUP versus euro FXE ETF; Nasdaq Composite versus Bitcoin IBIT ETF; official FRED 2Y yield versus ECB USDJPY; GLD versus 10Y real yield; EIA WTI spot versus FRED 5Y inflation breakeven; SPY proxy versus VIXY VIX-futures ETF. Each pair visibly discloses the *actual instruments*.
+- Join dated observations on the same UTC calendar date before computing consecutive observed-period changes; skip cross-source gaps over seven days. Price instruments use log returns; yield/breakeven instruments use **basis-point changes**, not percent returns on yield levels. Report Pearson correlation for the last 20/60/120 *valid aligned changes*, with n, source links and both source dates. Do not interpolate, pad, carry forward or fabricate absent measurements.
+- The existing extra Nasdaq provider requests only 50 observations; the monitor’s public row history is limited to 64. Thus 60/120-sample results for some pairs must show unavailable rather than synthetic longer histories. The shared core price series may have up to 280 points and support 120-day windows.
+- A source's original observation date governs freshness. No `updatedAt` cache time is sufficient proof of an updated market quote. Label age > 7 days as STALE, and do not call these statistical co-movements signals. Correlation and source success do not grant canonical evidence admission.
+
+Follow-up before enabling decision feedback: provider audit, 60/120-window coverage upgrade, spot-vs-proxy choice, separate persistence for source receipts and canonical evidence IDs, actual Research Gap receipt, and governance tests for owner-only publication.
