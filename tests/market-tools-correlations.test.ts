@@ -64,7 +64,8 @@ test("old original observations retain stale label regardless of retrieval time"
 });
 
 test("spot VIX is not silently fabricated from a futures ETF",()=>{
- const row=buildMarketToolsCorrelations([prices("^GSPC",1)],[monitor("vixy",prices("VIXY",-1,50))],NOW)
+ const vixy=prices("VIXY",-1);vixy.points=vixy.points.slice(-50);
+ const row=buildMarketToolsCorrelations([prices("^GSPC",1)],[monitor("vixy",vixy)],NOW)
   .find(p=>p.id==="equity-vol")!;
  assert.equal(row.status,"measured");
  assert.equal(row.values[20].coefficient,-1);
