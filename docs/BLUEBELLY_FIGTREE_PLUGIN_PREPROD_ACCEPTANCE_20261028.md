@@ -35,10 +35,10 @@ The current **implemented** destinations are:
 2. A creator video or X post is a **lead**, not verified news, and cannot directly change a Story/Regime. A source-verified press update can show in public Newsroom without changing a regime.
 3. Keep current five ChatGPT schedules and existing Vercel crons; no new task, duplicate reasoning table or read/write endpoint.
 4. CI must pass new Figtree/route tests, full existing test suite, Task C, TypeScript, Next build and PostgreSQL contract tests before main merge.
-5. Pre-production deployment must target `preview`, with Vercel preview SSO/protection enabled; do not assign any public production alias to a preview. Cron/workers must not be manually fired to prove a visual patch.
+5. Pre-production means the full GitHub pull-request suite, Task C, TypeScript, Next build, PostgreSQL contracts and source/route regression tests. A further Vercel preview can be used only if its existing deployment policy permits; project-level Ignored Build Step currently skips every non-main branch, even when a branch-specific `vercel.json` exception is attempted. No preview should be claimed READY when Vercel reports CANCELED. Cron/workers must not be manually fired to prove a visual patch.
 6. Production promotion: GitHub squash merge only after all checks; verify Vercel deployment READY with exact merge commit SHA and actual `bluebelly-desk.vercel.app` alias.
 7. Post-promotion smoke: Today, Newsroom, Regime Watch, Markets, Daily Report all resolve; `/owner/presenter` remains a private route; font is visually checked on desktop and mobile where screenshot/browser access permits.
-8. Keep this record honest: server build and gate parity can be proven from CI and Vercel; browser pixel parity needs an actual authenticated browser comparison and should not be reported done based on a build alone.
+8. Preview attempted on the Figtree branch: Vercel cancelled the deployment because the project-level ignored build step ran `if [ \"$VERCEL_GIT_COMMIT_REF\" = \"main\" ]; then exit 1; else exit 0; fi`. The temporary branch exception was reverted, and the original project ignore-step value was re-submitted. Do not claim preview visual or pixel parity. Once CI is green, main production deployment must be verified by exact commit/alias and browser access separately.
 
 ## Specialist plugin compatibility follow-up
 
