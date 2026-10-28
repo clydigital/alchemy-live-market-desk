@@ -10,7 +10,8 @@ const newsroom = readFileSync(new URL("../components/blue-desk/NewsroomLensExplo
 test("Public Stories mounts one reused source-qualified Newsroom with the existing verified NewsBrief feed", () => {
   assert.match(stories, /import NewsroomLensExplorer from "@\/components\/blue-desk\/NewsroomLensExplorer"/);
   assert.match(stories, /const motionNews = selectVerifiedNewsBriefs\(raw, now, 18\)/);
-  assert.match(stories, /const news = combineQualifiedNews\(motionNews,originalPress,18\)/);
+  assert.match(stories, /const recentNews = combineQualifiedNews\\(motionNews,originalPress,18\\)/);
+  assert.match(stories, /const news = recentNews\\.filter/);
   assert.match(stories, /<NewsroomLensExplorer news=\{news\} asOf=\{now\.toISOString\(\)\} \/>/);
   assert.equal((stories.match(/<NewsroomLensExplorer /g) || []).length, 1);
   assert.doesNotMatch(home, /NewsroomLensExplorer/);
