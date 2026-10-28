@@ -69,5 +69,5 @@ test("X embeds are genuine original posts, automatically matched; facts never de
  assert.match(server,/\.eq\("source_quality",35\)/);
  assert.match(server,/\.like\("publisher","X\/@%"\)/);
  assert.match(server,/\.limit\(120\)/);
- assert.doesNotMatch(server,/create|insert|upsert|publish|getUser/i);
+ assert.doesNotMatch(server,/\.insert\(|\.upsert\(|\.update\(|\.delete\(|\.rpc\(/i);
 });
