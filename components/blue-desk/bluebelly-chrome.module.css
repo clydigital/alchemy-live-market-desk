@@ -22,4 +22,14 @@
 .search button{border:0;background:transparent;color:#8dd6f4;cursor:pointer;padding:8px;font-size:14px}
 .owner{color:#f1d8a2!important}
 @media(max-width:1000px){.navInner{display:block;padding:0}.links{width:100%}.search{display:none}.mastRight>span{display:none}}
-@media(max-width:680px){.utility{display:none}.mastRight .micro:first-child{display:none}.mastInner{padding:12px 16px}.navLink,.navActive{padding:12px 14px}.brand img{width:185px}}
+@media(max-width:680px){
+ .utility{display:none}
+ .mastInner{padding:12px 13px;gap:9px;min-width:0}
+ .brand{min-width:0;flex-shrink:1}
+ .brandText{display:none}
+ .mastRight{flex-shrink:0;min-width:0}
+ .mastRight .micro:not(:last-child){display:none}
+ .mastRight .micro:last-child{padding:7px 8px;font-size:10px}
+ .navLink,.navActive{padding:12px 14px}
+ .brand img{width:clamp(150px,46vw,185px)}
+}

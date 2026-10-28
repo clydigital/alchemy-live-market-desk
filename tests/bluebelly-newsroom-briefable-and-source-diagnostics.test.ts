@@ -15,10 +15,20 @@ test("newsroom provides distinct dated approved decision explainers without fals
  assert.match(page,/<NewsroomBriefableEvents topics=\{briefable\} readerHref=\{readerHref\}/);
  assert.match(page,/<BluebellyNewsWire news=\{news\}/);
  assert.match(wire,/\{children\}/);
+ const chrome=file("components/blue-desk/bluebelly-chrome.module.css");
+ const css=file("components/blue-desk/bluebelly-newswire.module.css");
+ assert.match(chrome,/\.brandText\{display:none\}/);
+ assert.match(chrome,/\.mastRight \.micro:not\(:last-child\)\{display:none\}/);
+ assert.doesNotMatch(chrome,/\.mastRight \.micro:first-child\{display:none\}/);
+ assert.match(css,/\.intro h1\{font-size:clamp\(24px,7vw,30px\)/);
  assert.match(page,/getOriginalPressNews\(now,18,7\)/);
  assert.match(component,/data-newsroom-briefable="separate-from-news-wire"/);
  assert.match(component,/t\.status==="UPCOMING"\|\|t\.status==="FEATURE"\|\|t\.href\.startsWith\("\?brief="\)/);
  assert.match(component,/UPCOMING · OUTCOME UNKNOWN/);
+ // A pending result teaches the financial mechanism; its next test is
+ // separately action-oriented, not the same question repeated twice.
+ assert.match(component,/item.status==="UPCOMING"\?item.mechanism:item.fact/);
+ assert.match(component,/<strong>Next check:<\/strong> \{item.test\}/);
  assert.match(component,/ISSUER-VERIFIED RESULTS · COMPARISON UNVERIFIED/);
  assert.match(component,/href=\{readerHref\+item\.href\}/);
  assert.match(component,/not additional accepted news-wire records/);

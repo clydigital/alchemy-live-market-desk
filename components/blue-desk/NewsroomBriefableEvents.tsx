@@ -23,7 +23,7 @@ export default function NewsroomBriefableEvents({topics,readerHref}:{topics:read
      <p className={s.tag}>{item.status==="UPCOMING"?"UPCOMING · OUTCOME UNKNOWN":item.status==="FEATURE"?"PUBLISHED EXPLAINER · DATED":"ISSUER-VERIFIED RESULTS · COMPARISON UNVERIFIED"}</p>
      <h3><Link href={readerHref+item.href}>{item.title}</Link></h3>
      <small><DualTimestamp value={item.at.includes("T")?item.at:null} sourceDate={item.at.slice(0,10)}/></small>
-     <p className={s.fact}>{item.status==="UPCOMING"?item.why:item.fact}</p>
+     <p className={s.fact}>{item.status==="UPCOMING"?item.mechanism:item.fact}</p>
      <p className={s.next}><strong>Next check:</strong> {item.test}</p>
      <div className={s.links}><Link href={readerHref+item.href}>Read the Bluebelly explanation →</Link>
       <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">{item.sourceName} · source ↗</a></div>
