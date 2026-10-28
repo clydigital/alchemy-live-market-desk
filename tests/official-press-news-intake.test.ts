@@ -245,10 +245,10 @@ test("28 Oct Fed, BoC and RBNZ original decision releases enter existing accepte
    url:"https://www.federalreserve.gov/newsevents/pressreleases/monetary20261028a.htm",date:"Wed, 28 Oct 2026 18:00:00 GMT",
    body:"<p>The Federal Open Market Committee approved the following statement for release by a 10–2 vote.</p><p>The Committee decided to maintain the target range for the federal funds rate at 3-3/4 to 4 percent.</p>"},
   {feed:boc,title:"Bank of Canada raises policy rate to 2.50%",
-   url:"https://www.bankofcanada.ca/2026/10/fad-press-release-2026-10-28/",date:"Wed, 28 Oct 2026 13:45:00 GMT",
+   url:"https://www.bankofcanada.ca/2026/10/fad-press-release-2026-10-28/",date:"Wed, 28 Oct 2026 09:47:20 GMT",
    body:"<p>The Bank of Canada increased the overnight rate by 25 basis points to 2.50%, citing risks that higher oil prices could spread into inflation.</p>"},
   {feed:rbnz,title:"OCR held at 2.75%",
-   url:"https://www.rbnz.govt.nz/news-and-events/news/2026/10/ocr-held-at-2-75-percent",date:"Wed, 28 Oct 2026 01:00:00 GMT",
+   url:"https://www.rbnz.govt.nz/news-and-events/news/2026/10/ocr-held-at-2-75-percent",date:"Tue, 27 Oct 2026 11:00:00 GMT",
    body:"<p>The Monetary Policy Committee decided to maintain the Official Cash Rate at 2.75% by a 4–3 vote.</p>"}
  ];
  const fetchImpl=(async (target:RequestInfo|URL)=>{
@@ -262,6 +262,12 @@ test("28 Oct Fed, BoC and RBNZ original decision releases enter existing accepte
  const result=await applyOfficialPressNewsIntake(input(),{now:at,fetchImpl});
  assert.deepEqual(result.items.map(x=>x.url).sort(),releases.map(x=>x.url).sort());
  assert.ok(result.items.every(x=>x.itemKey.startsWith("official-press:")));
+ assert.deepEqual(Object.fromEntries(result.items.map(x=>[x.publisher,x.publishedAt])),{
+   "Federal Reserve Board":"2026-10-28T18:00:00.000Z",
+   "Bank of Canada":"2026-10-28T13:45:00.000Z",
+   "Reserve Bank of New Zealand":"2026-10-28T01:00:00.000Z",
+ });
+ assert.ok(result.items.filter(x=>x.publisher!=="Federal Reserve Board").every(x=>/official bank event schedule/.test(x.newsSignal||"")));
  assert.ok(result.items.every(x=>x.evidence?.[0].claim===x.title));
  const fedItem=result.items.find(x=>x.publisher==="Federal Reserve Board")!;
  assert.match(fedItem.summary,/10–2 vote/);
