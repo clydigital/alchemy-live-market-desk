@@ -3,6 +3,8 @@ import {headers} from "next/headers";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import BluebellyNewsWire from "@/components/blue-desk/BluebellyNewsWire";
 import Newsroom48hTimeline from "@/components/blue-desk/Newsroom48hTimeline";
+import NextBankCatalysts from "@/components/blue-desk/NextBankCatalysts";
+import {sourceScheduledBankWatch} from "@/lib/bluebelly-next-bank-catalysts";
 import {recentBankDecisions} from "@/lib/bluebelly-bank-decision-snapshots";
 import {recentReportedEditorial} from "@/lib/bluebelly-reported-editorial";
 import NewsroomBriefableEvents from "@/components/blue-desk/NewsroomBriefableEvents";
@@ -35,6 +37,7 @@ export default async function NewsroomPage({searchParams}:Props){
  const briefable=decisionTopics(news,calendar,now);
  const bankDecisions=recentBankDecisions(now,48);
  const reported=recentReportedEditorial(now,48);
+ const nextBanks=sourceScheduledBankWatch(now);
  const briefableNoDuplicate=briefable.filter(t=>!(t.id==="rbnz-october-2026-editorial" &&
    bankDecisions.some(b=>b.id==="rbnz-2026-10-28")));
  return <main className={desk.page} data-public-newsroom="original-source-only">
@@ -42,6 +45,7 @@ export default async function NewsroomPage({searchParams}:Props){
   <div className={desk.content}>
     <BluebellyNewsWire news={news} initialQuery={query} now={now.toISOString()} readerHref={readerHref}>
       <Newsroom48hTimeline banks={bankDecisions} reports={reported} readerHref={readerHref}/>
+      <NextBankCatalysts items={nextBanks}/>
       <NewsroomBriefableEvents topics={briefableNoDuplicate} readerHref={readerHref}/>
     </BluebellyNewsWire>
   </div>
