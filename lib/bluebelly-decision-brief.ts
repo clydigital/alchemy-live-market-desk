@@ -30,9 +30,14 @@ export function decisionTopics(news: readonly NewsBriefV1[], calendar: Presenter
       why:event.decidingQuestion,test:event.decidingQuestion,at:event.scheduledAt||event.localDate,
       sourceUrl:event.sourceUrl,sourceName:event.sourceName,href:'?brief='+encodeURIComponent(event.id),status:'UPCOMING',
       mechanism:kind==='earnings'?'Revenue growth must become cash after operating costs and investment. Compare guidance and cash conversion before drawing a valuation conclusion.':'The decision matters relative to expectations. Compare the policy message with independently measured yields and currency moves before assigning a cause.',
-      assets:event.affectedAssets,priority:event.scheduledAt && Date.parse(event.scheduledAt)-+now<=72*3600000?3:1});
+      assets:event.affectedAssets,priority:(kind==='economic'?(/\b(?:fomc|rate decision|interest rate|central bank|monetary policy)\b/i.test(event.title)?6:4):3)
+        + (event.scheduledAt && Date.parse(event.scheduledAt)-+now<=24*3600000?1:0)});
   }
-  return topics.sort((a,b)=>b.priority-a.priority || a.id.localeCompare(b.id)).slice(0,5);
+  return topics.sort((a,b)=>b.priority-a.priority ||
+    (a.status==='UPCOMING' && b.status==='UPCOMING'
+       ? (Date.parse(a.at)||Infinity)-(Date.parse(b.at)||Infinity)
+       : b.status==='NEW'&&a.status==='NEW'
+         ? (Date.parse(b.at)||0)-(Date.parse(a.at)||0) : 0) || a.id.localeCompare(b.id)).slice(0,5);
 }
 
 export function decisionCalendar(calendar:PresenterCalendar,now:Date){
