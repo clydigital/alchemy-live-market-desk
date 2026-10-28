@@ -3,6 +3,7 @@ import {headers} from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import HormuzCrossings from "@/components/blue-desk/HormuzCrossings";
 import {getGlobalFlowMonitor} from "@/lib/global-flow-monitor";
+import {getHormuzIncidents} from "@/lib/bluebelly-hormuz-incidents";
 import {projectHormuzPublicWatch,type HormuzWatchTile} from "@/lib/bluebelly-hormuz-public";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import type {GlobalFlowMonitor} from "@/lib/global-flow-monitor-core";
@@ -33,10 +34,10 @@ function reading(tile:HormuzWatchTile){
 }
 export default async function HormuzTracker(){
  const now=new Date(),host=(await headers()).get("host");
- const raw=await getGlobalFlowMonitor().catch(()=>({
+ const [raw,incidents]=await Promise.all([getGlobalFlowMonitor().catch(()=>({
   hormuz:{snapshot:null,checkedAt:now.toISOString(),nextAttemptAt:null,refreshFailed:true},
   updatedAt:now.toISOString(),oil:[],gold:[],researchTriggers:[],coverageGaps:[]
- } satisfies GlobalFlowMonitor));
+ } satisfies GlobalFlowMonitor)),getHormuzIncidents(now)]);
  const watch=projectHormuzPublicWatch(raw,now);
  const pick=(ids:string[])=>ids.map(id=>watch.tiles.find(x=>x.id===id)).filter((x):x is HormuzWatchTile=>!!x);
  const crude=pick(["brent-confirmation","wti-confirmation"]);
@@ -77,14 +78,33 @@ export default async function HormuzTracker(){
        `${watch.crossing.snapshot.total} completed vessel crossings in the observed rolling 24h, as of ${watch.crossing.snapshot.observedAt}. This is not oil cargo volume.`
        :"No accepted current crossing count. Unknown traffic is not zero."}</p>
     </div>
-    <div><span className={s.label}>SECURITY / CONFLICT</span><strong>INCIDENTS · ORIGINAL SOURCE</strong>
-     <p>UKMTO reports attacks, threats and suspicious maritime activity. Bluebelly does not yet have a structured, continuously verified incident count: do not infer that no incidents occurred.</p>
+    <div><span className={s.label}>SECURITY / CONFLICT</span>
+     <strong>{incidents.freshness==="recent"?incidents.totalWindow+" REPORTED GULF EVENTS / 14D":incidents.freshness==="stale"?"STALE INCIDENT COMPILATION":"INCIDENT FEED UNAVAILABLE"}</strong>
+     <p>UKMTO-attributed notices, independently unverified by Bluebelly. Compiled {incidents.builtAt||"unknown"}; missing or stale reports are never evidence of safe passage.</p>
      <a href={UKMTO} target="_blank" rel="noopener noreferrer">Check latest UKMTO incident reports ↗</a>
     </div>
     <div><span className={s.label}>CRITICAL SOURCE LIMIT</span><strong>AIS IS NOT AN OIL BARREL</strong>
      <p>Disabling transponders, jamming and AIS spoofing can conceal ship movements. The IEA warns that observed traffic may underestimate actual passage.</p>
      <a href={IEA} target="_blank" rel="noopener noreferrer">IEA maritime chokepoints monitor ↗</a>
     </div>
+   </section>
+
+   <section className={s.section} id="incidents" aria-label="UKMTO-attributed maritime security notices" data-incident-status={incidents.freshness}>
+    <div className={s.sectionHead}><span>SECURITY / INCIDENT WATCH · ORIGINAL UKMTO ATTRIBUTION</span>
+     <h2>What has happened at sea?</h2>
+     <p>Rolling 14-day Gulf-area reports from the existing ship-monitor provider's UKMTO-attributed incident feed. Report time, place and text are provider observations; UKMTO may subsequently update or reclassify an incident.</p></div>
+    {incidents.reports.length?<div className={s.incidents}>
+     {incidents.reports.slice(0,6).map(report=><article key={report.id} className={s.incidentCard}>
+      <div className={s.incidentTop}><strong>{report.id} · {report.type}</strong>
+       <time dateTime={report.occurredAt}>{new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",dateStyle:"medium",timeStyle:"short",timeZoneName:"short"}).format(new Date(report.occurredAt))}</time></div>
+      <h3>{report.place}</h3><p>{report.description}</p>
+      <div className={s.incidentFlags}><span>{report.vesselType}</span>
+       {report.timeLate?<span>TIME-LATE REPORT</span>:null}
+       {report.casualtyReported?<span>CASUALTIES REPORTED</span>:null}</div>
+      <a href={report.sourceUrl} target="_blank" rel="noopener noreferrer">Original UKMTO incident registry ↗</a>
+     </article>)}
+    </div>:<p className={s.note}>{incidents.reason||"No matching Gulf reports in the available 14-day source window. This does not establish the absence of incidents."}</p>}
+    <p className={s.note}>Provider compilation: {incidents.builtAt||"not available"} · {incidents.freshness}. Reports may be time-late or revised. Source adapter refreshes at most every 30 minutes; the original UKMTO notices remain authoritative. <a href={UKMTO} target="_blank" rel="noopener noreferrer">Read all original UKMTO notices ↗</a></p>
    </section>
 
    <section className={s.section} id="shipping" aria-label="Hormuz marine physical readings">
