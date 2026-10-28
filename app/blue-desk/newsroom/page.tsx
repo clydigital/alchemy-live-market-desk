@@ -12,12 +12,12 @@ export default async function NewsroomPage({searchParams}:Props){
  const now=new Date();
  const [raw,official,params]=await Promise.all([
   getCurrentVerifiedMarketMotion({limit:36}).catch(()=>[]),
-  getOriginalPressNews(now,18).catch(()=>[]),searchParams,
+  getOriginalPressNews(now,18,7).catch(()=>[]),searchParams,
  ]);
  const news=combineQualifiedNews(selectVerifiedNewsBriefs(raw,now,18),official,18);
  const query=typeof params.q==="string"?params.q:"";
  return <main className={desk.page} data-public-newsroom="original-source-only">
   <BlueDeskHeader activePath="/blue-desk/newsroom"/>
-  <div className={desk.content}><BluebellyNewsWire news={news} initialQuery={query}/></div>
+  <div className={desk.content}><BluebellyNewsWire news={news} initialQuery={query} now={now.toISOString()}/></div>
  </main>;
 }
