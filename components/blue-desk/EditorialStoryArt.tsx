@@ -74,8 +74,8 @@ export default function EditorialStoryArt({
         </>}
       </g>
       <path d="M0 405H700" stroke="#f1c98e" strokeWidth="2" opacity=".65"/>
-      <text x="29" y="45" fill="#c9efff" fontFamily="Arial,sans-serif" fontSize="14" fontWeight="700" letterSpacing="2.6">{name[key]}</text>
-      <text x="29" y="389" fill="#aacddd" fontFamily="Arial,sans-serif" fontSize="10" letterSpacing="1.4">BLUEBELLY · EDITORIAL ILLUSTRATION · NOT MARKET DATA</text>
+      <text x="29" y="45" fill="#c9efff" fontFamily="var(--bluebelly-font)" fontSize="14" fontWeight="700" letterSpacing="2.6">{name[key]}</text>
+      <text x="29" y="389" fill="#aacddd" fontFamily="var(--bluebelly-font)" fontSize="10" letterSpacing="1.4">BLUEBELLY · EDITORIAL ILLUSTRATION · NOT MARKET DATA</text>
     </svg>
   </div>;
 }
