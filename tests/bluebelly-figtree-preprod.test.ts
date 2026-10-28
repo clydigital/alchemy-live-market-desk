@@ -20,7 +20,7 @@ test("Figtree is one self-hosted site font across all CSS including print views"
  assert.match(layout,/className=\{figtree.variable\}/);
  assert.match(globals,/--bluebelly-font:\s*var\(--font-figtree\)/);
  for(const path of cssFiles){
-  const source=readFileSync(join(base,path),"utf8").replace(/\\/\\*[\\s\\S]*?\\*\\//g,"");
+  const source=readFileSync(join(base,path),"utf8").replace(/\/\*[\s\S]*?\*\//g,"");
   // No accidental editorial serif, Arial, Inter or monospace stack overrides.
   assert.doesNotMatch(source,/\bGeorgia\b|\bTimes New Roman\b|\bJetBrains Mono\b|font-family\s*:\s*(?:Arial|Helvetica|Inter|monospace|system-ui|ui-monospace)|\bfont\s*:\s*[^;{}]*\b(?:Arial|Georgia|Inter|monospace)\b/i,path);
  }
