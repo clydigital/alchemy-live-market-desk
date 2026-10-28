@@ -4,6 +4,7 @@ import ResearchTriggerIntake from "@/components/blue-desk/ResearchTriggerIntake"
 import { getMarketData } from "@/lib/market";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { buildMarketToolsCorrelations, CORRELATION_WINDOWS } from "@/lib/market-tools-correlations";
+import { getMarketToolsProviderReadiness } from "@/lib/market-tools-provider-readiness";
 import styles from "./market-tools.module.css";
 
 export const metadata = { title: "Market Tools | Bluebelly", description: "Research sources, correlation watchlists and trade-idea discovery." };
@@ -28,10 +29,13 @@ const connectors = [
 ];
 export const dynamic = "force-dynamic";
 
-export default async function MarketToolsPage() {
-  const [market, monitor] = await Promise.all([
+export default async function MarketToolsPage({searchParams}:{searchParams?:Promise<{check?:string}>} = {}) {
+  const options = await searchParams;
+  const checkProviders=options?.check==="providers";
+  const [market, monitor, readiness] = await Promise.all([
     getMarketData().catch(() => null),
     getMarketMonitor().catch(() => null),
+    checkProviders ? getMarketToolsProviderReadiness().catch(() => null) : Promise.resolve(null),
   ]);
   const pairs = buildMarketToolsCorrelations(market?.series ?? [], monitor?.rows ?? []);
   const measuredCount = pairs.filter(p => p.status === "measured").length;
@@ -41,6 +45,26 @@ export default async function MarketToolsPage() {
       <BlueDeskHeader activePath="/market-tools" />
       <header className={styles.topbar}><Link href="/" className={styles.brand}><span className={styles.brandMark}>B</span> BLUEBELLY <span className={styles.brandSub}>/ RESEARCH WORKSPACE</span></Link><Link href="/blue-desk" className={styles.back}>← Back to desk</Link></header>
       <section className={styles.hero}><div><p className={styles.eyebrow}>RESEARCH TOOLKIT / BLUEBELLY</p><h1>Market tools<span>.</span><br/>Better signals, less noise.</h1><p className={styles.intro}>One workspace for finding trade candidates, checking cross-market relationships and opening primary-source evidence.</p></div><div className={styles.heroSide}><span className={styles.statusDot}/> Research feeds connected <small>Historical correlations where data passes date, sample and freshness checks; no streaming quote claim</small></div></section>
+      <section className={styles.providerCheck} aria-label="Owner provider connection test">
+        <div>
+          <p className={styles.eyebrow}>PROVIDER CONNECTIVITY / MANUAL CHECK</p>
+          <h2>Are the API keys actually working?</h2>
+          <p>Check one dated observation from FRED, EIA and Alpha Vantage. This does not expose credentials, activate a scheduled poll, publish market claims or admit canonical evidence.</p>
+        </div>
+        <Link href="/market-tools?check=providers" className={styles.providerCheckLink}>Check connected APIs ↗</Link>
+        {checkProviders && <div className={styles.providerResults}>
+          <small className={styles.providerCheckedAt}>Last checked: {readiness?.checkedAt ?? "Unavailable"} · cached up to 60 minutes</small>
+          {readiness?.providers.map(provider=><article key={provider.provider} className={styles.providerStatus}>
+            <div><strong>{provider.provider}</strong><p>{provider.note}</p>
+              <a href={provider.sourceUrl} target="_blank" rel="noopener noreferrer">Official provider documentation ↗</a></div>
+            <div className={styles.providerStatusRight}>
+              <span className={provider.state === "ready" ? styles.providerReady : styles.providerPending}>{provider.state.toUpperCase()}</span>
+              <small>Observation: {provider.asOf ?? "—"}</small>
+              <small>Valid rows/metrics: {provider.observationCount}</small>
+            </div>
+          </article>) ?? <p>Provider check could not be completed; existing market data is unaffected.</p>}
+        </div>}
+      </section>
       <div className={styles.stats}><div><strong>{sources.length}</strong><span>Curated sources</span></div><div><strong>{measuredCount}/{pairs.length}</strong><span>Current dated correlation pairs</span></div><div><strong>0</strong><span>Verified trade signals</span></div><div><strong>{newestCommonDate ?? "—"}</strong><span>Newest aligned observation date</span></div></div>
       <section className={styles.workflow} aria-labelledby="workflow-title"><div><p className={styles.eyebrow}>RESEARCH HANDOFF / NOT AN AUTOMATIC SIGNAL</p><h2 id="workflow-title">Turn a screen into a sourced investigation</h2><p>Screen for an unusual move → compare cross-market relationships → check the original catalyst → verify price timestamps and invalidation → submit a candidate to Bluebelly research. Unverified observations must not appear as published ideas.</p></div><div className={styles.workflowActions}><Link href="/owner/research">Open Research Library →</Link><Link href="/owner/presenter">Presenter technical checks →</Link><Link href="/my-reports">Editorial reports →</Link></div></section>
       <ResearchTriggerIntake monitor={monitor} />
