@@ -11,7 +11,7 @@ test("all visible public header links target approved host paths and real anchor
   assert.ok(match, "public navigation must be explicitly enumerated");
   const hrefs = [...match[1].matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m => m[1]);
   assert.deepEqual(hrefs, ["/", "/newsroom", "/regime-watch", "/markets", "/calendar",
-    "/daily-report", "/owner/presenter"]);
+    "/daily-report", "/learn", "/owner/presenter"]);
   for (const href of hrefs) {
     const url = new URL(href, "https://bluebelly-desk.vercel.app");
     const access = href === "/owner/presenter"
@@ -34,7 +34,7 @@ test("private legacy navigation remains available only on owner host", () => {
   const privateNav=header.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0]||"";
   const privateLinks=[...privateNav.matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m=>m[1]);
   assert.deepEqual(privateLinks, ["/blue-desk", "/blue-desk/key-stories", "/markets",
-    "/my-reports", "/owner/research", "/market-tools", "/owner/x-wire", "/blue-desk/calendar"]);
+    "/my-reports", "/owner/research", "/market-tools", "/owner/x-wire", "/blue-desk/calendar", "/blue-desk/learn"]);
   for(const privatePath of ["/articles","/data/macro","/concepts","/owner/daily-articles"]){
     assert.equal(blueDeskHostAccess(privatePath,"bluebelly-desk.vercel.app"),"blocked");
     assert.ok(!privateLinks.includes(privatePath),"legacy links stay outside the main navigation");

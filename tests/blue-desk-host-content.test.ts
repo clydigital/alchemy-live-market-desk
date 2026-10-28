@@ -33,6 +33,7 @@ test("Bluebelly middleware owns precise clean-root rewrites without touching API
   assert.equal(blueDeskPresentationTarget("/", "bluebelly-desk.vercel.app"), "/blue-desk");
   assert.equal(blueDeskPresentationTarget("/calendar", "bluebelly-desk.vercel.app"), "/blue-desk/calendar");
   assert.equal(blueDeskPresentationTarget("/markets", "bluebelly-desk.vercel.app"), "/blue-desk/markets");
+  assert.equal(blueDeskPresentationTarget("/learn", "bluebelly-desk.vercel.app"), "/blue-desk/learn");
   assert.equal(
     blueDeskPresentationTarget("/stories/article%3Aedition%3Astory", "bluebelly-desk.vercel.app"),
     "/blue-desk/stories/article%3Aedition%3Astory",
@@ -76,7 +77,7 @@ test("Bluebelly exposes only explicitly approved public reading routes", () => {
   const host = "bluebelly-desk.vercel.app";
   for (const path of [
     "/", "/calendar", "/blue-desk", "/blue-desk/calendar", "/markets", "/blue-desk/markets",
-    "/key-stories", "/blue-desk/key-stories",
+    "/key-stories", "/blue-desk/key-stories", "/learn", "/blue-desk/learn",
     "/stories/article%3Afcea17ef-f575-4283-a363-7d5fa9c918c7%3A6e2c8a8c-fdc7-45eb-bec6-b685b0311f3e",
   ]) {
     assert.equal(blueDeskHostAccess(path, host), "public", path);
@@ -266,4 +267,21 @@ test("expanded Story watch is a real exact public reader with no owner routes ex
     assert.equal(blueDeskHostAccess(path,"bluebelly-desk.vercel.app"),"blocked");
   }
   assert.equal(blueDeskPresentationTarget("/key-stories","review-preview.vercel.app"),null);
+});
+
+
+test("Public glossary reuses governed concepts and never loads raw creator transcripts", () => {
+  const page = readFileSync(new URL("../app/blue-desk/learn/page.tsx", import.meta.url), "utf8");
+  const explorer = readFileSync(new URL("../components/blue-desk/BlueDeskLearnExplorer.tsx", import.meta.url), "utf8");
+  const nav = readFileSync(new URL("../components/blue-desk/BlueDeskHeader.tsx", import.meta.url), "utf8");
+  assert.match(page, /listConcepts\(\)/);
+  assert.match(page, /concept\.status === "active"/);
+  assert.match(page, /getRegimeDefinition/);
+  assert.doesNotMatch(page, /\bfrom\b.*(?:supabase|transcript|research_intake_items|serviceRole)/i);
+  assert.match(explorer, /item\.watch\.join/);
+  assert.match(explorer, /onChange=.*setQuery/);
+  assert.match(nav, /\["Learn", "\/learn"\]/);
+  assert.equal(blueDeskHostAccess("/learn", "bluebelly-desk.vercel.app"), "public");
+  assert.equal(blueDeskHostAccess("/blue-desk/learn", "bluebelly-desk.vercel.app"), "public");
+  assert.equal(blueDeskHostAccess("/concepts", "bluebelly-desk.vercel.app"), "blocked");
 });

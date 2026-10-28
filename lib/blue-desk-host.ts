@@ -34,6 +34,7 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   if (pathname === "/") return "/blue-desk";
   if (pathname === "/calendar") return "/blue-desk/calendar";
   if (pathname === "/daily-report") return "/blue-desk/daily-report";
+  if (pathname === "/learn") return "/blue-desk/learn";
   if (pathname === "/key-stories") return "/blue-desk/key-stories";
   if (pathname === "/newsroom") return "/blue-desk/newsroom";
   if (pathname === "/regime-watch") return "/blue-desk/regime-watch";
@@ -106,6 +107,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   const publicPage =
     pathname === "/" ||
     pathname === "/calendar" ||
+    pathname === "/learn" || pathname === "/blue-desk/learn" ||
     pathname === "/daily-report" ||
     pathname === "/blue-desk/daily-report" ||
     pathname === "/blue-desk" ||
