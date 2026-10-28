@@ -113,18 +113,18 @@ test("midnight MYT intake carries yesterday's exact PM run, preserves PARTIAL an
         {id:archive29,type:"child_page",child_page:{title:"2026-10-29 — MacroPulse"}},
         {id:archive28,type:"child_page",child_page:{title:"2026-10-28 — MacroPulse"}}
       ],has_more:false});
-    if(path.startsWith(pfx+archive29+"/children"))
+    if(path.startsWith(pfx+archive29.replaceAll("-","")+"/children"))
       return respond({results:[{id:slot29,type:"child_page",
         child_page:{title:"00:00 MYT — Official market preflight"}}],has_more:false});
-    if(path.startsWith(pfx+slot29+"/children"))
+    if(path.startsWith(pfx+slot29.replaceAll("-","")+"/children"))
       return respond({results:[{type:"paragraph",paragraph:{
         rich_text:[{plain_text:"Original source-backed research for the 00:00 MYT edition."}]
       }}],has_more:false});
-    if(path.startsWith(pfx+pmId+"/children"))
+    if(path.startsWith(pfx+pmId.replaceAll("-","")+"/children"))
       return respond({results:[{type:"paragraph",paragraph:{
         rich_text:[{plain_text:"Coverage PARTIAL: 68 eligible; 8 full-read."}]
       }}],has_more:false});
-    if(path==="/v1/pages/"+pmId)return respond({properties:{
+    if(path==="/v1/pages/"+pmId.replaceAll("-",""))return respond({properties:{
       Run:{type:"title",title:[{plain_text:"2026-10-28 20:40 MYT — PM Research Gap Investigation"}]},
       Status:{select:{name:"PARTIAL"}},Coverage:{select:{name:"PARTIAL"}},
       "Input Health":{select:{name:"PARTIAL"}}
