@@ -2,6 +2,10 @@
 export const BLUEBELLY_PRESENTATION_HOST = "bluebelly-desk.vercel.app";
 export const LIVE_DESK_PRESENTATION_HOST = "alchemy-live-market-desk.vercel.app";
 
+// Only the eight public editorial lens IDs are reachable anonymously.
+// Do not expose arbitrary dynamic segments on the public presentation hosts.
+const PUBLIC_REGIME_LENS_PATH = /^\/(?:blue-desk\/)?regime-watch\/(?:fed|bonds|ai|china|energy|yen|breadth|gold)$/;
+
 function normalizedHost(host: string | null | undefined) {
   return (host || "").trim().toLowerCase().replace(/:443$/, "");
 }
@@ -31,6 +35,10 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   if (pathname === "/calendar") return "/blue-desk/calendar";
   if (pathname === "/daily-report") return "/blue-desk/daily-report";
   if (pathname === "/key-stories") return "/blue-desk/key-stories";
+  if (pathname === "/newsroom") return "/blue-desk/newsroom";
+  if (pathname === "/regime-watch") return "/blue-desk/regime-watch";
+  if (pathname.startsWith("/regime-watch/") && PUBLIC_REGIME_LENS_PATH.test(pathname)) return "/blue-desk" + pathname;
+  if (pathname === "/features/asia-equities" || pathname === "/features/global-bonds") return "/blue-desk" + pathname;
   // Temporary auth-free development lab uses strictly synthetic browser-local
   // inputs. Real owner pages, APIs and source records remain private.
   if (normalizedHost(host) === BLUEBELLY_PRESENTATION_HOST &&
@@ -53,6 +61,12 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   if (hostname === "alchemy-blue-desk.vercel.app") return "blocked";
   if (hostname !== BLUEBELLY_PRESENTATION_HOST && hostname !== LIVE_DESK_PRESENTATION_HOST) return "private";
 
+  // One strictly bounded public X discovery handoff for the existing ChatGPT
+  // MacroPulse reader. It is a READ-ONLY redacted view of public original X
+  // posts; never expose owner pages, raw operational data, tokens or write APIs.
+  if(hostname===BLUEBELLY_PRESENTATION_HOST &&
+     pathname==="/api/x-wire/discovery")return "public";
+
   // Narrow approved-owner enclave on the Bluebelly hostname. This is
   // NOT a public page: the normal middleware session+allowlist gate applies.
   // Only exact paths can be used; legacy operational owner routes and all
@@ -62,7 +76,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     "/auth/signout", "/api/owner/automated-report-pdf",
     // Native Bluebelly owner tools only; every path still requires a
     // valid Supabase session and the active user allowlist in middleware.
-    "/owner/editorial", "/owner/presenter", "/owner/research",
+    "/owner/editorial", "/owner/presenter", "/owner/research", "/owner/x-wire", "/market-tools",
     "/owner/presenter/editions",
     // Exactly scoped private report and research review readback paths.
     "/owner/daily-report", "/api/owner/macropulse-briefs",
@@ -98,6 +112,13 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     pathname === "/blue-desk/calendar" ||
     pathname === "/key-stories" ||
     pathname === "/blue-desk/key-stories" ||
+    pathname === "/newsroom" || pathname === "/blue-desk/newsroom" ||
+    pathname === "/regime-watch" || pathname === "/blue-desk/regime-watch" ||
+    PUBLIC_REGIME_LENS_PATH.test(pathname) ||
+    pathname === "/features/asia-equities" ||
+    pathname === "/features/global-bonds" ||
+    pathname === "/blue-desk/features/asia-equities" ||
+    pathname === "/blue-desk/features/global-bonds" ||
     pathname === "/markets" ||
     pathname === "/blue-desk/markets" ||
     /^\/(?:blue-desk\/)?stories\/article(?::|%3a)[0-9a-f-]{36}(?::|%3a)[0-9a-f-]{36}$/i.test(pathname);

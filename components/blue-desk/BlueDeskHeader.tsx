@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
 
 import styles from "@/app/blue-desk/blue-desk.module.css";
+import chrome from "./bluebelly-chrome.module.css";
 
 // Keep the owner header task-focused. Specialist legacy routes remain reachable
 // from their workspaces, not as fifteen competing top-level destinations.
@@ -12,28 +13,35 @@ const PRIVATE_NAV = [
   ["Live Market", "/blue-desk"],
   ["Key Stories", "/blue-desk/key-stories"],
   ["Markets", "/markets"],
-  ["My Reports", "/my-reports"],
-  ["Writing Desk", "/owner/editorial"],
-  ["Presenter Prep", "/owner/presenter"],
+  ["My Desk", "/my-reports"],
   ["Research Library", "/owner/research"],
+  ["Market Tools", "/market-tools"],
+  ["X Wire", "/owner/x-wire"],
   ["Calendar", "/blue-desk/calendar"],
 ] as const;
 
-// Public Bluebelly is deliberately limited to the route allowlist; never
-// advertise owner-only legacy links that its middleware correctly returns 404.
+// All seven navigation destinations are visible on Bluebelly. The three owner
+// destinations remain protected by middleware and the active account allowlist.
 const PUBLIC_NAV = [
-  ["Live Market", "/"],
-  ["Key Stories", "/key-stories"],
+  ["Today", "/"],
+  ["Newsroom", "/newsroom"],
+  ["Regime Watch", "/regime-watch"],
   ["Markets", "/markets"],
   ["Calendar", "/calendar"],
+  ["Daily Report", "/daily-report"],
+  ["Presenter Prep", "/owner/presenter"],
 ] as const;
 
 const NAV_ICONS: Record<string, MarketIconName> = {
   "Live Market": "market",
+  "Today": "market",
+  "Newsroom": "layers",
+  "Regime Watch": "divergence",
   "Markets": "chart",
   "Deep Dive": "deep-dive",
   "Research": "research",
   "Research Library": "research",
+  "Market Tools": "chart",
   "Data Library": "library",
   "Presenter Prep": "studio",
   "Presenter Studio": "studio",
@@ -50,7 +58,7 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Daily Report Studio": "deep-dive",
   "My Daily Report": "library",
   "My Reports": "library",
-  "Writing Desk": "deep-dive",
+  "My Desk": "library",
   "Calendar + Earnings": "calendar",
   "Publish Reports": "library",
   "Private Daily Articles": "deep-dive",
@@ -62,30 +70,41 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
   const publicHost = isBlueDeskPublicReaderHost(host);
   // Authenticated owner routes must retain their private workspace navigation,
   // even when opened on the canonical hostname that also serves public readers.
-  const ownerWorkspace = activePath === "/my-reports" || activePath === "/owner/editorial" || activePath === "/owner/presenter" || activePath === "/owner/research" || activePath === "/owner/publications" || activePath === "/owner/daily-report" || activePath === "/owner/daily-articles" || activePath === "/owner/x-wire";
+  const ownerWorkspace = activePath === "/my-reports" || activePath === "/owner/editorial" || activePath === "/owner/presenter" || activePath === "/owner/research" || activePath === "/owner/publications" || activePath === "/owner/daily-report" || activePath === "/owner/daily-articles" || activePath === "/owner/x-wire" || activePath === "/market-tools";
   const nav = publicHost && !ownerWorkspace ? PUBLIC_NAV : PRIVATE_NAV;
+  const current=blueDeskPublicHref(activePath,host);
   return (
-    <header className={styles.topbar}>
-      <Link href={blueDeskPublicHref("/blue-desk", host)} className={styles.brand} aria-label="Blue Desk — Live Market">
-        <Image src="/blue-desk-wordmark.svg" alt="Blue Desk" width={272} height={60} priority unoptimized />
-      </Link>
-      <nav className={styles.nav} aria-label="Blue Desk primary">
-        {nav.map(([title, href]) => (
-          <Link
-            key={href}
-            href={blueDeskPublicHref(href, host)}
-            aria-current={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories")))) ? "page" : undefined}
-            className={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/key-stories" && activePath === "/blue-desk/key-stories")))) ? styles.navActive : styles.navItem}
-          >
-            <MarketIcon name={NAV_ICONS[title] || "market"} size={17} />
-            <span>{title}</span>
-          </Link>
-        ))}
-        {publicHost && !ownerWorkspace ? <Link href="/my-reports" className={styles.navItem}
-          aria-label="Open private Bluebelly workspace; sign-in required">
-          <MarketIcon name="studio" size={17} /><span>My Desk</span>
-        </Link> : null}
-      </nav>
+    <header data-bluebelly-chrome="mockup-editorial">
+      <div className={chrome.utility}><div className={chrome.utilityInner}>
+        <span><strong>BLUEBELLY / MARKET INTELLIGENCE</strong> · Source-qualified reporting and research</span>
+        <span>Observed facts · working interpretations labelled separately</span>
+      </div></div>
+      <div className={chrome.masthead}><div className={chrome.mastInner}>
+        <Link href={blueDeskPublicHref("/blue-desk",host)} className={chrome.brand} aria-label="Bluebelly Today">
+          <Image src="/blue-desk-wordmark.svg" alt="Bluebelly" width={272} height={60} priority unoptimized/>
+          <span className={chrome.brandText}>MARKET INTELLIGENCE</span>
+        </Link>
+        <div className={chrome.mastRight}><span>Markets, without the noise.</span>
+          <Link className={chrome.micro} href={blueDeskPublicHref("/blue-desk/regime-watch",host)}>Research lenses</Link>
+          <Link className={chrome.micro} href="/owner/presenter">Presenter Prep ↗</Link>
+        </div>
+      </div></div>
+      <div className={chrome.navbar}><div className={chrome.navInner}>
+        <nav className={chrome.links} aria-label="Bluebelly primary">
+          {nav.map(([label,path])=>{
+            const href=blueDeskPublicHref(path,host);
+            const active=href===current || (href==="/markets"&&activePath==="/blue-desk/markets");
+            return <Link key={path} href={href} aria-current={active?"page":undefined}
+              className={(active?chrome.navActive:chrome.navLink)+" "+(label==="Presenter Prep"?chrome.owner:"")}>
+              <MarketIcon name={NAV_ICONS[label]||"market"} size={15}/><span>{label}</span>
+            </Link>;
+          })}
+        </nav>
+        <form action={publicHost?"/newsroom":"/blue-desk/newsroom"} method="get" className={chrome.search} role="search">
+          <input name="q" type="search" maxLength={100} aria-label="Search public Newsroom" placeholder="Search stories, issuers, themes"/>
+          <button type="submit" aria-label="Search Newsroom">⌕</button>
+        </form>
+      </div></div>
     </header>
   );
 }

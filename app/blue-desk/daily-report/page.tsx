@@ -1,6 +1,8 @@
+import DecisionBrief from "@/components/blue-desk/DecisionBrief";
 import Link from "next/link";
 import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import DailyEditorialRundown from "@/components/blue-desk/DailyEditorialRundown";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { ScopeStrip } from "@/components/blue-desk/EntityIdentity";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
@@ -51,15 +53,15 @@ export default async function DailyReportPage() {
   const results = upcoming.filter(e => e.kind === "earnings").slice(0, 6);
   const calendarHref = blueDeskPublicHref("/blue-desk/calendar", host);
 
-  return <main className={styles.page} data-daily-report="dossier-independent-v2">
+  return <main className={styles.page} data-daily-report="editorial-first-v3">
     <BlueDeskHeader activePath="/blue-desk/daily-report" />
     <div className={styles.shell}>
+      <DecisionBrief news={news} calendar={calendar} now={now} host={host} report/>
+      <details className={styles.moreStories}><summary>Explore previous research, dated editorial features and source inventory</summary>
       <header className={styles.hero}>
         <p className={styles.eyebrow}>MARKET INTELLIGENCE / DAILY REPORT</p>
-        <h1>The market today: what happened, why it matters</h1>
-        <p className={styles.lead}>Markets rarely move for just one reason.
-          Follow the developments we can source, the bigger stories behind them,
-          how money and costs could move through the system, and what to watch next.</p>
+        <h1>The market today. Your next story.</h1>
+        <p className={styles.lead}>Start with the topics worth discussing or writing about today. Then go deeper into the evidence, the alternative explanations and the next catalysts.</p>
         <p className={styles.context} data-bluebelly-private-report-entry="login-required">
           <Link href="/my-reports">Open my private PDF reports</Link>
           {" · "}Google sign-in required. PDFs are for your viewing only.
@@ -70,11 +72,33 @@ export default async function DailyReportPage() {
           <span>{stories.length} ongoing market stories</span>
           <span>{observations.length} dated original-source observations</span>
         </div>
+        <nav className={styles.quickNav} aria-label="Daily report sections">
+          <a href="#editorial-rundown">Today's presentation and article picks</a>
+          <a href="#developments">Verified headlines</a>
+          <a href="#reasoning">Market mechanisms</a>
+          <a href="#forward">Upcoming catalysts</a>
+        </nav>
         <p className={styles.context}>A new report, an observed price and a market explanation are
           three different things. We keep their dates and source status separate.
           This is a broad view of available desk inputs, not proof that every market event
           or every MacroPulse post has been independently verified.</p>
       </header>
+
+      <DailyEditorialRundown asOf={now.toISOString()} news={news} upcoming={upcoming} />
+
+      <section className={styles.section} aria-labelledby="featured-ai-warning" data-editorial-status="attributed-investigation">
+        <div className={styles.heading}>
+          <p className={styles.eyebrow}>FEATURED INVESTIGATION · 28 OCT 2026 · CREATOR-ATTRIBUTED</p>
+          <h2 id="featured-ai-warning">The warning beneath the AI rally</h2>
+          <p>Semiconductor buying, extreme-short-positioning claims, bond-market disagreement and the cost of financing AI expansion: a thesis-first investigation inspired by FXEvolution. This is a conditional research hypothesis, not a source-verified market event.</p>
+        </div>
+        <article className={styles.reading}>
+          <h3>What if the chip suppliers are winning while the customers financing the boom are becoming vulnerable?</h3>
+          <p className={styles.storyParagraph}>The bearish chain runs from financing pressure to weaker project economics, capex revisions, chip-order downgrades and ultimately equity repricing. The constructive countercase requires stronger cash conversion, stable credit and improving earnings breadth—not merely a claim that markets can rally.</p>
+          <p className={styles.storyCaveat}><strong>Evidence boundary:</strong> The precise FXEvolution short-interest series and historical analogue remain unverified. Warsh's possible policy constraint is our independent hypothesis, not a confirmed quotation from the video.</p>
+          <p className={styles.readingFoot}><span>Expanded COTD-style research · Not a published verified COTD</span><Link href={blueDeskPublicHref("/blue-desk/ai-rally-warning",host)}>Read the full investigation</Link></p>
+        </article>
+      </section>
 
       <section className={styles.section} aria-labelledby="daily-story-map" data-daily-story-coverage="persistent-and-dated">
         <div className={styles.heading}>
@@ -92,7 +116,7 @@ export default async function DailyReportPage() {
             {story.contradiction?<p className={styles.storyCaveat}><strong>What could challenge it:</strong> {story.contradiction}</p>:null}
             <p className={styles.readingFoot}>
               <span>Story last updated <DualTimestamp value={story.updatedAt}/></span>
-              <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"#thesis-"+story.slug}>Read the full story →</Link>
+              <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"?story="+story.slug}>Read the full story →</Link>
             </p>
           </article>)}
         </div>:<p className={styles.empty}>The stored Stories couldn't be read. This is a research coverage gap, not a quiet market.</p>}
@@ -104,7 +128,7 @@ export default async function DailyReportPage() {
             <p className={styles.storyParagraph}><strong>Market connection:</strong> {storyMarketTransmission(story)}</p>
             {story.contradiction?<p className={styles.storyCaveat}><strong>What doesn't fit:</strong> {story.contradiction}</p>:null}
             <p className={styles.readingFoot}><span>Last amended <DualTimestamp value={story.updatedAt}/></span>
-              <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"#thesis-"+story.slug}>Read more →</Link></p>
+              <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"?story="+story.slug}>Read more →</Link></p>
           </article>)}</div>
         </details>:null}
       </section>
@@ -258,6 +282,7 @@ export default async function DailyReportPage() {
         history, recent eligible original observations and the upcoming calendar. It is not
         an exhaustive transcript of every MacroPulse post or every market print.
         Event impact is conditional unless matched market measurements establish it.</footer>
+      </details>
     </div>
   </main>;
 }

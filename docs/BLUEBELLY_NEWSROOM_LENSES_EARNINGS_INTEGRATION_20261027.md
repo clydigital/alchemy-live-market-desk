@@ -42,3 +42,8 @@ Conclusions may explicitly say `UNKNOWN`, `UNVERIFIED`, or `NO MEASURED REACTION
 
 ## Conflict protection
 The prior Bluebelly consolidation PR `#1053` already merged owner access. The parallel linked conversation owns creator sweep and transcripts, and ongoing separate work owns private PDF input quality. This PR changes **only Calendar / official earnings source adapter / pure calendar projection / tests / this document**. No schedule/provider secrets, storage/DB, canonical Dossier/Story, or Hybrid repo changes.
+
+## Earnings presentation standard (28 October 2026)
+
+The active recurring earnings briefing standard is now [Bluebelly Simple Earnings Scorecard](BLUEBELLY_SIMPLE_EARNINGS_SCORECARD.md). When a released issuer result is discussed, distinguish **beat/miss versus sourced pre-release consensus** from **up/down versus like-for-like fiscal period** for sales, profit, free cash flow and actual capital expenditure; separate management forward capex guidance. Explain it in one small table or 3–6 plain-English lines first, then one money/cash-conversion consequence and countercase. Use NOT REPORTED / NO COMPARABLE CONSENSUS when source evidence is absent. Scheduled MacroPulse, Research Gap, AI Bubble, and Writing Brain tasks have been instructed to use this rule without new tasks or authority changes.
+

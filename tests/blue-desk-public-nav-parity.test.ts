@@ -10,15 +10,18 @@ test("all visible public header links target approved host paths and real anchor
   const match = header.match(/const PUBLIC_NAV = \[([\s\S]*?)\] as const;/);
   assert.ok(match, "public navigation must be explicitly enumerated");
   const hrefs = [...match[1].matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m => m[1]);
-  assert.deepEqual(hrefs, ["/", "/key-stories", "/markets", "/calendar"]);
+  assert.deepEqual(hrefs, ["/", "/newsroom", "/regime-watch", "/markets", "/calendar",
+    "/daily-report", "/owner/presenter"]);
   for (const href of hrefs) {
     const url = new URL(href, "https://bluebelly-desk.vercel.app");
-    assert.equal(blueDeskHostAccess(url.pathname, url.hostname), "public", href);
-    assert.equal(blueDeskHostAccess(url.pathname, "alchemy-live-market-desk.vercel.app"), "public", href);
+    const access = href === "/owner/presenter"
+      ? "private" : "public";
+    assert.equal(blueDeskHostAccess(url.pathname, url.hostname), access, href);
+    assert.equal(blueDeskHostAccess(url.pathname, "alchemy-live-market-desk.vercel.app"), access, href);
     if (url.hash) assert.match(homepage, new RegExp('id="' + url.hash.slice(1) + '"'));
-    if (url.pathname === "/key-stories") {
-      const page=readFileSync(new URL("../app/blue-desk/key-stories/page.tsx",import.meta.url),"utf8");
-      assert.match(page,/data-bluebelly-stories="catalyst-led"/);
+    if (url.pathname === "/newsroom") {
+      const page=readFileSync(new URL("../app/blue-desk/newsroom/page.tsx",import.meta.url),"utf8");
+      assert.match(page,/data-public-newsroom="original-source-only"/);
     }
   }
 });
@@ -31,12 +34,17 @@ test("private legacy navigation remains available only on owner host", () => {
   const privateNav=header.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0]||"";
   const privateLinks=[...privateNav.matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m=>m[1]);
   assert.deepEqual(privateLinks, ["/blue-desk", "/blue-desk/key-stories", "/markets",
-    "/my-reports", "/owner/editorial", "/owner/presenter", "/owner/research", "/blue-desk/calendar"]);
-  for(const privatePath of ["/articles","/data/macro","/concepts","/owner/daily-articles","/owner/x-wire"]){
+    "/my-reports", "/owner/research", "/market-tools", "/owner/x-wire", "/blue-desk/calendar"]);
+  for(const privatePath of ["/articles","/data/macro","/concepts","/owner/daily-articles"]){
     assert.equal(blueDeskHostAccess(privatePath,"bluebelly-desk.vercel.app"),"blocked");
     assert.ok(!privateLinks.includes(privatePath),"legacy links stay outside the main navigation");
   }
+  assert.equal(blueDeskHostAccess("/owner/x-wire","bluebelly-desk.vercel.app"),"private");
+  assert.equal(blueDeskHostAccess("/market-tools","bluebelly-desk.vercel.app"),"private");
+  assert.equal(blueDeskHostAccess("/owner/x-wire/","bluebelly-desk.vercel.app"),"blocked");
   assert.ok(!privateNav.includes("/owner/publications"));
+  assert.ok(!privateNav.includes('["Presenter Prep", "/owner/presenter"]'));
+  assert.ok(privateNav.includes('["My Desk", "/my-reports"]'));
   assert.ok(!privateNav.includes("Publish Reports"));
   assert.match(homepage, /publicHost \? \(/);
   assert.match(homepage, /<Link href="\/owner\/presenter">Presenter Studio →<\/Link>/);

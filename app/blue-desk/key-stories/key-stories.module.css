@@ -124,3 +124,25 @@
 .card h3 a:hover{text-decoration:underline;text-underline-offset:4px}
 .storyRead{display:inline-flex;margin-top:14px;color:#99e4ff!important;font-size:13px;font-weight:750;text-underline-offset:3px}
 @media(max-width:760px){.categoryFilters{gap:7px}.categoryLink,.categorySelected{padding:7px 10px;font-size:11px;min-height:36px}}
+
+/* Key Stories V8: an editorial index rather than competing dashboard panels. */
+.intro{padding:clamp(23px,3vw,36px)!important;background:linear-gradient(125deg,#06364b,#041f30 65%,#041b29)!important;border-radius:14px}
+.intro h1{max-width:none;font-size:clamp(34px,4vw,49px)!important;line-height:1.1;margin:8px 0 13px;letter-spacing:-.04em}
+.intro>p:nth-of-type(2){max-width:68ch;font-size:15px;line-height:1.65;color:#c4dae6}
+.indexNav{display:flex;gap:8px;flex-wrap:wrap;margin-top:19px}
+.indexNav a{font-size:12px;font-weight:750;color:#c0e5f4;border:1px solid #356b83;border-radius:7px;padding:9px 13px;text-decoration:none;background:#073149}
+.indexNav a:hover,.indexNav a:focus-visible{background:#12516e;border-color:#77cae6;color:#fff}
+.indexNav a:first-child{background:#154c5b;border-color:#4ba7b2;color:#eaffff}
+.section{scroll-margin-top:100px}
+.investorTest{margin-top:30px}
+.summary{margin-top:18px;margin-bottom:25px}
+.summary span{background:#092a3c;border-color:#2c5367;font-size:11px}
+.catalystGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.catalystCard{background:linear-gradient(155deg,#073245,#041f30);border:1px solid #2e637b;padding:clamp(18px,2vw,24px)}
+.catalystCard h3{font-size:clamp(20px,2.1vw,27px)}
+.catalystCard .catalystFact{font-size:14px;color:#dae9f0}
+.humanStakes{margin:12px 0;padding:12px 14px}
+.humanStakes p{font-size:13px;line-height:1.7}
+.calendarStrip{gap:13px}
+.calendarCard{background:#07283b}
+@media(max-width:760px){.intro{padding:23px 19px!important}.intro h1{font-size:37px!important}.indexNav{gap:6px}.indexNav a{font-size:11px;padding:9px 10px}.catalystGrid{grid-template-columns:1fr}}

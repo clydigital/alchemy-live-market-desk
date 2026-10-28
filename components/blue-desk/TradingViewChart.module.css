@@ -1,0 +1,12 @@
+.panel{border:1px solid #2b6885;border-radius:9px;background:#031f32;color:#e9f6ff;padding:14px;min-width:0}
+.heading{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.heading strong{font-size:15px;display:block}.heading small{display:block;color:#9fc3d7;font-size:11px;margin-top:4px}
+.heading a{color:#85d9fb!important;font-size:12px}
+.picker{display:flex;align-items:center;gap:12px;margin:13px 0;color:#b9dceb;font-size:12px}
+.picker select{background:#0c3952;color:#ecfaff;padding:8px;border:1px solid #3a7899;border-radius:5px;max-width:100%}
+.load{padding:11px 16px;background:#0a5577;border:1px solid #4a9cc4;color:white;border-radius:5px;margin-top:14px;cursor:pointer;font-size:13px}
+.load:focus-visible,.picker select:focus-visible{outline:2px solid #90e8ff;outline-offset:3px}
+.chart{height:440px;max-width:100%;margin-top:15px}.chartCompact{height:350px;max-width:100%;margin-top:12px}
+.status{padding:25px 0;color:#c4dde9;line-height:1.5}
+.note{color:#9dbccc;font-size:11px;line-height:1.5;margin:10px 0 0}
+@media(max-width:600px){.chart{height:355px}.chartCompact{height:320px}.heading{align-items:flex-start}}

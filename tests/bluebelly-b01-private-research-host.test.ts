@@ -23,10 +23,12 @@ test("Branch 01 allows only three exact owner research paths as private, never p
   }
 
   assert.equal(blueDeskHostAccess("/owner/research", bluebelly), "private");
+  assert.equal(blueDeskHostAccess("/owner/x-wire", bluebelly), "private");
+  assert.equal(blueDeskHostAccess("/owner/x-wire/", bluebelly), "blocked");
   for (const path of [
     "/api/owner/editorial-publish", "/api/internal/canonical-feed",
     "/api/dossier-v2", "/api/hybrid-feed-v2", "/api/cron/research/morning",
-    "/owner/publications", "/owner/x-wire",
+    "/owner/publications",
   ]) {
     assert.equal(blueDeskHostAccess(path, bluebelly), "blocked", path);
   }

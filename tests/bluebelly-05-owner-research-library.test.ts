@@ -17,12 +17,15 @@ test("Research Library is an exact private Bluebelly enclave, never an anonymous
   assert.match(middleware,/supabase\.auth\.getClaims\(\)/);
   assert.match(middleware,/app_access_allowlist/);
 });
-test("owner menu retains private research link without advertising it as public navigation",()=>{
+test("research link remains in authenticated owner navigation, not the editorial public tabs",()=>{
   const nav=read("components/blue-desk/BlueDeskHeader.tsx");
   assert.match(nav,/\["Research Library", "\/owner\/research"\]/);
   assert.match(nav,/activePath === "\/owner\/research"/);
   const pub=nav.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0] || "";
-  assert.doesNotMatch(pub,/\/owner\/research/);
+  assert.doesNotMatch(pub,/\["Research Library", "\/owner\/research"\]/);
+  const priv=nav.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0] || "";
+  assert.match(priv,/\["Research Library", "\/owner\/research"\]/);
+  assert.equal(blueDeskHostAccess("/owner/research","bluebelly-desk.vercel.app"),"private");
 });
 test("Research Library uses preexisting private read-only Notion intake and exposes provenance",()=>{
   const page=read("app/owner/research/page.tsx");
@@ -30,8 +33,10 @@ test("Research Library uses preexisting private read-only Notion intake and expo
   assert.match(page,/fetchTodayNotionResearch/);
   assert.match(page,/data-owner-research-library="private-read-only"/);
   assert.match(explorer,/Research is not a Dossier decision/);
-  assert.match(explorer,/The search covers the visible index and recent retrieved page previews/);
-  assert.match(explorer,/Open 26 October market map/);
+  assert.match(explorer,/recent source-page previews retrieved/);
+  assert.match(explorer,/Browse MacroPulse archives/);
+  assert.match(explorer,/latestPulse\?\.url/);
+  assert.doesNotMatch(explorer,/Open 26 October market map/);
   assert.doesNotMatch(page+explorer,/service_role|createSupabaseClient|insert\(|update\(|delete\(|upsert\(/);
   assert.doesNotMatch(page+explorer,/process\.env|NOTION_TOKEN|NEXT_PUBLIC_NOTION/);
 });

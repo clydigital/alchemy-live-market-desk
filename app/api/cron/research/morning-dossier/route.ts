@@ -15,8 +15,16 @@ export async function GET(request: Request) {
  const now=new Date();
  const authorised=Boolean(process.env.CRON_SECRET?.trim()) &&
    acceptsResearchAuthorization(request.headers.get("authorization"),[process.env.CRON_SECRET!]);
- const reportEligible=authorised && process.env.NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED==="true" &&
-   isAutomaticReportFinalisationWindow(now,"morning");
+ const reportWindow=isAutomaticReportFinalisationWindow(now,"morning");
+ const scheduleEnabled=process.env.NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED==="true";
+ const reportEligible=authorised && scheduleEnabled && reportWindow;
+ // Status-only, no secrets, response bodies or private report contents.
+ // A 0-row report table alone cannot distinguish a skipped gate from a failed
+ // generator. This runs at the invocation boundary (not after slow Dossier).
+ if(reportWindow){
+  console.info(JSON.stringify({event:"bluebelly_pdf_cron_gate",slot:"morning",
+   asOf:now.toISOString(),authorised,scheduleEnabled,reportEligible}));
+ }
  // Start after authorisation, at the invocation timestamp, so a long Dossier
  // run cannot cause the PDF's only existing schedule slot to disappear.
  const reports=reportEligible?Promise.all([
@@ -26,6 +34,10 @@ export async function GET(request: Request) {
  const result=await handleScheduledPostResearchDossier(request, "morning");
  if(!reports)return result;
  const [report,slatePdf]=await reports;
+ console.info(JSON.stringify({event:"bluebelly_pdf_cron_outcome",slot:"morning",
+  marketPdfStatus:report.status,slatePdfStatus:slatePdf.status,
+  marketPdfReason:("reason" in report?report.reason:null)||null,
+  slatePdfReason:("reason" in slatePdf?slatePdf.reason:null)||null}));
  if(result.status!==200)return result;
  let payload:Record<string,unknown>;
  try{payload=await result.clone().json() as Record<string,unknown>;}

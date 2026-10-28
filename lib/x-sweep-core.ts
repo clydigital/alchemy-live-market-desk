@@ -32,6 +32,7 @@ export const X_CORE_ROSTER = Object.freeze([
   { handle: "Bluekurtic", focus: "energy" },
   { handle: "HFI_Research", focus: "energy" },
   { handle: "OilandEnergy", focus: "energy" },
+  { handle: "HormuzReport", focus: "hormuz" },
   { handle: "TheStudyofWar", focus: "geopolitics" },
   { handle: "Currentreport1", focus: "breaking" },
   { handle: "arena", focus: "markets" },

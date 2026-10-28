@@ -4,21 +4,86 @@ import test from "node:test";
 import { buildGlobalFlowMonitorFromInputs } from "../lib/global-flow-monitor-core.ts";
 import {
   buildEiaWeeklyPetroleumUrl,
+  buildEiaWeeklyPetroleumUrls,
+  classifyEiaApiFailure,
+  EIA_WEEKLY_ROUTE_GROUPS,
   EIA_WEEKLY_SERIES,
   fetchEiaWeeklyPetroleumSnapshot,
   parseEiaWeeklyPetroleumPayload,
   type EiaWeeklyPetroleumSnapshot,
 } from "../lib/providers/eia-v2.ts";
 
-test("EIA URL requests the configured weekly series through the official v2 route", () => {
-  const url = new URL(buildEiaWeeklyPetroleumUrl("test-key"));
-  assert.equal(url.origin + url.pathname, "https://api.eia.gov/v2/petroleum/sum/sndw/data/");
-  assert.equal(url.searchParams.get("api_key"), "test-key");
-  assert.equal(url.searchParams.get("frequency"), "weekly");
-  assert.deepEqual(
-    url.searchParams.getAll("facets[series][]").sort(),
-    Object.values(EIA_WEEKLY_SERIES).map((item) => item.id).sort(),
-  );
+test("EIA URL builder partitions source series across their actual official API route families", () => {
+  const urls=buildEiaWeeklyPetroleumUrls("test-key");
+  assert.equal(urls.length,3);
+  const expected={
+    stocks:["WCESTUS1","WGTSTUS1","WDISTUS1","WCSSTUS1"],
+    refinery:["WPULEUS3","WCRRIUS2"],
+    supply:["WCRFPUS2","WGFUPUS2"],
+  };
+  for(const {group,url:raw} of urls){
+    const url=new URL(raw);
+    assert.equal(url.origin+url.pathname,EIA_WEEKLY_ROUTE_GROUPS[group].url);
+    assert.equal(url.searchParams.get("api_key"),"test-key");
+    assert.equal(url.searchParams.get("frequency"),"weekly");
+    assert.deepEqual(url.searchParams.getAll("facets[series][]").sort(),expected[group].sort());
+  }
+  assert.equal(new URL(buildEiaWeeklyPetroleumUrl("test-key","stocks")).pathname,"/v2/petroleum/stoc/wstk/data/");
+});
+
+test("EIA fetch merges independently dated stock, refinery and supply observations without mixing endpoint facets",async()=>{
+  const calls:string[]=[];
+  const read=async(input:RequestInfo|URL)=>{
+    const url=new URL(String(input));
+    calls.push(url.pathname);
+    const ids=url.searchParams.getAll("facets[series][]");
+    const entries=ids.flatMap(id=>[
+      {period:"2026-10-23",series:id,value:"100",units:id==="WPULEUS3"?"Percent":"Thousand Barrels"},
+      {period:"2026-10-16",series:id,value:"99",units:id==="WPULEUS3"?"Percent":"Thousand Barrels"},
+    ]);
+    return new Response(JSON.stringify({response:{data:entries}}),{status:200});
+  };
+  const result=await fetchEiaWeeklyPetroleumSnapshot("fixture-key",{fetchImpl:read as typeof fetch});
+  assert.equal(result.state,"ready");
+  assert.equal(result.asOf,"2026-10-23");
+  assert.equal(Object.keys(result.metrics).length,8);
+  assert.equal(result.metrics.crudeStocksExSpr?.previous?.period,"2026-10-16");
+  assert.equal(result.metrics.refineryUtilisation?.latest.units,"%");
+  assert.deepEqual(calls.sort(),[
+    "/v2/petroleum/stoc/wstk/data/",
+    "/v2/petroleum/pnp/wiup/data/",
+    "/v2/petroleum/sum/sndw/data/",
+  ].sort());
+  assert.equal(result.note,null);
+  assert.equal(JSON.stringify(result).includes("fixture-key"),false);
+});
+
+test("EIA route failures retain partial primary observations and explicit missing group",async()=>{
+ const fetchImpl=async(input:RequestInfo|URL)=>{
+  const u=new URL(String(input));
+  if(u.pathname.includes("/pnp/wiup/"))return new Response("Bad request",{status:400});
+  const ids=u.searchParams.getAll("facets[series][]");
+  return new Response(JSON.stringify({response:{data:ids.map(id=>({period:"2026-10-23",series:id,value:100,units:"Thousand Barrels"}))}}),{status:200});
+ };
+ const result=await fetchEiaWeeklyPetroleumSnapshot("fixture-key",{fetchImpl:fetchImpl as typeof fetch});
+ assert.equal(result.state,"ready");
+ assert.equal(Object.keys(result.metrics).length,6);
+ assert.equal(result.metrics.refineryUtilisation,undefined);
+ assert.match(result.note||"",/refinery:HTTP_400/);
+ assert.equal(JSON.stringify(result).includes("fixture-key"),false);
+});
+
+
+test("EIA 403 identifies only supported auth rejection codes, never echoes vendor secrets",async()=>{
+ assert.equal(classifyEiaApiFailure(403,{error:{code:"API_KEY_INVALID",message:"secret"}}),"HTTP_403:API_KEY_INVALID");
+ assert.equal(classifyEiaApiFailure(403,{error:{code:"ATTACKER_SECRET",message:"secret"}}),"HTTP_403");
+ assert.equal(classifyEiaApiFailure(429,{error:{code:"OVER_RATE_LIMIT"}}),"HTTP_429:OVER_RATE_LIMIT");
+ const answer=async()=>new Response(JSON.stringify({error:{code:"API_KEY_UNVERIFIED",message:"No such key: secret"}}),{status:403});
+ const x=await fetchEiaWeeklyPetroleumSnapshot("fixture-secret",{fetchImpl:answer as typeof fetch});
+ assert.equal(x.state,"unavailable");
+ assert.match(x.note??"",/stocks:HTTP_403:API_KEY_UNVERIFIED/);
+ assert.equal(JSON.stringify(x).includes("fixture-secret"),false);
+ assert.equal(JSON.stringify(x).includes("No such key"),false);
 });
 
 test("EIA payload parser keeps latest and previous values by stable series identity and sets retrievedAt", () => {

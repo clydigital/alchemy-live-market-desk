@@ -81,7 +81,8 @@ test("private daily slate is behind login; no public COTD/OB or report download 
  const publicNav=header.match(/const PUBLIC_NAV = \[([\s\S]*?)\] as const;/)?.[1]||"";
  assert.doesNotMatch(publicNav,/COTD|\/reports/);
  assert.match(header,/My Daily Report/);
- assert.match(header,/Writing Desk/);
+ assert.match(header,/My Desk/);
+  assert.doesNotMatch(header,/\["Writing Desk", "\/owner\/editorial"\]/);
  assert.ok(header.includes('activePath === "/owner/daily-articles"'));
  assert.ok(header.includes('activePath === "/owner/x-wire"'));
  assert.match(owner,/data-private-daily-articles-page="owner-authenticated"/);

@@ -17,7 +17,7 @@ export function classifyPublicStory(
   story: Pick<PublicThesis, "title" | "slug">,
 ): PublicStoryCategory {
   const text = (story.title + " " + story.slug).toLowerCase();
-  if (/\b(?:brent|wti|crude|oil|opec|hormuz|refin(?:ed|ing|ery)|distillate|diesel|gas|lng|tanker|energy|middle.east|iran|gulf)\b/.test(text))
+  if (/\b(?:backwardation|contango|brent|wti|crude|oil|opec|hormuz|refin(?:ed|ing|ery)|distillate|diesel|gas|lng|tanker|energy|middle.east|iran|gulf)\b/.test(text))
     return "Energy & Geopolitics";
   if (/\b(?:ai|artificial.intelligence|nvidia|hyperscaler|semiconductor|chip|gpu|data.cent(?:re|er)|compute|technology|capex)\b/.test(text))
     return "AI & Technology";

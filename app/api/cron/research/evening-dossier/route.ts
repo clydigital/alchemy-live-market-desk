@@ -13,14 +13,25 @@ export async function GET(request: Request) {
  const now=new Date();
  const authorised=Boolean(process.env.CRON_SECRET?.trim()) &&
    acceptsResearchAuthorization(request.headers.get("authorization"),[process.env.CRON_SECRET!]);
- const reportEligible=authorised && process.env.NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED==="true" &&
-   isAutomaticReportFinalisationWindow(now,"evening");
+ const reportWindow=isAutomaticReportFinalisationWindow(now,"evening");
+ const scheduleEnabled=process.env.NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED==="true";
+ const reportEligible=authorised && scheduleEnabled && reportWindow;
+ // Status-only, no secrets, response bodies or private report contents.
+ // A 0-row report table alone cannot distinguish a skipped gate from a failed
+ // generator. This runs at the invocation boundary (not after slow Dossier).
+ if(reportWindow){
+  console.info(JSON.stringify({event:"bluebelly_pdf_cron_gate",slot:"evening",
+   asOf:now.toISOString(),authorised,scheduleEnabled,reportEligible}));
+ }
  const reportTask=reportEligible
   ?runAutomatedDailyPdfReport("evening",now).catch(()=>({status:"failed",reason:"daily_pdf_unavailable"}))
   :null;
  const result=await handleScheduledPostResearchDossier(request, "evening");
  if(!reportTask)return result;
  const report=await reportTask;
+ console.info(JSON.stringify({event:"bluebelly_pdf_cron_outcome",slot:"evening",
+  marketPdfStatus:report.status,
+  marketPdfReason:("reason" in report?report.reason:null)||null}));
  if(result.status!==200)return result;
  let payload:Record<string,unknown>;
  try{payload=await result.clone().json() as Record<string,unknown>;}

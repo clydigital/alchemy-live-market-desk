@@ -16,12 +16,15 @@ test("Public Stories mounts one reused source-qualified Newsroom with the existi
   assert.doesNotMatch(home, /NewsroomLensExplorer/);
 });
 
-test("Newsroom is a real anchored Stories section, not a blocked new public route", () => {
-  assert.match(stories, /href="#newsroom-title">Browse Newsroom topics/);
+test("Newsroom retains the legacy anchored section and adds a separately source-gated public route", () => {
+  assert.match(stories, /href="#newsroom-title">Newsroom<\/a>/);
   assert.match(newsroom, /id="newsroom-title"/);
   assert.ok(stories.indexOf('aria-labelledby="persistent-theses"') < stories.indexOf("<NewsroomLensExplorer "));
   assert.equal(blueDeskHostAccess("/key-stories", "bluebelly-desk.vercel.app"), "public");
-  assert.equal(blueDeskHostAccess("/newsroom", "bluebelly-desk.vercel.app"), "blocked");
+  assert.equal(blueDeskHostAccess("/newsroom", "bluebelly-desk.vercel.app"), "public");
+  const newPage=readFileSync(new URL("../app/blue-desk/newsroom/page.tsx",import.meta.url),"utf8");
+  assert.match(newPage,/getOriginalPressNews/);
+  assert.match(newPage,/selectVerifiedNewsBriefs/);
 });
 
 test("Lens preserves publisher provenance, explicit empty coverage, and avoids Story writes", () => {

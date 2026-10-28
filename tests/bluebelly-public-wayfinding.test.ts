@@ -26,5 +26,6 @@ test("Public hero omits internal Dossier approval jargon and private destination
   assert.match(page, /SOURCE-VERIFIED FACT/);
   assert.match(page, /DATED STORY CONTEXT/);
   assert.equal(blueDeskHostAccess("/owner/presenter", publicHost), "private");
-  assert.equal(blueDeskHostAccess("/newsroom", publicHost), "blocked");
+  assert.equal(blueDeskHostAccess("/newsroom", publicHost), "public");
+  assert.equal(blueDeskHostAccess("/regime-watch", publicHost), "public");
 });

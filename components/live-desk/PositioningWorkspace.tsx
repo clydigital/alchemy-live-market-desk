@@ -81,7 +81,7 @@ export default function PositioningWorkspace({ snapshots, storyLinks }: { snapsh
     <div className={styles.workspace}>
       <div className={styles.modeSwitch} aria-label="Positioning view">
         <button className={mode === "alchemy" ? styles.active : ""} onClick={() => setMode("alchemy")}>Raw Positions</button>
-        <button className={mode === "legacy" ? styles.active : ""} onClick={() => setMode("legacy")}>COTSignal-style View</button>
+        <button className={mode === "legacy" ? styles.active : ""} onClick={() => setMode("legacy")}>Alchemy 52-week Rank</button>
       </div>
 
       {!snapshots.length ? (
@@ -158,7 +158,7 @@ export default function PositioningWorkspace({ snapshots, storyLinks }: { snapsh
           <section className={styles.panel}>
             <div className={styles.panelHead}>
               <div>
-                <span className={styles.kicker}>COTSIGNAL-STYLE LEGACY VIEW</span>
+                <span className={styles.kicker}>ALCHEMY 52-WEEK RANK VIEW</span>
                 <h3>52-week positioning heatmap</h3>
                 <p>Each score ranks the latest CFTC net position against that market's own previous 52 weekly reports.</p>
               </div>
@@ -176,7 +176,7 @@ export default function PositioningWorkspace({ snapshots, storyLinks }: { snapsh
             <div className={styles.explainerGrid}>
               <article>
                 <strong>What the score displays</strong>
-                <p>A percentile rank, not a percentage long. A score of 90 means the latest net position sits above roughly 90% of the observations in its 52-week range.</p>
+                <p>An Alchemy percentile rank, not a percentage long or COTSignal’s min/max range score. A score of 90 means the latest net position ranks above roughly 90% of the observations in the 52-week sample.</p>
               </article>
               <article>
                 <strong>How to judge Specs</strong>
@@ -226,8 +226,9 @@ export default function PositioningWorkspace({ snapshots, storyLinks }: { snapsh
             </div>
 
             <div className={styles.sourceLine}>
-              <span>Scores use the latest observation against up to 52 prior weekly reports. Raw positions remain available in Raw Positions view.</span>
+              <span>Alchemy ranks the latest observation against up to 52 prior weekly reports, separately from COTSignal’s selected-window min/max score. Commercial ranks are display-inverted. COT observations are weekly and lag live market moves.</span>
               <a href={snapshots[0].sourceUrl} target="_blank" rel="noreferrer">Open official CFTC dataset ↗</a>
+              <a href="https://www.cotsignal.com" target="_blank" rel="noreferrer">Compare COTSignal methodology ↗</a>
             </div>
           </section>
         </>

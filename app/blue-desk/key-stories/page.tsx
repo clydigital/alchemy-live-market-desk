@@ -3,7 +3,9 @@ import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import { ScopeStrip } from "@/components/blue-desk/EntityIdentity";
 import InvestorTest from "@/components/blue-desk/InvestorTest";
+import RbnzDecisionFeature from "@/components/blue-desk/RbnzDecisionFeature";
 import NewsroomLensExplorer from "@/components/blue-desk/NewsroomLensExplorer";
+import EditorialStoryArt from "@/components/blue-desk/EditorialStoryArt";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
@@ -33,7 +35,7 @@ export const metadata = {
   description: "Dated market catalysts explained in human terms, upcoming company decisions and historical Story context.",
 };
 
-export default async function KeyStories({searchParams}:{searchParams?:Promise<{story?:string;category?:string;catalyst?:string}>}){
+export default async function KeyStories({searchParams}:{searchParams?:Promise<{story?:string;category?:string;catalyst?:string;feature?:string;page?:string}>}){
   const params=await searchParams;
   const now = new Date();
   const host = (await headers()).get("host");
@@ -45,6 +47,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({now}).catch(() => ({events:[],coverage:"unavailable" as const,warning:"Earnings coverage unavailable"})),
   ]);
+  if(params?.feature === "rbnz-october-2026") return <main className={desk.page}><BlueDeskHeader activePath="/blue-desk/key-stories"/><div className={desk.content}><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link><RbnzDecisionFeature /></div></main>;
   const motionRecency=await getStoryMotionRecency(theses.map(x=>x.id),now).catch(()=>[]);
   const orderedTheses=orderStoriesByLatestMotion(theses,motionRecency,now);
   // Query-only reader: the existing /key-stories host rule applies unchanged.
@@ -68,6 +71,8 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
   const activeCategory=PUBLIC_STORY_CATEGORIES.some(c=>c===requestedCategory)?requestedCategory:"All";
   const visibleTheses=activeCategory==="All"?orderedTheses:
     orderedTheses.filter(story=>classifyPublicStory(story)===activeCategory);
+  const pageNumber=Math.max(1,Math.min(Math.ceil(visibleTheses.length/6)||1,Number.parseInt(params?.page||"1",10)||1));
+  const pageTheses=visibleTheses.slice((pageNumber-1)*6,pageNumber*6);
   const indexHref=blueDeskPublicHref("/blue-desk/key-stories",host);
   const investorTest=selectFlagshipInvestorTest(orderedTheses);
   const motionNews = selectVerifiedNewsBriefs(raw, now, 18);
@@ -160,25 +165,25 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     <BlueDeskHeader activePath="/blue-desk/key-stories" />
     <div className={desk.content}>
       <header className={ui.intro}>
-        <p className={desk.kicker}>STORY DESK / CATALYSTS FIRST</p>
-        <h1>What happened — and why should anyone care?</h1>
-        <p>Events move markets. But is the opportunity worth the risk? Start with what happened,
-          see what investors are paying for, then examine what could change the verdict.</p>
-        <p>Source-verified developments and longer-running research are labelled separately.
-          A compelling thesis is not the same as an observed market reaction.</p>
-        <Link className={ui.returnLink}
-          href={blueDeskPublicHref("/blue-desk/daily-report",host)}>
-          Read the Daily Report
-        </Link>
-        {" · "}
-        <Link className={ui.returnLink} href="#newsroom-title">Browse Newsroom topics</Link>
+        <p className={desk.kicker}>BLUEBELLY / THE STORY DESK</p>
+        <h1>Key stories, explained.</h1>
+        <p>Start with what surprised the market. Follow the decision, the money, the contradiction and the next test—with original sources close at hand.</p>
+        <nav className={ui.indexNav} aria-label="Key Stories sections">
+          <a href="#persistent-theses">Browse by topic</a>
+          {topics.length ? <a href="#catalysts-first">Latest developments</a> : null}
+          <a href="#upcoming-decisions">What's next</a>
+          <a href="#manual-feature-stories">Deep research</a>
+          <a href="#newsroom-title">Newsroom</a>
+        </nav>
       </header>
-      <div className={ui.summary}>
-        <span>{theses.length} ongoing market stories</span>
-        <span>{topics.length} fresh news themes</span>
-        <span>{news.length} source-verified development{news.length === 1 ? "" : "s"}</span>
-        <span>As of <DualTimestamp value={now.toISOString()} /></span>
+
+      <div className={ui.summary} aria-label="Desk coverage">
+        <span>{news.length} source-verified news updates</span>
+        <span>{topics.length} active news themes</span>
+        <span>{theses.length} ongoing research stories</span>
+        <span>Feed checked <DualTimestamp value={now.toISOString()} /></span>
       </div>
+      <section className={ui.section} aria-label="Current event readers"><h2>Current developments</h2><div className={ui.cards}>{topics.map(topic=><article className={ui.card} key={topic.id}><p className={ui.kicker}>VERIFIED NEWS · <DualTimestamp value={topic.latestObservedAt}/></p><h3><Link href={indexHref+"?catalyst="+topic.id}>{topic.updates[0].headline}</Link></h3><p>{topic.guidingQuestion}</p></article>)}<article className={ui.card}><p className={ui.kicker}>DATED FEATURE · 28 OCTOBER 2026</p><h3><Link href={indexHref+"?feature=rbnz-october-2026"}>New Zealand’s surprise pause</Link></h3><p>Why a hold can surprise: follow expectations, the decision and the reported currency response.</p></article></div></section>
       <section className={ui.section} aria-labelledby="persistent-theses" data-persistent-thesis-ledger="source-identity">
         <p className={ui.kicker}>THE STORY LIBRARY</p>
         <h2 id="persistent-theses">Key Stories by market theme</h2>
@@ -194,11 +199,13 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
             {category}
           </Link>)}
         </nav>
-        {visibleTheses.length?<div className={ui.cards}>{visibleTheses.map(thesis=>
+        {visibleTheses.length?<div className={ui.cards}>{pageTheses.map(thesis=>
           <article className={ui.card} id={"thesis-"+thesis.slug} key={thesis.id} data-stored-story={thesis.status}>
             <p className={ui.kicker}>{classifyPublicStory(thesis)} · ONGOING RESEARCH</p>
             <h3><Link href={indexHref+"?story="+encodeURIComponent(thesis.slug)}>{thesis.title}</Link></h3>
-            <p className={ui.storyIntro}>{thesis.thesis}</p>
+            <p className={ui.storyIntro}>{thesis.question}</p>
+            <p><strong>Next test:</strong> {thesis.nextTest || "No dated test recorded."}</p>
+            <details><summary>Supporting and contradicting signals</summary><p>{thesis.support || "Supporting evidence unavailable in this snapshot."}</p><p>{thesis.contradiction || "Counter-evidence unavailable in this snapshot."}</p></details>
             <p className={ui.timeNote}>{thesis.latestMotionAt?
               <>LINKED CONTEXT · {thesis.latestMotionVerification==="VERIFIED"?"SOURCE-VERIFIED EVENT":"UNVERIFIED RESEARCH LEAD"} · <DualTimestamp value={thesis.latestMotionAt}/> · </>:null}
               Last researched <DualTimestamp value={thesis.updatedAt}/>. Historical thesis, not a confirmed live market reaction.</p>
@@ -208,6 +215,8 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
           </article>)}</div>:
           <p className={ui.empty}>No Stories are currently available in this category. Try All Stories; this does not imply an inactive market.</p>}
       </section>
+      <nav className={ui.categoryFilters} aria-label="Research pages">{Array.from({length:Math.ceil(visibleTheses.length/6)},(_,i)=><Link key={i} aria-current={pageNumber===i+1?"page":undefined} href={indexHref+"?category="+encodeURIComponent(activeCategory)+"&page="+(i+1)}>Page {i+1}</Link>)}</nav>
+      <details><summary>Research tools, source observations and further reading</summary>
       {investorTest ? <InvestorTest view={investorTest}/> : null}
       {topics.length ? <>{liveCatalystSection}{upcomingDecisionSection}</> : <>
         {upcomingDecisionSection}
@@ -216,6 +225,30 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
           Historical Story research follows below.</p>
       </>}
       <NewsroomLensExplorer news={news} asOf={now.toISOString()} />
+      <section className={ui.section} aria-labelledby="manual-feature-stories" data-independent-research-features="source-linked-archive">
+        <p className={ui.kicker}>EXPLORE THE BIGGER PICTURE</p>
+        <h2 id="manual-feature-stories">Deep research and historical comparisons</h2>
+        <p>The market does not begin and end with today’s headlines. Read the wider investigations and their unresolved questions.</p>
+        <div className={ui.cards}>
+          <article className={ui.card}><h3>New Zealand’s surprise pause</h3><p>Expectations, the rate decision and the currency response — a dated October 2026 feature.</p><Link href={indexHref+"?feature=rbnz-october-2026"}>Read the RBNZ story →</Link></article>
+          <article className={ui.card}>
+            <p className={ui.kicker}>ASIA EQUITIES · 27 OCTOBER 2026</p>
+            <div style={{maxWidth:370,marginBottom:12}}><EditorialStoryArt motif="china" headline="Asia AI equities"/></div>
+            <h3>China's AI crash vs Korea, Taiwan, Hong Kong and Japan</h3>
+            <p>What fell, why the chip markets disagree and what would confirm a broader contagion.</p>
+            <Link href={blueDeskPublicHref("/blue-desk/features/asia-equities",host)}>Read Asia story and manual research →</Link>
+          </article>
+          <article className={ui.card}>
+            <p className={ui.kicker}>GLOBAL BONDS · FRANCE VS GREECE</p>
+            <div style={{maxWidth:370,marginBottom:12}}><EditorialStoryArt motif="bonds" headline="Sovereign bond stress"/></div>
+            <h3>Greece's 2010 crisis versus France's bond scare</h3>
+            <p>What 178 basis points signalled, why the spread retreated and how to test sovereign contagion.</p>
+            <Link href={blueDeskPublicHref("/blue-desk/features/global-bonds",host)}>Read global bonds story and manual research →</Link>
+          </article>
+        </div>
+      </section>
+
+
       <section className={ui.section} aria-labelledby="recent-originals">
         <h2 id="recent-originals">Latest original-source market observations</h2>
         <p>Exact dated measurements or official releases only. A market close does not explain its own cause,
@@ -230,6 +263,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
         )}</div>:<p className={ui.empty}>No qualifying recent original-source measurements. This is not evidence of an inactive market.</p>}
       </section>
 
+      </details>
     </div>
   </main>;
 }
