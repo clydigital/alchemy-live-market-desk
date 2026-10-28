@@ -172,6 +172,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <div className={styles.quickLinks}>
             <Link href={blueDeskPublicHref("/blue-desk", host)}>Market stories →</Link>
             <Link href={blueDeskPublicHref("/blue-desk/calendar", host)}>Economic calendar →</Link>
+            <Link href={blueDeskPublicHref("/blue-desk/hormuz", host)}>Hormuz / oil / distillates watch →</Link>
           </div>
         </div>
         <footer className={styles.footer}><span>Blue Desk</span></footer>
