@@ -21,6 +21,10 @@ export default function SourceTweetEmbeds({posts,sourceLink}:{posts:readonly Emb
   {posts.length?<div className={s.posts} ref={containerRef}>
    {posts.map(post=><article className={s.post} key={post.id}>
     <div className={s.meta}><strong>@{post.handle}</strong><small>{post.phase}</small></div>
+    <p className={s.date}><time dateTime={post.postedAt}>
+      {new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}).format(new Date(post.postedAt))} ET
+    </time> · Captured post excerpt, not fact-checked</p>
+    <p className={s.snapshot}>“{post.caption}{post.caption.split(/\s+/).length>=22?"…":""}”</p>
     <blockquote className="twitter-tweet" data-theme="dark" data-conversation="none"
       data-dnt="true" data-cards="hidden">
      <a href={post.url} target="_blank" rel="noopener noreferrer">Read the dated X post from @{post.handle} ↗</a>
