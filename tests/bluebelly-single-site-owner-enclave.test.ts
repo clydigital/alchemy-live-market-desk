@@ -68,7 +68,7 @@ test("every browser API remains signed-in and field-specific, not a cross-site m
  assert.match(checklist,/expectedRevision/);
 });
 
-test("all eight main Bluebelly links remain visible while private routes stay gated",()=>{
+test("all nine main Bluebelly links remain visible while private routes stay gated",()=>{
  const header=read("components/blue-desk/BlueDeskHeader.tsx");
  const presenter=read("app/owner/presenter/page.tsx");
  const editorial=read("app/owner/editorial/page.tsx");
