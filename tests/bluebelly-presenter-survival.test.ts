@@ -34,7 +34,7 @@ test("nearest FOMC is editorially ranked above alphabetically first Alphabet ear
  assert.doesNotMatch(summary.opening,/Fed (held|hiked|cut) today/i);
 });
 test("no qualifying event does not invent price levels or assert a market reaction",()=>{
- const summary=buildPresenterOneMinute([],empty,now);
+ const summary=buildPresenterOneMinute([],empty,new Date("2026-11-10T16:00:00Z"));
  assert.equal(summary.state,"SOURCE COVERAGE GAP");
  assert.equal(summary.eventTitle,null);
  assert.deepEqual(summary.watch,[]);
