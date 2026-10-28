@@ -200,35 +200,47 @@ function materialTitleFound(html: string, title: string) {
   return words.length >= 3 && words.filter(word => header.includes(word)).length >= Math.min(3, words.length);
 }
 
-type Result = { state: "checked" | "blocked" | "no_new_items"; checked: number; items: IntakeItemInput[] };
+type FeedDiagnostics={
+ feedEntries:number;rejectedUrl:number;unattestedPolicyClock:number;
+ rejectedClock:number;rejectedHeadline:number;unreadablePage:number;titleMismatch:number;
+};
+type Result = { state: "checked" | "blocked" | "no_new_items"; checked: number; items: IntakeItemInput[];
+ diagnostics:FeedDiagnostics; note?:string };
 
 async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch): Promise<Result> {
+  const diagnostics:FeedDiagnostics={feedEntries:0,rejectedUrl:0,unattestedPolicyClock:0,
+    rejectedClock:0,rejectedHeadline:0,unreadablePage:0,titleMismatch:0};
   try {
     const resp = await fetchImpl(feed.feed, {
       cache: "no-store",
       headers: { Accept: "application/rss+xml,application/atom+xml,text/xml,application/xml", "User-Agent": "Alchemy Live Desk official-source reader" },
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
-    if (!resp.ok) return { state: "blocked", checked: 0, items: [] };
+    if (!resp.ok) return { state: "blocked", checked: 0, items: [],diagnostics,note:"rss_http_"+resp.status };
     const xml = (await resp.text()).slice(0, 250_000);
-    const candidates = parseOfficialPressFeed(xml).flatMap(item => {
+    const entries=parseOfficialPressFeed(xml);
+    diagnostics.feedEntries=entries.length;
+    const candidates = entries.flatMap(item => {
       const url = fixedUrl(item.url, feed);
-      if (!url) return [];
+      if (!url){diagnostics.rejectedUrl++;return [];}
       const specialPolicyClock = feed.host === "www.bankofcanada.ca" || feed.host === "www.rbnz.govt.nz";
       const scheduled = specialPolicyClock ? POLICY_RELEASE_CLOCKS[url] : null;
       // Bank calendar day or local-time RSS fields do not establish the
       // release minute. Only the separately attested official event clock may
       // be used for those domains. Reject un-attested future policy releases.
-      if (specialPolicyClock && !scheduled) return [];
+      if (specialPolicyClock && !scheduled){diagnostics.unattestedPolicyClock++;return [];}
       const feedAt = Date.parse(item.publishedAt);
       const attestedAt = scheduled ? Date.parse(scheduled.releaseAt) : null;
       // The feed date must still be plausible for this dated original event.
       // A future-dated or unrelated item cannot borrow the attested clock.
       if (scheduled && (!Number.isFinite(feedAt) || feedAt > now.getTime() + 5*60_000 ||
-          Math.abs(feedAt - attestedAt!) > 24*3_600_000)) return [];
+          Math.abs(feedAt - attestedAt!) > 24*3_600_000)){diagnostics.rejectedClock++;return [];}
       const publishedAt = scheduled?.releaseAt ?? item.publishedAt;
-      return recent(publishedAt, now) && materiallyActionableOfficialHeadline(feed,item.title)
-        ? [{ ...item, url, publishedAt, scheduleSource: scheduled?.scheduleSource ?? null }] : [];
+      if(!recent(publishedAt,now)){diagnostics.rejectedClock++;return [];}
+      if(!materiallyActionableOfficialHeadline(feed,item.title)){
+        diagnostics.rejectedHeadline++;return [];
+      }
+      return [{ ...item, url, publishedAt, scheduleSource: scheduled?.scheduleSource ?? null }];
     }).slice(0, MAX_PER_FEED);
     const results = await Promise.all(candidates.map(async entry => {
       try {
@@ -239,10 +251,16 @@ async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch):
           signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         });
         if (!response.ok ||
-          !(response.headers.get("content-type") || "").toLowerCase().includes("text/html")) return null;
-        if (response.url && !fixedUrl(response.url, feed)) return null;
+          !(response.headers.get("content-type") || "").toLowerCase().includes("text/html")){
+          diagnostics.unreadablePage++;return null;
+        }
+        // An allowed-domain redirect to a different article is not proof of
+        // this RSS item's headline, clock or source identity.
+        if(response.url && fixedUrl(response.url,feed)!==entry.url){
+          diagnostics.unreadablePage++;return null;
+        }
         const html = (await response.text()).slice(0, 150_000);
-        if (!materialTitleFound(html, entry.title)) return null;
+        if (!materialTitleFound(html, entry.title)){diagnostics.titleMismatch++;return null;}
         const title = entry.title.slice(0, 500);
         const sourceFacts=extractOfficialPressFacts(html,title);
         return {
@@ -271,13 +289,14 @@ async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch):
           reviewReason: "Original official RSS publication clock and directly linked same-host press-release HTML checked. Headline describes the announcement only, not its financial effect.",
         };
       } catch {
+        diagnostics.unreadablePage++;
         return null;
       }
     }));
     const items = results.filter((item): item is NonNullable<typeof item> => item !== null);
-    return { state: items.length ? "checked" : "no_new_items", checked: candidates.length, items };
+    return { state: items.length ? "checked" : "no_new_items", checked: candidates.length, items,diagnostics };
   } catch {
-    return { state: "blocked", checked: 0, items: [] };
+    return { state: "blocked", checked: 0, items: [],diagnostics,note:"rss_fetch_or_parse_failed" };
   }
 }
 
@@ -298,7 +317,15 @@ export async function applyOfficialPressNewsIntake(
   }
   const status = results.map((result, i) =>
     OFFICIAL_PRESS_FEEDS[i].name + ":" + result.state + ",linked=" + result.checked
-    + ",read=" + result.items.length).join(" | ");
+    + ",read=" + result.items.length
+    + ",feed_entries=" + result.diagnostics.feedEntries
+    + ",wrong_url=" + result.diagnostics.rejectedUrl
+    + ",untimed_policy=" + result.diagnostics.unattestedPolicyClock
+    + ",stale_or_bad_clock=" + result.diagnostics.rejectedClock
+    + ",nonmaterial=" + result.diagnostics.rejectedHeadline
+    + ",html_failed=" + result.diagnostics.unreadablePage
+    + ",title_mismatch=" + result.diagnostics.titleMismatch
+    + (result.note?",error="+result.note:"")).join(" | ");
   return {
     ...input,
     items: [...input.items, ...appended],
