@@ -1,5 +1,6 @@
 "use client";
 import {useState} from "react";
+import type {ReactNode} from "react";
 import Link from "next/link";
 import type {NewsBriefV1} from "@/lib/market-brief-news";
 import {EDITORIAL_TOPICS,editorialNewsTopics,type EditorialTopicId} from "@/lib/bluebelly-editorial-architecture";
@@ -11,7 +12,7 @@ function clock(value:string){
  const d=new Date(value);
  return Number.isFinite(d.getTime())?new Intl.DateTimeFormat("en-GB",{timeZone:"America/New_York",day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",timeZoneName:"short"}).format(d):"Time unavailable";
 }
-export default function BluebellyNewsWire({news,initialQuery="",now,readerHref}:{news:readonly NewsBriefV1[];initialQuery?:string;now:string;readerHref:string}){
+export default function BluebellyNewsWire({news,initialQuery="",now,readerHref,children}:{news:readonly NewsBriefV1[];initialQuery?:string;now:string;readerHref:string;children?:ReactNode}){
  const [topic,setTopic]=useState<EditorialTopicId>("all");
  const [query,setQuery]=useState(initialQuery.slice(0,100));
  const [shortlist,setShortlist]=useState<string[]>([]);
@@ -33,6 +34,7 @@ export default function BluebellyNewsWire({news,initialQuery="",now,readerHref}:
    <h1>Every headline has a place.</h1>
    <p>Central banks, AI, bonds, energy, FX and earnings. Read a short in-house explanation first, then consult the dated original. Older verified reports retain their event dates.</p>
   </header>
+  {children}
   <div className={styles.sectionTitle}><div><h2>Browse by category</h2><p>Publication time, provider and original link stay attached to each report.</p></div>
    <label className={styles.search}>Find a report <input type="search" value={query} onChange={e=>setQuery(e.target.value.slice(0,100))} placeholder="Search issuers, stories, themes" /></label>
   </div>
