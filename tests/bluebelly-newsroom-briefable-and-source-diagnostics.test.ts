@@ -12,7 +12,8 @@ test("newsroom provides distinct dated approved decision explainers without fals
  const wire=file("components/blue-desk/BluebellyNewsWire.tsx");
  assert.match(page,/buildPresenterCalendar\(macro,earnings,now\)/);
  assert.match(page,/decisionTopics\(news,calendar,now\)/);
- assert.match(page,/<NewsroomBriefableEvents topics=\{briefable\} readerHref=\{readerHref\}/);
+ assert.match(page,/<NewsroomBriefableEvents topics=\{briefableNoDuplicate\} readerHref=\{readerHref\}/);
+ assert.match(page,/briefable\.filter\(t=>!\(t\.id==="rbnz-october-2026-editorial"/);
  assert.match(page,/<BluebellyNewsWire news=\{news\}/);
  assert.match(wire,/\{children\}/);
  const chrome=file("components/blue-desk/bluebelly-chrome.module.css");
