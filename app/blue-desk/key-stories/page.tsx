@@ -20,6 +20,7 @@ import StoryEditorialArticle from "@/components/blue-desk/StoryEditorialArticle"
 import VerifiedCatalystArticle from "@/components/blue-desk/VerifiedCatalystArticle";
 import ShortNewsRecap, {recapFromDecision,recapFromNews} from "@/components/blue-desk/ShortNewsRecap";
 import NewsroomEventReader from "@/components/blue-desk/NewsroomEventReader";
+import {getEventSocialContext} from "@/lib/bluebelly-event-social-server";
 import {bankDecisionById} from "@/lib/bluebelly-bank-decision-snapshots";
 import {reportedEditorialById} from "@/lib/bluebelly-reported-editorial";
 import {decisionTopics} from "@/lib/bluebelly-decision-brief";
@@ -49,10 +50,14 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
   // They are NOT accepted original-RSS NewsBrief records or private research.
   const policy=typeof params?.policy==="string"?bankDecisionById(params.policy,now):null;
   const reported=typeof params?.reported==="string"?reportedEditorialById(params.reported,now):null;
+  // Existing accepted, low-trust social leads are context, never proof of
+  // the policy decision. Failed reads degrade to the official link.
+  const socialPosts=policy?await getEventSocialContext(policy.id,policy.releaseAt,now).catch(()=>[]):[];
   if(policy||reported) return <main className={desk.page}>
     <BlueDeskHeader activePath="/blue-desk/key-stories"/>
     <div className={desk.content}><NewsroomEventReader
       event={policy?{kind:"bank",value:policy}:{kind:"reported",value:reported!}}
+      socialPosts={socialPosts}
       backHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/></div>
   </main>;
   const [raw, theses, observations, originalPress, macro, earnings] = await Promise.all([
