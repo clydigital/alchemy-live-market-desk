@@ -11,11 +11,11 @@ export function decisionTopics(news: readonly NewsBriefV1[], calendar: Presenter
     id:t.id,title:t.updates[0].headline, fact:t.updates[0].summary,
     why:t.humanStake,test:t.guidingQuestion,at:t.latestObservedAt,
     sourceUrl:t.updates[0].sourceUrl,sourceName:t.updates[0].sourceName,
-    href:'?catalyst='+t.id,status:'NEW' as 'NEW'|'UPCOMING',
+    href:'?news='+encodeURIComponent(t.updates[0].id),status:'NEW' as 'NEW'|'UPCOMING',
     mechanism:t.marketMechanism, assets:[] as string[], priority:2,
   }));
   for(const result of getRecentVerifiedEarningsScorecards(now,7)) {
-    topics.push({id:result.id,title:result.headline,fact:result.company+" · "+result.fiscalPeriod+": "+result.metrics.filter(m=>m.state==='measured').map(m=>m.name+" "+m.value).join("; "),why:result.conclusion,test:result.nextTest,at:result.releaseDay,sourceUrl:result.sourceUrl,sourceName:result.sourceName,href:'',status:'NEW',mechanism:result.outlook,assets:[result.ticker],priority:3});
+    topics.push({id:result.id,title:result.headline,fact:result.company+" · "+result.fiscalPeriod+": "+result.metrics.filter(m=>m.state==='measured').map(m=>m.name+" "+m.value).join("; "),why:result.conclusion,test:result.nextTest,at:result.releaseDay,sourceUrl:result.sourceUrl,sourceName:result.sourceName,href:'?brief='+encodeURIComponent(result.id),status:'NEW',mechanism:result.outlook,assets:[result.ticker],priority:3});
   }
   const upcoming = selectBlueDeskUpcoming(calendar,now,7);
   // One policy decision and one earnings theme; never pad the slate with tickers.
@@ -26,7 +26,7 @@ export function decisionTopics(news: readonly NewsBriefV1[], calendar: Presenter
     if(related){related.test=event.title+' · '+(event.scheduledAt||event.localDate)+' · '+event.decidingQuestion;continue;}
     topics.push({id:event.id,title:event.title,fact:'Scheduled decision; no verified outcome yet.',
       why:event.decidingQuestion,test:event.decidingQuestion,at:event.scheduledAt||event.localDate,
-      sourceUrl:event.sourceUrl,sourceName:event.sourceName,href:'',status:'UPCOMING',
+      sourceUrl:event.sourceUrl,sourceName:event.sourceName,href:'?brief='+encodeURIComponent(event.id),status:'UPCOMING',
       mechanism:kind==='earnings'?'Revenue growth must become cash after operating costs and investment. Compare guidance and cash conversion before drawing a valuation conclusion.':'The decision matters relative to expectations. Compare the policy message with independently measured yields and currency moves before assigning a cause.',
       assets:event.affectedAssets,priority:event.scheduledAt && Date.parse(event.scheduledAt)-+now<=72*3600000?3:1});
   }
