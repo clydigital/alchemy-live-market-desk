@@ -334,12 +334,16 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
       {earlierNews.length?<section className={ui.section} id="recent-reports" aria-label="More verified reports from this week">
         <p className={ui.kicker}>SOURCE-VERIFIED / DATED PREVIOUS DAYS</p>
         <h2>More news from the past seven days</h2>
-        <p>These are previously published original-source announcements, not new breaking events.</p>
+        <p>Previously published original-source announcements and dated official analyses. They are not new breaking events or proof of a market reaction.</p>
         <div className={ui.cards}>{earlierNews.map(n=><article className={ui.card} key={n.id}>
           <div style={{maxWidth:240,marginBottom:12}}><EditorialStoryArt headline={n.headline} summary={n.summary} compact/></div>
           <p className={ui.kicker}>EARLIER REPORT · <DualTimestamp value={n.occurredAt}/></p>
           <h3><Link href={indexHref+"?news="+encodeURIComponent(n.id)}>{n.headline}</Link></h3>
-          <p>{storyCoverageForNews(n).status==="RESEARCH_ENRICHED"?"Full dated analysis available: previous, expectation, actual, market implications and evidence limits.":"Original announcement verified. Prior expectations, numerical comparison and actual market response remain research gaps."}</p>
+          <p>{storyCoverageForNews(n).status==="RESEARCH_ENRICHED"
+            ? "Full dated analysis available: previous, expectation, actual, market implications and evidence limits."
+            : n.sourceName.includes("official analysis")
+            ? "Official analytical publication verified. Its dated findings are not a newly announced policy decision or an independently measured price reaction."
+            : "Original announcement verified. Prior expectations, numerical comparison and actual market response remain research gaps."}</p>
           <Link className={ui.storyRead} href={indexHref+"?news="+encodeURIComponent(n.id)}>{storyCoverageForNews(n).status==="RESEARCH_ENRICHED"?"Read the financial investigation →":"Read source notice and research gaps →"}</Link>
           <p><small>{n.sourceName} · verified original report</small></p>
         </article>)}</div>

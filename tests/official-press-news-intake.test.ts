@@ -39,7 +39,7 @@ test("Fed monetary policy and SEC trading rules enter canonical intake after ori
   }) as typeof fetch;
   const result=await applyOfficialPressNewsIntake(input(),{now,fetchImpl});
   assert.deepEqual(result.items.map(x=>x.url),[fedUrl,secUrl]);
-  assert.equal(seen.length,11);
+  assert.equal(seen.length,12);
   const motions = buildMarketMotionCandidates(result.items.map(i => ({
     ...i, candidateScore: 84, evidence: i.evidence || [],
   })), [], { now });

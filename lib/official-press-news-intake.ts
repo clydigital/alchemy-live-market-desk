@@ -48,6 +48,15 @@ export const OFFICIAL_PRESS_FEEDS = [
     publisher:"U.S. Energy Information Administration",
   },
   {
+    // First-party EIA energy analysis, not a press-release event. Preserve
+    // the original source time and distinguish it from verified price action.
+    name: "EIA Today in Energy original analysis",
+    feed: "https://www.eia.gov/rss/todayinenergy.xml",
+    host: "www.eia.gov",
+    path: /^\/todayinenergy\/detail\.php$/i,
+    publisher: "EIA Today in Energy (official analysis)",
+  },
+  {
     // Direct, original-policy newsroom source. Do not treat policy previews as
     // realised decisions; the announcement must pass the headline + HTML gate.
     name: "Bank of Canada press releases",
@@ -139,11 +148,21 @@ export function parseOfficialPressFeed(xml: string) {
 
 function fixedUrl(value: string, feed: Feed) {
   try {
-    const url = new URL(value);
+    // EIA's official RSS emits root-relative article URLs; only that
+    // publisher gets a relative-link base (never protocol-relative URLs).
+    const eiaRelative = feed.host === "www.eia.gov" && value.startsWith("/") && !value.startsWith("//");
+    if (value.startsWith("/") && !eiaRelative) return null;
+    const url = new URL(value, eiaRelative ? "https://www.eia.gov" : undefined);
+    // ECB's official RSS inserts a second slash after the host. Normalise
+    // only this known first-party prefix, then apply the exact path allowlist.
+    if (feed.host === "www.ecb.europa.eu" && url.pathname.startsWith("//press/"))
+      url.pathname = url.pathname.slice(1);
     if (url.protocol !== "https:" || url.username || url.password ||
       url.hostname.toLowerCase() !== feed.host || !feed.path.test(url.pathname)) return null;
     url.hash = "";
     for (const key of [...url.searchParams.keys()]) if (/^(?:utm_.+|fbclid|gclid)$/i.test(key)) url.searchParams.delete(key);
+    const eiaAnalysis = feed.feed === "https://www.eia.gov/rss/todayinenergy.xml";
+    if (url.search && !(eiaAnalysis && /^\?id=\d{4,8}$/.test(url.search))) return null;
     return url.toString();
   } catch {
     return null;
@@ -162,6 +181,11 @@ export function materiallyActionableOfficialHeadline(feed: Feed, headline: strin
     return /^monetary policy decisions$/i.test(headline.trim()) ||
       (/\b(?:ECB|governing council|monetary policy|key interest rates?|deposit facility)\b/i.test(headline)
         && /\b(?:decides?|decision|raises?|cuts?|maintains?|holds?|changes?|increases?|lowers?|updates?)\b/i.test(headline));
+  // Analytical source observations are useful when material, but are not
+  // classified as independently observed market catalysts.
+  if (feed.feed === "https://www.eia.gov/rss/todayinenergy.xml")
+    return /\b(?:oil|crude|petroleum|gas|gasoline|diesel|electricity|energy|production|lng|refiner(?:y|ies)|fuel|hydro|power)\b/i.test(headline)
+      && /\b(?:imports?|importing|exports?|exporting|increases?|increasing|decreases?|decreasing|rises?|rose|falls?|fell|declines?|declining|grows?|grew|record|shortage|higher|lower|share|outlook|surge|supply)\b/i.test(headline);
   if (feed.host === "www.eia.gov") return /\b(?:oil|crude|petroleum|gas|gasoline|diesel|electricity|energy|production|outlook|inventor(?:y|ies)|hormuz|refin(?:ery|eries)|lng)\b/i.test(headline)
     && /\b(?:forecasts?|expects?|raises?|lowers?|increases?|decreases?|revises?|reports?|releases?|updates?|projects?)\b/i.test(headline);
   if (feed.host === "www.bankofcanada.ca")
@@ -276,7 +300,9 @@ async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch):
           materiality: 80,
           novelty: 76,
           recommendedAction: "collect_evidence" as const,
-          newsSignal: entry.scheduleSource
+          newsSignal: feed.feed === "https://www.eia.gov/rss/todayinenergy.xml"
+            ? "First-party EIA analysis; source-verified observation, not a new policy action or proof of a contemporaneous price move."
+            : entry.scheduleSource
             ? "Original policy release verified. Exact decision clock independently drawn from the official bank event schedule: " + entry.scheduleSource + ". Publisher RSS time is NOT the event release time. No asset reaction is established."
             : "Original issuer/regulator announcement. A related price move or market impact has not been established.",
           evidence: [{
@@ -286,7 +312,9 @@ async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch):
             title, url:entry.url, publisher:feed.publisher,
             publishedAt:entry.publishedAt, claim:"OFFICIAL_FACT: "+fact,
           }))],
-          reviewReason: "Original official RSS publication clock and directly linked same-host press-release HTML checked. Headline describes the announcement only, not its financial effect.",
+          reviewReason: feed.feed === "https://www.eia.gov/rss/todayinenergy.xml"
+            ? "Original official RSS publication clock and directly linked same-host analysis HTML checked. This is source analysis, not a newly announced event or its market effect."
+            : "Original official RSS publication clock and directly linked same-host press-release HTML checked. Headline describes the announcement only, not its financial effect.",
         };
       } catch {
         diagnostics.unreadablePage++;
