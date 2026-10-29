@@ -8,7 +8,8 @@ import type { PublicMarketObservation } from "../lib/blue-desk-public-markets.ts
 function row(id: string, change: number | null, unit: "%" | "bp" = "%"): PublicMarketObservation {
   return {
     id, symbol: id.toUpperCase(), label: id, type: unit === "bp" ? "Rates" : "Major Index",
-    last: 100, change, changeUnit: unit, asOf: "2026-10-29",
+    last: 100, change, change3d: change === null ? null : change * 2,
+    change5d: change === null ? null : change * 3, changeUnit: unit, asOf: "2026-10-29",
     frequency: "daily", sourceName: "Public source", sourceUrl: "https://example.org/data",
   };
 }
@@ -19,7 +20,7 @@ const rows = [
 ];
 
 const defaults: PublicMarketFilters = {
-  query: "", unit: "all", direction: "all", minMove: 0, sort: "source",
+  query: "", window: "1D", unit: "all", direction: "all", minMove: 0, sort: "source",
 };
 
 test("unchanged screener displays the full source-qualified public selection, including missing changes", () => {
@@ -56,4 +57,25 @@ test("invalid threshold does not suppress rows, and all filters remain UI-only",
   assert.match(ui, /Rates ≥10 bp/);
   assert.match(ui, /type="number"/);
   assert.doesNotMatch(ui, /fetch\(|supabase|service_role|submit\(/i);
+});
+
+test("3D and 5D thresholds, direction and sorting use the selected sessions, not 1D", () => {
+  const multi = [
+    { ...row("reversal", -0.4), change3d: 2.8, change5d: -5 },
+    { ...row("rally", 1.8), change3d: -1.2, change5d: 7 },
+    { ...row("unavailable", 2.2), change3d: null, change5d: null },
+  ];
+  const up3 = filterPublicMarketObservations(multi, { ...defaults, window: "3D", unit: "%", direction: "up", minMove: 2 });
+  assert.deepEqual(up3.map(x => x.id), ["reversal"]);
+  const down5 = filterPublicMarketObservations(multi, { ...defaults, window: "5D", unit: "%", direction: "down", minMove: 3 });
+  assert.deepEqual(down5.map(x => x.id), ["reversal"]);
+  const magnitude5 = filterPublicMarketObservations(multi, { ...defaults, window: "5D", sort: "magnitude" });
+  assert.deepEqual(magnitude5.map(x => x.id), ["rally", "reversal", "unavailable"]);
+});
+
+test("rate changes remain in bp across sessions and absent windows are not treated as zero", () => {
+  const yieldRow = { ...row("yield", 12, "bp"), change3d: -8, change5d: 20 };
+  const match = filterPublicMarketObservations([yieldRow], { ...defaults, window: "5D", unit: "bp", minMove: 15 });
+  assert.equal(match.length, 1);
+  assert.equal(filterPublicMarketObservations([yieldRow], { ...defaults, window: "3D", unit: "bp", minMove: 10 }).length, 0);
 });

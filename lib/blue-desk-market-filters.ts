@@ -2,11 +2,18 @@ import type { PublicMarketObservation } from "./blue-desk-public-markets.ts";
 
 /** Display-only market screener. All values retain their original source units. */
 export type MarketChangeUnit = "all" | "%" | "bp";
+export type MarketChangeWindow = "1D" | "3D" | "5D";
+
+export function publicMarketWindowChange(row: PublicMarketObservation, window: MarketChangeWindow): number | null {
+  const value = window === "1D" ? row.change : window === "3D" ? row.change3d : row.change5d;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
 export type MarketChangeDirection = "all" | "up" | "down";
 export type MarketChangeSort = "source" | "magnitude" | "gainers" | "losers" | "name";
 
 export type PublicMarketFilters = {
   query: string;
+  window: MarketChangeWindow;
   unit: MarketChangeUnit;
   direction: MarketChangeDirection;
   minMove: number;
@@ -14,7 +21,7 @@ export type PublicMarketFilters = {
 };
 
 export const DEFAULT_PUBLIC_MARKET_FILTERS: PublicMarketFilters = {
-  query: "", unit: "all", direction: "all", minMove: 0, sort: "source",
+  query: "", window: "1D", unit: "all", direction: "all", minMove: 0, sort: "source",
 };
 
 export function filterPublicMarketObservations(
@@ -30,16 +37,17 @@ export function filterPublicMarketObservations(
     if (search && ![row.label, row.symbol, row.type].some(value => value.toLowerCase().includes(search))) return false;
     if (filters.unit !== "all" && row.changeUnit !== filters.unit) return false;
     if (!needsChange) return true;
-    if (row.change === null || !Number.isFinite(row.change)) return false;
-    if (filters.direction === "up" && row.change <= 0) return false;
-    if (filters.direction === "down" && row.change >= 0) return false;
-    return Math.abs(row.change) >= minimum;
+    const change = publicMarketWindowChange(row, filters.window);
+    if (change === null) return false;
+    if (filters.direction === "up" && change <= 0) return false;
+    if (filters.direction === "down" && change >= 0) return false;
+    return Math.abs(change) >= minimum;
   });
 
   if (filters.sort === "source") return visible;
   const withUnitOrder = (a: PublicMarketObservation, b: PublicMarketObservation) => {
-    const aChange = a.change !== null && Number.isFinite(a.change) ? a.change : null;
-    const bChange = b.change !== null && Number.isFinite(b.change) ? b.change : null;
+    const aChange = publicMarketWindowChange(a, filters.window);
+    const bChange = publicMarketWindowChange(b, filters.window);
     if (aChange === null) return bChange === null ? a.label.localeCompare(b.label) : 1;
     if (bChange === null) return -1;
     // Never rank a 5 bp move against a 5% move as if the units were comparable.

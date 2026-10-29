@@ -24,7 +24,10 @@ export type PublicMarketObservation = {
   symbol: string;
   type: MarketMonitorType;
   last: number | null;
+  /** Change over the latest 1, 3 and 5 available daily trading sessions. */
   change: number | null;
+  change3d: number | null;
+  change5d: number | null;
   changeUnit: "%" | "bp";
   asOf: string | null;
   frequency: "daily" | "monthly";
@@ -67,6 +70,20 @@ function finite(value: number | null): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+/** Yield levels are percentages; differences between source sessions are basis points.
+ * Calculate only the aggregate change. Never send private provider history to the browser. */
+function rateSessionChangeBp(row: MarketMonitorRow, sessions: 3 | 5): number | null {
+  if (row.frequency !== "daily" || row.last === null || !Number.isFinite(row.last)) return null;
+  const points = row.points.filter(point => Number.isFinite(point.time) && Number.isFinite(point.close))
+    .sort((a, b) => a.time - b.time);
+  if (points.length <= sessions) return null;
+  const last = points.at(-1)!;
+  const prior = points.at(-(sessions + 1))!;
+  if (Math.abs(last.close - row.last) > 0.000001 || last.time <= prior.time) return null;
+  const bp = (last.close - prior.close) * 100;
+  return Number.isFinite(bp) ? Number(bp.toFixed(2)) : null;
+}
+
 function publicRow(row: MarketMonitorRow): PublicMarketObservation {
   const last = finite(row.last);
   const daily = row.frequency === "daily";
@@ -81,6 +98,8 @@ function publicRow(row: MarketMonitorRow): PublicMarketObservation {
     type: row.type,
     last,
     change: diff !== null && Number.isFinite(diff) ? diff : null,
+    change3d: daily ? row.type === "Rates" ? rateSessionChangeBp(row, 3) : finite(row.change3d) : null,
+    change5d: daily ? row.type === "Rates" ? rateSessionChangeBp(row, 5) : finite(row.change5d) : null,
     changeUnit: row.type === "Rates" ? "bp" : "%",
     asOf: row.asOf,
     frequency: row.frequency,

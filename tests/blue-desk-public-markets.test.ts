@@ -39,6 +39,8 @@ test("public Markets projection excludes internal signals, history, and private 
   assert.equal(publicRow.last, 4.42);
   assert.ok(Math.abs((publicRow.change || 0) - 5) < 1e-6);
   assert.equal(publicRow.changeUnit, "bp");
+  assert.equal(publicRow.change3d, null); // No 4-session history in the fixture
+  assert.equal(publicRow.change5d, null);
   assert.equal(publicRow.asOf, "2026-10-19");
   assert.equal(publicRow.sourceUrl, "https://fred.stlouisfed.org/series/DGS10");
   for (const forbidden of ["points", "hot", "attentionScore", "contradiction",
@@ -54,6 +56,8 @@ test("monthly fallback yields expose a level but no daily or intraday move", () 
   })], "rates");
   assert.equal(row.last, 4.42);
   assert.equal(row.change, null);
+  assert.equal(row.change3d, null);
+  assert.equal(row.change5d, null);
   assert.equal(row.frequency, "monthly");
 });
 
@@ -86,4 +90,36 @@ test("source-dated public Markets is server-rendered, bounded, and preserves old
   assert.doesNotMatch(presenter, /LiveDeskShell/);
   assert.match(host, /pathname === "\/markets"/);
   assert.match(host, /pathname === "\/blue-desk\/markets"/);
+});
+
+test("three and five-session changes use existing summary values for daily securities", () => {
+  const [row] = publicMarketObservations([marketRow({
+    id: "nvda", type: "MAG7", last: 140, previousClose: 138,
+    dayChange: 1.45, change3d: -2.7, change5d: 8.9,
+  })], "all");
+  assert.equal(row.change, 1.45);
+  assert.equal(row.change3d, -2.7);
+  assert.equal(row.change5d, 8.9);
+  assert.equal(row.changeUnit, "%");
+  assert.equal(Object.hasOwn(row, "points"), false);
+  assert.equal(Object.hasOwn(row, "attentionScore"), false);
+});
+
+test("government-rate 1D/3D/5D changes are differences in bp, not rate-level percent returns", () => {
+  const points = [4.0, 4.1, 4.2, 4.3, 4.4, 4.41]
+    .map((close, index) => ({ time: 1792800000 + index * 86400, close }));
+  const [row] = publicMarketObservations([marketRow({
+    id: "us10y", type: "Rates", last: 4.41, previousClose: 4.4,
+    points, change3d: 99, change5d: 99,
+  })], "rates");
+  assert.ok(Math.abs((row.change || 0) - 1) < 1e-6);
+  assert.equal(row.change3d, 21);
+  assert.equal(row.change5d, 41);
+  assert.equal(row.changeUnit, "bp");
+  assert.equal(Object.hasOwn(row, "points"), false);
+  const [tooShort] = publicMarketObservations([marketRow({
+    id: "us10y", type: "Rates", last: 4.41, points: points.slice(-2),
+  })], "rates");
+  assert.equal(tooShort.change3d, null);
+  assert.equal(tooShort.change5d, null);
 });

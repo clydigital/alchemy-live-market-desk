@@ -7,6 +7,8 @@ import { entityForAsset } from "@/lib/bluebelly-entity-identity";
 import {
   DEFAULT_PUBLIC_MARKET_FILTERS,
   filterPublicMarketObservations,
+  publicMarketWindowChange,
+  type MarketChangeWindow,
   type MarketChangeDirection,
   type MarketChangeSort,
   type MarketChangeUnit,
@@ -25,25 +27,27 @@ function level(row: PublicMarketObservation) {
   return row.type === "Rates" ? `${value}%` : value;
 }
 
-function change(row: PublicMarketObservation) {
-  if (row.change === null) return "Not available";
-  return `${row.change > 0 ? "+" : ""}${row.change.toFixed(2)}${row.changeUnit === "bp" ? " bp" : "%"}`;
+function change(value: number | null, unit: "%" | "bp") {
+  if (value === null) return "—";
+  return `${value > 0 ? "+" : ""}${value.toFixed(2)}${unit === "bp" ? " bp" : "%"}`;
 }
 
 export default function PublicMarketScreener({ observations, group, dataAvailable }: Props) {
   const initialUnit: MarketChangeUnit = group === "rates" ? "bp" : "all";
   const [query, setQuery] = useState("");
+  const [window, setWindow] = useState<MarketChangeWindow>("1D");
   const [unit, setUnit] = useState<MarketChangeUnit>(initialUnit);
   const [direction, setDirection] = useState<MarketChangeDirection>("all");
   const [minimum, setMinimum] = useState(0);
   const [sort, setSort] = useState<MarketChangeSort>("source");
 
   const visible = useMemo(() => filterPublicMarketObservations(observations, {
-    query, unit, direction, minMove: minimum, sort,
-  }), [observations, query, unit, direction, minimum, sort]);
+    query, window, unit, direction, minMove: minimum, sort,
+  }), [observations, query, window, unit, direction, minimum, sort]);
 
   function reset() {
     setQuery(DEFAULT_PUBLIC_MARKET_FILTERS.query);
+    setWindow("1D");
     setUnit(initialUnit);
     setDirection("all");
     setMinimum(0);
@@ -68,6 +72,13 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
         <button type="button" onClick={() => preset("bp", "all", 10)}>Rates ≥10 bp</button>
       </div>
       <div className={ui.controls}>
+        <label>Screen / sort period
+          <select aria-label="Screen and sort period" value={window} onChange={event => setWindow(event.target.value as MarketChangeWindow)}>
+            <option value="1D">1D · one session</option>
+            <option value="3D">3D · three sessions</option>
+            <option value="5D">5D · five sessions</option>
+          </select>
+        </label>
         <label>Search instrument
           <input type="search" value={query} onChange={event => setQuery(event.target.value)}
             placeholder="NVDA, DXY, Brent…" />
@@ -110,22 +121,30 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
         </label>
         <button type="button" className={ui.reset} onClick={reset}>Reset filters</button>
       </div>
-      <p className={ui.disclaimer}>Percentage moves and yield changes are different measures. Sorting keeps % and bp in separate groups; unavailable changes do not count as zero.</p>
+      <p className={ui.disclaimer}>1D, 3D and 5D count completed source sessions, not calendar days. All three appear below; filters and sorting use the selected period ({window}). Percentage moves and yield changes in bp remain separate. Missing history is unavailable, not zero.</p>
       <p className={ui.count} role="status" aria-live="polite">
         <strong>{visible.length}</strong> of {observations.length} instruments shown
-        {unit === "all" ? " · All units" : ` · ${unit === "%" ? "Percentage moves" : "Rate changes in bp"}`}
+        {` · Screening ${window}`}{unit === "all" ? " · All units" : ` · ${unit === "%" ? "Percentage moves" : "Rate changes in bp"}`}
       </p>
     </div>
 
     {visible.length ? <div className={styles.publicMarketTableScroll}>
       <table className={styles.publicMarketTable}>
         <thead><tr><th scope="col">Instrument</th><th scope="col">Last observed</th>
-          <th scope="col">Session change</th><th scope="col">Source and vintage</th></tr></thead>
+          {(["1D", "3D", "5D"] as const).map(period => <th scope="col" key={period} data-selected={period === window} className={period === window ? ui.selectedChange : undefined}>{period} change</th>)}
+          <th scope="col">Source and vintage</th></tr></thead>
         <tbody>{visible.map(row => <tr key={row.id}>
           <th scope="row"><EntityRow identity={entityForAsset(row.symbol) || {kind: "asset", code: row.symbol}}
             title={row.label} subtitle={row.symbol + " · " + row.type} /></th>
           <td className={styles.publicMarketNumber}>{level(row)}</td>
-          <td className={styles.publicMarketNumber} data-direction={row.change === null ? "unknown" : row.change > 0 ? "up" : row.change < 0 ? "down" : "flat"}>{change(row)}</td>
+          {(["1D", "3D", "5D"] as const).map(period => {
+            const value = publicMarketWindowChange(row, period);
+            return <td key={period} className={`${styles.publicMarketNumber} ${period === window ? ui.selectedChange : ""}`} data-selected={period === window}
+              data-direction={value === null ? "unknown" : value > 0 ? "up" : value < 0 ? "down" : "flat"}
+              title={value === null ? `${period} source-session change unavailable` : `${period} change through ${row.asOf || "unknown source date"}`}>
+              {change(value, row.changeUnit)}
+            </td>;
+          })}
           <td className={styles.publicMarketSource}>
             <span>{row.asOf ? `Observation: ${row.asOf}` : "Observation date unavailable"} · {row.frequency} observation</span>
             {row.sourceUrl ? <a href={row.sourceUrl} target="_blank" rel="noreferrer">{row.sourceName} · original data ↗</a>
@@ -140,6 +159,6 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
         : "Market data unavailable. Filtering cannot restore a missing feed."}</p>
       {dataAvailable ? <button type="button" className={ui.reset} onClick={reset}>Reset filters</button> : null}
     </div>}
-    <p className={styles.publicMarketNote}>Changes: rates in bp; others in %. Monthly yields show levels only. Dates are from sources; data may lag.</p>
+    <p className={styles.publicMarketNote}>Change periods: 1, 3 and 5 source sessions, measured through each instrument's observation date. Rates in bp; others in %. Monthly yields show levels only. Data may lag.</p>
   </div>;
 }
