@@ -36,3 +36,19 @@
 .reference small{display:block;font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--bb-accent);margin-bottom:6px}
 .reference a{color:var(--bb-text);line-height:1.6;overflow-wrap:anywhere}
 @media(max-width:760px){.featureBody,.readerBody{grid-template-columns:1fr}.intro{border-right:0;border-bottom:1px solid var(--bb-line)}.intro h2{font-size:clamp(29px,8vw,42px)}.featureHead{padding:12px 16px}.storyBeats{padding:10px 20px}.socialStrip,.more{align-items:flex-start;flex-direction:column}.readerHead{padding:22px}.chapters p{font-size:16px}}
+
+/* Deep research is intentionally below the short editorial answer; never let the
+ * evidence table break the mobile reading column or the parent grid. */
+.timeline{padding-left:22px;margin:14px 0}.timeline li{font-size:15px;line-height:1.7;margin:9px 0}
+.tableScroll{width:100%;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;margin:15px 0;border:1px solid var(--bb-line)}
+.evidenceTable{border-collapse:collapse;min-width:700px;width:100%;font-size:13px;line-height:1.5}
+.evidenceTable :is(th,td){border:1px solid var(--bb-line);padding:12px;text-align:left;vertical-align:top}
+.evidenceTable thead{background:var(--bb-accent);color:#0e1213}.evidenceTable tbody th{min-width:135px}
+.evidenceTable small{display:block;font-size:11px;line-height:1.4;color:var(--bb-muted);margin-top:7px}
+.evidenceTable td a{display:block;margin-top:9px;color:var(--bb-accent);text-underline-offset:3px}
+.scorecard{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:20px 0}
+.scorecard>div{min-width:0;border:1px solid var(--bb-line);padding:14px;background:var(--bb-surface)}
+.scorecard small{display:block;font-size:12px;color:var(--bb-muted)}
+.scorecard strong{display:block;font-size:20px;line-height:1.4;margin-top:7px;overflow-wrap:anywhere}
+.scorecard p{font-size:12px;line-height:1.5}.debt summary{cursor:pointer;color:var(--bb-accent)}
+@media(max-width:480px){.scorecard{grid-template-columns:1fr}.evidenceTable{min-width:680px}}
