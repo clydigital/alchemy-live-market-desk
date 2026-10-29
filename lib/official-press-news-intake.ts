@@ -377,7 +377,13 @@ export async function applyOfficialPressNewsIntake(
 ): Promise<ResearchRunInput> {
   const now = opts.now ?? new Date();
   const fetchImpl = opts.fetchImpl ?? fetch;
-  const scrapeImpl = opts.scrapeImpl ?? recoverOfficialPublisherSource;
+  // A caller-supplied HTTP transport is a controlled test/replay environment.
+  // Never silently escape that environment to production Jina credentials.
+  // Fallback fixtures must be explicitly injected alongside fetchImpl.
+  const testClosedRecovery:ScrapePublic=async()=>({
+    ok:false,code:"not_configured",detail:"No fallback injected for controlled HTTP transport.",retryable:false,
+  });
+  const scrapeImpl = opts.scrapeImpl ?? (opts.fetchImpl ? testClosedRecovery : recoverOfficialPublisherSource);
   const results = await Promise.all(OFFICIAL_PRESS_FEEDS.map(feed => loadOfficialFeed(feed, now, fetchImpl, scrapeImpl)));
   const existing = new Set(input.items.map(item => item.url));
   const appended: IntakeItemInput[] = [];

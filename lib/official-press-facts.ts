@@ -43,6 +43,10 @@ export function extractOfficialPressFacts(html:string,headline:string):string[]{
  const p=/<p\b[^>]*>([\s\S]*?)<\/p>/gi;
  for(const match of safe.matchAll(p)){
   const text=cleanText(match[1]);
+  // Corporate sites often end with phone numbers and media contact blocks.
+  // They are not financial developments and should never become story facts.
+  if(/\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b/i.test(text)||
+     /\b(?:media contacts?|press contacts?|investor relations contact|public relations contact)\b/i.test(text))continue;
   if(text.length<55||text.length>850||NON_FACT.test(text))continue;
   const sentence=text.split(/(?<=[.!?])\s+(?=[A-Z\d])/)[0]?.trim()||"";
   if(sentence.length<55||sentence.length>235||NON_FACT.test(sentence))continue;
