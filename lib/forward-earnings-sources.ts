@@ -44,7 +44,7 @@ export function getDueOfficialEarningsCandidates(now=new Date(),lookbackHours=96
  const at=now.getTime();
  if(!Number.isFinite(at)||!Number.isInteger(lookbackHours)||lookbackHours<1||lookbackHours>168)return [];
  return OFFICIAL.flatMap(row=>{
-   const dateOnly=/^\\d{4}-\\d{2}-\\d{2}$/.test(row.at);
+   const dateOnly=/^\d{4}-\d{2}-\d{2}$/.test(row.at);
    const due=dateOnly?Date.parse(row.at+"T23:59:59Z"):Date.parse(row.at)+2*3600000;
    if(!Number.isFinite(due)||at<due||at-due>lookbackHours*3600000)return [];
    return [{ticker:row.ticker,company:row.company,quarter:row.quarter,
