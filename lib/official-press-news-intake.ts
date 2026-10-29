@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import type { ResearchRunInput, IntakeItemInput } from "./research-update.ts";
 import { normaliseDirectFeedText } from "./direct-news-evidence-triage.ts";
 import { extractOfficialPressFacts } from "./official-press-facts.ts";
-import { scrapePublicUrlWithFirecrawl } from "./firecrawl.ts";
+import { recoverOfficialPublisherSource } from "./official-publisher-source-recovery.ts";
 
 export const OFFICIAL_PRESS_FEEDS = [
   {
@@ -235,7 +235,7 @@ type FeedDiagnostics={
 type Result = { state: "checked" | "blocked" | "no_new_items"; checked: number; items: IntakeItemInput[];
  diagnostics:FeedDiagnostics; note?:string };
 
-type ScrapePublic = typeof scrapePublicUrlWithFirecrawl;
+type ScrapePublic = typeof recoverOfficialPublisherSource;
 function matchingRecoveryUrl(recovered:{resolvedUrl:string|null}, requested:string, feed:Feed){
  // A provider redirect to a different article or publisher cannot establish
  // the identity of the original RSS entry.
@@ -377,7 +377,7 @@ export async function applyOfficialPressNewsIntake(
 ): Promise<ResearchRunInput> {
   const now = opts.now ?? new Date();
   const fetchImpl = opts.fetchImpl ?? fetch;
-  const scrapeImpl = opts.scrapeImpl ?? scrapePublicUrlWithFirecrawl;
+  const scrapeImpl = opts.scrapeImpl ?? recoverOfficialPublisherSource;
   const results = await Promise.all(OFFICIAL_PRESS_FEEDS.map(feed => loadOfficialFeed(feed, now, fetchImpl, scrapeImpl)));
   const existing = new Set(input.items.map(item => item.url));
   const appended: IntakeItemInput[] = [];
