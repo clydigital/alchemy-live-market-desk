@@ -1,4 +1,5 @@
 import HormuzCrossings from "@/components/blue-desk/HormuzCrossings";
+import EarningsFundamentals from "@/components/blue-desk/EarningsFundamentals";
 import { getHormuzMonitor } from "@/lib/hormuz-monitor";
 import Link from "next/link";
 import { headers } from "next/headers";
@@ -97,12 +98,15 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <PublicMarketScreener key={group} observations={observations} group={group} dataAvailable={Boolean(monitor)} />
         </section>
 
+        <EarningsFundamentals amazonFeatureHref={blueDeskPublicHref("/blue-desk/key-stories",host)+"?feature=amazon-cash-test-october-2026"} />
+
         {hormuz ? <HormuzCrossings monitor={hormuz} /> : null}
 
         <div className={styles.lastLinks}>
           <h2>Continue reading</h2>
           <div className={styles.quickLinks}>
             <Link href={blueDeskPublicHref("/blue-desk", host)}>Market stories →</Link>
+            <Link href={blueDeskPublicHref("/blue-desk/markets",host)+"#earnings-fundamentals"}>Earnings &amp; fundamentals →</Link>
             <Link href={blueDeskPublicHref("/blue-desk/calendar", host)}>Economic calendar →</Link>
             <Link href={blueDeskPublicHref("/blue-desk/hormuz", host)}>Hormuz / oil / distillates watch →</Link>
           </div>
