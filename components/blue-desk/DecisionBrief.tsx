@@ -11,7 +11,8 @@ import EarningsEvidenceGraphic from './EarningsEvidenceGraphic';
 import PresenterOneMinute from './PresenterOneMinute';
 import {buildPresenterOneMinute} from '@/lib/bluebelly-presenter-one-minute';
 import s from './DecisionBrief.module.css';
-import {ScopeStrip,EntityMark} from './EntityIdentity';
+import {identitiesFromAssets} from '@/lib/bluebelly-entity-identity';
+import {ScopeStrip,EntityMark,EntityChip} from './EntityIdentity';
 
 function Event({event}:{event:PresenterCalendarEvent}){
  return <article className={s.event}><strong>{event.title}</strong>
@@ -36,7 +37,25 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
  const earningsResults=getRecentVerifiedEarningsScorecards(now,7);
  const additional=recentNews.filter(n=>!topics.some(t=>t.href==='?news='+encodeURIComponent(n.id))).slice(0,8);
  return <section className={s.brief} data-decision-first="public-v1">
-  <header className={s.header}>
+  {!report?<header className={s.homeHero} aria-label="Lead story and decision test">
+   <div className={s.homeLead}>
+    <svg className={s.homeCircuit} viewBox="0 0 720 420" aria-hidden="true"><path d="M260 363h95l44-44h88l65-65h145M350 390h120l72-72h160M440 190h76l48-48h150M520 52h115l47-47M240 297h105l46-46h90M130 395h163l72-72h95"/><path d="M570 92h40v40h-40zM444 256h36v36h-36zM380 310h31v31h-31z"/><circle cx="563" cy="255" r="6"/><circle cx="455" cy="190" r="6"/></svg>
+    <div className={s.homeLabel}><span>01 / THE LEAD STORY</span><span>{lead?.status||'SOURCE COVERAGE'}</span></div>
+    <h1>{lead?.title||'What can we verify today?'}</h1>
+    <p className={s.homeDeck}>{lead?(lead.status==='UPCOMING'?lead.why:lead.fact):'Current verified coverage is insufficient for a market verdict. Check the source-listed calendar for the next decision.'}</p>
+    <div className={s.homeActions}>{lead?<Link className={s.homePrimary} href={reader+lead.href}>Read the story <span aria-hidden="true">↗</span></Link>:<Link className={s.homePrimary} href={calendarHref}>Check the calendar ↗</Link>}<Link className={s.homeSecondary} href={blueDeskPublicHref('/blue-desk/daily-report',host)}>Read the Daily Report ↗</Link></div>
+    <div className={s.homeFoot}>{lead?<span>{lead.status==='UPCOMING'?'SCHEDULED':'SOURCE EVENT'} <DualTimestamp value={lead.at.includes('T')?lead.at:null} sourceDate={lead.at}/></span>:null}<span>Read cutoff <DualTimestamp value={now.toISOString()}/></span></div>
+   </div>
+   <aside className={s.homeAside} aria-label="Decision and evidence">
+    <p className={s.homeOverline}>// THE 60-SECOND MARKET READ</p>
+    {lead&&identitiesFromAssets(lead.assets,2).length?<div className={s.homeCast} aria-label="Source-qualified story actors">{identitiesFromAssets(lead.assets,2).map(identity=><EntityChip key={identity.kind+identity.code} identity={identity} size="lg"/>)}<small>Identity markers · not financial evidence</small></div>:null}
+    <h2>{lead?.status==='UPCOMING'?'The outcome is still ahead.':'The announcement is the starting point.'}</h2>
+    <p className={s.verdict}>{lead?.status==='UPCOMING'?'The outcome is pending. Compare the release with expectations before assigning a market reaction.':lead?.why||'No qualifying lead is available.'}</p>
+    <div className={s.homeTest}><p className={s.homeOverline}>WHAT WOULD CHANGE THE VIEW?</p><p className={s.next}>{lead?.test||'Check the source-listed calendar.'}</p></div>
+    <details className={s.evidence}><summary>Evidence &amp; limitations</summary><p>Announcements establish events, not investment returns. Independently matched prices and contrary evidence may change the interpretation.</p>{lead?<p>{lead.mechanism}</p>:null}</details>
+    {lead?<a className={s.homeSource} href={lead.sourceUrl} target="_blank" rel="noreferrer">{lead.sourceName} ↗</a>:null}
+   </aside>
+  </header>:<header className={s.header}>
    <div className={s.headlineRow}><svg className={s.circuit} viewBox="0 0 600 400" aria-hidden="true"><path d="M35 320h170l70-70h130l90-90h105M100 370h155l55-55h140l50-50h100M240 200h90l70-70h100l65-65M300 50h100l40 40h160"/><circle cx="275" cy="250" r="7"/><circle cx="400" cy="130" r="7"/><path d="M320 180h40v40h-40zM450 290h35v35h-35z"/></svg>
     <div>
      <p className={s.kicker}>{report?'DAILY REPORT':'TODAY'} / SOURCE-QUALIFIED BRIEFING</p>
@@ -52,7 +71,7 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
     <p>Since the last edition: no verified claim-level delta available.</p>
     {crossBank?<><p data-cross-bank-evidence="source-qualified"><strong>{crossBank.sharedEnergyStatus==='SOURCE_SUMMARIES'?'Shared energy-inflation evidence:':'Policy contrast, cause unverified:'}</strong> {crossBank.explanation}</p><p>{crossBank.nextTest} <DualTimestamp value={crossBank.nextEvent.scheduledAt}/></p><p>Original policy decisions: {crossBank.sources.map(source=><span key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer">{source.bank} ({source.action})</a>{" · "}</span>)}</p></>:null}
    </details>
-  </header>
+  </header>}
   <PresenterOneMinute brief={onAir} marketsHref={blueDeskPublicHref('/blue-desk/markets',host)}/>
   <div className={s.topics}>{topics.map((t,i)=><article className={i===0?s.lead:s.topic} key={t.id}>
     <p className={s.kicker}>{String(i+1).padStart(2,'0')} / {t.status}</p>
