@@ -49,6 +49,9 @@ test("the seven-company dated investor reader is visible through existing allowl
   assert.match(reader,/not a confirmed default/);
   assert.match(reader,/cash capex less cash from operations/);
   assert.match(reader,/10 November 2026, 5:00 PM ET/);
+  assert.match(reader,/up to 35m Class A shares/);
+  assert.match(reader,/not proof all 35m were issued/);
+  assert.match(reader,/4\.2bn principal convertible-note issue/);
   assert.match(reader,/www\.sec\.gov\/Archives\/edgar/);
   assert.doesNotMatch(reader,/process\.env|service_role|supabaseAdmin|private.*research/i);
 });
