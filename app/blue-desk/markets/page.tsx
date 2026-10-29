@@ -112,7 +112,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
 
         <details id="earnings-research" className={styles.section} data-earnings-reader-entry="seven-company">
           <summary>Optional: seven company earnings and financing investigations</summary>
-          <p>Original-source investor research. These are dated investigations, not a live earnings-result feed.</p>
+          <p>Original-source investor research. These are dated investigations, not a live earnings-result feed. <Link href="#coreweave-credit-watch">Jump to the CoreWeave financing case</Link> after expanding.</p>
           <EarningsFundamentals amazonFeatureHref={blueDeskPublicHref("/blue-desk/key-stories",host)+"?feature=amazon-cash-test-october-2026"} deepBaseHref={blueDeskPublicHref("/blue-desk/markets",host)} />
         </details>
 
