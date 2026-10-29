@@ -27,3 +27,42 @@ test('four accent palettes preserve stable article canvas and semantic market co
  const prefs=readFileSync('components/blue-desk/ThemePreferences.tsx','utf8');
  assert.match(prefs,/type="radio"/);assert.match(prefs,/catch\{/);
 });
+
+
+test('public editorial and glossary cards inherit all four live Bluebelly themes',()=>{
+ const tokens=readFileSync('app/bluebelly-tokens.css','utf8');
+ const prefs=readFileSync('components/blue-desk/ThemePreferences.tsx','utf8');
+ for(const theme of ['yellow-black','turquoise','neon-blue','pastel-green'])assert.ok(prefs.includes(theme));
+ for(const token of ['--bb-card-bg:','--bb-card-bg-hover:','--bb-card-border:','--bb-card-quiet:','--bb-card-focus:'])
+  assert.ok(tokens.includes(token),token);
+ assert.match(tokens,/--bb-card-bg:[^;]*var\(--bb-accent\)/);
+ assert.match(tokens,/--bb-card-border:[^;]*var\(--bb-accent\)/);
+ // Never tint real positive/negative changes with a brand accent.
+ assert.doesNotMatch(tokens,/--positive|--negative|--gain|--loss/);
+ const cardStyles=[
+  'app/blue-desk/learn/learn.module.css',
+  'app/blue-desk/key-stories/key-stories.module.css',
+  'app/blue-desk/daily-report/daily-report.module.css',
+  'components/blue-desk/bluebelly-newsfront.module.css',
+  'components/blue-desk/DecisionBrief.module.css',
+  'components/blue-desk/DailyEditorialRundown.module.css',
+  'components/blue-desk/NewsroomLensExplorer.module.css',
+  'app/blue-desk/tracked-stories.module.css',
+  'app/blue-desk/regime-watch/[lensId]/lens.module.css'
+ ];
+ for(const path of cardStyles){
+  const css=readFileSync(path,'utf8');
+  assert.match(css,/var\(--bb-card-bg\)/,path+' card background');
+  assert.match(css,/var\(--bb-card-border\)/,path+' card border');
+  assert.match(css,/var\(--bb-accent\)/,path+' accent interaction');
+  assert.match(css,/var\(--bb-card-bg-hover\)/,path+' interaction treatment');
+ }
+ const glossary=readFileSync(cardStyles[0],'utf8');
+ assert.match(glossary,/\.entry:hover\{/);
+ assert.match(glossary,/\.entry:target\{outline:2px solid var\(--bb-accent\)/);
+ assert.match(glossary,/@media\(max-width:730px\)\{\.grid\{grid-template-columns:1fr/);
+ const art=readFileSync('components/blue-desk/EditorialStoryArt.tsx','utf8');
+ assert.match(art,/stroke="var\(--bb-accent\)"/);
+ assert.match(art,/fill="var\(--bb-card-quiet\)"/);
+ assert.match(art,/NOT MARKET DATA/);
+});
