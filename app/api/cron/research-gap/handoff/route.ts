@@ -15,7 +15,7 @@ export const maxDuration = 300;
 export async function GET(request:Request){
  const now=new Date();
  const slot:AutomaticReportSlot=now.getUTCHours()<12?"morning":"evening";
- const reportTask=isAutomaticReportFallbackWindow(now,slot)
+ const reportTask=process.env.BLUEBELLY_ENABLE_LEGACY_PDF==="true" && isAutomaticReportFallbackWindow(now,slot)
   ?attemptPrivateDailyPdfInExistingHandoff(request,slot,now).catch(()=>({
     status:"failed" as const,reason:"private_pdf_retry_unavailable"
    }))

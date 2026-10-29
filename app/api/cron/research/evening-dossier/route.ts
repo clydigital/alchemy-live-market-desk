@@ -15,7 +15,9 @@ export async function GET(request: Request) {
    acceptsResearchAuthorization(request.headers.get("authorization"),[process.env.CRON_SECRET!]);
  const reportWindow=isAutomaticReportFinalisationWindow(now,"evening");
  const scheduleEnabled=process.env.NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED==="true";
- const reportEligible=authorised && scheduleEnabled && reportWindow;
+ // No new PDF attempts by default; preserve Dossier cadence and existing PDFs.
+ const reportEligible=authorised && scheduleEnabled && reportWindow
+  && process.env.BLUEBELLY_ENABLE_LEGACY_PDF==="true";
  // Status-only, no secrets, response bodies or private report contents.
  // A 0-row report table alone cannot distinguish a skipped gate from a failed
  // generator. This runs at the invocation boundary (not after slow Dossier).
