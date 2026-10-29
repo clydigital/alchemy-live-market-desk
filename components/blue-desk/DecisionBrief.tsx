@@ -36,6 +36,18 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
  const reader=blueDeskPublicHref('/blue-desk/key-stories',host), calendarHref=blueDeskPublicHref('/blue-desk/calendar',host);
  const lead=topics[0];
  const additional=recentNews.filter(n=>!topics.some(t=>t.href==='?news='+encodeURIComponent(n.id))).slice(0,8);
+ // Previously published outcomes were missing from the rolling original-press
+ // reader, so show their approved, source-dated Bluebelly articles here too.
+ const moreCards=[
+  ...postEventRecaps.slice(1).map(r=>({
+   id:"recap-"+r.id,headline:r.headline,summary:r.standfirst,occurredAt:r.releaseAt,
+   sourceName:r.sourceUrls[0]?.label||r.eventName,href:reader+r.detailsHref,
+  })),
+  ...additional.map(n=>({
+   id:n.id,headline:n.headline,summary:n.summary,occurredAt:n.occurredAt,
+   sourceName:n.sourceName,href:reader+'?news='+encodeURIComponent(n.id),
+  })),
+ ].slice(0,6);
  return <section className={s.brief} data-decision-first="public-v1">
   {!report?<PostEventRecapFeature recaps={postEventRecaps} host={host} socialPosts={postEventSocial}/>:null}
   {!report?<header className={s.homeHero} aria-label="Lead story and decision test">
@@ -102,14 +114,14 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
     {l.rows.length>3?<details><summary>{l.rows.length-3} more events</summary>{l.rows.slice(3).map(e=><Event key={e.id} event={e}/>)}</details>:null}
    </section>)}
   </div>
-  {additional.length ? <section className={s.latest} aria-label="More recent verified reports">
+  {moreCards.length ? <section className={s.latest} aria-label="More recent verified reports">
    <div className={s.latestHead}><div><p className={s.kicker}>RECENT ORIGINAL SOURCES / SEVEN-DAY WINDOW</p><h2>More news, with a quick explanation</h2></div><small>Earlier releases are dated, not presented as breaking news.</small></div>
-   <div className={s.latestGrid}>{additional.map(n=><article key={n.id} className={s.latestCard}>
+   <div className={s.latestGrid}>{moreCards.map(n=><article key={n.id} className={s.latestCard}>
     <div className={s.latestArt}><EditorialStoryArt headline={n.headline} summary={n.summary} compact/></div>
     <div><p className={s.kicker}>{+now-Date.parse(n.occurredAt)>48*3600000?'EARLIER THIS WEEK':'VERIFIED NEWS'}</p>
-    <h3><Link href={reader+'?news='+encodeURIComponent(n.id)}>{n.headline}</Link></h3>
-    <small><DualTimestamp value={n.occurredAt}/></small>
-    <p><Link href={reader+'?news='+encodeURIComponent(n.id)}>Read Bluebelly recap →</Link></p>
+    <h3><Link href={n.href}>{n.headline}</Link></h3>
+    <small><DualTimestamp value={n.occurredAt.includes("T")?n.occurredAt:null} sourceDate={n.occurredAt}/></small>
+    <p><Link href={n.href}>Read Bluebelly recap →</Link></p>
     <small>Source: {n.sourceName}</small></div>
    </article>)}</div>
   </section>:null}
