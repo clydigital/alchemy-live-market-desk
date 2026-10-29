@@ -75,7 +75,7 @@ export default async function BlueDeskPage() {
   const recentNews = combineQualifiedNews(motionNews,originalPress,18);
   const verifiedNews = recentNews.filter(n=>Date.parse(n.occurredAt)<=+now && +now-Date.parse(n.occurredAt)<=48*3600000);
   // Display reviewed bank and earnings outcomes first, keeping source-only leads clearly labelled.
-  const postEventRecaps=selectPostEventRecaps(recentNews,now,4);
+  const postEventRecaps=selectPostEventRecaps(recentNews,now,8);
   const recapLead=postEventRecaps[0];
   const postEventSocial=recapLead?.kind==="bank"
     ?await getEventSocialContext(recapLead.id,recapLead.releaseAt,now).catch(()=>[])
@@ -100,6 +100,8 @@ export default async function BlueDeskPage() {
       <div className={styles.content}>
         <DecisionBrief news={verifiedNews} recentNews={recentNews} calendar={calendar} now={now} host={host}
           postEventRecaps={postEventRecaps} postEventSocial={postEventSocial}/>
+        {/* Legacy research archive remains accessible on the old desk only; Bluebelly readers use dedicated Markets and Key Stories pages. */}
+        {!publicHost ? <>
         {/* Historical, source-dated price SVGs stay visible before the long archive. */}
 <WhatsNewTrendDashboard
           cards={projectWhatsNewTrends(monitor?.rows||[],now)}
@@ -348,6 +350,7 @@ export default async function BlueDeskPage() {
 
         <footer className={styles.footer}><span>Blue Desk</span></footer>
         </details>
+        </> : null}
       </div>
     </main>
   );

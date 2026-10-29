@@ -53,6 +53,17 @@ export default async function RegimeWatchPage(){
      </Link>
     </div>
    </section>
+   <section className={styles.transmission} aria-labelledby="tesla-spacex-financing" data-bluebelly-ai-financing-watch="source-dated-adjacent-exposure">
+    <h2 id="tesla-spacex-financing">Tesla + SpaceX: AI expansion meets the cash test</h2>
+    <p><strong>Original-source snapshot · 30 October 2026.</strong> SpaceX disclosed on 26 October a binding commitment for an approximately $40bn master finance lease of Nvidia GPU equipment. Closing conditions remain outstanding; lease schedules are expected to start when equipment arrives in the first half of 2027. A commitment is not the same as $40bn of chips already delivered or paid for.</p>
+    <p>Tesla reported Q3 revenue of $28.046bn, operating profit of $0.718bn, operating cash flow of $6.263bn, cash capex of $4.732bn and free cash flow of $1.531bn. Its quarter-end cash and short-term investments were $45.447bn. The nine-month SEC filing also records a $2.00bn investment in SpaceX common stock; that is a disclosed equity exposure, not evidence of a planned merger.</p>
+    <p><strong>The investor test:</strong> SpaceX may gain more compute capacity, but lease commitments eventually need paying customers and cash returns. Tesla has a substantial liquidity cushion, yet quarterly cash flow is not an unlimited source of funding for unrelated projects. Test deployment, lease liabilities, refinancing costs, Tesla cash conversion and any formally announced related-party transactions. A Tesla–SpaceX merger is a scenario, not a verified corporate action.</p>
+    <div className={styles.pathGrid}>
+     <a className={styles.path} href="https://ir.spacex.com/updates/releases-details/2026/SPACEX-SECURES-40-BILLION-IN-THE-LARGEST-GPU-FINANCING-EVER-2026-EnDqGhTAB3/" target="_blank" rel="noopener noreferrer"><span>SPCX · 26 OCT 2026</span><strong>SpaceX original $40bn GPU lease announcement</strong><small>Committed, subject to closing conditions; expected 2027 commencement ↗</small></a>
+     <a className={styles.path} href="https://www.sec.gov/Archives/edgar/data/1318605/000162828026066775/tsla-20260930.htm" target="_blank" rel="noopener noreferrer"><span>TSLA · Q3 2026 SEC 10-Q</span><strong>Tesla cash flows, capex, liquidity and SpaceX-related investment</strong><small>Original quarterly filing · figures are dated, not live marks ↗</small></a>
+    </div>
+    <p>Regular Tesla and SpaceX surveillance belongs to the existing private AI-company review. This public card updates only when a separately verified and approved publication is made; a scheduled research run is not itself a public release.</p>
+   </section>
    <section className={styles.transmission}><h2>Cross-regime transmission</h2>
     <p>These research questions often overlap. Follow the mechanism into its own research page, then check the dated observations.</p>
     <div className={styles.pathGrid}>{([
