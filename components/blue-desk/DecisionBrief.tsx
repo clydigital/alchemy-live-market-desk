@@ -1,4 +1,3 @@
-import {getRecentVerifiedEarningsScorecards} from "@/lib/blue-desk-earnings-results";
 import {PostEventRecapFeature} from "./PostEventRecap";
 import type {PostEventRecap} from "@/lib/bluebelly-post-event-recap";
 import type {EmbeddedSocialContext} from "@/lib/bluebelly-event-social";
@@ -10,12 +9,11 @@ import {selectCrossBankPolicyBridge} from '@/lib/bluebelly-cross-bank-policy-bri
 import {blueDeskPublicHref} from '@/lib/blue-desk-host';
 import DualTimestamp from './DualTimestamp';
 import EditorialStoryArt from './EditorialStoryArt';
-import EarningsEvidenceGraphic from './EarningsEvidenceGraphic';
 import PresenterOneMinute from './PresenterOneMinute';
 import {buildPresenterOneMinute} from '@/lib/bluebelly-presenter-one-minute';
 import s from './DecisionBrief.module.css';
 import {identitiesFromAssets} from '@/lib/bluebelly-entity-identity';
-import {ScopeStrip,EntityMark,EntityChip} from './EntityIdentity';
+import {ScopeStrip,EntityChip} from './EntityIdentity';
 
 function Event({event}:{event:PresenterCalendarEvent}){
  return <article className={s.event}><strong>{event.title}</strong>
@@ -37,7 +35,6 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
  const onAir=buildPresenterOneMinute(news,calendar,now);
  const reader=blueDeskPublicHref('/blue-desk/key-stories',host), calendarHref=blueDeskPublicHref('/blue-desk/calendar',host);
  const lead=topics[0];
- const earningsResults=getRecentVerifiedEarningsScorecards(now,7);
  const additional=recentNews.filter(n=>!topics.some(t=>t.href==='?news='+encodeURIComponent(n.id))).slice(0,8);
  return <section className={s.brief} data-decision-first="public-v1">
   {!report?<PostEventRecapFeature recaps={postEventRecaps} host={host} socialPosts={postEventSocial}/>:null}
@@ -92,9 +89,16 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
     <a className={s.source} href={t.sourceUrl} target="_blank" rel="noreferrer">{t.sourceName} ↗</a>
   </article>)}</div>
   <div className={s.lanes} aria-label="Results and forward catalysts">
-   {[{title:'Released · last 7 days',rows:lanes.released},{title:'Next policy & macro · 72h / 7d',rows:lanes.policy},{title:'Upcoming earnings · 7 days',rows:lanes.earnings}].map(l=><section key={l.title}><h2>{l.title}</h2>
-    {l.title.startsWith('Released')?earningsResults.map(r=><article className={s.event} key={r.id}><strong><EntityMark kind="company" code={r.ticker}/> {r.company} · {r.fiscalPeriod}</strong><small>{r.releaseDay} · source date only · {r.basis}</small><p>{r.metrics.filter(m=>m.state==='measured').map(m=>m.name+': '+m.value).join(' · ')}</p><small>ACTUAL REPORTED · CONSENSUS COMPARISON UNAVAILABLE</small><EarningsEvidenceGraphic scorecard={r}/><details><summary>Cash flow, spending and outlook</summary><p>{r.beatMiss}</p>{r.metrics.map(m=><p key={m.name}><strong>{m.name}:</strong> {m.value||'Not yet verified'} · {m.comparison||'Comparison unavailable'} {m.note}</p>)}<p>{r.conclusion}</p><p>{r.nextTest}</p><a href={r.sourceUrl}>{r.sourceName} ↗</a></details></article>):null}
-    {l.rows.length?l.rows.slice(0,3).map(e=><Event key={e.id} event={e}/>):l.title.startsWith('Released')&&earningsResults.length?null:<p>No qualifying records available. Coverage may be incomplete.</p>}
+   <section data-bluebelly-released-reading="links-only">
+    <h2>Released · last 7 days</h2>
+    {postEventRecaps.length ? postEventRecaps.map(r=><article className={s.event} key={r.id}>
+      <strong><Link href={reader+r.detailsHref}>{r.headline}</Link></strong>
+      <small><DualTimestamp value={r.releaseAt.includes("T")?r.releaseAt:null} sourceDate={r.releaseAt}/> · {r.featuredStatus==="REVIEWED"?"Reviewed Bluebelly recap":"Verified announcement · analysis pending"}</small>
+      <p>{r.standfirst}</p>
+    </article>):<p>No qualifying public recaps in the last seven days. Research records are not automatically published news.</p>}
+   </section>
+   {[{title:"Next policy & macro · 72h / 7d",rows:lanes.policy},{title:"Upcoming earnings · 7 days",rows:lanes.earnings}].map(l=><section key={l.title}><h2>{l.title}</h2>
+    {l.rows.length?l.rows.slice(0,3).map(e=><Event key={e.id} event={e}/>):<p>No qualifying records available. Coverage may be incomplete.</p>}
     {l.rows.length>3?<details><summary>{l.rows.length-3} more events</summary>{l.rows.slice(3).map(e=><Event key={e.id} event={e}/>)}</details>:null}
    </section>)}
   </div>
