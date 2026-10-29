@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {EARNINGS_CASES,EARNINGS_RESEARCH_CUTOFF,getEarningsCase} from "@/lib/bluebelly-earnings-investor-stories";
+import {DATED_MARKET_DEBATES} from "@/lib/bluebelly-earnings-investor-commentary";
 import styles from "./EarningsInvestorDeepDive.module.css";
 
 /**
@@ -76,6 +77,14 @@ export default function EarningsInvestorDeepDive({ticker,backHref}:{ticker:strin
          <div><h3>The sceptical interpretation</h3><p>{item.debate.bear}</p></div>
        </div>
        <p className={styles.limit}><strong>What this debate cannot prove:</strong> {item.debate.limit}</p>
+       <h3>What investors, analysts and industry observers are saying</h3>
+       <p>These are sourced statements by named issuers or identifiable commentators, not a survey or a Bluebelly factual verdict. The verification limits are as important as the bullish or bearish claim.</p>
+       <div className={styles.voiceList}>{(DATED_MARKET_DEBATES[item.ticker]||[]).map(read=><div className={styles.voice} key={read.source+read.label}>
+         <p className={styles.kicker}>{read.kind.toUpperCase()} · {read.date}</p>
+         <h4>{read.label}</h4>
+         <p>{read.claim}</p><p className={styles.voiceLimit}><strong>Evidence limit:</strong> {read.limitation}</p>
+         <a href={read.source} target="_blank" rel="noopener noreferrer">View the dated original discussion or report ↗</a>
+       </div>)}</div>
      </section>
      <section id="the-verdict" className={styles.section}>
        <p className={styles.kicker}>04 / THE NEGOTIATION</p>
@@ -89,6 +98,14 @@ export default function EarningsInvestorDeepDive({ticker,backHref}:{ticker:strin
        <h3>Questions to ask on the earnings call</h3>
        <ol className={styles.questions}>{item.calls.map(question=><li key={question}>{question}</li>)}</ol>
      </section>
+     {["AMZN","INTC","AMD","SNDK"].includes(item.ticker)?<section className={styles.section} id="credit-funding" aria-label="Yield and credit pressure">
+       <p className={styles.kicker}>CROSS-ASSET INVESTOR TEST</p>
+       <h2>When does the bond market actually punish this business?</h2>
+       <p>The US Treasury's 28 October indicative par yields were 4.67% for two years, 5.05% for ten years and 5.37% for thirty years. These are dated market observations, not today's live quotes. Higher risk-free yields may lower the present value of future equity earnings even if the company has not issued any bonds.</p>
+       <p>Firm-specific credit pressure requires an extra step: compare a company's corporate bond yield against a Treasury of comparable maturity at matched times, or examine its CDS spread. If Treasury yields climb while the issuer's spread stays steady, the general interest-rate regime may be responsible. If the company's spread widens materially, bondholders may be demanding additional compensation for its own risk.</p>
+       <p>For an AI infrastructure buyer, the key comparison is cash remaining after equipment spending versus the interest bill, lease obligations and the next debt maturity. A chip supplier can benefit from that spending without carrying the buyer's financing burden. No company-specific spread change is asserted here.</p>
+       <a href="https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_yield_curve&field_tdr_date_value_month=202610" target="_blank" rel="noopener noreferrer">28 October source: US Treasury daily yield curve ↗</a>
+     </section>:null}
      <section id="source-desk" className={styles.section}>
        <p className={styles.kicker}>05 / AUDIT TRAIL</p>
        <h2>Original records and the unresolved gaps</h2>
