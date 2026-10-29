@@ -123,6 +123,20 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
   if(briefId){
     const selected=decisionTopics(news,calendar,now).find(t=>t.id===briefId);
     const earningsReceipt=getRecentVerifiedEarningsScorecards(now,7).find(e=>e.id===briefId)||null;
+    // An official Amazon earnings calendar receipt is a preview, not a results
+    // statement. Route readers to the already researched long-form financial
+    // story instead of the bare four-field calendar recap. Keep the query
+    // allowlist: no arbitrary brief or private source can select this article.
+    if(selected?.status==="UPCOMING" && selected.assets.includes("AMZN") && !earningsReceipt) {
+      return <main className={desk.page} data-bluebelly-earnings-preview="dated-primary-source-research">
+        <BlueDeskHeader activePath="/blue-desk/key-stories"/>
+        <div className={desk.content}>
+          <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link>
+          <AmazonFomcFeatures kind="amazon" />
+          <p>Explore the <Link href={blueDeskPublicHref("/blue-desk/markets",host)+"#earnings-fundamentals"}>seven-company balance-sheet and earnings investor tests</Link>. Financial figures are dated; no forthcoming Q3 result is inferred.</p>
+        </div>
+      </main>;
+    }
     return <main className={desk.page} data-bluebelly-news="decision-recap-reader">
       <BlueDeskHeader activePath="/blue-desk/key-stories"/>
       <div className={desk.content}>{selected?
@@ -227,6 +241,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
           {earlierNews.length?<a href="#recent-reports">Earlier this week</a>:null}
           <a href="#persistent-theses">Browse by topic</a>
           <a href="#upcoming-decisions">What's next</a>
+          <Link href={blueDeskPublicHref("/blue-desk/markets",host)+"#earnings-fundamentals"}>Earnings &amp; fundamentals</Link>
           <Link href={indexHref+"?feature=rbnz-october-2026"}>RBNZ explainer</Link>
         </nav>
       </header>
@@ -240,7 +255,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
           <DualTimestamp value={now.toISOString()} className={ui.summaryTime} />
         </div>
       </div>
-      <section className={ui.section} aria-label="Dated editorial features"><h2>The decision and the money</h2><div className={ui.cards}>{EDITORIAL_FEATURES.map(feature=><article className={ui.card} key={feature.id}><p className={ui.kicker}>DATED EDITORIAL · 29 OCTOBER 2026</p><h3><Link href={indexHref+"?feature="+feature.id}>{feature.title}</Link></h3><p>{feature.summary}</p></article>)}</div></section>
+      <section className={ui.section} aria-label="Dated editorial features"><h2>The decision and the money</h2><p><Link href={blueDeskPublicHref("/blue-desk/markets",host)+"#earnings-fundamentals"}>Investor fundamentals: Amazon, Intel, SanDisk, AMD, Apple, Pfizer and Palantir →</Link></p><div className={ui.cards}>{EDITORIAL_FEATURES.map(feature=><article className={ui.card} key={feature.id}><p className={ui.kicker}>DATED EDITORIAL · 29 OCTOBER 2026</p><h3><Link href={indexHref+"?feature="+feature.id}>{feature.title}</Link></h3><p>{feature.summary}</p></article>)}</div></section>
       <section className={ui.section} id="current-developments" aria-label="Current event readers"><h2>Current developments</h2><div className={ui.cards}>{topics.map(topic=><article className={ui.card} key={topic.id}><p className={ui.kicker}>VERIFIED NEWS · <DualTimestamp value={topic.latestObservedAt}/></p><h3><Link href={indexHref+"?catalyst="+topic.id}>{topic.updates[0].headline}</Link></h3><p>{topic.guidingQuestion}</p></article>)}<article className={ui.card}><p className={ui.kicker}>DATED FEATURE · 28 OCTOBER 2026</p><h3><Link href={indexHref+"?feature=rbnz-october-2026"}>New Zealand’s surprise pause</Link></h3><p>Why a hold can surprise: follow expectations, the decision and the reported currency response.</p></article></div></section>
       {earlierNews.length?<section className={ui.section} id="recent-reports" aria-label="More verified reports from this week">
         <p className={ui.kicker}>SOURCE-VERIFIED / DATED PREVIOUS DAYS</p>
