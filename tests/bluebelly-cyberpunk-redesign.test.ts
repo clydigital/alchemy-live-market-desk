@@ -19,9 +19,9 @@ test('every portrait is a first-party passive SVG with isolated IDs and original
   assert.match(svg,/aria-label=/);
  }
 });
-test('three accent palettes preserve stable article canvas and semantic market colours',()=>{
+test('four accent palettes preserve stable article canvas and semantic market colours',()=>{
  const tokens=readFileSync('app/bluebelly-tokens.css','utf8');
- for(const colour of ['#49e2d0','#3da8ff','#b9e9aa'])assert.ok(tokens.includes(colour));
+ for(const colour of ['#ffdb23','#49e2d0','#3da8ff','#b9e9aa'])assert.ok(tokens.includes(colour));
  assert.equal((tokens.match(/--bb-canvas:/g)||[]).length,1);
  assert.doesNotMatch(tokens,/--positive|--negative|--gain|--loss/);
  const prefs=readFileSync('components/blue-desk/ThemePreferences.tsx','utf8');
