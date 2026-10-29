@@ -82,7 +82,9 @@ test("late PDF retry reuses authorised Research Gap cron without weakening publi
  const schedule=readFileSync(new URL("../vercel.json",import.meta.url),"utf8");
  assert.ok(route.includes("handleScheduledResearchGapHandoff(request)"));
  assert.ok(route.includes("attemptPrivateDailyPdfInExistingHandoff(request,slot,now)"));
- assert.ok(route.includes('payload.status!=="completed"'));
+ assert.ok(route.includes("if(result.status!==200)return result"));
+ assert.ok(route.includes("const report=await reportTask;"));
+ assert.ok(!route.includes('payload.status!=="completed"'));
  assert.ok(retry.includes("acceptsResearchAuthorization"));
  assert.ok(!retry.includes("isCompletedDossierForAutomaticReport"));
  assert.ok(retry.includes("NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED"));
@@ -239,7 +241,9 @@ test("source-qualified private PDF starts within the existing authorised cron ev
  assert.ok(!late.includes("createSupabaseAdminClient"));
  assert.ok(late.includes("acceptsResearchAuthorization"));
  const handoff=read("app/api/cron/research-gap/handoff/route.ts");
- assert.ok(handoff.includes('payload.status!=="completed"'));
+ assert.ok(handoff.includes("if(result.status!==200)return result"));
+ assert.ok(handoff.includes("const report=await reportTask;"));
+ assert.ok(!handoff.includes('payload.status!=="completed"'));
  assert.ok(handoff.includes("isAutomaticReportFallbackWindow"));
  const job=read("lib/blue-desk-automated-report-job.ts");
  assert.ok(job.includes("reportEvidenceReady(evidence)"));
