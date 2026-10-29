@@ -1,4 +1,7 @@
 import {PostEventRecapFeature} from "./PostEventRecap";
+import {getRecentVerifiedEarningsScorecards} from "@/lib/blue-desk-earnings-results";
+import {getRecentOfficialMacroResults} from "@/lib/blue-desk-official-macro-results";
+import {getUnreconciledPublicEarnings} from "@/lib/bluebelly-earnings-coverage";
 import type {PostEventRecap} from "@/lib/bluebelly-post-event-recap";
 import type {EmbeddedSocialContext} from "@/lib/bluebelly-event-social";
 import Link from 'next/link';
@@ -35,6 +38,9 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
  const onAir=buildPresenterOneMinute(news,calendar,now);
  const reader=blueDeskPublicHref('/blue-desk/key-stories',host), calendarHref=blueDeskPublicHref('/blue-desk/calendar',host);
  const lead=topics[0];
+ const releasedEarnings=getRecentVerifiedEarningsScorecards(now,7);
+ const releasedMacro=getRecentOfficialMacroResults(now);
+ const missingIssuerResults=getUnreconciledPublicEarnings(now);
  const additional=recentNews.filter(n=>!topics.some(t=>t.href==='?news='+encodeURIComponent(n.id))).slice(0,8);
  // Previously published outcomes were missing from the rolling original-press
  // reader, so show their approved, source-dated Bluebelly articles here too.
@@ -103,11 +109,30 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
   <div className={s.lanes} aria-label="Results and forward catalysts">
    <section data-bluebelly-released-reading="links-only">
     <h2>Released · last 7 days</h2>
-    {postEventRecaps.length ? postEventRecaps.map(r=><article className={s.event} key={r.id}>
+    {releasedMacro.map(r=><article className={s.event} key={r.id} data-official-macro-outcome={r.id}>
+      <strong><Link href={reader+'?brief='+encodeURIComponent(r.id)}>{r.title}</Link></strong>
+      <small>{r.releaseAt.slice(0,10)} · ORIGINAL BEA RELEASE · DATE-QUALIFIED EDITORIAL</small>
+      <p>{r.fact}</p><small><a href={r.sourceUrl} target="_blank" rel="noopener noreferrer">{r.sourceName} ↗</a></small>
+    </article>)}
+    {releasedEarnings.map(r=><article className={s.event} key={r.id} data-source-reviewed-issuer={r.ticker}>
+      <strong><Link href={reader+'?brief='+encodeURIComponent(r.id)}>{r.company} · {r.fiscalPeriod} results</Link></strong>
+      <small>{r.releaseDay} · SOURCE-REVIEWED ISSUER FIGURES · ANALYST CONSENSUS NOT VERIFIED</small>
+      <p>{r.metrics[0].name}: {r.metrics[0].value}. {r.metrics[2].state==='measured'
+        ?'Free cash flow: '+r.metrics[2].value+' ('+r.metrics[2].note+')'
+        :'FCF: not yet source-qualified for this period.'}</p>
+      <small><a href={r.sourceUrl} target="_blank" rel="noopener noreferrer">{r.sourceName} ↗</a></small>
+    </article>)}
+    {postEventRecaps.map(r=><article className={s.event} key={r.id}>
       <strong><Link href={reader+r.detailsHref}>{r.headline}</Link></strong>
       <small><DualTimestamp value={r.releaseAt.includes("T")?r.releaseAt:null} sourceDate={r.releaseAt}/> · {r.featuredStatus==="REVIEWED"?"Reviewed Bluebelly recap":"Verified announcement · analysis pending"}</small>
       <p>{r.standfirst}</p>
-    </article>):<p>No qualifying public recaps in the last seven days. Research records are not automatically published news.</p>}
+    </article>)}
+    {missingIssuerResults.length ? <details className={s.event} data-earnings-coverage-gap="issuer-schedule-reconciliation">
+      <summary>Issuer results needing public-board review: {missingIssuerResults.map(r=>r.ticker).join(", ")}</summary>
+      <p>These issuer-announced reporting dates have passed, but the public released-results board does not yet have a source-reviewed scorecard. This does not mean the company failed to report or that its earnings disappointed. Verify the original release and reconcile it before assigning a result.</p>
+      {missingIssuerResults.map(r=><p key={r.ticker+r.quarter}>{r.company} · {r.quarter} · call/date {r.scheduledCallAt} · <a href={r.originalScheduleUrl} target="_blank" rel="noopener noreferrer">Issuer announcement ↗</a></p>)}
+    </details>:null}
+    {!releasedMacro.length&&!releasedEarnings.length&&!postEventRecaps.length?<p>No qualifying dated public results available. Research and issuer-release coverage may be incomplete.</p>:null}
    </section>
    {[{title:"Next policy & macro · 72h / 7d",rows:lanes.policy},{title:"Upcoming earnings · 7 days",rows:lanes.earnings}].map(l=><section key={l.title}><h2>{l.title}</h2>
     {l.rows.length?l.rows.slice(0,3).map(e=><Event key={e.id} event={e}/>):<p>No qualifying records available. Coverage may be incomplete.</p>}
