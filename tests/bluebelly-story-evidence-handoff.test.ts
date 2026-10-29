@@ -20,7 +20,7 @@ const chart=(key:string,status:PublicTrendCard["status"]="ready"):PublicTrendCar
 test("story charts are relevant dated original series, not synthetic event reactions",()=>{
  assert.equal(topicTrendKey(topic("a","Brent crude and Hormuz shipping")),"energy");
  assert.equal(topicTrendKey(topic("b","SK hynix AI chip demand")),"semiconductors");
- assert.equal(topicTrendKey(topic("c","FOMC and the 2-year Treasury")),"rates-long");
+ assert.equal(topicTrendKey(topic("c","FOMC and the 2-year Treasury")),"rates-short");
  assert.equal(topicTrendKey(topic("d","The RBNZ's unexpected pause")),null);
  assert.equal(topicTrendKey(topic("e","General macro overview")),null);
  const cards=[chart("energy"),chart("semiconductors"),chart("rates-long","stale")];
