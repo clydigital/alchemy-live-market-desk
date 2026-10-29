@@ -77,6 +77,17 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           </div>
         </header>
 
+        <section className={styles.section} aria-label="Earnings fundamentals reading desk" data-earnings-reader-entry="seven-company">
+          <div className={styles.sectionHead}>
+            <div><p className={styles.kicker}>FINANCIAL RESEARCH / THE INVESTOR TEST</p>
+              <h2>Beyond the earnings headline</h2>
+              <p>Seven complete business-model and financial investigations, including the cash bridge, management's argument, its strongest countercase and the next evidence test.</p>
+              <p><Link href={blueDeskPublicHref("/blue-desk/markets",host)+"?view=earnings&ticker=AMZN"}>Read Amazon's capital spending investigation →</Link>
+              {" · "}<Link href={blueDeskPublicHref("/blue-desk/markets",host)+"#earnings-fundamentals"}>Browse all seven companies</Link></p>
+            </div>
+          </div>
+        </section>
+
         <nav aria-label="Market group" className={styles.publicMarketGroups}>
           {PUBLIC_MARKET_GROUPS.map(item => (
             <Link
