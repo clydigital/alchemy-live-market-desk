@@ -32,3 +32,10 @@
 @media(max-width:950px){.layout{grid-template-columns:1fr}.rail{position:static;grid-template-columns:repeat(2,minmax(0,1fr))}.hero{grid-template-columns:1fr}.hero h1{max-width:none}}
 @media(max-width:680px){.hero{padding:22px 18px}.hero h1{font-size:36px}.metricGrid,.debate,.scenarios,.rail{grid-template-columns:1fr}.section>p{font-size:15px}.section{padding-top:18px}.chaptersNav a{padding:8px 10px}.bridge{padding:15px}.metadata{margin-top:16px}}
 @media(prefers-reduced-motion:reduce){.article *{scroll-behavior:auto}}
+
+.voiceList{display:grid;gap:12px;margin:20px 0}
+.voice{padding:20px;background:var(--bb-card-bg);border:1px solid var(--bb-card-border);border-radius:10px}
+.voice h4{font-size:17px;line-height:1.45;margin:8px 0}
+.voice p{font-size:14px;line-height:1.72;color:var(--bb-muted);margin:8px 0}
+.voice .voiceLimit{font-size:12px;border-left:2px solid var(--bb-accent);padding:8px 12px;background:var(--bb-card-quiet)}
+.voice a{display:inline-block;font-size:13px;margin:8px 0 0;font-weight:700;overflow-wrap:anywhere}
