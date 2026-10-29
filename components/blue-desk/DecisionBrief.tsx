@@ -82,7 +82,7 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
    const chart=selectTopicTrend(t,trends),posts=socialPostsByTopic[t.id]||[];
    return <article className={i===0?s.lead:s.topic} key={t.id}>
     <p className={s.kicker}>{String(i+1).padStart(2,'0')} / {t.status}</p>
-    <div className={s.art}>{chart?<StoryEvidenceChart card={chart}/>:<EditorialStoryArt headline={t.title} summary={t.fact} compact/>}</div>
+    <div className={chart?s.chartArt:s.art}>{chart?<StoryEvidenceChart card={chart}/>:<EditorialStoryArt headline={t.title} summary={t.fact} compact/>}</div>
     <ScopeStrip assets={t.assets} max={2} label="In focus"/><h2><Link href={reader+t.href}>{t.title}</Link></h2>
     <p>{t.status==='UPCOMING'?t.why:t.fact}</p>
     <small>{t.status==='UPCOMING'?'Scheduled':t.status==='FEATURE'?'Dated editorial feature':'Source event'} <DualTimestamp value={t.at.includes('T')?t.at:null} sourceDate={t.at}/></small>
