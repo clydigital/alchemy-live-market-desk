@@ -12,6 +12,6 @@ export function getUnreconciledPublicEarnings(now=new Date()){
  const reviewed=getRecentVerifiedEarningsScorecards(now,7);
  return due.filter(item=>!reviewed.some(record=>
    record.ticker===item.ticker &&
-   record.fiscalPeriod.toLowerCase().replace(/\\s/g,"")===item.quarter.toLowerCase().replace(/\\s/g,"")
+   record.fiscalPeriod.toLowerCase().replace(/\s/g,"")===item.quarter.toLowerCase().replace(/\s/g,"")
  )).map(item=>({...item,status:"RESULT_BOARD_REVIEW_NEEDED" as const}));
 }
