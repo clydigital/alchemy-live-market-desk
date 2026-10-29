@@ -8,19 +8,19 @@ import styles from "./KeyStoryDeepArticle.module.css";
 export default function KeyStoryDeepArticle({
   receipt, depth, backHref, relatedHref,
 }:{
-  receipt:NewsBriefV1; depth:PublicStoryDepth; backHref:string; relatedHref:string;
+  receipt?:NewsBriefV1; depth:PublicStoryDepth; backHref:string; relatedHref:string;
 }){
  return <article className={styles.article} data-key-story-depth="source-verified-analysis" data-version="key-story-evidence-v1">
    <nav className={styles.back}><Link href={backHref}>← Return to Key Stories</Link></nav>
    <header className={styles.hero}>
      <div>
        <p className={styles.kicker}>KEY STORY / {depth.topic.toUpperCase()}</p>
-       <p className={styles.edition}>Original event <DualTimestamp value={receipt.occurredAt}/> · Editorial {depth.edition}</p>
+       <p className={styles.edition}>Original event <DualTimestamp value={receipt?.occurredAt||"2026-10-28T18:00:00.000Z"}/> · Editorial {depth.edition}</p>
        <h1>{depth.title}</h1>
        <p className={styles.lead}>{depth.hook}</p>
        <p>{depth.lead}</p>
      </div>
-     <div className={styles.art}><EditorialStoryArt headline={receipt.headline} summary={depth.hook}/></div>
+     <div className={styles.art}><EditorialStoryArt headline={receipt?.headline||depth.title} summary={depth.hook}/></div>
    </header>
    <nav className={styles.toc} aria-label="Article chapters">
      <a href="#context">The setup</a>
@@ -58,7 +58,7 @@ export default function KeyStoryDeepArticle({
          <p className={styles.kicker}>WHAT REALLY HAPPENED</p>
          <h2>The vote reveals more than the unchanged rate.</h2>
          {depth.whatChanged.map((p,i)=><p key={i}>{p}</p>)}
-         <p className={styles.primary}><strong>Original release:</strong> <a target="_blank" rel="noopener noreferrer" href={receipt.sourceUrl}>{receipt.sourceName} · original statement ↗</a></p>
+         <p className={styles.primary}><strong>Original release:</strong> <a target="_blank" rel="noopener noreferrer" href={receipt?.sourceUrl||depth.sources[0].url}>{receipt?.sourceName||depth.sources[0].label} · original statement ↗</a></p>
        </section>
        <section id="transmission" className={styles.section}>
          <p className={styles.kicker}>FOLLOW THE MONEY / MARKET TRANSMISSION</p>
