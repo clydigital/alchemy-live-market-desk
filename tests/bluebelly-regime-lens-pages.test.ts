@@ -73,3 +73,26 @@ test("lens grouping is topical association and does not mutate an existing Story
  assert.deepEqual(sample,original);
  assert.equal(groups.length,8);
 });
+
+test("research lens directory card surfaces and editorial art follow all four live themes",()=>{
+ const styles=read("app/blue-desk/regime-watch/regime-watch.module.css");
+ const tokens=read("app/bluebelly-tokens.css");
+ const preferences=read("components/blue-desk/ThemePreferences.tsx");
+ for(const theme of ["yellow-black","turquoise","neon-blue","pastel-green"]){
+  assert.ok(preferences.includes(theme),theme+" selectable");
+  assert.ok(tokens.includes('data-bluebelly-theme="'+theme+'"')||theme==="yellow-black",theme+" token");
+ }
+ for(const fragment of [
+  ".card{", ".card:hover,.card:focus-visible{", ".path{", ".path:hover,.path:focus-visible{",
+  "background:linear-gradient(", "color-mix(in srgb,var(--bb-surface)",
+  "border-color:var(--bb-accent)", "outline:2px solid var(--bb-accent)",
+  ".art svg>rect{fill:var(--bb-raised)}", '.art svg>g[stroke-width="8"]{stroke:var(--bb-accent)}',
+  ".content h3{", "color:var(--bb-text)", "color:var(--bb-muted)",
+ ]){
+  assert.ok(styles.includes(fragment),fragment);
+ }
+ for(const fixedColour of ["#082a42","#0a344f","#2b5e7a","#78d9ff","#8cdafa"]){
+  assert.ok(!styles.includes(fixedColour),"legacy fixed-blue card value "+fixedColour);
+ }
+ assert.match(styles,/@media\(max-width:750px\)\{\.cards\{grid-template-columns:1fr\}/);
+});
