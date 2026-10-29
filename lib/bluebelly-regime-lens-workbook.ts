@@ -19,6 +19,8 @@ export type LensWorkbook={
  related:readonly {id:EditorialRegimeId; why:string}[];
  sourcePattern:RegExp;
  leadHeadlinePattern:RegExp;
+ policyDilemma?:{question:string;answer:string;housingConstraint:string;policyConstraint:string};
+ scenarios?:readonly {title:string;setup:string;crossMarketEffects:readonly string[]}[];
 };
 const monitor=(name:string,purpose:string,discriminator:string,sourceName:string,sourceUrl:string,cadence:string):LensMonitor=>
  ({name,purpose,discriminator,sourceName,sourceUrl,cadence});
@@ -147,6 +149,35 @@ export const REGIME_LENS_WORKBOOKS:Record<EditorialRegimeId,LensWorkbook>={
   related:[{id:"fed",why:"Policy and real yields affect gold's carry trade-off"},{id:"energy",why:"Geopolitical and inflation premia can overlap"}],
   leadHeadlinePattern:/\b(?:gold|bullion|xau|reserve allocation|central.bank buying)\b/i,
   sourcePattern:/\b(?:gold|xau|bullion|central bank reserves?|official reserves|real yield|gold holdings|monetary gold)\b/i,
+ },
+ housing:{
+  lead:"US housing is an affordability, inflation and credit channel—not a single house-price chart. The tracker separates borrowing costs, household budgets, activity, shelter inflation and borrower stress, then follows the links into bonds, the dollar, equities, banks and gold.",
+  causalPath:["Inflation, income and mortgage rates","Affordability, turnover and construction","Rents / owners' equivalent rent and household balance sheets","Treasury yields, USD, bank credit, equities and gold"],
+  mechanismCaution:"High home prices do not automatically mean high current inflation: CPI shelter measures rent and owners' equivalent rent, and these can lag real-time asking rents. A high mortgage rate can reduce demand while also worsening monthly affordability and discouraging existing owners from selling. Do not infer a housing-credit crisis from low sales alone.",
+  strengthen:"Mortgage payments remain elevated relative to incomes while transactions, starts or permits weaken; shelter inflation stays persistent; or official delinquency data show broadening borrower stress. Require dated observations and distinguish level, direction and lag.",
+  challenge:"Income growth and new supply improve affordability, sales stabilise without renewed price pressure, shelter inflation cools, and delinquency measures remain contained.",
+  monitors:[
+   monitor("Mortgage borrowing cost","Freddie Mac 30-year fixed mortgage-rate series with its weekly observation date","Separate Treasury-yield moves from the rate households actually face","Freddie Mac PMMS","https://www.freddiemac.com/pmms","Weekly release"),
+   monitor("Affordability and home prices","Payment-to-income or price-to-income measure, with methodology and period","Test whether affordability improves through income, rates, prices or a mix","National Association of Realtors","https://www.nar.realtor/research-and-statistics/housing-statistics","Monthly release"),
+   monitor("Sales, inventory and construction","Existing/new-home sales, months of supply, housing starts and permits","Determine whether weak demand is meeting a supply response","US Census Bureau","https://www.census.gov/construction/nrc/","Monthly release"),
+   monitor("Shelter inflation","CPI rent of primary residence and owners' equivalent rent, with monthly and annual changes","Measure the inflation series the Fed sees; do not substitute home prices","US Bureau of Labor Statistics","https://www.bls.gov/cpi/","Monthly release"),
+   monitor("Mortgage performance","Delinquencies and transitions by loan type, with quarter and denominator","Check whether affordability pressure has become realised credit stress","Federal Reserve Bank of New York","https://www.newyorkfed.org/microeconomics/hhdc.html","Quarterly release"),
+   monitor("Housing prices","FHFA purchase-only index and release period; compare with income and rents","Separate asset-price inflation from transaction volumes and CPI shelter","Federal Housing Finance Agency","https://www.fhfa.gov/data/hpi","Monthly / quarterly release"),
+  ],
+  related:[{id:"fed",why:"Policy decisions respond to inflation and employment, not home prices alone"},{id:"bonds",why:"Treasury yields and mortgage pricing transmit funding costs"},{id:"breadth",why:"Builders, banks and consumer-facing companies can carry the shock into equities"},{id:"gold",why:"Real yields, the dollar and growth stress frame gold's competing channels"}],
+  leadHeadlinePattern:/\b(?:housing|mortgage|home prices?|home sales|homebuilders?|shelter inflation|housing affordability)\b/i,
+  sourcePattern:/\b(?:freddie mac|mortgage rates?|home prices?|housing starts|building permits|home sales|housing inventory|rent of primary residence|owners' equivalent rent|owners equivalent rent|housing affordability|mortgage delinquen|fhfa house price|existing.home sales|new.home sales)\b/i,
+  policyDilemma:{
+   question:"Can the Fed hike rates while housing is already expensive?",
+   answer:"Yes. The Fed sets policy against its inflation and employment mandate; a high purchase price is not a rate-setting veto. If inflation remains too persistent, policymakers can keep rates restrictive or hike even while housing activity is weak.",
+   housingConstraint:"The trade-off is that higher policy rates can keep mortgage borrowing costs high, worsen the monthly payment for new buyers, suppress transactions and construction, and keep owners with older low-rate mortgages from listing. Prices may stay sticky because supply is constrained even as affordability deteriorates.",
+   policyConstraint:"The Fed cannot directly target house prices. Shelter in CPI/PCE—rent and owners' equivalent rent—matters for inflation, but it adjusts with a lag. Policymakers must weigh that lag against current inflation, labour demand and the risk that restrictive rates amplify housing and credit stress.",
+  },
+  scenarios:[
+   {title:"Sticky inflation, housing stagnation",setup:"Shelter inflation remains firm while high mortgage costs suppress turnover and construction; household credit remains broadly orderly.",crossMarketEffects:["2Y yields: hike / higher-for-longer pricing can lift the front end.","10Y yields: inflation persistence may lift yields; weaker housing growth can partly offset it.","DXY: may firm if US policy pricing rises relative to peers.","Equities: rate-sensitive builders, REITs, banks and consumer cyclicals face pressure; broad index impact depends on earnings breadth.","Gold: higher real yields can weigh, while growth or policy uncertainty can support demand."]},
+   {title:"Gradual affordability repair",setup:"Mortgage costs ease or incomes and supply improve; sales recover without a renewed surge in home prices or shelter inflation.",crossMarketEffects:["2Y yields: can fall if inflation cools without a damaging employment shock.","10Y yields: may ease as inflation risk recedes, though stronger growth can limit the move.","DXY: can soften if the expected US rate advantage narrows.","Equities: homebuilders, mortgage lenders, housing-related retailers and REITs may benefit if financing and demand improve.","Gold: lower real yields can help, while a steadier growth backdrop may reduce defensive demand."]},
+   {title:"Housing-led credit downturn",setup:"Delinquencies broaden, forced sales or lender losses rise, and falling activity spreads beyond housing into consumption and employment.",crossMarketEffects:["2Y yields: may fall as markets price cuts, unless inflation prevents easing.","10Y yields: can fall on weaker growth or rise on renewed inflation / fiscal risk; identify the driver.","DXY: safe-haven demand can support it, while faster expected Fed easing can pull the other way.","Equities: banks, builders, REITs and consumer cyclicals are exposed; credit spreads and earnings revisions test contagion.","Gold: may benefit from lower real yields or risk demand, but a stronger dollar can offset part of the move."]},
+  ],
  }
 };
 

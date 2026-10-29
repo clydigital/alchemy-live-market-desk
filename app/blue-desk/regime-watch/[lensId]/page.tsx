@@ -62,6 +62,7 @@ export default async function ResearchLensPage({params}:Props){
 
    <nav className={styles.pageNav} aria-label="Sections in this research lens">
     <a href="#research-position">Recorded position</a>
+    {workbook.policyDilemma?<a href="#policy-dilemma">Fed policy dilemma</a>:null}
     <a href="#mechanism">Transmission</a>
     <a href="#signals">Monitoring desk</a>
     <a href="#recent-sources">Recent sources</a>
@@ -86,6 +87,23 @@ export default async function ResearchLensPage({params}:Props){
      <small>This is the deciding research question, not a completed measurement or trading trigger.</small>
     </div>
    </section>
+
+   {workbook.policyDilemma?<section className={styles.section} id="policy-dilemma" aria-labelledby="policy-dilemma-heading">
+    <span className={styles.kicker}>POLICY DILEMMA / CROSS-MARKET TRANSMISSION</span>
+    <h2 id="policy-dilemma-heading">{workbook.policyDilemma.question}</h2>
+    <p className={styles.policyAnswer}>{workbook.policyDilemma.answer}</p>
+    <div className={styles.forkGrid}>
+     <div className={styles.fork}><span className={styles.kicker}>WHY HOUSING CAN MAKE TIGHTENING PAINFUL</span><p>{workbook.policyDilemma.housingConstraint}</p></div>
+     <div className={styles.fork}><span className={styles.kicker}>WHAT THE FED IS ACTUALLY WEIGHING</span><p>{workbook.policyDilemma.policyConstraint}</p></div>
+    </div>
+    {workbook.scenarios?<div className={styles.scenarioGrid} aria-label="Conditional housing market scenarios">
+     {workbook.scenarios.map(scenario=><article className={styles.scenario} key={scenario.title}>
+      <h3>{scenario.title}</h3><p>{scenario.setup}</p>
+      <ul>{scenario.crossMarketEffects.map(effect=><li key={effect}>{effect}</li>)}</ul>
+     </article>)}
+    </div>:null}
+    <p className={styles.caveat}>These are conditional transmission paths, not forecasts. Markets can react differently when inflation, growth, credit and policy signals conflict.</p>
+   </section>:null}
 
    <section className={styles.section} id="mechanism" aria-labelledby="mechanism-heading">
     <span className={styles.kicker}>01 / HOW THE THEME COULD REACH MARKETS</span>
@@ -215,7 +233,7 @@ export default async function ResearchLensPage({params}:Props){
     </aside>
    </div>
    <section className={styles.otherLenses} aria-labelledby="explore-related">
-    <div className={styles.otherHead}><h2 id="explore-related">Explore another research lens</h2><Link href={base}>View all eight →</Link></div>
+    <div className={styles.otherHead}><h2 id="explore-related">Explore another research lens</h2><Link href={base}>View all nine →</Link></div>
     <div className={styles.otherGrid}>{EDITORIAL_REGIME_LENSES.filter(item=>item.id!==lens.id).map(item=>
       <Link key={item.id} href={blueDeskPublicHref("/blue-desk/regime-watch/"+item.id,host)}>
        <span>{item.code}</span><strong>{item.name}</strong><span aria-hidden="true">→</span>

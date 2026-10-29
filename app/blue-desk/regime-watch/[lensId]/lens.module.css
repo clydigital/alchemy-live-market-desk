@@ -94,6 +94,13 @@
 .forkGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:19px 0}
 .fork{border:1px solid #406b82;background:#092c43;padding:18px;border-radius:6px}
 .fork p{margin:12px 0 0;color:#d7e7ef;font-size:13px;line-height:1.7}
+.policyAnswer{font-size:15px!important;color:var(--bb-text)!important;font-weight:650}
+.scenarioGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:16px}
+.scenario{min-width:0;padding:15px;border:1px solid var(--bb-line);border-radius:10px;background:var(--bb-surface)}
+.scenario h3{margin:0 0 9px;color:var(--bb-text);font-size:16px;line-height:1.35}
+.scenario>p,.scenario li{color:var(--bb-muted);font-size:12px;line-height:1.65}
+.scenario ul{padding-left:18px;margin:10px 0 0}.scenario li+li{margin-top:6px}
+@media(max-width:900px){.scenarioGrid{grid-template-columns:1fr}}
 .storyEvidence{margin-top:14px}
 .storyEvidence summary{cursor:pointer;color:#8dddff;font-weight:750;padding:9px 0;font-size:12px}
 .storyEvidence summary:hover{text-decoration:underline}
