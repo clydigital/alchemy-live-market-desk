@@ -1,4 +1,5 @@
 import {getRecentVerifiedEarningsScorecards} from "./blue-desk-earnings-results.ts";
+import {getRecentOfficialMacroResults} from "./blue-desk-official-macro-results.ts";
 import type { NewsBriefV1 } from './market-brief-news.ts';
 import type { PresenterCalendar, PresenterCalendarEvent } from './presenter-calendar.ts';
 import { projectLivingMarketTopics } from './blue-desk-living-topics.ts';
@@ -14,6 +15,20 @@ export function decisionTopics(news: readonly NewsBriefV1[], calendar: Presenter
     href:'?news='+encodeURIComponent(t.updates[0].id),status:'NEW' as 'NEW'|'UPCOMING'|'FEATURE',
     mechanism:t.marketMechanism, assets:[] as string[], priority:2,
   }));
+  // Source-reviewed BEA outcome: only after official release, expires after
+  // seven days, and never masquerades as a canonical source-admitted NewsBrief.
+  // If original-source news intake has published it, avoid duplicate cards.
+  for(const result of getRecentOfficialMacroResults(now)){
+    if(current.some(n=>/\\b(?:PCE|personal consumption expenditures)\\b/i.test(n.headline) &&
+      /(?:September|Sep\\.?|2026)/i.test(n.headline+" "+n.summary)))continue;
+    topics.push({
+      id:result.id,title:result.title,fact:result.fact,why:result.why,
+      test:result.test,at:result.releaseAt,sourceUrl:result.sourceUrl,
+      sourceName:result.sourceName,href:'?brief='+encodeURIComponent(result.id),
+      status:'FEATURE',mechanism:result.mechanism,assets:result.affectedAssets,
+      priority:7,
+    });
+  }
   // The separately editor-published RBNZ feature is an approved, dated article,
   // not a new research-engine admission or an inferred market price reaction.
   // Surface it for 48 hours only, and suppress it if a current news brief
