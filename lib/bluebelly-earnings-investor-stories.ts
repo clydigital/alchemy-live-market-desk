@@ -86,6 +86,7 @@ export const EARNINGS_CASES:readonly EarningsCase[]=[
  theMoney:[
   "Intel posted $16.1bn consolidated revenue, up 25%, and a much improved group operating margin. Yet GAAP net loss attributable to Intel was about $11.0bn against positive adjusted net earnings of $2.2bn. The principal disagreement relates to large non-cash share-related fair-value adjustments. That charge affects reported shareholder earnings; it is not identical to cash lost constructing fabs.",
   "The Foundry operating loss was $2.09bn, down from $3.17bn a year earlier. Management explained that much of the year-on-year improvement came from lower period charges, including the absence of a $797m impairment and accelerated-depreciation charge in the comparative period. That means the headline improvement is not all incremental manufacturing efficiency.",
+  "Intel\'s own Q3 guidance called for $15.8–16.8bn revenue, a 42.0% non-GAAP gross margin and $0.38 adjusted diluted EPS at the range midpoint. Those are management expectations, not actual Q3 results or independently matched analyst consensus. Against that bar, the most useful surprise is whether higher wafer volumes can preserve margin rather than only lift sales.",
   "Foundry spending remains unusually demanding: 18A wafer costs and yields, equipment commitments and capacity utilisation have to be tested against what an external buyer will actually pay."
  ],
  theCatch:[
@@ -145,7 +146,8 @@ export const EARNINGS_CASES:readonly EarningsCase[]=[
  theCatch:[
   "At its August investor day, management said eight customers had signed New Business Model arrangements covering roughly 50% of projected fiscal 2027 bit shipments and around two-thirds of fiscal 2028. These contracts include volume commitments and minimum financial guarantees; they are not immunity from price negotiations, customer credit or changing NAND supply.",
   "Management's FY2028–2030 aspiration for roughly 80% non-GAAP gross margins and around 50% adjusted FCF margins is an explicit **projection**. It should be stress-tested against lower ASPs, inventory additions, receivable collections and capacity investment. It is not a guaranteed payout to shareholders.",
-  "Q4 net income also includes an $804m gain on equity securities. Separate it from the operational margin story."
+  "Q4 net income also includes an $804m gain on equity securities. Separate it from the operational margin story.",
+  "SanDisk\'s next-quarter company forecast was $10.3–10.8bn revenue and roughly 83–84.9% GAAP gross margin. That is the management bar; analyst consensus requires an independently dated, comparable estimate. A stock can sell off even on a forecast beat if investors had been pricing in something stronger."
  ],
  balance:[
   "Q4 cash was $4.762bn with no long-term debt reported at the balance-sheet date. Equity investments and venture interests should not be added to immediately available cash.",
@@ -251,7 +253,8 @@ export const EARNINGS_CASES:readonly EarningsCase[]=[
  ],
  theMoney:[
   "Apple reported approximately $109.4bn June-quarter revenue and $2.02 diluted EPS. The company's quarterly filing says product margin improvement reflected product mix and tariff refunds, offset partly by higher costs including memory. This is not a free margin expansion without caveats.",
-  "A report that suppliers cut iPhone-component orders is a plausible demand lead but not independently verified final sales. Apple could be changing inventory timing or adjusting supplier mix; the next company reporting period must settle it."
+  "A report that suppliers cut iPhone-component orders is a plausible demand lead but not independently verified final sales. Apple could be changing inventory timing or adjusting supplier mix; the next company reporting period must settle it.",
+  "There is contrary evidence to the bearish supply-chain story. Counterpoint Research, reported by Reuters on 27 October, estimated first-three-week global sales of the iPhone 18 Pro family 3.1% above the comparable iPhone 17 Pro period. China rose about 29%, while US and Japanese sales reportedly fell 4% and 27%. That regional split helps explain how an aggregate positive number and weak supplier/channel commentary can coexist; estimates are not issuer-reported units."
  ],
  theCatch:[
   "Apple's June cash and securities were about $146.5bn versus roughly $84.3bn in borrowings. Its balance sheet is not dependent on finding near-term AI project finance, but shareholder returns and valuation still depend on future device and Services growth.",
@@ -300,7 +303,8 @@ export const EARNINGS_CASES:readonly EarningsCase[]=[
  centralQuestion:"Can Pfizer replace ageing medicine sales, pay investors and reduce debt using the same cash?",
  pitch:[
   "Pfizer makes money by developing and commercialising medicines and vaccines. The cash spent discovering drugs today can pay back over years, but exclusivity eventually expires and competitors reduce prices. Pfizer's challenge is replenishing its portfolio while servicing acquisition-era debt.",
-  "The income statement is not a reliable standalone shortcut. In Q2 the company reported a small GAAP per-share loss while its adjusted EPS was positive, materially affected by charges linked to purchased intangible assets. Underwriting the dividend requires operating cash, not adjusted EPS."
+  "The income statement is not a reliable standalone shortcut. In Q2 the company reported a small GAAP per-share loss while its adjusted EPS was positive, materially affected by charges linked to purchased intangible assets. Underwriting the dividend requires operating cash, not adjusted EPS.",
+  "The product replacement test has names: recently marketed oncology products including PADCEV and LORBRENA, versus older products such as IBRANCE facing erosion. Pfizer\'s 2026 pipeline also includes several oncology readouts and berobenatide obesity studies. A scientific milestone is an opportunity, not yet booked revenue; approvals, timing and access still govern eventual cash."
  ],
  theMoney:[
   "Across the first six months of 2026, Pfizer generated $3.450bn of operating cash and spent $0.969bn on property and equipment, leaving $2.481bn of simple free cash flow. Dividends paid were $4.896bn. On this six-month basis, FCF covered about 51% of the shareholder distributions.",
