@@ -14,7 +14,7 @@ test("Fed post-event recap leads verified bank and released earnings, not previe
  assert.ok(items[0].sourceUrls.some(s=>s.role==="market_data"));
  assert.ok(items.some(x=>x.kind==="earnings"&&x.id==="sk-hynix-2026q3"));
  assert.ok(items.some(x=>x.id==="boc-2026-10-28"));
- assert.ok(items.every(x=>x.detailsHref.startsWith("?post-event=")));
+ assert.ok(items.every(x=>x.detailsHref.startsWith("?postEvent=")));
 });
 test("do not prepublish an event or silently keep expired recaps",()=>{
  assert.ok(!selectPostEventRecaps([],new Date("2026-10-28T17:50:00Z"),8).some(x=>x.id==="fed-2026-10-28"));
@@ -40,7 +40,7 @@ test("homepage and bounded reader wire post-event recap without changing owner a
  const home=readFileSync(new URL("../app/blue-desk/page.tsx",import.meta.url),"utf8");
  const hero=readFileSync(new URL("../components/blue-desk/DecisionBrief.tsx",import.meta.url),"utf8");
  const reader=readFileSync(new URL("../app/blue-desk/key-stories/page.tsx",import.meta.url),"utf8");
- assert.match(home,/selectPostEventRecaps\(recentNews,now,4\)/);
+ assert.match(home,/selectPostEventRecaps\(recentNews,now,8\)/);
  assert.match(hero,/<PostEventRecapFeature recaps=\{postEventRecaps\}/);
  assert.match(reader,/findPostEventRecap\(recapId,\[\],now\)/);
  assert.match(reader,/data-key-story="post-event-source-reviewed"/);
