@@ -15,6 +15,8 @@ import { getEconomicCalendar } from "@/lib/calendar";
 import { getForwardEarningsEvents } from "@/lib/forward-earnings-sources";
 
 import { getMarketMonitor } from "@/lib/market-monitor-public";
+import {selectPostEventRecaps} from "@/lib/bluebelly-post-event-recap";
+import {getEventSocialContext} from "@/lib/bluebelly-event-social-server";
 
 
 
@@ -72,6 +74,12 @@ export default async function BlueDeskPage() {
   const motionNews = selectVerifiedNewsBriefs(verifiedMotions, now, 12);
   const recentNews = combineQualifiedNews(motionNews,originalPress,18);
   const verifiedNews = recentNews.filter(n=>Date.parse(n.occurredAt)<=+now && +now-Date.parse(n.occurredAt)<=48*3600000);
+  // Display reviewed bank and earnings outcomes first, keeping source-only leads clearly labelled.
+  const postEventRecaps=selectPostEventRecaps(recentNews,now,4);
+  const recapLead=postEventRecaps[0];
+  const postEventSocial=recapLead?.kind==="bank"
+    ?await getEventSocialContext(recapLead.id,recapLead.releaseAt,now).catch(()=>[])
+    :[];
   const newsFeature = verifiedNews[0] || null;
   const featureTopic = newsFeature ? projectLivingMarketTopics([newsFeature])[0] : null;
   const observedFeature = observations[0] || null;
@@ -90,7 +98,8 @@ export default async function BlueDeskPage() {
     <main className={styles.page} data-blue-desk-convergence="phase-1">
       <BlueDeskHeader activePath="/blue-desk" />
       <div className={styles.content}>
-        <DecisionBrief news={verifiedNews} recentNews={recentNews} calendar={calendar} now={now} host={host}/>
+        <DecisionBrief news={verifiedNews} recentNews={recentNews} calendar={calendar} now={now} host={host}
+          postEventRecaps={postEventRecaps} postEventSocial={postEventSocial}/>
         {/* Historical, source-dated price SVGs stay visible before the long archive. */}
 <WhatsNewTrendDashboard
           cards={projectWhatsNewTrends(monitor?.rows||[],now)}
