@@ -45,3 +45,17 @@ test("homepage and bounded reader wire post-event recap without changing owner a
  assert.match(reader,/findPostEventRecap\(recapId,\[\],now\)/);
  assert.match(reader,/data-key-story="post-event-source-reviewed"/);
 });
+
+test("fresh official result displaces an older reviewed policy recap as the next research candidate",()=>{
+ const later=new Date("2026-11-01T18:00:00Z");
+ const next:NewsBriefV1={
+  contractVersion:"news-brief/1",contentType:"NEWS_BRIEF",id:"new-release",
+  headline:"Another Inc announces quarterly earnings results",
+  summary:"The issuer has published original third-quarter earnings and a current outlook.",
+  sourceName:"Issuer IR",sourceUrl:"https://example.com/q3/earnings",sourceKind:"official",
+  occurredAt:"2026-11-01T14:00:00Z",observedAt:"2026-11-01T15:00:00Z",
+  verification:"SOURCE_VERIFIED"
+ };
+ assert.equal(selectPostEventRecaps([next],later,4)[0].id,"receipt-new-release");
+ assert.equal(selectPostEventRecaps([next],later,4)[0].featuredStatus,"SOURCE_ONLY");
+});
