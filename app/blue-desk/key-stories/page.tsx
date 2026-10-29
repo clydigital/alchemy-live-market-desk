@@ -5,6 +5,8 @@ import { ScopeStrip } from "@/components/blue-desk/EntityIdentity";
 import InvestorTest from "@/components/blue-desk/InvestorTest";
 import RbnzDecisionFeature from "@/components/blue-desk/RbnzDecisionFeature";
 import AmazonFomcFeatures, {EDITORIAL_FEATURES} from "@/components/blue-desk/AmazonFomcFeatures";
+import EarningsInvestorDeepDive from "@/components/blue-desk/EarningsInvestorDeepDive";
+import {getEarningsCase} from "@/lib/bluebelly-earnings-investor-stories";
 import NewsroomLensExplorer from "@/components/blue-desk/NewsroomLensExplorer";
 import EditorialStoryArt from "@/components/blue-desk/EditorialStoryArt";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
@@ -120,6 +122,16 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     </main>;
   }
   const briefId=typeof params?.brief==="string"&&/^[a-z0-9_:-]{1,150}$/i.test(params.brief)?params.brief:null;
+  // Preserve the exact pre-print Amazon bookmark as a historical reading
+  // edition after the calendar window expires. This is not a Q3 actuals feed.
+  if(briefId==="earnings:mev_146cecdc376b7290256b1a81")return <main className={desk.page} data-earnings-bookmark="immutable-dated-preview">
+    <BlueDeskHeader activePath="/blue-desk/key-stories"/>
+    <div className={desk.content}>
+      <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link>
+      <AmazonFomcFeatures kind="amazon"/>
+      <p><Link href={blueDeskPublicHref("/blue-desk/markets",host)+"?view=earnings&ticker=AMZN"}>Read the full Amazon business model, cash-flow bridge and balance-sheet investor investigation →</Link></p>
+    </div>
+  </main>;
   if(briefId){
     // The home DecisionBrief displays only the top five topics and only one
     // earnings headline. Deep-linked official issuer events must remain
@@ -148,7 +160,18 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
         <div className={desk.content}>
           <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link>
           <AmazonFomcFeatures kind="amazon" />
-          <p>Explore the <Link href={blueDeskPublicHref("/blue-desk/markets",host)+"#earnings-fundamentals"}>seven-company balance-sheet and earnings investor tests</Link>. Financial figures are dated; no forthcoming Q3 result is inferred.</p>
+          <p>Read the <Link href={blueDeskPublicHref("/blue-desk/markets",host)+"?view=earnings&ticker=AMZN"}>complete Amazon financial investigation →</Link> or the <Link href={blueDeskPublicHref("/blue-desk/markets",host)+"#earnings-fundamentals"}>seven-company investor tests</Link>. Financial figures are dated; no forthcoming Q3 result is inferred.</p>
+        </div>
+      </main>;
+    }
+    // Route only authenticated-to-source, public issuer calendar events to a
+    // pre-reviewed company dossier; never read arbitrary user-supplied URLs.
+    const knownTicker=issuerEvent?.affectedAssets.find(t=>getEarningsCase(t));
+    if(selected?.status==="UPCOMING" && knownTicker && !earningsReceipt){
+      return <main className={desk.page} data-bluebelly-earnings-preview="full-dated-financial-investigation">
+        <BlueDeskHeader activePath="/blue-desk/key-stories"/>
+        <div className={desk.content}>
+          <EarningsInvestorDeepDive ticker={knownTicker} backHref={blueDeskPublicHref("/blue-desk/markets",host)}/>
         </div>
       </main>;
     }
