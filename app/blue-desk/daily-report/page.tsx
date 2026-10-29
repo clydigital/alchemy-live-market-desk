@@ -1,4 +1,8 @@
 import DecisionBrief from "@/components/blue-desk/DecisionBrief";
+import {decisionTopics} from "@/lib/bluebelly-decision-brief";
+import {getPublicStoryXPosts} from "@/lib/bluebelly-public-story-social";
+import {getMarketMonitor} from "@/lib/market-monitor-public";
+import {projectWhatsNewTrends} from "@/lib/blue-desk-whats-new-trends";
 import {EDITORIAL_FEATURES} from "@/components/blue-desk/AmazonFomcFeatures";
 import Link from "next/link";
 import { headers } from "next/headers";
@@ -34,7 +38,7 @@ export default async function DailyReportPage() {
   const host = (await headers()).get("host");
   // All feeds are existing public read models. There is no Dossier, Story
   // adjudication or model completion in this GET path.
-  const [verified, macro, earnings, originalPress, macroDigests, stories, observations] = await Promise.all([
+  const [verified, macro, earnings, originalPress, macroDigests, stories, observations, monitor] = await Promise.all([
     getCurrentVerifiedMarketMotion({ limit: 36 }).catch(() => []),
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({ now }).catch(() => ({
@@ -44,12 +48,15 @@ export default async function DailyReportPage() {
     getPublishedMacroPulseBriefs(10).catch(() => []),
     getPublicThesisLedger(now,24).catch(() => []),
     getPublicSourceObservations(now,16).catch(() => []),
+    getMarketMonitor().catch(() => null),
   ]);
   const motionNews = selectVerifiedNewsBriefs(verified, now, 18);
   const recentNews = combineQualifiedNews(motionNews,originalPress,18);
   const news = recentNews.filter(n=>Date.parse(n.occurredAt)<=+now && +now-Date.parse(n.occurredAt)<=48*3600000);
   const topics = projectLivingMarketTopics(news);
   const calendar = buildPresenterCalendar(macro, earnings, now);
+  const trendCards=projectWhatsNewTrends(monitor?.rows||[],now);
+  const socialPostsByTopic=await getPublicStoryXPosts(decisionTopics(news,calendar,now),now).catch(()=>({}));
   const upcoming = selectBlueDeskUpcoming(calendar, now, 14).slice(0, 12);
   const economics = upcoming.filter(e => e.kind === "economic").slice(0, 6);
   const results = upcoming.filter(e => e.kind === "earnings").slice(0, 6);
@@ -58,7 +65,7 @@ export default async function DailyReportPage() {
   return <main className={styles.page} data-daily-report="editorial-first-v3">
     <BlueDeskHeader activePath="/blue-desk/daily-report" />
     <div className={styles.shell}>
-      <DecisionBrief news={news} recentNews={recentNews} calendar={calendar} now={now} host={host} report/>
+      <DecisionBrief news={news} recentNews={recentNews} calendar={calendar} now={now} host={host} report trends={trendCards} socialPostsByTopic={socialPostsByTopic}/>
       {now.getTime()>=Date.parse("2026-10-28T18:00:00Z")&&now.getTime()<Date.parse("2026-11-05T00:00:00Z")?<section className={styles.section} aria-label="Dated Amazon and FOMC analysis"><p className={styles.eyebrow}>DATED EDITORIAL · 29 OCTOBER 2026</p><h2>Follow the decision and the money</h2>{EDITORIAL_FEATURES.map(feature=><article className={styles.reading} key={feature.id}><h3><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"?feature="+feature.id}>{feature.title}</Link></h3><p>{feature.summary}</p></article>)}</section>:null}
       <details className={styles.moreStories}><summary>Explore previous research, dated editorial features and source inventory</summary>
       <header className={styles.hero}>

@@ -61,22 +61,24 @@ test("raw queue is protected on Bluebelly and owner hosts and never touches cano
   assert.doesNotMatch(source,/story_thesis_versions|collect_evidence|Notion/);
 });
 
-test("excluded account is rejected even when provider rows are passed directly",()=>{
-  assert.throws(()=>parseFxTimeline({code:200,results:[sample({author:{screen_name:"zerohedge"}})]},
-    "zerohedge","2026-10-23T03:30:00Z",now),/explicitly excluded/);
+test("withdrawn exclusion admits attributed posts and quotes while retaining historical audit migration",()=>{
+  const original=parseFxTimeline({code:200,results:[sample({author:{screen_name:"zerohedge"}})]},
+    "zerohedge","2026-10-23T03:30:00Z",now);
+  assert.equal(original.posts.length,1);
   const quote=sample({quote:{id:"2113177723749420101",author:{screen_name:"zerohedge"}}});
   const clean=parseFxTimeline({code:200,results:[quote]},"HFI_Research","2026-10-23T03:30:00Z",now);
   assert.equal(clean.posts.length,1);
-  assert.equal(clean.posts[0].quoteUrl,null);
+  assert.equal(clean.posts[0].quoteUrl,"https://x.com/zerohedge/status/2113177723749420101");
   const db=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
-  const migration=readFileSync(new URL("../supabase/migrations/20261026124200_x_wire_zerohedge_exclusion.sql",import.meta.url),"utf8");
+  const oldMigration=readFileSync(new URL("../supabase/migrations/20261026124200_x_wire_zerohedge_exclusion.sql",import.meta.url),"utf8");
+  const restore=readFileSync(new URL("../supabase/migrations/20261029141500_x_wire_allow_withdrawn_source_exclusion.sql",import.meta.url),"utf8");
   assert.match(db,/if\(isExcludedXWireHandle\(handle\)\)return/);
-  assert.match(db,/\.not\("handle","ilike","zerohedge"\)/);
-  assert.match(migration,/lower\(handle\) = 'zerohedge'/);
-  assert.match(migration,/lower\(a\.handle\) <> 'zerohedge'/);
-  assert.match(migration,/intake_status = 'rejected'/);
+  assert.doesNotMatch(db,/\.not\("handle","ilike","zerohedge"\)/);
+  assert.match(oldMigration,/intake_status = 'rejected'/);
+  assert.match(restore,/claim_x_wire_account/);
+  assert.doesNotMatch(restore,/lower\(a\.handle\) <> 'zerohedge'/);
+  assert.doesNotMatch(restore,/update public\.x_wire_posts/i);
 });
-
 
 
 test("recoverable incomplete history anchors retry, expired history does not monopolise new scans",()=>{

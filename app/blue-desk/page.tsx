@@ -1,4 +1,6 @@
 import DecisionBrief from "@/components/blue-desk/DecisionBrief";
+import {decisionTopics} from "@/lib/bluebelly-decision-brief";
+import {getPublicStoryXPosts} from "@/lib/bluebelly-public-story-social";
 import Link from "next/link";
 import { headers } from "next/headers";
 
@@ -82,6 +84,8 @@ export default async function BlueDeskPage() {
 
   // The established presenter-calendar/1 adapter owns time admission and coverage.
   const calendar = buildPresenterCalendar(macro, earnings, now);
+  const trendCards=projectWhatsNewTrends(monitor?.rows||[],now);
+  const socialPostsByTopic=await getPublicStoryXPosts(decisionTopics(verifiedNews,calendar,now),now).catch(()=>({}));
   const upcoming7d = selectBlueDeskUpcoming(calendar, now).slice(0, 6);
   const upcomingFallback = upcoming7d.length ? [] : selectBlueDeskUpcoming(calendar, now, 30).slice(0, 3);
   const upcoming = upcoming7d.length ? upcoming7d : upcomingFallback;
@@ -90,10 +94,10 @@ export default async function BlueDeskPage() {
     <main className={styles.page} data-blue-desk-convergence="phase-1">
       <BlueDeskHeader activePath="/blue-desk" />
       <div className={styles.content}>
-        <DecisionBrief news={verifiedNews} recentNews={recentNews} calendar={calendar} now={now} host={host}/>
+        <DecisionBrief news={verifiedNews} recentNews={recentNews} calendar={calendar} now={now} host={host} trends={trendCards} socialPostsByTopic={socialPostsByTopic}/>
         {/* Historical, source-dated price SVGs stay visible before the long archive. */}
 <WhatsNewTrendDashboard
-          cards={projectWhatsNewTrends(monitor?.rows||[],now)}
+          cards={trendCards}
           marketsHref={blueDeskPublicHref("/blue-desk/markets",host)}/>
         <details><summary>Explore dated observations and previous research</summary>
         <BluebellyNewsfront news={verifiedNews} observations={observations} theses={theses} host={host} now={now}

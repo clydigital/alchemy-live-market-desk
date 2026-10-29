@@ -40,8 +40,9 @@ export const X_CORE_ROSTER = Object.freeze([
   { handle: "FirstSquawk", focus: "breaking" },
   { handle: "GordianKnotDev", focus: "alchemy-linked" },
 ] as const);
-// X Wire exclusion only. ZeroHedge may remain available in other research feeds.
-export const X_WIRE_EXCLUDED_HANDLES = Object.freeze(["zerohedge"] as const);
+// No X account is currently excluded by owner instruction (29 Oct 2026).
+// Keep the exclusion hook for future explicit and verified account decisions.
+export const X_WIRE_EXCLUDED_HANDLES = Object.freeze([] as readonly string[]);
 export function isExcludedXWireHandle(handle: string): boolean {
   return X_WIRE_EXCLUDED_HANDLES.some(blocked =>
     blocked === handle.trim().replace(/^@/, "").toLowerCase());

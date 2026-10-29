@@ -25,7 +25,7 @@ function post(id: number, handle = "Bluekurtic", patch: Partial<XCandidate> = {}
   };
 }
 
-test("preserves the X sweep settings while excluding ZeroHedge from ten monitored accounts", () => {
+test("preserves the ten-account scan roster without a source-specific ZeroHedge ban", () => {
   assert.deepEqual(X_SWEEP_DEFAULTS, {
     sweep: "x", preset: "normal", lookbackHours: 2.5, overlapMinutes: 30,
     maxCandidatesPerRun: 250, softLimitPerAccount: 40, recoveryLookbackHours: 72,
@@ -130,15 +130,15 @@ test("source-health does not call inaccessible accounts quiet", () => {
   assert.equal(result.monitored, 10);
 });
 
-test("X Wire excludes ZeroHedge at source regardless of case or account form", () => {
-  assert.equal(isExcludedXWireHandle("@ZeroHedge"), true);
-  assert.equal(isExcludedXWireHandle("zerohedge"), true);
+test("withdrawn source ban permits direct ZeroHedge X posts without auto-registering a new crawler account", () => {
+  assert.equal(isExcludedXWireHandle("@ZeroHedge"), false);
+  assert.equal(isExcludedXWireHandle("zerohedge"), false);
   assert.equal(isExcludedXWireHandle("zerohedge2"), false);
   const selected=selectXSweepCandidates([
     post(70,"ZeroHedge"),post(71,"zerohedge"),
     post(72,"Bluekurtic"),post(73,"Bluekurtic",{accountHandle:"@ZEROHEDGE"}),
   ],NOW);
-  assert.deepEqual(selected.selected.map(x=>x.accountHandle),["Bluekurtic"]);
-  assert.equal(selected.withheld.filter(x=>x.reason==="excluded_x_wire_source").length,3);
-  assert.ok(!X_CORE_ROSTER.some(x=>isExcludedXWireHandle(x.handle)));
+  assert.deepEqual(new Set(selected.selected.map(x=>x.accountHandle)),new Set(["ZeroHedge","zerohedge","Bluekurtic"]));
+  assert.equal(selected.withheld.filter(x=>x.reason==="excluded_x_wire_source").length,0);
+  assert.ok(!X_CORE_ROSTER.some(x=>x.handle.toLowerCase()==="zerohedge"));
 });

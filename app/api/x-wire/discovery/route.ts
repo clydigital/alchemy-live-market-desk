@@ -28,7 +28,7 @@ export async function GET(request:NextRequest){
   const [items,accounts]=await Promise.all([
    db.from("x_wire_posts")
     .select("post_id,handle,original_url,published_at,retrieved_at,body,intake_status")
-    .eq("intake_status","discovery").not("handle","ilike","zerohedge")
+    .eq("intake_status","discovery")
     .gte("published_at",from).order("published_at",{ascending:false}).limit(250),
    db.from("x_wire_accounts")
     .select("handle,health,last_completed_at,uncovered_before,page_cursor,last_error")

@@ -1,0 +1,6 @@
+.social{margin-top:10px;border-top:1px solid var(--bb-border,#35576a);padding-top:9px;min-width:0;color:var(--bb-text,#e9f4fa)}
+.eyebrow{font-size:9px!important;letter-spacing:.055em;font-weight:750;color:var(--bb-text-muted,#a3bdcf);margin:2px 0 5px}
+.post{min-width:0;max-width:100%;overflow:hidden}.meta{font-size:10px!important;margin:3px 0!important;color:var(--bb-text-muted,#adc6d4)}
+.post blockquote{max-width:100%;margin:4px 0!important;min-height:20px}
+.fallback{display:block;font-size:10px;color:var(--bb-accent,#83dbdc)!important}
+.disclaimer{display:block;font-size:10px;line-height:1.4;color:var(--bb-text-muted,#a6bbc5);margin-top:4px}

@@ -8,6 +8,11 @@ import {blueDeskPublicHref} from '@/lib/blue-desk-host';
 import DualTimestamp from './DualTimestamp';
 import EditorialStoryArt from './EditorialStoryArt';
 import EarningsEvidenceGraphic from './EarningsEvidenceGraphic';
+import StoryEvidenceChart from './StoryEvidenceChart';
+import StoryXContext from './StoryXContext';
+import {selectTopicTrend} from '@/lib/bluebelly-story-evidence';
+import type {PublicTrendCard} from '@/lib/blue-desk-whats-new-trends';
+import type {EmbeddedSocialContext} from '@/lib/bluebelly-event-social';
 import PresenterOneMinute from './PresenterOneMinute';
 import {buildPresenterOneMinute} from '@/lib/bluebelly-presenter-one-minute';
 import s from './DecisionBrief.module.css';
@@ -28,7 +33,7 @@ function Event({event}:{event:PresenterCalendarEvent}){
    </details>
  </article>;
 }
-export default function DecisionBrief({news,recentNews=[],calendar,now,host,report=false}:{news:readonly NewsBriefV1[];recentNews?:readonly NewsBriefV1[];calendar:PresenterCalendar;now:Date;host:string|null;report?:boolean}){
+export default function DecisionBrief({news,recentNews=[],calendar,now,host,report=false,trends=[],socialPostsByTopic={}}:{news:readonly NewsBriefV1[];recentNews?:readonly NewsBriefV1[];calendar:PresenterCalendar;now:Date;host:string|null;report?:boolean;trends?:readonly PublicTrendCard[];socialPostsByTopic?:Readonly<Record<string,readonly EmbeddedSocialContext[]>>}){
  const topics=decisionTopics(news,calendar,now), lanes=decisionCalendar(calendar,now);
  const crossBank=selectCrossBankPolicyBridge(news,calendar,now);
  const onAir=buildPresenterOneMinute(news,calendar,now);
@@ -73,20 +78,24 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
    </details>
   </header>}
   <PresenterOneMinute brief={onAir} marketsHref={blueDeskPublicHref('/blue-desk/markets',host)}/>
-  <div className={s.topics}>{topics.map((t,i)=><article className={i===0?s.lead:s.topic} key={t.id}>
+  <div className={s.topics}>{topics.map((t,i)=>{
+   const chart=selectTopicTrend(t,trends),posts=socialPostsByTopic[t.id]||[];
+   return <article className={i===0?s.lead:s.topic} key={t.id}>
     <p className={s.kicker}>{String(i+1).padStart(2,'0')} / {t.status}</p>
-    <div className={s.art}><EditorialStoryArt headline={t.title} summary={t.fact} compact/></div>
+    <div className={chart?s.chartArt:s.art}>{chart?<StoryEvidenceChart card={chart}/>:<EditorialStoryArt headline={t.title} summary={t.fact} compact/>}</div>
     <ScopeStrip assets={t.assets} max={2} label="In focus"/><h2><Link href={reader+t.href}>{t.title}</Link></h2>
     <p>{t.status==='UPCOMING'?t.why:t.fact}</p>
     <small>{t.status==='UPCOMING'?'Scheduled':t.status==='FEATURE'?'Dated editorial feature':'Source event'} <DualTimestamp value={t.at.includes('T')?t.at:null} sourceDate={t.at}/></small>
     {t.assets.length?<small>{t.assets.join(' · ')}</small>:null}
     <a className={s.source} href={t.sourceUrl} target="_blank" rel="noreferrer">{t.sourceName} ↗</a>
-  </article>)}</div>
+    {posts.length?(i===0?<StoryXContext posts={posts}/>:<details><summary>Original X discussion · unverified</summary><StoryXContext posts={posts}/></details>):null}
+  </article>})}</div>
   <div className={s.lanes} aria-label="Results and forward catalysts">
    {[{title:'Released · last 7 days',rows:lanes.released},{title:'Next policy & macro · 72h / 7d',rows:lanes.policy},{title:'Upcoming earnings · 7 days',rows:lanes.earnings}].map(l=><section key={l.title}><h2>{l.title}</h2>
     {l.title.startsWith('Released')?earningsResults.map(r=><article className={s.event} key={r.id}><strong><EntityMark kind="company" code={r.ticker}/> {r.company} · {r.fiscalPeriod}</strong><small>{r.releaseDay} · source date only · {r.basis}</small><p>{r.metrics.filter(m=>m.state==='measured').map(m=>m.name+': '+m.value).join(' · ')}</p><small>ACTUAL REPORTED · CONSENSUS COMPARISON UNAVAILABLE</small><EarningsEvidenceGraphic scorecard={r}/><details><summary>Cash flow, spending and outlook</summary><p>{r.beatMiss}</p>{r.metrics.map(m=><p key={m.name}><strong>{m.name}:</strong> {m.value||'Not yet verified'} · {m.comparison||'Comparison unavailable'} {m.note}</p>)}<p>{r.conclusion}</p><p>{r.nextTest}</p><a href={r.sourceUrl}>{r.sourceName} ↗</a></details></article>):null}
     {l.rows.length?l.rows.slice(0,3).map(e=><Event key={e.id} event={e}/>):l.title.startsWith('Released')&&earningsResults.length?null:<p>No qualifying records available. Coverage may be incomplete.</p>}
     {l.rows.length>3?<details><summary>{l.rows.length-3} more events</summary>{l.rows.slice(3).map(e=><Event key={e.id} event={e}/>)}</details>:null}
+    {l.title.startsWith('Upcoming earnings')?<p className={s.limit}>Discovery cross-check: <a href="https://www.earningswhispers.com/calweek" target="_blank" rel="noopener noreferrer">EarningsWhispers weekly</a>{' · '}<a href="https://www.earningswhispers.com/calmonth" target="_blank" rel="noopener noreferrer">monthly</a>. Issuer IR/SEC is required to confirm results and precise reporting time.</p>:null}
    </section>)}
   </div>
   {additional.length ? <section className={s.latest} aria-label="More recent verified reports">

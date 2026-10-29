@@ -23,14 +23,14 @@ Candidate and account limits are maximum workload budgets, not targets. Two-hour
 
 ## Approved X source registry
 
-**26 October 2026 override:** @zerohedge / ZeroHedge is explicitly EXCLUDED from the X Wire and X sweep account registry, discovery, queue, backlog, display and health counts. It is not an allowed X Wire account, even if present in historical data, fetched quotes or older instructions.
+**29 October 2026 owner correction supersedes the 26 October exclusion:** @zerohedge / ZeroHedge is permitted as attributed X discovery and as an independent news article source. There is no source-account ban based on the TankerTrackers dispute. The existing core scan roster remains ten until any additional account is explicitly registered and source-health verified.
 
 Current ten-account roster:
 @Bluekurtic, @HFI_Research, @OilandEnergy, @HormuzReport, @TheStudyofWar, @Currentreport1, @arena, @KobeissiLetter, @FirstSquawk; plus Alchemy-linked @GordianKnotDev.
 
-This exclusion applies to X Wire/social sweep only. It does not remove ZeroHedge from separately governed article or research-feed workflows.
+Historical 26 October SQL excluded ZeroHedge X posts. The 29 October forward migration withdraws the ban and leaves historic rejected-post records intact for audit, without promoting them as verified facts.
 
-The existing **MacroPulse Market Watch** scheduled task prompt was also updated in place on 26 October 2026 to use this ten-account roster and explicitly prohibit @zerohedge on the X discovery path. Schedule, enabled state, Notion publication and the other research instructions were preserved. This prompt change is effective independently of the X Wire repository PR; the database migration and UI changes require deployment.
+The existing **MacroPulse Market Watch** task has since been corrected to permit ZeroHedge and retain all previously monitored accounts. The ten-account scan roster and task schedule remain unchanged. Repository and database repairs require a coordinated tested deployment; a migration file alone is not proof it has been applied.
 
 This is a registry of discovery targets, NOT a claim of ownership, reliability, identity validation, verified recent posts, or currently available timelines. Verify identity/handle at acquisition. Any future extra accounts require explicit registration and source-health checks, rather than duplicative hardcoded lists. The original reference is the approved WIRE_X_INTELLIGENCE_PIPELINE_SPEC.md.
 
