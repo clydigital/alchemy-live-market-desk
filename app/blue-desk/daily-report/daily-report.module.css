@@ -68,3 +68,18 @@
 .hero h1{font-size:clamp(33px,3.75vw,47px)}
 .hero .lead{max-width:790px;font-size:15px;line-height:1.7}
 @media(max-width:760px){.quickNav{gap:6px}.quickNav a{font-size:11px;padding:8px 10px}}
+
+/* Theme-responsive reading cards; preserve source status and PDF document contrast. */
+.news,.reading,.watch,.automaticPdf,.moreStories{background:var(--bb-card-bg);border-color:var(--bb-card-border)}
+.news,.reading,.watch{transition:background .16s ease,border-color .16s ease}
+.news:hover,.reading:hover,.watch:hover{background:var(--bb-card-bg-hover);border-color:var(--bb-accent)}
+.news h3,.reading h3,.watch h3,.pdfMeta strong{color:var(--bb-text)}
+.news p,.reading p,.watch p{color:var(--bb-muted)}
+.eyebrow,.questions dt{color:var(--bb-accent)}
+.page a,.moreStories summary,.pdfArchive summary{color:var(--bb-accent)}
+.hero{background:var(--bb-card-bg);border-color:var(--bb-card-border)}
+.quickNav a{background:var(--bb-card-quiet);border-color:var(--bb-card-border);color:var(--bb-text)}
+.quickNav a:hover,.quickNav a:focus-visible{background:var(--bb-card-bg-hover);border-color:var(--bb-accent);color:var(--bb-text)}
+.pdfActions a{border-color:var(--bb-card-border);color:var(--bb-text)!important}
+.pdfActions a:last-child{background:var(--bb-accent);color:var(--bb-canvas)!important}
+@media(prefers-reduced-motion:reduce){.news,.reading,.watch{transition:none}}
