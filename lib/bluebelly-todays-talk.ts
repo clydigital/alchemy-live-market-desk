@@ -97,11 +97,11 @@ function projectPrices(cards:readonly EditorialPriceCard[]):TalkPrice[]{
    level:safeStatus==="UNKNOWN"?"UNKNOWN":level,
    windows:([1,3,5] as const).map(sessions=>{
     const w=c.comparisons.find(window=>window.sessions===sessions);
-    return {sessions,text:safeStatus!=="OBSERVED"?"UNKNOWN":
+    return {sessions,text:safeStatus==="UNKNOWN"?"UNKNOWN":
      w?priceWindow(w):"UNKNOWN"};
    }),
   } satisfies TalkPrice];
- }).slice(0,6);
+ });
 }
 export function buildOwnerTodayTalk(input:{
  news:readonly NewsBriefV1[];
