@@ -1,4 +1,7 @@
 import {getRecentVerifiedEarningsScorecards} from "@/lib/blue-desk-earnings-results";
+import {PostEventRecapFeature} from "./PostEventRecap";
+import type {PostEventRecap} from "@/lib/bluebelly-post-event-recap";
+import type {EmbeddedSocialContext} from "@/lib/bluebelly-event-social";
 import Link from 'next/link';
 import type {NewsBriefV1} from '@/lib/market-brief-news';
 import type {PresenterCalendar,PresenterCalendarEvent} from '@/lib/presenter-calendar';
@@ -28,7 +31,7 @@ function Event({event}:{event:PresenterCalendarEvent}){
    </details>
  </article>;
 }
-export default function DecisionBrief({news,recentNews=[],calendar,now,host,report=false}:{news:readonly NewsBriefV1[];recentNews?:readonly NewsBriefV1[];calendar:PresenterCalendar;now:Date;host:string|null;report?:boolean}){
+export default function DecisionBrief({news,recentNews=[],calendar,now,host,report=false,postEventRecaps=[],postEventSocial=[]}:{news:readonly NewsBriefV1[];recentNews?:readonly NewsBriefV1[];calendar:PresenterCalendar;now:Date;host:string|null;report?:boolean;postEventRecaps?:readonly PostEventRecap[];postEventSocial?:readonly EmbeddedSocialContext[]}){
  const topics=decisionTopics(news,calendar,now), lanes=decisionCalendar(calendar,now);
  const crossBank=selectCrossBankPolicyBridge(news,calendar,now);
  const onAir=buildPresenterOneMinute(news,calendar,now);
@@ -37,12 +40,18 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
  const earningsResults=getRecentVerifiedEarningsScorecards(now,7);
  const additional=recentNews.filter(n=>!topics.some(t=>t.href==='?news='+encodeURIComponent(n.id))).slice(0,8);
  return <section className={s.brief} data-decision-first="public-v1">
+  {!report?<PostEventRecapFeature recaps={postEventRecaps} host={host} socialPosts={postEventSocial}/>:null}
   {!report?<header className={s.homeHero} aria-label="Lead story and decision test">
    <div className={s.homeLead}>
     <svg className={s.homeCircuit} viewBox="0 0 720 420" aria-hidden="true"><path d="M260 363h95l44-44h88l65-65h145M350 390h120l72-72h160M440 190h76l48-48h150M520 52h115l47-47M240 297h105l46-46h90M130 395h163l72-72h95"/><path d="M570 92h40v40h-40zM444 256h36v36h-36zM380 310h31v31h-31z"/><circle cx="563" cy="255" r="6"/><circle cx="455" cy="190" r="6"/></svg>
     <div className={s.homeLabel}><span>01 / THE LEAD STORY</span><span>{lead?.status||'SOURCE COVERAGE'}</span></div>
     <h1>{lead?.title||'What can we verify today?'}</h1>
     <p className={s.homeDeck}>{lead?(lead.status==='UPCOMING'?lead.why:lead.fact):'Current verified coverage is insufficient for a market verdict. Check the source-listed calendar for the next decision.'}</p>
+    {lead?<div data-featured-story-sequence="recap-effects-outlook" aria-label="Featured story: recap, market effects and outlook">
+     <section><h2>What happened</h2><p>{lead.status==='UPCOMING'?'The event is scheduled; no outcome has been reported.':lead.fact}</p></section>
+     <section><h2>What it means for markets</h2><p>{lead.mechanism}</p><small>Market mechanism, not a verified price reaction. Check timestamped market data before attributing a move.</small></section>
+     <section><h2>What comes next</h2><p>{lead.test}</p><small>Conditional test · {lead.status==='UPCOMING'?'Outcome pending':'Reassess as new evidence arrives'} · <DualTimestamp value={lead.at.includes('T')?lead.at:null} sourceDate={lead.at}/></small></section>
+    </div>:null}
     <div className={s.homeActions}>{lead?<Link className={s.homePrimary} href={reader+lead.href}>Read the story <span aria-hidden="true">↗</span></Link>:<Link className={s.homePrimary} href={calendarHref}>Check the calendar ↗</Link>}<Link className={s.homeSecondary} href={blueDeskPublicHref('/blue-desk/daily-report',host)}>Read the Daily Report ↗</Link></div>
     <div className={s.homeFoot}>{lead?<span>{lead.status==='UPCOMING'?'SCHEDULED':'SOURCE EVENT'} <DualTimestamp value={lead.at.includes('T')?lead.at:null} sourceDate={lead.at}/></span>:null}<span>Read cutoff <DualTimestamp value={now.toISOString()}/></span></div>
    </div>
