@@ -1,5 +1,7 @@
 import HormuzCrossings from "@/components/blue-desk/HormuzCrossings";
 import EarningsFundamentals from "@/components/blue-desk/EarningsFundamentals";
+import EarningsInvestorDeepDive from "@/components/blue-desk/EarningsInvestorDeepDive";
+import {getEarningsCase} from "@/lib/bluebelly-earnings-investor-stories";
 import { getHormuzMonitor } from "@/lib/hormuz-monitor";
 import Link from "next/link";
 import { headers } from "next/headers";
@@ -24,7 +26,7 @@ export const metadata = {
 };
 
 type Props = {
-  searchParams: Promise<{ group?: string | string[] }>;
+  searchParams: Promise<{ group?: string | string[]; view?: string | string[]; ticker?: string | string[] }>;
 };
 
 const GROUP_ICONS: Record<string, MarketIconName> = {
@@ -36,6 +38,16 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   const query = await searchParams;
   const group = publicMarketGroup(query.group);
   const host = (await headers()).get("host");
+  // Keep the public route allowlist unchanged: a bounded query selects only
+  // one of seven dated editorial cases, never arbitrary owner records.
+  const readTicker=typeof query.ticker==="string"?query.ticker:"";
+  const detail=query.view==="earnings"?getEarningsCase(readTicker):null;
+  if(detail)return <main className={styles.page} data-bluebelly-markets-view="earnings-investor-dossier">
+    <BlueDeskHeader activePath="/blue-desk/markets" />
+    <div className={styles.content}>
+      <EarningsInvestorDeepDive ticker={detail.ticker} backHref={blueDeskPublicHref("/blue-desk/markets",host)} />
+    </div>
+  </main>;
   const [monitor, hormuz] = await Promise.all([
     getMarketMonitor().catch(() => null),
     group === "all" || group === "energy" ? getHormuzMonitor() : Promise.resolve(null),
@@ -98,7 +110,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <PublicMarketScreener key={group} observations={observations} group={group} dataAvailable={Boolean(monitor)} />
         </section>
 
-        <EarningsFundamentals amazonFeatureHref={blueDeskPublicHref("/blue-desk/key-stories",host)+"?feature=amazon-cash-test-october-2026"} />
+        <EarningsFundamentals amazonFeatureHref={blueDeskPublicHref("/blue-desk/key-stories",host)+"?feature=amazon-cash-test-october-2026"} deepBaseHref={blueDeskPublicHref("/blue-desk/markets",host)} />
 
         {hormuz ? <HormuzCrossings monitor={hormuz} /> : null}
 
