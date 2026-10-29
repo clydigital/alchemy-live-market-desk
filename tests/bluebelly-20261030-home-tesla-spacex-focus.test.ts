@@ -19,6 +19,9 @@ test("last-seven-days reports link to real approved on-site readers",()=>{
  const recap=source("lib/bluebelly-post-event-recap.ts");
  const reader=source("app/blue-desk/key-stories/page.tsx");
  assert.match(home,/data-bluebelly-released-reading="links-only"/);
+ assert.match(home,/postEventRecaps.slice\(1\)\.map/);
+ assert.match(home,/moreCards.map/);
+ assert.match(home,/<Link href=\{n\.href\}>Read Bluebelly recap/);
  assert.match(home,/<Link href=\{reader\+r\.detailsHref\}>/);
  assert.doesNotMatch(home,/<EarningsEvidenceGraphic scorecard=\{r\}/);
  assert.match(recap,/detailsHref:"\?postEvent="/);
