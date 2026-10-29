@@ -146,3 +146,22 @@
 .calendarStrip{gap:13px}
 .calendarCard{background:#07283b}
 @media(max-width:760px){.intro{padding:23px 19px!important}.intro h1{font-size:37px!important}.indexNav{gap:6px}.indexNav a{font-size:11px;padding:9px 10px}.catalystGrid{grid-template-columns:1fr}}
+
+/* Shared Bluebelly card palette; leave dated facts and narrative structure intact. */
+.card,.catalystCard,.calendarCard{background:var(--bb-card-bg);border-color:var(--bb-card-border);transition:background .16s ease,border-color .16s ease}
+.card:hover,.card:focus-within,.catalystCard:hover,.catalystCard:focus-within,.calendarCard:hover,.calendarCard:focus-within{background:var(--bb-card-bg-hover);border-color:var(--bb-accent)}
+.card h3,.catalystCard h3,.calendarCard h3{color:var(--bb-text)}
+.card p,.calendarCard p,.catalystCard p{color:var(--bb-muted)}
+.card small,.catalystClock{color:var(--bb-muted)!important}
+.card h3 a{color:var(--bb-text)!important}
+.storyRead,.catalystCard a,.calendarCard a{color:var(--bb-accent)!important}
+.kicker{color:var(--bb-accent)!important}
+.test,.humanStakes{background:var(--bb-card-quiet);border-left-color:var(--bb-accent)}
+.test strong,.humanStakes strong{color:var(--bb-text)}
+.summary span,.categoryLink,.categorySelected,.indexNav a{background:var(--bb-card-quiet);border-color:var(--bb-card-border);color:var(--bb-text)!important}
+.categorySelected,.indexNav a:first-child{background:var(--bb-card-bg-hover);border-color:var(--bb-accent);color:var(--bb-text)!important}
+.categoryLink:hover,.indexNav a:hover,.indexNav a:focus-visible{background:var(--bb-card-bg-hover);border-color:var(--bb-accent)}
+.categoryFilters a:focus-visible,.storyRead:focus-visible,.more summary:focus-visible{outline-color:var(--bb-card-focus)}
+.more summary{color:var(--bb-accent)}
+.intro{background:var(--bb-card-bg)!important;border-color:var(--bb-card-border)}
+@media(prefers-reduced-motion:reduce){.card,.catalystCard,.calendarCard{transition:none}}
