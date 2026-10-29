@@ -16,6 +16,8 @@ export async function attemptPrivateDailyPdfInExistingHandoff(
   return {status:"unauthorized" as const};
  if(process.env.NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED!=="true")
   return {status:"locked" as const,reason:"research_schedule_disabled"};
+ if(process.env.BLUEBELLY_ENABLE_LEGACY_PDF!=="true")
+  return {status:"locked" as const,reason:"legacy_pdf_disabled"};
  if(!isAutomaticReportFallbackWindow(now,slot))
   return {status:"locked" as const,reason:"outside_existing_handoff_window"};
  // Keep product failures independent of one another and of Research Gap.

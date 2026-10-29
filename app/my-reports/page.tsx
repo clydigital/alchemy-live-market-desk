@@ -5,6 +5,8 @@ import {getOwnerMaterialRecall} from "@/lib/bluebelly-owner-editorial-recall";
 import OwnerAutomaticReportReader from "@/components/blue-desk/OwnerAutomaticReportReader";
 import OwnerEditorialSlatePdfReader from "@/components/blue-desk/OwnerEditorialSlatePdfReader";
 import OwnerPrivatePdfInputHealth from "@/components/blue-desk/OwnerPrivatePdfInputHealth";
+import OwnerEditorialSlateHtml from "@/components/blue-desk/OwnerEditorialSlateHtml";
+import {getLatestEditorialSlate} from "@/lib/editorial-slate-server";
 import styles from "@/app/blue-desk/blue-desk.module.css";
 import layout from "./my-desk.module.css";
 
@@ -39,7 +41,7 @@ export const metadata={title:"My Desk | Bluebelly",robots:{index:false,follow:fa
  * only within the expandable compatibility area, retaining all auth checks. */
 export default async function MyBluebellyReports({searchParams}:{searchParams?:Promise<{type?:string;page?:string}>}){
  const params=await searchParams;
- const [registry,recall]=await Promise.all([getPrivateHtmlEditions(),getOwnerMaterialRecall()]);
+ const [registry,recall,liveSlate]=await Promise.all([getPrivateHtmlEditions(),getOwnerMaterialRecall(),getLatestEditorialSlate()]);
  // Fresh verified upload receipts appear immediately without committing a file list.
  // Fixed historical editions remain visible as a read-only legacy index.
  const editions=[
@@ -66,6 +68,7 @@ export default async function MyBluebellyReports({searchParams}:{searchParams?:P
        Source provenance and missing evidence stay visible.</p>
     </div>
    </header>
+   <OwnerEditorialSlateHtml slate={liveSlate.slate} status={liveSlate.status}/>
    <section className={layout.driveArchive} data-drive-archive="kqdocuments88-html-primary">
      <div className={layout.driveHead}>
        <div>
