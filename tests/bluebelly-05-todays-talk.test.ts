@@ -119,9 +119,8 @@ test("owner-only route reused; no new public API, writer, cron or inference-as-f
  const page=read("app/owner/presenter/page.tsx");
  const projector=read("lib/bluebelly-todays-talk.ts");
  const component=read("components/blue-desk/OwnerTodayTalk.tsx");
- assert.match(page,/getCurrentVerifiedMarketMotion\(\{limit:24\}\)/);
- assert.match(page,/selectVerifiedNewsBriefs\(motionRecords,new Date\(nowIso\),18\)/);
- assert.match(page,/<OwnerTodayTalk brief=\{talk\}\/>/);
+ assert.match(page,/redirect\("\/my-reports"\)/);
+ assert.doesNotMatch(page,/OwnerTodayTalk|EditorialWorkbench/);
  assert.match(component,/id="todays-talk"/);
  assert.match(component,/role="status" aria-live="polite"/);
  assert.doesNotMatch(projector,/\.(?:insert|update|upsert|delete)\(|generateContent|promptModel|createSupabaseAdminClient/);

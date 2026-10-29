@@ -260,9 +260,7 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
         </nav>
       ):(
         <nav className={styles.subnav} aria-label="Private studio views">
-          <Link href="/owner/editorial" aria-current={mode==="editorial"?"page":undefined}>Article writing</Link>
-          <Link href="/owner/presenter" aria-current={mode==="presenter"?"page":undefined}>Presenter view</Link>
-          <Link href="/my-reports">My PDF library ↗</Link>
+          <Link href="/my-reports">My Desk</Link>
         </nav>
       )}
       <div className={styles.status}><strong>{previewMode?"Temporary development UI — not live research":"Owner-only research workspace"}</strong>

@@ -312,9 +312,9 @@ export default async function BlueDeskPage() {
           </section>
         </div>
 
-        <section className={styles.lastLinks} aria-label="Desk research and presenter">
+        <section className={styles.lastLinks} aria-label="Desk research and saved editions">
           <div>
-            <h2>{publicHost ? "Explore public research" : "Dossier, Journey and presenter preparation"}</h2>
+            <h2>{publicHost ? "Explore public research" : "Dossier, research and saved editions"}</h2>
           </div>
           <div className={styles.quickLinks}>
             {publicHost ? (
@@ -330,7 +330,7 @@ export default async function BlueDeskPage() {
               <>
                 <Link href="/dossier">Current Dossier →</Link>
                 <Link href="/regimes">Market Regimes →</Link>
-                <Link href="/owner/presenter">Presenter Studio →</Link>
+                <Link href="/my-reports">My Desk →</Link>
                 <Link href="/presenter/technical-checks">Technical Checks →</Link>
               </>
             )}

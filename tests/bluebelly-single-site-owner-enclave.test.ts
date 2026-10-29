@@ -79,12 +79,12 @@ test("all nine main Bluebelly links remain visible while private routes stay gat
   ["Today","/"],["Newsroom","/newsroom"],["Hormuz Watch","/hormuz"],["Regime Watch","/regime-watch"],
   ["Markets","/markets"],["Calendar","/calendar"],["Daily Report","/daily-report"],
   ["Learn","/learn"],
-  ["Presenter Prep","/owner/presenter"],
+  ["My Desk","/my-reports"],
  ]) assert.ok(nav.includes('["'+label+'", "'+href+'"]'),label);
  assert.equal((nav.match(/\["/g)||[]).length,9);
  assert.ok(!nav.includes("/api/"));
- assert.match(presenter,/href="\/my-reports"/);
- assert.match(presenter,/id="technical-checks"/);
+ assert.match(presenter,/redirect\("\/my-reports"\)/);
+ assert.doesNotMatch(presenter,/PresenterTechnicalChecks|EditorialWorkbench/);
  assert.doesNotMatch(presenter,/href="\/hybrid-output\/prepare"/);
  assert.match(editorial,/redirect\("\/my-reports"\)/);
  assert.doesNotMatch(editorial,/EditorialWorkbench/);

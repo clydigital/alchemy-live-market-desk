@@ -11,10 +11,10 @@ test("all visible public header links target approved host paths and real anchor
   assert.ok(match, "public navigation must be explicitly enumerated");
   const hrefs = [...match[1].matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m => m[1]);
   assert.deepEqual(hrefs, ["/", "/newsroom", "/hormuz", "/regime-watch", "/markets", "/calendar",
-    "/daily-report", "/learn", "/owner/presenter"]);
+    "/daily-report", "/learn", "/my-reports"]);
   for (const href of hrefs) {
     const url = new URL(href, "https://bluebelly-desk.vercel.app");
-    const access = href === "/owner/presenter"
+    const access = href === "/my-reports"
       ? "private" : "public";
     assert.equal(blueDeskHostAccess(url.pathname, url.hostname), access, href);
     assert.equal(blueDeskHostAccess(url.pathname, "alchemy-live-market-desk.vercel.app"), access, href);
@@ -44,10 +44,11 @@ test("private legacy navigation remains available only on owner host", () => {
   assert.equal(blueDeskHostAccess("/owner/x-wire/","bluebelly-desk.vercel.app"),"blocked");
   assert.ok(!privateNav.includes("/owner/publications"));
   assert.ok(!privateNav.includes('["Presenter Prep", "/owner/presenter"]'));
+  assert.doesNotMatch(header,/Presenter Prep|Writing Studio/);
   assert.ok(privateNav.includes('["My Desk", "/my-reports"]'));
   assert.ok(!privateNav.includes("Publish Reports"));
   assert.match(homepage, /publicHost \? \(/);
-  assert.match(homepage, /<Link href="\/owner\/presenter">Presenter Studio →<\/Link>/);
+  assert.match(homepage, /<Link href="\/my-reports">My Desk →<\/Link>/);
   assert.match(homepage, /<Link href="\/calendar">Public calendar →<\/Link>/);
   assert.match(homepage, /<Link href="\/markets">Public markets →<\/Link>/);
 });
@@ -58,6 +59,6 @@ test("no dead public links are advertised in the homepage special panels", () =>
   assert.match(homepage,/blueDeskPublicHref\("\/blue-desk\/key-stories",host\)\+"#newsroom-title"/);
   assert.doesNotMatch(homepage,/href="\/whats-new"/);
   assert.match(homepage,/<WhatsNewTrendDashboard/);
-  assert.match(homepage, /publicHost \? "Explore public research" : "Dossier, Journey and presenter preparation"/);
+  assert.match(homepage, /publicHost \? "Explore public research" : "Dossier, research and saved editions"/);
   assert.match(homepage, /newsFeature\.sourceUrl/);
 });

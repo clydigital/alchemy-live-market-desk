@@ -11,16 +11,16 @@ test("Bluebelly owner Presenter shows both core and additional technical monitor
   assert.equal(new Set(MONITOR_SPECS.map(m=>m.key)).size,14);
   assert.equal(MONITOR_SPECS.filter(m=>m.group==="Core").length,7);
   assert.equal(MONITOR_SPECS.filter(m=>m.group==="Additional").length,7);
-  assert.match(page,/<PresenterTechnicalChecks(?:\s+[^>]*)?\s*\/>/);
-  assert.doesNotMatch(page,/<PresenterTechnicalChecks\s+compact/);
+  assert.match(page,/redirect\("\/my-reports"\)/);
+  assert.doesNotMatch(page,/PresenterTechnicalChecks/);
   assert.match(component,/!compact\s*\?\s*</);
   assert.match(component,/showAdditional\s*\?\s*"Hide"\s*:\s*"Show"/);
   assert.match(component,/SPECS\.length - coreCount/);
 });
 
 test("Expose all monitors without a new evidence writer, data contract, or private access route",()=>{
-  assert.match(page,/data-presenter-studio="owner-only"/);
-  assert.match(page,/id="technical-checks"/);
+  assert.match(page,/redirect\("\/my-reports"\)/);
+  assert.doesNotMatch(page,/id="technical-checks"/);
   assert.match(component,/credentials:\s*"same-origin"/);
   assert.match(component,/expectedRevision:\s*cloudRevision/);
   assert.match(component,/non-canonical/i);

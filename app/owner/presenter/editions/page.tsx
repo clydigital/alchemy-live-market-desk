@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {notFound} from "next/navigation";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
-import PresenterPrepSession from "@/components/live-desk/PresenterPrepSession";
 import {getDeskData} from "@/lib/data";
 import {
  getHybridPresenterEditionCandidates,getHybridExactDailyBriefEdition,
@@ -20,8 +19,8 @@ import ui from "./editions.module.css";
 export const dynamic="force-dynamic";
 export const revalidate=0;
 export const metadata={
- title:"Historical Editions | Bluebelly Presenter",
- description:"Private exact frozen Journey editions with matching Dossier evidence and on-air notes.",
+ title:"Historical Editions | My Desk",
+ description:"Private exact frozen historical editions with matching Dossier evidence and original sources.",
  robots:{index:false,follow:false},
 };
 
@@ -43,14 +42,14 @@ export default async function PresenterExactEditions({searchParams}:Props){
  if(requested.state==="picker"){
    const editions=buildPresenterPrepEditionIndex(recent,deskData?.researchRuns ?? []).slice(0,24);
    return <main className={desk.page} data-presenter-editions="private-picker">
-    <BlueDeskHeader activePath="/owner/presenter"/>
+    <BlueDeskHeader activePath="/my-reports"/>
     <div className={desk.content}>
      <header className={ui.hero}>
-      <p className={desk.kicker}>PRIVATE PRESENTER / IMMUTABLE HISTORY</p>
+      <p className={desk.kicker}>PRIVATE MY DESK / IMMUTABLE HISTORY</p>
       <h1>Choose a historical edition.</h1>
       <p>Each edition is a dated publication. Opening one does not replace its
         original Story, Motion, catalyst or Dossier sources with current analysis.</p>
-      <Link href="/owner/presenter">Return to Presenter Studio</Link>
+      <Link href="/my-reports">Return to My Desk</Link>
      </header>
      <section className={ui.panel} aria-label="Available immutable editions">
       <h2>Recent available editions</h2>
@@ -106,16 +105,16 @@ export default async function PresenterExactEditions({searchParams}:Props){
  const pinned=source.pinned;
 
  return <main className={desk.page} data-presenter-editions="private-exact">
-  <BlueDeskHeader activePath="/owner/presenter"/>
+  <BlueDeskHeader activePath="/my-reports"/>
   <div className={desk.content}>
    <header className={ui.hero}>
-    <p className={desk.kicker}>PRIVATE / SOURCE-LOCKED PRESENTER PREP</p>
+    <p className={desk.kicker}>PRIVATE / SOURCE-LOCKED HISTORICAL RESEARCH</p>
     <h1>Edition-locked briefing.</h1>
     <p>What was known when this edition was published, what remained uncertain,
-      and how to explain it on air. Today's prices are deliberately not mixed into this archive.</p>
+      and which questions remained unresolved. Today's prices are deliberately not mixed into this archive.</p>
     <nav className={ui.links}>
       <Link href="/owner/presenter/editions">All editions</Link>
-      <Link href="/owner/presenter">Today's Presenter Studio</Link>
+      <Link href="/my-reports">My Desk</Link>
     </nav>
    </header>
    {!pinned || source.status!=="READY"?<section className={ui.panel} role="status"
@@ -158,17 +157,6 @@ export default async function PresenterExactEditions({searchParams}:Props){
           <p>{m.verificationState} · {m.regimeSlug||"No regime assigned"}</p>
           <a href={m.sourceUrl} target="_blank" rel="noopener noreferrer">{m.sourceName} · original source</a>
          </article>):<p>No verified Motion sources are present in this publication.</p>}
-        </section>
-        <section className={ui.panel} id="running-order">
-         <p className={desk.kicker}>03 / PRESENTER NOTES ONLY</p>
-         <h2>Rehearse from the source-locked edition</h2>
-         <p>Speaker notes are local to this browser, edition and Dossier.
-            They cannot edit evidence or historical publication records.</p>
-         <PresenterPrepSession editionId={pinned.editionId} dossierId={pinned.dossierId}
-          sourceCounts={{
-           stories:source.stories.length,motions:source.motions.length,
-           events:source.events.length,researchGaps:source.researchGaps.length,
-          }}/>
         </section>
        </div>
        <aside>
