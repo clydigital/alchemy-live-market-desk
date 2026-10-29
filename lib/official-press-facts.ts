@@ -55,7 +55,7 @@ export function extractOfficialPressFacts(html:string,headline:string):string[]{
   // source boilerplate. Non-numeric sentences are admitted only if they
   // describe an actual action with an identifiable subject.
   if(!NUMERIC.test(sentence) &&
-      !/\b(?:signed|agreed|approved|acquired|launched|expanded|increased|reduced|secured|issued|maintained|held|cut|raised|invested|partnered|contracted)\b/i.test(sentence))continue;
+      !/\b(?:signed|agreed|approved|acquired|launched|expanded|increased|reduced|secured|issued|maintained|held|cut|raised|invested|partnered|contracted|imported|importing|exported|exporting|grew|fell|declined|climbed|shifted|exceeded)\b/i.test(sentence))continue;
   if(!result.includes(sentence))result.push(sentence);
   if(result.length>=2)break;
  }
