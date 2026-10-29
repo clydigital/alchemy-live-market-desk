@@ -68,7 +68,7 @@ test("homepage mounts source-date charts, not a second private route or provider
  const chart=read("components/blue-desk/WhatsNewTrendDashboard.tsx");
  const projection=read("lib/blue-desk-whats-new-trends.ts");
  assert.match(page,/projectWhatsNewTrends\(monitor\?\.rows\|\|\[\],now\)/);
- assert.match(page,/<WhatsNewTrendDashboard/);
+ assert.match(page,/<WhatsNewTrendDashboard/);\n assert.match(page,/\{!publicHost \? <>/); // Preserve historic UI only on non-public legacy hosts
  assert.match(page,/verifiedNews\.slice\(0,4\)/);
  assert.match(chart,/id="motion-title">What's New/);
  assert.match(chart,/source-dated-charts/);
