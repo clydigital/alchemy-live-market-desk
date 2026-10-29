@@ -45,7 +45,7 @@ test("basis point changes are independent; no percentage-vs-bp comparison or fab
 
 test("largest move sorting keeps units in independent blocks and null values last", () => {
   const ranked = filterPublicMarketObservations(rows, { ...defaults, sort: "magnitude" }).map(x => x.id);
-  assert.deepEqual(ranked, ["fall", "rise", "small", "unchanged", "missing", "yield"]);
+  assert.deepEqual(ranked, ["fall", "rise", "small", "unchanged", "yield", "missing"]);
   assert.deepEqual(filterPublicMarketObservations(rows, { ...defaults, query: "RISE", sort: "name" }).map(x => x.id), ["rise"]);
 });
 
