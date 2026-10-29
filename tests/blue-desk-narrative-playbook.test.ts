@@ -18,6 +18,9 @@ test("one shared-evidence source contract teaches a chronological Daily Report, 
  assert.match(p,/Research gathers attributed originals/);
  assert.match(p,/Storytelling can ONLY rearrange and explain/);
  assert.match(p,/one or two numerical comparisons/i);
+ assert.match(p,/MATERIAL RELEASED COMPANY EARNINGS/);
+ assert.match(p,/NO COMPARABLE CONSENSUS/);
+ assert.match(p,/Do not infer free cash flow from operating profit/);
  assert.match(p,/older and newer levels/);
  assert.match(p,/exact observation dates/);
  assert.match(p,/why the change matters/i);
