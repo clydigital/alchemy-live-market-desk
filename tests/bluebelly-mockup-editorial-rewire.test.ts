@@ -8,7 +8,7 @@ const file=(p:string)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 function report(headline:string,summary:string):Pick<NewsBriefV1,"headline"|"summary">{return {headline,summary};}
 test("seven destinations; exact public newsroom and regimes; owner stays private",()=>{
  const header=file("components/blue-desk/BlueDeskHeader.tsx");
- for(const s of ["Today","Newsroom","Regime Watch","Markets","Calendar","Daily Report","Presenter Prep"])assert.match(header,new RegExp('"'+s+'"'));
+ for(const s of ["Today","Newsroom","Regime Watch","Markets","Calendar","Daily Report","My Desk"])assert.match(header,new RegExp('"'+s+'"'));
  for(const p of ["/newsroom","/regime-watch","/blue-desk/newsroom","/blue-desk/regime-watch"]){
   assert.equal(blueDeskHostAccess(p,"bluebelly-desk.vercel.app"),"public");
   assert.equal(blueDeskHostAccess(p,"alchemy-live-market-desk.vercel.app"),"public");

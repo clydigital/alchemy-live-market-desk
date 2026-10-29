@@ -26,7 +26,7 @@ test("only one exact Bluebelly Presenter editions route can pass private auth",(
  assert.match(middleware,/supabase\.auth\.getClaims\(\)/);
  assert.match(middleware,/app_access_allowlist/);
  const presenter=read("app/owner/presenter/page.tsx");
- assert.match(presenter,/href="\/owner\/presenter\/editions"/);
+ assert.match(presenter,/redirect\("\/my-reports"\)/);
 });
 test("a bare URL is a picker; missing or malicious focus/edition is invalid",()=>{
  assert.deepEqual(parseBluebellyExactPrepQuery({}),{state:"picker"});
@@ -76,7 +76,9 @@ test("real historical page uses exact frozen Dossier and never a mutable Story w
  assert.match(page,/dossier\.selectedAsOf===frozen\?\.dossierAsOf/);
  assert.match(page,/buildPresenterPrepSourceProjection/);
  assert.match(page,/buildPresenterPrepEditorialReadiness/);
- assert.match(page,/PresenterPrepSession editionId=\{pinned\.editionId\} dossierId=\{pinned\.dossierId\}/);
+ assert.doesNotMatch(page,/PresenterPrepSession|running-order|ON AIR PREPARATION/);
+ assert.match(page,/SOURCE-LOCKED HISTORICAL RESEARCH/);
+ assert.match(page,/href="\/my-reports"/);
  assert.match(page,/source\.status!=="READY"/);
  assert.match(page,/if\(requested\.state==="invalid"\)notFound\(\)/);
  assert.doesNotMatch(page,/generateContent|story_thesis_versions|latestStoryThesis|createSupabaseAdminClient/);

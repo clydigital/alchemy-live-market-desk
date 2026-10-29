@@ -32,7 +32,7 @@ const PUBLIC_NAV = [
   ["Calendar", "/calendar"],
   ["Daily Report", "/daily-report"],
   ["Learn", "/learn"],
-  ["Presenter Prep", "/owner/presenter"],
+  ["My Desk", "/my-reports"],
 ] as const;
 
 const NAV_ICONS: Record<string, MarketIconName> = {
@@ -47,9 +47,6 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Research Library": "research",
   "Market Tools": "chart",
   "Data Library": "library",
-  "Presenter Prep": "studio",
-  "Presenter Studio": "studio",
-  "Editorial Studio": "deep-dive",
   "X Wire": "research",
   "Calendar": "calendar",
   "Learn": "learn",
@@ -59,7 +56,6 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Reports": "library",
   "COTD / OB": "library",
   "Daily Report": "deep-dive",
-  "Daily Report Studio": "deep-dive",
   "My Daily Report": "library",
   "My Reports": "library",
   "My Desk": "library",
@@ -90,7 +86,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
         </Link>
         <div className={chrome.mastRight}><ThemePreferences/><span>Markets, without the noise.</span>
           <Link className={chrome.micro} href={blueDeskPublicHref("/blue-desk/regime-watch",host)}>Research lenses</Link>
-          <Link className={chrome.micro} href="/owner/presenter">Presenter Prep ↗</Link>
+          <Link className={chrome.micro} href="/my-reports">My Desk ↗</Link>
         </div>
       </div></div>
       <div className={chrome.navbar}><div className={chrome.navInner}>
@@ -100,7 +96,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
             const href=blueDeskPublicHref(path,host);
             const active=href===current || (href==="/markets"&&activePath==="/blue-desk/markets");
             return <Link key={path} href={href} aria-current={active?"page":undefined}
-              className={(active?chrome.navActive:chrome.navLink)+" "+(label==="Presenter Prep"?chrome.owner:"")}>
+              className={(active?chrome.navActive:chrome.navLink)+" "+(label==="My Desk"?chrome.owner:"")}>
               <MarketIcon name={NAV_ICONS[label]||"market"} size={15}/><span>{label}</span>
             </Link>;
           })}

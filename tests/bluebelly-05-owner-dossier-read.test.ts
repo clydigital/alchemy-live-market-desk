@@ -52,9 +52,8 @@ test("owner integration fails closed and cannot expose routes to unauthenticated
  const component=read("components/live-desk/PresenterTechnicalChecks.tsx");
  const adapter=read("lib/presenter-technical-reconciliation.ts");
  const middleware=read("middleware.ts");
- assert.match(page,/getDossierV2PresentationSelection\(\)\.catch\(\(\)=>null\)/);
- assert.match(page,/projectPresenterDossierSelection\(dossierSelection\)/);
- assert.match(page,/<PresenterTechnicalChecks dossierContext=\{dossierContext\}\/>/);
+ assert.match(page,/redirect\("\/my-reports"\)/);
+ assert.doesNotMatch(page,/getDossierV2PresentationSelection|PresenterTechnicalChecks/);
  assert.match(component,/cloudMode === "ready" \? data\.checks : null/);
  assert.match(component,/data-dossier-reconciliation="read-only"/);
  assert.match(component,/All 14 instrument-level verdicts remain UNAVAILABLE/);
