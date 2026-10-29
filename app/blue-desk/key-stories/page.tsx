@@ -174,7 +174,19 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     // readable even when another company's release has higher attention.
     const issuerEvent=calendar.events.find(e=>
       e.id===briefId && e.kind==="earnings" && e.status==="scheduled" && e.verificationState==="official");
+    const earningsReceipt=getRecentVerifiedEarningsScorecards(now,7).find(e=>e.id===briefId)||null;
     const selected=decisionTopics(news,calendar,now).find(t=>t.id===briefId) ||
+      (earningsReceipt ? {
+        id:earningsReceipt.id,title:earningsReceipt.headline,
+        fact:earningsReceipt.company+" · "+earningsReceipt.fiscalPeriod+": "+earningsReceipt.metrics.filter(m=>m.state==="measured").map(m=>m.name+" "+m.value).join("; "),
+        why:earningsReceipt.conclusion,test:earningsReceipt.nextTest,
+        at:earningsReceipt.releaseDay,sourceUrl:earningsReceipt.sourceUrl,
+        sourceName:earningsReceipt.sourceName,
+        href:"?brief="+encodeURIComponent(earningsReceipt.id),
+        status:"NEW" as const,mechanism:earningsReceipt.outlook,
+        assets:[earningsReceipt.ticker],priority:2,
+      } : null) ||
+
       (issuerEvent ? {
         id:issuerEvent.id,title:issuerEvent.title,
         fact:"Scheduled issuer event; no verified release outcome yet.",
@@ -185,7 +197,6 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
         status:"UPCOMING" as const,mechanism:"Test reported sales and profit against prior guidance, then follow operating cash, capex and the next outlook.",
         assets:issuerEvent.affectedAssets,priority:2,
       }:null);
-    const earningsReceipt=getRecentVerifiedEarningsScorecards(now,7).find(e=>e.id===briefId)||null;
     // An official Amazon earnings calendar receipt is a preview, not a results
     // statement. Route readers to the already researched long-form financial
     // story instead of the bare four-field calendar recap. Keep the query
