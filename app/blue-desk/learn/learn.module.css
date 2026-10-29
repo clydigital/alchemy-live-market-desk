@@ -26,3 +26,26 @@
 .empty button{padding:10px;border:1px solid #67bde3;border-radius:7px;background:#083c5c;color:#eaf8ff;cursor:pointer}
 .footnote{font-size:12px;color:#8fafc2;line-height:1.6;margin:24px 0 0}
 @media(max-width:730px){.grid{grid-template-columns:1fr}.entry{padding:20px}.content{padding:16px 15px 65px}.hero{padding:25px}.tools{padding:16px}}
+
+/* Bluebelly theme: glossary concepts are editorial cards, not blue-only panels. */
+.content{color:var(--bb-text)}
+.hero{background:var(--bb-card-bg);border-color:var(--bb-card-border)}
+.eyebrow,.entry h3{color:var(--bb-accent)}
+.hero h1,.entry h2{color:var(--bb-text)}
+.hero p:not(.eyebrow),.entry p,.count,.footnote{color:var(--bb-muted)}
+.entry .definition{color:var(--bb-text)}
+.tools{background:var(--bb-card-quiet);border-color:var(--bb-card-border)}
+.searchLabel{color:var(--bb-text)}
+.search{color:var(--bb-text);background:var(--bb-canvas);border-color:var(--bb-line)}
+.filter,.selected{background:var(--bb-card-quiet);border-color:var(--bb-card-border);color:var(--bb-text)}
+.filter:hover{border-color:var(--bb-accent);background:var(--bb-card-bg-hover)}
+.selected{background:var(--bb-card-bg-hover);border-color:var(--bb-accent);color:var(--bb-text)}
+.entry{background:var(--bb-card-bg);border-color:var(--bb-card-border);transition:background .16s ease,border-color .16s ease}
+.entry:hover{background:var(--bb-card-bg-hover);border-color:var(--bb-accent)}
+.entry:target{outline:2px solid var(--bb-accent)}
+.entry footer{border-color:var(--bb-line)}
+.entry footer span{color:var(--bb-muted);border-color:var(--bb-card-border);background:var(--bb-card-quiet)}
+.empty{border-color:var(--bb-card-border);color:var(--bb-muted)}
+.empty button{border-color:var(--bb-accent);background:var(--bb-card-quiet);color:var(--bb-text)}
+.search:focus-visible,.filter:focus-visible,.selected:focus-visible,.empty button:focus-visible{outline:2px solid var(--bb-card-focus)}
+@media(prefers-reduced-motion:reduce){.entry{transition:none}}

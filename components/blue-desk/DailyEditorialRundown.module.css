@@ -58,3 +58,13 @@
 
 .board,.leadCard,.storyCard,.fallbackCard,.opening,.watchlist,.articlePitch,.topAside{background:var(--bb-surface);border-color:var(--bb-line);border-radius:0}.top p:not(.eyebrow),.assertion,.talkSection li,.test,.opening p{font-size:17px;line-height:1.75;max-width:68ch}.timing,.caution,.sources a,.watchLinks a,.articlePitch span{font-size:12px}.eyebrow,.lane,.rank{color:var(--bb-accent)}
 @media(max-width:670px){.top p:not(.eyebrow),.assertion,.talkSection li,.test,.opening p{font-size:16px;line-height:1.75}}
+
+/* Ranked editorial suggestions and supporting cards inherit current theme. */
+.board,.leadCard,.storyCard,.fallbackCard,.opening,.watchlist,.articlePitch,.topAside{border-color:var(--bb-card-border);background:var(--bb-card-bg)}
+.leadCard{background:var(--bb-card-bg-hover);border-top:3px solid var(--bb-accent)}
+.storyCard,.fallbackCard,.leadCard{transition:background .16s ease,border-color .16s ease}
+.storyCard:hover,.fallbackCard:hover,.leadCard:hover{background:var(--bb-card-bg-hover);border-color:var(--bb-accent)}
+.eyebrow,.lane,.rank,.opening span,.articlePitch span,.sources a,.watchLinks a{color:var(--bb-accent)}
+.articlePitch strong,.top h2,.leadCard h3,.storyCard h3,.fallbackCard h3{color:var(--bb-text)}
+.topAside{border-left-color:var(--bb-accent)}
+@media(prefers-reduced-motion:reduce){.storyCard,.fallbackCard,.leadCard{transition:none}}

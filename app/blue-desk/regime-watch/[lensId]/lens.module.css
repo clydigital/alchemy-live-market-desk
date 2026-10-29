@@ -103,3 +103,15 @@
 @media(max-width:1050px){.monitorGrid{grid-template-columns:1fr 1fr}.mechanismRail{grid-template-columns:repeat(2,minmax(0,1fr))}.mechanismRail li:nth-child(2):after{display:none}}
 @media(max-width:760px){.atGlance{grid-template-columns:1fr}.recentList{grid-template-columns:1fr}}
 @media(max-width:670px){.monitorGrid,.forkGrid{grid-template-columns:1fr}.mechanismRail{grid-template-columns:1fr}.mechanismRail li:after{display:none!important}.pageNav{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin}.pageNav a{white-space:nowrap}.atGlanceMain,.atGlanceAside{padding:18px}}
+
+/* Extend directory theme colours into the dedicated research-lens cards. */
+.hero,.section,.story,.railCard,.otherGrid a,.monitor,.recentItem,.fork,.mechanismRail li,.atGlanceMain,.atGlanceAside,.pageNav{background:var(--bb-card-bg);border-color:var(--bb-card-border)}
+.decision,.discriminator,.thesis,.evidenceGrid>div{background:var(--bb-card-quiet);border-color:var(--bb-card-border)}
+.decision{border-left-color:var(--bb-accent)}
+.kicker,.breadcrumb a,.jump,.storyEvidence summary,.otherHead a,.railCard a,.monitor a,.recentItem a,.sourceFooter a,.otherGrid a span:last-child{color:var(--bb-accent)}
+.hero h1,.section h2,.otherLenses h2,.storyHead h3,.monitor h3,.otherGrid strong,.railCard h2,.atGlanceMain h2{color:var(--bb-text)}
+.story,.monitor,.recentItem,.fork,.otherGrid a,.railCard{transition:background .16s ease,border-color .16s ease}
+.story:hover,.monitor:hover,.recentItem:hover,.fork:hover,.otherGrid a:hover,.otherGrid a:focus-visible,.railCard:hover{background:var(--bb-card-bg-hover);border-color:var(--bb-accent)}
+.pageNav a:hover,.pageNav a:focus-visible{background:var(--bb-card-bg-hover);color:var(--bb-text)}
+.mechanismRail li:not(:last-child):after{color:var(--bb-accent);background:var(--bb-surface)}
+@media(prefers-reduced-motion:reduce){.story,.monitor,.recentItem,.fork,.otherGrid a,.railCard{transition:none}}

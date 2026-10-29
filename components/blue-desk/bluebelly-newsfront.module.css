@@ -71,3 +71,19 @@
 .coverageNote{font-size:11px;color:#a9cedf;margin:0 0 12px;line-height:1.5;letter-spacing:.02em}
 .dataChip{display:inline-block;background:#153f53;color:#d1f0f3;border:1px solid #68a7c1;border-radius:2px;font-weight:800;letter-spacing:.055em;font-size:9px;padding:5px 7px}
 .dataNote{display:inline-block;font-size:11px;color:#a5ccdb;margin-top:4px}
+
+/* Neutral editorials take the selected accent, while source-status chips retain
+   their distinct verified vs observation meanings. */
+.primary,.tile,.teaser,.sidebox,.vacancy,.newsEmpty{border-color:var(--bb-card-border)}
+.primary,.tile{background:var(--bb-card-bg)}
+.primary:hover,.primary:focus-within,.tile:hover,.tile:focus-within{border-color:var(--bb-accent)}
+.teaser,.sidebox,.vacancy,.newsEmpty{background:var(--bb-card-bg)}
+.teaser{transition:background .16s ease,border-color .16s ease}
+.teaser:hover,.teaser:focus-visible{background:var(--bb-card-bg-hover);border-color:var(--bb-accent);outline-offset:3px}
+.teaser strong,.sidebox h3,.sectionHeading h2{color:var(--bb-text)}
+.teaser span,.teaser small,.sidebox>p{color:var(--bb-muted)}
+.railAction,.dailyQuick{border-color:var(--bb-card-border);background:var(--bb-card-quiet);color:var(--bb-accent)!important}
+.railAction:hover,.dailyQuick:hover{background:var(--bb-card-bg-hover);border-color:var(--bb-accent)}
+.sectionHeading{border-bottom-color:var(--bb-card-border)}
+.sectionHeading h2:before{background:var(--bb-accent)}
+@media(prefers-reduced-motion:reduce){.teaser{transition:none}}
