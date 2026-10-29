@@ -75,10 +75,13 @@ test("source-dated public Markets is server-rendered, bounded, and preserves old
   const host = readFileSync(new URL("../lib/blue-desk-host.ts", import.meta.url), "utf8");
   assert.match(page, /getMarketMonitor\(\)\.catch\(\(\) => null\)/);
   assert.match(page, /publicMarketObservations\(monitor\?\.rows \|\| \[\], group\)/);
-  assert.match(page, /row\.sourceUrl/);
-  assert.match(page, /row\.asOf/);
-  assert.match(page, /row\.frequency/);
-  assert.doesNotMatch(page, /createSupabaseAdminClient|service_role|updateStory|researchTriggers|MarketMonitor monitor=/);
+  const screener = readFileSync(new URL("../components/blue-desk/PublicMarketScreener.tsx", import.meta.url), "utf8");
+  assert.match(page, /<PublicMarketScreener observations=/);
+  assert.match(screener, /row\.sourceUrl/);
+  assert.match(screener, /row\.asOf/);
+  assert.match(screener, /row\.frequency/);
+  assert.match(screener, /data-market-change-screener="read-only"/);
+  assert.doesNotMatch(page + screener, /createSupabaseAdminClient|service_role|updateStory|researchTriggers|MarketMonitor monitor=/);
   assert.match(presenter, /<MarketsMonitor monitor=\{monitor\} flows=\{flows\} \/>/);
   assert.doesNotMatch(presenter, /LiveDeskShell/);
   assert.match(host, /pathname === "\/markets"/);
