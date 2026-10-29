@@ -1,0 +1,35 @@
+.intro{padding-bottom:22px}.intro>span,.kicker{font-size:10px;letter-spacing:.13em;color:var(--bb-accent);font-weight:800}
+.intro h1{font:550 clamp(31px,3vw,40px) var(--bluebelly-font);letter-spacing:-.018em;margin:8px 0;color:var(--bb-text)}
+.intro p{font-size:13px;color:var(--bb-muted);max-width:100ch;line-height:1.65}
+.heading{display:flex;justify-content:space-between;align-items:end;gap:12px;border-bottom:2px solid var(--bb-accent);padding-bottom:10px;margin-bottom:15px}
+.heading h2,.transmission h2{font:550 27px var(--bluebelly-font);margin:0}
+.heading span{font-size:11px;color:var(--bb-muted)}
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.card{display:grid;grid-template-columns:156px minmax(0,1fr);gap:15px;padding:15px;border:1px solid color-mix(in srgb, var(--bb-line) 48%, var(--bb-accent) 52%);border-radius:7px;background:linear-gradient(118deg,color-mix(in srgb,var(--bb-surface) 80%,var(--bb-accent) 20%),color-mix(in srgb,var(--bb-surface) 92%,var(--bb-accent) 8%));min-width:0;align-items:start;color:inherit;text-decoration:none;transition:background .16s ease,border-color .16s ease,box-shadow .16s ease}
+.card:hover,.card:focus-visible{background:linear-gradient(118deg,color-mix(in srgb,var(--bb-raised) 72%,var(--bb-accent) 28%),color-mix(in srgb,var(--bb-raised) 86%,var(--bb-accent) 14%));border-color:var(--bb-accent);box-shadow:0 0 0 1px color-mix(in srgb,var(--bb-accent) 35%,transparent)}
+.card:focus-visible{outline:2px solid var(--bb-accent);outline-offset:3px}
+.art>div{height:136px;aspect-ratio:auto}.art svg{height:100%;width:100%}
+/* The site owns one accent per theme. Tint the entire lens tile and its artwork
+   from that accent rather than fixing cards to the old blue palette. */
+.art>div{border-color:color-mix(in srgb,var(--bb-line) 40%,var(--bb-accent) 60%);background:var(--bb-raised)}
+.art svg>rect{fill:var(--bb-raised)}
+.art svg>path:first-of-type{fill:var(--bb-canvas)}
+.art svg>g[stroke-width="1"]{stroke:var(--bb-accent)}
+.art svg>circle{fill:var(--bb-accent)}
+.art svg>g[stroke-width="8"]{stroke:var(--bb-accent)}
+.art svg>path[stroke]{stroke:var(--bb-accent)}
+.art svg>text{fill:var(--bb-text)}
+.content{min-width:0}.content h3{font:550 21px var(--bluebelly-font);margin:7px 0;color:var(--bb-text)}.content>p{color:var(--bb-muted);font-size:12px;line-height:1.55;margin:0 0 7px}
+.coverage{color:var(--bb-muted);font-size:11px;margin-top:10px}
+.open{display:inline-flex;align-items:center;gap:6px;color:var(--bb-accent);font-size:12px;font-weight:750;line-height:1.5;padding:12px 0 2px}
+.card:hover .open{text-decoration:underline}
+.transmission{margin-top:28px}.transmission>p{color:var(--bb-muted);font-size:12px;margin:9px 0 13px}
+.pathGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.path{background:color-mix(in srgb,var(--bb-surface) 88%,var(--bb-accent) 12%);border:1px solid color-mix(in srgb,var(--bb-line) 55%,var(--bb-accent) 45%);padding:13px;border-radius:5px;text-decoration:none;color:inherit}
+.path:hover,.path:focus-visible{border-color:var(--bb-accent);background:color-mix(in srgb,var(--bb-raised) 76%,var(--bb-accent) 24%)}
+.path span{color:var(--bb-muted);font-size:9px;letter-spacing:.07em;display:block}
+.path strong{display:block;color:var(--bb-text);font:550 16px/1.34 var(--bluebelly-font);margin-top:9px}
+.path small{display:block;font-size:11px;color:var(--bb-accent);margin-top:12px}
+@media(max-width:1050px){.pathGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:750px){.cards{grid-template-columns:1fr}.heading{align-items:start}.heading span{display:none}}
+@media(max-width:540px){.card{grid-template-columns:105px minmax(0,1fr);gap:10px}.art>div{height:100px}.content h3{font-size:18px}.pathGrid{grid-template-columns:1fr}}

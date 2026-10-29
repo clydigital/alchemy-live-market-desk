@@ -8,6 +8,14 @@ It does not replace the Original desk's source hierarchy. Official CFTC data rem
 
 Where the desk refers specifically to a **COTSignal-style score**, heatmap or interpretation, this document takes precedence over more general positioning-display assumptions.
 
+## Live website methodology correction — 28 October 2026
+
+The public COTSignal explanation currently describes a configurable **52–260 weekly-report historical window**, typically shown with a three-year selection. Its 0–100 score is a **range-normalisation** of current raw net positioning between the minimum and maximum in that selected lookback; it is **not** an empirical percentile rank, probability or forecast. A score of 50 is the midpoint of the selected historical min/max range, not necessarily the median observation.
+
+Earlier supplied walkthrough notes below described a 52-week percentile view. Preserve those notes as historical walkthrough evidence, **not as the authoritative current website formula**. Do not silently convert the existing Alchemy 52-week rank into a COTSignal number. Until a tested matching range formula is implemented from official CFTC records, label Alchemy’s current page **Alchemy 52-week Rank**, not COTSignal-style.
+
+Formula for a candidate independently calculated range position, when a complete lookback exists: `100 * (currentNet - minNet) / (maxNet - minNet)`. If `maxNet == minNet`, mark score UNAVAILABLE rather than inventing a neutral midpoint; for Commercials store raw and explicitly inverted `100 - raw`. Never claim direct numerical parity with COTSignal without matching report family, vintage, contract, lookback and rounding.
+
 ## What COTSignal actually measures
 
 The COTSignal homepage converts the weekly CFTC Commitment of Traders report into positioning context.
@@ -46,7 +54,7 @@ Each heatmap tile represents:
 
 - one futures market;
 - one legacy trader category;
-- one positioning percentile.
+- one **historical-range position score** for the explicitly selected window.
 
 The trader groups used in this view are:
 
@@ -54,14 +62,14 @@ The trader groups used in this view are:
 - Large Speculators;
 - Small Speculators.
 
-The main heatmap score uses a **52-week lookback**.
+The earlier walkthrough used a **52-week lookback**. The current website allows **52–260 weekly reports**, commonly displaying a **three-year window**.
 
 Interpretation:
 
-- darker green means positioning is more crowded relative to its own 52-week history;
+- darker green means relatively greater long exposure within the selected historical window;
 - darker red means positioning is more washed out or under-owned;
 - lighter colours near grey mean positioning is closer to neutral;
-- the number inside the tile is the positioning percentile.
+- the number inside the tile is the selected-window min/max-normalised position score (not an empirical percentile rank).
 
 The score describes historical stretch. It does not predict the next price move.
 
@@ -101,7 +109,7 @@ Any COTSignal-style comparison must visibly state:
 
 > Commercial score inverted for visual consistency.
 
-This inversion should only be used in the explicitly labelled **COTSignal-style Legacy View**.
+This inversion is used only in an explicitly labelled legacy display: COTSignal-style range scores or Alchemy’s independently defined rank view. Preserve raw observations and clarify which calculation is shown.
 
 Alchemy's canonical TFF and Disaggregated views should retain their normal participant definitions and raw direction.
 
@@ -113,7 +121,7 @@ The walkthrough identifies three important elements:
 
 ### 1. Positioning barometer
 
-The selected trader group receives a barometer-style ranking based on the same positioning context shown in the heatmap.
+The selected trader group receives a barometer-style ranking based on the same selected-window positioning context shown in the heatmap.
 
 The user can toggle between:
 
@@ -133,11 +141,11 @@ Required calculation:
 net_position_pct_open_interest = (gross_long - gross_short) / total_open_interest * 100
 ```
 
-The five-year series is separate from the 52-week heatmap percentile.
+The five-year series is separate from the selected-window range-position heatmap score.
 
 ### 3. Positioning versus price
 
-The detail view shows the 52-week positioning score alongside the asset price history.
+The detail view shows a selected-window positioning score alongside the asset price history.
 
 This is used to inspect:
 
@@ -157,8 +165,8 @@ Alchemy may show:
 - most crowded longs;
 - most crowded shorts;
 - most washed-out markets;
-- largest week-over-week percentile changes;
-- new 52-week extremes.
+- largest week-over-week selected-window range-score changes;
+- new extremes within the stated lookback window.
 
 The title should be **Weekly Positioning Extremes**, not Top Trades or Trade Signals.
 
@@ -214,7 +222,7 @@ Secondary comparison and reader-friendly layout:
 - Commercials;
 - Large Specs;
 - Small Specs;
-- 52-week heatmap percentile;
+- explicit selected-window range score, with lookback and formula;
 - commercial score inversion;
 - weekly extremes;
 - five-year net position as percentage of open interest;
@@ -254,7 +262,7 @@ The COTSignal-style perspective remains one layer in a wider Story decision.
 
 For a covered Story, the desk records:
 
-- 52-week positioning percentile;
+- selected-window range score (or a separately labelled Alchemy percentile rank);
 - week-over-week change;
 - trader group;
 - five-year net position as percentage of open interest;
@@ -269,7 +277,7 @@ COT positioning alone cannot promote a Story to Today's Lead.
 
 ### Heatmap test
 
-The default COTSignal-style heatmap uses a 52-week percentile and legacy trader groups.
+The COTSignal-style heatmap uses the declared selected 52–260 week min/max range score and Legacy groups. Alchemy’s existing 52-week percentile-ranking UI is separately labelled, not represented as numerically identical.
 
 ### Commercial test
 
@@ -282,7 +290,7 @@ Opening a market shows:
 - trader-group toggle;
 - barometer score;
 - five-year net position as percentage of open interest;
-- 52-week score beside price;
+- explicitly labelled selected-window range score beside price;
 - Story link;
 - lag warning.
 

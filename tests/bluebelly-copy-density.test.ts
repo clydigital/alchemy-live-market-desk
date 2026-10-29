@@ -6,11 +6,13 @@ const source = (path: string) => readFileSync(new URL("../" + path, import.meta.
 
 test("Bluebelly keeps sources, date information and status without repetitive process explanations", () => {
   const markets = source("app/blue-desk/markets/page.tsx");
+  const marketTable = source("components/blue-desk/PublicMarketScreener.tsx");
   const calendar = source("app/blue-desk/calendar/page.tsx");
   const home = source("app/blue-desk/page.tsx");
-  assert.match(markets, /row\.sourceUrl/);
-  assert.match(markets, /sourceLabel\(row\)/);
-  assert.match(markets, /Changes: rates in bp/);
+  assert.match(marketTable, /row\.sourceUrl/);
+  assert.match(marketTable, /row\.asOf/);
+  assert.match(marketTable, /1, 3 and 5 source sessions/);
+  assert.match(marketTable, /Rates in bp; others in %/);
   assert.doesNotMatch(markets, /not a causal explanation, trading signal/);
   assert.match(calendar, /Scheduled time, not verified publication time/);
   assert.match(home, /VERIFIED NEWS/);

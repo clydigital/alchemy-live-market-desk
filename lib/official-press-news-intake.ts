@@ -7,6 +7,7 @@
 import { createHash } from "node:crypto";
 import type { ResearchRunInput, IntakeItemInput } from "./research-update.ts";
 import { normaliseDirectFeedText } from "./direct-news-evidence-triage.ts";
+import { extractOfficialPressFacts } from "./official-press-facts.ts";
 
 export const OFFICIAL_PRESS_FEEDS = [
   {
@@ -32,11 +33,76 @@ export const OFFICIAL_PRESS_FEEDS = [
     path: /^\/news\/[a-z0-9-]+\/?$/i,
     publisher: "NVIDIA Newsroom",
   },
+  {
+    name:"Broadcom investor news releases",
+    feed:"https://investors.broadcom.com/rss/news-releases.xml",
+    host:"investors.broadcom.com",
+    path:/^\/news-releases\/news-release-details\/[a-z0-9-]+\/?$/i,
+    publisher:"Broadcom Investor Relations",
+  },
+  {
+    name:"EIA official energy press releases",
+    feed:"https://www.eia.gov/rss/press_rss.xml",
+    host:"www.eia.gov",
+    path:/^\/pressroom\/releases\/press[0-9]+\.php$/i,
+    publisher:"U.S. Energy Information Administration",
+  },
+  {
+    // Direct, original-policy newsroom source. Do not treat policy previews as
+    // realised decisions; the announcement must pass the headline + HTML gate.
+    name: "Bank of Canada press releases",
+    feed: "https://www.bankofcanada.ca/content_type/press-releases/feed/",
+    host: "www.bankofcanada.ca",
+    path: /^\/20[0-9]{2}\/[0-9]{2}\/[a-z0-9-]+\/?$/i,
+    publisher: "Bank of Canada",
+  },
+  {
+    name: "RBNZ official news",
+    feed: "https://www.rbnz.govt.nz/feeds/news",
+    host: "www.rbnz.govt.nz",
+    path: /^\/news-and-events\/news\/20[0-9]{2}\/[0-9]{2}\/[a-z0-9-]+\/?$/i,
+    publisher: "Reserve Bank of New Zealand",
+  },
+  {
+    name:"Meta investor press releases",
+    feed:"https://investor.atmeta.com/rss/pressrelease.aspx",
+    host:"investor.atmeta.com",
+    path:/^\/investor-news\/press-release-details\/[0-9]{4}\/[a-z0-9-]+\/default\.aspx$/i,
+    publisher:"Meta Investor Relations",
+  },
+  {
+    name:"ECB monetary policy press decisions",
+    feed:"https://www.ecb.europa.eu/rss/press.html",
+    host:"www.ecb.europa.eu",
+    path:/^\/press\/pr\/date\/20[0-9]{2}\/html\/ecb\.(?:mp|pr)[0-9]{6}~[a-f0-9]{6,16}\.en\.html$/i,
+    publisher:"European Central Bank",
+  },
 ] as const;
 
 const WINDOW_MS = 36 * 60 * 60_000;
 const FETCH_TIMEOUT_MS = 6500;
 const MAX_PER_FEED = 3;
+/**
+ * Dated original-release clock attestations for the 28 Oct 2026 policy
+ * incident. The BoC RSS exposes 09:47 +00 (its local newsroom clock, not the
+ * actual 13:45Z decision), while RBNZ RSS publishes a DATE ONLY as local
+ * midnight. Never mistake either feed clock for the announcement instant.
+ *
+ * Corroboration: the named bank's independently published official decision
+ * schedule and the linked first-party decision HTML, which is read separately.
+ * Future bank policy releases fail closed until their exact release clocks
+ * have equally independent provenance. This is not a general timezone offset.
+ */
+const POLICY_RELEASE_CLOCKS: Readonly<Record<string,{releaseAt:string;scheduleSource:string}>> = {
+  "https://www.bankofcanada.ca/2026/10/fad-press-release-2026-10-28/": {
+    releaseAt:"2026-10-28T13:45:00.000Z",
+    scheduleSource:"https://www.bankofcanada.ca/core-functions/monetary-policy/key-interest-rate/",
+  },
+  "https://www.rbnz.govt.nz/news-and-events/news/2026/10/ocr-held-at-2-75-percent": {
+    releaseAt:"2026-10-28T01:00:00.000Z",
+    scheduleSource:"https://www.rbnz.govt.nz/news-and-events/how-we-release-information/ocr-decision-dates-and-financial-stability-report-dates-to-feb-2028",
+  },
+};
 type Feed = typeof OFFICIAL_PRESS_FEEDS[number];
 /** Pure RSS/Atom parser: no Next aliases or runtime network imports. */
 export function parseOfficialPressFeed(xml: string) {
@@ -92,8 +158,25 @@ function recent(iso: string, now: Date) {
 
 /** Claim-shaped titles are necessary; meetings and general website updates are not. */
 export function materiallyActionableOfficialHeadline(feed: Feed, headline: string) {
+  if (feed.host === "www.ecb.europa.eu")
+    return /^monetary policy decisions$/i.test(headline.trim()) ||
+      (/\b(?:ECB|governing council|monetary policy|key interest rates?|deposit facility)\b/i.test(headline)
+        && /\b(?:decides?|decision|raises?|cuts?|maintains?|holds?|changes?|increases?|lowers?|updates?)\b/i.test(headline));
+  if (feed.host === "www.eia.gov") return /\b(?:oil|crude|petroleum|gas|gasoline|diesel|electricity|energy|production|outlook|inventor(?:y|ies)|hormuz|refin(?:ery|eries)|lng)\b/i.test(headline)
+    && /\b(?:forecasts?|expects?|raises?|lowers?|increases?|decreases?|revises?|reports?|releases?|updates?|projects?)\b/i.test(headline);
+  if (feed.host === "www.bankofcanada.ca")
+    return /\b(?:bank of canada|policy rate|overnight rate)\b/i.test(headline)
+      && /\b(?:raises?|raised|hikes?|hiked|increases?|increased|holds?|held|maintains?|maintained|cuts?|cut|lowers?|lowered)\b/i.test(headline)
+      && /\b(?:rate|rates|overnight)\b/i.test(headline);
+  if (feed.host === "www.rbnz.govt.nz")
+    return /\b(?:rbnz|reserve bank of new zealand|ocr|official cash rate|monetary policy committee)\b/i.test(headline)
+      && /\b(?:holds?|held|unchanged|maintains?|maintained|raises?|raised|hikes?|hiked|increases?|increased|cuts?|cut|lowers?|lowered)\b/i.test(headline)
+      && /\b(?:rate|ocr|cash)\b/i.test(headline);
   if (feed.host === "www.federalreserve.gov") return /\b(?:federal reserve|fomc|federal open market|monetary policy|federal funds|discount rate|balance sheet|policy rate)\b/i.test(headline)
     && /\b(?:announces?|issues?|releases?|statement|decision|raises?|cuts?|maintains?|approves?|updates?|votes?)\b/i.test(headline);
+  if (feed.host === "investors.broadcom.com"||feed.host === "investor.atmeta.com")
+    return /\b(?:announces?|reports?|prices?|files?|launches?|raises?|upsizes?|revises?|acquires?|agrees?|secures?|appoints?|enters?|completes?)\b/i.test(headline)
+      && /\b(?:earnings|revenue|guidance|dividend|offering|convertible|financing|capital|equity|stock|shares?|acquisition|merger|investment|chips?|ai|infrastructure|capex|cash|debt|credit|funding|buyback|sec)\b/i.test(headline);
   if (feed.host === "nvidianews.nvidia.com") return /\b(?:announces?|reports?|expands?|signs?|secures?|raises?|lowers?|revises?|commits?|introduces?|acquires?|partners?|launches?)\b/i.test(headline)
     && /\b(?:earnings|revenue|profits?|margin|guidance|capital expenditure|capex|investment|contract|partnership|data.center|ai factor(?:y|ies)|infrastructure|capacity|supply|semiconductor|gpu|hbm)\b/i.test(headline);
   return /\b(?:approves?|adopts?|proposes?|finaliz(?:e|es)|rescind(?:s)?|amends?|authoriz(?:e|es)|issues?)\b/i.test(headline)
@@ -101,6 +184,14 @@ export function materiallyActionableOfficialHeadline(feed: Feed, headline: strin
 }
 
 function materialTitleFound(html: string, title: string) {
+  // An exact H1 match also proves very short official policy titles such as
+  // "OCR held at 2.75%"; the old >=3 long-word rule silently dropped these.
+  // Only evaluated after the RSS permalink has passed the exact HTTPS host gate.
+  const normalise=(value:string)=>value.replace(/<[^>]+>/g," ")
+    .replace(/&amp;/gi,"&").replace(/&nbsp;/gi," ")
+    .toLowerCase().replace(/\s+/g," ").trim();
+  const h1=html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1]||"";
+  if(title.trim().length>=12 && normalise(h1)===normalise(title)) return true;
   const header = [
     html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "",
     html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1] || "",
@@ -109,22 +200,47 @@ function materialTitleFound(html: string, title: string) {
   return words.length >= 3 && words.filter(word => header.includes(word)).length >= Math.min(3, words.length);
 }
 
-type Result = { state: "checked" | "blocked" | "no_new_items"; checked: number; items: IntakeItemInput[] };
+type FeedDiagnostics={
+ feedEntries:number;rejectedUrl:number;unattestedPolicyClock:number;
+ rejectedClock:number;rejectedHeadline:number;unreadablePage:number;titleMismatch:number;
+};
+type Result = { state: "checked" | "blocked" | "no_new_items"; checked: number; items: IntakeItemInput[];
+ diagnostics:FeedDiagnostics; note?:string };
 
 async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch): Promise<Result> {
+  const diagnostics:FeedDiagnostics={feedEntries:0,rejectedUrl:0,unattestedPolicyClock:0,
+    rejectedClock:0,rejectedHeadline:0,unreadablePage:0,titleMismatch:0};
   try {
     const resp = await fetchImpl(feed.feed, {
       cache: "no-store",
       headers: { Accept: "application/rss+xml,application/atom+xml,text/xml,application/xml", "User-Agent": "Alchemy Live Desk official-source reader" },
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
-    if (!resp.ok) return { state: "blocked", checked: 0, items: [] };
+    if (!resp.ok) return { state: "blocked", checked: 0, items: [],diagnostics,note:"rss_http_"+resp.status };
     const xml = (await resp.text()).slice(0, 250_000);
-    const candidates = parseOfficialPressFeed(xml).flatMap(item => {
+    const entries=parseOfficialPressFeed(xml);
+    diagnostics.feedEntries=entries.length;
+    const candidates = entries.flatMap(item => {
       const url = fixedUrl(item.url, feed);
-      return url && recent(item.publishedAt, now) &&
-        materiallyActionableOfficialHeadline(feed, item.title)
-        ? [{ ...item, url }] : [];
+      if (!url){diagnostics.rejectedUrl++;return [];}
+      const specialPolicyClock = feed.host === "www.bankofcanada.ca" || feed.host === "www.rbnz.govt.nz";
+      const scheduled = specialPolicyClock ? POLICY_RELEASE_CLOCKS[url] : null;
+      // Bank calendar day or local-time RSS fields do not establish the
+      // release minute. Only the separately attested official event clock may
+      // be used for those domains. Reject un-attested future policy releases.
+      if (specialPolicyClock && !scheduled){diagnostics.unattestedPolicyClock++;return [];}
+      const feedAt = Date.parse(item.publishedAt);
+      const attestedAt = scheduled ? Date.parse(scheduled.releaseAt) : null;
+      // The feed date must still be plausible for this dated original event.
+      // A future-dated or unrelated item cannot borrow the attested clock.
+      if (scheduled && (!Number.isFinite(feedAt) || feedAt > now.getTime() + 5*60_000 ||
+          Math.abs(feedAt - attestedAt!) > 24*3_600_000)){diagnostics.rejectedClock++;return [];}
+      const publishedAt = scheduled?.releaseAt ?? item.publishedAt;
+      if(!recent(publishedAt,now)){diagnostics.rejectedClock++;return [];}
+      if(!materiallyActionableOfficialHeadline(feed,item.title)){
+        diagnostics.rejectedHeadline++;return [];
+      }
+      return [{ ...item, url, publishedAt, scheduleSource: scheduled?.scheduleSource ?? null }];
     }).slice(0, MAX_PER_FEED);
     const results = await Promise.all(candidates.map(async entry => {
       try {
@@ -135,11 +251,18 @@ async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch):
           signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         });
         if (!response.ok ||
-          !(response.headers.get("content-type") || "").toLowerCase().includes("text/html")) return null;
-        if (response.url && !fixedUrl(response.url, feed)) return null;
+          !(response.headers.get("content-type") || "").toLowerCase().includes("text/html")){
+          diagnostics.unreadablePage++;return null;
+        }
+        // An allowed-domain redirect to a different article is not proof of
+        // this RSS item's headline, clock or source identity.
+        if(response.url && fixedUrl(response.url,feed)!==entry.url){
+          diagnostics.unreadablePage++;return null;
+        }
         const html = (await response.text()).slice(0, 150_000);
-        if (!materialTitleFound(html, entry.title)) return null;
+        if (!materialTitleFound(html, entry.title)){diagnostics.titleMismatch++;return null;}
         const title = entry.title.slice(0, 500);
+        const sourceFacts=extractOfficialPressFacts(html,title);
         return {
           itemKey: "official-press:" + createHash("sha256").update(entry.url).digest("hex").slice(0, 24),
           itemType: "news" as const,
@@ -147,27 +270,33 @@ async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch):
           title,
           url: entry.url,
           publishedAt: entry.publishedAt,
-          summary: title,
+          summary: sourceFacts.length?sourceFacts.join(" "):title,
           sourceQuality: 95,
           relevance: 84,
           materiality: 80,
           novelty: 76,
           recommendedAction: "collect_evidence" as const,
-          newsSignal: "Original issuer/regulator announcement. A related price move or market impact has not been established.",
+          newsSignal: entry.scheduleSource
+            ? "Original policy release verified. Exact decision clock independently drawn from the official bank event schedule: " + entry.scheduleSource + ". Publisher RSS time is NOT the event release time. No asset reaction is established."
+            : "Original issuer/regulator announcement. A related price move or market impact has not been established.",
           evidence: [{
             title, url: entry.url, publisher: feed.publisher,
             publishedAt: entry.publishedAt, claim: title,
-          }],
+          }, ...sourceFacts.map(fact=>({
+            title, url:entry.url, publisher:feed.publisher,
+            publishedAt:entry.publishedAt, claim:"OFFICIAL_FACT: "+fact,
+          }))],
           reviewReason: "Original official RSS publication clock and directly linked same-host press-release HTML checked. Headline describes the announcement only, not its financial effect.",
         };
       } catch {
+        diagnostics.unreadablePage++;
         return null;
       }
     }));
     const items = results.filter((item): item is NonNullable<typeof item> => item !== null);
-    return { state: items.length ? "checked" : "no_new_items", checked: candidates.length, items };
+    return { state: items.length ? "checked" : "no_new_items", checked: candidates.length, items,diagnostics };
   } catch {
-    return { state: "blocked", checked: 0, items: [] };
+    return { state: "blocked", checked: 0, items: [],diagnostics,note:"rss_fetch_or_parse_failed" };
   }
 }
 
@@ -188,7 +317,15 @@ export async function applyOfficialPressNewsIntake(
   }
   const status = results.map((result, i) =>
     OFFICIAL_PRESS_FEEDS[i].name + ":" + result.state + ",linked=" + result.checked
-    + ",read=" + result.items.length).join(" | ");
+    + ",read=" + result.items.length
+    + ",feed_entries=" + result.diagnostics.feedEntries
+    + ",wrong_url=" + result.diagnostics.rejectedUrl
+    + ",untimed_policy=" + result.diagnostics.unattestedPolicyClock
+    + ",stale_or_bad_clock=" + result.diagnostics.rejectedClock
+    + ",nonmaterial=" + result.diagnostics.rejectedHeadline
+    + ",html_failed=" + result.diagnostics.unreadablePage
+    + ",title_mismatch=" + result.diagnostics.titleMismatch
+    + (result.note?",error="+result.note:"")).join(" | ");
   return {
     ...input,
     items: [...input.items, ...appended],

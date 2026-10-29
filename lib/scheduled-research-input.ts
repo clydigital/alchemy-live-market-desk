@@ -290,7 +290,7 @@ async function acquireAlchemy(windowStart: number, now: number): Promise<FeedAcq
   const result = await getFreshAlchemyArticles(30);
   if (result.status === "blocked") {
     return {
-      check: { source: "alchemy-market-insights", status: "blocked", itemCount: 0, note: result.note || "Live Alchemy acquisition failed." },
+      check: { source: "alchemy-market-insights", status: "blocked", itemCount: 0, note: result.note || "Market Insights source retrieval failed." },
       items: [],
     };
   }
@@ -303,7 +303,7 @@ async function acquireAlchemy(windowStart: number, now: number): Promise<FeedAcq
         source: "alchemy-market-insights",
         status: "no_new_items",
         itemCount: 0,
-        note: result.note || "Live Alchemy pages were scanned; no dated articles were inside the 36-hour intake window.",
+        note: result.note || "Market Insights source pages were scanned; no dated articles were inside the 36-hour intake window.",
       },
       items: [],
     };
@@ -313,7 +313,7 @@ async function acquireAlchemy(windowStart: number, now: number): Promise<FeedAcq
       source: "alchemy-market-insights",
       status: "checked",
       itemCount: articles.length,
-      note: result.note || "Live Alchemy Market Insights pages were acquired directly.",
+      note: result.note || "Original Market Insights pages were retrieved directly.",
     },
     items: articles.map((article, index): IntakeItemInput => ({
       itemKey: `alchemy:${article.id}`,
@@ -330,7 +330,7 @@ async function acquireAlchemy(windowStart: number, now: number): Promise<FeedAcq
       novelty: 70,
       materiality: 70,
       recommendedAction: "review_article",
-      newsSignal: `Live Alchemy Market Insights ${article.category} acquisition.`,
+      newsSignal: `Market Insights ${article.category} source discovery.`,
       divergenceKind: "none",
       evidence: [{
         title: article.title,

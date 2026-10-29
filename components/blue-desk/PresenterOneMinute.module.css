@@ -1,0 +1,17 @@
+.panel{border:1px solid #366477;border-top:3px solid #efc482;background:#092b3d;margin:16px 0 20px;padding:15px 19px;color:#e1f0f7}
+.top{display:flex;align-items:start;justify-content:space-between;gap:14px}.eyebrow{font-size:10px;letter-spacing:.09em;color:#eac78d;font-weight:750;margin:0 0 4px}.top h2{font-size:22px;margin:0 0 10px;color:#fff}
+.top button{background:#11465b;color:#e6fafc;border:1px solid #5faab3;border-radius:5px;font-size:12px;cursor:pointer;padding:8px 12px}
+.top button:hover,.top button:focus-visible{background:#1a5c70;outline:2px solid #eac78d;outline-offset:2px}
+.script{font-size:15px;line-height:1.55;margin:0 0 11px;max-width:1140px}.script span{color:#a9ccdb}
+.below{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;border-top:1px solid #31586b;padding-top:11px}
+.below strong{color:#dbeaf0;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.below p,.below li{color:#c0d6e0;font-size:12px;line-height:1.5;margin:5px 0}.below ul{padding:0;list-style:none;margin:5px 0 8px;display:flex;gap:5px 14px;flex-wrap:wrap}.below li{flex-basis:43%;min-width:145px}.below b{color:#f3d49f}
+.below a,.limits a{font-size:12px;color:#94e1fa}.limits{border-top:1px solid #31586b;margin-top:11px;padding-top:5px}.limits summary{cursor:pointer;font-size:11px;color:#a3dfe3;padding:4px 0}.limits p{font-size:12px;line-height:1.5;margin:5px 0}.limits a{margin-right:14px}.feedback{font-size:11px;color:#dceaa7;margin:2px 0 0;min-height:0}
+@media(max-width:700px){.panel{padding:12px}.top{align-items:center}.top h2{font-size:20px}.top button{padding:7px;font-size:11px}.below{grid-template-columns:1fr;gap:9px}.below li{flex-basis:100%}.script{font-size:14px}}
+
+/* Opening only on demand keeps all top-ranked story cards above the fold. */
+.panel{padding:9px 15px;margin:10px 0 14px}
+.summary{cursor:pointer;list-style:revert;font-size:13px;font-weight:700;color:#ffe0a6;line-height:1.45}
+.summary:focus-visible{outline:2px solid #eac78d;outline-offset:3px}
+.body{padding:12px 0 5px}
+@media(max-width:700px){.panel{padding:9px 11px}.summary{font-size:12px}}

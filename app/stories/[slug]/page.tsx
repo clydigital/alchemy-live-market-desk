@@ -334,7 +334,7 @@ export default async function StoryDetailPage({ params }: PageProps) {
         <div id="intelligence-room" className={detailStyles.sectionAnchor}>
           <Panel
             title="Canonical Evidence Room"
-            description="Alchemy-first synthesis, provenance-linked evidence, lifecycle state and entity relationships. No external article is required to own this Story."
+            description="Evidence-led synthesis, provenance-linked evidence, lifecycle state and entity relationships. No external article is required to own this Story."
             action={intelligenceRoom.state ? <Badge tone={intelligenceRoom.state.publicationEligible ? "ready" : "default"}>{intelligenceRoom.state.lifecycleStatus}</Badge> : null}
           >
             {intelligenceRoom.available ? (
@@ -361,7 +361,7 @@ export default async function StoryDetailPage({ params }: PageProps) {
                     <p>{intelligenceRoom.hypothesis.statement}</p>
                     <p><strong>Causal mechanism:</strong> {intelligenceRoom.hypothesis.causalMechanism}</p>
                     {intelligenceRoom.challenger ? (
-                      <p><strong>Alchemy Challenger ({intelligenceRoom.challenger.verdict}):</strong> {intelligenceRoom.challenger.strongestCountercase}{intelligenceRoom.challenger.weakestLink ? ` Weakest link: ${intelligenceRoom.challenger.weakestLink}` : ""}</p>
+                      <p><strong>Research Challenger ({intelligenceRoom.challenger.verdict}):</strong> {intelligenceRoom.challenger.strongestCountercase}{intelligenceRoom.challenger.weakestLink ? ` Weakest link: ${intelligenceRoom.challenger.weakestLink}` : ""}</p>
                     ) : null}
                   </article>
                 ) : null}

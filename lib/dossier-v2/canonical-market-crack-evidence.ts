@@ -138,7 +138,7 @@ export async function persistCanonicalMarketMeasurements(
       .upsert({
         provider_key: PROVIDER,
         external_source_id: sourceId,
-        source_name: "Alchemy measured cross-market series (FRED/Nasdaq)",
+        source_name: "Desk-derived cross-market series (FRED/Nasdaq)",
         source_type: "data_provider",
         source_url: sourceUrl,
         source_tier: 2,

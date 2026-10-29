@@ -66,3 +66,8 @@ Inventory old consumer routes, Research Gap triggers, Dossier publication schedu
 ## Rollback
 
 This change is additive and primarily read-only. Revert the new routes/homepage/view changes as a unit, without touching Supabase tables, research cron jobs, canonical evidence or old historical editions.
+
+## Compact earnings explainers in current and future daily briefs (28 October 2026)
+
+When an already-verified earnings release is material, the owner-authored daily briefing and presenter summary should show a short source-backed **beat/miss + what rose/fell** scorecard before explaining why price might react. Include reported revenue, profit/EPS, free cash flow and capital expenditure, comparison baseline, guidance change and missing-data states; never treat a company-reported preliminary profit figure as verified free cash flow, equate planned capex with spent cash, or invent same-day stock reactions. Apply [Bluebelly Simple Earnings Scorecard](BLUEBELLY_SIMPLE_EARNINGS_SCORECARD.md) as the common readable contract, without creating a second earnings tracker, autonomous publisher, extra scheduler or canonical Dossier dependence.
+

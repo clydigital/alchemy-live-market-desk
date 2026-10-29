@@ -156,9 +156,6 @@ export function parseAutomatedReportNarrative(
  if(!text(r.title,12,110)||!text(r.deck,30,450)
   ||!text(r.executiveSummary,120,1400)||!text(r.bigPicture,180,2400)
   ||!text(r.concludingAssessment,100,1600)||!text(r.limitations,45,1100))return null;
- // Quiet source-qualified sessions should not invent extra plotlines, markets
- // or upcoming catalysts solely to meet editorial section counts.
- // The independent-source/ID/number gates above and below are unchanged.
  if(!Array.isArray(r.stories)||r.stories.length<1||r.stories.length>4
   ||!Array.isArray(r.crossMarket)||r.crossMarket.length>7
   ||!Array.isArray(r.watchlist)||r.watchlist.length>7)return null;

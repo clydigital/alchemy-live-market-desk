@@ -2,14 +2,14 @@
 .shell{max-width:1220px;margin:auto;padding:28px clamp(16px,3vw,38px) 70px}
 .hero{padding:clamp(22px,4vw,42px);border:1px solid #245875;border-radius:12px;background:linear-gradient(125deg,#07344f,#031c30)}
 .eyebrow{font-size:11px;font-weight:750;letter-spacing:.11em;color:#76d9fa;text-transform:uppercase}
-.hero h1{font-family:Georgia,serif;font-size:clamp(30px,4vw,52px);font-weight:600;line-height:1.13;margin:10px 0}
+.hero h1{font-family:var(--bluebelly-font);font-size:clamp(30px,4vw,52px);font-weight:600;line-height:1.13;margin:10px 0}
 .lead{max-width:780px;font-size:17px;line-height:1.6;color:#d1e3ee}
 .meta{display:flex;gap:12px 22px;flex-wrap:wrap;color:#a1c8da;font-size:12px;margin:20px 0 12px}
 .context{font-size:12px;line-height:1.65;color:#accbda;max-width:880px;margin-bottom:0}
 .context strong{color:#dceef5}
 .section{padding:30px 0;border-bottom:1px solid #1f4b62}
 .heading{max-width:790px;margin-bottom:20px}
-.heading h2{font-family:Georgia,serif;font-size:clamp(25px,3vw,34px);margin:6px 0 9px}
+.heading h2{font-family:var(--bluebelly-font);font-size:clamp(25px,3vw,34px);margin:6px 0 9px}
 .heading p:not(.eyebrow){color:#b9d2de;line-height:1.65}
 .newsList{display:grid;gap:11px}
 .news,.reading,.watch{border:1px solid #24536c;border-radius:9px;background:#072538;padding:clamp(16px,2.3vw,25px)}
@@ -40,10 +40,10 @@
 .moreStories .readings{margin-top:15px}
 
 .automaticPdf{padding:clamp(20px,3vw,32px);border:1px solid #316b83;border-radius:12px;background:linear-gradient(140deg,#0a3248,#052033);margin-top:22px}
-.automaticPdf .heading h2{font-family:Georgia,serif;font-size:clamp(24px,3vw,33px);margin:7px 0 12px}
+.automaticPdf .heading h2{font-family:var(--bluebelly-font);font-size:clamp(24px,3vw,33px);margin:7px 0 12px}
 .automaticPdf .heading p:not(.eyebrow){line-height:1.65;color:#b8d4df}
 .pdfMeta{display:flex;gap:15px;justify-content:space-between;flex-wrap:wrap;align-items:flex-start;padding:16px 0}
-.pdfMeta strong{font:600 23px Georgia,serif;color:#f2fbff;display:block}
+.pdfMeta strong{font:600 23px var(--bluebelly-font);color:#f2fbff;display:block}
 .pdfMeta p{font-size:15px;line-height:1.6;max-width:720px;color:#c7e2ed}
 .pdfMeta small{font-size:11px;color:#93c3d4;line-height:1.6;display:block}
 .pdfActions{display:flex;gap:10px;flex-wrap:wrap}
@@ -58,3 +58,28 @@
 .pdfArchive li{display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;align-items:center;border-bottom:1px solid #194257;padding:12px 0;font-size:13px}
 .pdfArchive li span{flex:1 1 250px;color:#d9e9f1}
 @media(max-width:760px){.automaticPdf{padding:17px}.pdfFrame{min-height:410px;height:70vh}.pdfMeta strong{font-size:20px}}
+
+
+/* Editorial-first Daily Report: section index stays separate from source status. */
+.quickNav{display:flex;gap:7px;flex-wrap:wrap;margin:16px 0 0}
+.quickNav a{display:inline-flex;align-items:center;padding:8px 12px;border-radius:7px;background:#0a3a50;border:1px solid #3b7285;text-decoration:none;font-size:12px;font-weight:750;color:#c1e7f1}
+.quickNav a:hover,.quickNav a:focus-visible{background:#15556c;color:#ffffff;border-color:#7ec9dd}
+.section{scroll-margin-top:100px}
+.hero h1{font-size:clamp(33px,3.75vw,47px)}
+.hero .lead{max-width:790px;font-size:15px;line-height:1.7}
+@media(max-width:760px){.quickNav{gap:6px}.quickNav a{font-size:11px;padding:8px 10px}}
+
+/* Theme-responsive reading cards; preserve source status and PDF document contrast. */
+.news,.reading,.watch,.automaticPdf,.moreStories{background:var(--bb-card-bg);border-color:var(--bb-card-border)}
+.news,.reading,.watch{transition:background .16s ease,border-color .16s ease}
+.news:hover,.reading:hover,.watch:hover{background:var(--bb-card-bg-hover);border-color:var(--bb-accent)}
+.news h3,.reading h3,.watch h3,.pdfMeta strong{color:var(--bb-text)}
+.news p,.reading p,.watch p{color:var(--bb-muted)}
+.eyebrow,.questions dt{color:var(--bb-accent)}
+.page a,.moreStories summary,.pdfArchive summary{color:var(--bb-accent)}
+.hero{background:var(--bb-card-bg);border-color:var(--bb-card-border)}
+.quickNav a{background:var(--bb-card-quiet);border-color:var(--bb-card-border);color:var(--bb-text)}
+.quickNav a:hover,.quickNav a:focus-visible{background:var(--bb-card-bg-hover);border-color:var(--bb-accent);color:var(--bb-text)}
+.pdfActions a{border-color:var(--bb-card-border);color:var(--bb-text)!important}
+.pdfActions a:last-child{background:var(--bb-accent);color:var(--bb-canvas)!important}
+@media(prefers-reduced-motion:reduce){.news,.reading,.watch{transition:none}}

@@ -72,7 +72,7 @@ export default function MobileIntelligenceBrief() {
   const statusInfo = getMobileBriefStatus({ loading, snapshot, error, hasRefreshed });
   const { stale, degraded, futureDated } = dossierWarnings(snapshot, Date.now());
 
-  return <main style={{ maxWidth: 780, margin: "0 auto", padding: "22px 16px 80px", color: "#f1f5fc", background: "#101626", minHeight: "100vh", fontFamily: "system-ui, sans-serif", lineHeight: 1.55 }}>
+  return <main style={{ maxWidth: 780, margin: "0 auto", padding: "22px 16px 80px", color: "#f1f5fc", background: "#101626", minHeight: "100vh", fontFamily: "var(--bluebelly-font)", lineHeight: 1.55 }}>
     <style>{`
       .skip-link {
         position: absolute;

@@ -1,8 +1,13 @@
 import "./globals.css";
+import "./bluebelly-tokens.css";
 import type { Metadata, Viewport } from "next";
+import { Figtree } from "next/font/google";
+
+// One self-hosted, build-time optimised font for public Bluebelly and owner tools.
+const figtree = Figtree({ subsets: ["latin"], display: "swap", variable: "--font-figtree" });
 
 export const metadata: Metadata = {
-  title: "Alchemy Live Desk | Market Intelligence Workspace",
+  title: "Bluebelly | Market Intelligence Workspace",
   description: "An interactive market research workspace for stories, earnings intelligence, signals, charts and persistent research history.",
 };
 
@@ -13,5 +18,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}</body></html>;
+  return <html lang="en-GB" className={figtree.variable}><body>{children}</body></html>;
 }

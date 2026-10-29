@@ -28,7 +28,7 @@ function validUrl(value:string):string|null {
   catch{return null;}
 }
 export function editorialPriceCard(row:Pick<MarketMonitorRow,
-  "id"|"label"|"symbol"|"type"|"frequency"|"sourceName"|"sourceUrl"|"points"|"asOf">,
+  "id"|"label"|"symbol"|"type"|"frequency"|"sourceName"|"sourceUrl"|"points"|"asOf"|"last">,
   nowIso:string):EditorialPriceCard {
   const now=Date.parse(nowIso), today=nowIso.slice(0,10);
   const empty:EditorialPriceCard={
@@ -52,7 +52,19 @@ export function editorialPriceCard(row:Pick<MarketMonitorRow,
   const points=[...byDate].sort(([a],[b])=>a.localeCompare(b))
     .map(([date,close])=>({date,close}));
   const last=points[points.length-1];
-  if(!last)return empty;
+  if(!last) {
+    // Keep a source-dated latest level when the history feed is unavailable.
+    // Never infer completed-session returns from a single observation.
+    const date=typeof row.asOf==="string"?row.asOf.slice(0,10):"";
+    const age=Date.parse(date+"T00:00:00Z");
+    if(row.frequency==="daily" && /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+       Number.isFinite(age) && age<=now && typeof row.last==="number" &&
+       Number.isFinite(row.last) && row.last>0)
+      return {...empty,lastDate:date,lastClose:row.last,
+        status:now-age>7*DAY?"STALE":"OBSERVED",
+        caution:"Source-dated monitor level only. Completed-session history unavailable; changes withheld."};
+    return empty;
+  }
   const ageDays=(now-Date.parse(last.date+"T00:00:00Z"))/DAY;
   const older=ageDays>7;
   const comparisons:EditorialWindow[]=WINDOW_LABELS.map(([sessions,label])=>{

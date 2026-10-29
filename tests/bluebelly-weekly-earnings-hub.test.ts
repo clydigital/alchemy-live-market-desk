@@ -45,7 +45,14 @@ test("the US Monday-Sunday earnings week highlights MSFT GOOGL AMZN without inve
  assert.equal(google.verificationState,"official");
  const amazon=week.find(e=>e.affectedAssets.includes("AMZN"))!;
  assert.equal(amazon.verificationState,"official");
- assert.deepEqual(selectBlueDeskEarningsWeek(calendar,new Date("2026-11-03T14:00:00Z")),[]);
+ // The issuer-first watch has legitimately expanded. A fresh US week must
+ // show the newly confirmed Pfizer/AMD events rather than remain empty.
+ const nextWeek=selectBlueDeskEarningsWeek(calendar,new Date("2026-11-03T14:00:00Z"));
+ const nextTickers=nextWeek.flatMap(e=>e.affectedAssets);
+ assert.ok(["PFE","AMD"].every(t=>nextTickers.includes(t)),
+   "the 3 November 9am ET snapshot retains the same day's confirmed issuer calls");
+ assert.ok(!nextTickers.some(t=>["MSFT","GOOGL","AMZN"].includes(t)),
+   "last week's technology earnings must not be recycled as upcoming");
 });
 
 test("provider fallback stays licence-gated; date-only events expire cleanly",async()=>{

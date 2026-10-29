@@ -1,0 +1,16 @@
+:root{--bb-accent:#ffdb23;--bb-canvas:#090a0c;--bb-surface:#14181c;--bb-raised:#1b2025;--bb-line:#3c454c;--bb-text:#f1f1e9;--bb-muted:#b4bec1;--bb-mono:'Consolas','SFMono-Regular',monospace;--bb-display:'Arial Black',Impact,var(--font-figtree),sans-serif}
+:root[data-bluebelly-theme="neon-blue"]{--bb-accent:#3da8ff}
+:root[data-bluebelly-theme="pastel-green"]{--bb-accent:#b9e9aa}
+
+:root[data-bluebelly-theme="yellow-black"]{--bb-accent:#ffdb23}
+:root[data-bluebelly-theme="turquoise"]{--bb-accent:#49e2d0}
+
+/* Shared, non-semantic editorial-card palette. Derived from the currently
+   selected accent; do not use for positive/negative price movements or status. */
+:root{
+  --bb-card-bg:linear-gradient(135deg,color-mix(in srgb,var(--bb-surface) 84%,var(--bb-accent) 16%),color-mix(in srgb,var(--bb-surface) 95%,var(--bb-accent) 5%));
+  --bb-card-bg-hover:linear-gradient(135deg,color-mix(in srgb,var(--bb-raised) 78%,var(--bb-accent) 22%),color-mix(in srgb,var(--bb-raised) 91%,var(--bb-accent) 9%));
+  --bb-card-border:color-mix(in srgb,var(--bb-line) 56%,var(--bb-accent) 44%);
+  --bb-card-quiet:color-mix(in srgb,var(--bb-raised) 90%,var(--bb-accent) 10%);
+  --bb-card-focus:var(--bb-accent);
+}

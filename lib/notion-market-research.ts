@@ -12,6 +12,10 @@ export type NotionResearchSource = {
   retrievedAt: string;
   text: string;
   originalLinks: string[];
+  /** MYT day of the source edition, distinct from the fetch timestamp. */
+  editionDay?: string;
+  /** Source-owned run quality, not a Bluebelly verification grade. */
+  coverageStatus?: string;
 };
 export type NotionResearchBundle = {
   status: "READY_FOR_REVIEW" | "PARTIAL" | "NOT_CONFIGURED" | "UNAVAILABLE";
@@ -25,6 +29,22 @@ const VERSION="2025-09-03";
 const UUID=/^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
 const MACRO_ROOT="3ea519b6-7a94-8161-ba4d-ec8f97ebf658";
 const GATE_SOURCE="b76f7ce0-ad59-49a1-8aac-61271f310493";
+/** Only HTTP status and a fixed hint are displayed. Never forward Notion's
+ * response body, token, request URL or any private content into diagnostics. */
+export function notionResearchErrorHint(error:unknown):string {
+  if(error instanceof Error && error.name==="AbortError")
+    return "request timeout";
+  const status=error instanceof Error
+    ? Number(error.message.match(/^Notion read failed: (\d{3})$/)?.[1]||0) : 0;
+  switch(status){
+    case 400:return "HTTP 400: Notion API request/schema incompatible";
+    case 401:return "HTTP 401: Notion token rejected or expired";
+    case 403:return "HTTP 403: integration has insufficient permissions";
+    case 404:return "HTTP 404: source ID missing or not shared with integration";
+    case 429:return "HTTP 429: Notion rate limit";
+    default:return status>=500&&status<600?"Notion API server error": "network error or timeout";
+  }
+}
 type AnyRecord = Record<string,unknown>;
 function obj(v:unknown):AnyRecord {
   return v!==null && typeof v==="object" && !Array.isArray(v) ? v as AnyRecord : {};
@@ -99,7 +119,7 @@ export function selectNotionResearchPages(searchResults:unknown,day:string,macro
   const gates=items.filter(p=>{
     const title=name(p);
     const parent=obj(p.parent);
-    return title.startsWith(day+" ")&&/Research Gap Gate$/i.test(title) &&
+    return title.startsWith(day+" ")&&/Research Gap (?:Gate|Investigation)(?: \(\d{1,2}:\d{2} slot\))?$/i.test(title) &&
       (sameId(parent.data_source_id,gateSource)||sameId(parent.database_id,gateSource));
   }).sort((a,b)=>name(b).localeCompare(name(a)));
   return {archiveId:safePageId(macro?.id),gateId:safePageId(gates[0]?.id)};
@@ -172,18 +192,18 @@ async function discoverNotionDay(
     });
     searchResults=rows(search.results);
     searchPaginated=Boolean(search.has_more);
-  }catch{fallbackWarnings.push("Notion title search unavailable; parent-scoped read attempted.");}
+  }catch(error){fallbackWarnings.push("Notion title search unavailable ("+notionResearchErrorHint(error)+"); parent-scoped read attempted.");}
   const found=selectNotionResearchPages(searchResults,day,macroRoot,gateSource);
   if(found.archiveId&&found.gateId)return {...found,searchPaginated,fallbackWarnings};
   const [archive,gate]=await Promise.all([
     found.archiveId?Promise.resolve(found.archiveId):children(token,macroRoot,2)
       .then(items=>selectMacroPulseArchiveChild(items,day))
-      .catch(()=>{fallbackWarnings.push("MacroPulse root page could not be listed.");return null;}),
+      .catch(error=>{fallbackWarnings.push("MacroPulse root page could not be listed ("+notionResearchErrorHint(error)+").");return null;}),
     found.gateId?Promise.resolve(found.gateId):
       notionRequest(token,"/data_sources/"+gateSource+"/query",{
         filter:{property:"Run",title:{contains:day}},page_size:100,
       }).then(res=>selectNotionResearchPages(res.results,day,macroRoot,gateSource).gateId)
-        .catch(()=>{fallbackWarnings.push("Research Gap data source could not be queried.");return null;}),
+        .catch(error=>{fallbackWarnings.push("Research Gap data source could not be queried ("+notionResearchErrorHint(error)+").");return null;}),
   ]);
   // A successful exact parent and data-source read supersedes a failing
   // workspace title search. The title-search outage does not mean the
@@ -220,14 +240,16 @@ export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionRes
       const prior=await discoverNotionDay(token,previousDay,macroRoot,gateSource);
       previous=prior;
       warnings.push(...prior.fallbackWarnings.map(w=>"Previous-day lookup: "+w));
-      if(prior.searchPaginated)warnings.push("Previous MYT day Notion discovery may be partial: search results paginated.");
+      // Exact parent-scoped MacroPulse and data-source Gate fallbacks already
+      // validated the absent title-search hits. Workspace search pagination
+      // alone is not a source-coverage failure; preserve real fallback errors.
     }
     const selected={
       archiveId:today.archiveId||previous.archiveId,
       gateId:today.gateId||previous.gateId,
     };
     if(!today.gateId&&selected.gateId)warnings.push(
-      "Latest accessible Research Gap Gate is from "+previousDay+" MYT; today's Gate is not yet available.");
+      "Latest accessible Research Gap run is from "+previousDay+" MYT; no current-day run was found.");
     if(!today.archiveId&&selected.archiveId)warnings.push(
       "Latest accessible full MacroPulse posts are from "+previousDay+" MYT; today's daily archive is not yet available.");
     if(selected.gateId){
@@ -245,12 +267,17 @@ export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionRes
         const incomplete=[select("Status"),select("Coverage"),select("Input Health")]
           .some(v=>/^(PARTIAL|FAILED|MATERIAL GAP|INSUFFICIENT)$/i.test(v));
         if(incomplete||/(?:Coverage\s+PARTIAL|Input Health\s+PARTIAL|Run\s+PARTIAL|eligible overflow|unconsumed eligible)/i.test(parsed.text))
-          warnings.push("The latest Research Gap Gate explicitly reports partial coverage, failed inputs or unread overflow. Treat its findings as bounded.");
-        if(parsed.text) sources.push({kind:"RESEARCH_GAP",title:(today.gateId?day:previousDay)+" — latest Research Gap Gate",
+          warnings.push("The latest Research Gap run explicitly reports partial coverage, failed inputs or unread overflow. Treat its findings as bounded.");
+        const title=rows(obj(props.Run).title).map(v=>txt(v.plain_text,300)||txt(obj(v.text).content,300)).join("") ||
+          (today.gateId?day:previousDay)+" — latest Research Gap run";
+        if(parsed.text) sources.push({kind:"RESEARCH_GAP",title,
           url:"https://www.notion.so/"+selected.gateId,pageId:selected.gateId,
+          editionDay:today.gateId?day:previousDay,coverageStatus:select("Coverage")||select("Status")||undefined,
           retrievedAt:fetchedAt,text:parsed.text,originalLinks:parsed.links});
-      }catch {warnings.push("Research Gap run could not be read; coverage unknown.");}
-    }else warnings.push("Today's Research Gap Gate not found in the authorised Notion source.");
+      }catch(error) {warnings.push("Research Gap run could not be read ("+notionResearchErrorHint(error)+"); coverage unknown.");}
+    }else warnings.push(warnings.some(w=>/Research Gap data source could not be queried/i.test(w))
+      ?"Research Gap Gate availability cannot be determined because Notion data-source access failed."
+      :"Today's Research Gap Gate not found in the authorised Notion source.");
     if(selected.archiveId){
       try{
         const available=selectPulseChildPages(await children(token,selected.archiveId,2),2);
@@ -259,18 +286,22 @@ export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionRes
             const parsed=blocksText(await children(token,page.id,2),9500);
             if(parsed.text)sources.push({kind:"MACROPULSE",title:page.title,
               url:"https://www.notion.so/"+page.id,pageId:page.id,
+              editionDay:today.archiveId?day:previousDay,
               retrievedAt:fetchedAt,text:parsed.text,originalLinks:parsed.links});
-          }catch{warnings.push("A selected MacroPulse post could not be read; slot coverage partial.");}
+          }catch(error){warnings.push("A selected MacroPulse post could not be read ("+notionResearchErrorHint(error)+"); slot coverage partial.");}
         }
         if(!available.length)warnings.push("No full MacroPulse posts found for today's day archive.");
-      }catch{warnings.push("MacroPulse day archive could not be read.");}
-    }else warnings.push("Today's MacroPulse archive not found in authorised Notion source.");
-    if(today.searchPaginated)warnings.push("Notion search results were paginated; latest-page discovery may be partial.");
+      }catch(error){warnings.push("MacroPulse day archive could not be read ("+notionResearchErrorHint(error)+").");}
+    }else warnings.push(warnings.some(w=>/MacroPulse root page could not be listed/i.test(w))
+      ?"MacroPulse archive availability cannot be determined because Notion root-page access failed."
+      :"Today's MacroPulse archive not found in authorised Notion source.");
+
   }catch{return {status:"UNAVAILABLE",sources:[],fetchedAt,
     warnings:["Notion read could not complete. Do not reuse an undated cached report."]};}
   const readBlocked=sources.length===0&&warnings.some(w=>
     /(?:root page could not be listed|data source could not be queried|archive could not be read|run could not be read)/i.test(w));
   return {status:readBlocked?"UNAVAILABLE":
-      sources.length===3&&warnings.length===0?"READY_FOR_REVIEW":"PARTIAL",
+      sources.some(s=>s.kind==="MACROPULSE")&&sources.some(s=>s.kind==="RESEARCH_GAP")&&warnings.length===0
+        ?"READY_FOR_REVIEW":"PARTIAL",
     sources,warnings,fetchedAt};
 }

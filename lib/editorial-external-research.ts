@@ -109,7 +109,7 @@ export function parseExternalResearch(
 /** Copy into ChatGPT; output is an import format, not an instruction to falsify sources. */
 export function chatResearchTransferPrompt(kind:"OB"|"COTD"):string {
  return [
-  "Research a markets "+kind+" article for Alchemy Markets, using connected plugins/web and original primary sources.",
+  "Research a markets "+kind+" article for Bluebelly, using connected plugins/web and original primary sources.",
   kind==="COTD"?"Start with the chart observation, and explicitly mark chart patterns uninspected unless chart evidence is supplied.":
    "Start with the catalyst chronology and what changed overnight; distinguish prior consensus from the announced result.",
   "Evaluate alternative explanations, the strongest countercase and the next falsifiable test.",

@@ -25,16 +25,16 @@ function post(id: number, handle = "Bluekurtic", patch: Partial<XCandidate> = {}
   };
 }
 
-test("preserves the X sweep settings while excluding ZeroHedge from nine monitored accounts", () => {
+test("preserves the X sweep settings while excluding ZeroHedge from ten monitored accounts", () => {
   assert.deepEqual(X_SWEEP_DEFAULTS, {
     sweep: "x", preset: "normal", lookbackHours: 2.5, overlapMinutes: 30,
     maxCandidatesPerRun: 250, softLimitPerAccount: 40, recoveryLookbackHours: 72,
     deepInvestigationsCap: 12, schedule: "existing MacroPulse only",
     newScheduledTask: false,
   });
-  assert.equal(X_CORE_ROSTER.length, 9);
+  assert.equal(X_CORE_ROSTER.length, 10);
   assert.deepEqual(X_CORE_ROSTER.map(item => item.handle), [
-    "Bluekurtic", "HFI_Research", "OilandEnergy", "TheStudyofWar",
+    "Bluekurtic", "HFI_Research", "OilandEnergy", "HormuzReport", "TheStudyofWar",
     "Currentreport1", "arena", "KobeissiLetter", "FirstSquawk",
     "GordianKnotDev",
   ]);
@@ -127,7 +127,7 @@ test("source-health does not call inaccessible accounts quiet", () => {
   }]);
   assert.equal(result.inaccessible, 1);
   assert.equal(result.complete, false);
-  assert.equal(result.monitored, 9);
+  assert.equal(result.monitored, 10);
 });
 
 test("X Wire excludes ZeroHedge at source regardless of case or account form", () => {

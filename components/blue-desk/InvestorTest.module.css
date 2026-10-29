@@ -21,7 +21,7 @@
 .eyebrow span{color:#b4c6ce;padding:0 4px}
 .masthead h2{font-size:clamp(31px,4vw,53px);line-height:1.07;
   max-width:19ch;letter-spacing:-.045em;color:#f6fbff;margin:0 0 17px;
-  font-family:Georgia,"Times New Roman",serif;font-weight:600}
+  font-family:var(--bluebelly-font);font-weight:600}
 .deck{color:#bbd3df;max-width:60ch;line-height:1.65;font-size:clamp(14px,1.35vw,16px);margin:0}
 .storyIdentity{border-left:2px solid #6fc6df;padding:5px 0 5px 17px;
   display:flex;flex-direction:column;gap:10px;overflow-wrap:anywhere}
@@ -33,7 +33,7 @@
 .questions article:nth-child(even){border-right:0}
 .questions article:nth-last-child(-n+2){border-bottom:0}
 .step{font-size:11px;letter-spacing:.12em;color:#86cce2;font-weight:800;margin:0 0 14px;text-transform:uppercase}
-.questions h3{font-family:Georgia,"Times New Roman",serif;font-size:clamp(23px,2.4vw,33px);
+.questions h3{font-family:var(--bluebelly-font);font-size:clamp(23px,2.4vw,33px);
   letter-spacing:-.035em;line-height:1.17;color:#f6fbff;margin:0 0 15px;max-width:24ch}
 .questions article>p:not(.step){font-size:14px;line-height:1.75;color:#d4e5ed;overflow-wrap:anywhere}
 .sourceText{max-width:75ch}

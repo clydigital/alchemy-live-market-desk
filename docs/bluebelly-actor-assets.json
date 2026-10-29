@@ -1,0 +1,56 @@
+{
+  "source": "Bluebelly_Countryballs_Hero_Spacing_Standalone(1).html",
+  "usage": "Identity only. External SVG documents isolate IDs. No prototype content or layout.",
+  "assets": [
+    {
+      "file": "sk.svg",
+      "sourceLabel": "sk companyball",
+      "sha256": "9d01dfb178de55233ff2f64d9464d67169dbcfb2f4d5afe3045a6799920ddd72"
+    },
+    {
+      "file": "amazon.svg",
+      "sourceLabel": "amazon companyball",
+      "sha256": "ee341ca20bd96f6ddbf7b0ff242bd32fbb7c15f54865cf24a895d12ea679b6c8"
+    },
+    {
+      "file": "nz.svg",
+      "sourceLabel": "nz countryball",
+      "sha256": "73691d19614d9b3ee637f32fd013adff5b21445bae02c856f9bdc14f75c78d9c"
+    },
+    {
+      "file": "us.svg",
+      "sourceLabel": "us countryball",
+      "sha256": "5417bf552b2a024e725998d676ceed81e5d34777e949ec6ca585600d3ff9eed6"
+    },
+    {
+      "file": "nvidia.svg",
+      "sourceLabel": "nvidia companyball",
+      "sha256": "d47211adfbaa66a1402ee38c18865a8fb85bdc3224b1211ba8e977aaebcbabba"
+    },
+    {
+      "file": "oracle.svg",
+      "sourceLabel": "oracle companyball",
+      "sha256": "e8a161f79c6793c9dceec436f1d05b0f625ec4369ba0054e73fe04458ab2b6a0"
+    },
+    {
+      "file": "jp.svg",
+      "sourceLabel": "jp countryball",
+      "sha256": "1770625491b9a72e2185084ebbeedddae6842d1618cf5a53d7380a794b3a7677"
+    },
+    {
+      "file": "cn.svg",
+      "sourceLabel": "cn countryball",
+      "sha256": "bb7be0fe0ca91f863002229a3cd1b834b5b64be9b247257cf5b52a3b625535af"
+    },
+    {
+      "file": "sa.svg",
+      "sourceLabel": "sa countryball",
+      "sha256": "f138fd969b10a64cc981c1f74a4d17d27cdbd158cf2670b529176d38450df5c2"
+    },
+    {
+      "file": "kr.svg",
+      "sourceLabel": "kr countryball",
+      "sha256": "338f0301dcfa2002a19bc94a33cfd101a3317b30e6a3bf2e0b76a084ccaadf41"
+    }
+  ]
+}

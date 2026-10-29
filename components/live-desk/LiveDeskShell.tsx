@@ -41,7 +41,7 @@ function NavRow({ label, routes, activePath }: { label: string; routes: LiveDesk
   );
 }
 
-export default function LiveDeskShell({ activePath, eyebrow = "Alchemy Research Core", title, description, meta, children }: Props) {
+export default function LiveDeskShell({ activePath, eyebrow = "Bluebelly Research", title, description, meta, children }: Props) {
   const authRequired = dashboardAuthRequired();
 
   return (
@@ -88,7 +88,7 @@ export default function LiveDeskShell({ activePath, eyebrow = "Alchemy Research 
 
         <footer className={styles.footer}>
           <div>Persistent research, live market context and auditable Story memory.</div>
-          <span>Alchemy Research Core</span>
+          <span>Bluebelly Research</span>
         </footer>
       </section>
     </main>

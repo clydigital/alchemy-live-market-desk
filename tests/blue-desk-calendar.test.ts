@@ -118,3 +118,26 @@ test("public Blue Desk displays broader real calendar instead of blank default w
   assert.doesNotMatch(calendar, /const events = \[\s*\{\s*event: "FOMC"/);
   assert.doesNotMatch(home, /status:\s*"Released"\s*\/\/ guessed/);
 });
+
+
+test("29 Oct 02:52 MYT does not call 28 Oct BoC and RBNZ source-date-only decisions upcoming", () => {
+  const now = new Date("2026-10-28T18:52:00Z"); // 14:52 EDT, 02:52 MYT next day
+  const events = [
+    event("boc-28-oct", null, "2026-10-28"),
+    event("rbnz-28-oct", null, "2026-10-28"),
+    event("ecb-29-oct", null, "2026-10-29"),
+    event("fomc-exact", "2026-10-28T18:00:00Z", "2026-10-29"),
+    event("next-exact", "2026-10-28T20:30:00Z", "2026-10-29"),
+  ];
+  assert.deepEqual(
+    selectBlueDeskUpcoming({events}, now).map(e=>e.id),
+    ["next-exact","ecb-29-oct"],
+  );
+});
+
+test("date-only decisions remain visible on their stated MYT day without invented intraday times",()=>{
+  const now=new Date("2026-10-28T13:30:00Z"); // 21:30 MYT Oct 28
+  const actualUnknown=event("same-day-unknown-clock",null,"2026-10-28");
+  assert.deepEqual(selectBlueDeskUpcoming({events:[actualUnknown]},now).map(e=>e.id),["same-day-unknown-clock"]);
+  assert.equal(actualUnknown.scheduledAt,null);
+});

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 112 120" role="img" aria-label="kr countryball">
+ <defs><clipPath id="c"><circle cx="45" cy="45" r="45"/></clipPath><radialGradient id="g" cx="37%" cy="26%" r="75%"><stop stop-color="#fff" stop-opacity=".21"/><stop offset="1" stop-color="#030509" stop-opacity=".18"/></radialGradient></defs>
+ <ellipse cx="56" cy="109" rx="41" ry="6" fill="#07090c" opacity=".29"/>
+ <circle cx="56" cy="56" r="45" fill="#fcfcfc"/>
+ <g transform="translate(11,11)" clip-path="url(#c)"><rect width="100" height="100" fill="#fafbfd"/><path fill="#d9414d" d="M29 49a22 22 0 0 1 44 0q-11-11-22 0t-22 0"/><path fill="#2562a3" d="M29 49q11 11 22 0t22 0a22 22 0 0 1-44 0"/><path d="M17 29l12 7M73 64l12 7M20 71l12-7M70 35l12-7" stroke="#222" stroke-width="3"/></g>
+ <g transform="translate(4 4)"><g stroke="#141a1c" stroke-width="2.3"><ellipse cx="39" cy="47" rx="10" ry="13" fill="#fdfdfd"/><ellipse cx="61" cy="47" rx="10" ry="13" fill="#fdfdfd"/></g><g fill="#141a1c"><ellipse cx="42" cy="49" rx="3.3" ry="6.1"/><ellipse cx="64" cy="49" rx="3.3" ry="6.1"/></g></g>
+ <circle cx="56" cy="56" r="45" fill="url(#g)" stroke="#101518" stroke-width="2.6"/>
+ <path d="M27 35q18-18 44-15" stroke="#fff" stroke-width="3" opacity=".24" fill="none" stroke-linecap="round"/>
+ </svg>

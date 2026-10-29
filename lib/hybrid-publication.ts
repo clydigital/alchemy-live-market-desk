@@ -330,7 +330,7 @@ function storyState(story: Story, version: ThesisVersion | undefined, image: Sto
     imageKind: image?.kind || "fallback",
     imageSourceUrl: image?.articleUrl || null,
     imageSourceTitle: image?.articleTitle || fallback.label,
-    imagePublisher: image?.publisher || "Alchemy Markets",
+    imagePublisher: image?.publisher || "Bluebelly",
     intelligence: intelligence ? {
       lifecycleStatus: intelligence.lifecycle_status,
       publicationEligible: intelligence.publication_eligible,

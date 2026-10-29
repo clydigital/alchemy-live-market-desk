@@ -10,6 +10,8 @@ import {parseExternalResearch,chatResearchTransferPrompt} from "@/lib/editorial-
 import { mergeInvestigationIntoDraftPacket, type InvestigationResult } from "@/lib/editorial-investigation";
 import { editorialGuidingQuestions } from "@/lib/editorial-question-guide";
 import styles from "./editorial-studio.module.css";
+import { EntityRow } from "./EntityIdentity";
+import { entityForAsset } from "@/lib/bluebelly-entity-identity";
 
 type Kind = "COTD" | "OB";
 type Draft = {
@@ -258,9 +260,7 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
         </nav>
       ):(
         <nav className={styles.subnav} aria-label="Private studio views">
-          <Link href="/owner/editorial" aria-current={mode==="editorial"?"page":undefined}>Article writing</Link>
-          <Link href="/owner/presenter" aria-current={mode==="presenter"?"page":undefined}>Presenter view</Link>
-          <Link href="/my-reports">My PDF library ↗</Link>
+          <Link href="/my-reports">My Desk</Link>
         </nav>
       )}
       <div className={styles.status}><strong>{previewMode?"Temporary development UI — not live research":"Owner-only research workspace"}</strong>
@@ -524,6 +524,7 @@ function PriceContext({card,readError}:{
     "Market monitor unavailable; historical returns UNKNOWN.":"Select a market to inspect dated price context."}</p>;
   return <div className={styles.price}>
     <p className={styles.kicker}>{card.status} · {card.lastDate||"UNDATED"}</p>
+    <EntityRow identity={entityForAsset(card.symbol) || {kind:"asset",code:card.symbol}} title={card.label} subtitle={card.symbol} />
     <strong>{card.lastClose===null?"UNKNOWN":card.lastClose.toLocaleString("en-GB",{maximumFractionDigits:3})}
       <span>{card.levelUnit}</span></strong>
     <p className={styles.small}>Source: {card.source}

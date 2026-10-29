@@ -3,6 +3,13 @@ import { headers } from "next/headers";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import EarningsWeekGrid from "@/components/blue-desk/EarningsWeekGrid";
+import RecentEarningsScorecards from "@/components/blue-desk/RecentEarningsScorecards";
+import { getRecentVerifiedEarningsScorecards } from "@/lib/blue-desk-earnings-results";
+import CatalystCalendar from "@/components/blue-desk/CatalystCalendar";
+import { getBluebellyCatalystSources } from "@/lib/bluebelly-catalyst-sources";
+import { projectBluebellyCatalysts } from "@/lib/bluebelly-catalyst-calendar";
+import { loadMajorIpoWatch } from "@/lib/bluebelly-major-ipo-watch-server";
 import { MarketIcon } from "@/components/blue-desk/MarketIcon";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { getEconomicCalendar } from "@/lib/calendar";
@@ -15,7 +22,7 @@ import styles from "../blue-desk.module.css";
 export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Market Calendar | Blue Desk",
-  description: "Economic releases and earnings.",
+  description: "High-impact economics, Fed speakers, peace talks, earnings, major IPO watch and technology catalysts.",
 };
 
 type WindowName = "24h" | "7d" | "30d" | "released";
@@ -122,16 +129,27 @@ export default async function BlueDeskCalendarPage({
   // quiet 7-day windows; 24h/7d remain explicit, narrower reader choices.
   const windowName: WindowName = raw === "24h" || raw === "7d" || raw === "released" ? raw : "30d";
   const now = new Date();
+  const recentEarningsResults=getRecentVerifiedEarningsScorecards(now);
 
-  const [macroResult, earningsResult] = await Promise.allSettled([
+  const [macroResult, earningsResult, catalystResult, ipoResult] = await Promise.allSettled([
     getEconomicCalendar(),
     getForwardEarningsEvents({ now }),
+    getBluebellyCatalystSources({ now }),
+    loadMajorIpoWatch({ now }),
   ]);
   const macro = macroResult.status === "fulfilled" ? macroResult.value : [];
   const earnings: ForwardEarningsResult = earningsResult.status === "fulfilled"
     ? earningsResult.value
     : { events: [], coverage: "unavailable", warning: "Earnings source could not be reached." };
   const calendar = buildPresenterCalendar(macro, earnings, now, macroResult.status === "rejected");
+  const radar = catalystResult.status === "fulfilled" ? catalystResult.value : {events:[],signals:[],coverage:[],warnings:["Catalyst monitoring sources unavailable."]};
+  const ipos = ipoResult.status === "fulfilled" ? ipoResult.value : {
+    cards:[],coverage:{name:"SEC · major IPO watch",state:"unavailable",detail:"IPO source check unavailable."}
+  };
+  // An S-1 filing is a past milestone. IPO rows remain undated watch cards
+  // until an original source actually confirms a future listing appointment.
+  const catalysts = [...projectBluebellyCatalysts(calendar.events, radar.events, radar.signals), ...ipos.cards];
+  const sourceCoverage = [...radar.coverage, ipos.coverage];
 
   const events = windowName === "24h"
     ? selectBlueDeskNext24Hours(calendar, now)
@@ -175,6 +193,14 @@ export default async function BlueDeskCalendarPage({
           </div>
         </section>
 
+        <CatalystCalendar items={catalysts} sourceCoverage={sourceCoverage} nowISO={now.toISOString()} />
+
+        <RecentEarningsScorecards records={recentEarningsResults} />
+
+        <details style={{ marginTop: 22, border: "1px solid #2d5267", borderRadius: 10, padding: "15px 18px", background: "#092637" }}>
+          <summary style={{ cursor: "pointer", color: "#bce8f5", fontWeight: 750 }}>
+            Detailed legacy economic and earnings source listings · open for full records
+          </summary>
         <nav className={styles.calendarTabs} aria-label="Calendar window">
           {WINDOWS.map(view => (
             <Link
@@ -229,6 +255,8 @@ export default async function BlueDeskCalendarPage({
             <span>{earningsWeek.length} this week · {earningsLater.length} later</span>
             <span>Earnings coverage: {calendar.sourceHealth.earnings.replaceAll("_", " ")}</span>
           </div>
+          {earningsWeek.length ? <EarningsWeekGrid records={earningsWeek} now={now} /> : null}
+          {earningsGroups.length ? <h3>Detailed earnings listings and source records</h3> : null}
           {earningsGroups.length ? earningsGroups.map(group => (
             <section key={group.id} aria-label={group.title} data-earnings-window={group.id}>
               <h3>{group.title}</h3>
@@ -263,6 +291,7 @@ export default async function BlueDeskCalendarPage({
             calendar coverage, not proof that no major companies are reporting.</p>}
         </section>
 
+        </details>
         <footer className={styles.footer}><span>Blue Desk</span></footer>
       </div>
     </main>

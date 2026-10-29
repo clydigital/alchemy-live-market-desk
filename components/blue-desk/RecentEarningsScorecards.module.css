@@ -1,0 +1,34 @@
+.wrap{display:grid;gap:18px;margin:22px 0 24px}
+.heading{display:flex;justify-content:space-between;align-items:end;gap:22px}
+.kicker{color:#82c5d5;font-size:11px;font-weight:800;letter-spacing:.12em;margin:0 0 7px}
+.heading h2{font-size:clamp(20px,2.8vw,29px);line-height:1.2;margin:0 0 8px;color:#eef8fc}
+.description{font-size:13px;color:#b4c9d4;line-height:1.55;margin:0;max-width:750px}
+.sample{font-size:11px;color:#b7cbd5;white-space:nowrap}
+.results{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,410px),1fr));gap:16px}
+.result{border:1px solid #29475e;background:#0b2433;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:15px;min-width:0}
+.topline{display:flex;justify-content:space-between;gap:12px}
+.fiscal{font-size:11px;color:#92b0c3;letter-spacing:.03em}
+.topline h3{color:#f1fbff;font-size:22px;line-height:1.2;margin:5px 0}
+.headline{font-size:13px;line-height:1.45;color:#cee6f0;margin:0}
+.sourceTag{font-size:10px;color:#c6dbe4;flex-shrink:0;text-align:right;max-width:100px}
+.beat{border-block:1px solid #365368;padding:12px 0}
+.beat strong,.why strong{font-size:12px;color:#c0e7f0}
+.beat p,.why p{font-size:12px;line-height:1.55;color:#e0eaf0;margin:5px 0 0}
+.metrics{display:grid;gap:0}
+.metric{display:grid;grid-template-columns:minmax(115px,36%) 1fr;gap:10px;align-items:start;padding:10px 0;border-bottom:1px solid #294458}
+.metricName{font-weight:650;color:#9ac3d2;font-size:11px;line-height:1.4}
+.metricBody{display:flex;flex-direction:column;gap:3px;min-width:0}
+.value{color:#f2fbff;font-size:14px}
+.unknown{color:#f0d5a2;font-size:12px}
+.comparison{color:#abdcdb;font-size:11px;font-weight:650}
+.note{font-size:11px;color:#a7baca;line-height:1.45}
+.why{display:grid;gap:5px}
+.why p{margin:0 0 8px}
+.next{color:#c4d5e0;font-size:11px;line-height:1.5;margin:0}
+.next strong{color:#e2f3f9}
+.footer{border-top:1px solid #294458;padding-top:10px;display:flex;flex-direction:column;gap:9px}
+.footer>span:first-child{font-size:10px;color:#8eabba;line-height:1.5}
+.sourceLinks{display:flex;flex-wrap:wrap;gap:10px}
+.sourceLinks a{color:#89d7e9;font-size:11px;font-weight:650;text-decoration:underline;text-underline-offset:3px}
+.footnote{color:#a3bbc9;font-size:11px;line-height:1.5;margin:0}
+@media(max-width:750px){.heading{flex-direction:column;align-items:start}.sample{white-space:normal}.results{grid-template-columns:1fr}.result{padding:16px}.topline{flex-wrap:wrap}.sourceTag{max-width:none;text-align:left}}

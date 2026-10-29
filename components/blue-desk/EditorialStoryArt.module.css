@@ -1,0 +1,3 @@
+.visual,.compact{display:block;width:100%;overflow:hidden;border-radius:8px;border:1px solid var(--bb-card-border);background:var(--bb-card-quiet);aspect-ratio:700/425}
+.visual svg,.compact svg{display:block;width:100%;height:100%}
+.compact{aspect-ratio:700/425}
