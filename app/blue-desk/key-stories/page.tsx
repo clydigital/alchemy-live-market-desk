@@ -121,7 +121,22 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
   }
   const briefId=typeof params?.brief==="string"&&/^[a-z0-9_:-]{1,150}$/i.test(params.brief)?params.brief:null;
   if(briefId){
-    const selected=decisionTopics(news,calendar,now).find(t=>t.id===briefId);
+    // The home DecisionBrief displays only the top five topics and only one
+    // earnings headline. Deep-linked official issuer events must remain
+    // readable even when another company's release has higher attention.
+    const issuerEvent=calendar.events.find(e=>
+      e.id===briefId && e.kind==="earnings" && e.status==="scheduled" && e.verificationState==="official");
+    const selected=decisionTopics(news,calendar,now).find(t=>t.id===briefId) ||
+      (issuerEvent ? {
+        id:issuerEvent.id,title:issuerEvent.title,
+        fact:"Scheduled issuer event; no verified release outcome yet.",
+        why:issuerEvent.decidingQuestion,test:issuerEvent.decidingQuestion,
+        at:issuerEvent.scheduledAt||issuerEvent.localDate,
+        sourceUrl:issuerEvent.sourceUrl,sourceName:issuerEvent.sourceName,
+        href:"?brief="+encodeURIComponent(issuerEvent.id),
+        status:"UPCOMING" as const,mechanism:"Test reported sales and profit against prior guidance, then follow operating cash, capex and the next outlook.",
+        assets:issuerEvent.affectedAssets,priority:2,
+      }:null);
     const earningsReceipt=getRecentVerifiedEarningsScorecards(now,7).find(e=>e.id===briefId)||null;
     // An official Amazon earnings calendar receipt is a preview, not a results
     // statement. Route readers to the already researched long-form financial
