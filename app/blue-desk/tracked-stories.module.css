@@ -14,3 +14,13 @@
 .bottom a{font-size:12px;font-weight:750}
 @media(max-width:1080px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.lead{grid-column:span 2}.grid>.card:last-child:nth-child(4){grid-column:auto}}
 @media(max-width:690px){.grid{grid-template-columns:minmax(0,1fr)}.lead,.grid>.card:last-child:nth-child(4){grid-column:auto}.card,.lead{min-height:200px;padding:19px}.lead h3{font-size:clamp(22px,5.7vw,29px)}}
+
+/* Public tracked-Story cards use the live Bluebelly accent. */
+.card,.lead{background:var(--bb-card-bg);border-color:var(--bb-card-border);transition:background .16s ease,border-color .16s ease}
+.lead{background:var(--bb-card-bg-hover);border-top:3px solid var(--bb-accent)}
+.card:hover,.lead:hover,.card:focus-within,.lead:focus-within{background:var(--bb-card-bg-hover);border-color:var(--bb-accent)}
+.card h3,.lead h3{color:var(--bb-text)}
+.card p,.lead p,.bottom span{color:var(--bb-muted)}
+.kicker{color:var(--bb-accent)!important}
+.bottom{border-top-color:var(--bb-card-border)}
+@media(prefers-reduced-motion:reduce){.card,.lead{transition:none}}
