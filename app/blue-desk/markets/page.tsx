@@ -94,7 +94,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
             </div>
           </div>
 
-          <PublicMarketScreener observations={observations} group={group} dataAvailable={Boolean(monitor)} />
+          <PublicMarketScreener key={group} observations={observations} group={group} dataAvailable={Boolean(monitor)} />
         </section>
 
         {hormuz ? <HormuzCrossings monitor={hormuz} /> : null}
