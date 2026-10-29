@@ -12,7 +12,7 @@ import {getRecentVerifiedEarningsScorecards} from "./blue-desk-earnings-results.
 export function earningsFiscalPeriodKey(period:string){
  const year=period.match(/20[0-9]{2}/)?.[0];
  const quarter=period.match(/Q[1-4]/i)?.[0].toUpperCase();
- return year&&quarter?year+":"+quarter:period.toUpperCase().replace(/\\s/g,"");
+ return year&&quarter?year+":"+quarter:period.toUpperCase().replace(/\s/g,"");
 }
 export function getUnreconciledPublicEarnings(now=new Date()){
  const due=getDueOfficialEarningsCandidates(now,96);
