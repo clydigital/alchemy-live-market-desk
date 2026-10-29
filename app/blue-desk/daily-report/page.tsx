@@ -59,6 +59,12 @@ export default async function DailyReportPage() {
     <BlueDeskHeader activePath="/blue-desk/daily-report" />
     <div className={styles.shell}>
       <DecisionBrief news={news} recentNews={recentNews} calendar={calendar} now={now} host={host} report/>
+      <section className={styles.section} data-earnings-fundamentals-handoff="dated-financial-research">
+        <p className={styles.eyebrow}>FUNDAMENTALS · SEVEN-COMPANY INVESTOR TEST</p>
+        <h2>Earnings aren't the whole financial story</h2>
+        <p>How Amazon, Intel, SanDisk, AMD, Apple, Pfizer and Palantir earn money—and what their latest reviewed balance sheets, capex and cash flows say about the next earnings test.</p>
+        <p>Read the <Link href={blueDeskPublicHref("/blue-desk/markets",host)+"#earnings-fundamentals"}>dated company profiles, original filings and investor counterarguments →</Link>. These are pre-results research snapshots, not unverified earnings surprises.</p>
+      </section>
       {now.getTime()>=Date.parse("2026-10-28T18:00:00Z")&&now.getTime()<Date.parse("2026-11-05T00:00:00Z")?<section className={styles.section} aria-label="Dated Amazon and FOMC analysis"><p className={styles.eyebrow}>DATED EDITORIAL · 29 OCTOBER 2026</p><h2>Follow the decision and the money</h2>{EDITORIAL_FEATURES.map(feature=><article className={styles.reading} key={feature.id}><h3><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"?feature="+feature.id}>{feature.title}</Link></h3><p>{feature.summary}</p></article>)}</section>:null}
       <details className={styles.moreStories}><summary>Explore previous research, dated editorial features and source inventory</summary>
       <header className={styles.hero}>
