@@ -8,6 +8,7 @@ import { createHash } from "node:crypto";
 import type { ResearchRunInput, IntakeItemInput } from "./research-update.ts";
 import { normaliseDirectFeedText } from "./direct-news-evidence-triage.ts";
 import { extractOfficialPressFacts } from "./official-press-facts.ts";
+import { scrapePublicUrlWithFirecrawl } from "./firecrawl.ts";
 
 export const OFFICIAL_PRESS_FEEDS = [
   {
@@ -88,7 +89,9 @@ export const OFFICIAL_PRESS_FEEDS = [
   },
 ] as const;
 
-const WINDOW_MS = 36 * 60 * 60_000;
+// The public archive covers seven days; intake must not discard a source
+// simply because a scheduled research pass was delayed or blocked.
+const WINDOW_MS = 7 * 24 * 60 * 60_000;
 const FETCH_TIMEOUT_MS = 6500;
 const MAX_PER_FEED = 3;
 /**
@@ -115,7 +118,7 @@ const POLICY_RELEASE_CLOCKS: Readonly<Record<string,{releaseAt:string;scheduleSo
 type Feed = typeof OFFICIAL_PRESS_FEEDS[number];
 /** Pure RSS/Atom parser: no Next aliases or runtime network imports. */
 export function parseOfficialPressFeed(xml: string) {
-  if (!/<(?:rss|feed)\b/i.test(xml)) throw new Error("Official press source did not provide an RSS or Atom feed.");
+  if (!/<(?:rss|feed|rdf:RDF)\b/i.test(xml)) throw new Error("Official press source did not provide an RSS, RDF or Atom feed.");
   const blocks = [
     ...[...xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)].map(match => ({ xml: match[1], atom: false })),
     ...[...xml.matchAll(/<entry\b[^>]*>([\s\S]*?)<\/entry>/gi)].map(match => ({ xml: match[1], atom: true })),
@@ -227,21 +230,46 @@ function materialTitleFound(html: string, title: string) {
 type FeedDiagnostics={
  feedEntries:number;rejectedUrl:number;unattestedPolicyClock:number;
  rejectedClock:number;rejectedHeadline:number;unreadablePage:number;titleMismatch:number;
+ feedFallback:number;articleFallback:number;fallbackRejected:number;
 };
 type Result = { state: "checked" | "blocked" | "no_new_items"; checked: number; items: IntakeItemInput[];
  diagnostics:FeedDiagnostics; note?:string };
 
-async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch): Promise<Result> {
+type ScrapePublic = typeof scrapePublicUrlWithFirecrawl;
+function matchingRecoveryUrl(recovered:{resolvedUrl:string|null}, requested:string, feed:Feed){
+ // A provider redirect to a different article or publisher cannot establish
+ // the identity of the original RSS entry.
+ if(!recovered.resolvedUrl)return true;
+ return fixedUrl(recovered.resolvedUrl,feed)===fixedUrl(requested,feed);
+}
+async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch, scrapeImpl: ScrapePublic): Promise<Result> {
   const diagnostics:FeedDiagnostics={feedEntries:0,rejectedUrl:0,unattestedPolicyClock:0,
-    rejectedClock:0,rejectedHeadline:0,unreadablePage:0,titleMismatch:0};
+    rejectedClock:0,rejectedHeadline:0,unreadablePage:0,titleMismatch:0,
+    feedFallback:0,articleFallback:0,fallbackRejected:0};
   try {
-    const resp = await fetchImpl(feed.feed, {
-      cache: "no-store",
-      headers: { Accept: "application/rss+xml,application/atom+xml,text/xml,application/xml", "User-Agent": "Alchemy Live Desk official-source reader" },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    });
-    if (!resp.ok) return { state: "blocked", checked: 0, items: [],diagnostics,note:"rss_http_"+resp.status };
-    const xml = (await resp.text()).slice(0, 250_000);
+    let xml="";
+    let directError="rss_fetch_failed";
+    try{
+      const resp = await fetchImpl(feed.feed, {
+        cache: "no-store",
+        headers: { Accept: "application/rss+xml,application/atom+xml,text/xml,application/xml", "User-Agent": "Alchemy Live Desk official-source reader" },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
+      if(resp.ok)xml=(await resp.text()).slice(0,250_000);
+      else directError="rss_http_"+resp.status;
+    }catch{directError="rss_fetch_failed";}
+    // Only after a failed direct publisher read, reuse the configured
+    // Firecrawl transport on this EXACT feed. A recovered feed alone is not
+    // evidence: every candidate still requires its own original article.
+    if(!xml){
+      const recovered=await scrapeImpl(feed.feed,{timeoutMs:14_000});
+      if(!recovered.ok||!matchingRecoveryUrl(recovered,feed.feed,feed)){
+        diagnostics.fallbackRejected++;
+        return {state:"blocked",checked:0,items:[],diagnostics,note:directError+";fallback_"+(recovered.ok?"source_mismatch":recovered.code)};
+      }
+      xml=recovered.rawHtml.slice(0,250_000);
+      diagnostics.feedFallback++;
+    }
     const entries=parseOfficialPressFeed(xml);
     diagnostics.feedEntries=entries.length;
     const candidates = entries.flatMap(item => {
@@ -268,22 +296,30 @@ async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch):
     }).slice(0, MAX_PER_FEED);
     const results = await Promise.all(candidates.map(async entry => {
       try {
-        const response = await fetchImpl(entry.url, {
-          cache: "no-store",
-          redirect: "follow",
-          headers: { Accept: "text/html,application/xhtml+xml", "User-Agent": "Alchemy Live Desk official-source reader" },
-          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-        });
-        if (!response.ok ||
-          !(response.headers.get("content-type") || "").toLowerCase().includes("text/html")){
-          diagnostics.unreadablePage++;return null;
+        let html="";
+        let blocked=false;
+        try{
+          const response=await fetchImpl(entry.url,{
+            cache:"no-store",redirect:"follow",
+            headers:{Accept:"text/html,application/xhtml+xml","User-Agent":"Alchemy Live Desk official-source reader"},
+            signal:AbortSignal.timeout(FETCH_TIMEOUT_MS),
+          });
+          // A successful redirect to the wrong article MUST fail closed.
+          if(response.ok&&response.url&&fixedUrl(response.url,feed)!==entry.url){
+            diagnostics.unreadablePage++;return null;
+          }
+          if(response.ok&&(response.headers.get("content-type")||"").toLowerCase().includes("text/html"))
+            html=(await response.text()).slice(0,150_000);
+          else blocked=!response.ok;
+        }catch{blocked=true;}
+        if(!html&&blocked){
+          const recovered=await scrapeImpl(entry.url,{timeoutMs:14_000});
+          if(recovered.ok&&matchingRecoveryUrl(recovered,entry.url,feed)&&recovered.rawHtml.trim()){
+            html=recovered.rawHtml.slice(0,150_000);
+            diagnostics.articleFallback++;
+          }else diagnostics.fallbackRejected++;
         }
-        // An allowed-domain redirect to a different article is not proof of
-        // this RSS item's headline, clock or source identity.
-        if(response.url && fixedUrl(response.url,feed)!==entry.url){
-          diagnostics.unreadablePage++;return null;
-        }
-        const html = (await response.text()).slice(0, 150_000);
+        if(!html){diagnostics.unreadablePage++;return null;}
         if (!materialTitleFound(html, entry.title)){diagnostics.titleMismatch++;return null;}
         const title = entry.title.slice(0, 500);
         const sourceFacts=extractOfficialPressFacts(html,title);
@@ -330,11 +366,12 @@ async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch):
 
 export async function applyOfficialPressNewsIntake(
   input: ResearchRunInput,
-  opts: { now?: Date; fetchImpl?: typeof fetch } = {},
+  opts: { now?: Date; fetchImpl?: typeof fetch; scrapeImpl?: ScrapePublic } = {},
 ): Promise<ResearchRunInput> {
   const now = opts.now ?? new Date();
   const fetchImpl = opts.fetchImpl ?? fetch;
-  const results = await Promise.all(OFFICIAL_PRESS_FEEDS.map(feed => loadOfficialFeed(feed, now, fetchImpl)));
+  const scrapeImpl = opts.scrapeImpl ?? scrapePublicUrlWithFirecrawl;
+  const results = await Promise.all(OFFICIAL_PRESS_FEEDS.map(feed => loadOfficialFeed(feed, now, fetchImpl, scrapeImpl)));
   const existing = new Set(input.items.map(item => item.url));
   const appended: IntakeItemInput[] = [];
   for (const result of results) for (const item of result.items) {
@@ -353,6 +390,9 @@ export async function applyOfficialPressNewsIntake(
     + ",nonmaterial=" + result.diagnostics.rejectedHeadline
     + ",html_failed=" + result.diagnostics.unreadablePage
     + ",title_mismatch=" + result.diagnostics.titleMismatch
+    + ",feed_fallback=" + result.diagnostics.feedFallback
+    + ",article_fallback=" + result.diagnostics.articleFallback
+    + ",fallback_rejected=" + result.diagnostics.fallbackRejected
     + (result.note?",error="+result.note:"")).join(" | ");
   return {
     ...input,
