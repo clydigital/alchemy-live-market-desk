@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {assembleAutomaticReportEvidence,parseAutomatedReportNarrative,reportEvidenceReady,isAutomaticReportFinalisationWindow,isAutomaticReportFallbackWindow,isCompletedDossierForAutomaticReport}
+import {assembleAutomaticReportEvidence,parseAutomatedReportNarrative,reportEvidenceReady,buildAutomaticReportModelPrompt,isAutomaticReportFinalisationWindow,isAutomaticReportFallbackWindow,isCompletedDossierForAutomaticReport}
  from "../lib/blue-desk-automated-report-contract.ts";
 import {renderAutomatedReportPdf} from "../lib/blue-desk-automated-report-pdf.ts";
 
@@ -46,7 +46,7 @@ test("only existing final Dossier retry times can author an automatic edition",(
  assert.equal(isAutomaticReportFinalisationWindow(new Date("2026-10-27T02:20:00Z"),"morning"),false);
  assert.equal(isAutomaticReportFinalisationWindow(new Date("2026-10-27T14:59:00Z"),"evening"),false);
 });
-test("only existing late Research Gap handoff times may retry source-gated private PDFs",()=>{
+test("only existing late Research Gap handoff calls provide Dossier-backed PDF retries",()=>{
  const utc=(when:string)=>new Date(when);
  assert.equal(isAutomaticReportFallbackWindow(utc("2026-10-27T03:30:00Z"),"morning"),true);
  assert.equal(isAutomaticReportFallbackWindow(utc("2026-10-27T03:45:00Z"),"morning"),true);
@@ -82,8 +82,9 @@ test("late PDF retry reuses authorised Research Gap cron without weakening publi
  const schedule=readFileSync(new URL("../vercel.json",import.meta.url),"utf8");
  assert.ok(route.includes("handleScheduledResearchGapHandoff(request)"));
  assert.ok(route.includes("attemptPrivateDailyPdfInExistingHandoff(request,slot,now)"));
+ assert.ok(route.includes("if(result.status!==200)return result"));
+ assert.ok(route.includes("const report=await reportTask;"));
  assert.ok(!route.includes('payload.status!=="completed"'));
-  assert.ok(route.includes("const reportTask=isAutomaticReportFallbackWindow(now,slot)"));
  assert.ok(retry.includes("acceptsResearchAuthorization"));
  assert.ok(!retry.includes("isCompletedDossierForAutomaticReport"));
  assert.ok(retry.includes("NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED"));
@@ -106,6 +107,24 @@ test("source gate excludes creator or calendar-only claims, checks exact source 
   stories:[{...narrative.stories[0],reveal:"The latest oil price surged to $98765 without a source record. ".repeat(3)},narrative.stories[1]]},evidence),null);
  assert.equal(reportEvidenceReady({...evidence,sources:evidence.sources.filter(s=>s.type==="CALENDAR")}),false);
 });
+test("quiet sourced session can tell one real story without inventing market lenses or calendar events",()=>{
+ const {evidence,narrative}=fixture();
+ const quiet={...narrative,stories:[narrative.stories[0]],crossMarket:[],watchlist:[]};
+ assert.equal(reportEvidenceReady(evidence),true);
+ const parsed=parseAutomatedReportNarrative(quiet,evidence);
+ assert.ok(parsed,"Two independent dated factual sources still clear the unchanged source gate");
+ const pdf=renderAutomatedReportPdf(evidence,parsed!);
+ const body=Buffer.from(pdf).toString("latin1");
+ assert.match(body,/The stories behind the moves/);
+ assert.doesNotMatch(body,/Cross-market transmission|The watchlist/);
+ assert.match(body,/Source ledger/);
+ assert.match(body,/%%EOF\s*$/);
+ assert.equal(parseAutomatedReportNarrative({...quiet,stories:[]},evidence),null);
+ assert.equal(parseAutomatedReportNarrative({...quiet,stories:[{...quiet.stories[0],sourceIds:["made-up"]}]},evidence),null);
+ assert.equal(parseAutomatedReportNarrative({...quiet,stories:[{...quiet.stories[0],setup:"The unsupported yield was 98765 according to the tape.".repeat(4)}]},evidence),null);
+ assert.equal(parseAutomatedReportNarrative(quiet,{...evidence,sources:evidence.sources.filter(s=>s.type==="CALENDAR")}),null);
+});
+
 test("market-data-led briefing admits only dated provider values and explicitly flags missing verified news",()=>{
  const monitored=["US 10Y yield","S&P 500","WTI oil","USD index"].map((label,i)=>({
   label,level:100+i,previousClose:99+i,asOf:"2026-10-26T20:00:00Z",
@@ -222,8 +241,9 @@ test("source-qualified private PDF starts within the existing authorised cron ev
  assert.ok(!late.includes("createSupabaseAdminClient"));
  assert.ok(late.includes("acceptsResearchAuthorization"));
  const handoff=read("app/api/cron/research-gap/handoff/route.ts");
+ assert.ok(handoff.includes("if(result.status!==200)return result"));
+ assert.ok(handoff.includes("const report=await reportTask;"));
  assert.ok(!handoff.includes('payload.status!=="completed"'));
-  assert.ok(handoff.indexOf("attemptPrivateDailyPdfInExistingHandoff") < handoff.indexOf("await handleScheduledResearchGapHandoff(request)"));
  assert.ok(handoff.includes("isAutomaticReportFallbackWindow"));
  const job=read("lib/blue-desk-automated-report-job.ts");
  assert.ok(job.includes("reportEvidenceReady(evidence)"));
@@ -242,4 +262,19 @@ test("source-qualified private PDF starts within the existing authorised cron ev
  assert.ok(privateApi.includes("session.auth.getUser()"));
  assert.ok(privateApi.includes("app_access_allowlist"));
  assert.ok(privateApi.includes("data.pdf_path!==exact"));
+});
+
+test("automated Daily PDF compiler receives versioned Bluebelly narrative rule without fabricating evidence",()=>{
+ const {evidence}=fixture();
+ const prompt=JSON.parse(buildAutomaticReportModelPrompt(evidence));
+ assert.equal(prompt.editorialStandard,"docs/editorial/BLUEBELLY_STORY_DRIVEN_DAILY_REPORTS.md@1.0");
+ assert.deepEqual(prompt.sources,evidence.sources);
+ assert.ok(prompt.editorialContract.some((s:string)=>s.includes("event time")&&s.includes("observation times")));
+ assert.ok(prompt.editorialContract.some((s:string)=>s.includes("UNKNOWN")&&s.includes("never fabricate")));
+ assert.ok(prompt.editorialContract.some((s:string)=>s.includes("three short learning moments")));
+ assert.ok(prompt.editorialContract.some((s:string)=>s.includes("confirmed observations separately")));
+ assert.match(prompt.instruction,/Cite by sourceIds from the packet ONLY/);
+ assert.match(prompt.instruction,/When a MATERIAL EARNINGS RELEASE/);
+ assert.match(prompt.instruction,/SAME-METRIC pre-release consensus/);
+ assert.match(prompt.instruction,/cash-conversion implication and countercase/);
 });

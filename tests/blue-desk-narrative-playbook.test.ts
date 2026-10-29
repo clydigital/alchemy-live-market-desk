@@ -1,16 +1,24 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {DAILY_BRIEFING_STEPS,privateNarrativeInstructions} from "../lib/blue-desk-narrative-playbook.ts";
+import {BLUEBELLY_DAILY_EDITORIAL_STANDARD,DAILY_BRIEFING_STEPS,privateNarrativeInstructions} from "../lib/blue-desk-narrative-playbook.ts";
 
 test("one shared-evidence source contract teaches a chronological Daily Report, not a news dump",()=>{
  assert.deepEqual(DAILY_BRIEFING_STEPS.map(x=>x.name),[
   "The setup","The reveal","The teaching moment","The catch","The next decision",
  ]);
  const p=privateNarrativeInstructions("DAILY_REPORT");
+ assert.equal(BLUEBELLY_DAILY_EDITORIAL_STANDARD.path,"docs/editorial/BLUEBELLY_STORY_DRIVEN_DAILY_REPORTS.md");
+ assert.equal(BLUEBELLY_DAILY_EDITORIAL_STANDARD.version,"1.0");
+ assert.match(p,/BLUEBELLY_STORY_DRIVEN_DAILY_REPORTS.md/);
+ assert.match(p,/event, publication and market-observation times/);
+ assert.match(p,/Never invent a catalyst, market reaction, scene/);
+ assert.match(p,/at most three natural learning moments/);
+ assert.match(p,/confirmed source facts, conditional interpretation/);
  assert.match(p,/Research gathers attributed originals/);
  assert.match(p,/Storytelling can ONLY rearrange and explain/);
  assert.match(p,/one or two numerical comparisons/i);
+ assert.match(p,/Do not infer free cash flow from operating profit/);
  assert.match(p,/older and newer levels/);
  assert.match(p,/exact observation dates/);
  assert.match(p,/why the change matters/i);
