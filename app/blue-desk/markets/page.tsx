@@ -77,18 +77,6 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           </div>
         </header>
 
-        <section className={styles.section} aria-label="Earnings fundamentals reading desk" data-earnings-reader-entry="seven-company">
-          <div className={styles.sectionHead}>
-            <div><p className={styles.kicker}>FINANCIAL RESEARCH / THE INVESTOR TEST</p>
-              <h2>Beyond the earnings headline</h2>
-              <p>Seven complete business-model investigations, plus a source-dated CoreWeave institutional activity and financing-fragility watch. Every research claim is separate from canonical Regime evidence.</p>
-              <p><Link href={blueDeskPublicHref("/blue-desk/markets",host)+"?view=earnings&ticker=AMZN"}>Read Amazon's capital spending investigation →</Link>
-              {" · "}<Link href={blueDeskPublicHref("/blue-desk/markets",host)+"#earnings-fundamentals"}>Browse all seven companies</Link>
-              {" · "}<Link href={blueDeskPublicHref("/blue-desk/markets",host)+"#coreweave-credit-watch"}>CoreWeave funding watch</Link></p>
-            </div>
-          </div>
-        </section>
-
         <nav aria-label="Market group" className={styles.publicMarketGroups}>
           {PUBLIC_MARKET_GROUPS.map(item => (
             <Link
@@ -122,7 +110,11 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <PublicMarketScreener key={group} observations={observations} group={group} dataAvailable={Boolean(monitor)} />
         </section>
 
-        <EarningsFundamentals amazonFeatureHref={blueDeskPublicHref("/blue-desk/key-stories",host)+"?feature=amazon-cash-test-october-2026"} deepBaseHref={blueDeskPublicHref("/blue-desk/markets",host)} />
+        <details id="earnings-research" className={styles.section} data-earnings-reader-entry="seven-company">
+          <summary>Optional: seven company earnings and financing investigations</summary>
+          <p>Original-source investor research. These are dated investigations, not a live earnings-result feed.</p>
+          <EarningsFundamentals amazonFeatureHref={blueDeskPublicHref("/blue-desk/key-stories",host)+"?feature=amazon-cash-test-october-2026"} deepBaseHref={blueDeskPublicHref("/blue-desk/markets",host)} />
+        </details>
 
         {hormuz ? <HormuzCrossings monitor={hormuz} /> : null}
 
@@ -130,7 +122,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <h2>Continue reading</h2>
           <div className={styles.quickLinks}>
             <Link href={blueDeskPublicHref("/blue-desk", host)}>Market stories →</Link>
-            <Link href={blueDeskPublicHref("/blue-desk/markets",host)+"#earnings-fundamentals"}>Earnings &amp; fundamentals →</Link>
+            <Link href="#earnings-research">Earnings &amp; fundamentals →</Link>
             <Link href={blueDeskPublicHref("/blue-desk/calendar", host)}>Economic calendar →</Link>
             <Link href={blueDeskPublicHref("/blue-desk/hormuz", host)}>Hormuz / oil / distillates watch →</Link>
           </div>
