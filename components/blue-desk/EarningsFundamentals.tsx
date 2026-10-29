@@ -141,6 +141,36 @@ export default function EarningsFundamentals({amazonFeatureHref,deepBaseHref}:{a
         </div>
       </details>)}
     </div>
+    <aside id="coreweave-credit-watch" className={styles.rates} aria-label="CoreWeave financing and institutional activity watch" data-bluebelly-coreweave-watch="dated-research-not-canonical-regime">
+      <p className={styles.kicker}>AI INFRASTRUCTURE / CREDIT &amp; OWNERSHIP WATCH</p>
+      <h3>CoreWeave: the contracts are enormous. Can the cash cover the build?</h3>
+      <p><strong>Research update: 30 October 2026.</strong> CoreWeave (CRWV) is an early-warning issuer-financing case, not a confirmed default, an AI-wide investment collapse or an allegation of unlawful institutional activity. Financial figures below are from its six months ended 30 June 2026, not a live cash balance.</p>
+      <div className={styles.metricGrid}>
+        <div><small>H1 operating cash inflow</small><strong>$3.663bn</strong></div>
+        <div><small>H1 cash equipment spending</small><strong>$14.117bn</strong></div>
+        <div><small>H1 cash capex less cash from operations</small><strong>−$10.454bn</strong></div>
+        <div><small>30 June principal debt</small><strong>~$35.6bn</strong></div>
+      </div>
+      <p>The spending gap was funded substantially by financing inflows, not cash earned from running the existing fleet. CoreWeave reported $5.524bn cash and $10.014bn in undrawn credit commitments at 30 June, but future borrowing is not identical to free cash. Its Q2 $2.575bn revenue came with a $49m GAAP operating loss and $640m net interest expense. Backlog of approximately $104bn is future conditional contracted service revenue, not cash already collected or debt repayment capacity.</p>
+      <h3>Are big institutions quietly leaving?</h3>
+      <p>There is a reason to investigate, but not enough evidence to make that claim. A secondary aggregation of Q2 SEC 13F filings shows Magnetar trimmed roughly 16.5m shares, while BlackRock added roughly 14.7m and other institutions were net buyers. These are holdings at 30 June, not an October trade tape, and 13F does not reveal shorts or a manager's motives. A separate April SEC filing shows CoreWeave raised $1bn selling about 9.17m shares directly to Jane Street at $109 each. That was disclosed equity financing, not evidence of manipulation.</p>
+      <p>Reuters reported CEO-linked sales of nearly $1bn since the IPO, overwhelmingly through prearranged trading plans or tax-related sales. Insider dispositions deserve comparison with remaining ownership, plan adoption dates and potential dilution, but large Form 4 sales do not by themselves establish inside information or a coordinated institutional exit. CoreWeave's founders also retain disproportionate voting influence through ten-vote Class B shares.</p>
+      <p>A further financing overhang is disclosed, not hidden: CoreWeave completed a $4.2bn principal convertible-note issue in September 2026, and an SEC prospectus describes an at-the-market programme for <strong>up to 35m Class A shares</strong>. A share-sale facility is permission to sell, <strong>not proof all 35m were issued</strong>. Check subsequent 8-K/10-Q disclosures for actual shares sold, proceeds, conversion conditions and dilution.</p>
+      <h3>What could turn a warning into a real break?</h3>
+      <p>Follow same-bond, same-date yields and CDS; secured-loan collateral and refinancing terms; cash paid by customers after GPU deployment; lease and parent-level interest costs; and whether contracted capacity converts to billable service without another large capital raise. Reported bond yields of roughly 15–16% in mid-October are <strong>dated secondary quotations</strong>, not a verified 30 October live mark. Nvidia's filed $6.3bn residual-capacity agreement is a conditional commercial backstop, not an unconditional guarantee of CoreWeave debt.</p>
+      <p><strong>Next issuer test:</strong> CoreWeave announced a Q3 results call for <strong>10 November 2026, 5:00 PM ET</strong> (11 November, 6:00 AM Malaysia time). Improving paid utilisation, borrowing access and cash conversion would challenge the pessimistic thesis; a simultaneous funding squeeze and weakening customer collections would materially strengthen it.</p>
+      <div className={styles.links}>
+        <a href="https://www.sec.gov/Archives/edgar/data/1769628/000176962826000366/crwv-20260630.htm" target="_blank" rel="noopener noreferrer">CoreWeave 30 June SEC 10-Q ↗</a>
+        <a href="https://www.sec.gov/Archives/edgar/data/1769628/000176962826000191/crwv-20260422.htm" target="_blank" rel="noopener noreferrer">Jane Street transaction · filed 8-K ↗</a>
+        <a href="https://www.sec.gov/Archives/edgar/data/1769628/000176962826000432/crwv-20260917.htm" target="_blank" rel="noopener noreferrer">Completed September 2033 convertible · SEC 8-K ↗</a>
+        <a href="https://www.sec.gov/Archives/edgar/data/1769628/000162828026062362/coreweave-424b5.htm" target="_blank" rel="noopener noreferrer">Potential 35m-share ATM programme · SEC prospectus ↗</a>
+        <a href="https://www.sec.gov/Archives/edgar/data/1769628/000176962825000047/crwv-20250909.htm" target="_blank" rel="noopener noreferrer">Nvidia capacity arrangement · filed 8-K ↗</a>
+        <a href="https://businessquant.com/stocks/crwv/institutional-ownership/" target="_blank" rel="noopener noreferrer">Derived Q2 13F ownership table ↗</a>
+        <a href="https://www.reuters.com/legal/government/coreweaves-ceo-sold-nearly-1-billion-stock-since-ipo-filings-show-2026-10-16/" target="_blank" rel="noopener noreferrer">Reuters 16 Oct · insider sale review ↗</a>
+        <a href="https://investors.coreweave.com/news/news-details/2026/CoreWeave-Announces-Date-of-Third-Quarter-2026-Financial-Results-and-Conference-Call/default.aspx" target="_blank" rel="noopener noreferrer">Official Q3 call notice ↗</a>
+      </div>
+      <p className={styles.disclosure}>Source hierarchy: original SEC/issuer disclosures first; quarterly 13F aggregation and news analysis second. This dated research card does not read or mutate the canonical Dossier, issue a trading signal, or overwrite a published Story.</p>
+    </aside>
     <aside className={styles.rates} aria-label="Bond funding cross-check">
       <p className={styles.kicker}>CROSS-ASSET RESEARCH / NOT A CREDIT VERDICT</p>
       <h3>Rising yields are not the same as company-specific bond stress.</h3>

@@ -41,6 +41,22 @@ test("the seven-company dated investor reader is visible through existing allowl
   for(const ticker of ["AMZN","SNDK","INTC","AMD","AAPL","PFE","PLTR"]){
     assert.match(reader,new RegExp('ticker:"'+ticker+'"'),ticker+" needs a financial investor profile");
   }
+  assert.match(markets,/#coreweave-credit-watch/);
+  const regime=path("../app/blue-desk/regime-watch/page.tsx");
+  assert.match(regime,/coreweave-ai-financing/);
+  assert.match(regime,/\#coreweave-credit-watch/);
+  assert.match(regime,/not a newly accepted AI-wide Regime verdict/);
+  assert.match(reader,/data-bluebelly-coreweave-watch="dated-research-not-canonical-regime"/);
+  assert.match(reader,/Magnetar trimmed roughly 16\.5m shares/);
+  assert.match(reader,/BlackRock added roughly 14\.7m/);
+  assert.match(reader,/not an October trade tape/);
+  assert.match(reader,/not a confirmed default/);
+  assert.match(reader,/cash capex less cash from operations/);
+  assert.match(reader,/10 November 2026, 5:00 PM ET/);
+  assert.match(reader,/up to 35m Class A shares/);
+  assert.match(reader,/not proof all 35m were issued/);
+  assert.match(reader,/4\.2bn principal convertible-note issue/);
+  assert.match(reader,/www\.sec\.gov\/Archives\/edgar/);
   assert.doesNotMatch(reader,/process\.env|service_role|supabaseAdmin|private.*research/i);
 });
 
