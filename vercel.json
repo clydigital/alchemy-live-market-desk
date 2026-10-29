@@ -3,8 +3,7 @@
   "git": {
     "deploymentEnabled": {
       "*": false,
-      "main": true,
-      "fix/bluebelly-story-evidence-handoff-20261029": true
+      "main": true
     }
   },
   "crons": [
