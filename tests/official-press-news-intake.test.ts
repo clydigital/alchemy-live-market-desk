@@ -67,7 +67,7 @@ test("meetings, forged URLs, and stale publication clocks do not count as origin
     if(uri===OFFICIAL_PRESS_FEEDS[0].feed)return response(rss([
       item("Federal Reserve Board announces a public roundtable",fedUrl),
       item(fedTitle,"https://www.federalreserve.gov.evil.example/newsevents/pressreleases/monetary20261021a.htm"),
-      item(fedTitle,"https://www.federalreserve.gov/newsevents/pressreleases/monetary20261015a.htm","Thu, 15 Oct 2026 18:00:00 GMT"),
+      item(fedTitle,"https://www.federalreserve.gov/newsevents/pressreleases/monetary20261015a.htm","Wed, 14 Oct 2026 18:00:00 GMT"),
     ]),"text/xml");
     if(uri===OFFICIAL_PRESS_FEEDS[1].feed)return response(rss([
       item("SEC announces advisory committee meeting",secUrl),
@@ -154,7 +154,7 @@ test("NVIDIA blogs, forged domains, stale timestamps and generic consumer conten
   const untrusted=[
     item(title,"https://nvidianews.nvidia.com.evil.net/news/bad"),
     item(title,"https://nvidianews.nvidia.com/blog/fake"),
-    item(title,"https://nvidianews.nvidia.com/news/stale","Thu, 15 Oct 2026 18:00:00 GMT"),
+    item(title,"https://nvidianews.nvidia.com/news/stale","Wed, 14 Oct 2026 18:00:00 GMT"),
     item("NVIDIA celebrates gaming community event","https://nvidianews.nvidia.com/news/consumer"),
   ];
   const fetchImpl=(async (target:RequestInfo | URL) =>{
