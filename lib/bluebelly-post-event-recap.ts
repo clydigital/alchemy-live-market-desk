@@ -88,7 +88,12 @@ export function selectPostEventRecaps(news:readonly NewsBriefV1[],now=new Date()
  ));
  return [...curated,...noDuplicates]
   .filter(x=>ageOk(x.releaseAt,now))
-  .sort((a,b)=>b.weight-a.weight||Date.parse(b.releaseAt)-Date.parse(a.releaseAt))
+  .sort((a,b)=>{
+   const band=(x:PostEventRecap)=>{const age=+now-Date.parse(x.releaseAt);return age<=48*3600000?2:age<=96*3600000?1:0;};
+   return band(b)-band(a) ||
+    Number(b.featuredStatus==="REVIEWED")-Number(a.featuredStatus==="REVIEWED") ||
+    b.weight-a.weight || Date.parse(b.releaseAt)-Date.parse(a.releaseAt);
+  })
   .slice(0,Math.max(0,Math.min(8,limit)));
 }
 export function findPostEventRecap(id:string,news:readonly NewsBriefV1[],now=new Date()){
