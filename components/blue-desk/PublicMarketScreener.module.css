@@ -55,3 +55,25 @@
   .controls .reset { grid-column: 1 / -1; }
   .quick button { flex: 1 1 auto; }
 }
+
+/* Heading buttons remain legible across all Bluebelly colour themes. */
+.columnSort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 9px 3px;
+  min-height: 42px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  font-weight: inherit;
+  cursor: pointer;
+}
+.columnSort:hover { color: var(--bb-accent, #86d9ff); }
+.columnSort:focus-visible {
+  outline: 2px solid var(--bb-accent, #86d9ff);
+  outline-offset: 2px;
+  border-radius: 3px;
+}

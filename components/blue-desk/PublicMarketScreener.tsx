@@ -8,6 +8,8 @@ import {
   DEFAULT_PUBLIC_MARKET_FILTERS,
   filterPublicMarketObservations,
   publicMarketWindowChange,
+  sortPublicMarketColumns,
+  type MarketSortColumn,
   type MarketChangeWindow,
   type MarketChangeDirection,
   type MarketChangeSort,
@@ -40,12 +42,24 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
   const [direction, setDirection] = useState<MarketChangeDirection>("all");
   const [minimum, setMinimum] = useState(0);
   const [sort, setSort] = useState<MarketChangeSort>("source");
+  const [columnSort, setColumnSort] = useState<MarketSortColumn | null>(null);
+  const [ascending, setAscending] = useState(true);
 
-  const visible = useMemo(() => filterPublicMarketObservations(observations, {
-    query, window, unit, direction, minMove: minimum, sort,
-  }), [observations, query, window, unit, direction, minimum, sort]);
+  function sortColumn(column: MarketSortColumn) {
+    setAscending(columnSort===column ? !ascending : column==="instrument" || column==="source");
+    setColumnSort(column);
+    if(column==="1D"||column==="3D"||column==="5D")setWindow(column);
+  }
+
+  const visible = useMemo(() => {
+    const filtered = filterPublicMarketObservations(observations, {
+      query, window, unit, direction, minMove: minimum, sort,
+    });
+    return columnSort ? sortPublicMarketColumns(filtered, columnSort, ascending) : filtered;
+  }, [observations, query, window, unit, direction, minimum, sort, columnSort, ascending]);
 
   function reset() {
+    setColumnSort(null);
     setQuery(DEFAULT_PUBLIC_MARKET_FILTERS.query);
     setWindow("1D");
     setUnit(initialUnit);
@@ -58,6 +72,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
     setUnit(nextUnit);
     setDirection(nextDirection);
     setMinimum(nextMinimum);
+    setColumnSort(null);
     setSort(nextDirection === "down" ? "losers" : "magnitude");
   }
 
@@ -73,7 +88,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
       </div>
       <div className={ui.controls}>
         <label>Screen / sort period
-          <select aria-label="Screen and sort period" value={window} onChange={event => setWindow(event.target.value as MarketChangeWindow)}>
+          <select aria-label="Screen and sort period" value={window} onChange={event => { setWindow(event.target.value as MarketChangeWindow); setColumnSort(null); }}>
             <option value="1D">1D · one session</option>
             <option value="3D">3D · three sessions</option>
             <option value="5D">5D · five sessions</option>
@@ -111,7 +126,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
             }} />
         </label>
         <label>Sort
-          <select value={sort} onChange={event => setSort(event.target.value as MarketChangeSort)}>
+          <select value={sort} onChange={event => { setSort(event.target.value as MarketChangeSort); setColumnSort(null); }}>
             <option value="source">Source order</option>
             <option value="magnitude">Largest changes</option>
             <option value="gainers">Biggest rises</option>
@@ -130,9 +145,9 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
 
     {visible.length ? <div className={styles.publicMarketTableScroll}>
       <table className={styles.publicMarketTable}>
-        <thead><tr><th scope="col">Instrument</th><th scope="col">Last observed</th>
-          {(["1D", "3D", "5D"] as const).map(period => <th scope="col" key={period} data-selected={period === window} className={period === window ? ui.selectedChange : undefined}>{period} change</th>)}
-          <th scope="col">Source and vintage</th></tr></thead>
+        <thead><tr><th scope="col" aria-sort={columnSort==="instrument"?(ascending?"ascending":"descending"):undefined}><button type="button" className={ui.columnSort} onClick={()=>sortColumn("instrument")}>Instrument {columnSort==="instrument"?(ascending?"▲":"▼"):"↕"}</button></th><th scope="col" aria-sort={columnSort==="last"?(ascending?"ascending":"descending"):undefined}><button type="button" className={ui.columnSort} onClick={()=>sortColumn("last")}>Last observed {columnSort==="last"?(ascending?"▲":"▼"):"↕"}</button></th>
+          {(["1D", "3D", "5D"] as const).map(period => <th scope="col" key={period} data-selected={period === window} aria-sort={columnSort===period?(ascending?"ascending":"descending"):undefined} className={period === window ? ui.selectedChange : undefined}><button type="button" className={ui.columnSort} onClick={()=>sortColumn(period)}>{period} change {columnSort===period?(ascending?"▲":"▼"):"↕"}</button></th>)}
+          <th scope="col" aria-sort={columnSort==="source"?(ascending?"ascending":"descending"):undefined}><button type="button" className={ui.columnSort} onClick={()=>sortColumn("source")}>Source and vintage {columnSort==="source"?(ascending?"▲":"▼"):"↕"}</button></th></tr></thead>
         <tbody>{visible.map(row => <tr key={row.id}>
           <th scope="row"><EntityRow identity={entityForAsset(row.symbol) || {kind: "asset", code: row.symbol}}
             title={row.label} subtitle={row.symbol + " · " + row.type} /></th>

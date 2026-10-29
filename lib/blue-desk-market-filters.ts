@@ -60,3 +60,33 @@ export function filterPublicMarketObservations(
   if (filters.sort === "name") return [...visible].sort((a, b) => a.label.localeCompare(b.label));
   return [...visible].sort(withUnitOrder);
 }
+
+
+/** Read-only column sorting shared by the market table and regression tests.
+ * Missing observations always trail real values. Percentage returns and yield
+ * basis-point changes are never interleaved as directly comparable moves. */
+export type MarketSortColumn = "instrument" | "last" | "1D" | "3D" | "5D" | "source";
+
+export function sortPublicMarketColumns(
+  rows: readonly PublicMarketObservation[],
+  column: MarketSortColumn,
+  ascending: boolean,
+): PublicMarketObservation[] {
+  const sign = ascending ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    if (column === "instrument" || column === "source") {
+      const first = column === "instrument" ? a.label : a.sourceName;
+      const second = column === "instrument" ? b.label : b.sourceName;
+      return sign * first.localeCompare(second) || a.label.localeCompare(b.label);
+    }
+    const value = (row:PublicMarketObservation):number|null =>
+      column === "last" ? row.last : publicMarketWindowChange(row, column);
+    const av = value(a), bv = value(b);
+    if (av === null || !Number.isFinite(av))
+      return bv === null || !Number.isFinite(bv) ? a.label.localeCompare(b.label) : 1;
+    if (bv === null || !Number.isFinite(bv)) return -1;
+    if (column !== "last" && a.changeUnit !== b.changeUnit)
+      return a.changeUnit === "%" ? -1 : 1;
+    return sign * (av - bv) || a.label.localeCompare(b.label);
+  });
+}

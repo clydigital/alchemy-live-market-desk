@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { filterPublicMarketObservations, type PublicMarketFilters } from "../lib/blue-desk-market-filters.ts";
+import { filterPublicMarketObservations, sortPublicMarketColumns, type PublicMarketFilters } from "../lib/blue-desk-market-filters.ts";
 import type { PublicMarketObservation } from "../lib/blue-desk-public-markets.ts";
 
 function row(id: string, change: number | null, unit: "%" | "bp" = "%"): PublicMarketObservation {
@@ -78,4 +78,19 @@ test("rate changes remain in bp across sessions and absent windows are not treat
   const match = filterPublicMarketObservations([yieldRow], { ...defaults, window: "5D", unit: "bp", minMove: 15 });
   assert.equal(match.length, 1);
   assert.equal(filterPublicMarketObservations([yieldRow], { ...defaults, window: "3D", unit: "bp", minMove: 10 }).length, 0);
+});
+
+test("clickable columns sort both directions, keep missing observations last and do not mix units",()=>{
+  const ordered=sortPublicMarketColumns(rows,"1D",false);
+  assert.deepEqual(ordered.map(x=>x.id),["rise","small","unchanged","fall","yield","missing"]);
+  const reverse=sortPublicMarketColumns(rows,"1D",true);
+  assert.deepEqual(reverse.map(x=>x.id),["fall","unchanged","small","rise","yield","missing"]);
+  const levels=sortPublicMarketColumns([row("unknown",null),{...row("expensive",1),last:500}], "last", false);
+  assert.equal(levels[0].id,"expensive");
+  assert.deepEqual(sortPublicMarketColumns(rows,"instrument",true).map(x=>x.id),
+    ["fall","missing","rise","small","unchanged","yield"]);
+  const ui=readFileSync(new URL("../components/blue-desk/PublicMarketScreener.tsx", import.meta.url),"utf8");
+  assert.match(ui,/sortPublicMarketColumns\(filtered, columnSort, ascending\)/);
+  assert.match(ui,/onClick=\{\(\)=>sortColumn\(period\)\}/);
+  assert.match(ui,/aria-sort=/);
 });

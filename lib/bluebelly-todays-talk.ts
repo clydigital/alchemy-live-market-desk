@@ -101,7 +101,7 @@ function projectPrices(cards:readonly EditorialPriceCard[]):TalkPrice[]{
      w?priceWindow(w):"UNKNOWN"};
    }),
   } satisfies TalkPrice];
- }).slice(0,6);
+ });
 }
 export function buildOwnerTodayTalk(input:{
  news:readonly NewsBriefV1[];
