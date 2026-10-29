@@ -110,7 +110,7 @@ const COMPANIES: readonly Company[] = [
   },
 ];
 
-export default function EarningsFundamentals({amazonFeatureHref}:{amazonFeatureHref:string}) {
+export default function EarningsFundamentals({amazonFeatureHref,deepBaseHref}:{amazonFeatureHref:string;deepBaseHref:string}) {
   return <section id="earnings-fundamentals" className={styles.root} data-bluebelly-fundamentals="dated-editorial-public">
     <div className={styles.heading}>
       <p className={styles.kicker}>EARNINGS &amp; FUNDAMENTALS / INVESTOR TEST</p>
@@ -133,6 +133,7 @@ export default function EarningsFundamentals({amazonFeatureHref}:{amazonFeatureH
           <h3>What people are debating</h3><p>{company.investorVoices}</p>
           <p className={styles.next}><strong>What changes the verdict?</strong> {company.catalyst}</p>
           <div className={styles.links}>
+            <Link href={deepBaseHref+"?view=earnings&ticker="+encodeURIComponent(company.ticker)}>Read the complete {company.name} investor investigation →</Link>
             <a href={company.primary} target="_blank" rel="noopener noreferrer">{company.sourceLabel} ↗</a>
             {company.secondSource?<a href={company.secondSource} target="_blank" rel="noopener noreferrer">Supporting official document ↗</a>:null}
             {company.ticker==="AMZN"?<Link href={amazonFeatureHref}>Read the full Amazon cash-investment story →</Link>:null}
@@ -144,7 +145,7 @@ export default function EarningsFundamentals({amazonFeatureHref}:{amazonFeatureH
       <p className={styles.kicker}>CROSS-ASSET RESEARCH / NOT A CREDIT VERDICT</p>
       <h3>Rising yields are not the same as company-specific bond stress.</h3>
       <p>On 28 October the Treasury's indicative 2-year, 10-year and 30-year yields were 4.67%, 5.05% and 5.37% respectively. The rising risk-free benchmark can pressure long-duration equity valuations generally. To show creditors are penalising a particular issuer, compare its own bond spread or CDS with a matched Treasury and a previous observation.</p>
-      <p>Reported spreads on 23 October differed widely among Oracle, SpaceX and Meta. Those observations must not be passed off as Amazon's borrowing rate. Always distinguish equity market reaction, Treasury term structure, company credit spreads and operating cash flow.</p>
+      <p>Reported spreads on 23 October differed widely among Oracle, SpaceX and Meta. Those observations must not be passed off as Amazon\'s borrowing rate. Always distinguish equity market reaction, Treasury term structure, company credit spreads and operating cash flow. The full company investigations distinguish cash actually earned from financial guidance and prepayments.</p>
       <a href="https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_yield_curve&field_tdr_date_value_month=202610" target="_blank" rel="noopener noreferrer">US Treasury original dated yield curve ↗</a>
     </aside>
   </section>;
