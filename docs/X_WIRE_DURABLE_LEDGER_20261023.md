@@ -1,10 +1,13 @@
 # X Wire P2 — persistent discovery ledger (23 October 2026)
 
 ## Scope
-Bluebelly's authenticated X Wire navigation entry (`/owner/x-wire`) reads the service-role-only operational ledger. It is private on the Bluebelly hostname and the operations host; unauthorised users are redirected to Google login, while unrelated owner routes and APIs remain blocked. Raw X posts and private owner health records remain protected; the shared discovery brief exposes only bounded redacted public-post leads and no privileged diagnostics. As of the 26 October 2026 exclusion, it uses the remaining registered ten-account roster and no paid X API, independent reasoning engine, new research task or cron.
+Bluebelly's authenticated X Wire navigation entry (`/owner/x-wire`) reads the service-role-only operational ledger. It is private on the Bluebelly hostname and the operations host; unauthorised users are redirected to Google login, while unrelated owner routes and APIs remain blocked. Raw X posts and private owner health records remain protected; the shared discovery brief exposes only bounded redacted public-post leads and no privileged diagnostics. As of the 30 October 2026 exclusion, it uses the remaining nine-account roster and no paid X API, independent reasoning engine, new research task or cron.
 
 ## ZeroHedge X Wire exclusion (26 October 2026)
 @zerohedge must never be fetched, queued, shown, counted as active/deferred, used as X Wire attribution, or promoted as an X Wire evidence lead. Remove it from the roster and fail closed in candidate parsing and durable scan. Historical posts remain retained for audit, but are marked rejected by the migration and omitted from X Wire readers/counts. Legacy clients must not claim a lease for this excluded handle. This restriction is scoped to X Wire and the X sweep, not unrelated news-source selection.
+
+## GordianKnotDev X Wire exclusion (30 October 2026)
+`@GordianKnotDev` is excluded from retrieval, source-health totals, public discovery, fallback scans and active/deferred post counts. Retain any historical posts for audit only, mark them rejected, and prevent leasing the old account row. Other accounts are unaffected.
 
 ## Durable records and security
 Two operational public-schema tables are RLS-protected with all anon/authenticated privileges revoked:
@@ -23,4 +26,4 @@ Only the Supabase service-role server adapter writes these objects; claim_x_wire
 ## Authority and verification
 An X post, even correctly attributed, is noncanonical social discovery, not market-fact confirmation. The existing MacroPulse ChatGPT task alone writes its Notion Post/Log and the existing Research Gap Gate handles verification. No Story, Dossier, thesis-version or canonical evidence write was added.
 
-Runtime acceptance requires green CI, applied/verified migration, private route deployment and actual logged source retrieval. A 10/10 healthy label additionally needs ten observed, fresh full-window checkpoint results; saved posts alone are not sufficient. Current provider 404 errors may prevent full historical recovery, and that limitation must remain visible. If FxEmbed is unavailable, the UI must show failure rather than claim successful ingestion. On-demand access does not create a 2-hour autonomous server collector.
+Runtime acceptance requires green CI, applied/verified migration, private route deployment and actual logged source retrieval. A 9/9 healthy label additionally needs nine observed, fresh full-window checkpoint results; saved posts alone are not sufficient. Current provider 404 errors may prevent full historical recovery, and that limitation must remain visible. If FxEmbed is unavailable, the UI must show failure rather than claim successful ingestion. On-demand access does not create a 2-hour autonomous server collector.
