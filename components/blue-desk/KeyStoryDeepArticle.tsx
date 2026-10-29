@@ -15,7 +15,7 @@ export default function KeyStoryDeepArticle({
    <header className={styles.hero}>
      <div>
        <p className={styles.kicker}>KEY STORY / {depth.topic.toUpperCase()}</p>
-       <p className={styles.edition}>Original event <DualTimestamp value={receipt?.occurredAt||"2026-10-28T18:00:00.000Z"}/> · Editorial {depth.edition}</p>
+       <p className={styles.edition}>Original event <DualTimestamp value={receipt?.occurredAt||depth.eventAt}/> · Editorial {depth.edition}</p>
        <h1>{depth.title}</h1>
        <p className={styles.lead}>{depth.hook}</p>
        <p>{depth.lead}</p>
