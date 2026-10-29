@@ -25,10 +25,10 @@ test("topics allow multi-tagging and unmatched reports remain other",()=>{
  assert.deepEqual(editorialNewsTopics(report("Other event","Government statement on unspecified matter")),["other"]);
  assert.ok(editorialNewsTopics(report("AI chip maker earnings report","Issuer revenue and cash flow")).includes("earnings"));
 });
-test("eight research lenses only index public historical Story snapshots",()=>{
- assert.equal(EDITORIAL_REGIME_LENSES.length,8);
+test("nine research lenses only index public historical Story snapshots",()=>{
+ assert.equal(EDITORIAL_REGIME_LENSES.length,9);
  const groups=groupPublicResearch([]);
- assert.equal(groups.length,8);
+ assert.equal(groups.length,9);
  assert.ok(groups.every(x=>x.stories.length===0));
  const read=file("app/blue-desk/regime-watch/page.tsx");
  assert.match(read,/getPublicThesisLedger/);

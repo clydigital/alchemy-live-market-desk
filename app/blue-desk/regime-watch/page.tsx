@@ -13,7 +13,7 @@ import styles from "./regime-watch.module.css";
 export const dynamic="force-dynamic";
 export const metadata={
  title:"Regime Watch | Bluebelly",
- description:"Eight dedicated research areas, each with historical public Story context and testable questions."
+ description:"Nine dedicated research areas, each with historical public Story context and testable questions."
 };
 
 export default async function RegimeWatchPage(){
@@ -25,7 +25,7 @@ export default async function RegimeWatchPage(){
   <div className={desk.content}>
    <header className={styles.intro}><span>ONGOING RESEARCH / NOT DAILY REPORTS</span>
     <h1>The market&apos;s bigger stories.</h1>
-    <p>Eight persistent research questions, each with a dedicated workspace for recorded hypotheses, conflicting views and the evidence that could change the argument. Public Story snapshots are historical working views, not today&apos;s regime-engine verdicts.</p>
+    <p>Nine persistent research questions, each with a dedicated workspace for recorded hypotheses, conflicting views and the evidence that could change the argument. Public Story snapshots are historical working views, not today&apos;s regime-engine verdicts.</p>
    </header>
    <div className={styles.heading}>
     <h2>Explore a research lens</h2>

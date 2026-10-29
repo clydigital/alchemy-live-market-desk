@@ -8,8 +8,8 @@ import type {PublicThesis} from "../lib/blue-desk-thesis-ledger.ts";
 const read=(path:string)=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 const publicHosts=["bluebelly-desk.vercel.app","alchemy-live-market-desk.vercel.app"];
 
-test("all eight research lenses have exact clean URLs on approved public hosts",()=>{
- assert.equal(EDITORIAL_REGIME_LENSES.length,8);
+test("all nine research lenses have exact clean URLs on approved public hosts",()=>{
+ assert.equal(EDITORIAL_REGIME_LENSES.length,9);
  for(const lens of EDITORIAL_REGIME_LENSES){
   const clean="/regime-watch/"+lens.id;
   const internal="/blue-desk"+clean;
@@ -71,7 +71,7 @@ test("lens grouping is topical association and does not mutate an existing Story
  const energy=groups.find(x=>x.id==="energy");
  assert.equal(energy?.stories[0]?.id,sample.id);
  assert.deepEqual(sample,original);
- assert.equal(groups.length,8);
+ assert.equal(groups.length,9);
 });
 
 test("research lens directory card surfaces and editorial art follow all four live themes",()=>{

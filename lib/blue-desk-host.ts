@@ -2,9 +2,9 @@
 export const BLUEBELLY_PRESENTATION_HOST = "bluebelly-desk.vercel.app";
 export const LIVE_DESK_PRESENTATION_HOST = "alchemy-live-market-desk.vercel.app";
 
-// Only the eight public editorial lens IDs are reachable anonymously.
+// Only the explicitly listed public editorial lens IDs are reachable anonymously.
 // Do not expose arbitrary dynamic segments on the public presentation hosts.
-const PUBLIC_REGIME_LENS_PATH = /^\/(?:blue-desk\/)?regime-watch\/(?:fed|bonds|ai|china|energy|yen|breadth|gold)$/;
+const PUBLIC_REGIME_LENS_PATH = /^\/(?:blue-desk\/)?regime-watch\/(?:fed|bonds|ai|china|energy|yen|breadth|gold|housing)$/;
 
 function normalizedHost(host: string | null | undefined) {
   return (host || "").trim().toLowerCase().replace(/:443$/, "");

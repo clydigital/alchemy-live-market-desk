@@ -11,16 +11,16 @@ const obs=(id:string,description:string,eventAt:string):PublicSourceObservation=
  id,description,eventAt,recordedAt:eventAt,kind:"ORIGINAL_RELEASE",
  sourceName:"Primary source",sourceUrl:"https://www.sec.gov/search-filings",sourceTier:1
 });
-test("all eight lenses have distinctive 4-step causal maps and source-oriented research plans",()=>{
+test("all nine lenses have distinctive 4-step causal maps and source-oriented research plans",()=>{
  const ids=EDITORIAL_REGIME_LENSES.map(x=>x.id);
- assert.equal(ids.length,8);
+ assert.equal(ids.length,9);
  assert.deepEqual(Object.keys(REGIME_LENS_WORKBOOKS).sort(),[...ids].sort());
  const steps=new Set<string>();
  for(const lens of EDITORIAL_REGIME_LENSES){
   const plan=REGIME_LENS_WORKBOOKS[lens.id];
   assert.ok(plan.lead.length>45);
   assert.equal(plan.causalPath.length,4);
-  assert.equal(plan.monitors.length,3);
+  assert.ok(plan.monitors.length>=3);
   assert.ok(plan.strengthen.length>50&&plan.challenge.length>50);
   assert.ok(plan.mechanismCaution.length>40);
   for(const item of plan.monitors){
@@ -33,7 +33,17 @@ test("all eight lenses have distinctive 4-step causal maps and source-oriented r
   }
   steps.add(plan.causalPath.join("→"));
  }
- assert.equal(steps.size,8);
+ assert.equal(steps.size,9);
+});
+test("housing lens separates Fed mandate from affordability and maps cross-market scenarios",()=>{
+ const lens=EDITORIAL_REGIME_LENSES.find(x=>x.id==="housing")!;
+ const plan=REGIME_LENS_WORKBOOKS.housing;
+ assert.match(lens.question,/Fed/);
+ assert.match(plan.policyDilemma!.answer,/not a rate-setting veto/);
+ assert.equal(plan.scenarios?.length,3);
+ assert.ok(plan.scenarios?.every(item=>item.crossMarketEffects.some(effect=>/2Y/ .test(effect))));
+ assert.ok(plan.monitors.some(item=>item.sourceName==="US Bureau of Labor Statistics"));
+ assert.ok(plan.monitors.some(item=>item.sourceName==="Federal Reserve Bank of New York"));
 });
 test("recent original-source topical matches are not inferred as causal evidence",()=>{
  const news=[
