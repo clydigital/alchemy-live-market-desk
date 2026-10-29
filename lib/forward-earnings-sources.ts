@@ -33,6 +33,26 @@ const OFFICIAL: OfficialEarning[] = [
   { ticker: "C", company: "Citigroup", quarter: "Q4 2026", at: "2027-01-14", label: "Time unconfirmed", stage: "Earnings call date only", source: "https://www.citigroup.com/global/investors/events-and-presentations", decisive: "Net interest income, credit quality and deposits", transmission: "Bank earnings test funding and credit conditions." },
 ];
 
+/**
+ * An issuer-announced *call* or reporting date becoming overdue means the
+ * public results board must reconcile the outcome; it does NOT prove that a
+ * financial release has occurred or verify its figures. No external fetch/job.
+ * Times are conservative: exact webcast start + 2h, date-only at end of
+ * source-stated UTC date. The result is a bounded ATTENTION ledger.
+ */
+export function getDueOfficialEarningsCandidates(now=new Date(),lookbackHours=96){
+ const at=now.getTime();
+ if(!Number.isFinite(at)||!Number.isInteger(lookbackHours)||lookbackHours<1||lookbackHours>168)return [];
+ return OFFICIAL.flatMap(row=>{
+   const dateOnly=/^\d{4}-\d{2}-\d{2}$/.test(row.at);
+   const due=dateOnly?Date.parse(row.at+"T23:59:59Z"):Date.parse(row.at)+2*3600000;
+   if(!Number.isFinite(due)||at<due||at-due>lookbackHours*3600000)return [];
+   return [{ticker:row.ticker,company:row.company,quarter:row.quarter,
+     originalScheduleUrl:row.source,scheduledCallAt:row.at,
+     sourceDateOnly:dateOnly}];
+ });
+}
+
 const WATCHED = new Set(["JPM", "C", "WFC", "BAC", "GS", "MS", "BLK", "TSM", "NVDA", "AMD", "MU", "AVGO", "AMZN", "GOOGL", "MSFT", "META", "ORCL", "CRWV", "AAPL", "INTC", "SNDK", "PLTR", "PFE", "NFLX", "TSLA", "UNH", "JNJ", "XOM", "CVX", "DAL"]);
 const clean = (value: unknown) => typeof value === "string" ? value.trim() : "";
 const validDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value));
