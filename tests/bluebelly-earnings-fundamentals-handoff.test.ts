@@ -42,6 +42,10 @@ test("the seven-company dated investor reader is visible through existing allowl
     assert.match(reader,new RegExp('ticker:"'+ticker+'"'),ticker+" needs a financial investor profile");
   }
   assert.match(markets,/#coreweave-credit-watch/);
+  const regime=path("../app/blue-desk/regime-watch/page.tsx");
+  assert.match(regime,/coreweave-ai-financing/);
+  assert.match(regime,/\#coreweave-credit-watch/);
+  assert.match(regime,/not a newly accepted AI-wide Regime verdict/);
   assert.match(reader,/data-bluebelly-coreweave-watch="dated-research-not-canonical-regime"/);
   assert.match(reader,/Magnetar trimmed roughly 16\.5m shares/);
   assert.match(reader,/BlackRock added roughly 14\.7m/);
