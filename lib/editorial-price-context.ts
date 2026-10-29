@@ -57,7 +57,7 @@ export function editorialPriceCard(row:Pick<MarketMonitorRow,
     // Never infer completed-session returns from a single observation.
     const date=typeof row.asOf==="string"?row.asOf.slice(0,10):"";
     const age=Date.parse(date+"T00:00:00Z");
-    if(row.frequency==="daily" && /^\\d{4}-\\d{2}-\\d{2}$/.test(date) &&
+    if(row.frequency==="daily" && /^\d{4}-\d{2}-\d{2}$/.test(date) &&
        Number.isFinite(age) && age<=now && typeof row.last==="number" &&
        Number.isFinite(row.last) && row.last>0)
       return {...empty,lastDate:date,lastClose:row.last,
