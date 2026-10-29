@@ -13,11 +13,13 @@ export type OfficialPressReceipt = {
 };
 const MAX_LOOKBACK_DAYS=7;
 const PROOF_REASON="Original official RSS publication clock and directly linked same-host press-release HTML checked. Headline describes the announcement only, not its financial effect.";
+const ANALYSIS_PROOF_REASON="Original official RSS publication clock and directly linked same-host analysis HTML checked. This is source analysis, not a newly announced event or its market effect.";
 
 function feedFor(urlText:string){
  try{
   const u=new URL(urlText);
-  if(u.protocol!=="https:"||u.username||u.password||u.hash||u.search||urlText.length>2048)return null;
+  const eiaAnalysis=u.hostname==="www.eia.gov" && u.pathname==="/todayinenergy/detail.php" && /^\?id=\d{4,8}$/.test(u.search);
+  if(u.protocol!=="https:"||u.username||u.password||u.hash||(u.search&&!eiaAnalysis)||urlText.length>2048)return null;
   return OFFICIAL_PRESS_FEEDS.find(feed=>u.hostname===feed.host&&feed.path.test(u.pathname))||null;
  }catch{return null;}
 }
@@ -28,11 +30,15 @@ export function projectOriginalPressNews(
  if(!Number.isFinite(t)||!Number.isInteger(lookbackDays)||lookbackDays<1||lookbackDays>MAX_LOOKBACK_DAYS)return [];
  const out:NewsBriefV1[]=[];
  for(const item of [...rows].sort((a,b)=>Date.parse(String(b.published_at))-Date.parse(String(a.published_at)))){
-  if(item.item_type!=="news"||item.status!=="accepted"||item.review_reason!==PROOF_REASON)continue;
+  if(item.item_type!=="news"||item.status!=="accepted"||
+     (item.review_reason!==PROOF_REASON&&item.review_reason!==ANALYSIS_PROOF_REASON))continue;
   if(Number(item.source_quality)!==95||Number(item.candidate_score)<72||
      Number(item.materiality)<72||Number(item.relevance)<70||Number(item.novelty)<65)continue;
   const url=String(item.url||""),feed=feedFor(url);
   if(!feed||item.publisher!==feed.publisher)continue;
+  // Never allow an analytical publication to borrow press-release credentials.
+  const analysis=feed.feed==="https://www.eia.gov/rss/todayinenergy.xml";
+  if(analysis !== (item.review_reason===ANALYSIS_PROOF_REASON))continue;
   const expected="official-press:"+createHash("sha256").update(url).digest("hex").slice(0,24);
   if(item.item_key!==expected)continue;
   const title=typeof item.title==="string"?item.title.trim():"";
