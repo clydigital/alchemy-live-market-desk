@@ -10,7 +10,7 @@ import {OCTOBER_FED_DEPTH} from "./bluebelly-key-story-depth.ts";
  */
 export type PostEventSource={label:string;url:string;role:"official"|"market_data"|"reporting"};
 export type PostEventRecap={
- id:string;kind:"bank"|"earnings"|"source_only";releaseAt:string;headline:string;
+ id:string;kind:"bank"|"earnings"|"source_only";releaseAt:string;headline:string;standfirst:string;
  eventName:string;whatHappened:string;marketEffects:string;marketEffectStatus:"DATED_SECONDARY_AND_DAILY_DATA"|"MECHANISM_ONLY";
  whatNext:string;countercase:string;sourceUrls:readonly PostEventSource[];
  evidenceNote:string;detailsHref:string;weight:number;featuredStatus:"REVIEWED"|"SOURCE_ONLY";
@@ -23,7 +23,8 @@ function ageOk(date:string,now:Date){
 function fromBank(bank:BankDecisionSnapshot):PostEventRecap{
  const fed=bank.id==="fed-2026-10-28";
  return {
-  id:bank.id,kind:"bank",releaseAt:bank.releaseAt,headline:fed?OCTOBER_FED_DEPTH.title:bank.headline,eventName:bank.bank,
+  id:bank.id,kind:"bank",releaseAt:bank.releaseAt,headline:fed?OCTOBER_FED_DEPTH.title:bank.headline,
+  standfirst:fed?OCTOBER_FED_DEPTH.hook:bank.countryCode==="NZ"?"A narrow vote left rates unchanged. The real question is whether the bank can wait while inflation stays elevated.":"The policy rate changed. Whether it changes the currency or bond market depends on what investors had priced in beforehand.",eventName:bank.bank,
   whatHappened:bank.observedStatement+" "+bank.expectedStatus,
   marketEffects:fed?OCTOBER_FED_DEPTH.marketTape.slice(0,2).join(" "):bank.financialMechanism,
   marketEffectStatus:fed?"DATED_SECONDARY_AND_DAILY_DATA":"MECHANISM_ONLY",
@@ -38,7 +39,7 @@ function fromBank(bank:BankDecisionSnapshot):PostEventRecap{
 function fromEarnings(r:VerifiedEarningsScorecard):PostEventRecap{
  const observed=r.metrics.filter(x=>x.state==="measured").map(m=>m.name+": "+m.value+(m.comparison?" ("+m.comparison+")":"")).join("; ");
  return {
-  id:r.id,kind:"earnings",releaseAt:r.releaseDay,headline:r.company+": "+r.headline,eventName:r.company,
+  id:r.id,kind:"earnings",releaseAt:r.releaseDay,headline:r.company+": "+r.headline,standfirst:r.conclusion,eventName:r.company,
   whatHappened:r.fiscalPeriod+" · "+observed+". "+r.beatMiss,
   marketEffects:r.conclusion+" No timestamp-matched share-price reaction is established by this scorecard.",
   marketEffectStatus:"MECHANISM_ONLY",whatNext:r.nextTest+" "+r.outlook,
@@ -58,7 +59,7 @@ function fromNews(n:NewsBriefV1):PostEventRecap|null {
  if(!["official","primary","filing"].includes(n.sourceKind.toLowerCase()))return null;
  const kindName=/bank|FOMC|ECB|fed|policy/i.test(n.headline)?"Central-bank decision":"Company results";
  return {
-  id:"receipt-"+n.id,kind:"source_only",releaseAt:n.occurredAt,headline:n.headline,eventName:kindName,
+  id:"receipt-"+n.id,kind:"source_only",releaseAt:n.occurredAt,headline:n.headline,standfirst:"The original announcement is verified; the market impact and competing interpretations still require research.",eventName:kindName,
   whatHappened:n.summary,marketEffects:"Market transmission and any observed price reaction remain unverified; source-only announcement coverage.",
   marketEffectStatus:"MECHANISM_ONLY",whatNext:"Research Gap: collect the previous comparable, frozen pre-release expectations, matched market tape, issuer or central-bank remarks and the next dated catalyst.",
   countercase:"The announcement alone cannot establish a surprise, a causal price reaction or a lasting change to the outlook.",
