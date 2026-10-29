@@ -270,4 +270,7 @@ test("automated Daily PDF compiler receives versioned Bluebelly narrative rule w
  assert.ok(prompt.editorialContract.some((s:string)=>s.includes("three short learning moments")));
  assert.ok(prompt.editorialContract.some((s:string)=>s.includes("confirmed observations separately")));
  assert.match(prompt.instruction,/Cite by sourceIds from the packet ONLY/);
+ assert.match(prompt.instruction,/When a MATERIAL EARNINGS RELEASE/);
+ assert.match(prompt.instruction,/SAME-METRIC pre-release consensus/);
+ assert.match(prompt.instruction,/cash-conversion implication and countercase/);
 });
