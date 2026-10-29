@@ -1,4 +1,7 @@
 import HormuzCrossings from "@/components/blue-desk/HormuzCrossings";
+import EarningsFundamentals from "@/components/blue-desk/EarningsFundamentals";
+import EarningsInvestorDeepDive from "@/components/blue-desk/EarningsInvestorDeepDive";
+import {getEarningsCase} from "@/lib/bluebelly-earnings-investor-stories";
 import { getHormuzMonitor } from "@/lib/hormuz-monitor";
 import Link from "next/link";
 import { headers } from "next/headers";
@@ -23,7 +26,7 @@ export const metadata = {
 };
 
 type Props = {
-  searchParams: Promise<{ group?: string | string[] }>;
+  searchParams: Promise<{ group?: string | string[]; view?: string | string[]; ticker?: string | string[] }>;
 };
 
 const GROUP_ICONS: Record<string, MarketIconName> = {
@@ -35,6 +38,16 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   const query = await searchParams;
   const group = publicMarketGroup(query.group);
   const host = (await headers()).get("host");
+  // Keep the public route allowlist unchanged: a bounded query selects only
+  // one of seven dated editorial cases, never arbitrary owner records.
+  const readTicker=typeof query.ticker==="string"?query.ticker:"";
+  const detail=query.view==="earnings"?getEarningsCase(readTicker):null;
+  if(detail)return <main className={styles.page} data-bluebelly-markets-view="earnings-investor-dossier">
+    <BlueDeskHeader activePath="/blue-desk/markets" />
+    <div className={styles.content}>
+      <EarningsInvestorDeepDive ticker={detail.ticker} backHref={blueDeskPublicHref("/blue-desk/markets",host)} />
+    </div>
+  </main>;
   const [monitor, hormuz] = await Promise.all([
     getMarketMonitor().catch(() => null),
     group === "all" || group === "energy" ? getHormuzMonitor() : Promise.resolve(null),
@@ -63,6 +76,17 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
             <small>Source dates appear alongside prices</small>
           </div>
         </header>
+
+        <section className={styles.section} aria-label="Earnings fundamentals reading desk" data-earnings-reader-entry="seven-company">
+          <div className={styles.sectionHead}>
+            <div><p className={styles.kicker}>FINANCIAL RESEARCH / THE INVESTOR TEST</p>
+              <h2>Beyond the earnings headline</h2>
+              <p>Seven complete business-model and financial investigations, including the cash bridge, management's argument, its strongest countercase and the next evidence test.</p>
+              <p><Link href={blueDeskPublicHref("/blue-desk/markets",host)+"?view=earnings&ticker=AMZN"}>Read Amazon's capital spending investigation →</Link>
+              {" · "}<Link href={blueDeskPublicHref("/blue-desk/markets",host)+"#earnings-fundamentals"}>Browse all seven companies</Link></p>
+            </div>
+          </div>
+        </section>
 
         <nav aria-label="Market group" className={styles.publicMarketGroups}>
           {PUBLIC_MARKET_GROUPS.map(item => (
@@ -97,12 +121,15 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <PublicMarketScreener key={group} observations={observations} group={group} dataAvailable={Boolean(monitor)} />
         </section>
 
+        <EarningsFundamentals amazonFeatureHref={blueDeskPublicHref("/blue-desk/key-stories",host)+"?feature=amazon-cash-test-october-2026"} deepBaseHref={blueDeskPublicHref("/blue-desk/markets",host)} />
+
         {hormuz ? <HormuzCrossings monitor={hormuz} /> : null}
 
         <div className={styles.lastLinks}>
           <h2>Continue reading</h2>
           <div className={styles.quickLinks}>
             <Link href={blueDeskPublicHref("/blue-desk", host)}>Market stories →</Link>
+            <Link href={blueDeskPublicHref("/blue-desk/markets",host)+"#earnings-fundamentals"}>Earnings &amp; fundamentals →</Link>
             <Link href={blueDeskPublicHref("/blue-desk/calendar", host)}>Economic calendar →</Link>
             <Link href={blueDeskPublicHref("/blue-desk/hormuz", host)}>Hormuz / oil / distillates watch →</Link>
           </div>
