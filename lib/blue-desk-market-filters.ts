@@ -38,12 +38,12 @@ export function filterPublicMarketObservations(
 
   if (filters.sort === "source") return visible;
   const withUnitOrder = (a: PublicMarketObservation, b: PublicMarketObservation) => {
-    // Never rank a 5 bp move against a 5% move as if the units were comparable.
-    if (a.changeUnit !== b.changeUnit) return a.changeUnit === "%" ? -1 : 1;
     const aChange = a.change !== null && Number.isFinite(a.change) ? a.change : null;
     const bChange = b.change !== null && Number.isFinite(b.change) ? b.change : null;
     if (aChange === null) return bChange === null ? a.label.localeCompare(b.label) : 1;
     if (bChange === null) return -1;
+    // Never rank a 5 bp move against a 5% move as if the units were comparable.
+    if (a.changeUnit !== b.changeUnit) return a.changeUnit === "%" ? -1 : 1;
     const result = filters.sort === "magnitude" ? Math.abs(bChange) - Math.abs(aChange)
       : filters.sort === "gainers" ? bChange - aChange
       : aChange - bChange;
