@@ -24,7 +24,7 @@
   outline: 2px solid var(--bb-accent, #81d5ff);
   outline-offset: 2px;
 }
-.controls { display: grid; grid-template-columns: minmax(140px, 1.5fr) repeat(4, minmax(124px, 1fr)) auto; gap: 11px; align-items: end; }
+.controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px; align-items: end; }
 .controls label { display: grid; gap: 7px; min-width: 0; font-size: 13px; color: var(--bb-muted, #c9e0ef); font-weight: 690; }
 .controls input, .controls select {
   display: block;
@@ -45,7 +45,9 @@
 .disclaimer { color: var(--bb-muted, #b7cfdd); font-size: 13px; margin: 13px 0 5px; line-height: 1.6; }
 .count { color: var(--bb-text, #d8e9f3); font-size: 14px; margin: 6px 0 0; }
 .count strong { color: var(--bb-text, #fff); }
-@media (max-width: 1150px) { .controls { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+.selectedChange { background: var(--bb-raised, #113c56) !important; }
+@media (min-width: 1550px) { .controls { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+
 @media (max-width: 670px) {
   .screener { padding: 14px; }
   .controls { grid-template-columns: repeat(2, minmax(0,1fr)); }
