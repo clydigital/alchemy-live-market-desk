@@ -57,7 +57,7 @@ test("copyable presenter card and source-backed comparison SVG are public read-o
  assert.match(graphic,/60\.5426/);
  assert.match(graphic,/83\.3338/);
  assert.match(graphic,/not a verified forecast or share-price reaction/);
- assert.match(brief,/<EarningsEvidenceGraphic scorecard=\{r\}/);
+ assert.match(code("components/blue-desk/PostEventRecap.tsx"),/<EarningsEvidenceGraphic scorecard=\{scorecard\}/);\n assert.match(brief,/data-bluebelly-released-reading="links-only"/);\n assert.doesNotMatch(brief,/<EarningsEvidenceGraphic scorecard=\{r\}/);
  const home=code("app/blue-desk/page.tsx");
  assert.equal((home.match(/<WhatsNewTrendDashboard/g)||[]).length,1);
  assert.ok(home.indexOf("<WhatsNewTrendDashboard")<home.indexOf("<details><summary>Explore dated observations"),
