@@ -13,7 +13,7 @@ export default function OwnerEditorialSlateHtml({slate,status}:{
   <div className={s.htmlSlateHeader}>
    <div>
     <small className={s.editionType}>WRITING BRAIN · PRIVATE HTML · CURRENT SLATE</small>
-    <h2>Today's three article angles</h2>
+    <h2>Latest saved article angles</h2>
    </div>
    <span className={s.htmlSlateState}>{slate
     ?slate.verificationStatus==="source_checked"?"SOURCE CHECKED":"PARTIAL VERIFICATION"
