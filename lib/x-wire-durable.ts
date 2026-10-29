@@ -219,9 +219,9 @@ export async function getXWireDurable(opts:{now?:Date;fetchImpl?:typeof fetch;db
     const [source,postsRead,deferredRead,pendingRead]=await Promise.all([
       loadAccounts(db),
       db.from("x_wire_posts").select("post_id,handle,original_url,published_at,retrieved_at,body,media_urls,quote_url,intake_status")
-        .not("handle","ilike","zerohedge").order("published_at",{ascending:false}).limit(250),
-      db.from("x_wire_posts").select("post_id",{count:"exact",head:true}).eq("intake_status","deferred").not("handle","ilike","zerohedge"),
-      db.from("x_wire_posts").select("post_id",{count:"exact",head:true}).eq("intake_status","discovery").not("handle","ilike","zerohedge"),
+        .order("published_at",{ascending:false}).limit(250),
+      db.from("x_wire_posts").select("post_id",{count:"exact",head:true}).eq("intake_status","deferred"),
+      db.from("x_wire_posts").select("post_id",{count:"exact",head:true}).eq("intake_status","discovery"),
     ]);
     if(postsRead.error||deferredRead.error||pendingRead.error)throw new Error("Backlog readback failed");
     const byHandle=new Map(source.map(x=>[x.handle.toLowerCase(),x]));
