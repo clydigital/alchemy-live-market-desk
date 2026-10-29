@@ -45,9 +45,9 @@ export default function ShortNewsRecap({recap,backHref,coverage}:{recap:Recap;ba
  if(coverage?.status==="SOURCE_ONLY")return <article className={ui.article} data-bluebelly-news-recap="source-only-depth-incomplete">
   <nav className={ui.back}><Link href={backHref}>← Return to Key Stories</Link></nav>
   <header className={ui.hero}><div className={ui.head}>
-    <p className={ui.kicker}>ORIGINAL REPORT VERIFIED · RESEARCH DEPTH INCOMPLETE</p>
+    <p className={ui.kicker}>SOURCE-VERIFIED REPORT · RESEARCH DEPTH INCOMPLETE</p>
     <h1>{recap.title}</h1>
-    <p className={ui.deck}>The original announcement is confirmed. The previous baseline, expectation, financial effect and market response still need evidence before this can be presented as a researched Key Story.</p>
+    <p className={ui.deck}>The dated source report was verified. The previous baseline, expectation, financial effect and market response still need evidence before this can be presented as a researched Key Story.</p>
     <div className={ui.time}><DualTimestamp value={recap.asOf}/></div>
   </div><EditorialStoryArt headline={recap.title} summary={recap.fact}/></header>
   <div className={ui.chapters}>
@@ -57,9 +57,9 @@ export default function ShortNewsRecap({recap,backHref,coverage}:{recap:Recap;ba
       <p className={ui.caution}>No consensus surprise, specific price reaction or company impact has been inferred from the headline.</p>
     </section>
   </div>
-  <footer className={ui.source}><strong>Original evidence</strong>
-   <p>This is a qualified announcement in the Newsroom evidence tier, not a completed investor investigation. The next existing research review can connect a sourced comparator and publish a new dated edition.</p>
-   {validSource(recap.sourceUrl)?<a href={recap.sourceUrl} target="_blank" rel="noopener noreferrer">{recap.sourceName} · original source ↗</a>:<span>Original source link unavailable</span>}
+  <footer className={ui.source}><strong>Dated source evidence</strong>
+   <p>This is a qualified report in the Newsroom evidence tier, not a completed investor investigation. The next existing research review can connect a sourced comparator and publish a new dated edition.</p>
+   {validSource(recap.sourceUrl)?<a href={recap.sourceUrl} target="_blank" rel="noopener noreferrer">{recap.sourceName} · dated source ↗</a>:<span>Original source link unavailable</span>}
   </footer>
  </article>;
 
