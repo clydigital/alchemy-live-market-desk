@@ -23,7 +23,7 @@ import StoryEditorialArticle from "@/components/blue-desk/StoryEditorialArticle"
 import VerifiedCatalystArticle from "@/components/blue-desk/VerifiedCatalystArticle";
 import ShortNewsRecap, {recapFromDecision,recapFromNews} from "@/components/blue-desk/ShortNewsRecap";
 import KeyStoryDeepArticle from "@/components/blue-desk/KeyStoryDeepArticle";
-import {OCTOBER_FED_DEPTH} from "@/lib/bluebelly-key-story-depth";
+import {OCTOBER_FED_DEPTH,storyCoverageForNews} from "@/lib/bluebelly-key-story-depth";
 import NewsroomEventReader from "@/components/blue-desk/NewsroomEventReader";
 import {getEventSocialContext} from "@/lib/bluebelly-event-social-server";
 import {bankDecisionById} from "@/lib/bluebelly-bank-decision-snapshots";
@@ -126,7 +126,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     return <main className={desk.page} data-bluebelly-news="single-receipt-reader">
       <BlueDeskHeader activePath="/blue-desk/key-stories"/>
       <div className={desk.content}>{event?
-        <ShortNewsRecap recap={recapFromNews(event)} backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}/>:
+        <ShortNewsRecap recap={recapFromNews(event)} coverage={storyCoverageForNews(event)} backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}/>:
         <section className={ui.empty}><h1>Report unavailable</h1>
          <p>That report is outside the verified public news window.</p>
          <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>All Key Stories</Link></section>}</div>
