@@ -53,6 +53,15 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
   const host = (await headers()).get("host");
   const editorialKind=params?.feature==="amazon-cash-test-october-2026"?"amazon":params?.feature==="fomc-october-2026"?"fomc":null;
   if(editorialKind)return <main className={desk.page}><BlueDeskHeader activePath="/blue-desk/key-stories"/><div className={desk.content}><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link><AmazonFomcFeatures kind={editorialKind}/></div></main>;
+  // This known public October FOMC edition has a separately reviewed source
+  // packet. Its permanent bookmark must not expire with the seven-day news tape.
+  // A query cannot select other editorial or private records.
+  if(params?.news==="e378d91d-deb9-4148-88c5-ab6bf5ef367f")return <main className={desk.page} data-bluebelly-news="depth-reviewed-original-event">
+    <BlueDeskHeader activePath="/blue-desk/key-stories"/>
+    <div className={desk.content}><KeyStoryDeepArticle depth={OCTOBER_FED_DEPTH}
+      backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}
+      relatedHref={blueDeskPublicHref("/blue-desk/key-stories",host)+"?feature=fomc-october-2026"}/></div>
+  </main>;
   // Dated and bounded on-site editor-verified policy / reported-rumour readers.
   // They are NOT accepted original-RSS NewsBrief records or private research.
   const policy=typeof params?.policy==="string"?bankDecisionById(params.policy,now):null;
