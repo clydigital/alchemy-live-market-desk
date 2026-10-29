@@ -1,0 +1,38 @@
+.feature{margin:0 0 26px;border:1px solid var(--bb-line);background:var(--bb-surface);color:var(--bb-text);overflow:hidden}
+.featureHead{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding:12px 22px;background:var(--bb-accent);color:#0b1012}
+.eyebrow{font:800 12px/1.6 var(--bb-mono,monospace);letter-spacing:.055em}
+.clock{font-size:12px;font-weight:700}
+.featureBody{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,1fr)}
+.intro{min-width:0;padding:clamp(20px,3vw,38px);border-right:1px solid var(--bb-line)}
+.status{font:800 11px/1.5 var(--bb-mono,monospace);letter-spacing:.085em;color:var(--bb-accent)}
+.intro h2{font:900 clamp(28px,3.5vw,52px)/1.08 var(--bb-display,sans-serif);letter-spacing:-.045em;text-transform:uppercase;margin:12px 0 16px}
+.intro h2 a{color:inherit;text-decoration:none}.intro h2 a:hover{text-decoration:underline;text-decoration-color:var(--bb-accent)}
+.introText{font-size:16px;line-height:1.6;color:var(--bb-text)}
+.art{height:96px;overflow:hidden;max-width:370px;margin:18px 0}.art>div{height:100%;width:100%}
+.source{font-size:12px;line-height:1.6;color:var(--bb-muted)}.source a{color:var(--bb-text)}
+.read{display:inline-flex;justify-content:space-between;gap:14px;align-items:center;background:var(--bb-accent);color:#0c1113!important;font:800 13px/1.4 var(--bb-mono,monospace);text-decoration:none;padding:12px 15px;margin-top:12px}.read:hover{text-decoration:underline}
+.storyBeats{min-width:0;display:flex;flex-direction:column;padding:10px clamp(18px,2.6vw,32px)}
+.storyBeats section{padding:14px 0;border-bottom:1px solid var(--bb-line)}
+.beat{font:800 11px/1.5 var(--bb-mono,monospace);letter-spacing:.06em;color:var(--bb-accent);margin:0 0 9px}
+.storyBeats section>p:not(.beat){font-size:15px;line-height:1.6;margin:0}
+.storyBeats small{display:block;color:var(--bb-muted);margin-top:8px;font-size:11px;line-height:1.5}
+.limit{margin-top:10px}.limit summary{cursor:pointer;color:var(--bb-accent);font-size:12px}.limit p{font-size:13px;line-height:1.6}
+.socialStrip,.more{display:flex;align-items:center;gap:13px;flex-wrap:wrap;padding:13px 20px;border-top:1px solid var(--bb-line);font-size:12px}
+.more strong{color:var(--bb-accent)}.socialStrip a,.more a{color:var(--bb-text);text-underline-offset:3px}
+.feature a:focus-visible,.reader a:focus-visible,.feature summary:focus-visible{outline:2px solid var(--bb-accent);outline-offset:4px}
+.reader{max-width:1180px;margin:22px auto 55px;color:var(--bb-text);overflow-wrap:anywhere}
+.reader nav{margin:10px 0 22px}.reader nav a{color:var(--bb-text)}
+.readerHead{background:var(--bb-surface);border-top:5px solid var(--bb-accent);padding:clamp(22px,4vw,44px)}
+.readerHead .eyebrow{color:var(--bb-accent)}.readerHead h1{font:900 clamp(32px,4vw,58px)/1.1 var(--bb-display,sans-serif);margin:10px 0 16px;letter-spacing:-.04em}
+.readerHead>p:last-child{color:var(--bb-muted)}
+.readerBody{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(250px,.8fr);gap:24px;margin-top:20px}
+.chapters{min-width:0}.chapters section{padding:23px 0;border-bottom:1px solid var(--bb-line)}
+.chapters h2{font-size:clamp(21px,2.4vw,29px);line-height:1.25;margin:7px 0 14px}
+.chapters p{font-size:17px;line-height:1.75;max-width:70ch}
+.caveat{font-size:13px!important;color:var(--bb-muted);line-height:1.65!important}
+.references{align-self:start;min-width:0;background:var(--bb-surface);padding:22px;border:1px solid var(--bb-line)}
+.references h2{font-size:18px;margin:0 0 14px}.references p{font-size:13px;line-height:1.6}
+.reference{padding:12px 0;border-bottom:1px solid var(--bb-line)}
+.reference small{display:block;font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--bb-accent);margin-bottom:6px}
+.reference a{color:var(--bb-text);line-height:1.6;overflow-wrap:anywhere}
+@media(max-width:760px){.featureBody,.readerBody{grid-template-columns:1fr}.intro{border-right:0;border-bottom:1px solid var(--bb-line)}.intro h2{font-size:clamp(29px,8vw,42px)}.featureHead{padding:12px 16px}.storyBeats{padding:10px 20px}.socialStrip,.more{align-items:flex-start;flex-direction:column}.readerHead{padding:22px}.chapters p{font-size:16px}}
