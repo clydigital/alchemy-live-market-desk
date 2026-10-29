@@ -131,7 +131,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
     {visible.length ? <div className={styles.publicMarketTableScroll}>
       <table className={styles.publicMarketTable}>
         <thead><tr><th scope="col">Instrument</th><th scope="col">Last observed</th>
-          {(["1D", "3D", "5D"] as const).map(period => <th scope="col" key={period} data-selected={period === window}>{period} change</th>)}
+          {(["1D", "3D", "5D"] as const).map(period => <th scope="col" key={period} data-selected={period === window} className={period === window ? ui.selectedChange : undefined}>{period} change</th>)}
           <th scope="col">Source and vintage</th></tr></thead>
         <tbody>{visible.map(row => <tr key={row.id}>
           <th scope="row"><EntityRow identity={entityForAsset(row.symbol) || {kind: "asset", code: row.symbol}}
@@ -139,7 +139,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
           <td className={styles.publicMarketNumber}>{level(row)}</td>
           {(["1D", "3D", "5D"] as const).map(period => {
             const value = publicMarketWindowChange(row, period);
-            return <td key={period} className={styles.publicMarketNumber} data-selected={period === window}
+            return <td key={period} className={`${styles.publicMarketNumber} ${period === window ? ui.selectedChange : ""}`} data-selected={period === window}
               data-direction={value === null ? "unknown" : value > 0 ? "up" : value < 0 ? "down" : "flat"}
               title={value === null ? `${period} source-session change unavailable` : `${period} change through ${row.asOf || "unknown source date"}`}>
               {change(value, row.changeUnit)}
