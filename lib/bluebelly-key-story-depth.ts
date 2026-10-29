@@ -16,7 +16,7 @@ export type EvidenceItem={
   sourceUrl:string;
 };
 export type PublicStoryDepth={
-  edition:string; topic:string; title:string; hook:string; lead:string;
+  edition:string; eventAt:string; topic:string; title:string; hook:string; lead:string;
   chronology:readonly string[];
   numbers:readonly EvidenceItem[];
   whatChanged:readonly string[];
@@ -39,6 +39,7 @@ const REUTERS_REACTION="https://www.reuters.com/business/view-fomc-holds-rates-s
  */
 export const OCTOBER_FED_DEPTH:PublicStoryDepth={
  edition:"29 October 2026 · post-statement editorial · not a live market quote",
+ eventAt:"2026-10-28T18:00:00.000Z",
  topic:"US monetary policy and Treasury funding",
  title:"The Fed held rates. The real change was inside the vote.",
  hook:"Markets largely expected no move. Two officials wanted higher rates anyway, and the Fed quietly strengthened its description of the economy.",
