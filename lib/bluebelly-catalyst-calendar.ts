@@ -25,6 +25,10 @@ export const CALENDAR_GUIDE = {
 } as const;
 
 const MACRO_MAJOR = /\b(cpi|ppi|pce|inflation|payroll|non.farm|unemployment|adp|jobless|jolts|employment|pmi|ism|gdp|retail|durable goods|home sales|existing home|rate|fomc|monetary|press conference|minutes|auction|yield|bond|treasury)\b/i;
+// A central bank may officially title a major decision "Outlook Report" or
+// "OCR held" without saying "rate". Keep the policy-action requirement so
+// routine staffing, speeches and general press notices stay off the grid.
+const BANK_POLICY_DECISION = /\b(?:bank of japan|boj|reserve bank of australia|rba|reserve bank of new zealand|rbnz|bank of canada|bank of england|boe|european central bank|ecb)\b.*\b(?:decision|outlook report|monetary policy|interest rates?|official cash rate|holds?|raises?|cuts?)\b|\bocr\b.*\b(?:held|raised|cut|maintained)\b/i;
 const MEGACAP = new Set(["MSFT","AAPL","NVDA","GOOGL","GOOG","AMZN","META","TSLA"]);
 function validUrl(value: string) {
   try { const v = new URL(value); return v.protocol === "https:" && !v.username && !v.password; } catch { return false; }
@@ -43,7 +47,7 @@ function fromPresenter(row: PresenterCalendarEvent): CatalystCard | null {
   const exact = timeOf(row);
   const day = dateKey(exact) || dateKey(row.localDate);
   if (!day || !validUrl(row.sourceUrl)) return null;
-  if (row.kind === "economic" && !MACRO_MAJOR.test(row.title)) return null;
+  if (row.kind === "economic" && !MACRO_MAJOR.test(row.title) && !BANK_POLICY_DECISION.test(row.title)) return null;
   if (row.status === "cancelled" || row.status === "postponed") return null;
   const ticker = row.kind === "earnings" ? row.affectedAssets.find(s => /^[A-Z][A-Z0-9.-]{0,11}$/.test(s)) || null : null;
   const priority = row.kind === "economic" || (ticker && MEGACAP.has(ticker)) ? "must_watch" : "watch";

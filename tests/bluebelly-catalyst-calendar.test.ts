@@ -75,6 +75,34 @@ test("confirmed call instant is not incorrectly labelled as earnings results rel
   assert.equal(dateOnly.callTimeOnly,false);
 });
 
+test("date-only Bank of Japan decision and Outlook Report appears on its official source day",()=>{
+ const [tile]=projectBluebellyCatalysts([{
+  ...macro,id:"boj:2026-10-30",title:"Bank of Japan decision and Outlook Report",
+  localDate:"2026-10-30",scheduledAt:null,timePrecision:"date",
+  sourceName:"Bank of Japan",sourceUrl:"https://www.boj.or.jp/en/mopo/outlook/",
+  affectedAssets:["JPY","JGB","NIKKEI"],
+ }],[]);
+ assert.ok(tile);
+ assert.equal(tile.date,"2026-10-30");
+ assert.equal(tile.timePrecision,"date");
+ assert.equal(tile.startAt,null,"source-date-only policy events cannot acquire invented hours");
+ assert.equal(tile.country,"JP");
+ assert.equal(tile.priority,"must_watch");
+});
+test("short official OCR hold qualifies, while unrelated central-bank staffing releases do not",()=>{
+ const approved=projectBluebellyCatalysts([{
+  ...macro,id:"rbnz:2026-10-28",title:"OCR held at 2.75%",
+  localDate:"2026-10-28",scheduledAt:null,timePrecision:"date",
+  sourceName:"Reserve Bank of New Zealand",sourceUrl:"https://www.rbnz.govt.nz/news-and-events/news/2026/10/ocr-held-at-2-75-percent"
+ }],[]);
+ assert.equal(approved.length,1);
+ const rejected=projectBluebellyCatalysts([{
+  ...macro,id:"boc-staff",title:"Bank of Canada Board launches process to fill deputy governor position",
+  sourceName:"Bank of Canada",sourceUrl:"https://www.bankofcanada.ca/"
+ }],[]);
+ assert.equal(rejected.length,0);
+});
+
 test("unrelated low-value macro headlines do not fill the high impact grid",()=>{
   const r=projectBluebellyCatalysts([{...macro,id:"macro:survey",title:"Regional trucking sentiment survey"}],[]);
   assert.equal(r.length,0);
