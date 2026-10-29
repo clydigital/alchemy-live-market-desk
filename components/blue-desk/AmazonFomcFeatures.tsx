@@ -5,7 +5,7 @@ const fed="https://www.federalreserve.gov/newsevents/pressreleases/monetary20261
 const treasury="https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_yield_curve&field_tdr_date_value_month=202610";
 function Source({href,children}:{href:string;children:React.ReactNode}){return <a href={href} target="_blank" rel="noopener noreferrer">{children} ↗</a>;}
 export const EDITORIAL_FEATURES=[
- {id:"amazon-cash-test-october-2026",title:"Amazon must show what the AI build-out earns",summary:"Ahead of its 29 October earnings: the cash, capacity and commitment questions sharpened by its rivals' reports."},
+ {id:"amazon-cash-test-october-2026",title:"Amazon must show what the AI build-out earns",summary:"Preserved 29 October pre-results investor test. Amazon's Q3 results have since been released; the latest dated earnings scorecard covers AWS growth and cash conversion."},
  {id:"fomc-october-2026",title:"Fed holds, but the borrowing bill stays high",summary:"What the split vote, Warsh's reported remarks and a steeper yield curve mean for the next decision."},
 ] as const;
 export default function AmazonFomcFeatures({kind}:{kind:"amazon"|"fomc"}){
