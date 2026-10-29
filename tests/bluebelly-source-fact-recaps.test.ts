@@ -58,3 +58,11 @@ test("an original RSS release carries its own fact evidence into the existing in
    x.claim.startsWith("OFFICIAL_FACT")?{...x,url:"https://other.example/news"}:x)}],now,8,7);
  assert.match(wrongSource[0].summary,/market-price reaction/);
 });
+
+test("press contact phone/email is not misclassified as a source financial fact",()=>{
+ const contact="<html><main><h1>Broadcom Announces AI Infrastructure Financing</h1><p>Broadcom press contacts Roger Smith +1.408.348.1569 roger.smith@broadcom.com for additional details.</p><p>Broadcom announced a 63 billion dollar AI compute capacity financing partnership for 2026.</p></main></html>";
+ const facts=extractOfficialPressFacts(contact,"Broadcom Announces AI Infrastructure Financing");
+ assert.equal(facts.length,1);
+ assert.match(facts[0],/63 billion/);
+ assert.doesNotMatch(facts[0],/@/);
+});
