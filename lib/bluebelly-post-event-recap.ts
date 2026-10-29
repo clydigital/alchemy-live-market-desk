@@ -32,7 +32,7 @@ function fromBank(bank:BankDecisionSnapshot):PostEventRecap{
   sourceUrls:fed?OCTOBER_FED_DEPTH.sources.map(s=>({label:s.label,url:s.url,role:s.url.includes("treasury.gov")?"market_data" as const:s.url.includes("reuters.com")?"reporting" as const:"official" as const})):
    [{label:bank.sourceName,url:bank.sourceUrl,role:"official" as const}],
   evidenceNote:fed?"Treasury observations are daily closes; Reuters reactions are attributed secondary accounts. Neither proves an intraday Fed-caused move.":"No matching pre/post-event market-price window or pre-release rate probability is available; mechanism is not an observed reaction.",
-  detailsHref:"?post-event="+encodeURIComponent(bank.id),
+  detailsHref:"?postEvent="+encodeURIComponent(bank.id),
   weight:bank.countryCode==="US"?100:bank.countryCode==="CA"?85:80,featuredStatus:"REVIEWED"
  };
 }
@@ -47,7 +47,7 @@ function fromEarnings(r:VerifiedEarningsScorecard):PostEventRecap{
   sourceUrls:[{label:r.sourceName,url:r.sourceUrl,role:"official" as const},
    ...(r.additionalSourceUrl?[{label:r.company+" investor presentation",url:r.additionalSourceUrl,role:"official" as const}]:[])],
   evidenceNote:"Issuer data and matched guidance are distinguished from analyst consensus. Equity price reactions require separately verified, event-timed market data.",
-  detailsHref:"?post-event="+encodeURIComponent(r.id),weight:75,featuredStatus:"REVIEWED"
+  detailsHref:"?postEvent="+encodeURIComponent(r.id),weight:75,featuredStatus:"REVIEWED"
  };
 }
 const EVENT=/\b(?:FOMC|federal reserve|fed (?:rates?|decision)|bank of canada|RBNZ|reserve bank of new zealand|bank of england|ECB|central bank|monetary policy|quarterly (?:earnings|results)|(?:Q[1-4]|fourth|third|second|first)[ -]?quarter (?:earnings|results)|earnings release|reports? (?:Q[1-4]|quarterly) (?:earnings|results))\b/i;
