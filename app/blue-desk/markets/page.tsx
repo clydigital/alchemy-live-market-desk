@@ -4,14 +4,12 @@ import Link from "next/link";
 import { headers } from "next/headers";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
-import { EntityRow } from "@/components/blue-desk/EntityIdentity";
-import { entityForAsset } from "@/lib/bluebelly-entity-identity";
 import TradingViewChart from "@/components/blue-desk/TradingViewChart";
+import PublicMarketScreener from "@/components/blue-desk/PublicMarketScreener";
 import {TV_MARKET_GROUP_DEFAULTS} from "@/lib/bluebelly-editorial-visuals";
 import { MarketIcon, type MarketIconName } from "@/components/blue-desk/MarketIcon";
 import {
   PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations,
-  type PublicMarketObservation,
 } from "@/lib/blue-desk-public-markets";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
@@ -32,26 +30,6 @@ const GROUP_ICONS: Record<string, MarketIconName> = {
   all: "global", ai: "chip", rates: "rates", energy: "oil",
   fx: "currency", credit: "credit", equities: "equities", metals: "gold",
 };
-
-function displayLevel(row: PublicMarketObservation) {
-  if (row.last === null) return "Unavailable";
-  const value = row.last.toLocaleString("en-GB", {
-    maximumFractionDigits: Math.abs(row.last) >= 1000 ? 1 : 3,
-  });
-  // Treasury-rate feed values are percentage yields. Other instrument types
-  // keep the source's native numerical scale rather than an inferred unit.
-  return row.type === "Rates" ? `${value}%` : value;
-}
-
-function displayChange(row: PublicMarketObservation) {
-  if (row.change === null) return "Not available";
-  const positive = row.change > 0 ? "+" : "";
-  return `${positive}${row.change.toFixed(2)}${row.changeUnit === "bp" ? " bp" : "%"}`;
-}
-
-function sourceLabel(row: PublicMarketObservation) {
-  return row.asOf ? `Observation: ${row.asOf}` : "Observation date unavailable";
-}
 
 export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   const query = await searchParams;
@@ -116,53 +94,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
             </div>
           </div>
 
-          {observations.length ? (
-            <div className={styles.publicMarketTableScroll}>
-              <table className={styles.publicMarketTable}>
-                <thead>
-                  <tr>
-                    <th scope="col">Instrument</th>
-                    <th scope="col">Last observed</th>
-                    <th scope="col">Session change</th>
-                    <th scope="col">Source and vintage</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {observations.map(row => (
-                    <tr key={row.id}>
-                      <th scope="row">
-                        <EntityRow identity={entityForAsset(row.symbol) || {kind:"asset",code:row.symbol}}
-                          title={row.label} subtitle={row.symbol+" · "+row.type} />
-                      </th>
-                      <td className={styles.publicMarketNumber}>{displayLevel(row)}</td>
-                      <td className={styles.publicMarketNumber}>{displayChange(row)}</td>
-                      <td className={styles.publicMarketSource}>
-                        <span>{sourceLabel(row)} · {row.frequency} observation</span>
-                        {row.sourceUrl ? (
-                          <a href={row.sourceUrl} target="_blank" rel="noreferrer">
-                            {row.sourceName} · original data ↗
-                          </a>
-                        ) : <span>Original-source link unavailable</span>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className={styles.secondaryPanel} role="status">
-              <h3>Observations unavailable</h3>
-              <p className={styles.muted}>
-                {monitor
-                  ? "No source-qualified prices for this group."
-                  : "Market data unavailable."}
-              </p>
-            </div>
-          )}
-
-          <p className={styles.publicMarketNote}>
-            Changes: rates in bp; others in %. Monthly yields show levels only. Dates are from sources; data may lag.
-          </p>
+          <PublicMarketScreener observations={observations} group={group} dataAvailable={Boolean(monitor)} />
         </section>
 
         {hormuz ? <HormuzCrossings monitor={hormuz} /> : null}
