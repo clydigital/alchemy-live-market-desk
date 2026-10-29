@@ -49,11 +49,29 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
     });
   }
 
-  const visible = useMemo(() => filterPublicMarketObservations(observations, {
-    query, window, unit, direction, minMove: minimum, sort,
-  }), [observations, query, window, unit, direction, minimum, sort]);
+  const visible = useMemo(() => {
+    const rows=filterPublicMarketObservations(observations, {
+      query, window, unit, direction, minMove: minimum, sort,
+    });
+    if (!columnSort) return rows;
+    const numeric=(row:PublicMarketObservation) => columnSort==="last" ? row.last :
+      columnSort==="1D"||columnSort==="3D"||columnSort==="5D" ?
+      publicMarketWindowChange(row,columnSort) : null;
+    return [...rows].sort((a,b)=>{
+      if(columnSort==="instrument"||columnSort==="source"){
+        const left=columnSort==="instrument"?a.label:a.sourceName;
+        const right=columnSort==="instrument"?b.label:b.sourceName;
+        return (ascending?1:-1)*left.localeCompare(right);
+      }
+      const x=numeric(a),y=numeric(b);
+      if(x===null)return y===null?0:1;
+      if(y===null)return -1;
+      return (ascending?1:-1)*(x-y);
+    });
+  }, [observations, query, window, unit, direction, minimum, sort, columnSort, ascending]);
 
-  function reset() {\n    setColumnSort(null);
+  function reset() {
+    setColumnSort(null);
     setQuery(DEFAULT_PUBLIC_MARKET_FILTERS.query);
     setWindow("1D");
     setUnit(initialUnit);
