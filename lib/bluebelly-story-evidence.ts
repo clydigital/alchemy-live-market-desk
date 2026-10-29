@@ -8,8 +8,9 @@ export function topicTrendKey(topic:EvidenceTopic):string|null{
  if(/\b(?:hormuz|brent|wti|crude|oil|tanker|shipping|opec|lng)\b/.test(subject))return "energy";
  if(/\b(?:nvidia|nvda|micron|mu|tsmc|tsm|hynix|semiconductor|chips?|hbm|sandisk|sndk|amd)\b/.test(subject))return "semiconductors";
  if(/\b(?:jpy|yen|dxy|usd.?jpy|boj|bank of japan)\b/.test(subject))return "fx";
- if(/\b(?:treasur(?:y|ies)|10.year|30.year|bond|credit|spread|long.yield)\b/.test(subject))return "rates-long";
- if(/\b(?:fomc|federal reserve|\bfed\b|warsh|us2y|short.yield)\b/.test(subject))return "rates-short";
+ if(/\b(?:2.year|2y|us2y|short.yield)\b/.test(subject))return "rates-short";
+ if(/\b(?:10.year|30.year|long.yield|treasur(?:y|ies)|bond|credit|spread)\b/.test(subject))return "rates-long";
+ if(/\b(?:fomc|federal reserve|\bfed\b|warsh)\b/.test(subject))return "rates-short";
  if(/\b(?:spx|s&p|nasdaq|equities|stocks?|earnings|amazon|amzn|alphabet|googl|microsoft|msft|meta|apple|aapl)\b/.test(subject))return "equities";
  return null;
 }
