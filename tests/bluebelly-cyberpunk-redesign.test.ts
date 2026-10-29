@@ -66,3 +66,24 @@ test('public editorial and glossary cards inherit all four live Bluebelly themes
  assert.match(art,/fill="var\(--bb-card-quiet\)"/);
  assert.match(art,/NOT MARKET DATA/);
 });
+
+test('Key Stories coverage is a compact high-contrast cyberpunk HUD, not nested pill counters',()=>{
+ const page=readFileSync('app/blue-desk/key-stories/page.tsx','utf8');
+ const css=readFileSync('app/blue-desk/key-stories/key-stories.module.css','utf8');
+ assert.match(page,/data-coverage-hud="public-source-counts"/);
+ assert.equal((page.match(/className=\{ui\.summaryMetric\}/g)||[]).length,3);
+ assert.match(page,/className=\{ui\.summaryTimestamp\}/);
+ assert.match(page,/className=\{ui\.summaryTime\}/);
+ assert.match(page,/<strong>\{theses\.length\}<\/strong>/);
+ assert.match(css,/\.summary\{\s*display:grid/);
+ assert.match(css,/\.summaryMetric,.summaryTimestamp\{/);
+ assert.match(css,/clip-path:polygon/);
+ assert.match(css,/\.summaryMetric::before,.summaryTimestamp::before\{/);
+ assert.match(css,/\.summaryMetric strong\{/);
+ assert.match(css,/color:var\(--bb-text\)/);
+ assert.match(css,/\.summaryTime>small\{color:var\(--bb-muted\)/);
+ assert.match(css,/@media\(max-width:1050px\)/);
+ assert.match(css,/@media\(max-width:480px\)/);
+ assert.doesNotMatch(css,/\.summary span\{/);
+ assert.doesNotMatch(css,/\.summaryMetric[^}]*border-radius:(?:100px|50px|100%)/);
+});

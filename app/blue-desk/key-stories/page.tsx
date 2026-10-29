@@ -231,11 +231,14 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
         </nav>
       </header>
 
-      <div className={ui.summary} aria-label="Desk coverage">
-        <span>{news.length} source-verified news updates</span>
-        <span>{topics.length} active news themes</span>
-        <span>{theses.length} ongoing research stories</span>
-        <span>Feed checked <DualTimestamp value={now.toISOString()} /></span>
+      <div className={ui.summary} aria-label="Desk coverage" data-coverage-hud="public-source-counts">
+        <div className={ui.summaryMetric}><strong>{news.length}</strong><span>Source-verified news updates</span></div>
+        <div className={ui.summaryMetric}><strong>{topics.length}</strong><span>Active news themes</span></div>
+        <div className={ui.summaryMetric}><strong>{theses.length}</strong><span>Ongoing research stories</span></div>
+        <div className={ui.summaryTimestamp}>
+          <span className={ui.summaryLabel}>FEED CHECKED</span>
+          <DualTimestamp value={now.toISOString()} className={ui.summaryTime} />
+        </div>
       </div>
       <section className={ui.section} aria-label="Dated editorial features"><h2>The decision and the money</h2><div className={ui.cards}>{EDITORIAL_FEATURES.map(feature=><article className={ui.card} key={feature.id}><p className={ui.kicker}>DATED EDITORIAL · 29 OCTOBER 2026</p><h3><Link href={indexHref+"?feature="+feature.id}>{feature.title}</Link></h3><p>{feature.summary}</p></article>)}</div></section>
       <section className={ui.section} id="current-developments" aria-label="Current event readers"><h2>Current developments</h2><div className={ui.cards}>{topics.map(topic=><article className={ui.card} key={topic.id}><p className={ui.kicker}>VERIFIED NEWS · <DualTimestamp value={topic.latestObservedAt}/></p><h3><Link href={indexHref+"?catalyst="+topic.id}>{topic.updates[0].headline}</Link></h3><p>{topic.guidingQuestion}</p></article>)}<article className={ui.card}><p className={ui.kicker}>DATED FEATURE · 28 OCTOBER 2026</p><h3><Link href={indexHref+"?feature=rbnz-october-2026"}>New Zealand’s surprise pause</Link></h3><p>Why a hold can surprise: follow expectations, the decision and the reported currency response.</p></article></div></section>

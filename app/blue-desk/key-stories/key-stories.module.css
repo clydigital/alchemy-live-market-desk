@@ -1,7 +1,7 @@
 .intro{border:1px solid #2b617e;border-radius:12px;padding:clamp(18px,3vw,32px);background:linear-gradient(135deg,#042c48,#061c2d)}
 .intro h1{font-size:clamp(30px,4vw,48px);margin:8px 0;line-height:1.1;color:#f2fbff}.intro p{font-size:15px;max-width:77ch;line-height:1.6;color:#b6d3e3}
-.intro a{font-size:13px}.summary{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0}
-.summary span{border:1px solid #31637e;background:#07283b;padding:8px 12px;border-radius:6px;font-size:12px;color:#d0e8f5}
+.intro a{font-size:13px}
+
 .section{margin:24px 0 0}.section h2{font-size:clamp(23px,2.5vw,32px);letter-spacing:-.03em;color:#f2faff}
 .section>p{max-width:82ch;color:#b7d3e2;font-size:14px;line-height:1.6}
 .cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:18px 0}
@@ -73,8 +73,8 @@
 }
 .intro p{max-width:63ch;font-size:clamp(14px,1.35vw,16px);line-height:1.75}
 .intro p:nth-of-type(3){color:#9fc0d0;font-size:13px}
-.summary{margin:22px 0 25px;gap:9px}
-.summary span{border-color:#234d61;background:#052435;border-radius:100px;padding:8px 13px}
+
+
 .section{margin-top:clamp(26px,4vw,48px)}
 .section h2{font-family:var(--bluebelly-font);font-weight:600;
   letter-spacing:-.035em;font-size:clamp(28px,3vw,38px);margin-bottom:12px}
@@ -107,8 +107,8 @@
  .intro h1{font-size:clamp(34px,8vw,48px)}
  .cards{grid-template-columns:1fr}
  .card{padding:22px 18px}
- .summary{gap:7px}
- .summary span{font-size:11px;padding:7px 11px}
+ 
+ 
 }
 @media(prefers-reduced-motion:reduce){
  .card{transition:none}
@@ -135,8 +135,8 @@
 .indexNav a:first-child{background:#154c5b;border-color:#4ba7b2;color:#eaffff}
 .section{scroll-margin-top:100px}
 .investorTest{margin-top:30px}
-.summary{margin-top:18px;margin-bottom:25px}
-.summary span{background:#092a3c;border-color:#2c5367;font-size:11px}
+
+
 .catalystGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
 .catalystCard{background:linear-gradient(155deg,#073245,#041f30);border:1px solid #2e637b;padding:clamp(18px,2vw,24px)}
 .catalystCard h3{font-size:clamp(20px,2.1vw,27px)}
@@ -165,3 +165,79 @@
 .more summary{color:var(--bb-accent)}
 .intro{background:var(--bb-card-bg)!important;border-color:var(--bb-card-border)}
 @media(prefers-reduced-motion:reduce){.card,.catalystCard,.calendarCard{transition:none}}
+
+/* Stories coverage HUD: counters must read as sharp instruments, not badge pills.
+   Scope everything to this component so DualTimestamp's nested spans remain bare. */
+.summary{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr)) minmax(230px,1.2fr);
+  gap:10px;
+  margin:18px 0 25px;
+}
+.summaryMetric,.summaryTimestamp{
+  position:relative;
+  isolation:isolate;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:flex-start;
+  gap:6px;
+  min-width:0;
+  min-height:82px;
+  padding:12px 17px;
+  border:0;
+  border-radius:0;
+  background:var(--bb-accent);
+  clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));
+}
+.summaryMetric::before,.summaryTimestamp::before{
+  content:"";
+  position:absolute;
+  inset:1px;
+  z-index:0;
+  clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,13px 100%,0 calc(100% - 13px));
+  background:linear-gradient(118deg,
+    color-mix(in srgb,var(--bb-surface) 92%,var(--bb-accent) 8%),
+    color-mix(in srgb,var(--bb-canvas) 97%,var(--bb-accent) 3%));
+}
+.summaryMetric::after,.summaryTimestamp::after{
+  content:"";
+  position:absolute;
+  z-index:1;
+  bottom:9px;
+  right:14px;
+  height:2px;
+  width:23px;
+  background:var(--bb-accent);
+}
+.summaryMetric>*,.summaryTimestamp>*{position:relative;z-index:1}
+.summaryMetric strong{
+  font:900 29px/1 var(--bb-display);
+  letter-spacing:-.045em;
+  color:var(--bb-accent);
+  font-variant-numeric:tabular-nums;
+}
+.summaryMetric>span{
+  color:var(--bb-text);
+  font-size:12px;
+  line-height:1.35;
+  font-weight:700;
+  overflow-wrap:anywhere;
+}
+.summaryLabel{
+  font:800 10px/1.2 var(--bb-mono);
+  color:var(--bb-accent);
+  letter-spacing:.075em;
+}
+.summaryTime{display:block;max-width:100%;font-size:12px;line-height:1.35;color:var(--bb-text);overflow-wrap:anywhere}
+.summaryTime>span{color:var(--bb-text);font-weight:750}
+.summaryTime>small{color:var(--bb-muted);font-size:10px!important;opacity:1!important}
+@media(max-width:1050px){.summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){
+  .summary{gap:8px}
+  .summaryMetric,.summaryTimestamp{min-height:94px;padding:12px 13px}
+  .summaryMetric strong{font-size:27px}
+  .summaryMetric>span{font-size:11px}
+  .summaryTime{font-size:11px}
+}
+@media(max-width:340px){.summary{grid-template-columns:minmax(0,1fr)}.summaryMetric,.summaryTimestamp{min-height:74px}}
