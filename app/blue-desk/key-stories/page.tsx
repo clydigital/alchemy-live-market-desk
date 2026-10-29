@@ -22,6 +22,8 @@ import {classifyPublicStory,PUBLIC_STORY_CATEGORIES} from "@/lib/blue-desk-story
 import StoryEditorialArticle from "@/components/blue-desk/StoryEditorialArticle";
 import VerifiedCatalystArticle from "@/components/blue-desk/VerifiedCatalystArticle";
 import ShortNewsRecap, {recapFromDecision,recapFromNews} from "@/components/blue-desk/ShortNewsRecap";
+import KeyStoryDeepArticle from "@/components/blue-desk/KeyStoryDeepArticle";
+import {OCTOBER_FED_DEPTH,storyCoverageForNews,storyDepthForNews} from "@/lib/bluebelly-key-story-depth";
 import NewsroomEventReader from "@/components/blue-desk/NewsroomEventReader";
 import {getEventSocialContext} from "@/lib/bluebelly-event-social-server";
 import {bankDecisionById} from "@/lib/bluebelly-bank-decision-snapshots";
@@ -51,6 +53,15 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
   const host = (await headers()).get("host");
   const editorialKind=params?.feature==="amazon-cash-test-october-2026"?"amazon":params?.feature==="fomc-october-2026"?"fomc":null;
   if(editorialKind)return <main className={desk.page}><BlueDeskHeader activePath="/blue-desk/key-stories"/><div className={desk.content}><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link><AmazonFomcFeatures kind={editorialKind}/></div></main>;
+  // This known public October FOMC edition has a separately reviewed source
+  // packet. Its permanent bookmark must not expire with the seven-day news tape.
+  // A query cannot select other editorial or private records.
+  if(params?.news==="e378d91d-deb9-4148-88c5-ab6bf5ef367f")return <main className={desk.page} data-bluebelly-news="depth-reviewed-original-event">
+    <BlueDeskHeader activePath="/blue-desk/key-stories"/>
+    <div className={desk.content}><KeyStoryDeepArticle depth={OCTOBER_FED_DEPTH}
+      backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}
+      relatedHref={blueDeskPublicHref("/blue-desk/key-stories",host)+"?feature=fomc-october-2026"}/></div>
+  </main>;
   // Dated and bounded on-site editor-verified policy / reported-rumour readers.
   // They are NOT accepted original-RSS NewsBrief records or private research.
   const policy=typeof params?.policy==="string"?bankDecisionById(params.policy,now):null;
@@ -112,10 +123,19 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
   const newsId=typeof params?.news==="string"&&/^[a-z0-9_-]{1,150}$/i.test(params.news)?params.news:null;
   if(newsId){
     const event=recentNews.find(n=>n.id===newsId);
+    // Reuse a reviewed packet for any matching original, clock-qualified
+    // public news receipt. No on-page research or trust in arbitrary IDs.
+    const researched=event?storyDepthForNews(event):null;
+    if(event&&researched)return <main className={desk.page} data-bluebelly-news="depth-reviewed-original-event">
+      <BlueDeskHeader activePath="/blue-desk/key-stories"/>
+      <div className={desk.content}><KeyStoryDeepArticle receipt={event} depth={researched}
+        backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}
+        relatedHref={blueDeskPublicHref("/blue-desk/key-stories",host)+(researched.relatedHref||"")}/></div>
+    </main>;
     return <main className={desk.page} data-bluebelly-news="single-receipt-reader">
       <BlueDeskHeader activePath="/blue-desk/key-stories"/>
       <div className={desk.content}>{event?
-        <ShortNewsRecap recap={recapFromNews(event)} backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}/>:
+        <ShortNewsRecap recap={recapFromNews(event)} coverage={storyCoverageForNews(event)} backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}/>:
         <section className={ui.empty}><h1>Report unavailable</h1>
          <p>That report is outside the verified public news window.</p>
          <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>All Key Stories</Link></section>}</div>
@@ -303,8 +323,8 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
           <div style={{maxWidth:240,marginBottom:12}}><EditorialStoryArt headline={n.headline} summary={n.summary} compact/></div>
           <p className={ui.kicker}>EARLIER REPORT · <DualTimestamp value={n.occurredAt}/></p>
           <h3><Link href={indexHref+"?news="+encodeURIComponent(n.id)}>{n.headline}</Link></h3>
-          <p>What changed, the financial mechanism, the complication and the next source check.</p>
-          <Link className={ui.storyRead} href={indexHref+"?news="+encodeURIComponent(n.id)}>Read short Bluebelly recap →</Link>
+          <p>{storyCoverageForNews(n).status==="RESEARCH_ENRICHED"?"Full dated analysis available: previous, expectation, actual, market implications and evidence limits.":"Original announcement verified. Prior expectations, numerical comparison and actual market response remain research gaps."}</p>
+          <Link className={ui.storyRead} href={indexHref+"?news="+encodeURIComponent(n.id)}>{storyCoverageForNews(n).status==="RESEARCH_ENRICHED"?"Read the financial investigation →":"Read source notice and research gaps →"}</Link>
           <p><small>{n.sourceName} · verified original report</small></p>
         </article>)}</div>
       </section>:null}

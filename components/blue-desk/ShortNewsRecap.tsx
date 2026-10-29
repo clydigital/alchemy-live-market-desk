@@ -7,6 +7,7 @@ import type {VerifiedEarningsScorecard} from "@/lib/blue-desk-earnings-results";
 import {projectLivingMarketTopics} from "@/lib/blue-desk-living-topics";
 import {decisionTopics} from "@/lib/bluebelly-decision-brief";
 import ui from "./ShortNewsRecap.module.css";
+import type {StoryCoverageStatus} from "@/lib/bluebelly-key-story-depth";
 
 type Recap={
  title:string;fact:string;stake:string;mechanism:string;nextTest:string;
@@ -40,7 +41,28 @@ export function recapFromDecision(
  };
 }
 /** Read-only explanation of the existing qualified record, never an on-request AI verdict. */
-export default function ShortNewsRecap({recap,backHref}:{recap:Recap;backHref:string}){
+export default function ShortNewsRecap({recap,backHref,coverage}:{recap:Recap;backHref:string;coverage?:StoryCoverageStatus}){
+ if(coverage?.status==="SOURCE_ONLY")return <article className={ui.article} data-bluebelly-news-recap="source-only-depth-incomplete">
+  <nav className={ui.back}><Link href={backHref}>← Return to Key Stories</Link></nav>
+  <header className={ui.hero}><div className={ui.head}>
+    <p className={ui.kicker}>SOURCE-VERIFIED REPORT · RESEARCH DEPTH INCOMPLETE</p>
+    <h1>{recap.title}</h1>
+    <p className={ui.deck}>The dated source report was verified. The previous baseline, expectation, financial effect and market response still need evidence before this can be presented as a researched Key Story.</p>
+    <div className={ui.time}><DualTimestamp value={recap.asOf}/></div>
+  </div><EditorialStoryArt headline={recap.title} summary={recap.fact}/></header>
+  <div className={ui.chapters}>
+    <section><p className={ui.kicker}>WHAT WE CAN VERIFY</p><h2>The confirmed development</h2><p>{recap.fact}</p></section>
+    <section><p className={ui.kicker}>WHAT IS STILL MISSING</p><h2>What must be researched before calling this the full story?</h2>
+      <ul>{coverage.missing.map(item=><li key={item}>{item}</li>)}</ul>
+      <p className={ui.caution}>No consensus surprise, specific price reaction or company impact has been inferred from the headline.</p>
+    </section>
+  </div>
+  <footer className={ui.source}><strong>Dated source evidence</strong>
+   <p>This is a qualified report in the Newsroom evidence tier, not a completed investor investigation. The next existing research review can connect a sourced comparator and publish a new dated edition.</p>
+   {validSource(recap.sourceUrl)?<a href={recap.sourceUrl} target="_blank" rel="noopener noreferrer">{recap.sourceName} · dated source ↗</a>:<span>Original source link unavailable</span>}
+  </footer>
+ </article>;
+
  const hasInstant=/^\d{4}-\d{2}-\d{2}T/.test(recap.asOf);
  return <article className={ui.article} data-bluebelly-news-recap="source-qualified">
   <nav className={ui.back}><Link href={backHref}>← Return to Key Stories</Link></nav>
