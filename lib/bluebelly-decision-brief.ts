@@ -19,8 +19,8 @@ export function decisionTopics(news: readonly NewsBriefV1[], calendar: Presenter
   // seven days, and never masquerades as a canonical source-admitted NewsBrief.
   // If original-source news intake has published it, avoid duplicate cards.
   for(const result of getRecentOfficialMacroResults(now)){
-    if(current.some(n=>/\\b(?:PCE|personal consumption expenditures)\\b/i.test(n.headline) &&
-      /(?:September|Sep\\.?|2026)/i.test(n.headline+" "+n.summary)))continue;
+    if(current.some(n=>/\b(?:PCE|personal consumption expenditures)\b/i.test(n.headline) &&
+      /(?:September|Sep\.?|2026)/i.test(n.headline+" "+n.summary)))continue;
     topics.push({
       id:result.id,title:result.title,fact:result.fact,why:result.why,
       test:result.test,at:result.releaseAt,sourceUrl:result.sourceUrl,
