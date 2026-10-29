@@ -25,6 +25,8 @@ import ShortNewsRecap, {recapFromDecision,recapFromNews} from "@/components/blue
 import KeyStoryDeepArticle from "@/components/blue-desk/KeyStoryDeepArticle";
 import {OCTOBER_FED_DEPTH,storyCoverageForNews,storyDepthForNews} from "@/lib/bluebelly-key-story-depth";
 import NewsroomEventReader from "@/components/blue-desk/NewsroomEventReader";
+import {PostEventRecapArticle} from "@/components/blue-desk/PostEventRecap";
+import {findPostEventRecap} from "@/lib/bluebelly-post-event-recap";
 import {getEventSocialContext} from "@/lib/bluebelly-event-social-server";
 import {bankDecisionById} from "@/lib/bluebelly-bank-decision-snapshots";
 import {reportedEditorialById} from "@/lib/bluebelly-reported-editorial";
@@ -47,10 +49,24 @@ export const metadata = {
   description: "Dated market catalysts explained in human terms, upcoming company decisions and historical Story context.",
 };
 
-export default async function KeyStories({searchParams}:{searchParams?:Promise<{story?:string;category?:string;catalyst?:string;feature?:string;page?:string;news?:string;brief?:string;policy?:string;reported?:string}>}){
+export default async function KeyStories({searchParams}:{searchParams?:Promise<{story?:string;category?:string;catalyst?:string;feature?:string;page?:string;news?:string;brief?:string;policy?:string;reported?:string;postEvent?:string}>}){
   const params=await searchParams;
   const now = new Date();
   const host = (await headers()).get("host");
+  // Public, allowlisted post-event recaps reuse previously reviewed source
+  // snapshots; arbitrary query IDs never select private research or a URL.
+  const recapId=typeof params?.postEvent==="string"&&/^[a-z0-9_-]{1,150}$/i.test(params.postEvent)?params.postEvent:null;
+  const postEvent=recapId?findPostEventRecap(recapId,[],now):null;
+  if(postEvent){
+    const commentary=postEvent.kind==="bank"
+      ?await getEventSocialContext(postEvent.id,postEvent.releaseAt,now).catch(()=>[])
+      :[];
+    return <main className={desk.page} data-key-story="post-event-source-reviewed">
+      <BlueDeskHeader activePath="/blue-desk/key-stories"/>
+      <div className={desk.content}><PostEventRecapArticle recap={postEvent} socialPosts={commentary}
+        backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}/></div>
+    </main>;
+  }
   const editorialKind=params?.feature==="amazon-cash-test-october-2026"?"amazon":params?.feature==="fomc-october-2026"?"fomc":null;
   if(editorialKind)return <main className={desk.page}><BlueDeskHeader activePath="/blue-desk/key-stories"/><div className={desk.content}><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link><AmazonFomcFeatures kind={editorialKind}/></div></main>;
   // This known public October FOMC edition has a separately reviewed source
