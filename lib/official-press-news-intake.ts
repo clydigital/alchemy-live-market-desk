@@ -240,7 +240,14 @@ function matchingRecoveryUrl(recovered:{resolvedUrl:string|null}, requested:stri
  // A provider redirect to a different article or publisher cannot establish
  // the identity of the original RSS entry.
  if(!recovered.resolvedUrl)return true;
- return fixedUrl(recovered.resolvedUrl,feed)===fixedUrl(requested,feed);
+ // RSS endpoints are not article paths; compare exact publisher endpoint
+ // strings rather than comparing two null article allowlist results.
+ if(requested===feed.feed){
+   try{return new URL(recovered.resolvedUrl).toString()===new URL(feed.feed).toString();}
+   catch{return false;}
+ }
+ const expected=fixedUrl(requested,feed);
+ return Boolean(expected)&&fixedUrl(recovered.resolvedUrl,feed)===expected;
 }
 async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch, scrapeImpl: ScrapePublic): Promise<Result> {
   const diagnostics:FeedDiagnostics={feedEntries:0,rejectedUrl:0,unattestedPolicyClock:0,
