@@ -37,6 +37,9 @@ test("owner draft delivery enriches the packet but never upgrades Notion or News
  assert.match(p.packet,/NOT independently verified News/);
  assert.match(p.packet,/No current Notion material accessible/);
  assert.match(p.packet,/No source-verified recent news found/);
+ assert.match(p.packet,/WHY IT MOVED/);
+ assert.match(p.packet,/WHY IT MATTERS/);
+ assert.match(p.packet,/3-5 distinct source-supported news picks/);
  assert.ok(p.sourceUrls.includes(delivered.source_page_url));
  assert.ok(p.sourceUrls.includes(delivered.source_links[0].url));
  assert.equal(p.researchSourceCandidates.length,1);
