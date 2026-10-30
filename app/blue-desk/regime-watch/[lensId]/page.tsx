@@ -9,6 +9,8 @@ import {getPublicSourceObservations} from "@/lib/blue-desk-source-observations";
 import {EDITORIAL_REGIME_LENSES,groupPublicResearch} from "@/lib/bluebelly-editorial-architecture";
 import {REGIME_LENS_WORKBOOKS,matchRecentLensObservations} from "@/lib/bluebelly-regime-lens-workbook";
 import {quickViewsForLens,FUNDAMENTAL_VIEW_REVIEWED_ON} from "@/lib/bluebelly-fundamental-quickview";
+import {matchAssetSourceEvents,projectAssetTape} from "@/lib/bluebelly-regime-asset-context";
+import {getMarketMonitor} from "@/lib/market-monitor-public";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import type {EditorialMotif} from "@/lib/bluebelly-editorial-visuals";
 import desk from "../../blue-desk.module.css";
@@ -32,13 +34,15 @@ export default async function ResearchLensPage({params}:Props){
  const definition=EDITORIAL_REGIME_LENSES.find(item=>item.id===lensId);
  if(!definition)notFound();
  const now=new Date(),host=(await headers()).get("host");
- const [publicTheses,sourceObservations]=await Promise.all([
+ const [publicTheses,sourceObservations,marketMonitor]=await Promise.all([
   getPublicThesisLedger(now,38).catch(()=>null),
-  getPublicSourceObservations(now,12).catch(()=>null),
+  getPublicSourceObservations(now,24).catch(()=>null),
+  getMarketMonitor().catch(()=>null),
  ]);
  const lens=groupPublicResearch(publicTheses||[]).find(item=>item.id===lensId)!;
  const workbook=REGIME_LENS_WORKBOOKS[lens.id];
  const assessments=quickViewsForLens(lens.id);
+ const assetContext=assessments.map(asset=>({asset,sources:matchAssetSourceEvents(asset.id,sourceObservations,now),tape:projectAssetTape(asset.id,marketMonitor?.rows??null,now)}));
  const recent=matchRecentLensObservations(lens.id,sourceObservations||[],now);
  const newest=lens.stories.find(story=>workbook.leadHeadlinePattern.test(story.title))||null;
  const base=blueDeskPublicHref("/blue-desk/regime-watch",host);
@@ -63,7 +67,7 @@ export default async function ResearchLensPage({params}:Props){
    </header>
 
    <nav className={styles.pageNav} aria-label="Sections in this research lens">
-    {assessments.length?<a href="#fundamental-assessment">Fundamental assessment</a>:null}
+    {assessments.length?<><a href="#fundamental-assessment">Fundamental assessment</a><a href="#asset-monitoring">Latest original sources &amp; tape</a></>:null}
     <a href="#research-position">Recorded position</a>
     {workbook.policyDilemma?<a href="#policy-dilemma">Fed policy dilemma</a>:null}
     <a href="#mechanism">Transmission</a>
@@ -88,6 +92,26 @@ export default async function ResearchLensPage({params}:Props){
      <small>Last dated supporting observation: {asset.sourceObservationDate}; current technical setup not certified here.</small>
     </article>)}</div>
     <p className={styles.caveat}>No fresh matched data means the correct display may be UNRESOLVED. Public source coverage and stored Story records below do not certify an updated regime judgement.</p>
+   </section>:null}
+
+   {assetContext.length?<section id="asset-monitoring" className={styles.section} aria-label="Dated original-source and market tape context" data-regime-asset-live-context="qualified-readers-only">
+    <span className={styles.kicker}>SOURCE CHECK / PRICE TAPE / FRESHNESS</span>
+    <h2>What has actually been observed since the review?</h2>
+    <p>This separate read reuses qualified public originals and the existing Market Monitor. Observed prices and 48-hour topic matches can change without implying that the reviewed fundamental verdict has changed. The source sample is bounded; unreported events remain unknown.</p>
+    <div className={styles.forkGrid}>{assetContext.map(({asset,sources,tape})=><article className={styles.fork} key={asset.id} data-asset-evidence={asset.id}>
+     <span className={styles.kicker}>{asset.asset.toUpperCase()} · DATED DATA</span>
+     <h3>{tape.last===null?"Market observation unavailable":tape.last.toLocaleString("en-US",{maximumFractionDigits:3})+(tape.changeUnit==="bp"?"%":"")+(tape.instrument?" · "+tape.instrument:"")}</h3>
+     <p>{tape.change===null?"Dated daily change not available":(tape.change>0?"+":"")+tape.change+tape.changeUnit+" versus previous close"} {tape.observedAt?"· "+tape.observedAt:""}</p>
+     <small>{tape.measurement||"No suitable direct market instrument"} · {tape.note}</small>
+     {tape.sourceUrl?<p><a href={tape.sourceUrl} target="_blank" rel="noopener noreferrer">{tape.sourceName} · original market feed ↗</a></p>:null}
+     <h4>Recent original-source matches</h4>
+     {sources.state==="UNAVAILABLE"?<p>Source feed unavailable—not a quiet-market reading.</p>:
+      sources.items.length===0?<p>No directly matched 48-hour source item in this bounded sample.</p>:
+      <ul>{sources.items.map(item=><li key={item.id}>
+       <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">{item.description}</a>
+       <small> {item.sourceName} · {item.eventAt.slice(0,10)} · topical match only</small>
+      </li>)}</ul>}
+    </article>)}</div>
    </section>:null}
 
    <section id="research-position" className={styles.atGlance} aria-labelledby="research-position-heading">
