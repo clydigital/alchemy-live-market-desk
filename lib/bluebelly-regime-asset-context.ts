@@ -107,7 +107,7 @@ export function projectAssetTape(
    ||!row.asOf||!safeHttps(row.sourceUrl))return base;
   const at=validTime(row.asOf,now);
   if(at===null)return base;
-  const tooOld=+now-at>96*3600000;
+  const tooOld=+now-at>48*3600000;
   const prev=row.previousClose;
   const change=tooOld||prev===null||!Number.isFinite(prev)||prev===0?null:
     spec.unit==="yield"?Number(((row.last-prev)*100).toFixed(1)):
@@ -117,6 +117,6 @@ export function projectAssetTape(
     instrument:row.symbol,last:row.last,change,changeUnit:spec.unit==="yield"?"bp":"%",
     observedAt:row.asOf,sourceName:row.sourceName,sourceUrl:row.sourceUrl,
     measurement:spec.measurement,
-    note:tooOld?"Last observation exceeds the 96-hour freshness limit; no daily change displayed.":"Observed market tape only; not a causal explanation or fundamental verdict.",
+    note:tooOld?"Last observation exceeds the 48-hour freshness limit; no daily change displayed.":"Observed market tape only; not a causal explanation or fundamental verdict.",
   };
 }
