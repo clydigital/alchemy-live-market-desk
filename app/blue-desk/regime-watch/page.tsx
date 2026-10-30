@@ -39,8 +39,8 @@ export default async function RegimeWatchPage(){
    <section className={styles.quickSection} aria-labelledby="fundamental-quick-view" data-fundamental-quick-view="dated-editorial-opinion-not-canonical">
     <div className={styles.quickHead}>
      <div><span className={styles.kicker}>ONE-STOP FUNDAMENTALS / RESEARCH ASSESSMENT</span>
-      <h2 id="fundamental-quick-view">Bullish, bearish or unresolved—what is the evidence?</h2>
-      <p>Research interpretation reviewed {FUNDAMENTAL_VIEW_REVIEWED_ON} (MYT), not an automatically updated trading signal. Asset-specific original-source observations and dated market tape refresh from existing public readers; neither silently flips a fundamental assessment.</p>
+      <h2 id="fundamental-quick-view">Bullish, bearish or unresolved?</h2>
+      <p>Reviewed {FUNDAMENTAL_VIEW_REVIEWED_ON} (MYT). New source items and dated prices appear separately; neither automatically changes a fundamental verdict.</p>
      </div>
      <div className={styles.quickAge} data-assessment-age={snapshotAge===null?"unknown":snapshotAge>7?"stale":"dated"}>
       <strong>{snapshotAge===null?"Review age unavailable":snapshotAge>7?"Assessment needs review":"Dated analyst assessment"}</strong>
@@ -78,7 +78,7 @@ export default async function RegimeWatchPage(){
         <small>Rolling 48h bounded sample · not a verdict update</small>
        </div>
        <div className={styles.quickTape} data-tape-state={marketContext.state}>
-        <span>MARKET TAPE · SEPARATE FROM FUNDAMENTALS</span>
+        <span>MARKET TAPE · SEPARATE FROM FUNDAMENTALS {marketContext.state==="STALE"?"· STALE OBSERVATION":""}</span>
         {marketContext.last===null?<strong>{marketContext.note}</strong>:<>
          <strong>{marketContext.last.toLocaleString("en-US",{maximumFractionDigits:marketContext.changeUnit==="bp"?2:3})}{marketContext.changeUnit==="bp"?"%":""} {marketContext.instrument?"· "+marketContext.instrument:""}</strong>
          {marketContext.change!==null?<small>{marketContext.change>0?"+":""}{marketContext.change}{marketContext.changeUnit} vs previous close · {marketContext.observedAt}</small>:<small>{marketContext.state==="STALE"?"STALE · ": "Change unavailable · "}{marketContext.observedAt}</small>}
