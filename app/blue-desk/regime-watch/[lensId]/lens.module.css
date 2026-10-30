@@ -137,7 +137,7 @@
 
 /* Lens-level editorial outlook is the leading decision block, not a model score. */
 .outlookPanel{border:1px solid var(--bb-card-border);border-radius:10px;background:var(--bb-card-bg);padding:22px;margin:16px 0 11px;scroll-margin-top:22px;min-width:0}
-.outlookTop{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(230px,.9fr);gap:21px;align-items:start}
+.outlookTop{display:grid;grid-template-columns:minmax(230px,.9fr) minmax(0,1.9fr);gap:21px;align-items:start}
 .outlookNarrative h2{font:580 clamp(24px,2.5vw,32px)/1.25 var(--bluebelly-font);color:var(--bb-text);margin:9px 0 12px}
 .outlookNarrative>p{color:var(--bb-text);font-size:14px;line-height:1.7;margin:0}
 .outlookMeterPanel{min-width:0}
@@ -149,7 +149,7 @@
 .outlookFooter p{font-size:11px;line-height:1.65;margin:6px 0}
 .outlookFooter strong{color:var(--bb-text)}
 .outlookFooter a{color:var(--bb-accent)}
-@media(max-width:900px){.outlookTop{grid-template-columns:minmax(0,1fr) minmax(200px,.85fr)}.outlookWhy{grid-template-columns:1fr}}
+@media(max-width:900px){.outlookTop{grid-template-columns:minmax(200px,.85fr) minmax(0,1fr)}.outlookWhy{grid-template-columns:1fr}}
 @media(max-width:670px){
  .outlookPanel{padding:13px;margin:10px 0}
  .outlookTop{display:flex;flex-direction:column;gap:12px}
