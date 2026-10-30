@@ -1,0 +1,48 @@
+name: Regime Watch visual verification
+
+on:
+  pull_request:
+    paths:
+      - 'app/blue-desk/regime-watch/**'
+      - 'lib/bluebelly-fundamental-quickview.ts'
+      - 'lib/bluebelly-regime-asset-context.ts'
+      - 'scripts/bluebelly-regime-ui-smoke.mjs'
+      - '.github/workflows/bluebelly-regime-visual.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bluebelly-regime-visual-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  visual-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package.json
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build production Next app (no deploy)
+        run: npx next build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+      - name: Check real public/owner route behavior and render desktop/mobile
+        run: node scripts/bluebelly-regime-ui-smoke.mjs
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+      - name: Upload screenshots for inspection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regime-watch-desktop-mobile-${{ github.run_id }}
+          path: artifacts/regime-ui/*.png
+          if-no-files-found: warn
+          retention-days: 7
