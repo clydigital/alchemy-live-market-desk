@@ -24,7 +24,7 @@ export type LensResearchOutlook=Readonly<{
 }>;
 
 export const LENS_OUTLOOK_REVIEWED_ON="2026-10-30" as const;
-export const LENS_OUTLOOK_VERSION="bluebelly/editorial-lens-outlook/2026-10-30/2" as const;
+export const LENS_OUTLOOK_VERSION="bluebelly/editorial-lens-outlook/2026-10-30/3" as const;
 
 export const LENS_RESEARCH_OUTLOOKS:Readonly<Record<EditorialRegimeId,LensResearchOutlook>>={
  fed:{
@@ -34,12 +34,12 @@ export const LENS_RESEARCH_OUTLOOKS:Readonly<Record<EditorialRegimeId,LensResear
   directionTarget:"Prospects for near-term Fed easing",
   horizon:"Next 1–3 policy meetings",
   headline:"Rate-cut hopes face a stronger inflation barrier",
-  why:"September headline PCE rose 3.6% year on year and 0.5% on the month, while core PCE was 3.1% year on year. The Fed held rates at 3.75–4.00% on 28 October, but two of ten voters preferred a 25bp hike—not a cut. Real disposable income fell 0.3% in September, so the policy mix is restrictive even while household buying power weakens. This is bearish for near-term easing expectations, not a forecast that the dollar or every bond price must fall.",
+  why:"September headline PCE rose 3.6% year on year and core PCE 3.1%. The Fed held its policy band at 3.75–4.00%, with two voters preferring a hike. Yet DXY's 29 October session close at 102.04 was below the previous 102.19, and a 30 October Asian intraday quote was around 101.72. Restrictive US policy and a softer dollar can coexist when US yields decline and Japan signals further tightening. This bearish meter rates near-term Fed easing prospects, not DXY.",
   supporting:"The official inflation print exceeds the Fed's 2% headline-PCE goal; two explicit hike dissents reinforce the hawkish policy risk.",
   opposing:"Real spending was approximately flat and disposable income fell. A sharper labour deterioration or lower core services inflation would make the Fed more sensitive to growth risks.",
   decidingTest:"Check the next inflation and jobs releases and source-dated Fed-funds futures/OIS, 2Y yields and dollar reactions on the same event windows; an easing bias requires inflation relief or labour weakness that shifts the policy path.",
   reviewedAt:"2026-10-30",
-  evidenceStatus:"Fed vote and BEA data confirmed from originals. Exact same-window December repricing is not independently settled; avoid asserting a precise FedWatch percentage.",
+  evidenceStatus:"Policy, inflation and the 28–29 October DXY decline are now checked. No complete same-feed 4H DXY 20-EMA ±1SD or certified future Fed/OIS settlement was available; cross-market explanations stay conditional.",
   sources:[
    {name:"Federal Reserve 28 Oct 2026 FOMC statement",url:"https://www.federalreserve.gov/newsevents/pressreleases/monetary20261028a.htm",asOf:"28 Oct 2026, 14:00 ET",kind:"PRIMARY"},
    {name:"BEA September PCE and personal income",url:"https://www.bea.gov/news/2026/personal-income-and-outlays-september-2026",asOf:"29 Oct 2026, 08:30 ET",kind:"PRIMARY"},
@@ -52,12 +52,12 @@ export const LENS_RESEARCH_OUTLOOKS:Readonly<Record<EditorialRegimeId,LensResear
   directionTarget:"US Treasury prices, not speculative corporate credit",
   horizon:"Days to several weeks",
   headline:"Safety buying is lifting Treasuries even with inflation high",
-  why:"Official Treasury data show the 10Y nominal yield easing from 5.05% on 28 October to 4.98% on the 29th, a 7bp daily fall. Reuters reported a further early-30-October dip towards 4.90% during AI-related equity anxiety. Lower yields imply higher Treasury prices. This creates a tactical bullish government-bond-price bias; it does not establish cheaper funding for risky AI borrowers or a lasting decline in term premium.",
+  why:"The 10-year nominal Treasury yield fell 5.05→4.98% from 28 to 29 October; a saved US Treasury real-yield observation shows 2.67→2.63%. The simple matched nominal-minus-real 10Y difference narrowed from 2.38 to 2.35 percentage points. Reuters reported additional safe-haven Treasury demand during the 30 October Asian session. The dated move favours government-bond prices even though US inflation has not vanished. It does not show that private AI-borrower credit is cheaper.",
   supporting:"The US 2Y fell from 4.67% to 4.61% on 29 October, alongside 10Y weakness. Risk aversion favoured government bonds, and high-yield spreads had narrowed to about 314bp by 28 October from 340bp on the 22nd.",
   opposing:"Headline PCE at 3.6%, long-term debt supply and still-high real yields can reverse duration gains. Narrower high-yield spreads are not proof that individual leveraged borrowers can refinance.",
   decidingTest:"Match the next 2Y/10Y/30Y Treasury closes, inflation-indexed yields, auctions, and dated IG/HY credit spreads; downgrade the bullish Treasury-price call if yields reclaim the late-October highs on confirming real-rate pressure.",
   reviewedAt:"2026-10-30",
-  evidenceStatus:"Treasury 28–29 Oct closes original; 30 Oct early intraday yield from Reuters and 28 Oct credit spread from secondary FRED/ICE-labelled monitor, with windows clearly separate.",
+  evidenceStatus:"29 Oct nominal close checked against Treasury, 29 Oct real yield through a dated Treasury-derived mirror and Reuters 30 Oct intraday follow-up. The 28 Oct ICE OAS reading is separate, not the same-day post-earnings credit settlement.",
   sources:[
    {name:"US Treasury daily par yields",url:"https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_yield_curve&field_tdr_date_value_month=202610",asOf:"29 Oct 2026, indicative close",kind:"PRIMARY"},
    {name:"Reuters 30 Oct Treasury and dollar session",url:"https://www.reuters.com/world/asia-pacific/yen-steady-before-boj-ai-jitters-drive-treasury-rally-weigh-dollar-2026-10-30/",asOf:"30 Oct 2026, Asia session",kind:"REPORTING"},
@@ -127,13 +127,13 @@ export const LENS_RESEARCH_OUTLOOKS:Readonly<Record<EditorialRegimeId,LensResear
   confidence:"MEDIUM",
   directionTarget:"Japanese yen versus US dollar (JPY up / USDJPY down)",
   horizon:"Near-term Asian FX sessions",
-  headline:"A hawkish BoJ pause and falling US yields favour the yen",
-  why:"On 30 October the BoJ held at 1.25% in an 8–1 vote, with one member proposing a hike to 1.50%, and signalled scope for further tightening. USDJPY was reported falling below the mid-157s as US yields declined. That supports a directional bullish JPY bias, even though the BoJ did not actually raise rates today. It is not proof that leveraged yen-funded positions are unwinding.",
+  headline:"Hawkish BoJ pause meets an actual yen bid",
+  why:"The BoJ held at 1.25% on 30 October by an 8–1 vote, with Hajime Takata advocating 1.50%. Reuters observed USD/JPY near 157.115 in Asia while falling US Treasury yields added dollar pressure. An independent later FX-provider mark near 157.305 at 04:21 UTC confirms the pair did not remain fixed at the earlier trough. This supports a bullish near-term JPY view, but the BoJ is not proved to be the only cause.",
   supporting:"The published BoJ vote, upside inflation risk, expectations of future tightening, and falling US Treasury yields favour a narrower funding differential.",
   opposing:"The 1.25% hold was expected and the yen remains sensitive to risk swings, US rate repricing and Japanese cross-border flows; a December hike is not yet guaranteed.",
   decidingTest:"Match Ueda's remarks and official Outlook to JGB 2Y/10Y, USDJPY across the decision window, currency basis and foreign bond flows. A renewed USDJPY advance despite narrowing rate differentials would weaken the JPY call.",
   reviewedAt:"2026-10-30",
-  evidenceStatus:"BoJ decision and vote independently reported 30 Oct; exact official meeting-release PDF and full post-press-conference price decomposition not yet reconciled.",
+  evidenceStatus:"BoJ official 30 Oct release indexed; Reuters post-decision USDJPY ~157.115 and a later FX vendor ~157.305 dated separately. Prior completed daily USDJPY is under its 20/50 EMA references; a source-identical post-decision closed 4H check and funding-flow confirmation are not certified.",
   sources:[
    {name:"Bank of Japan official meeting release calendar",url:"https://www.boj.or.jp/en/mopo/mpmsche_minu/",asOf:"30 Oct 2026 scheduled decision",kind:"PRIMARY"},
    {name:"Reuters 30 Oct BoJ 8–1 hold and inflation outlook",url:"https://www.reuters.com/world/asia-pacific/boj-keeps-interest-rates-steady-signals-further-rate-hikes-2026-10-30/",asOf:"30 Oct 2026",kind:"REPORTING"},
@@ -146,13 +146,13 @@ export const LENS_RESEARCH_OUTLOOKS:Readonly<Record<EditorialRegimeId,LensResear
   confidence:"MEDIUM",
   directionTarget:"US market participation outside mega-cap AI",
   horizon:"Recent sessions; reconfirm next US cash open",
-  headline:"The index fell, but most stocks did not",
-  why:"On 29 October the Nasdaq lost 1.4% as Alphabet fell sharply, while most US stocks advanced and the Russell 2000 gained 1%. That is evidence of improving participation outside concentrated mega-cap technology despite a weak headline index. Narrower dated high-yield credit spreads also contradict an already-systemic domestic credit seizure. The bullish call is for relative breadth and rotation, not an unqualified S&P 500 forecast.",
+  headline:"Broad US participation outran mega-cap damage",
+  why:"On 29 October, Nasdaq fell around 1.4%, yet a monitored S&P constituent basket recorded 406 advancers versus 97 decliners; most US listed stocks rose and the Russell 2000 gained about 1%. Equal-weight RSP gained roughly 1.20% while SPY fell about 0.38%. Around 63.6% of monitored S&P constituents traded above their 50-day averages. The 28 October ICE BofA high-yield OAS observation narrowed to 3.14% from 3.18% on 27 October. This backs improving US participation outside tech leaders, not a universal risk-on forecast.",
   supporting:"AP's 29 October closing report records a rising majority of stocks and Russell 2000 +1% even as Nasdaq −1.4%; dated US high-yield spreads narrowed from 340bp on 22 Oct to 314bp on 28 Oct.",
   opposing:"Nasdaq concentration remains vulnerable, and on 30 October early Asian trading the Nikkei and Kospi were down sharply. A one-day US participation improvement can reverse.",
   decidingTest:"Watch 3–5 US cash sessions of S&P equal-weight versus cap-weight, advance/decline lines, Russell relative performance, and IG/HY OAS on matching dates. Broad participation failure would turn this negative.",
   reviewedAt:"2026-10-30",
-  evidenceStatus:"US session participation evidenced by AP; continuous breadth-series and cross-region confirmation not yet established. Creator crash analogies remain attributed, not proof.",
+  evidenceStatus:"29 Oct constituent-level advance/decline, ETF equal-weight spread and 20/50/200-day participation checked across secondary price readers, with AP corroboration. 28 Oct HY OAS separately dated; next public 29 Oct spread and further sessions not yet confirmed.",
   sources:[
    {name:"AP 29 Oct US market breadth versus Nasdaq",url:"https://apnews.com/article/2c26b0b1bbc3bfab9f3f4b902172f458",asOf:"29 Oct 2026 US close",kind:"REPORTING"},
    {name:"ICE BofA credit OAS dated series mirror",url:"https://markets.akyla.ai/charts/rates-credit-spreads",asOf:"28 Oct 2026",kind:"REPORTING"},
@@ -166,13 +166,13 @@ export const LENS_RESEARCH_OUTLOOKS:Readonly<Record<EditorialRegimeId,LensResear
   confidence:"MEDIUM",
   directionTarget:"Spot gold price in the near term, not long-run reserve ownership",
   horizon:"Days to weeks",
-  headline:"Gold is selling off even when the usual macro tailwinds improve",
-  why:"Spot gold fell around 1.1% on 29 October and was reported around $4,000 on 30 October, heading for a second monthly decline. Crucially, the 29 October decline occurred as the dollar and US Treasury yields also fell; a simple real-yield relief thesis did not protect the spot price. This is a bearish near-term price assessment, not a claim that central-bank diversification or gold's long-run insurance role has disappeared.",
+  headline:"Gold's weakness persists despite lower real yields",
+  why:"On 29 October, 10-year Treasury real yields eased from 2.67% to 2.63%, while the dollar index also weakened. Gold nevertheless fell; Reuters observed spot around $3,997 on 30 October. A dated automated Binance gold-futures proxy reported both 4H and daily downtrends, with price below the 4H EMA20/50 and daily EMA20/50. A separate GCUSD futures price series also closed below its 20/50-day averages. This supports a near-term bearish *price* view while reserve-allocation motives remain distinct.",
   supporting:"A dated XAU/USD session fell even as 10Y yields and DXY retreated, showing price weakness beyond the usual dollar-rate explanation. Reuters reports further 30 October weakness around $4,000.",
   opposing:"Geopolitical risk, falling real yields, reserve purchases and renewed dip buying could rapidly restore safe-haven demand. A short price decline is not proof of structural gold liquidation.",
   decidingTest:"Match spot XAUUSD to DXY, 10Y TIPS and risk assets in the same windows; require stabilisation above the recent lows with independent flow/real-yield confirmation to upgrade.",
   reviewedAt:"2026-10-30",
-  evidenceStatus:"Dated spot quotes and official nominal yields reviewed; transaction-level order flows and an independently unified same-minute TIPS/spot/DXY set remain unavailable.",
+  evidenceStatus:"Spot decline, 29 Oct real-yield/DXY observations and two independent gold-futures daily chart sources now checked; 4H futures trend is proxy-qualified, not a single-feed spot confirmation or documented seller identity.",
   sources:[
    {name:"Reuters 30 Oct gold and rate-hike pricing",url:"https://www.reuters.com/world/india/gold-slips-higher-oil-us-inflation-data-bolster-fed-hike-bets-2026-10-30/",asOf:"30 Oct 2026",kind:"REPORTING"},
    {name:"OANDA XAU/USD 29 Oct close attribution",url:"https://www.ausecure.com/gold-market-close-oct-29-2026/",asOf:"29 Oct 2026 US close",kind:"REPORTING"},

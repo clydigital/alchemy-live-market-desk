@@ -119,6 +119,13 @@ try{
    "WHAT WOULD CHANGE THE CALL","Outlook for");
   if(view.html.includes("data-fundamental-assessment"))throw Error("Contradictory duplicate asset assessment on "+lens);
   if(["energy","ai","bonds","yen","breadth","gold"].includes(lens))assertHtml(view.html,"data-regime-asset-live-context");
+  if(["yen","gold","breadth","bonds","fed"].includes(lens)){
+   assertHtml(view.html,'data-regime-editorial-verified="'+lens+'"',
+    "WHAT THE NEW DATA CONFIRMS","WHAT STILL COULD MISLEAD",
+    "Next confirming / invalidating test:","exact observation clocks");
+  }else if(view.html.includes("data-regime-editorial-verified")){
+   throw Error("Unreviewed lens claimed a fresh crossasset editorial: "+lens);
+  }
   console.log("Lens "+lens+" "+view.status+" · differentiated current view with falsifier");
  }
 
@@ -142,6 +149,8 @@ try{
  await renderChrome(url,"overview-desktop.png",1440,1000);
  await renderChrome(url,"overview-mobile.png",390,844);
  await renderChrome("http://127.0.0.1:"+PUBLIC+"/regime-watch/energy","energy-mobile.png",390,844);
+ await renderChrome("http://127.0.0.1:"+PUBLIC+"/regime-watch/yen","yen-mobile.png",390,844);
+ await renderChrome("http://127.0.0.1:"+PUBLIC+"/regime-watch/gold","gold-mobile.png",390,844);
  console.log("Regime UI smoke PASS; outputs in "+outputs);
 }catch(error){console.error(error);process.exitCode=1}
 finally{

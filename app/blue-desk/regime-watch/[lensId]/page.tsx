@@ -12,6 +12,7 @@ import {quickViewsForLens} from "@/lib/bluebelly-fundamental-quickview";
 import {matchAssetSourceEvents,projectAssetTape} from "@/lib/bluebelly-regime-asset-context";
 import {getMarketMonitor} from "@/lib/market-monitor-public";
 import {getLensOutlook} from "@/lib/bluebelly-regime-lens-outlook";
+import {getRegimeEditorialUpdate} from "@/lib/bluebelly-regime-verified-crossasset";
 import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import type {EditorialMotif} from "@/lib/bluebelly-editorial-visuals";
@@ -44,6 +45,7 @@ export default async function ResearchLensPage({params}:Props){
  const lens=groupPublicResearch(publicTheses||[]).find(item=>item.id===lensId)!;
  const workbook=REGIME_LENS_WORKBOOKS[lens.id];
  const outlook=getLensOutlook(lens.id);
+ const latestEditorial=getRegimeEditorialUpdate(lens.id);
  const assessments=quickViewsForLens(lens.id);
  const assetContext=assessments.map(asset=>({asset,sources:matchAssetSourceEvents(asset.id,sourceObservations,now),tape:projectAssetTape(asset.id,marketMonitor?.rows??null,now)}));
  const recent=matchRecentLensObservations(lens.id,sourceObservations||[],now);
@@ -92,8 +94,34 @@ export default async function ResearchLensPage({params}:Props){
     </div>
    </section>
 
+   {latestEditorial?<section className={styles.verifiedEditorial} id="latest-editorial" aria-labelledby="verified-editorial-title"
+    data-regime-editorial-verified={latestEditorial.lens} data-editorial-vintage={latestEditorial.asOf}>
+    <header className={styles.verifiedHead}>
+     <div>
+      <span className={styles.kicker}>POST-DECISION EDITORIAL CROSS-CHECK · {latestEditorial.asOf}</span>
+      <h2 id="verified-editorial-title">{latestEditorial.headline}</h2>
+      <p className={styles.verifiedSubhead}>{latestEditorial.title}</p>
+     </div>
+     <span className={styles.verifiedKind}>{latestEditorial.freshness==="PROXY_QUALIFIED"?"SOURCE-CHECKED / TECHNICAL PROXY":"DATED MARKET SESSION"}</span>
+    </header>
+    <p className={styles.verifiedStory}>{latestEditorial.story}</p>
+    <div className={styles.verifiedInterpretations}>
+     <div><span className={styles.kicker}>WHAT THE NEW DATA CONFIRMS</span><p>{latestEditorial.confirmation}</p></div>
+     <div><span className={styles.kicker}>WHAT STILL COULD MISLEAD</span><p>{latestEditorial.dissent}</p></div>
+    </div>
+    <p className={styles.verifiedTest}><strong>Next confirming / invalidating test:</strong> {latestEditorial.nextTest}</p>
+    <details className={styles.verifiedSources}>
+     <summary>See exact observation clocks and original, vendor, or reporting evidence ({latestEditorial.evidence.length})</summary>
+     <ul>{latestEditorial.evidence.map(source=><li key={source.name}>
+      <a href={source.url} target="_blank" rel="noopener noreferrer">{source.name}</a>
+      <span>{source.value}</span><small>{source.at} · {source.sourceType.replace("_"," ").toLowerCase()} · {source.scope}</small>
+     </li>)}</ul>
+    </details>
+   </section>:null}
+
    <nav className={styles.pageNav} aria-label="Sections in this research lens">
     <a href="#lens-outlook">Outlook &amp; confidence</a>
+    {latestEditorial?<a href="#latest-editorial">Latest editorial evidence</a>:null}
     {assessments.length?<a href="#asset-monitoring">Latest original sources &amp; tape</a>:null}
     <a href="#research-position">Recorded position</a>
     {workbook.policyDilemma?<a href="#policy-dilemma">Fed policy dilemma</a>:null}
