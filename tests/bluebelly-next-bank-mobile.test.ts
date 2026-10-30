@@ -22,12 +22,13 @@ test("an elapsed ECB release cannot be presented as upcoming with a known result
  assert.equal(ecb?.phase,"PUBLICATION DUE · OUTCOME UNVERIFIED");
  assert.equal(sourceScheduledBankWatch(new Date("2026-11-02T04:00:00Z")).length,0);
 });
-test("site contains separate source-scheduled policy lane and fast-scanning mobile previews",()=>{
+test("Newsroom delegates future-bank schedules to Calendar while legacy preview stays tested",()=>{
  const page=text("app/blue-desk/newsroom/page.tsx");
  const component=text("components/blue-desk/NextBankCatalysts.tsx");
  const css=text("components/blue-desk/Newsroom48hTimeline.module.css");
- assert.match(page,/<NextBankCatalysts items=\{nextBanks\}/);
- assert.match(page,/sourceScheduledBankWatch\(now\)/);
+ assert.doesNotMatch(page,/<NextBankCatalysts/);
+ assert.doesNotMatch(page,/sourceScheduledBankWatch/);
+ assert.match(page,/selectNewsroomHotPicks/);
  assert.match(component,/data-bank-preview="official-schedule-not-released"/);
  assert.match(component,/Current decision outcome, consensus surprise and price impact are not verified/);
  assert.match(component,/How I'd prepare to explain it/);
