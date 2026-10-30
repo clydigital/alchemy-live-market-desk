@@ -83,6 +83,7 @@ function slotStatus(run: ResearchRunLike | null): ResearchSlotHealth["status"] {
   if (!run) return "missed";
   if (run.status === "completed") {
     if (run.evidence_gate_passed === false || run.required_sources_complete === false) return "degraded";
+    if(run.warnings?.some(w=>/^AUTO_COVERAGE_GAP:ISSUER_ORIGINAL_RELEASE:/.test(w)))return "degraded";
 
     // Individual publishers are alternatives, not mandatory dependencies.
     // Keep blocked sources in source_checks, but assess overall news coverage
