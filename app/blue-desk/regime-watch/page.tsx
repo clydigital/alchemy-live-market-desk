@@ -26,38 +26,58 @@ export default async function RegimeWatchPage(){
  return <main className={desk.page} data-public-regime-watch="dated-editorial-lens-outlooks">
   <BlueDeskHeader activePath="/blue-desk/regime-watch"/>
   <div className={desk.content}>
-   <header className={styles.intro}><span>ONGOING RESEARCH / NOT DAILY REPORTS</span>
-    <h1>The market&apos;s bigger stories.</h1>
-    <p>Nine research lenses and one cross-regime Crash vs Opportunity watch, with a clear outlook, confidence level, the opposing argument and the evidence that would change the call.</p>
+   <header className={styles.intro} data-regime-design="cyberpunk-field-guide">
+    <div className={styles.introContent}>
+     <span className={styles.kicker}>BLUEBELLY / REGIME INTELLIGENCE — FIELD GUIDE 01</span>
+     <h1>THE BIGGER <em>MARKET</em> PICTURE.</h1>
+     <p>Why the market behaves the way it does. Nine competing research lenses, the strongest case against each thesis and the evidence that would change the verdict.</p>
+     <nav className={styles.heroActions} aria-label="Regime Watch page sections">
+      <a href="#lens-grid">EXPLORE THE NINE LENSES <span aria-hidden="true">↗</span></a>
+      <a href="#cross-regime-watch">THE CROSS-REGIME TEST <span aria-hidden="true">↗</span></a>
+     </nav>
+     <small>REVIEWED FUNDAMENTAL RESEARCH / NOT LIVE TRADING SIGNALS</small>
+    </div>
+    <div className={styles.introVisual} aria-hidden="true">
+     <span className={styles.visualHeader}>// NINE INTERLOCKING MARKET SYSTEMS</span>
+     <div className={styles.regimeMatrix}>{Array.from({length:9},(_,index)=><span key={index}>{String(index+1).padStart(2,"0")}</span>)}</div>
+     <strong>09<span>/</span>REGIMES</strong>
+     <span className={styles.visualFooter}>CONNECTIONS / NOT CONCLUSIONS</span>
+    </div>
    </header>
-   <div className={styles.heading}>
-    <h2>Explore a research lens</h2>
+   <div className={styles.intelStrip} aria-label="Regime Watch research scope">
+    <div><span>01 / RESEARCH LENSES</span><strong>09</strong><small>DIFFERENT MARKET SYSTEMS</small></div>
+    <div><span>02 / SOURCE CONTEXT</span><strong>{theses===null?"—":theses.length}</strong><small>ASSOCIATED PUBLIC STORY RECORDS</small></div>
+    <div><span>03 / CROSS-REGIME WATCH</span><strong>01</strong><small>CRASH VERSUS OPPORTUNITY</small></div>
+    <p>Every lens is a question, not a trade. Follow the evidence into its original context, then test the counterargument.</p>
+   </div>
+   <div className={styles.heading} id="lens-grid">
+    <div><span className={styles.kicker}>01 / THE NINE RESEARCH FILES</span><h2>Choose the <em>pressure point.</em></h2></div>
     <span>Fundamental outlook reviewed {LENS_OUTLOOK_REVIEWED_ON} MYT · {theses===null?"Story coverage unavailable":theses.length+" public Story snapshots"} · Viewed <DualTimestamp value={now.toISOString()}/></span>
    </div>
    <p className={styles.lensIntro}>Each lens has its own outlook and confidence meter. These are reviewed fundamental judgements, not live price signals or automatic changes to canonical Regime state.</p>
-   <section className={styles.crashFeatured} aria-labelledby="crash-opportunity-featured" data-crash-watch-entry="own-research-watch">
+   <section id="cross-regime-watch" className={styles.crashFeatured} aria-labelledby="crash-opportunity-featured" data-crash-watch-entry="own-research-watch">
     <div>
       <span className={styles.kicker}>FEATURED / CROSS-REGIME WATCH</span>
-      <h2 id="crash-opportunity-featured">Market Crash <em>vs</em> Opportunity</h2>
+      <h2 id="crash-opportunity-featured">CRASH <em>VS</em> OPPORTUNITY</h2>
       <p>When the index hides a stealth bear market, is that the warning before a wider collapse—or the setup for a broad recovery? Compare the Kobeissi and Burry cases, sourced breadth/credit signals and seven historical market scares.</p>
       <span className={styles.crashNote}>Provisional research: contested · bull and bear evidence reviewed independently · no crash probability claimed</span>
     </div>
-    <Link className={styles.crashFeaturedLink} href={blueDeskPublicHref("/blue-desk/crash-opportunity",host)}>Open the crash vs opportunity watch <span aria-hidden="true">→</span></Link>
+    <Link className={styles.crashFeaturedLink} href={blueDeskPublicHref("/blue-desk/crash-opportunity",host)}>OPEN THE TWO-SIDED INVESTIGATION <span aria-hidden="true">↗</span></Link>
    </section>
-   <div className={styles.cards}>{lenses.map(lens=>
+   <div className={styles.cards}>{lenses.map((lens,index)=>
     <Link key={lens.id} className={styles.card} data-research-lens={lens.id}
      href={blueDeskPublicHref("/blue-desk/regime-watch/"+lens.id,host)}
      aria-label={"Explore "+lens.name+" research"}>
-      <div className={styles.art}><EditorialStoryArt headline={lens.name} motif={lens.motif as EditorialMotif} compact/></div>
+      <div className={styles.art}><EditorialStoryArt headline={lens.name} motif={lens.motif as EditorialMotif} compact/><span className={styles.artSerial} aria-hidden="true">{String(index+1).padStart(2,"0")}</span></div>
       <div className={styles.content}>
-       <span className={styles.kicker}>{lens.code} · RESEARCH LENS</span>
+       <div className={styles.cardHeading}><span className={styles.kicker}>{lens.code} / RESEARCH LENS</span><span className={styles.cardSerial}>FILE {String(index+1).padStart(2,"0")} / 09</span></div>
        <h3>{lens.name}</h3>
        <RegimeOutlookMeter assessment={getLensOutlook(lens.id)}/>
        <p className={styles.lensReason}><strong>Why:</strong> {getLensOutlook(lens.id).headline}</p>
        {getRegimeEditorialUpdate(lens.id)?<span className={styles.editorialUpdate}>30 OCT · FRESH POST-DECISION EDITORIAL CHECK</span>:null}
        <p>{lens.question}</p>
        <div className={styles.coverage}>{theses===null?"Story coverage unavailable":lens.stories.length+" associated public Story snapshot"+(lens.stories.length===1?"":"s")}</div>
-       <span className={styles.open}>Explore research and deciding tests <span aria-hidden="true">→</span></span>
+       <span className={styles.open}>OPEN RESEARCH / EVIDENCE &amp; TESTS <span aria-hidden="true">↗</span></span>
       </div>
     </Link>
    )}</div>
@@ -81,7 +101,7 @@ export default async function RegimeWatchPage(){
     </div>
     <p>Regular Tesla and SpaceX surveillance belongs to the existing private AI-company review. This public card updates only when a separately verified and approved publication is made; a scheduled research run is not itself a public release.</p>
    </section>
-   <section className={styles.transmission}><h2>Cross-regime transmission</h2>
+   <section className={styles.transmission} id="transmission"><span className={styles.kicker}>02 / THE TRANSMISSION MAP</span><h2>Cross-regime transmission</h2>
     <p>These research questions often overlap. Follow the mechanism into its own research page, then check the dated observations.</p>
     <div className={styles.pathGrid}>{([
      ["fed","FED → DURATION → CREDIT","Lower policy rates do not necessarily mean cheaper long-term borrowing."],
