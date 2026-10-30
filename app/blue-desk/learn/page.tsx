@@ -49,7 +49,7 @@ export default async function BlueDeskLearnPage() {
         </header>
         <div className={ui.learningStrip} aria-label="Learning library highlights">
           <div><span>01 / COURSES</span><strong>09</strong><small>ORIGINAL LESSON FILES</small></div>
-          <div><span>02 / CONTENT</span><strong>152</strong><small>SLIDES IN WEB-TEXT FORM</small></div>
+          <div><span>02 / CONTENT</span><strong>152</strong><small>ORIGINAL PPTX SLIDES</small></div>
           <div><span>03 / REFERENCE</span><strong>{concepts.length}</strong><small>EXPLAINED MARKET TERMS</small></div>
           <p>Start with the basics, follow the mechanism and use the glossary when a market term stops making sense.</p>
         </div>
@@ -85,7 +85,7 @@ export default async function BlueDeskLearnPage() {
               </div>
             </article>)}
           </div>
-          <p className={ui.footnote}>Original author-created educational slide content, adapted for accessible web reading. The original artwork is not hosted here. Historical and hypothetical examples are not live signals.</p>
+          <p className={ui.footnote}>Original author-created PowerPoint slides are displayed through the embedded presentation viewer. Historical and hypothetical examples are not live signals.</p>
         </section>
 
         <section className={ui.glossarySection} id="glossary" aria-labelledby="glossary-heading">

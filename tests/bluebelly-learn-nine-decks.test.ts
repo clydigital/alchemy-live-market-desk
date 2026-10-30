@@ -60,6 +60,7 @@ test("new Learn reader depends on canonical glossary and no private evidence wri
     assert.ok(!lesson.includes(s));
     assert.ok(!manifest.includes(s));
   }
-  assert.ok(!lesson.includes("iframe"));
+  assert.ok(lesson.includes("LearnOriginalPptxViewer"));
+  assert.ok(!lesson.includes("LearnSlideReader"));
   assert.ok(lesson.includes("notFound()"));
 });
