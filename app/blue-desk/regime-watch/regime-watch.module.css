@@ -101,7 +101,7 @@
 .heading h2 em{font-style:normal;color:var(--bb-accent)}
 .heading>span{font:700 11px/1.5 var(--bb-mono);max-width:460px;text-align:right;color:var(--bb-muted)}
 .lensIntro{font-size:13px;max-width:800px;line-height:1.65;margin:12px 0 23px}
-.crashFeatured{position:relative;scroll-margin-top:95px;overflow:hidden;border-radius:0;border:1px solid var(--bb-accent);background:linear-gradient(112deg,var(--bb-card-bg-hover),var(--bb-card-quiet));min-height:225px;clip-path:polygon(0 0,calc(100% - 19px) 0,100% 19px,100% 100%,0 100%)}
+.crashFeatured{position:relative;scroll-margin-top:95px;overflow:hidden;border-radius:0;border:1px solid var(--bb-accent);background:var(--bb-card-bg-hover);min-height:225px;clip-path:polygon(0 0,calc(100% - 19px) 0,100% 19px,100% 100%,0 100%)}
 .crashFeatured:before{content:"VS";position:absolute;right:32%;top:-10px;font:900 170px/.9 var(--bb-display);color:var(--bb-accent);opacity:.09;pointer-events:none}
 .crashFeatured:after{content:"";position:absolute;right:0;top:0;width:12px;height:100%;background:repeating-linear-gradient(125deg,var(--bb-accent) 0 8px,var(--bb-canvas) 8px 16px)}
 .crashFeatured>div{position:relative;z-index:1;max-width:710px}
