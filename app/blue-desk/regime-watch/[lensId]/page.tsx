@@ -71,15 +71,15 @@ export default async function ResearchLensPage({params}:Props){
 
    <section id="lens-outlook" className={styles.outlookPanel} data-lens-outlook={outlook.outlook} data-lens-confidence={outlook.confidence} aria-labelledby="lens-outlook-title">
     <div className={styles.outlookTop}>
+     <aside className={styles.outlookMeterPanel} aria-label="Lens outlook and confidence">
+      <RegimeOutlookMeter assessment={outlook} size="full"/>
+      <small>Editorial review: {outlook.reviewedAt} MYT. Meter position shows direction, not a statistical probability.</small>
+     </aside>
      <div className={styles.outlookNarrative}>
-      <span className={styles.kicker}>THE LENS OUTLOOK · FUNDAMENTALS, NOT A PRICE FORECAST</span>
+      <span className={styles.kicker}>WHY THIS OUTLOOK? · FUNDAMENTALS, NOT PRICE FORECAST</span>
       <h2 id="lens-outlook-title">{outlook.headline}</h2>
       <p>{outlook.why}</p>
      </div>
-     <aside className={styles.outlookMeterPanel} aria-label="Lens outlook and confidence">
-      <RegimeOutlookMeter assessment={outlook} size="full"/>
-      <small>Editorial review: {outlook.reviewedAt} MYT. Five positions indicate directional balance, not a statistical probability.</small>
-     </aside>
     </div>
     <div className={styles.outlookWhy}>
      <div><span className={styles.kicker}>WHAT SUPPORTS THIS VIEW</span><p>{outlook.supporting}</p></div>
