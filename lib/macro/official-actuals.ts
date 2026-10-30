@@ -1,5 +1,6 @@
 import { fetchJinaReader } from "../acquisition/jina-reader.ts";
 import {beaPceReleaseUrl,parseBeaPceActual,parseOfficialBeaPceMetricRows} from "./bea-pce-actual.ts";
+import {getOriginalBeaPceSchedule} from "./official-bea-pce-schedule.ts";
 import { getEconomicCalendar, type EconomicCalendarEvent } from "../calendar.ts";
 import { createSupabaseAdminClient } from "../supabase/admin.ts";
 import { parseOfficialCpiMetricRows, type CpiPreviousValues } from "./official-cpi-metrics.ts";
@@ -522,7 +523,7 @@ export function buildOfficialMacroReleaseSeedRows(
   return events.flatMap((event): OfficialMacroReleaseSeed[] => {
     const isBeaPce=event.sourceName==="U.S. Bureau of Economic Analysis"
       && Boolean(beaPceReleaseUrl(event.event,event.referencePeriod))
-      && event.sourceUrl.replace(/\/$/,"")==="https://www.bea.gov/news/schedule";
+      && ["https://www.bea.gov/news/schedule","https://www.bea.gov/news/schedule/next-year"].includes(event.sourceUrl.replace(/\/$/,""));
     const isBls=event.sourceName==="U.S. Bureau of Labor Statistics";
     if(!isBls&&!isBeaPce)return [];
     const seriesKey = isBeaPce?"bea-pce":blsSeriesKey(event.event);
@@ -734,7 +735,12 @@ export async function ingestOfficialMacroActuals(options: {
 } = {}): Promise<OfficialActualIngestionResult> {
   const now = options.now ?? new Date();
   const calendarEvents = options.calendarEvents ?? await getEconomicCalendar();
-  const seeded = await seedMissingOfficialMacroReleases(calendarEvents, now);
+  const officialBea=options.calendarEvents
+    ?{events:[],attempted:0,read:0}
+    :await getOriginalBeaPceSchedule({now});
+  const unique=new Map(calendarEvents.map(e=>[e.id,e]));
+  for(const e of officialBea.events)unique.set(e.id,e);
+  const seeded = await seedMissingOfficialMacroReleases([...unique.values()], now);
   const client = createSupabaseAdminClient();
   const { data, error } = await client
     .from("macro_releases")
@@ -830,6 +836,7 @@ export async function ingestOfficialMacroActuals(options: {
       ? `${completed}/${attempted} supported overdue official Actuals ingested; ${failed} remain retryable; ${seeded} missing official schedule row(s) seeded.`
       : `No supported overdue official Actuals required ingestion; ${seeded} missing official schedule row(s) seeded.`)
       + ` CPI component metrics written: ${metricCount}.`
+      + (officialBea.attempted?` BEA original schedule pages readable: ${officialBea.read}/${officialBea.attempted}; verified PCE dates: ${officialBea.events.length}.`:"")
       + (metricWarnings.length ? ` Metric coverage warnings: ${metricWarnings.join(" | ").slice(0,800)}` : ""),
   };
 }
