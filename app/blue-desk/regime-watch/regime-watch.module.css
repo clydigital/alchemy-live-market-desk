@@ -78,3 +78,16 @@
 .quickTape[data-tape-state="STALE"]>strong{color:var(--bb-muted)}
 @media(max-width:1060px){.quickTape{grid-column:1 / -1}}
 @media(max-width:750px){.quickTape{align-items:flex-start;flex-direction:column;gap:5px}}
+
+/* The first mobile viewport should contain the market verdict, not only intro copy. */
+@media(max-width:540px){
+ .intro{padding-bottom:6px}
+ .intro h1{font-size:27px;margin:5px 0}
+ .intro p{font-size:12px;line-height:1.45;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+ .quickSection{margin:8px 0 22px;padding:11px}
+ .quickHead{gap:8px;margin-bottom:10px}
+ .quickHead h2{font-size:23px;margin:5px 0}
+ .quickHead p{font-size:11px;line-height:1.5;margin:6px 0}
+ .quickAge{padding:9px 11px}
+ .quickRow{padding:12px}
+}
