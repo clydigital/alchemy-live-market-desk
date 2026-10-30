@@ -286,7 +286,7 @@ async function resolveBlsApiActual(release: OfficialMacroRelease, fetcher: typeo
 }
 
 export function officialActualSourceUrl(release: OfficialMacroRelease) {
-  const bea = beaPceReleaseUrl(release.release_name,release.reference_period);
+  const bea = beaPceReleaseUrl(release.release_name,release.reference_period,release.release_date);
   if(bea && release.agency==="U.S. Bureau of Economic Analysis") return bea;
   const archive = archiveDate(release.release_date);
   if (/consumer price index/i.test(release.release_name) && archive) {
@@ -412,7 +412,7 @@ async function resolveIsmActual(release: OfficialMacroRelease, fetcher: typeof f
 }
 
 async function resolveBeaPceActual(release:OfficialMacroRelease,fetcher:typeof fetch):Promise<OfficialActualResolution>{
- const sourceUrl=beaPceReleaseUrl(release.release_name,release.reference_period);
+ const sourceUrl=beaPceReleaseUrl(release.release_name,release.reference_period,release.release_date);
  if(!sourceUrl||release.agency!=="U.S. Bureau of Economic Analysis")
   throw new Error("BEA result is not an approved official reference-period source.");
  // Do not accept a publisher redirect to a different article or an older
@@ -447,7 +447,7 @@ export async function resolveOfficialActual(
   release: OfficialMacroRelease,
   fetcher: typeof fetch = fetch,
 ): Promise<OfficialActualResolution> {
-  if(beaPceReleaseUrl(release.release_name,release.reference_period)) return resolveBeaPceActual(release,fetcher);
+  if(beaPceReleaseUrl(release.release_name,release.reference_period,release.release_date)) return resolveBeaPceActual(release,fetcher);
   if (isBlsRelease(release)) return resolveBlsApiActual(release, fetcher);
   if (/ism manufacturing|ism services/i.test(release.release_name)) return resolveIsmActual(release, fetcher);
   throw new Error(`No deterministic official Actual adapter exists for ${release.release_name}.`);
@@ -627,7 +627,7 @@ export async function upsertOfficialBeaPceMetrics(
  release:OfficialMacroRelease,resolved:OfficialActualResolution,fetchedAt:string,
 ){
  if(release.agency!=="U.S. Bureau of Economic Analysis"
-   ||!beaPceReleaseUrl(release.release_name,release.reference_period))return 0;
+   ||!beaPceReleaseUrl(release.release_name,release.reference_period,release.release_date))return 0;
  const metrics=parseOfficialBeaPceMetricRows(resolved.actual);
  if(metrics.length!==4)throw new Error("BEA PCE summary is missing a comparable core/headline rate.");
  const values=metrics.map(m=>({...m,release_id:release.id,source_url:resolved.sourceUrl,
@@ -668,7 +668,7 @@ async function recoverCompletedBeaPceMetrics(
  let restored=0;
  const warnings:string[]=[];
  for(const record of (data||[]) as (OfficialMacroRelease&{actual_retrieved_at?:string|null})[]){
-  const expected=beaPceReleaseUrl(record.release_name,record.reference_period);
+  const expected=beaPceReleaseUrl(record.release_name,record.reference_period,record.release_date);
   if(!expected||record.source_url!==expected||!record.actual)continue;
   try{
    restored+=await upsertOfficialBeaPceMetrics(client,record,{
