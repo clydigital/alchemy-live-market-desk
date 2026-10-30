@@ -1,4 +1,5 @@
 import {PostEventRecapFeature} from "./PostEventRecap";
+import {recentReportedEditorial} from "@/lib/bluebelly-reported-editorial";
 import {getRecentVerifiedEarningsScorecards} from "@/lib/blue-desk-earnings-results";
 import {getRecentOfficialMacroResults} from "@/lib/blue-desk-official-macro-results";
 import {getUnreconciledPublicEarnings} from "@/lib/bluebelly-earnings-coverage";
@@ -34,6 +35,7 @@ function Event({event}:{event:PresenterCalendarEvent}){
 }
 export default function DecisionBrief({news,recentNews=[],calendar,now,host,report=false,postEventRecaps=[],postEventSocial=[]}:{news:readonly NewsBriefV1[];recentNews?:readonly NewsBriefV1[];calendar:PresenterCalendar;now:Date;host:string|null;report?:boolean;postEventRecaps?:readonly PostEventRecap[];postEventSocial?:readonly EmbeddedSocialContext[]}){
  const topics=decisionTopics(news,calendar,now), lanes=decisionCalendar(calendar,now);
+ const exchangeIncident=recentReportedEditorial(now,48).find(item=>item.kind==="VERIFIED_INCIDENT");
  const crossBank=selectCrossBankPolicyBridge(news,calendar,now);
  const onAir=buildPresenterOneMinute(news,calendar,now);
  const reader=blueDeskPublicHref('/blue-desk/key-stories',host), calendarHref=blueDeskPublicHref('/blue-desk/calendar',host);
@@ -69,6 +71,16 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
   })),
  ].slice(0,6);
  return <section className={s.brief} data-decision-first="public-v1">
+  {exchangeIncident?<section className={s.latest} data-bluebelly-live-crypto-incident="source-reviewed" aria-label="Bitcoin and Binance security incident">
+    <div className={s.latestHead}><div><p className={s.kicker}>BREAKING MARKET DEVELOPMENT · CRYPTO · OFFICIAL COMPANY STATEMENT</p>
+      <h2><Link href={reader+"?reported="+encodeURIComponent(exchangeIncident.id)}>{exchangeIncident.headline}</Link></h2></div>
+      <small><DualTimestamp value={exchangeIncident.publishedAt}/></small></div>
+    <p>{exchangeIncident.reporting}</p>
+    <p><strong>The money question:</strong> {exchangeIncident.why}</p>
+    <p><Link href={reader+"?reported="+encodeURIComponent(exchangeIncident.id)}>Read the Bitcoin/Binance breakdown →</Link>
+     {" · "}<a href={exchangeIncident.sourceUrl} target="_blank" rel="noopener noreferrer">Binance original statement ↗</a></p>
+    <small>Source-checked editorial · not a canonical Story or intraday causal attribution · price snapshots are not live quotes</small>
+   </section>:null}
   {!report?<PostEventRecapFeature recaps={postEventRecaps} host={host} socialPosts={postEventSocial}/>:null}
   {!report?<header className={s.homeHero} aria-label="Lead story and decision test">
    <div className={s.homeLead}>
