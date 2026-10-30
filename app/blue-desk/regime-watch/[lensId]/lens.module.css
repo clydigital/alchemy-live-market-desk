@@ -122,3 +122,15 @@
 .pageNav a:hover,.pageNav a:focus-visible{background:var(--bb-card-bg-hover);color:var(--bb-text)}
 .mechanismRail li:not(:last-child):after{color:var(--bb-accent);background:var(--bb-surface)}
 @media(prefers-reduced-motion:reduce){.story,.monitor,.recentItem,.fork,.otherGrid a,.railCard{transition:none}}
+
+/* Mobile research should lead with the investor judgement, not decorative art. */
+@media(max-width:670px){
+ .hero{padding:14px 16px;gap:5px}
+ .heroArt{display:none}
+ .hero h1{font-size:28px;margin:7px 0}
+ .question{font-size:15px;line-height:1.45;margin:5px 0}
+ .scope{font-size:12px;line-height:1.5;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin:6px 0}
+ .meta{font-size:10px;padding-top:5px;gap:7px}
+ .meta span+span{padding-left:7px}
+ .pageNav{margin:8px 0 12px}
+}
