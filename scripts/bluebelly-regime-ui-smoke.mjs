@@ -99,18 +99,27 @@ try{
  });
  server=await proxy();
  const root=await waitResponse("/regime-watch");
- assertHtml(root.html,'data-research-lens="energy"','data-research-lens="gold"','data-outlook-meter="energy"',"Fundamental outlook","Confidence");
- for(const lens of ["fed","bonds","ai","china","energy","yen","breadth","gold","housing"]){
-  if(!root.html.includes('data-outlook-meter="'+lens+'"'))throw Error("Lens meter missing from overview: "+lens);
+ assertHtml(root.html,'data-research-lens="energy"','data-research-lens="gold"',"Fundamental outlook","Confidence","Outlook for");
+ const outlooks={
+  fed:["BEARISH","HIGH"],bonds:["BULLISH","MEDIUM"],ai:["BEARISH","MEDIUM"],
+  china:["MIXED","MEDIUM"],energy:["BULLISH","HIGH"],yen:["BULLISH","MEDIUM"],
+  breadth:["BULLISH","MEDIUM"],gold:["BEARISH","MEDIUM"],housing:["BEARISH","HIGH"],
+ };
+ for(const [lens,[bias,confidence]] of Object.entries(outlooks)){
+  assertHtml(root.html,'data-outlook-meter="'+lens+'"','data-outlook="'+bias+'"',
+   'data-confidence="'+confidence+'"');
  }
- if(root.html.includes("data-fundamental-quick-view"))throw Error("Legacy oversized asset table still present");
- console.log("Overview "+root.status+" · all nine lens outlook meters visible");
- for(const lens of ["energy","ai","bonds","gold"]){
+ if(root.html.includes("data-fundamental-quick-view"))throw Error("Old giant asset quickview reappeared");
+ console.log("Overview "+root.status+" · 9 scopes, confidence meters and 4/4/1 outlook distribution present");
+ for(const [lens,[bias,confidence]] of Object.entries(outlooks)){
   const view=await waitResponse("/regime-watch/"+lens);
-  assertHtml(view.html,'data-public-research-lens="'+lens+'"',"data-lens-outlook=","data-lens-confidence=",
-    'data-outlook-meter="'+lens+'"',"WHAT SUPPORTS THIS VIEW","WHAT CHALLENGES IT","WHAT WOULD CHANGE THE CALL");
-  if(["energy","ai","bonds"].includes(lens)) assertHtml(view.html,"data-regime-asset-live-context");
-  console.log("Lens "+lens+" "+view.status+" · confidence/outlook and reasoning visible");
+  assertHtml(view.html,'data-public-research-lens="'+lens+'"',
+   'data-lens-outlook="'+bias+'"','data-lens-confidence="'+confidence+'"',
+   'data-outlook-meter="'+lens+'"',"WHAT SUPPORTS THIS VIEW","WHAT CHALLENGES IT",
+   "WHAT WOULD CHANGE THE CALL","Outlook for");
+  if(view.html.includes("data-fundamental-assessment"))throw Error("Contradictory duplicate asset assessment on "+lens);
+  if(["energy","ai","bonds","yen","breadth","gold"].includes(lens))assertHtml(view.html,"data-regime-asset-live-context");
+  console.log("Lens "+lens+" "+view.status+" · differentiated current view with falsifier");
  }
  const privateRoute=await waitResponse("/owner/presenter",code=>code!==200);
  console.log("Owner route HTTP "+privateRoute.status+" on public host (no anonymous access)");
