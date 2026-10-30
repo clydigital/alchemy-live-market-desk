@@ -30,8 +30,9 @@ export function expectedIssuerReceiptGaps(
   if(!allowed.length)return true;
   return !input.items.some(item=>{
    if(item.itemType!=="news"||!item.itemKey.startsWith("official-press:"))return false;
-   if(!/reports?|announces?\s+(?:first|second|third|fourth|q[1-4])/i.test(item.title)
-      ||!/earnings|quarter|financial results|revenue/i.test(item.title))return false;
+   if(!/\b(?:reports?|reported)\b/i.test(item.title)
+      ||!/\b(?:earnings|quarter|financial results|revenue)\b/i.test(item.title)
+      ||/\b(?:date of|will report|to report|earnings call|conference call|webcast|scheduled|upcoming)\b/i.test(item.title))return false;
    const when=Date.parse(item.publishedAt),call=Date.parse(event.scheduledCallAt);
    if(!Number.isFinite(when)||!Number.isFinite(call)||Math.abs(when-call)>36*3600_000)return false;
    try{
