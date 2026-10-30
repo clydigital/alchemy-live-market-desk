@@ -67,8 +67,9 @@ test("newsroom shares search/category counts with archived readers without grant
  assert.match(page,/getRecentArchivedPublicReaderItems\(now\)/);
  assert.match(page,/archiveEntries=\{archiveResult\.items\}/);
  assert.match(reader,/data-newsroom-archived-reader=/);
- assert.match(reader,/archiveVisible=archiveEntries\.filter/);
- assert.match(reader,/visibleCount=visible\.length\+archiveVisible\.length/);
+ assert.match(reader,/archiveOnly=archiveEntries\.filter/);
+ assert.match(reader,/archiveVisible=archiveOnly\.filter/);
+ assert.match(reader,/visibleCount=visible\.length\+archiveVisible\.length\+editorialVisible\.length/);
  assert.match(reader,/newsOnly=news\.filter\(n=>!archiveEntries\.some/);
  assert.match(adapter,/import "server-only"/);
  assert.match(adapter,/createSupabaseAdminClient/);
