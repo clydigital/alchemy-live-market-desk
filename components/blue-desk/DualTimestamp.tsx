@@ -2,7 +2,7 @@ import { dateOnlyLabel, formatDualDeskTime } from "@/lib/blue-desk-time";
 
 /**
  * One timestamp component for market content and calendars.
- * ET determines the primary label; SGT is always smaller secondary context.
+ * ET determines the primary label; MYT is smaller secondary context.
  */
 export default function DualTimestamp({
   value, sourceDate, className,
@@ -19,7 +19,7 @@ export default function DualTimestamp({
       <span className={className}>
         <span style={{ display: "block" }}>{dateOnlyLabel(sourceDay)}</span>
         {!dateOnly ? (
-          <small style={{ display: "block", opacity: 0.7 }}>Exact ET / SGT time unavailable</small>
+          <small style={{ display: "block", opacity: 0.7 }}>Exact ET / MYT time unavailable</small>
         ) : null}
       </span>
     );
@@ -27,7 +27,7 @@ export default function DualTimestamp({
   return (
     <time dateTime={pair.iso} className={className}>
       <span style={{ display: "block", fontWeight: 750 }}>{pair.et}</span>
-      <small style={{ display: "block", fontSize: "0.76em", opacity: 0.74 }}>{pair.sgt}</small>
+      <small style={{ display: "block", fontSize: "0.76em", opacity: 0.74 }}>{pair.myt}</small>
     </time>
   );
 }
