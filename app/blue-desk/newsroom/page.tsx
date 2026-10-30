@@ -39,6 +39,13 @@ export default async function NewsroomPage({searchParams}:Props){
   recentBankDecisions(now,168),recentReportedEditorial(now,168),
   selectPostEventRecaps(news,now,8),readerHref,now,
  );
+ if(oct30SelloffIsLead(now))editorials.unshift({
+   id:OCT30_SELL_OFF.id,headline:OCT30_SELL_OFF.headline,summary:OCT30_SELL_OFF.fact+" "+OCT30_SELL_OFF.why,
+   occurredAt:OCT30_SELL_OFF.occurredAt,sourceName:OCT30_SELL_OFF.sourceName,
+   sourceUrl:OCT30_SELL_OFF.sourceUrl,readerHref:readerHref+OCT30_SELL_OFF.href,
+   topics:["ai","earnings"],verificationLabel:"DATED EDITORIAL · REPORTED INTRADAY",
+   why:OCT30_SELL_OFF.mechanism,nextTest:OCT30_SELL_OFF.test,kind:"reported",
+ });
  const hotPicks=selectNewsroomHotPicks(news,archiveResult.items,now,5,editorials);
  return <main className={desk.page} data-public-newsroom="original-source-only">
   <BlueDeskHeader activePath="/blue-desk/newsroom"/>
