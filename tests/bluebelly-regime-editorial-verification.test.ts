@@ -42,6 +42,9 @@ test("event and instrument distinctions cannot be hidden by the editorial upgrad
  const gold=REGIME_EDITORIAL_UPDATES.gold!;
  assert.match(gold.confirmation,/futures/);
  assert.match(gold.dissent,/not a certified single-feed spot/i);
+ assert.match(gold.dissent,/288.9 tonnes|288.9/);
+ assert.ok(gold.evidence.some(s=>s.sourceType==="ORIGINAL"&&s.url.includes("gold.org/goldhub")));
+ assert.ok(gold.evidence.some(s=>s.value.includes("2.35%")));
  assert.ok(gold.evidence.some(s=>s.sourceType==="TECHNICAL_PROXY"));
  assert.ok(gold.evidence.some(s=>s.value.includes("2.63%")));
  const breadth=REGIME_EDITORIAL_UPDATES.breadth!;
@@ -64,6 +67,10 @@ test("current lens opinions adopt the rechecked evidence rather than repeating o
  assert.match(breadth.evidenceStatus,/advance\/decline/);
  assert.equal(yen.outlook,"BULLISH");
  assert.equal(gold.outlook,"BEARISH");
+ assert.equal(gold.confidence,"MEDIUM");
+ assert.match(gold.opposing,/2024–25/);
+ assert.match(gold.evidenceStatus,/creator transcripts/);
+ assert.match(gold.decidingTest,/DFII10/);
  assert.equal(breadth.outlook,"BULLISH");
 });
 
