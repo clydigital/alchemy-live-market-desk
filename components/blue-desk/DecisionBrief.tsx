@@ -1,6 +1,7 @@
 import {PostEventRecapFeature} from "./PostEventRecap";
 import {getRecentVerifiedEarningsScorecards} from "@/lib/blue-desk-earnings-results";
 import {getRecentOfficialMacroResults} from "@/lib/blue-desk-official-macro-results";
+import {getUnreconciledPublicEarnings} from "@/lib/bluebelly-earnings-coverage";
 import type {PostEventRecap} from "@/lib/bluebelly-post-event-recap";
 import type {EmbeddedSocialContext} from "@/lib/bluebelly-event-social";
 import Link from 'next/link';
@@ -39,6 +40,7 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
  const lead=topics[0];
  const releasedEarnings=getRecentVerifiedEarningsScorecards(now,7);
  const releasedMacro=getRecentOfficialMacroResults(now);
+ const missingIssuerResults=report?getUnreconciledPublicEarnings(now):[];
  // Reuse existing public article routes. Prefer approved post-event readers and
  // suppress the duplicate issuer scorecard when the same result is in both feeds.
  const releasedRows=[
@@ -132,6 +134,11 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
     {l.rows.length>3?<details><summary>{l.rows.length-3} more events</summary>{l.rows.slice(3).map(e=><Event key={e.id} event={e}/>)}</details>:null}
    </section>)}
   </div>
+  {report&&missingIssuerResults.length?<details className={s.evidence} data-earnings-coverage-gap="issuer-schedule-reconciliation">
+    <summary>Unreconciled issuer results · {missingIssuerResults.map(r=>r.ticker).join(", ")}</summary>
+    <p>These issuer-announced reporting dates have passed, but their source-reviewed public result is not yet confirmed. This is a coverage gap, not evidence of an earnings miss.</p>
+    {missingIssuerResults.map(r=><p key={r.ticker+r.quarter}>{r.company} · {r.quarter} · <a href={r.originalScheduleUrl} target="_blank" rel="noopener noreferrer">Original issuer announcement</a></p>)}
+   </details>:null}
   {moreCards.length ? <section className={s.latest} aria-label="More recent verified reports">
    <div className={s.latestHead}><div><p className={s.kicker}>RECENT ORIGINAL SOURCES / SEVEN-DAY WINDOW</p><h2>More news, with a quick explanation</h2></div><small>Earlier releases are dated, not presented as breaking news.</small></div>
    <div className={s.latestGrid}>{moreCards.map(n=><article key={n.id} className={s.latestCard}>
