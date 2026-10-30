@@ -38,9 +38,11 @@ export const X_CORE_ROSTER = Object.freeze([
   { handle: "arena", focus: "markets" },
   { handle: "KobeissiLetter", focus: "macro" },
   { handle: "FirstSquawk", focus: "breaking" },
+  { handle: "zerohedge", focus: "global-news" },
+  { handle: "TGLetter", focus: "civil-resilience" },
 ] as const);
-// X Wire exclusion only. ZeroHedge may remain available in other research feeds.
-export const X_WIRE_EXCLUDED_HANDLES = Object.freeze(["zerohedge", "gordianknotdev"] as const);
+// 30 Oct owner override restores ZeroHedge and adds TGLetter; GordianKnotDev remains excluded.
+export const X_WIRE_EXCLUDED_HANDLES = Object.freeze(["gordianknotdev"] as const);
 export function isExcludedXWireHandle(handle: string): boolean {
   return X_WIRE_EXCLUDED_HANDLES.some(blocked =>
     blocked === handle.trim().replace(/^@/, "").toLowerCase());

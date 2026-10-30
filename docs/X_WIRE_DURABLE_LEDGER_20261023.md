@@ -1,10 +1,10 @@
 # X Wire P2 — persistent discovery ledger (23 October 2026)
 
 ## Scope
-Bluebelly's authenticated X Wire navigation entry (`/owner/x-wire`) reads the service-role-only operational ledger. It is private on the Bluebelly hostname and the operations host; unauthorised users are redirected to Google login, while unrelated owner routes and APIs remain blocked. Raw X posts and private owner health records remain protected; the shared discovery brief exposes only bounded redacted public-post leads and no privileged diagnostics. As of the 30 October 2026 exclusion, it uses the remaining nine-account roster and no paid X API, independent reasoning engine, new research task or cron.
+Bluebelly's authenticated X Wire navigation entry (`/owner/x-wire`) reads the service-role-only operational ledger. It is private on the Bluebelly hostname and the operations host; unauthorised users are redirected to Google login, while unrelated owner routes and APIs remain blocked. Raw X posts and private owner health records remain protected; the shared discovery brief exposes only bounded redacted public-post leads and no privileged diagnostics. As of the 30 October 2026 owner override, the proposed roster contains eleven accounts and no paid X API, independent reasoning engine, new research task or cron.
 
-## ZeroHedge X Wire exclusion (26 October 2026)
-@zerohedge must never be fetched, queued, shown, counted as active/deferred, used as X Wire attribution, or promoted as an X Wire evidence lead. Remove it from the roster and fail closed in candidate parsing and durable scan. Historical posts remain retained for audit, but are marked rejected by the migration and omitted from X Wire readers/counts. Legacy clients must not claim a lease for this excluded handle. This restriction is scoped to X Wire and the X sweep, not unrelated news-source selection.
+## ZeroHedge X Wire restoration (30 October 2026)
+The owner withdrew the 26 October exclusion. @zerohedge is restored alongside newly approved @TGLetter; previously rejected historical posts are retained for audit, not automatically re-labelled verified. A forward migration reactivates the ZeroHedge checkpoint and adds TGLetter. Both remain unverified social leads requiring original-source checking and must never independently trigger canonical Dossier/Story promotion. @TGLetter preparedness reports belong in Newsroom Awareness research, not Regime changes.
 
 ## GordianKnotDev X Wire exclusion (30 October 2026)
 `@GordianKnotDev` is excluded from retrieval, source-health totals, public discovery, fallback scans and active/deferred post counts. Retain any historical posts for audit only, mark them rejected, and prevent leasing the old account row. Other accounts are unaffected.

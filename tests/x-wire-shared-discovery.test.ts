@@ -16,11 +16,12 @@ const source=(handle:string,id:number,text:string,time="2026-10-27T23:05:00Z",
 });
 const run:ResearchRunInput={runKey:"xwire-market",scheduleSlot:"morning",
  scheduledFor:now.toISOString(),items:[],sourceChecks:[],summary:"other sources"};
-test("KobeissiLetter stays unique and HormuzReport stays registered after source exclusion",()=>{
- assert.equal(X_CORE_ROSTER.length,9);
+test("existing sources stay unique, new owners join and excluded handle stays blocked",()=>{
+ assert.equal(X_CORE_ROSTER.length,11);
  assert.equal(X_CORE_ROSTER.filter(x=>x.handle==="KobeissiLetter").length,1);
  assert.equal(X_CORE_ROSTER.filter(x=>x.handle==="HormuzReport").length,1);
- assert.ok(!X_CORE_ROSTER.some(x=>x.handle.toLowerCase()==="zerohedge"));
+ assert.ok(X_CORE_ROSTER.some(x=>x.handle.toLowerCase()==="zerohedge"));
+ assert.ok(X_CORE_ROSTER.some(x=>x.handle==="TGLetter"));
  assert.ok(!X_CORE_ROSTER.some(x=>x.handle.toLowerCase()==="gordianknotdev"));
 });
 test("market-catalyst ranking covers Hormuz and yields, with social claims never promoted",()=>{
@@ -32,6 +33,7 @@ test("market-catalyst ranking covers Hormuz and yields, with social claims never
   source("Bluekurtic",5,"Ordinary non-market remarks without any data or catalyst today."),
   source("zerohedge",6,"Brent oil tanker market report."),
   source("GordianKnotDev",9,"BREAKING: Brent oil tanker market report."),
+  source("TGLetter",10,"Australian Red Cross emergency preparedness advises an emergency kit with bottled water; investigate original date."),
   source("HormuzReport",7,"Strait of Hormuz tanker shipping report.","2026-10-22T20:00:00Z"),
   source("HormuzReport",8,"Hormuz tanker shipping details.","2026-10-27T23:05:00Z","deferred"),
  ];
@@ -39,9 +41,11 @@ test("market-catalyst ranking covers Hormuz and yields, with social claims never
  assert.ok(ranked.some(x=>x.post.handle==="HormuzReport"&&x.theme==="energy_shipping"));
  assert.ok(ranked.some(x=>x.post.handle==="KobeissiLetter"&&x.theme==="macro_rates_fx"));
  assert.ok(ranked.some(x=>x.theme==="equities_ai"));
- assert.ok(!ranked.some(x=>x.post.handle==="zerohedge"));
+ assert.ok(ranked.some(x=>x.post.handle==="zerohedge"));
+ assert.ok(ranked.some(x=>x.post.handle==="TGLetter"&&x.theme==="resilience_preparedness"));
  assert.ok(!ranked.some(x=>x.post.handle==="GordianKnotDev"));
- assert.ok(!ranked.some(x=>x.post.id===posts[7].id));
+ assert.ok(!ranked.some(x=>x.post.id===posts[8].id));
+ assert.ok(!ranked.some(x=>x.post.id===posts[9].id));
  const out=attachXWireResearchLeads(run,{
   posts:posts as never,storageHealthy:true,
   accounts:X_CORE_ROSTER.map(x=>({handle:x.handle,status:"healthy"})) as never

@@ -2,7 +2,7 @@ import {X_CORE_ROSTER, normaliseXPostUrl} from "./x-sweep-core.ts";
 import type {XWireDurable} from "./x-wire-durable.ts";
 
 type WirePost=XWireDurable["posts"][number];
-export type XMarketTheme="energy_shipping"|"macro_rates_fx"|"geopolitics"|"equities_ai"|"corporate";
+export type XMarketTheme="energy_shipping"|"macro_rates_fx"|"geopolitics"|"equities_ai"|"corporate"|"resilience_preparedness";
 export type XMarketCandidate={post:WirePost;theme:XMarketTheme;priority:number};
 
 /** Editorial significance signals, NOT verified claims, price measurements or evidence. */
@@ -11,9 +11,10 @@ const TOPICS:readonly {theme:XMarketTheme;regex:RegExp}[]=[
  {theme:"macro_rates_fx",regex:/\b(?:fed|fomc|federal reserve|cpi|pce|inflation|payroll|nfp|treasury|bond|yield|rate cut|rate hike|interest rate|spread|ecb|boj|boe|dxy|yen|dollar|currency|usd.?jpy|usd.?cny|jgb|10.year|30.year|2.year|central bank)\b/i},
  {theme:"geopolitics",regex:/\b(?:missile|strike|attack|ceasefire|war|conflict|tariff|sanction|military|iran|israel|russia|ukraine|china|taiwan|drone|diplomacy|blockade)\b/i},
  {theme:"equities_ai",regex:/\b(?:earnings|revenue|guidance|capex|semiconductor|chips?|nvidia|amd|nasdaq|s&p.?500|stock market|stocks?|ai spending|data.?cent(?:er|re)|valuation|free cash flow|microsoft|meta|alphabet|oracle|coreweave|market breadth)\b/i},
+ {theme:"resilience_preparedness",regex:/\b(?:stockpiling|stockpile|stock up|emergency kit|emergency supplies|red cross|civil preparedness|disaster preparedness|civil defence|civil defense|power grid|blackout|emergency preparedness|self.preparedness|crisis supplies|drinking water|shelter in place|strategic reserve)\b/i},
  {theme:"corporate",regex:/\b(?:merger|merging|ipo|initial public offering|prospectus|takeover|buyout|capital raise|debt financing|stock offering|profit warning|special committee|s.1 filing|bankruptcy|acquisition)\b/i},
 ];
-const SOURCE_PRIORITY=new Set(["hormuzreport","kobeissiletter"]);
+const SOURCE_PRIORITY=new Set(["hormuzreport","kobeissiletter","zerohedge","tgletter"]);
 const HANDLES=new Set(X_CORE_ROSTER.map(x=>x.handle.toLowerCase()));
 
 export function rankXWireMarketCandidates(posts:readonly WirePost[],now=new Date(),max=12):XMarketCandidate[]{
@@ -31,7 +32,8 @@ export function rankXWireMarketCandidates(posts:readonly WirePost[],now=new Date
   const matched=TOPICS.filter(t=>t.regex.test(post.text));
   if(!matched.length)return [];
   const preferred=handle==="hormuzreport"?"energy_shipping":
-    handle==="kobeissiletter"?"macro_rates_fx":null;
+    handle==="kobeissiletter"?"macro_rates_fx":
+    handle==="tgletter"?"resilience_preparedness":null;
   const theme=matched.find(t=>t.theme===preferred)?.theme||matched[0].theme;
   const isFresh=age<6*3_600_000;
   const priority=65+(isFresh?8:0)+Math.min(matched.length,3)*3+
