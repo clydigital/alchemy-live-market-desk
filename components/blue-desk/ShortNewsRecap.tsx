@@ -1,3 +1,4 @@
+import {decisionRecapSourceLabel} from "@/lib/bluebelly-recap-provenance";
 import Link from "next/link";
 import EditorialStoryArt from "./EditorialStoryArt";
 import EarningsEvidenceGraphic from "./EarningsEvidenceGraphic";
@@ -36,10 +37,7 @@ export function recapFromDecision(
   title:topic.title,fact:topic.fact,stake:topic.why,mechanism:topic.mechanism,
   nextTest:topic.test,sourceUrl:topic.sourceUrl,sourceName:topic.sourceName,
   asOf:topic.at,isScheduled:topic.status==="UPCOMING",
-  label:topic.status==="UPCOMING"?"PREVIEW · OUTCOME NOT YET VERIFIED"
-    :earnings?"ISSUER-REVIEWED FINANCIAL RESULT"
-    :topic.id.startsWith("bea-")?"BEA ORIGINAL RELEASE · SOURCE-REVIEWED"
-    :"SOURCE-REVIEWED MARKET DEVELOPMENT",
+  label:decisionRecapSourceLabel(topic.status,Boolean(earnings),topic.id),
   ticker:topic.assets.join(" · "),earnings,
  };
 }
