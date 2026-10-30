@@ -9,7 +9,7 @@ create table if not exists public.bluebelly_publication_archive (
   event_day date,
   source_url text not null check (source_url like 'https://%' and length(source_url)<=2048),
   source_name text not null,
-  reader_href text not null check (reader_href ~ '^/key-stories\\?(postEvent|brief)=[a-z0-9_-]{3,150}$'),
+  reader_href text not null check (reader_href ~ '^/key-stories[?](postEvent|brief)=[a-z0-9_-]{3,150}$'),
   source_module text not null,
   topics jsonb not null default '[]'::jsonb check (jsonb_typeof(topics)='array'),
   entity_keys jsonb not null default '[]'::jsonb check (jsonb_typeof(entity_keys)='array'),
@@ -21,7 +21,9 @@ create table if not exists public.bluebelly_publication_archive (
   constraint bluebelly_archive_exact_time check ((event_at is not null) <> (event_day is not null)),
   constraint bluebelly_archive_approval check (publication_basis <> 'APPROVED_WITH_RECEIPT' or approved_publication_id is not null)
 );
-create index if not exists bluebelly_publication_archive_event_idx on public.bluebelly_publication_archive (coalesce(event_at,(event_day::timestamp at time zone 'UTC')) desc,record_key);
+create index if not exists bluebelly_publication_archive_event_idx on public.bluebelly_publication_archive (event_at desc, record_key) where event_at is not null;
+create index if not exists bluebelly_publication_archive_day_idx
+ on public.bluebelly_publication_archive (event_day desc, record_key) where event_day is not null;
 alter table public.bluebelly_publication_archive enable row level security;
 -- This is an owner/server archival store. Do not grant browser clients table SELECT.
 revoke all on public.bluebelly_publication_archive from anon,authenticated;
