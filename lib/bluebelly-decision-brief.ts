@@ -1,3 +1,4 @@
+import {OCT30_SELL_OFF,oct30SelloffIsLead} from "./bluebelly-oct30-tech-selloff.ts";
 import {getRecentVerifiedEarningsScorecards} from "./blue-desk-earnings-results.ts";
 import {getRecentOfficialMacroResults} from "./blue-desk-official-macro-results.ts";
 import type { NewsBriefV1 } from './market-brief-news.ts';
@@ -52,6 +53,15 @@ export function decisionTopics(news: readonly NewsBriefV1[], calendar: Presenter
   for(const result of getRecentVerifiedEarningsScorecards(now,7)) {
     topics.push({id:result.id,title:result.headline,fact:result.company+" · "+result.fiscalPeriod+": "+result.metrics.filter(m=>m.state==='measured').map(m=>m.name+" "+m.value).join("; "),why:result.conclusion,test:result.nextTest,at:result.releaseDay,sourceUrl:result.sourceUrl,sourceName:result.sourceName,href:'?brief='+encodeURIComponent(result.id),status:'NEW',mechanism:result.outlook,assets:[result.ticker],priority:3});
   }
+  // Dated, editor-selected cross-issuer market reaction with source and clock.
+  // Does not admit a canonical System 2 event or fabricate the final close.
+  if(oct30SelloffIsLead(now))topics.push({
+    id:OCT30_SELL_OFF.id,title:OCT30_SELL_OFF.headline,fact:OCT30_SELL_OFF.fact,
+    why:OCT30_SELL_OFF.why,test:OCT30_SELL_OFF.test,at:OCT30_SELL_OFF.occurredAt,
+    sourceUrl:OCT30_SELL_OFF.sourceUrl,sourceName:OCT30_SELL_OFF.sourceName,
+    href:OCT30_SELL_OFF.href,status:'FEATURE',mechanism:OCT30_SELL_OFF.mechanism,
+    assets:[...OCT30_SELL_OFF.assets],priority:12,
+  });
   const upcoming = selectBlueDeskUpcoming(calendar,now,7);
   // One policy decision and one earnings theme; never pad the slate with tickers.
   for(const kind of ['economic','earnings'] as const){
