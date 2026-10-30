@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import LearnSlideReader from "@/components/blue-desk/LearnSlideReader";
 import { getConcept } from "@/lib/concepts";
+import { LEARN_GLOSSARY_ADDITIONS } from "@/lib/bluebelly-learn-glossary";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { BLUEBELLY_LEARN_DECKS, getBluebellyLearnDeck } from "@/lib/bluebelly-learn-decks";
 import desk from "../../../blue-desk.module.css";
@@ -31,7 +32,8 @@ export default async function BluebellyLearnDeckPage({ params }: {
   const host = (await headers()).get("host");
   const back = blueDeskPublicHref("/blue-desk/learn", host);
   const verifiedConcepts = record.meta.concepts
-    .map((name) => getConcept(name))
+    .map((name) => getConcept(name) || LEARN_GLOSSARY_ADDITIONS.find((concept) =>
+      [concept.key, concept.label, ...concept.aliases].some((label) => label.toLowerCase() === name.toLowerCase())))
     .filter((concept): concept is NonNullable<typeof concept> => Boolean(concept))
     .filter((concept, index, entries) => entries.findIndex((other) => other.key === concept.key) === index);
 
