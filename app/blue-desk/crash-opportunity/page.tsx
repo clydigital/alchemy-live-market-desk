@@ -55,6 +55,11 @@ export default async function CrashOpportunityPage(){
         </div>
       </header>
 
+      <aside data-oct30-newsroom-context="source-dated-intraday" style={{marginTop:18,padding:"18px 22px",border:"1px solid var(--bb-card-border)",background:"var(--bb-surface)",borderRadius:9}}>
+        <strong style={{display:"block",color:"var(--bb-accent)",fontSize:12,marginBottom:7}}>30 OCTOBER 2026 / NEW MARKET DEVELOPMENT</strong>
+        <p style={{fontSize:15,lineHeight:1.65}}>The Nasdaq and S&amp;P 500 fell sharply in Friday's afternoon trading as Intel's guidance and the cash costs of AI infrastructure unsettled technology shares. This reported <em>intraday</em> sell-off is distinct from the watch's independently dated, mostly 29 October closing evidence.</p>
+        <Link href={href("/key-stories")+"?feature=ai-cash-selloff-october-2026"}>Read the new Key Story: AI Demand Is Booming. So Why Are Investors Selling? →</Link>
+      </aside>
       <section id="gauge" className={styles.gauge} aria-labelledby="gauge-title">
         <div className={styles.sectionTop}>
           <div><span className={styles.eyebrow}>01 / TWO-SIDED RESEARCH</span><h2 id="gauge-title">Where the evidence leans</h2></div>
