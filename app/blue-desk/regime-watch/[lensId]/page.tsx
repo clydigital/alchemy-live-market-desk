@@ -43,6 +43,7 @@ export default async function ResearchLensPage({params}:Props){
   getMarketMonitor().catch(()=>null),
  ]);
  const lens=groupPublicResearch(publicTheses||[]).find(item=>item.id===lensId)!;
+ const lensNumber=String(EDITORIAL_REGIME_LENSES.findIndex(item=>item.id===lensId)+1).padStart(2,"0");
  const workbook=REGIME_LENS_WORKBOOKS[lens.id];
  const outlook=getLensOutlook(lens.id);
  const latestEditorial=getRegimeEditorialUpdate(lens.id);
@@ -57,19 +58,31 @@ export default async function ResearchLensPage({params}:Props){
    <nav className={styles.breadcrumb} aria-label="Research breadcrumb">
     <Link href={base}>Regime Watch</Link><span aria-hidden="true">/</span><span>{lens.name}</span>
    </nav>
-   <header className={styles.hero}>
+   <header className={styles.hero} data-regime-design="cyberpunk-research-file">
     <div className={styles.heroText}>
-     <span className={styles.kicker}>{lens.code} · DEDICATED RESEARCH LENS</span>
+     <span className={styles.kicker}>BLUEBELLY / REGIME INTELLIGENCE — RESEARCH FILE {lensNumber} / 09</span>
      <h1>{lens.name}</h1>
      <p className={styles.question}>{lens.question}</p>
      <p className={styles.scope}>{workbook.lead}</p>
+     <div className={styles.heroActions}><a href="#lens-outlook">READ THE OUTLOOK <span aria-hidden="true">↗</span></a><a href="#decision-fork">WHAT WOULD CHANGE IT <span aria-hidden="true">↗</span></a></div>
      <div className={styles.meta}>
       <span>{publicTheses===null?"Stored Story read unavailable":lens.stories.length+" associated public Story record"+(lens.stories.length===1?"":"s")}</span>
       <span>Page viewed <DualTimestamp value={now.toISOString()}/></span>
      </div>
     </div>
-    <div className={styles.heroArt}><EditorialStoryArt headline={lens.name} motif={lens.motif as EditorialMotif}/></div>
+    <div className={styles.heroArt}>
+     <span className={styles.artCaption}>// RESEARCH SYSTEM {lensNumber}</span>
+     <EditorialStoryArt headline={lens.name} motif={lens.motif as EditorialMotif}/>
+     <strong className={styles.artNumber} aria-hidden="true">{lensNumber}</strong>
+     <span className={styles.artFootnote}>MONITOR / CHALLENGE / REVISE</span>
+    </div>
    </header>
+   <div className={styles.lensQuickStrip} aria-label="Research file orientation">
+    <div><span>01 / REVIEWED DIRECTION</span><strong>{outlook.outlook}</strong><small>For {outlook.directionTarget}</small></div>
+    <div><span>02 / CONFIDENCE</span><strong>{outlook.confidence}</strong><small>Qualitative evidence judgement</small></div>
+    <div><span>03 / NEXT DECIDING TEST</span><p>{outlook.decidingTest}</p></div>
+   </div>
+
 
    <section id="lens-outlook" className={styles.outlookPanel} data-lens-outlook={outlook.outlook} data-lens-confidence={outlook.confidence} aria-labelledby="lens-outlook-title">
     <div className={styles.outlookTop}>
@@ -131,6 +144,8 @@ export default async function ResearchLensPage({params}:Props){
     <a href="#decision-fork">Decision tests</a>
     <a href="#story-history">Story records</a>
    </nav>
+
+
 
    {assetContext.length?<section id="asset-monitoring" className={styles.section} aria-label="Dated original-source and market tape context" data-regime-asset-live-context="qualified-readers-only">
     <span className={styles.kicker}>SOURCE CHECK / PRICE TAPE / FRESHNESS</span>

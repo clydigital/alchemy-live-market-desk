@@ -36,18 +36,19 @@ export default async function CrashOpportunityPage(){
       <nav className={styles.breadcrumb} aria-label="Research breadcrumb">
         <Link href={href("/regime-watch")}>All regime watches</Link><span aria-hidden="true">/</span><span>Market Crash vs Opportunity</span>
       </nav>
-      <header className={styles.hero}>
+      <header className={styles.hero} data-regime-design="cyberpunk-cross-regime-watch">
         <div>
-          <span className={styles.eyebrow}>REGIME WATCH / EQUITY DOWNSIDE ↔ RECOVERY POTENTIAL</span>
-          <h1>Market Crash <em>vs</em> Opportunity</h1>
+          <span className={styles.eyebrow}>BLUEBELLY / CROSS-REGIME FIELD GUIDE — INVESTIGATION X</span>
+          <h1>CRASH <em>VS</em> OPPORTUNITY</h1>
           <p className={styles.dek}>A record-high index can hide hundreds of struggling stocks. Is that the warning before a collapse—or a recovery already gathering strength beneath the surface?</p>
           <div className={styles.heroLinks}>
-            <a href="#gauge">Examine the research gauge ↓</a>
-            <a href="#mirrors">Historical recovery mirrors ↓</a>
-            <a href="#cross-regimes">Connected regimes ↓</a>
+            <a href="#gauge">READ THE EVIDENCE GAUGE ↗</a>
+            <a href="#mirrors">HISTORICAL MIRRORS ↗</a>
+            <a href="#cross-regimes">CONNECTED SYSTEMS ↗</a>
           </div>
         </div>
         <div className={styles.heroSide}>
+          <div className={styles.heroVisual} aria-hidden="true"><strong>VS</strong><small>RISK / OPPORTUNITY</small></div>
           <span>THE INVESTOR QUESTION</span>
           <strong>What would need to break before a correction becomes a lasting bear market?</strong>
           <p>And what improvement would let prices make new highs even when today's headlines, capex or free cash flow look poor?</p>
