@@ -134,3 +134,29 @@
  .meta span+span{padding-left:7px}
  .pageNav{margin:8px 0 12px}
 }
+
+/* Lens-level editorial outlook is the leading decision block, not a model score. */
+.outlookPanel{border:1px solid var(--bb-card-border);border-radius:10px;background:var(--bb-card-bg);padding:22px;margin:16px 0 11px;scroll-margin-top:22px;min-width:0}
+.outlookTop{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(230px,.9fr);gap:21px;align-items:start}
+.outlookNarrative h2{font:580 clamp(24px,2.5vw,32px)/1.25 var(--bluebelly-font);color:var(--bb-text);margin:9px 0 12px}
+.outlookNarrative>p{color:var(--bb-text);font-size:14px;line-height:1.7;margin:0}
+.outlookMeterPanel{min-width:0}
+.outlookMeterPanel>small{display:block;margin:9px 0 0;font-size:11px;line-height:1.6;color:var(--bb-muted)}
+.outlookWhy{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0}
+.outlookWhy>div{border-left:2px solid var(--bb-accent);padding:12px 13px;background:var(--bb-card-quiet);min-width:0}
+.outlookWhy p{font-size:12px;line-height:1.65;color:var(--bb-text);margin:8px 0 0}
+.outlookFooter{border-top:1px solid var(--bb-line);padding-top:11px;color:var(--bb-muted)}
+.outlookFooter p{font-size:11px;line-height:1.65;margin:6px 0}
+.outlookFooter strong{color:var(--bb-text)}
+.outlookFooter a{color:var(--bb-accent)}
+@media(max-width:900px){.outlookTop{grid-template-columns:minmax(0,1fr) minmax(200px,.85fr)}.outlookWhy{grid-template-columns:1fr}}
+@media(max-width:670px){
+ .outlookPanel{padding:13px;margin:10px 0}
+ .outlookTop{display:flex;flex-direction:column;gap:12px}
+ .outlookNarrative h2{font-size:23px;line-height:1.27;margin:6px 0}
+ .outlookNarrative>p{font-size:13px;line-height:1.6}
+ .outlookMeterPanel{width:100%}
+ .outlookWhy{gap:7px;margin:12px 0}
+ .outlookWhy>div{padding:10px}
+ .outlookFooter p{font-size:10px}
+}
