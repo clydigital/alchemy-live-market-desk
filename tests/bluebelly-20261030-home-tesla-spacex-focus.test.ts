@@ -22,7 +22,15 @@ test("last-seven-days reports link to real approved on-site readers",()=>{
  assert.match(home,/postEventRecaps.slice\(1\)\.map/);
  assert.match(home,/moreCards.map/);
  assert.match(home,/<Link href=\{n\.href\}>Read Bluebelly recap/);
- assert.match(home,/<Link href=\{reader\+r\.detailsHref\}>/);
+ assert.match(home,/<Link className=\{s\.releasedLink\} href=\{r\.href\} title=\{r\.title\}>/);
+ const rows=home.split('<section data-bluebelly-released-reading="links-only">')[1]?.split("</section>")[0]||"";
+ assert.match(rows,/<ul className=\{s\.releasedList\}>/);
+ assert.match(rows,/<li className=\{s\.releasedRow\}/);
+ assert.doesNotMatch(rows,/<article|<small|<details|<img|r\.standfirst|r\.fact|<p>\{r\./);
+ assert.match(home,/postEventRecaps\.map\(r=>/);
+ assert.match(home,/releasedEarnings\.filter\(r=>!postEventRecaps\.some/);
+ const css=source("components/blue-desk/DecisionBrief.module.css");
+ assert.match(css,/\.releasedLink\{display:block;max-width:100%;padding:11px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis/);
  assert.doesNotMatch(home,/<EarningsEvidenceGraphic scorecard=\{r\}/);
  assert.match(recap,/detailsHref:"\?postEvent="/);
  assert.match(reader,/params\.postEvent/);

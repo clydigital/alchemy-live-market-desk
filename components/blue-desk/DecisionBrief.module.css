@@ -65,3 +65,14 @@
 .homeHero{border-color:var(--bb-card-border);border-bottom-color:var(--bb-accent)}
 .homeTest{border-block-color:var(--bb-card-border)}
 @media(prefers-reduced-motion:reduce){.topic,.lead,.latestCard,.event{transition:none}}
+
+/* Published releases are a compact headline index, not a second news-card feed.
+   Give titles the full desk width; retain one visible line per source-linked story. */
+.lanes{grid-template-columns:repeat(2,minmax(0,1fr))}
+.lanes>section:first-child{grid-column:1/-1}
+.releasedList{list-style:none;padding:0;margin:0}
+.releasedRow{min-width:0;margin:0;border-top:1px solid var(--bb-card-border)}
+.releasedLink{display:block;max-width:100%;padding:11px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:15px;font-weight:650;line-height:1.3;text-decoration:none}
+.releasedLink:hover{text-decoration:underline}
+.releasedLink:focus-visible{outline:2px solid var(--bb-accent);outline-offset:-2px}
+@media(max-width:700px){.lanes{grid-template-columns:1fr}.lanes>section:first-child{grid-column:auto}.releasedLink{font-size:14px}}

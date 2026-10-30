@@ -40,7 +40,21 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
  const lead=topics[0];
  const releasedEarnings=getRecentVerifiedEarningsScorecards(now,7);
  const releasedMacro=getRecentOfficialMacroResults(now);
- const missingIssuerResults=getUnreconciledPublicEarnings(now);
+ const missingIssuerResults=report?getUnreconciledPublicEarnings(now):[];
+ // Reuse existing public article routes. Prefer approved post-event readers and
+ // suppress the duplicate issuer scorecard when the same result is in both feeds.
+ const releasedRows=[
+  ...postEventRecaps.map(r=>({
+   id:"recap:"+r.id,title:r.headline,href:reader+r.detailsHref,at:r.releaseAt,
+  })),
+  ...releasedMacro.filter(r=>!postEventRecaps.some(post=>post.id===r.id)).map(r=>({
+   id:"macro:"+r.id,title:r.title,href:reader+'?brief='+encodeURIComponent(r.id),at:r.releaseAt,
+  })),
+  ...releasedEarnings.filter(r=>!postEventRecaps.some(post=>post.id===r.id)).map(r=>({
+   id:"earnings:"+r.id,title:r.company+' · '+r.fiscalPeriod+' results',
+   href:reader+'?brief='+encodeURIComponent(r.id),at:r.releaseDay,
+  })),
+ ].sort((a,b)=>Date.parse(b.at)-Date.parse(a.at));
  const additional=recentNews.filter(n=>!topics.some(t=>t.href==='?news='+encodeURIComponent(n.id))).slice(0,8);
  // Previously published outcomes were missing from the rolling original-press
  // reader, so show their approved, source-dated Bluebelly articles here too.
@@ -109,36 +123,22 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
   <div className={s.lanes} aria-label="Results and forward catalysts">
    <section data-bluebelly-released-reading="links-only">
     <h2>Released · last 7 days</h2>
-    {releasedMacro.map(r=><article className={s.event} key={r.id} data-official-macro-outcome={r.id}>
-      <strong><Link href={reader+'?brief='+encodeURIComponent(r.id)}>{r.title}</Link></strong>
-      <small>{r.releaseAt.slice(0,10)} · ORIGINAL BEA RELEASE · DATE-QUALIFIED EDITORIAL</small>
-      <p>{r.fact}</p><small><a href={r.sourceUrl} target="_blank" rel="noopener noreferrer">{r.sourceName} ↗</a></small>
-    </article>)}
-    {releasedEarnings.map(r=><article className={s.event} key={r.id} data-source-reviewed-issuer={r.ticker}>
-      <strong><Link href={reader+'?brief='+encodeURIComponent(r.id)}>{r.company} · {r.fiscalPeriod} results</Link></strong>
-      <small>{r.releaseDay} · SOURCE-REVIEWED ISSUER FIGURES · ANALYST CONSENSUS NOT VERIFIED</small>
-      <p>{r.metrics[0].name}: {r.metrics[0].value}. {r.metrics[2].state==='measured'
-        ?'Free cash flow: '+r.metrics[2].value+' ('+r.metrics[2].note+')'
-        :'FCF: not yet source-qualified for this period.'}</p>
-      <small><a href={r.sourceUrl} target="_blank" rel="noopener noreferrer">{r.sourceName} ↗</a></small>
-    </article>)}
-    {postEventRecaps.map(r=><article className={s.event} key={r.id}>
-      <strong><Link href={reader+r.detailsHref}>{r.headline}</Link></strong>
-      <small><DualTimestamp value={r.releaseAt.includes("T")?r.releaseAt:null} sourceDate={r.releaseAt}/> · {r.featuredStatus==="REVIEWED"?"Reviewed Bluebelly recap":"Verified announcement · analysis pending"}</small>
-      <p>{r.standfirst}</p>
-    </article>)}
-    {missingIssuerResults.length ? <details className={s.event} data-earnings-coverage-gap="issuer-schedule-reconciliation">
-      <summary>Issuer results needing public-board review: {missingIssuerResults.map(r=>r.ticker).join(", ")}</summary>
-      <p>These issuer-announced reporting dates have passed, but the public released-results board does not yet have a source-reviewed scorecard. This does not mean the company failed to report or that its earnings disappointed. Verify the original release and reconcile it before assigning a result.</p>
-      {missingIssuerResults.map(r=><p key={r.ticker+r.quarter}>{r.company} · {r.quarter} · call/date {r.scheduledCallAt} · <a href={r.originalScheduleUrl} target="_blank" rel="noopener noreferrer">Issuer announcement ↗</a></p>)}
-    </details>:null}
-    {!releasedMacro.length&&!releasedEarnings.length&&!postEventRecaps.length?<p>No qualifying dated public results available. Research and issuer-release coverage may be incomplete.</p>:null}
+    {releasedRows.length ? <ul className={s.releasedList}>
+      {releasedRows.map(r=><li className={s.releasedRow} key={r.id}>
+        <Link className={s.releasedLink} href={r.href} title={r.title}>{r.title}</Link>
+      </li>)}
+    </ul>:<p>No qualifying published results in the last seven days.</p>}
    </section>
    {[{title:"Next policy & macro · 72h / 7d",rows:lanes.policy},{title:"Upcoming earnings · 7 days",rows:lanes.earnings}].map(l=><section key={l.title}><h2>{l.title}</h2>
     {l.rows.length?l.rows.slice(0,3).map(e=><Event key={e.id} event={e}/>):<p>No qualifying records available. Coverage may be incomplete.</p>}
     {l.rows.length>3?<details><summary>{l.rows.length-3} more events</summary>{l.rows.slice(3).map(e=><Event key={e.id} event={e}/>)}</details>:null}
    </section>)}
   </div>
+  {report&&missingIssuerResults.length?<details className={s.evidence} data-earnings-coverage-gap="issuer-schedule-reconciliation">
+    <summary>Unreconciled issuer results · {missingIssuerResults.map(r=>r.ticker).join(", ")}</summary>
+    <p>These issuer-announced reporting dates have passed, but their source-reviewed public result is not yet confirmed. This is a coverage gap, not evidence of an earnings miss.</p>
+    {missingIssuerResults.map(r=><p key={r.ticker+r.quarter}>{r.company} · {r.quarter} · <a href={r.originalScheduleUrl} target="_blank" rel="noopener noreferrer">Original issuer announcement</a></p>)}
+   </details>:null}
   {moreCards.length ? <section className={s.latest} aria-label="More recent verified reports">
    <div className={s.latestHead}><div><p className={s.kicker}>RECENT ORIGINAL SOURCES / SEVEN-DAY WINDOW</p><h2>More news, with a quick explanation</h2></div><small>Earlier releases are dated, not presented as breaking news.</small></div>
    <div className={s.latestGrid}>{moreCards.map(n=><article key={n.id} className={s.latestCard}>
