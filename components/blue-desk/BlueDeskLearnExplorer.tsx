@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import ui from "@/app/blue-desk/learn/learn.module.css";
-import type { LearnConcept } from "@/lib/bluebelly-learn-glossary";
+import type { LearnConcept as RegistryLearnConcept } from "@/lib/bluebelly-learn-glossary";
+type LearnConcept = Omit<RegistryLearnConcept,"regimes"> & {regimes:{slug:string;label:string}[]};
 
 const categories = [
   { slug:"all",label:"All terms",code:"00" },
