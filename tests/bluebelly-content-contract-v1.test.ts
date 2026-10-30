@@ -33,6 +33,17 @@ test("v1 baseline: an unregistered issuer fact validates, but is not a published
  const r=fixture();assert.deepEqual(validateContentRecord(r),[]);
  assert.equal(canAppearInPublicIndex(r),false);
 });
+test("a published status alone never launders an unverified lead into public news",()=>{
+ const r=fixture();r.publication={status:"PUBLISHED",articleId:"article-001",
+  revisionId:"rev-001",permalink:"/newsroom?event=amazon-2026q3",
+  publishedAt:"2026-10-30T01:05:00.000Z",reviewReceiptId:"review-001",
+  supersedesRevisionId:null};
+ r.verification="UNVERIFIED";
+ assert.deepEqual(validateContentRecord(r),[]);
+ assert.equal(canAppearInPublicIndex(r),false);
+ r.verification="ATTRIBUTED_UNCONFIRMED";
+ assert.equal(canAppearInPublicIndex(r),true);
+});
 test("date-only events cannot silently acquire an invented midnight timestamp",()=>{
  assert.ok(problems(r=>{r.eventTime={precision:"DATE_ONLY",eventDate:"2026-02-30"};}).includes("eventTime"));
  assert.ok(problems(r=>{r.eventTime={precision:"INSTANT",occurredAt:"2026-10-29T00:00:00+08:00"};}).includes("eventTime"));
