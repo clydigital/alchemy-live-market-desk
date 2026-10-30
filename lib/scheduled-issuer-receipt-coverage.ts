@@ -46,7 +46,13 @@ export function expectedIssuerReceiptGaps(
    if((!resultsAnnounced&&!resultsReported&&!(isIssuer&&issuerVerified))
       ||/\b(?:date of|will report|to report|earnings call|conference call|webcast|scheduled|upcoming)\b/i.test(item.title))return false;
    const when=Date.parse(item.publishedAt),call=Date.parse(event.scheduledCallAt);
-   if(!Number.isFinite(when)||!Number.isFinite(call)||Math.abs(when-call)>36*3600_000)return false;
+   if(!Number.isFinite(when)||!Number.isFinite(call))return false;
+   // Issuer-confirmed calendar dates WITHOUT a webcast time are anchored to
+   // midnight UTC for the due-ledger only. Do not turn that convention into
+   // a 36-hour result-retrieval deadline: actual source may land two days later.
+   if(event.sourceDateOnly){
+     if(when<call||when-call>96*3600_000)return false;
+   }else if(Math.abs(when-call)>36*3600_000)return false;
    try{
     const url=new URL(item.url);
     return url.protocol==="https:"&&!url.username&&!url.password&&!url.hash
