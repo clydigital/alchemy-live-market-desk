@@ -19,7 +19,7 @@ export default async function BlueDeskLearnPage() {
   const host = (await headers()).get("host");
   // Governed Regime concepts remain unchanged; additional standalone Learn
   // definitions are educational only and do not feed research/evidence paths.
-  const concepts = assembleLearnGlossary(listConcepts().filter((concept)=>concept.status==="active"))
+  const concepts = assembleLearnGlossary(listConcepts().filter((concept)=>concept.status === "active"))
     .map((concept)=>({
       ...concept,
       regimes: concept.regimes.map((slug)=>({
