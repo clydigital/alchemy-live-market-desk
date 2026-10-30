@@ -39,6 +39,44 @@ const BEA_SCHEDULE = "https://www.bea.gov/news/schedule";
 const ADP_CALENDAR = "https://adpemploymentreport.com/";
 const ISM_MANUFACTURING = "https://www.ismworld.org/supply-management-news-and-reports/reports/ism-pmi-reports/pmi/";
 
+/**
+ * Official BEA release dates verified against BEA's 2026 publication schedule.
+ * Do not extrapolate 2027 events; a later official schedule refresh is required.
+ * The dates are source schedules, NOT evidence that any actual was published.
+ */
+const verifiedBeaPceSchedule: EconomicCalendarEvent[] = [
+  {
+    id:"us-bea-2026-10-29-personal-income-outlays-sep-2026",
+    date:"2026-10-29",timeLabel:"08:30 ET",country:"United States",
+    g7Markets:["United States"],event:"Personal Income and Outlays",
+    category:"Inflation",impact:"High",referencePeriod:"September 2026",
+    status:"Scheduled",actual:null,consensus:null,previous:null,
+    decidingQuestion:"Does BEA core and headline PCE change the inflation and real consumer spending outlook relative to the Federal Reserve's policy path?",
+    affectedAssets:["USD","US02Y","SPX","GOLD"],sourceName:"U.S. Bureau of Economic Analysis",
+    sourceUrl:BEA_SCHEDULE,sourceKind:"official-schedule",
+  },
+  {
+    id:"us-bea-2026-11-25-personal-income-outlays-oct-2026",
+    date:"2026-11-25",timeLabel:"08:30 ET",country:"United States",
+    g7Markets:["United States"],event:"Personal Income and Outlays",
+    category:"Inflation",impact:"High",referencePeriod:"October 2026",
+    status:"Scheduled",actual:null,consensus:null,previous:null,
+    decidingQuestion:"Does BEA core and headline PCE change the inflation and real consumer spending outlook relative to the Federal Reserve's policy path?",
+    affectedAssets:["USD","US02Y","SPX","GOLD"],sourceName:"U.S. Bureau of Economic Analysis",
+    sourceUrl:BEA_SCHEDULE,sourceKind:"official-schedule",
+  },
+  {
+    id:"us-bea-2026-12-23-personal-income-outlays-nov-2026",
+    date:"2026-12-23",timeLabel:"08:30 ET",country:"United States",
+    g7Markets:["United States"],event:"Personal Income and Outlays",
+    category:"Inflation",impact:"High",referencePeriod:"November 2026",
+    status:"Scheduled",actual:null,consensus:null,previous:null,
+    decidingQuestion:"Does BEA core and headline PCE change the inflation and real consumer spending outlook relative to the Federal Reserve's policy path?",
+    affectedAssets:["USD","US02Y","SPX","GOLD"],sourceName:"U.S. Bureau of Economic Analysis",
+    sourceUrl:BEA_SCHEDULE,sourceKind:"official-schedule",
+  },
+];
+
 const scheduledEvents: EconomicCalendarEvent[] = [
   {
     id: "au-rba-2026-09-29",
@@ -932,7 +970,7 @@ export async function getEconomicCalendar() {
   ];
   const backstops = keepUncoveredBlsBackstops([...officialScheduleFallbacks, ...verifiedNovember2026BlsSchedules], blsEvents, deskEvents);
   // No provider forecast, surprise or System 2 inference is manufactured by these dates.
-  const allEvents = [...scheduledEvents, ...backstops, ...ism.events, ...blsEvents, ...deskEvents];
+  const allEvents = [...scheduledEvents, ...verifiedBeaPceSchedule, ...backstops, ...ism.events, ...blsEvents, ...deskEvents];
   return [...new Map(allEvents.map((event) => [event.id, event])).values()]
     .sort((a, b) => a.date.localeCompare(b.date));
 }
