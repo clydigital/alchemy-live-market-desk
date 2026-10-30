@@ -60,7 +60,12 @@ test("Binance original statement and Reuters market reaction enter the existing 
  const home=content("components/blue-desk/DecisionBrief.tsx");
  const timeline=content("components/blue-desk/Newsroom48hTimeline.tsx");
  const reader=content("components/blue-desk/NewsroomEventReader.tsx");
- assert.match(home,/data-bluebelly-live-crypto-incident="source-reviewed"/);
+ assert.doesNotMatch(home,/data-bluebelly-live-crypto-incident/);
+ const newsroom=content("app/blue-desk/newsroom/page.tsx");
+ const wire=content("components/blue-desk/BluebellyNewsWire.tsx");
+ assert.match(newsroom,/projectNewsroomEditorial/);
+ assert.match(wire,/data-newsroom-editorial-article/);
+ assert.match(wire,/editorialVisible/);
  assert.match(timeline,/EXCHANGE INCIDENT · OFFICIAL STATEMENT/);
  assert.match(reader,/BINANCE ORIGINAL STATEMENT/);
  assert.match(reader,/final net loss/);
