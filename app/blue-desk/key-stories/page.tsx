@@ -1,3 +1,4 @@
+import Oct30TechSelloffFeature from "@/components/blue-desk/Oct30TechSelloffFeature";
 import Link from "next/link";
 import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
@@ -68,6 +69,15 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
         backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}/></div>
     </main>;
   }
+  // User-approved newsroom feature: a dated intraday market report, not a
+  // canonical crash or an implicit final-session quote.
+  if(params?.feature==="ai-cash-selloff-october-2026")return <main className={desk.page} data-key-story="oct30-selloff-dated-editorial">
+    <BlueDeskHeader activePath="/blue-desk/key-stories"/>
+    <div className={desk.content}>
+      <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link>
+      <Oct30TechSelloffFeature host={host}/>
+    </div>
+  </main>;
   const editorialKind=params?.feature==="amazon-cash-test-october-2026"?"amazon":params?.feature==="fomc-october-2026"?"fomc":null;
   if(editorialKind)return <main className={desk.page}><BlueDeskHeader activePath="/blue-desk/key-stories"/><div className={desk.content}><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link><AmazonFomcFeatures kind={editorialKind}/></div></main>;
   // This known public October FOMC edition has a separately reviewed source
