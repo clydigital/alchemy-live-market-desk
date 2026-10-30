@@ -42,8 +42,9 @@ export const FUNDAMENTAL_QUICK_VIEW: readonly FundamentalQuickView[] = [
     reason: "The October IEA report documents depleted oil buffers and disrupted Gulf trade. HFI's non-OPEC plateau argument is a hypothesis for tighter replacement supply, not an independently proven production peak.",
     countercase: "The IEA expects substantial supply recovery and forecasts weaker oil consumption as energy costs destroy demand. A geopolitical premium can fade before the inventory deficit disappears.",
     decidingTest: "Compare IEA/EIA production and demand revisions, actual crude stocks, Gulf cargo flows, prompt spreads and multiple physical crude grades—not a single attack or futures quote.",
-    sourceObservationDate: "2026-10-14",
+    sourceObservationDate: "2026-10-30 (maritime security); 2026-10-14 (IEA physical balance)",
     sources: [
+      { name: "UKMTO latest shipping incident notices", url: "https://www.ukmto.org/recent-incidents", publicationDate: "2026-10-30", role: "PRIMARY" },
       { name: "IEA October Oil Market Report", url: "https://www.iea.org/reports/oil-market-report-october-2026", publicationDate: "2026-10-14", role: "PRIMARY" },
       { name: "HFI non-OPEC supply argument", url: "https://www.hfir.com/p/wctw-non-opec-supply-growth-isnt", publicationDate: "2026-10-29", role: "COMMENTARY" },
       { name: "EIA weekly petroleum supply", url: "https://www.eia.gov/petroleum/supply/weekly/", publicationDate: "2026-10-21", role: "PRIMARY" },
@@ -156,7 +157,7 @@ export const FUNDAMENTAL_QUICK_VIEW: readonly FundamentalQuickView[] = [
     reason: "Sticky September PCE and restrictive US yields can support the dollar, but the dated cross-currency and futures reaction needed for a directional judgement has not been independently reconciled.",
     countercase: "A flight to safety can strengthen USD despite falling yields, while improving foreign growth or easier US policy can weaken it.",
     decidingTest: "Refresh DXY with the same-session US 2Y and foreign yield differentials, Fed OIS, and the 4H/1D technical overlay separately.",
-    sourceObservationDate: "2026-10-29",
+    sourceObservationDate: "no independently matched DXY observation",
     sources: [
       { name: "BEA September PCE", url: "https://www.bea.gov/news/2026/personal-income-and-outlays-september-2026", publicationDate: "2026-10-29", role: "PRIMARY" },
       { name: "US Treasury daily yields", url: "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_yield_curve&field_tdr_date_value_month=202610", publicationDate: "2026-10-29", role: "PRIMARY" },
@@ -172,9 +173,9 @@ export const FUNDAMENTAL_QUICK_VIEW: readonly FundamentalQuickView[] = [
     reason: "Geopolitical and reserve-allocation arguments may favour gold, while still-high real yields can work against it. Without a fresh matched gold/real-yield/dollar observation there is no defensible live direction label.",
     countercase: "A growth shock can boost safe-haven demand, or forced liquidity selling can drive gold lower even when geopolitical risk rises.",
     decidingTest: "Match spot XAUUSD, dated 10Y TIPS, DXY and official reserve-demand data; do not recycle a prior technical level as current.",
-    sourceObservationDate: "2026-10-29",
+    sourceObservationDate: "no independently matched gold/real-yield observation",
     sources: [
-      { name: "US Treasury real yield curve", url: "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_real_yield_curve&field_tdr_date_value_month=202610", publicationDate: "2026-10-29", role: "PRIMARY" },
+      { name: "US Treasury real yield curve", url: "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_real_yield_curve&field_tdr_date_value_month=202610", publicationDate: "latest matched reading unavailable", role: "PRIMARY" },
     ],
   },
   {
@@ -187,9 +188,9 @@ export const FUNDAMENTAL_QUICK_VIEW: readonly FundamentalQuickView[] = [
     reason: "Japan's late-October policy meeting can change yen funding costs. The market's same-window FX, JGB and international-flow evidence has not been reconciled into a confirmed direction.",
     countercase: "JPY can strengthen on risk aversion without an actual liquidation of leveraged carry positions, or weaken despite domestic tightening if global spreads dominate.",
     decidingTest: "Read the actual BoJ decision and Outlook, then match USDJPY, JGB 2Y/10Y, currency basis and Japanese foreign bond flows.",
-    sourceObservationDate: "2026-10-29",
+    sourceObservationDate: "BoJ decision and matched JPY tape pending verification",
     sources: [
-      { name: "Bank of Japan meeting schedule", url: "https://www.boj.or.jp/en/mopo/mpmsche_minu/", publicationDate: "2026-10-29", role: "PRIMARY" },
+      { name: "Bank of Japan meeting schedule", url: "https://www.boj.or.jp/en/mopo/mpmsche_minu/", publicationDate: "calendar, not a market observation", role: "PRIMARY" },
     ],
   },
 ] as const;
