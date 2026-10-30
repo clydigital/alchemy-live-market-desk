@@ -35,7 +35,7 @@ test("preserves the X sweep settings with 11 monitored accounts", () => {
   assert.equal(X_CORE_ROSTER.length, 11);
   assert.deepEqual(X_CORE_ROSTER.map(item => item.handle), [
     "Bluekurtic", "HFI_Research", "OilandEnergy", "HormuzReport", "TheStudyofWar",
-    "Currentreport1", "arena", "KobeissiLetter", "FirstSquawk",
+    "Currentreport1", "arena", "KobeissiLetter", "FirstSquawk", "zerohedge", "TGLetter",
   ]);
 });
 
