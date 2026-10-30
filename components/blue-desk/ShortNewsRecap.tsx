@@ -5,6 +5,7 @@ import EarningsEvidenceGraphic from "./EarningsEvidenceGraphic";
 import DualTimestamp from "./DualTimestamp";
 import type {NewsBriefV1} from "@/lib/market-brief-news";
 import type {VerifiedEarningsScorecard} from "@/lib/blue-desk-earnings-results";
+import {getDatedEarningsReaction} from "@/lib/bluebelly-earnings-reaction";
 import {projectLivingMarketTopics} from "@/lib/blue-desk-living-topics";
 import {decisionTopics} from "@/lib/bluebelly-decision-brief";
 import ui from "./ShortNewsRecap.module.css";
@@ -65,6 +66,7 @@ export default function ShortNewsRecap({recap,backHref,coverage}:{recap:Recap;ba
  </article>;
 
  const hasInstant=/^\d{4}-\d{2}-\d{2}T/.test(recap.asOf);
+ const reaction=recap.earnings?getDatedEarningsReaction(recap.earnings.id):null;
  return <article className={ui.article} data-bluebelly-news-recap="source-qualified">
   <nav className={ui.back}><Link href={backHref}>← Return to Key Stories</Link></nav>
   <header className={ui.hero}>
@@ -92,6 +94,24 @@ export default function ShortNewsRecap({recap,backHref,coverage}:{recap:Recap;ba
     </div><EarningsEvidenceGraphic scorecard={recap.earnings}/></>:null}
     {recap.isScheduled?<p className={ui.caution}>No vote, announcement or market response is inferred before the verified release.</p>:null}
    </section>
+   {reaction?<section data-earnings-reaction="attributed-source-dated">
+     <p className={ui.kicker}>02A / WHY THE STOCK MOVED · DATED REACTION PACKET</p>
+     <h2>A strong quarter is not necessarily a strong share-price surprise</h2>
+     <p><strong>{reaction.ticker} before the results:</strong> {reaction.regularClose.changePct.toFixed(2)}% in US regular trading, closing at US$ {reaction.regularClose.usd.toFixed(2)} on 29 October 2026 (4 PM ET). The regular-session fall happened BEFORE the earnings release.</p>
+     <p><strong>After the results:</strong> US$ {reaction.extended.usd.toFixed(2)} ({reaction.extendedChangePct.toFixed(2)}% against the SAME 4 PM close) as of <DualTimestamp value={reaction.extended.at}/>. A dated extended-hours snapshot is NOT a five-minute event study.</p>
+     <p><strong>What the company reported:</strong> {reaction.companyFact}</p>
+     <p><strong>What investors expected:</strong> {reaction.expectation}</p>
+     <p><strong>Source-attributed investor objection:</strong> {reaction.interpretation}</p>
+     <p className={ui.caution}><strong>{reaction.attribution==="UNRESOLVED_CAUSE"?"Specific cause unresolved.":"Interpretation, not proof of causality."}</strong> {reaction.countercase}</p>
+     <p><strong>What would change the view:</strong> {reaction.nextTest}</p>
+     <p><a href={reaction.issuerUrl} target="_blank" rel="noopener noreferrer">Original issuer release</a>{" · "}
+      <a href={reaction.reportingUrl} target="_blank" rel="noopener noreferrer">Independent reporting</a>{" · "}
+      <a href={reaction.extended.sourceUrl} target="_blank" rel="noopener noreferrer">Dated price source</a></p>
+    </section>:recap.earnings?<section data-earnings-reaction="REACTION_ANALYSIS_INCOMPLETE">
+      <p className={ui.kicker}>REACTION ANALYSIS INCOMPLETE</p>
+      <h2>What moved this share, and why?</h2>
+      <p>Issuer earnings are available, but a validated regular-close versus after-hours source packet is missing or expired. No share-price cause is inferred from the report alone.</p>
+     </section>:null}
    <section><p className={ui.kicker}>03 / THE LEARNING MOMENT</p>
     <h2>Follow the money</h2>
     <p>{recap.mechanism}</p></section>

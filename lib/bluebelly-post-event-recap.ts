@@ -2,6 +2,7 @@ import type {NewsBriefV1} from "./market-brief-news.ts";
 import {recentBankDecisions,type BankDecisionSnapshot} from "./bluebelly-bank-decision-snapshots.ts";
 import {getRecentVerifiedEarningsScorecards,type VerifiedEarningsScorecard} from "./blue-desk-earnings-results.ts";
 import {OCTOBER_FED_DEPTH} from "./bluebelly-key-story-depth.ts";
+import {getDatedEarningsReaction} from "./bluebelly-earnings-reaction.ts";
 
 /**
  * A public presentation of ALREADY verified source receipts. Selecting a
@@ -36,17 +37,28 @@ function fromBank(bank:BankDecisionSnapshot):PostEventRecap{
   weight:bank.countryCode==="US"?100:bank.countryCode==="CA"?85:80,featuredStatus:"REVIEWED"
  };
 }
-function fromEarnings(r:VerifiedEarningsScorecard):PostEventRecap{
+function fromEarnings(r:VerifiedEarningsScorecard,now:Date):PostEventRecap{
+ const reaction=getDatedEarningsReaction(r.id,now);
  const observed=r.metrics.filter(x=>x.state==="measured").map(m=>m.name+": "+m.value+(m.comparison?" ("+m.comparison+")":"")).join("; ");
  return {
   id:r.id,kind:"earnings",releaseAt:r.releaseDay,headline:r.company+": "+r.headline,standfirst:r.conclusion,eventName:r.company,
   whatHappened:r.fiscalPeriod+" · "+observed+". "+r.beatMiss,
-  marketEffects:r.conclusion+" No timestamp-matched share-price reaction is established by this scorecard.",
-  marketEffectStatus:"MECHANISM_ONLY",whatNext:r.nextTest+" "+r.outlook,
-  countercase:"The next financial statement may change the cash-conversion assessment. Guidance is not realised cash flow.",
+  marketEffects:reaction?
+   reaction.ticker+" fell "+Math.abs(reaction.regularClose.changePct).toFixed(2)+"% in the 29 October US regular session BEFORE the earnings announcement, closing at $"+reaction.regularClose.usd.toFixed(2)+
+   ". It then traded at $"+reaction.extended.usd.toFixed(2)+" ("+reaction.extendedChangePct.toFixed(2)+"% measured from that SAME close) in a dated after-hours snapshot at "+reaction.extended.at+
+   ". WHY: "+reaction.companyFact+" EXPECTATIONS: "+reaction.expectation+" INTERPRETATION: "+reaction.interpretation:
+   r.conclusion+" No timestamp-matched share-price reaction is established by this scorecard.",
+  marketEffectStatus:reaction?"DATED_SECONDARY_AND_DAILY_DATA":"MECHANISM_ONLY",
+  whatNext:r.nextTest+" "+r.outlook,
+  countercase:reaction?reaction.countercase:
+   "The next financial statement may change the cash-conversion assessment. Guidance is not realised cash flow.",
   sourceUrls:[{label:r.sourceName,url:r.sourceUrl,role:"official" as const},
-   ...(r.additionalSourceUrl?[{label:r.company+" investor presentation",url:r.additionalSourceUrl,role:"official" as const}]:[])],
-  evidenceNote:"Issuer data and matched guidance are distinguished from analyst consensus. Equity price reactions require separately verified, event-timed market data.",
+   ...(r.additionalSourceUrl?[{label:r.company+" investor presentation",url:r.additionalSourceUrl,role:"official" as const}]:[]),
+   ...(reaction?[{label:"Dated regular/extended-hours quote",url:reaction.extended.sourceUrl,role:"market_data" as const},
+    {label:"Attributed investor interpretation",url:reaction.reportingUrl,role:"reporting" as const}]:[])],
+  evidenceNote:reaction?
+   "Regular-session and later after-hours snapshots are distinct. The reported price moves are NOT an exact tick-for-tick earnings-release event study. Expectations are attributed reported estimates, not an independently frozen consensus; investor motives and the causal contribution of each factor remain "+(reaction.attribution==="UNRESOLVED_CAUSE"?"unresolved.":"interpretations, not demonstrated facts.") :
+   "Issuer data and matched guidance are distinguished from analyst consensus. Equity price reactions require separately verified, event-timed market data.",
   detailsHref:"?postEvent="+encodeURIComponent(r.id),weight:75,featuredStatus:"REVIEWED"
  };
 }
@@ -75,7 +87,7 @@ export function selectPostEventRecaps(news:readonly NewsBriefV1[],now=new Date()
  // Issuer results without an exact release clock wait until the next UTC day,
  // rather than appearing at midnight before the earnings announcement.
  const earnings=getRecentVerifiedEarningsScorecards(now,7)
-  .filter(x=>+now>Date.parse(x.releaseDay+"T23:59:59Z")).map(fromEarnings);
+  .filter(x=>+now>Date.parse(x.releaseDay+"T23:59:59Z")).map(r=>fromEarnings(r,now));
  const verified=news.filter(n=>ageOk(n.occurredAt,now)).map(fromNews)
   .filter((x):x is PostEventRecap=>x!==null);
  const curated=[...bank,...earnings];
