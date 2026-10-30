@@ -45,6 +45,7 @@ test("event and instrument distinctions cannot be hidden by the editorial upgrad
  assert.match(gold.dissent,/288.9 tonnes|288.9/);
  assert.ok(gold.evidence.some(s=>s.sourceType==="ORIGINAL"&&s.url.includes("gold.org/goldhub")));
  assert.ok(gold.evidence.some(s=>s.value.includes("2.35%")));
+ assert.ok(gold.evidence.some(s=>s.sourceType==="ORIGINAL"&&s.value.includes("2.63%")&&s.url.includes("home.treasury.gov")));
  assert.ok(gold.evidence.some(s=>s.sourceType==="TECHNICAL_PROXY"));
  assert.ok(gold.evidence.some(s=>s.value.includes("2.63%")));
  const breadth=REGIME_EDITORIAL_UPDATES.breadth!;
