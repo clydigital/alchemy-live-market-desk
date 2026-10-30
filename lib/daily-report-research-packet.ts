@@ -87,6 +87,8 @@ export function buildDailyResearchPacket(input:{
     "RESEARCH PACKET v1 / PRIVATE UNVERIFIED ANALYST INPUT",
     "Assembled: "+input.now,
     "IMPORTANT: Notion posts and Research Gap Gate are research notes, not original-source proof.",
+    "EDITORIAL REQUIREMENT (retain even if long packet truncates): distinguish WHAT HAPPENED, WHY THE OBSERVED MARKET MOVE MAY HAVE OCCURRED, and WHY THE DEVELOPMENT MATTERS FOR THE REGIME.",
+    "For each important reported move, compare pre-event / post-event session clocks and verify a proximate explanation or label it attributed, plausible, or unresolved; do not convert X claims into primary evidence.",
     "Only independently verified source news below is considered source-verified factual reporting.",
     "Distinguish event time, quote time, publication time, retrieval time and stale data.",
     "Do not treat attributed X posts or creator hypotheses as underlying fact.",
