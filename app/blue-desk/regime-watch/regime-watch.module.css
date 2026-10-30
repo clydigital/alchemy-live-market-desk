@@ -143,3 +143,13 @@
 @media(max-width:680px){.intro{grid-template-columns:1fr;min-height:0;padding:26px 21px}.introVisual{display:none}.intro h1{font-size:clamp(38px,9vw,54px)}.heroActions a{flex:1}.intelStrip>div{padding:14px 10px}.intelStrip small,.intelStrip span{font-size:9px}.intelStrip strong{font-size:29px}.heading{flex-direction:column;gap:9px}.heading>span{display:block;font-size:10px}.cards{grid-template-columns:1fr}.card{min-height:0}.card .art{display:block;min-height:100px}.card .art>div{height:105px}.artSerial{font-size:48px}.card .content{padding:17px}.card .content h3{font-size:25px}.crashFeatured{margin:18px 0 30px;padding:20px;clip-path:none}.crashFeatured:before{right:8%;opacity:.07}.pathGrid{grid-template-columns:1fr}.transmission{margin-top:32px}}
 @media(max-width:400px){.heroActions a{flex-basis:100%}.intro h1{font-size:37px}.intro .kicker{font-size:10px}}
 @media(prefers-reduced-motion:reduce){.card{transition:none}}
+
+/* The accent CTA uses the accent's own readable foreground rather than the
+   canvas colour, which can be light in the yellow/black palette. */
+.crashFeaturedLink,
+.crashFeaturedLink:visited,
+.crashFeaturedLink:hover,
+.crashFeaturedLink:focus-visible{
+ color:#101010;
+}
+.crashFeaturedLink span{color:inherit}
