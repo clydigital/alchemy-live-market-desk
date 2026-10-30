@@ -34,7 +34,10 @@ test("newsroom provides distinct dated approved decision explainers without fals
  assert.match(component,/href=\{readerHref\+item\.href\}/);
  assert.match(component,/not additional accepted news-wire records/);
  assert.match(component,/EditorialStoryArt/);
- assert.match(wire,/source-verified report/);
+ assert.match(wire,/source-qualified report/);
+ assert.match(wire,/item.verificationLabel/);
+ assert.match(wire,/newsOnly=news\.filter/);
+ assert.match(wire,/archiveVisible=archiveEntries\.filter/);
  assert.doesNotMatch(component,/createSupabaseAdminClient|fetch\(|generateContent|write.*Story/i);
 });
 
