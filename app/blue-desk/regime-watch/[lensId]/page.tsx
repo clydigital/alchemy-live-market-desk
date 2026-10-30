@@ -78,7 +78,7 @@ export default async function ResearchLensPage({params}:Props){
     </div>
    </header>
    <div className={styles.lensQuickStrip} aria-label="Research file orientation">
-    <div><span>01 / REVIEWED DIRECTION</span><strong>{outlook.outlook}</strong><small>For {outlook.target}</small></div>
+    <div><span>01 / REVIEWED DIRECTION</span><strong>{outlook.outlook}</strong><small>For {outlook.directionTarget}</small></div>
     <div><span>02 / CONFIDENCE</span><strong>{outlook.confidence}</strong><small>Qualitative evidence judgement</small></div>
     <div><span>03 / NEXT DECIDING TEST</span><p>{outlook.decidingTest}</p></div>
    </div>
