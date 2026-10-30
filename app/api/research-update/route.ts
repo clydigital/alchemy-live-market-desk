@@ -252,6 +252,14 @@ export async function POST(request: Request) {
   // Provider coverage and research completeness remain descriptive diagnostics.
   const runtimePublicationReady = accuracy.updateGate !== "blocked";
   const warnings = [...validation.warnings, ...ratesDiagnostics];
+  // Only the authenticated, internally marked scheduled-acquisition path
+  // may persist these narrow source-coverage diagnostics. A missing report
+  // degrades operational completeness, not the status of unrelated evidence.
+  if(isScheduledInternalRequest && Array.isArray(input.automationCoverageAlerts)){
+    const safe=input.automationCoverageAlerts.filter(w=>typeof w==="string"
+      && /^AUTO_COVERAGE_GAP:ISSUER_ORIGINAL_RELEASE:[A-Z0-9.]{1,12}:[A-Za-z0-9_]{1,35}$/.test(w));
+    warnings.push(...new Set(safe.slice(0,20)));
+  }
   if (!macroLifecycle.available) warnings.push(`Macro release lifecycle persistence is unavailable: ${macroLifecycle.reason}`);
   if (intelligenceEnabled && callerRecalibrationCount) {
     warnings.push(`${callerRecalibrationCount} caller-supplied Story recalibration(s) were ignored because the OpenAI intelligence engine owns Story reasoning.`);

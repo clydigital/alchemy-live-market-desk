@@ -1,4 +1,5 @@
 import { applyFirecrawlResearchFallback } from "@/lib/firecrawl-research-fallback";
+import {expectedIssuerReceiptGaps} from "@/lib/scheduled-issuer-receipt-coverage";
 import { applyHighImpactMarketDiscovery } from "@/lib/high-impact-market-discovery";
 import { applyOfficialPressNewsIntake } from "@/lib/official-press-news-intake";
 import { applyMaterialSecProspectusIntake } from "@/lib/material-sec-prospectus-intake";
@@ -81,5 +82,13 @@ export async function buildScheduledResearchInputWithFirecrawl(
   // Node tests do not depend on Next path aliases. This final pass only recovers
   // supported direct public sources that remain blocked.
   const fallbackInput = highImpact as Parameters<typeof applyFirecrawlResearchFallback>[0];
-  return applyFirecrawlResearchFallback(fallbackInput, now);
+  const recovered=await applyFirecrawlResearchFallback(fallbackInput, now);
+  const automationCoverageAlerts=expectedIssuerReceiptGaps(recovered,now);
+  if(automationCoverageAlerts.length)console.warn(JSON.stringify({
+    event:"scheduled_official_issuer_receipt_coverage_gap",
+    slot,runKey:recovered.runKey,
+    expectedOriginalReleaseCount:automationCoverageAlerts.length,
+    missing:automationCoverageAlerts,
+  }));
+  return {...recovered,automationCoverageAlerts};
 }

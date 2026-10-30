@@ -102,7 +102,7 @@ test("scheduled research runs normal discovery before targeted search and final 
   const source = readFileSync(new URL("../lib/firecrawl-scheduled-research.ts", import.meta.url), "utf8");
   const normal = source.indexOf("await applyResearchDiscoveryProviders");
   const targeted = source.indexOf("await applyHighImpactMarketDiscovery");
-  const fallback = source.indexOf("return applyFirecrawlResearchFallback");
+  const fallback = source.indexOf("await applyFirecrawlResearchFallback");
   assert.ok(normal >= 0 && targeted > normal && fallback > targeted);
 });
 

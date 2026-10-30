@@ -95,6 +95,8 @@ export type ResearchRunInput = {
   recalibrations?: StoryRecalibrationInput[];
   handoff?: ResearchGapHandoffInput;
   summary?: string;
+  /** Trusted scheduled-acquisition diagnostics; not evidence, never a Story writer. */
+  automationCoverageAlerts?: string[];
   dryRun?: boolean;
 };
 
