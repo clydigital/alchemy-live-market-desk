@@ -75,6 +75,12 @@ export function auditEarningsReaction(packet:EarningsReactionPacket,now=new Date
     new Date(close).toISOString().slice(0,10)!==packet.sessionDay||
     new Date(after).toISOString().slice(0,10)!==packet.sessionDay)
     missing.push("dated market-session chronology or public availability");
+ // The regular baseline is the actual 4 PM New York close, with ET daylight-saving
+ // transitions handled by the IANA timezone rather than assumed fixed UTC.
+ const nyCloseTime=Number.isFinite(close)?new Intl.DateTimeFormat("en-GB",{
+  timeZone:"America/New_York",hour:"2-digit",minute:"2-digit",hourCycle:"h23"
+ }).format(new Date(close)):"";
+ if(nyCloseTime!=="16:00")missing.push("verified 4 PM New York regular close");
  if(!Number.isFinite(packet.regularClose.usd)||packet.regularClose.usd<=0||
     !Number.isFinite(packet.extended.usd)||packet.extended.usd<=0||
     !Number.isFinite(packet.regularClose.changePct)||Math.abs(packet.regularClose.changePct)>100)
