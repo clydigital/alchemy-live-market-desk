@@ -3,7 +3,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
-import LearnSlideReader from "@/components/blue-desk/LearnSlideReader";
+import LearnOriginalPptxViewer from "@/components/blue-desk/LearnOriginalPptxViewer";
 import { getConcept } from "@/lib/concepts";
 import { LEARN_GLOSSARY_ADDITIONS } from "@/lib/bluebelly-learn-glossary";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
@@ -46,7 +46,7 @@ export default async function BluebellyLearnDeckPage({ params }: {
         <h1>{record.meta.title}</h1>
         <p>{record.meta.summary}</p>
       </header>
-      <LearnSlideReader deckId={record.meta.id} slides={record.slides} />
+      <LearnOriginalPptxViewer deckId={record.meta.id} title={record.meta.title} />
       <section className={ui.lessonSources} aria-labelledby="learn-source-title">
         <h2 id="learn-source-title">Read the underlying sources</h2>
         <p>These external originals explain the mechanisms. Linking to them does not grant republication or automated ingestion rights.</p>
