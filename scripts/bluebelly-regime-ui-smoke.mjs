@@ -38,7 +38,7 @@ async function waitResponse(path,accepted=(code)=>code===200){
  let last="";
  while(Date.now()<deadline){
   try{
-   const resp=await fetch("http://127.0.0.1:"+PUBLIC+path,{signal:AbortSignal.timeout(16000)});
+   const resp=await fetch("http://127.0.0.1:"+PUBLIC+path,{signal:AbortSignal.timeout(16000),redirect:"manual"});
    const html=await resp.text();
    if(accepted(resp.status))return {status:resp.status,html};
    last=path+" HTTP "+resp.status+" "+html.slice(0,200);
