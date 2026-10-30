@@ -5,7 +5,8 @@ import EditorialStoryArt from "@/components/blue-desk/EditorialStoryArt";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import {getPublicThesisLedger} from "@/lib/blue-desk-thesis-ledger-server";
 import {getPublicSourceObservations} from "@/lib/blue-desk-source-observations";
-import {matchRecentLensObservations} from "@/lib/bluebelly-regime-lens-workbook";
+import {matchAssetSourceEvents,projectAssetTape} from "@/lib/bluebelly-regime-asset-context";
+import {getMarketMonitor} from "@/lib/market-monitor-public";
 import {FUNDAMENTAL_QUICK_VIEW,FUNDAMENTAL_VIEW_REVIEWED_ON,fundamentalSnapshotAgeDays} from "@/lib/bluebelly-fundamental-quickview";
 import {groupPublicResearch} from "@/lib/bluebelly-editorial-architecture";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
@@ -21,9 +22,10 @@ export const metadata={
 
 export default async function RegimeWatchPage(){
  const now=new Date(),host=(await headers()).get("host");
- const [theses,sourceObservations]=await Promise.all([
+ const [theses,sourceObservations,marketMonitor]=await Promise.all([
   getPublicThesisLedger(now,38).catch(()=>null),
   getPublicSourceObservations(now,24).catch(()=>null),
+  getMarketMonitor().catch(()=>null),
  ]);
  const lenses=groupPublicResearch(theses||[]);
  const snapshotAge=fundamentalSnapshotAgeDays(now);
@@ -38,7 +40,7 @@ export default async function RegimeWatchPage(){
     <div className={styles.quickHead}>
      <div><span className={styles.kicker}>ONE-STOP FUNDAMENTALS / RESEARCH ASSESSMENT</span>
       <h2 id="fundamental-quick-view">Bullish, bearish or unresolved—what is the evidence?</h2>
-      <p>Research interpretation reviewed {FUNDAMENTAL_VIEW_REVIEWED_ON} (MYT), not an automatically updated trading signal. Source observations refresh from the existing qualified public reader; new items do not silently flip a view. Price direction and technical signals are separate.</p>
+      <p>Research interpretation reviewed {FUNDAMENTAL_VIEW_REVIEWED_ON} (MYT), not an automatically updated trading signal. Asset-specific original-source observations and dated market tape refresh from existing public readers; neither silently flips a fundamental assessment.</p>
      </div>
      <div className={styles.quickAge} data-assessment-age={snapshotAge===null?"unknown":snapshotAge>7?"stale":"dated"}>
       <strong>{snapshotAge===null?"Review age unavailable":snapshotAge>7?"Assessment needs review":"Dated analyst assessment"}</strong>
@@ -47,7 +49,8 @@ export default async function RegimeWatchPage(){
     </div>
     <div className={styles.quickList} role="list">
      {FUNDAMENTAL_QUICK_VIEW.map(asset=>{
-      const matches=sourceObservations===null?null:matchRecentLensObservations(asset.lens,sourceObservations,now);
+      const eventContext=matchAssetSourceEvents(asset.id,sourceObservations,now,2);
+      const marketContext=projectAssetTape(asset.id,marketMonitor?.rows??null,now);
       return <article className={styles.quickRow} role="listitem" key={asset.id} data-asset={asset.id}>
        <div className={styles.quickAsset}>
         <Link href={blueDeskPublicHref("/blue-desk/regime-watch/"+asset.lens,host)}>{asset.asset} <span aria-hidden="true">↗</span></Link>
@@ -66,14 +69,28 @@ export default async function RegimeWatchPage(){
         </details>
        </div>
        <div className={styles.quickFresh}>
-        <span>Evidence reference: {asset.sourceObservationDate}</span>
-        <strong>{matches===null?"Feed unavailable":matches.length+" recent source match"+(matches.length===1?"":"es")}</strong>
-        <small>Rolling 48h topic matches—not verdict changes</small>
+        <span>Reviewed reference: {asset.sourceObservationDate}</span>
+        <strong>{eventContext.state==="UNAVAILABLE"?"Recent evidence feed unavailable":eventContext.state==="NO_MATCH"?"No direct source match in sample":eventContext.items.length+" qualified source match"+(eventContext.items.length===1?"":"es")}</strong>
+        {eventContext.items.map(event=><div className={styles.quickUpdate} key={event.id}>
+         <a href={event.sourceUrl} target="_blank" rel="noopener noreferrer">{event.description.length>122?event.description.slice(0,119).replace(/\\s+\\S*$/,"")+"…":event.description}</a>
+         <small>{event.sourceName} · {event.eventAt.slice(0,10)} · Original-source topic match</small>
+        </div>)}
+        <small>Rolling 48h bounded sample · not a verdict update</small>
+       </div>
+       <div className={styles.quickTape} data-tape-state={marketContext.state}>
+        <span>MARKET TAPE · SEPARATE FROM FUNDAMENTALS</span>
+        {marketContext.last===null?<strong>{marketContext.note}</strong>:<>
+         <strong>{marketContext.last.toLocaleString("en-US",{maximumFractionDigits:marketContext.changeUnit==="bp"?2:3})}{marketContext.changeUnit==="bp"?"%":""} {marketContext.instrument?"· "+marketContext.instrument:""}</strong>
+         {marketContext.change!==null?<small>{marketContext.change>0?"+":""}{marketContext.change}{marketContext.changeUnit} vs previous close · {marketContext.observedAt}</small>:<small>{marketContext.state==="STALE"?"STALE · ": "Change unavailable · "}{marketContext.observedAt}</small>}
+         <small>{marketContext.measurement}</small>
+         {marketContext.sourceUrl?<a href={marketContext.sourceUrl} target="_blank" rel="noopener noreferrer">{marketContext.sourceName} ↗</a>:null}
+        </>}
+        <small>{marketContext.note}</small>
        </div>
       </article>;
      })}
     </div>
-    <p className={styles.quickFoot}>Unknown is a valid result. No same-day observation, original evidence or reproducible technical setup means no high-conviction direction. The canonical Regime/Dossier state is separate from these dated opinions.</p>
+    <p className={styles.quickFoot}>Unknown is a valid result. The 48-hour source sample is bounded, so no match does not mean no market events. Market-level series may lag, and their movement does not establish cause. A reviewed fundamental judgement changes only after independent assessment, separate from the canonical Regime/Dossier state.</p>
    </section>
    <div className={styles.heading}>
     <h2>Explore a research lens</h2>
