@@ -6,9 +6,9 @@
  */
 import http from "node:http";
 import {spawn,spawnSync} from "node:child_process";
-import {mkdirSync,statSync} from "node:fs";
+import {mkdirSync,statSync,existsSync} from "node:fs";
 import {setTimeout as sleep} from "node:timers/promises";
-import {join} from "node:path";
+import {join,resolve} from "node:path";
 
 const BACKEND=3181, PUBLIC=3182;
 const deadline=Date.now()+140000;
@@ -58,14 +58,16 @@ function renderChrome(url,filename,width,height){
   if(command.status===0){found=bin;break}
  }
  if(!found)throw Error("Chromium/Chrome not installed on CI runner");
- const target=join(outputs,filename);
+ const target=resolve(outputs,filename);
  const result=spawnSync(found,[
   "--headless=new","--no-sandbox","--disable-gpu","--disable-dev-shm-usage",
+  "--disable-extensions","--disable-background-networking",
+  "--user-data-dir="+resolve(outputs,"chrome-profile-"+filename.replace(/\\W/g,"-")),
   "--hide-scrollbars","--no-first-run","--no-default-browser-check",
   "--window-size="+width+","+height,"--virtual-time-budget=6000",
   "--screenshot="+target,url
  ],{encoding:"utf8",timeout:50000});
- if(result.status!==0)throw Error("Chrome screenshot failed "+filename+" "+(result.stderr||"").slice(-1000));
+ if(result.status!==0||!existsSync(target))throw Error("Chrome screenshot failed "+filename+"; exit "+result.status+" signal "+result.signal+" error "+String(result.error||"")+" stdout "+(result.stdout||"").slice(-1300)+" stderr "+(result.stderr||"").slice(-2000));
  const bytes=statSync(target).size;
  if(bytes<12000)throw Error("Screenshot unexpectedly small: "+filename+" ("+bytes+" bytes)");
  console.log("Screenshot "+target+" ("+bytes+" bytes)");
