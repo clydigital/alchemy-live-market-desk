@@ -23,6 +23,7 @@ function archiveTopics(item:ArchiveNewsItem):EditorialTopicId[]{
  if(item.topics.includes("RATES_BONDS")||item.topics.includes("CREDIT_FINANCING"))categories.add("bonds");
  if(item.topics.includes("ENERGY"))categories.add("energy");
  if(item.topics.includes("FX")||item.topics.includes("METALS"))categories.add("fx");
+ if(editorialNewsTopics({headline:item.headline,summary:""}).includes("crypto"))categories.add("crypto");
  return categories.size?[...categories]:["other"];
 }
 type NewsroomCategory=EditorialTopicId|"hot";
@@ -71,7 +72,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
  return <div className={styles.shell} data-editorial-newsroom="verified-only">
   <header className={styles.intro}><span>NEWSROOM / CATEGORISED WIRE</span>
    <h1>Every headline has a place.</h1>
-   <p>Central banks, AI, bonds, energy, FX and earnings. Read a short in-house explanation first, then consult the dated original. Older verified reports retain their event dates.</p>
+   <p>Central banks, AI, bonds, energy, crypto, FX and earnings. Read a short in-house explanation first, then consult the dated original. Older verified reports retain their event dates.</p>
   </header>
   <div className={styles.sectionTitle}><div><h2>Browse by category</h2><p>Publication time, provider and original link stay attached to each report.</p></div>
    <label className={styles.search}>Find a report <input type="search" value={query} onChange={e=>setQuery(e.target.value.slice(0,100))} placeholder="Search issuers, stories, themes" /></label>
