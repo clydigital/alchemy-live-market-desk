@@ -8,6 +8,7 @@ import {getPublicThesisLedger} from "@/lib/blue-desk-thesis-ledger-server";
 import {getPublicSourceObservations} from "@/lib/blue-desk-source-observations";
 import {EDITORIAL_REGIME_LENSES,groupPublicResearch} from "@/lib/bluebelly-editorial-architecture";
 import {REGIME_LENS_WORKBOOKS,matchRecentLensObservations} from "@/lib/bluebelly-regime-lens-workbook";
+import {quickViewsForLens,FUNDAMENTAL_VIEW_REVIEWED_ON} from "@/lib/bluebelly-fundamental-quickview";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import type {EditorialMotif} from "@/lib/bluebelly-editorial-visuals";
 import desk from "../../blue-desk.module.css";
@@ -37,6 +38,7 @@ export default async function ResearchLensPage({params}:Props){
  ]);
  const lens=groupPublicResearch(publicTheses||[]).find(item=>item.id===lensId)!;
  const workbook=REGIME_LENS_WORKBOOKS[lens.id];
+ const assessments=quickViewsForLens(lens.id);
  const recent=matchRecentLensObservations(lens.id,sourceObservations||[],now);
  const newest=lens.stories.find(story=>workbook.leadHeadlinePattern.test(story.title))||null;
  const base=blueDeskPublicHref("/blue-desk/regime-watch",host);
@@ -61,6 +63,7 @@ export default async function ResearchLensPage({params}:Props){
    </header>
 
    <nav className={styles.pageNav} aria-label="Sections in this research lens">
+    {assessments.length?<a href="#fundamental-assessment">Fundamental assessment</a>:null}
     <a href="#research-position">Recorded position</a>
     {workbook.policyDilemma?<a href="#policy-dilemma">Fed policy dilemma</a>:null}
     <a href="#mechanism">Transmission</a>
@@ -69,6 +72,23 @@ export default async function ResearchLensPage({params}:Props){
     <a href="#decision-fork">Decision tests</a>
     <a href="#story-history">Story records</a>
    </nav>
+
+   {assessments.length?<section id="fundamental-assessment" className={styles.section}
+    data-fundamental-assessment="dated-editorial-not-canonical">
+    <span className={styles.kicker}>FUNDAMENTAL VERDICT / SEPARATE FROM PRICE AND TECHNICALS</span>
+    <h2>What the evidence currently argues</h2>
+    <p>Reviewed {FUNDAMENTAL_VIEW_REVIEWED_ON} (MYT). These are source-dated analyst interpretations, not automatic or canonical Regime-state changes. Later observations in the source monitor below are refreshed separately; no opinion is silently promoted from a transcript, event headline or price move.</p>
+    <div className={styles.forkGrid}>{assessments.map(asset=><article className={styles.fork} key={asset.id} data-reviewed-asset={asset.id}>
+     <span className={styles.kicker}>{asset.asset.toUpperCase()} · {asset.bias==="UNRESOLVED"?"DIRECTION UNPROVEN":asset.bias} · {asset.confidence} CONFIDENCE</span>
+     <h3>{asset.headline}</h3>
+     <p><strong>Why:</strong> {asset.reason}</p>
+     <p><strong>What argues against it:</strong> {asset.countercase}</p>
+     <p><strong>What changes the call:</strong> {asset.decidingTest}</p>
+     <p><strong>Source references:</strong> {asset.sources.map((source,index)=><span key={source.url}>{index>0?" · ":" "}<a href={source.url} target="_blank" rel="noopener noreferrer">{source.name} ({source.role==="PRIMARY"?"original":"attributed"}, {source.publicationDate})</a></span>)}</p>
+     <small>Last dated supporting observation: {asset.sourceObservationDate}; current technical setup not certified here.</small>
+    </article>)}</div>
+    <p className={styles.caveat}>No fresh matched data means the correct display may be UNRESOLVED. Public source coverage and stored Story records below do not certify an updated regime judgement.</p>
+   </section>:null}
 
    <section id="research-position" className={styles.atGlance} aria-labelledby="research-position-heading">
     <div className={styles.atGlanceMain}>
