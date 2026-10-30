@@ -17,6 +17,7 @@ import {getCurrentVerifiedMarketMotion} from "@/lib/market-motion";
 import {selectVerifiedNewsBriefs} from "@/lib/market-brief-news";
 import {getOriginalPressNews} from "@/lib/blue-desk-original-press-news-server";
 import {combineQualifiedNews} from "@/lib/blue-desk-qualified-news";
+import {getRecentArchivedPublicReaderItems} from "@/lib/bluebelly-publication-archive-server";
 import desk from "../blue-desk.module.css";
 export const dynamic="force-dynamic";
 export const metadata={title:"Newsroom | Bluebelly",description:"Source-verified markets, central-bank, AI, energy and corporate developments."};
@@ -24,12 +25,13 @@ type Props={searchParams:Promise<{q?:string|string[]}>};
 export default async function NewsroomPage({searchParams}:Props){
  const now=new Date();
  const host=(await headers()).get("host");
- const [raw,official,macro,earnings,params]=await Promise.all([
+ const [raw,official,macro,earnings,params,archiveResult]=await Promise.all([
   getCurrentVerifiedMarketMotion({limit:36}).catch(()=>[]),
   getOriginalPressNews(now,18,7).catch(()=>[]),
   getEconomicCalendar().catch(()=>[]),
   getForwardEarningsEvents({now}).catch(()=>({events:[],coverage:"unavailable" as const,warning:"Earnings provider unavailable"})),
   searchParams,
+  getRecentArchivedPublicReaderItems(now).then(items=>({items,available:true})).catch(()=>({items:[],available:false})),
  ]);
  const news=combineQualifiedNews(selectVerifiedNewsBriefs(raw,now,18),official,18);
  const query=typeof params.q==="string"?params.q:"";
@@ -44,7 +46,8 @@ export default async function NewsroomPage({searchParams}:Props){
  return <main className={desk.page} data-public-newsroom="original-source-only">
   <BlueDeskHeader activePath="/blue-desk/newsroom"/>
   <div className={desk.content}>
-    <BluebellyNewsWire news={news} initialQuery={query} now={now.toISOString()} readerHref={readerHref}>
+    <BluebellyNewsWire news={news} archiveEntries={archiveResult.items} archiveAvailable={archiveResult.available}
+      initialQuery={query} now={now.toISOString()} readerHref={readerHref}>
       <div style={{margin:"3px 0 16px",padding:"12px 15px",background:"#0b3246",border:"1px solid #346d83",borderRadius:"8px",fontSize:"13px",lineHeight:1.6}}>
        <strong style={{color:"#f0d39e"}}>HORMUZ / OIL & REFINED FUELS</strong> · Track maritime disruption against Brent, diesel/gasoil crack proxies, refinery runs and US distillate inventories.
        {" "}<Link href={blueDeskPublicHref("/blue-desk/hormuz",host)}>Open the physical-versus-market watch →</Link>
