@@ -11,6 +11,6 @@ values
  ('2116114383520845885','macropaperr',
   'https://x.com/macropaperr/status/2116114383520845885',
   '2026-10-30T10:25:59Z',now(),
-  'BLACK FRIDAY IS HERE. $700 Billion has been wiped out from Gold and Silver today. $500 Billion has been wiped out from the Asian stock market today. $150 Billion has been wiped out from the crypto market following Binance''s hack. $800 Billion will be wiped out from the US stock market at open based on the current pre-market drop. This is almost $2.2 Trillion wiped out from global markets, and Friday isn''t over yet.',
+  E'🚨 BLACK FRIDAY IS HERE.\\n$700 Billion has been wiped out from Gold and Silver today.\\n$500 Billion has been wiped out from the Asian stock market today.\\n$150 Billion has been wiped out from the crypto market following Binance''s hack.\\n$800 Billion will be wiped out from the US stock market at open based on the current pre-market drop.\\nThis is almost $2.2 Trillion wiped out from global markets, and Friday isn''t over yet.',
   '[]'::jsonb,'discovery',false)
 on conflict do nothing;
