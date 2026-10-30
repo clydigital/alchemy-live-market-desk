@@ -90,3 +90,18 @@ export function projectPublicArchive(
    (b.eventAt||b.eventDay||"").localeCompare(a.eventAt||a.eventDay||"")||
    a.id.localeCompare(b.id));
 }
+
+/** Search aliases improve discovery without changing historical source data,
+ * claiming a new entity relationship, or relabelling source verification.
+ */
+const ARCHIVE_ENTITY_ALIASES:Readonly<Record<string,string>>={
+ FED:"FOMC Federal Open Market Committee Federal Reserve",
+ BOC:"BoC Bank of Canada",
+ RBNZ:"OCR Reserve Bank of New Zealand",
+ "US-PCE":"PCE Personal Consumption Expenditures inflation BEA",
+};
+export function publicArchiveSearchIndex(item:ArchiveNewsItem):string{
+ return [item.headline,item.sourceName,item.eventType,...item.entityKeys,
+  ...item.topics,...item.entityKeys.map(k=>ARCHIVE_ENTITY_ALIASES[k]||"")]
+  .join(" ").toLowerCase();
+}
