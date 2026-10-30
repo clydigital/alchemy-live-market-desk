@@ -79,7 +79,7 @@ test("exact filing URL deduplicates and uses only the existing research schedule
  const scheduled=readFileSync(new URL("../lib/firecrawl-scheduled-research.ts",import.meta.url),"utf8");
  const vercel=readFileSync(new URL("../vercel.json",import.meta.url),"utf8");
  assert.ok(scheduled.indexOf("applyOfficialPressNewsIntake(input, { now })") <
-   scheduled.indexOf("applyMaterialSecProspectusIntake(originalSourceInput, { now })"));
+   scheduled.indexOf("applyMaterialSecProspectusIntake(issuerResults, { now })"));
  assert.ok(scheduled.indexOf("applyMaterialSecProspectusIntake(originalSourceInput, { now })") <
    scheduled.indexOf("applyResearchDiscoveryProviders(discoveryInput"));
  assert.doesNotMatch(vercel,/material-sec-prospectus-intake/);

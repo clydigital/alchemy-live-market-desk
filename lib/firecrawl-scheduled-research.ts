@@ -2,6 +2,7 @@ import { applyFirecrawlResearchFallback } from "@/lib/firecrawl-research-fallbac
 import {expectedIssuerReceiptGaps} from "@/lib/scheduled-issuer-receipt-coverage";
 import { applyHighImpactMarketDiscovery } from "@/lib/high-impact-market-discovery";
 import { applyOfficialPressNewsIntake } from "@/lib/official-press-news-intake";
+import {applyIssuerResultsPressIntake} from "@/lib/issuer-results-press-intake";
 import { applyMaterialSecProspectusIntake } from "@/lib/material-sec-prospectus-intake";
 import {getXWireDurable} from "@/lib/x-wire-durable";
 import {attachXWireResearchLeads} from "@/lib/x-wire-scheduled-research-leads";
@@ -22,7 +23,8 @@ export async function buildScheduledResearchInputWithFirecrawl(
   const originalSourceInput = await applyOfficialPressNewsIntake(input, { now });
   // Bounded material original SEC S-1/F-1 prospectus discovery uses the same
   // existing scheduled research run. No new cron, source table or Story writer.
-  const originalFilings = await applyMaterialSecProspectusIntake(originalSourceInput, { now });
+  const issuerResults = await applyIssuerResultsPressIntake(originalSourceInput,{now});
+  const originalFilings = await applyMaterialSecProspectusIntake(issuerResults, { now });
 
   // Preserve the desk's source hierarchy:
   // 1) deterministic first-party/direct acquisition,

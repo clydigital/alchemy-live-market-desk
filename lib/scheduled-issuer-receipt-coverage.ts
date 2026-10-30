@@ -1,4 +1,5 @@
 import {getDueOfficialEarningsCandidates} from "./forward-earnings-sources.ts";
+import {createHash} from "node:crypto";
 import type {ResearchRunInput} from "./research-update.ts";
 
 /** Per-issuer first-party domains, not a free-text publisher name oracle. */
@@ -29,13 +30,29 @@ export function expectedIssuerReceiptGaps(
   // so do not pretend the schedule alone constitutes coverage.
   if(!allowed.length)return true;
   return !input.items.some(item=>{
-   if(item.itemType!=="news"||!item.itemKey.startsWith("official-press:"))return false;
+   if(item.itemType!=="news")return false;
+   const isPress=item.itemKey.startsWith("official-press:");
+   const isIssuer=item.itemKey.startsWith("issuer-press:");
+   if(!isPress&&!isIssuer)return false;
+   if(isIssuer&&(
+     item.itemKey!=="issuer-press:"+createHash("sha256").update(item.url).digest("hex").slice(0,24)
+     ||item.sourceQuality!==95
+     ||!item.reviewReason?.startsWith("Issuer-original result:")
+     ||!item.evidence?.some(e=>e.url===item.url&&e.publisher===item.publisher)
+   ))return false;
    const resultsAnnounced=/\b(?:announces?|announced)\b.{0,120}\bresults\b/i.test(item.title);
    const resultsReported=/\b(?:reports?|reported)\b.{0,120}\b(?:earnings|quarter|results|revenue)\b/i.test(item.title);
-   if((!resultsAnnounced&&!resultsReported)
+   const issuerVerified=/^Issuer confirms (?:FY20\d{2} )?Q[1-4](?: 20\d{2})? financial results — [A-Z0-9.]+$/.test(item.title);
+   if((!resultsAnnounced&&!resultsReported&&!(isIssuer&&issuerVerified))
       ||/\b(?:date of|will report|to report|earnings call|conference call|webcast|scheduled|upcoming)\b/i.test(item.title))return false;
    const when=Date.parse(item.publishedAt),call=Date.parse(event.scheduledCallAt);
-   if(!Number.isFinite(when)||!Number.isFinite(call)||Math.abs(when-call)>36*3600_000)return false;
+   if(!Number.isFinite(when)||!Number.isFinite(call))return false;
+   // Issuer-confirmed calendar dates WITHOUT a webcast time are anchored to
+   // midnight UTC for the due-ledger only. Do not turn that convention into
+   // a 36-hour result-retrieval deadline: actual source may land two days later.
+   if(event.sourceDateOnly){
+     if(when<call||when-call>96*3600_000)return false;
+   }else if(Math.abs(when-call)>36*3600_000)return false;
    try{
     const url=new URL(item.url);
     return url.protocol==="https:"&&!url.username&&!url.password&&!url.hash
