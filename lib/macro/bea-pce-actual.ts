@@ -63,3 +63,18 @@ export function parseBeaPceActual(
    percent(coreMom!)+"% m/m; "+percent(coreYoy!)+"% y/y",
  };
 }
+
+/** Four measured observations, never conflating month-over-month with annual.
+ * Consensus and previously captured expectations are separate columns. */
+export function parseOfficialBeaPceMetricRows(actual:string){
+ const m=/^Headline PCE ([+-]?\d+(?:\.\d+)?)% m\/m; ([+-]?\d+(?:\.\d+)?)% y\/y; Core PCE ([+-]?\d+(?:\.\d+)?)% m\/m; ([+-]?\d+(?:\.\d+)?)% y\/y$/.exec(actual.trim());
+ if(!m)return [];
+ const values=m.slice(1).map(Number);
+ if(values.some(n=>!Number.isFinite(n)||Math.abs(n)>20))return [];
+ return [
+  {metric_key:"pce_headline_mom",label:"Headline PCE m/m",transformation:"mom",unit:"%",actual:values[0]},
+  {metric_key:"pce_headline_yoy",label:"Headline PCE y/y",transformation:"yoy",unit:"%",actual:values[1]},
+  {metric_key:"pce_core_mom",label:"Core PCE m/m",transformation:"mom",unit:"%",actual:values[2]},
+  {metric_key:"pce_core_yoy",label:"Core PCE y/y",transformation:"yoy",unit:"%",actual:values[3]},
+ ] as const;
+}
