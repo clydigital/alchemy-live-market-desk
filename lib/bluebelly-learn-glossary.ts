@@ -622,9 +622,20 @@ const LESSONS: LessonRow[] = [
   ]
 ];
 
+const LEARN_ALIASES: Record<string,string[]> = {
+  "consumer-price-index":["cpi"],"pce-inflation":["pce","personal consumption expenditures"],
+  "yield-to-maturity":["ytm"],"credit-spread":["credit spread","credit spreads"],
+  "gross-domestic-product":["gdp"],"average-true-range":["atr"],
+  "free-cash-flow":["fcf"],"operating-cash-flow":["ocf"],
+  "exponential-moving-average":["ema"],"capital-expenditure":["capex"],
+  "risk-reward":["rr","risk reward"],"standard-deviation":["sd","1sd"],
+  "bollinger-bands":["bbands"],"share-dilution":["dilution"],
+  "dxy-dollar-index":["dxy"],"forex-pair":["fx pair"],
+};
+
 export const LEARN_GLOSSARY_ADDITIONS: LearnConcept[] = LESSONS.map(
   ([key,label,topic,definition,whyItMatters,example,watch]) => ({
-    key,label,topic,definition,whyItMatters,example,watch,aliases:[],regimes:[]
+    key,label,topic,definition,whyItMatters,example,watch,aliases:LEARN_ALIASES[key] || [],regimes:[]
   })
 );
 
