@@ -8,7 +8,8 @@ import http from "node:http";
 import {spawn,spawnSync} from "node:child_process";
 import {mkdirSync,statSync,existsSync} from "node:fs";
 import {setTimeout as sleep} from "node:timers/promises";
-import {join,resolve} from "node:path";
+import {resolve} from "node:path";
+import {tmpdir} from "node:os";
 
 const BACKEND=3181, PUBLIC=3182;
 const deadline=Date.now()+140000;
@@ -50,28 +51,47 @@ async function waitResponse(path,accepted=(code)=>code===200){
 function assertHtml(html,...needles){
  for(const needle of needles)if(!html.includes(needle))throw Error("Missing rendered marker "+needle);
 }
-function renderChrome(url,filename,width,height){
+async function renderChrome(url,filename,width,height){
  const bins=[process.env.CHROME_BIN,"google-chrome","chromium","chromium-browser"].filter(Boolean);
- let found=false;
+ let found=null;
  for(const bin of bins){
   const command=spawnSync(bin,["--version"],{encoding:"utf8"});
   if(command.status===0){found=bin;break}
  }
  if(!found)throw Error("Chromium/Chrome not installed on CI runner");
  const target=resolve(outputs,filename);
- const result=spawnSync(found,[
+ const profile=resolve(tmpdir(),"bluebelly-regime-"+process.pid+"-"+filename.replace(/[^a-z0-9-]/gi,"-"));
+ const args=[
   "--headless=new","--no-sandbox","--disable-gpu","--disable-dev-shm-usage",
   "--disable-extensions","--disable-background-networking",
-  "--user-data-dir="+resolve(outputs,"chrome-profile-"+filename.replace(/\\W/g,"-")),
+  "--user-data-dir="+profile,
   "--hide-scrollbars","--no-first-run","--no-default-browser-check",
-  "--window-size="+width+","+height,"--virtual-time-budget=6000",
-  "--screenshot="+target,url
- ],{encoding:"utf8",timeout:50000});
- if(result.status!==0||!existsSync(target))throw Error("Chrome screenshot failed "+filename+"; exit "+result.status+" signal "+result.signal+" error "+String(result.error||"")+" stdout "+(result.stdout||"").slice(-1300)+" stderr "+(result.stderr||"").slice(-2000));
+  "--window-size="+width+","+height,"--virtual-time-budget=4500",
+  "--screenshot="+target,url,
+ ];
+ // Chrome requests must be served by the proxy running on this event loop;
+ // spawnSync would block it and silently time out instead of taking a shot.
+ await new Promise((resolveDone,reject)=>{
+  const child=spawn(found,args,{stdio:["ignore","pipe","pipe"]});
+  let stderr="",stdout="",expired=false;
+  const timeout=setTimeout(()=>{expired=true;child.kill("SIGKILL")},48000);
+  child.stderr?.on("data",chunk=>{stderr=(stderr+chunk.toString()).slice(-2500)});
+  child.stdout?.on("data",chunk=>{stdout=(stdout+chunk.toString()).slice(-2500)});
+  child.once("error",error=>{clearTimeout(timeout);reject(error)});
+  child.once("close",(code,signal)=>{
+   clearTimeout(timeout);
+   if(expired||code!==0||!existsSync(target))return reject(new Error(
+    "Chrome screenshot failed "+filename+"; exit "+code+" signal "+signal+
+    " timeout "+expired+" stdout "+stdout+" stderr "+stderr
+   ));
+   resolveDone();
+  });
+ });
  const bytes=statSync(target).size;
  if(bytes<12000)throw Error("Screenshot unexpectedly small: "+filename+" ("+bytes+" bytes)");
  console.log("Screenshot "+target+" ("+bytes+" bytes)");
 }
+
 let server;
 try{
  launch(process.execPath,["node_modules/next/dist/bin/next","start","-p",String(BACKEND)],{
@@ -89,9 +109,9 @@ try{
  const privateRoute=await waitResponse("/owner/presenter",code=>code!==200);
  console.log("Owner route HTTP "+privateRoute.status+" on public host (no anonymous access)");
  const url="http://127.0.0.1:"+PUBLIC+"/regime-watch";
- renderChrome(url,"overview-desktop.png",1440,1000);
- renderChrome(url,"overview-mobile.png",390,844);
- renderChrome("http://127.0.0.1:"+PUBLIC+"/regime-watch/energy","energy-mobile.png",390,844);
+ await renderChrome(url,"overview-desktop.png",1440,1000);
+ await renderChrome(url,"overview-mobile.png",390,844);
+ await renderChrome("http://127.0.0.1:"+PUBLIC+"/regime-watch/energy","energy-mobile.png",390,844);
  console.log("Regime UI smoke PASS; outputs in "+outputs);
 }catch(error){console.error(error);process.exitCode=1}
 finally{
