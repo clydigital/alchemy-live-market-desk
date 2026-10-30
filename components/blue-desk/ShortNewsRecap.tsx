@@ -36,7 +36,10 @@ export function recapFromDecision(
   title:topic.title,fact:topic.fact,stake:topic.why,mechanism:topic.mechanism,
   nextTest:topic.test,sourceUrl:topic.sourceUrl,sourceName:topic.sourceName,
   asOf:topic.at,isScheduled:topic.status==="UPCOMING",
-  label:topic.status==="UPCOMING"?"PREVIEW · OUTCOME NOT YET VERIFIED":"ISSUER-VERIFIED RESULT",
+  label:topic.status==="UPCOMING"?"PREVIEW · OUTCOME NOT YET VERIFIED"
+    :earnings?"ISSUER-REVIEWED FINANCIAL RESULT"
+    :topic.id.startsWith("bea-")?"BEA ORIGINAL RELEASE · SOURCE-REVIEWED"
+    :"SOURCE-REVIEWED MARKET DEVELOPMENT",
   ticker:topic.assets.join(" · "),earnings,
  };
 }
