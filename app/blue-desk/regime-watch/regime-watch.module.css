@@ -47,6 +47,7 @@
  .heading{margin-bottom:9px}
  .heading h2{font-size:24px}
  .lensIntro{font-size:11px;margin:5px 0 11px}
- .card{padding:10px}
+ .card{display:block;padding:12px}
+ .art{display:none}
  .content h3{font-size:18px;margin:4px 0}
 }
