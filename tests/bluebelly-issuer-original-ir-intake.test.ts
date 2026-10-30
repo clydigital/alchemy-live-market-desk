@@ -24,13 +24,13 @@ const html:Record<string,string>={
  <p>Net sales increased 12% to $201.9 billion and operating income was $28.1 billion.</p></body></html>`,
  [urls.intel]:`<html><body><h1>Intel Reports Third-Quarter 2026 Financial Results</h1>
  <p>October 29, 2026. Intel Corporation today reported third-quarter 2026 financial results.</p>
- <p>Third-quarter revenue was $16.5 billion and the company reported non-GAAP earnings per share.</p></body></html>`,
+ <p>Third-quarter revenue was $16.5 billion and the company reported non-GAAP earnings per share. The original financial results include third-quarter results and quarter-specific operating income, guidance and management comments about demand for server products.</p></body></html>`,
  [urls.sandisk]:`<html><body><h1>Sandisk Reports Fiscal First Quarter 2027 Financial Results</h1>
  <p>October 29, 2026</p><p>Sandisk Corporation reported its fiscal first quarter financial results.</p>
- <p>Revenue was $11,031 million, increasing 23% quarter over quarter.</p></body></html>`,
+ <p>Revenue was $11,031 million, increasing 23% quarter over quarter. Reported GAAP operating income was $8,780 million with demand from datacenter customers and the cash conversion analysis detailed in the original source.</p></body></html>`,
  [urls.microsoft]:`<html><body><h2>Microsoft Announces First Quarter Results</h2>
  <p>October 28, 2026 - Microsoft Corp. today announced results for the quarter ended September 30, 2026.</p>
- <p>Revenue was $92.3 billion for the first quarter of fiscal year 2027.</p></body></html>`,
+ <p>Revenue was $92.3 billion for the first quarter of fiscal year 2027. Reported operating income was $45.9 billion with a detailed reconciliation of the company’s GAAP and non-GAAP results and original cash flow statements.</p></body></html>`,
 };
 function fetchWithFixture(source:Record<string,string>):typeof fetch{
  return (async (target:RequestInfo|URL)=>{
@@ -66,7 +66,7 @@ test("a genuine issuer listing discovers new original result even after bounded 
 test("forged, preview, wrong-period, redirected and other-host results cannot be promoted",async()=>{
  const bad=[
   html[urls.amazon].replace("October 29, 2026","October 29, 2025"),
-  html[urls.amazon].replace("Third Quarter Results","Fourth Quarter Results").replace("third quarter ended","fourth quarter ended"),
+  html[urls.amazon].replaceAll("Third Quarter Results","Fourth Quarter Results").replaceAll("third quarter ended","fourth quarter ended"),
   html[urls.amazon].replace("financial results","conference call to discuss future results").replace("Net sales","Market outlook"),
   html[urls.amazon].replace("Net sales","Sales").replace("operating income","cost"),
  ];
