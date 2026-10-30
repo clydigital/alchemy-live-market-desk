@@ -15,6 +15,7 @@ import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { getOriginalPressNews } from "@/lib/blue-desk-original-press-news-server";
 import { combineQualifiedNews } from "@/lib/blue-desk-qualified-news";
+import { datedNewsSourceExcerpt } from "@/lib/bluebelly-dated-news-excerpt";
 import { projectLivingMarketTopics } from "@/lib/blue-desk-living-topics";
 import { getPublicThesisLedger } from "@/lib/blue-desk-thesis-ledger-server";
 import {orderStoriesByLatestMotion} from "@/lib/blue-desk-thesis-ledger";
@@ -350,13 +351,16 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
           <div style={{maxWidth:240,marginBottom:12}}><EditorialStoryArt headline={n.headline} summary={n.summary} compact/></div>
           <p className={ui.kicker}>EARLIER REPORT · <DualTimestamp value={n.occurredAt}/></p>
           <h3><Link href={indexHref+"?news="+encodeURIComponent(n.id)}>{n.headline}</Link></h3>
+          {datedNewsSourceExcerpt(n)
+            ? <p data-source-confirmed-excerpt="true"><strong>What the source reports:</strong> {datedNewsSourceExcerpt(n)}</p>
+            : <p data-source-confirmed-excerpt="unavailable">Original announcement verified. A substantive numerical or policy detail has not yet been extracted from the source.</p>}
           <p>{storyCoverageForNews(n).status==="RESEARCH_ENRICHED"
-            ? "Full dated analysis available: previous, expectation, actual, market implications and evidence limits."
+            ? "A dated investigation also examines expectations, actuals and market implications."
             : n.sourceName.includes("official analysis")
-            ? "Official analytical publication verified. Its dated findings are not a newly announced policy decision or an independently measured price reaction."
-            : "Original announcement verified. Prior expectations, numerical comparison and actual market response remain research gaps."}</p>
-          <Link className={ui.storyRead} href={indexHref+"?news="+encodeURIComponent(n.id)}>{storyCoverageForNews(n).status==="RESEARCH_ENRICHED"?"Read the financial investigation →":"Read source notice and research gaps →"}</Link>
-          <p><small>{n.sourceName} · verified original report</small></p>
+            ? "This is dated source analysis, not a new policy decision or verified asset-price reaction."
+            : "Prior expectations, like-for-like comparisons and actual market response remain separate research checks."}</p>
+          <Link className={ui.storyRead} href={indexHref+"?news="+encodeURIComponent(n.id)}>{storyCoverageForNews(n).status==="RESEARCH_ENRICHED"?"Read the financial investigation →":"Read the original notice and remaining research gaps →"}</Link>
+          <p><small>{n.sourceName} · {n.sourceName.includes("official analysis")?"verified original analysis":"verified original report"}</small></p>
         </article>)}</div>
       </section>:null}
       <section className={ui.section} aria-labelledby="persistent-theses" data-persistent-thesis-ledger="source-identity">
