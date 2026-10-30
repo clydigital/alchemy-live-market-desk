@@ -10,6 +10,7 @@ export default function RegimeOutlookMeter({assessment,size="compact"}:Props){
  return <div className={size==="full"?styles.full:styles.compact}
   data-outlook-meter={assessment.lens} data-outlook={assessment.outlook}
   data-confidence={assessment.confidence}>
+  <div className={styles.scope} data-outlook-target={assessment.lens}><span>Outlook for</span><strong>{assessment.directionTarget}</strong></div>
   <div className={styles.topline}>
    <span className={styles.caption}>Fundamental outlook</span>
    <strong className={styles.verdict}>{assessment.outlook==="MIXED"?"Mixed":assessment.outlook==="BULLISH"?"Bullish":"Bearish"}</strong>
@@ -18,6 +19,7 @@ export default function RegimeOutlookMeter({assessment,size="compact"}:Props){
    {outlookLabels.map((label,i)=><span key={label} className={i+1===location?styles.selected:styles.inactive} aria-hidden="true" title={label}/>)}
   </div>
   <div className={styles.scale} aria-hidden="true"><span>Bearish</span><span>Mixed</span><span>Bullish</span></div>
+  <div className={styles.horizon}>{assessment.horizon} · Reviewed {assessment.reviewedAt} MYT</div>
   <div className={styles.confidence}>
    <span className={styles.caption}>Confidence</span>
    <span className={styles.confidenceTrack} role="img" aria-label={"Editorial evidence confidence: "+assessment.confidence.toLowerCase()}>
