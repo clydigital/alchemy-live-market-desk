@@ -4,6 +4,8 @@ export const LIVE_DESK_PRESENTATION_HOST = "alchemy-live-market-desk.vercel.app"
 
 // Only the explicitly listed public editorial lens IDs are reachable anonymously.
 // Do not expose arbitrary dynamic segments on the public presentation hosts.
+const PUBLIC_LEARN_DECK_PATH = /^\/(?:blue-desk\/)?learn\/decks\/(?:d02|d06|d08|d13|d15|d17|d23|d24|d26)$/;
+
 const PUBLIC_REGIME_LENS_PATH = /^\/(?:blue-desk\/)?regime-watch\/(?:fed|bonds|ai|china|energy|yen|breadth|gold|housing)$/;
 
 function normalizedHost(host: string | null | undefined) {
@@ -35,6 +37,7 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   if (pathname === "/calendar") return "/blue-desk/calendar";
   if (pathname === "/daily-report") return "/blue-desk/daily-report";
   if (pathname === "/learn") return "/blue-desk/learn";
+  if (PUBLIC_LEARN_DECK_PATH.test(pathname) && pathname.startsWith("/learn/decks/")) return "/blue-desk" + pathname;
   if (pathname === "/key-stories") return "/blue-desk/key-stories";
   if (pathname === "/newsroom") return "/blue-desk/newsroom";
   if (pathname === "/hormuz") return "/blue-desk/hormuz";
@@ -109,6 +112,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     pathname === "/" ||
     pathname === "/calendar" ||
     pathname === "/learn" || pathname === "/blue-desk/learn" ||
+    PUBLIC_LEARN_DECK_PATH.test(pathname) ||
     pathname === "/daily-report" ||
     pathname === "/blue-desk/daily-report" ||
     pathname === "/blue-desk" ||
