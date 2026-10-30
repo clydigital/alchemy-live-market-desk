@@ -37,8 +37,8 @@ test("overview and each lens use the Learn-inspired cyberpunk stage without fixi
  assert.match(lens,/data-regime-design="cyberpunk-research-file"/);
  assert.match(lens,/directionTarget/);
  assert.match(lens,/aria-label="Research file orientation"/);
- assert.ok(lens.indexOf("styles.pageNav") < lens.indexOf('id="lens-outlook"'),
-  "Navigation should lead readers to the assessment, not appear after it");
+ assert.ok(lens.indexOf("styles.pageNav") > lens.indexOf('id="lens-outlook"'),
+  "The reviewed assessment should lead before navigation");
  assert.match(lens,/data-lens-outlook=\{outlook.outlook\}/);
  assert.match(lens,/data-regime-editorial-verified/);
  for(const css of [directoryCss,lensCss]){
