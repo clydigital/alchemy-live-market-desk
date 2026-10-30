@@ -641,6 +641,13 @@ export async function upsertOfficialBeaPceMetrics(
   }).eq("release_id",release.id).eq("metric_key",m.metric_key);
   if(error)throw new Error("BEA PCE metric update failed: "+m.metric_key+": "+error.message);
  }
+ const {data:readback,error:readbackError}=await client.from("macro_release_metrics")
+  .select("metric_key,actual,source_url")
+  .eq("release_id",release.id).in("metric_key",metrics.map(m=>m.metric_key)).limit(4);
+ if(readbackError||!readback||readback.length!==4||metrics.some(m=>
+  !readback.some(row=>row.metric_key===m.metric_key
+    && Number(row.actual)===m.actual && row.source_url===resolved.sourceUrl)
+ ))throw new Error("BEA_PCE_FOUR_METRIC_READBACK_FAILED");
  return metrics.length;
 }
 
