@@ -83,18 +83,6 @@ export default async function ResearchLensPage({params}:Props){
     <div><span>03 / NEXT DECIDING TEST</span><p>{outlook.decidingTest}</p></div>
    </div>
 
-   <nav className={styles.pageNav} aria-label="Sections in this research lens">
-    <a href="#lens-outlook">Outlook &amp; confidence</a>
-    {latestEditorial?<a href="#latest-editorial">Latest editorial evidence</a>:null}
-    {assessments.length?<a href="#asset-monitoring">Latest original sources &amp; tape</a>:null}
-    <a href="#research-position">Recorded position</a>
-    {workbook.policyDilemma?<a href="#policy-dilemma">Fed policy dilemma</a>:null}
-    <a href="#mechanism">Transmission</a>
-    <a href="#signals">Monitoring desk</a>
-    <a href="#recent-sources">Recent sources</a>
-    <a href="#decision-fork">Decision tests</a>
-    <a href="#story-history">Story records</a>
-   </nav>
 
    <section id="lens-outlook" className={styles.outlookPanel} data-lens-outlook={outlook.outlook} data-lens-confidence={outlook.confidence} aria-labelledby="lens-outlook-title">
     <div className={styles.outlookTop}>
@@ -143,6 +131,20 @@ export default async function ResearchLensPage({params}:Props){
      </li>)}</ul>
     </details>
    </section>:null}
+
+   <nav className={styles.pageNav} aria-label="Sections in this research lens">
+    <a href="#lens-outlook">Outlook &amp; confidence</a>
+    {latestEditorial?<a href="#latest-editorial">Latest editorial evidence</a>:null}
+    {assessments.length?<a href="#asset-monitoring">Latest original sources &amp; tape</a>:null}
+    <a href="#research-position">Recorded position</a>
+    {workbook.policyDilemma?<a href="#policy-dilemma">Fed policy dilemma</a>:null}
+    <a href="#mechanism">Transmission</a>
+    <a href="#signals">Monitoring desk</a>
+    <a href="#recent-sources">Recent sources</a>
+    <a href="#decision-fork">Decision tests</a>
+    <a href="#story-history">Story records</a>
+   </nav>
+
 
 
    {assetContext.length?<section id="asset-monitoring" className={styles.section} aria-label="Dated original-source and market tape context" data-regime-asset-live-context="qualified-readers-only">
