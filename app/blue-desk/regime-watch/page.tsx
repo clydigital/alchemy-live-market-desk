@@ -40,7 +40,7 @@ export default async function RegimeWatchPage(){
     <div className={styles.introVisual} aria-hidden="true">
      <span className={styles.visualHeader}>// NINE INTERLOCKING MARKET SYSTEMS</span>
      <div className={styles.regimeMatrix}>{Array.from({length:9},(_,index)=><span key={index}>{String(index+1).padStart(2,"0")}</span>)}</div>
-     <strong>09<span>/</span>REGIMES</strong>
+     <strong>09<span>/</span>LENSES</strong>
      <span className={styles.visualFooter}>CONNECTIONS / NOT CONCLUSIONS</span>
     </div>
    </header>
