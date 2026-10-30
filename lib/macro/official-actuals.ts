@@ -1,5 +1,5 @@
 import { fetchJinaReader } from "../acquisition/jina-reader.ts";
-import {beaPceReleaseUrl,parseBeaPceActual} from "./bea-pce-actual.ts";
+import {beaPceReleaseUrl,parseBeaPceActual,parseOfficialBeaPceMetricRows} from "./bea-pce-actual.ts";
 import { getEconomicCalendar, type EconomicCalendarEvent } from "../calendar.ts";
 import { createSupabaseAdminClient } from "../supabase/admin.ts";
 import { parseOfficialCpiMetricRows, type CpiPreviousValues } from "./official-cpi-metrics.ts";
@@ -619,6 +619,31 @@ export async function upsertOfficialCpiMetrics(
   return metrics.length;
 }
 
+/** Write only measured BEA-owned fields. A post-release upsert must never
+ * overwrite immutable pre-release consensus, expectations or analyst notes. */
+export async function upsertOfficialBeaPceMetrics(
+ client:ReturnType<typeof createSupabaseAdminClient>,
+ release:OfficialMacroRelease,resolved:OfficialActualResolution,fetchedAt:string,
+){
+ if(release.agency!=="U.S. Bureau of Economic Analysis"
+   ||!beaPceReleaseUrl(release.release_name,release.reference_period))return 0;
+ const metrics=parseOfficialBeaPceMetricRows(resolved.actual);
+ if(metrics.length!==4)throw new Error("BEA PCE summary is missing a comparable core/headline rate.");
+ const values=metrics.map(m=>({...m,release_id:release.id,source_url:resolved.sourceUrl,
+    retrieved_at:fetchedAt,metadata:{sourceRole:"official_actual",referencePeriod:release.reference_period}}));
+ const {error:insertError}=await client.from("macro_release_metrics").upsert(values,{
+   onConflict:"release_id,metric_key",ignoreDuplicates:true,
+ });
+ if(insertError)throw new Error("BEA PCE metric insert failed: "+insertError.message);
+ for(const m of metrics){
+  const {error}=await client.from("macro_release_metrics").update({
+   actual:m.actual,source_url:resolved.sourceUrl,retrieved_at:fetchedAt,
+  }).eq("release_id",release.id).eq("metric_key",m.metric_key);
+  if(error)throw new Error("BEA PCE metric update failed: "+m.metric_key+": "+error.message);
+ }
+ return metrics.length;
+}
+
 /** Historical recovery: completed releases were previously never normalised.
  * Limit recovery to seven days and only releases missing at least one metric. */
 async function recoverCompletedCpiMetrics(
@@ -729,6 +754,7 @@ export async function ingestOfficialMacroActuals(options: {
       completedReleaseIds.push(release.id);
       try {
         metricCount += await upsertOfficialCpiMetrics(client, release, resolved, attemptedAt);
+        metricCount += await upsertOfficialBeaPceMetrics(client, release, resolved, attemptedAt);
       } catch (cause) {
         // A successful official release must not be marked as missing merely
         // because its separate component-metric enrichment failed.
