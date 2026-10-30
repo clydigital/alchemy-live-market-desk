@@ -31,10 +31,14 @@ test("CoreWeave after its Nov 10 issuer call is visible as unreconciled, not pre
 test("released Daily Report includes source-reviewed compact links plus visible missing-result warning",()=>{
  const ui=readFileSync(new URL("../components/blue-desk/DecisionBrief.tsx",import.meta.url),"utf8");
  assert.match(ui,/data-bluebelly-released-reading="links-only"/);
- assert.match(ui,/data-official-macro-outcome=/);
- assert.match(ui,/data-source-reviewed-issuer=/);
+ assert.match(ui,/releasedMacro\.filter\(r=>!postEventRecaps\.some/);
+ assert.match(ui,/releasedEarnings\.filter\(r=>!postEventRecaps\.some/);
+ const released=ui.split('<section data-bluebelly-released-reading="links-only">')[1]?.split("</section>")[0]||"";
+ assert.match(released,/<li className=\{s\.releasedRow\}/);
+ assert.doesNotMatch(released,/<article|<small|<details|data-earnings-coverage-gap/);
  assert.match(ui,/data-earnings-coverage-gap="issuer-schedule-reconciliation"/);
  assert.match(ui,/These issuer-announced reporting dates have passed/);
+ assert.match(ui,/report&&missingIssuerResults\.length/);
  const stories=readFileSync(new URL("../app/blue-desk/key-stories/page.tsx",import.meta.url),"utf8");
  assert.match(stories,/earningsReceipt \? \{/);
  assert.match(stories,/getRecentVerifiedEarningsScorecards\(now,7\)/);
