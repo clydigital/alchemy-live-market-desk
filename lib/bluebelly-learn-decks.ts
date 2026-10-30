@@ -26,7 +26,7 @@ export type LearnDeck = {
   sources: { label: string; url: string }[];
   slideCount: number;
   version: "1.0";
-  publishedAs: "web-text-edition";
+  publishedAs: "original-powerpoint";
 };
 
 // Editor-reviewed original teaching material; NOT live feeds, data-driven
@@ -135,7 +135,7 @@ export const BLUEBELLY_PUBLIC_LEARN_IDS = ["d02", "d06", "d08", "d13", "d15", "d
 export const BLUEBELLY_LEARN_DECKS: LearnDeck[] = specs.map((spec) => ({
   ...spec,
   version: "1.0",
-  publishedAs: "web-text-edition",
+  publishedAs: "original-powerpoint",
   slideCount: packs[spec.id].slides.length,
 }));
 
