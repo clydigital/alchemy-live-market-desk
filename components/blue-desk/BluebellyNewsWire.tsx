@@ -3,7 +3,7 @@ import {useState} from "react";
 import type {ReactNode} from "react";
 import Link from "next/link";
 import type {NewsBriefV1} from "@/lib/market-brief-news";
-import type {ArchiveNewsItem} from "@/lib/bluebelly-publication-archive";
+import {publicArchiveSearchIndex,type ArchiveNewsItem} from "@/lib/bluebelly-publication-archive";
 import {EDITORIAL_TOPICS,editorialNewsTopics,type EditorialTopicId} from "@/lib/bluebelly-editorial-architecture";
 import {storyTvInstrument} from "@/lib/bluebelly-editorial-visuals";
 import EditorialStoryArt from "./EditorialStoryArt";
@@ -35,7 +35,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
  const visible=newsOnly.filter(item=>(topic==="all"||editorialNewsTopics(item).includes(topic))&&
   (item.headline+" "+item.summary+" "+item.sourceName).toLowerCase().includes(query.trim().toLowerCase()));
  const archiveVisible=archiveEntries.filter(item=>(topic==="all"||archiveTopics(item).includes(topic))&&
-  (item.headline+" "+item.sourceName+" "+item.entityKeys.join(" ")).toLowerCase().includes(query.trim().toLowerCase()));
+  publicArchiveSearchIndex(item).includes(query.trim().toLowerCase()));
  const selected=shortlist.flatMap(id=>newsOnly.find(n=>n.id===id)||[]);
  const visibleCount=visible.length+archiveVisible.length;
  function copy(){
