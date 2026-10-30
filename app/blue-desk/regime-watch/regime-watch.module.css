@@ -34,60 +34,19 @@
 @media(max-width:750px){.cards{grid-template-columns:1fr}.heading{align-items:start}.heading span{display:none}}
 @media(max-width:540px){.card{grid-template-columns:105px minmax(0,1fr);gap:10px}.art>div{height:100px}.content h3{font-size:18px}.pathGrid{grid-template-columns:1fr}}
 
-/* Decision-first fundamentals. Labels represent a dated editorial assessment,
-   never a live quote or the canonical Regime adjudicator. */
-.quickSection{margin:17px 0 29px;border:1px solid var(--bb-card-border);border-radius:9px;background:var(--bb-card-bg);padding:20px}
-.quickHead{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:16px}
-.quickHead h2{font:550 clamp(24px,2.5vw,32px)/1.2 var(--bluebelly-font);color:var(--bb-text);margin:8px 0}
-.quickHead p,.quickFoot{font-size:12px;line-height:1.65;color:var(--bb-muted);max-width:95ch}
-.quickAge{min-width:190px;border:1px solid var(--bb-card-border);background:var(--bb-card-quiet);padding:12px 14px;border-radius:7px}
-.quickAge strong,.quickAge small{display:block}.quickAge strong{font-size:12px;color:var(--bb-text)}.quickAge small{margin-top:6px;color:var(--bb-muted);font-size:11px;line-height:1.5}
-.quickAge[data-assessment-age="stale"]{border-color:#b88c44}
-.quickList{border:1px solid var(--bb-line);border-radius:7px;overflow:hidden}
-.quickRow{display:grid;grid-template-columns:minmax(145px,1.05fr) minmax(105px,.58fr) minmax(280px,2.15fr) minmax(140px,.85fr);gap:13px;padding:15px;background:var(--bb-card-bg);border-bottom:1px solid var(--bb-line);align-items:start;min-width:0}
-.quickRow:last-child{border-bottom:0}.quickRow:nth-child(even){background:var(--bb-card-quiet)}
-.quickAsset a{font:600 16px/1.34 var(--bluebelly-font);color:var(--bb-text);text-decoration:none}
-.quickAsset a:hover{text-decoration:underline}.quickAsset>span{display:block;font-size:11px;line-height:1.45;color:var(--bb-muted);margin-top:7px}
-.quickState strong{display:inline-block;font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:6px 9px;border-radius:5px;border:1px solid var(--bb-card-border)}
-.quickState strong[data-fundamental-bias="BULLISH"]{color:#94e4bc;border-color:#398d71;background:#10382e}
-.quickState strong[data-fundamental-bias="BEARISH"]{color:#f3aaaa;border-color:#a66a6a;background:#462a30}
-.quickState strong[data-fundamental-bias="MIXED"]{color:#efd69c;border-color:#947541;background:#463c25}
-.quickState strong[data-fundamental-bias="UNRESOLVED"]{color:var(--bb-muted);border-color:var(--bb-line);background:var(--bb-surface)}
-.quickState small{display:block;color:var(--bb-muted);font-size:11px;margin-top:7px}
-.quickReason>p{font-size:12px;color:var(--bb-text);line-height:1.58;margin:0}
-.quickReason details{margin-top:9px}.quickReason summary{color:var(--bb-accent);font-size:11px;cursor:pointer;font-weight:700}
-.quickReason details>p,.quickReason li{font-size:11px;color:var(--bb-muted);line-height:1.65}.quickReason li+li{margin-top:4px}
-.quickReason ul{padding-left:18px;margin:10px 0}.quickReason a{color:var(--bb-accent)}
-.quickFresh span,.quickFresh small{display:block;font-size:10px;color:var(--bb-muted);line-height:1.6}
-.quickFresh strong{display:block;margin:6px 0;color:var(--bb-text);font-size:11px}
-.quickFoot{margin:13px 0 0}
-@media(max-width:1060px){.quickRow{grid-template-columns:minmax(150px,.9fr) minmax(100px,.6fr) minmax(240px,2fr)}.quickFresh{grid-column:1 / -1;padding-top:8px;border-top:1px solid var(--bb-line)}}
-@media(max-width:750px){.quickHead{flex-direction:column}.quickAge{width:100%}.quickRow{grid-template-columns:minmax(0,1fr) minmax(100px,.5fr)}.quickReason,.quickFresh{grid-column:1 / -1}.quickSection{padding:12px}.quickFresh{grid-column:1 / -1}}
 
-/* Source checks and market tape stay independent of the editorial verdict.
-   One second row per asset avoids a clipped fifth column on laptop screens. */
-.quickUpdate{margin-top:9px;padding:9px 0;border-top:1px solid var(--bb-line)}
-.quickUpdate a{display:block;color:var(--bb-accent);font-size:11px;text-decoration:none;line-height:1.45}
-.quickUpdate a:hover,.quickTape a:hover{text-decoration:underline}
-.quickUpdate small{color:var(--bb-muted);font-size:10px}
-.quickTape{grid-column:1 / -1;display:flex;align-items:baseline;flex-wrap:wrap;gap:8px 15px;border-top:1px solid var(--bb-line);padding-top:10px;min-width:0}
-.quickTape>span{font-size:10px;letter-spacing:.07em;font-weight:800;color:var(--bb-muted)}
-.quickTape>strong{font-size:12px;color:var(--bb-text)}
-.quickTape>small{font-size:10px;color:var(--bb-muted);line-height:1.5}
-.quickTape>a{font-size:11px;color:var(--bb-accent);text-decoration:none}
-.quickTape[data-tape-state="STALE"]>strong{color:var(--bb-muted)}
-@media(max-width:1060px){.quickTape{grid-column:1 / -1}}
-@media(max-width:750px){.quickTape{align-items:flex-start;flex-direction:column;gap:5px}}
-
-/* The first mobile viewport should contain the market verdict, not only intro copy. */
+/* Research lenses are the primary comparison, each with a dated outlook. */
+.lensIntro{font-size:12px;line-height:1.6;color:var(--bb-muted);margin:0 0 15px;max-width:100ch}
+.content .lensReason{color:var(--bb-text);font-size:12px;line-height:1.55;font-weight:550;margin:10px 0 8px}
+.lensReason strong{color:var(--bb-accent)}
+.content>p:not(.lensReason){font-size:11px}
 @media(max-width:540px){
- .intro{padding-bottom:6px}
- .intro h1{font-size:27px;margin:5px 0}
- .intro p{font-size:12px;line-height:1.45;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
- .quickSection{margin:8px 0 22px;padding:11px}
- .quickHead{gap:8px;margin-bottom:10px}
- .quickHead h2{font-size:23px;margin:5px 0}
- .quickHead p{font-size:11px;line-height:1.5;margin:6px 0}
- .quickAge{padding:9px 11px}
- .quickRow{padding:12px}
+ .intro{padding-bottom:9px}
+ .intro h1{font-size:28px;margin:5px 0}
+ .intro p{font-size:12px;line-height:1.5;margin-bottom:9px}
+ .heading{margin-bottom:9px}
+ .heading h2{font-size:24px}
+ .lensIntro{font-size:11px;margin:5px 0 11px}
+ .card{padding:10px}
+ .content h3{font-size:18px;margin:4px 0}
 }
