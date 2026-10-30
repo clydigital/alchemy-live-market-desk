@@ -1,4 +1,5 @@
 import { applyFirecrawlResearchFallback } from "@/lib/firecrawl-research-fallback";
+import {expectedIssuerReceiptGaps} from "@/lib/scheduled-issuer-receipt-coverage";
 import { applyHighImpactMarketDiscovery } from "@/lib/high-impact-market-discovery";
 import { applyOfficialPressNewsIntake } from "@/lib/official-press-news-intake";
 import { applyMaterialSecProspectusIntake } from "@/lib/material-sec-prospectus-intake";
