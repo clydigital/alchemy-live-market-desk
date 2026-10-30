@@ -99,7 +99,7 @@ try{
  });
  server=await proxy();
  const root=await waitResponse("/regime-watch");
- assertHtml(root.html,"data-research-lens=\\"energy\\"","data-research-lens=\\"gold\\"","data-outlook-meter=\\"energy\\"","Fundamental outlook","Confidence");
+ assertHtml(root.html,'data-research-lens="energy"','data-research-lens="gold"','data-outlook-meter="energy"',"Fundamental outlook","Confidence");
  for(const lens of ["fed","bonds","ai","china","energy","yen","breadth","gold","housing"]){
   if(!root.html.includes('data-outlook-meter="'+lens+'"'))throw Error("Lens meter missing from overview: "+lens);
  }
