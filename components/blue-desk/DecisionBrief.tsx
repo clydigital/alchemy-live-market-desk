@@ -1,10 +1,7 @@
-import {PostEventRecapFeature} from "./PostEventRecap";
-import {recentReportedEditorial} from "@/lib/bluebelly-reported-editorial";
 import {getRecentVerifiedEarningsScorecards} from "@/lib/blue-desk-earnings-results";
 import {getRecentOfficialMacroResults} from "@/lib/blue-desk-official-macro-results";
 import {getUnreconciledPublicEarnings} from "@/lib/bluebelly-earnings-coverage";
 import type {PostEventRecap} from "@/lib/bluebelly-post-event-recap";
-import type {EmbeddedSocialContext} from "@/lib/bluebelly-event-social";
 import Link from 'next/link';
 import type {NewsBriefV1} from '@/lib/market-brief-news';
 import type {PresenterCalendar,PresenterCalendarEvent} from '@/lib/presenter-calendar';
@@ -33,9 +30,8 @@ function Event({event}:{event:PresenterCalendarEvent}){
    </details>
  </article>;
 }
-export default function DecisionBrief({news,recentNews=[],calendar,now,host,report=false,postEventRecaps=[],postEventSocial=[]}:{news:readonly NewsBriefV1[];recentNews?:readonly NewsBriefV1[];calendar:PresenterCalendar;now:Date;host:string|null;report?:boolean;postEventRecaps?:readonly PostEventRecap[];postEventSocial?:readonly EmbeddedSocialContext[]}){
+export default function DecisionBrief({news,recentNews=[],calendar,now,host,report=false,postEventRecaps=[]}:{news:readonly NewsBriefV1[];recentNews?:readonly NewsBriefV1[];calendar:PresenterCalendar;now:Date;host:string|null;report?:boolean;postEventRecaps?:readonly PostEventRecap[]}){
  const topics=decisionTopics(news,calendar,now), lanes=decisionCalendar(calendar,now);
- const exchangeIncident=recentReportedEditorial(now,48).find(item=>item.kind==="VERIFIED_INCIDENT");
  const crossBank=selectCrossBankPolicyBridge(news,calendar,now);
  const onAir=buildPresenterOneMinute(news,calendar,now);
  const reader=blueDeskPublicHref('/blue-desk/key-stories',host), calendarHref=blueDeskPublicHref('/blue-desk/calendar',host);
@@ -71,17 +67,6 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
   })),
  ].slice(0,6);
  return <section className={s.brief} data-decision-first="public-v1">
-  {exchangeIncident?<section className={s.latest} data-bluebelly-live-crypto-incident="source-reviewed" aria-label="Bitcoin and Binance security incident">
-    <div className={s.latestHead}><div><p className={s.kicker}>BREAKING MARKET DEVELOPMENT · CRYPTO · OFFICIAL COMPANY STATEMENT</p>
-      <h2><Link href={reader+"?reported="+encodeURIComponent(exchangeIncident.id)}>{exchangeIncident.headline}</Link></h2></div>
-      <small><DualTimestamp value={exchangeIncident.publishedAt}/></small></div>
-    <p>{exchangeIncident.reporting}</p>
-    <p><strong>The money question:</strong> {exchangeIncident.why}</p>
-    <p><Link href={reader+"?reported="+encodeURIComponent(exchangeIncident.id)}>Read the Bitcoin/Binance breakdown →</Link>
-     {" · "}<a href={exchangeIncident.sourceUrl} target="_blank" rel="noopener noreferrer">Binance original statement ↗</a></p>
-    <small>Source-checked editorial · not a canonical Story or intraday causal attribution · price snapshots are not live quotes</small>
-   </section>:null}
-  {!report?<PostEventRecapFeature recaps={postEventRecaps} host={host} socialPosts={postEventSocial}/>:null}
   {!report?<header className={s.homeHero} aria-label="Lead story and decision test">
    <div className={s.homeLead}>
     <svg className={s.homeCircuit} viewBox="0 0 720 420" aria-hidden="true"><path d="M260 363h95l44-44h88l65-65h145M350 390h120l72-72h160M440 190h76l48-48h150M520 52h115l47-47M240 297h105l46-46h90M130 395h163l72-72h95"/><path d="M570 92h40v40h-40zM444 256h36v36h-36zM380 310h31v31h-31z"/><circle cx="563" cy="255" r="6"/><circle cx="455" cy="190" r="6"/></svg>
