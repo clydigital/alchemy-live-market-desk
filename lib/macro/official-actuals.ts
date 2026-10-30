@@ -644,6 +644,35 @@ export async function upsertOfficialBeaPceMetrics(
  return metrics.length;
 }
 
+/** Repair a previously verified BEA release whose component metrics were not
+ * written by an older deploy. Bounded to the most recent week, exact original
+ * BEA permalink, and known four-value summary. No source-value inference. */
+async function recoverCompletedBeaPceMetrics(
+ client:ReturnType<typeof createSupabaseAdminClient>,now:Date,
+){
+ const since=new Date(now.getTime()-7*86_400_000).toISOString();
+ const {data,error}=await client.from("macro_releases")
+  .select("id,release_name,agency,release_date,reference_period,actual,status,source_url,actual_retrieved_at")
+  .gte("release_date",since).lte("release_date",now.toISOString())
+  .eq("agency","U.S. Bureau of Economic Analysis").eq("status","completed")
+  .not("actual","is",null).order("release_date",{ascending:false}).limit(12);
+ if(error)throw new Error("BEA PCE completed-release recovery lookup failed: "+error.message);
+ let restored=0;
+ const warnings:string[]=[];
+ for(const record of (data||[]) as (OfficialMacroRelease&{actual_retrieved_at?:string|null})[]){
+  const expected=beaPceReleaseUrl(record.release_name,record.reference_period);
+  if(!expected||record.source_url!==expected||!record.actual)continue;
+  try{
+   restored+=await upsertOfficialBeaPceMetrics(client,record,{
+     actual:record.actual,sourceUrl:expected,
+   },record.actual_retrieved_at||now.toISOString());
+  }catch(error){
+   warnings.push(record.id+":"+(error instanceof Error?error.message:"metric recovery failed"));
+  }
+ }
+ return {restored,warnings};
+}
+
 /** Historical recovery: completed releases were previously never normalised.
  * Limit recovery to seven days and only releases missing at least one metric. */
 async function recoverCompletedCpiMetrics(
@@ -779,6 +808,9 @@ export async function ingestOfficialMacroActuals(options: {
   const recovery = await recoverCompletedCpiMetrics(client, now, options.fetcher ?? fetch);
   metricCount += recovery.restored;
   metricWarnings.push(...recovery.warnings);
+  const beaRecovery = await recoverCompletedBeaPceMetrics(client, now);
+  metricCount += beaRecovery.restored;
+  metricWarnings.push(...beaRecovery.warnings);
 
   return {
     attempted,
