@@ -62,7 +62,6 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
    <h1>Every headline has a place.</h1>
    <p>Central banks, AI, bonds, energy, FX and earnings. Read a short in-house explanation first, then consult the dated original. Older verified reports retain their event dates.</p>
   </header>
-  {children}
   <div className={styles.sectionTitle}><div><h2>Browse by category</h2><p>Publication time, provider and original link stay attached to each report.</p></div>
    <label className={styles.search}>Find a report <input type="search" value={query} onChange={e=>setQuery(e.target.value.slice(0,100))} placeholder="Search issuers, stories, themes" /></label>
   </div>
@@ -132,5 +131,6 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
      <button type="button" className={styles.copy} onClick={copy}>Copy source-linked outline</button>
      <p role="status" aria-live="polite">{feedback}</p>
    </div></aside></div>
+  {topic==="all"?<div className={styles.contextNews}>{children}</div>:null}
  </div>;
 }
