@@ -6,7 +6,7 @@ import type {NewsBriefV1} from "../lib/market-brief-news.ts";
 const base={verification:"SOURCE_VERIFIED",headline:"Bank of Canada raises its policy rate",summary:"The Bank of Canada raised its policy rate by 25 basis points to 2.5%, with the deposit rate at 2.45%."} as Pick<NewsBriefV1,"verification"|"headline"|"summary">;
 test("seven-day news cards display substantive source-qualified findings",()=>{
  assert.equal(datedNewsSourceExcerpt(base),base.summary);
- assert.equal(datedNewsSourceExcerpt({...base,verification:"UNVERIFIED"} as typeof base),null);
+ assert.equal(datedNewsSourceExcerpt({...base,verification:"UNVERIFIED"} as unknown as typeof base),null);
  assert.equal(datedNewsSourceExcerpt({...base,summary:base.headline}),null);
  assert.equal(datedNewsSourceExcerpt({...base,summary:"The original publisher issued this dated announcement. Its market-price reaction and wider causal effects have not been established."}),null);
  const clipped=datedNewsSourceExcerpt({...base,summary:"A".repeat(800)});
