@@ -42,7 +42,8 @@ test("Regime Watch directory links to full research pages rather than expanding 
  assert.match(directory,/groupPublicResearch/);
  assert.match(directory,/data-research-lens/);
  assert.match(directory,/href=\{blueDeskPublicHref\("\/blue-desk\/regime-watch\/"\+lens\.id,host\)\}/);
- assert.doesNotMatch(directory,/<details>|<summary>/);
+ assert.match(directory,/Counterargument, next test &amp; sources/);
+ assert.doesNotMatch(directory,/onClick=\\{.*lens\\.id/);
 });
 
 test("lens detail pages use public snapshot data only and preserve countercases and tests",()=>{
