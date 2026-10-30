@@ -95,7 +95,7 @@ export default function ShortNewsRecap({recap,backHref,coverage}:{recap:Recap;ba
     {recap.isScheduled?<p className={ui.caution}>No vote, announcement or market response is inferred before the verified release.</p>:null}
    </section>
    {reaction?<section data-earnings-reaction="attributed-source-dated">
-     <p className={ui.kicker}>03 / WHY THE STOCK MOVED · DATED REACTION PACKET</p>
+     <p className={ui.kicker}>02A / WHY THE STOCK MOVED · DATED REACTION PACKET</p>
      <h2>A strong quarter is not necessarily a strong share-price surprise</h2>
      <p><strong>{reaction.ticker} before the results:</strong> {reaction.regularClose.changePct.toFixed(2)}% in US regular trading, closing at US$ {reaction.regularClose.usd.toFixed(2)} on 29 October 2026 (4 PM ET). The regular-session fall happened BEFORE the earnings release.</p>
      <p><strong>After the results:</strong> US$ {reaction.extended.usd.toFixed(2)} ({reaction.extendedChangePct.toFixed(2)}% against the SAME 4 PM close) as of <DualTimestamp value={reaction.extended.at}/>. A dated extended-hours snapshot is NOT a five-minute event study.</p>
@@ -112,10 +112,10 @@ export default function ShortNewsRecap({recap,backHref,coverage}:{recap:Recap;ba
       <h2>What moved this share, and why?</h2>
       <p>Issuer earnings are available, but a validated regular-close versus after-hours source packet is missing or expired. No share-price cause is inferred from the report alone.</p>
      </section>:null}
-   <section><p className={ui.kicker}>04 / THE LEARNING MOMENT</p>
+   <section><p className={ui.kicker}>03 / THE LEARNING MOMENT</p>
     <h2>Follow the money</h2>
     <p>{recap.mechanism}</p></section>
-   <section><p className={ui.kicker}>05 / THE CATCH &amp; NEXT TEST</p>
+   <section><p className={ui.kicker}>04 / THE CATCH &amp; NEXT TEST</p>
     <h2>What could change the interpretation?</h2>
     <p>{recap.nextTest}</p>
     <p className={ui.caution}>{recap.isScheduled?
