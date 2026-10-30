@@ -98,6 +98,9 @@ export function canAppearInPublicIndex(record:BluebellyContentRecord):boolean{
  return (record.publication.status==="PUBLISHED" ||
     record.publication.status==="CORRECTED" ||
     record.publication.status==="ARCHIVED") &&
+  (record.verification==="ORIGINAL_VERIFIED" ||
+   record.verification==="CORROBORATED_REPORT" ||
+   record.verification==="ATTRIBUTED_UNCONFIRMED") &&
   validateContentRecord(record).length===0;
 }
 const inEnum=(value:unknown,values:readonly string[]):boolean=>
@@ -162,7 +165,7 @@ export function validateContentRecord(value:unknown):string[]{
     (s.verifiedAt===null||utc(s.verifiedAt));})&&
    new Set(sources.map(s=>object(s)?.sourceId)).size===sources.length);
  if(r.verification==="ORIGINAL_VERIFIED")add("verification.originalSource",
-   sources.some(x=>["OFFICIAL","ISSUER","REGULATORY_FILING"].includes(String(object(x)?.sourceKind))&&utc(object(x)?.verifiedAt)));
+   sources.some(x=>["OFFICIAL","ISSUER","REGULATORY_FILING","MARKET_DATA"].includes(String(object(x)?.sourceKind))&&utc(object(x)?.verifiedAt)));
  if(r.verification==="CORROBORATED_REPORT")add("verification.corroboration",
    new Set(sources.map(x=>object(x)?.publisher)).size>=2);
  const p=object(r.publication);
