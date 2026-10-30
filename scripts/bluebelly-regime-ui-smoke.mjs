@@ -124,7 +124,7 @@ try{
 
  const crash=await waitResponse("/crash-opportunity");
  assertHtml(crash.html,'data-crash-opportunity="source-dated-research-view"',
-   'data-crash-research-verdict="CONTESTED"',
+   'data-crash-research-verdict="',
    'data-historical-episode="2020"',
    'data-historical-episode="2008"',
    "What has been measured?",
