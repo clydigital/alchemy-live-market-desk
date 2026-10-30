@@ -43,8 +43,6 @@ export default async function NewsroomPage({searchParams}:Props){
  return <main className={desk.page} data-public-newsroom="original-source-only">
   <BlueDeskHeader activePath="/blue-desk/newsroom"/>
   <div className={desk.content}>
-    <BluebellyNewsWire news={news} archiveEntries={archiveResult.items} archiveAvailable={archiveResult.available} hotPicks={hotPicks} editorials={editorials}
-      initialQuery={query} now={now.toISOString()} readerHref={readerHref}>
       {oct30SelloffIsLead(now)?<article data-newsroom-lead="oct30-ai-selloff" style={{margin:"3px 0 18px",padding:"clamp(18px,3vw,27px)",border:"1px solid var(--bb-card-border)",borderRadius:10,background:"var(--bb-surface)",color:"var(--bb-text)"}}>
         <p style={{fontSize:11,letterSpacing:".09em",fontWeight:800,color:"var(--bb-accent)"}}>NEWSROOM LEAD · 30 OCTOBER 2026 · SOURCE-REPORTED INTRADAY REACTION</p>
         <h2 style={{fontSize:"clamp(25px,3vw,37px)",lineHeight:1.16,margin:"10px 0"}}>{OCT30_SELL_OFF.headline}</h2>
@@ -53,6 +51,8 @@ export default async function NewsroomPage({searchParams}:Props){
         <p><Link href={readerHref+OCT30_SELL_OFF.href}>Read the complete source-led Key Story →</Link>{" · "}<Link href={blueDeskPublicHref("/blue-desk/crash-opportunity",host)}>Crash vs Opportunity watch →</Link></p>
         <a href={OCT30_SELL_OFF.sourceUrl} target="_blank" rel="noopener noreferrer" style={{fontSize:12}}>{OCT30_SELL_OFF.sourceName} ↗</a>
       </article>:null}
+    <BluebellyNewsWire news={news} archiveEntries={archiveResult.items} archiveAvailable={archiveResult.available} hotPicks={hotPicks} editorials={editorials}
+      initialQuery={query} now={now.toISOString()} readerHref={readerHref}>
       <div style={{margin:"3px 0 16px",padding:"12px 15px",background:"#0b3246",border:"1px solid #346d83",borderRadius:"8px",fontSize:"13px",lineHeight:1.6}}>
        <strong style={{color:"#f0d39e"}}>HORMUZ / OIL & REFINED FUELS</strong> · Track maritime disruption against Brent, diesel/gasoil crack proxies, refinery runs and US distillate inventories.
        {" "}<Link href={blueDeskPublicHref("/blue-desk/hormuz",host)}>Open the physical-versus-market watch →</Link>
