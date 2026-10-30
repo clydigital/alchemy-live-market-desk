@@ -17,15 +17,15 @@ export default function Newsroom48hTimeline({
   href:readerHref+"?policy="+encodeURIComponent(b.id),
   countryCode:b.countryCode as string|null,verified:true})),
  ...reports.map(r=>({id:r.id,at:r.publishedAt,title:r.headline,
-  label:"REPORTED TALKS · NOT CONFIRMED",topic:"DEVELOPING / RUMOUR",
+  label:r.kind==="VERIFIED_INCIDENT"?"EXCHANGE INCIDENT · OFFICIAL STATEMENT":"REPORTED TALKS · NOT CONFIRMED",topic:r.kind==="VERIFIED_INCIDENT"?"CRYPTO / MARKET REACTION":"DEVELOPING / RUMOUR",
   detail:r.reporting,why:r.why,question:r.nextTest,
   sourceName:r.publisher,sourceUrl:r.sourceUrl,
-  href:readerHref+"?reported="+encodeURIComponent(r.id),countryCode:null as string|null,verified:false}))
+  href:readerHref+"?reported="+encodeURIComponent(r.id),countryCode:null as string|null,verified:r.kind==="VERIFIED_INCIDENT"}))
  ].sort((a,b)=>Date.parse(b.at)-Date.parse(a.at));
  return <section className={s.section} aria-label="Previous 48 hours market developments" data-newsroom-window="48h">
   <header className={s.heading}><div><p className={s.eyebrow}>THE LAST 48 HOURS · RELEASE-CLOCK ORDER</p>
    <h2>What actually happened</h2>
-   <p>Central-bank outcomes first, market implications second. Unconfirmed reporting is not a completed deal or a verified trading signal.</p></div>
+   <p>Dated source statements and attributed reporting, with market implications clearly separated. A reported price move is not automatically proof of its cause.</p></div>
    <span className={s.count}>{banks.length} official bank decision{banks.length===1?"":"s"} · {reports.length} developing report{reports.length===1?"":"s"}</span>
   </header>
   {items.length?<div className={s.grid}>
