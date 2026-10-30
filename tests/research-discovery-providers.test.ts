@@ -33,7 +33,7 @@ test("discovery is ordered after deterministic acquisition and before Firecrawl 
   const directIndex = scheduledSource.indexOf("buildScheduledResearchInput(slot, options)");
   const discoveryIndex = scheduledSource.indexOf("await applyResearchDiscoveryProviders(");
   const highImpactIndex = scheduledSource.indexOf("await applyHighImpactMarketDiscovery(");
-  const firecrawlIndex = scheduledSource.indexOf("return applyFirecrawlResearchFallback(");
+  const firecrawlIndex = scheduledSource.indexOf("await applyFirecrawlResearchFallback(");
   assert.ok(directIndex >= 0);
   assert.ok(discoveryIndex > directIndex);
   assert.ok(highImpactIndex > discoveryIndex);
