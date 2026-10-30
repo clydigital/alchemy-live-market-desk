@@ -30,6 +30,10 @@ function inCategory(item: LearnConcept, category: string) {
     item.regimes.some((r) => r.slug===regimeByCategory[category]);
 }
 
+function formatWatch(item: LearnConcept) {
+  return item.watch.join(" · ");
+}
+
 function termGroup(item: LearnConcept) {
   if(item.topic==="regime") return item.regimes[0]?.label || "Market mechanics";
   return ({
@@ -134,7 +138,7 @@ export default function BlueDeskLearnExplorer({concepts}:{concepts:LearnConcept[
             </div>
             <div className={ui.focusBlock}>
               <span className={ui.focusLabel}>WHAT TO CHECK ON THE MARKET</span>
-              <p>{selected.watch.join(" · ")}</p>
+              <p>{formatWatch(selected)}</p>
             </div>
             {selected.regimes.length>0 && <div className={ui.relatedLabels}>
               {selected.regimes.map((r)=><span key={r.slug}>{r.label}</span>)}
