@@ -4,6 +4,7 @@ import type {ReactNode} from "react";
 import Link from "next/link";
 import type {NewsBriefV1} from "@/lib/market-brief-news";
 import {publicArchiveSearchIndex,type ArchiveNewsItem} from "@/lib/bluebelly-publication-archive";
+import type {NewsroomHotPicks} from "@/lib/bluebelly-newsroom-hot-picks";
 import {EDITORIAL_TOPICS,editorialNewsTopics,type EditorialTopicId} from "@/lib/bluebelly-editorial-architecture";
 import {storyTvInstrument} from "@/lib/bluebelly-editorial-visuals";
 import EditorialStoryArt from "./EditorialStoryArt";
@@ -23,19 +24,28 @@ function archiveTopics(item:ArchiveNewsItem):EditorialTopicId[]{
  if(item.topics.includes("FX")||item.topics.includes("METALS"))categories.add("fx");
  return categories.size?[...categories]:["other"];
 }
-export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailable=true,initialQuery="",now,readerHref,children}:{
+type NewsroomCategory=EditorialTopicId|"hot";
+export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailable=true,hotPicks,initialQuery="",now,readerHref,children}:{
  news:readonly NewsBriefV1[];archiveEntries?:readonly ArchiveNewsItem[];archiveAvailable?:boolean;
+ hotPicks:NewsroomHotPicks;
  initialQuery?:string;now:string;readerHref:string;children?:ReactNode;
 }){
- const [topic,setTopic]=useState<EditorialTopicId>("all");
+ const [topic,setTopic]=useState<NewsroomCategory>("all");
  const [query,setQuery]=useState(initialQuery.slice(0,100));
  const [shortlist,setShortlist]=useState<string[]>([]);
  const [feedback,setFeedback]=useState("");
  const newsOnly=news.filter(n=>!archiveEntries.some(a=>a.sourceUrl===n.sourceUrl));
- const visible=newsOnly.filter(item=>(topic==="all"||editorialNewsTopics(item).includes(topic))&&
+ const visible=newsOnly.filter(item=>(topic==="hot"?hotPicks.keys.includes("news:"+item.id):
+    topic==="all"||editorialNewsTopics(item).includes(topic))&&
   (item.headline+" "+item.summary+" "+item.sourceName).toLowerCase().includes(query.trim().toLowerCase()));
- const archiveVisible=archiveEntries.filter(item=>(topic==="all"||archiveTopics(item).includes(topic))&&
+ const archiveVisible=archiveEntries.filter(item=>(topic==="hot"?hotPicks.keys.includes("archive:"+item.id):
+    topic==="all"||archiveTopics(item).includes(topic))&&
   publicArchiveSearchIndex(item).includes(query.trim().toLowerCase()));
+ const visibleCards=[
+  ...archiveVisible.map(item=>({kind:"archive" as const,item})),
+  ...visible.map(item=>({kind:"news" as const,item})),
+ ].sort((a,b)=>topic==="hot"?
+   hotPicks.keys.indexOf(a.kind+":"+a.item.id)-hotPicks.keys.indexOf(b.kind+":"+b.item.id):0);
  const selected=shortlist.flatMap(id=>newsOnly.find(n=>n.id===id)||[]);
  const visibleCount=visible.length+archiveVisible.length;
  function copy(){
@@ -57,6 +67,9 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
    <label className={styles.search}>Find a report <input type="search" value={query} onChange={e=>setQuery(e.target.value.slice(0,100))} placeholder="Search issuers, stories, themes" /></label>
   </div>
   <div className={styles.topics} role="group" aria-label="Newsroom categories">
+   <button type="button" data-newsroom-hot-picks-button="orange" aria-pressed={topic==="hot"}
+    className={topic==="hot"?styles.hotSelected:styles.hotButton}
+    onClick={()=>{setTopic("hot");setQuery("");}}>Hot Picks <small>{hotPicks.keys.length}</small></button>
    {EDITORIAL_TOPICS.map(t=>{const count=t.id==="all"?newsOnly.length+archiveEntries.length:
      newsOnly.filter(n=>editorialNewsTopics(n).includes(t.id)).length+
      archiveEntries.filter(a=>archiveTopics(a).includes(t.id)).length;
@@ -64,41 +77,45 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
      onClick={()=>setTopic(t.id)}>{t.label} <small>{count}</small></button>})}
   </div>
   <div className={styles.columns}><section className={styles.feed} aria-live="polite">
+    {topic==="hot"?<p className={styles.hotIntro} data-hot-picks-day={hotPicks.etDay}>
+      Top released stories for {hotPicks.etDay} (US Eastern). Re-ranked daily by materiality, recency and topic diversity.
+      {hotPicks.keys.length<3?" Fewer than three source-qualified stories currently available; no upcoming events are used to pad the list.":""}
+    </p>:null}
     <p className={styles.results}>{visibleCount} source-qualified report{visibleCount===1?"":"s"} matching your selection.</p>
     {!archiveAvailable?<p className={styles.empty} data-newsroom-archive-unavailable>Previously reviewed archive temporarily unavailable; current source-verified wire remains accessible.</p>:null}
-    {archiveVisible.map(item=><article key={"archive:"+item.id} className={styles.item} data-newsroom-archived-reader={item.id}>
-      <div className={styles.art}><EditorialStoryArt headline={item.headline} compact/></div>
+    {visibleCards.map(card=>card.kind==="archive"?<article key={"archive:"+card.item.id} className={styles.item} data-newsroom-archived-reader={card.item.id}>
+      <div className={styles.art}><EditorialStoryArt headline={card.item.headline} compact/></div>
       <div className={styles.content}>
-       <span className={styles.chip}>{item.verificationLabel}</span>
-       <small className={styles.metadata}>{archiveTopics(item).join(" · ").toUpperCase()} · {item.eventAt?clock(item.eventAt):item.eventDay+" · date only"}</small>
-       <h2><Link href={item.readerHref}>{item.headline}</Link></h2>
+       <span className={styles.chip}>{card.item.verificationLabel}</span>
+       <small className={styles.metadata}>{archiveTopics(item).join(" · ").toUpperCase()} · {card.item.eventAt?clock(card.item.eventAt):card.item.eventDay+" · date only"}</small>
+       <h2><Link href={card.item.readerHref}>{card.item.headline}</Link></h2>
        <div className={styles.actions}>
-        <Link href={item.readerHref}>Read Bluebelly's source-reviewed report →</Link>
-        <a href={item.sourceUrl} rel="noopener noreferrer" target="_blank">{item.sourceName} · original source ↗</a>
+        <Link href={card.item.readerHref}>Read Bluebelly's source-reviewed report →</Link>
+        <a href={card.item.sourceUrl} rel="noopener noreferrer" target="_blank">{card.item.sourceName} · original source ↗</a>
        </div>
       </div>
-    </article>)}
-    {visible.map(item=><article key={item.id} className={styles.item}>
-      <div className={styles.art}><EditorialStoryArt headline={item.headline} summary={item.summary} compact/></div>
+    </article>:
+    <article key={card.item.id} className={styles.item}>
+      <div className={styles.art}><EditorialStoryArt headline={card.item.headline} summary={card.item.summary} compact/></div>
       <div className={styles.content}>
-       <span className={styles.chip}>{Date.parse(now)-Date.parse(item.occurredAt)>48*3600000?"VERIFIED · EARLIER THIS WEEK":"SOURCE VERIFIED · LAST 48H"}</span>
-       <small className={styles.metadata}>{editorialNewsTopics(item).join(" · ").toUpperCase()} · {clock(item.occurredAt)}</small>
-       <h2><Link href={readerHref+"?news="+encodeURIComponent(item.id)}>{item.headline}</Link></h2>
-       <p>{item.summary}</p>
+       <span className={styles.chip}>{Date.parse(now)-Date.parse(card.item.occurredAt)>48*3600000?"VERIFIED · EARLIER THIS WEEK":"SOURCE VERIFIED · LAST 48H"}</span>
+       <small className={styles.metadata}>{editorialNewsTopics(item).join(" · ").toUpperCase()} · {clock(card.item.occurredAt)}</small>
+       <h2><Link href={readerHref+"?news="+encodeURIComponent(card.item.id)}>{card.item.headline}</Link></h2>
+       <p>{card.item.summary}</p>
        <div className={styles.actions}>
-        <Link href={readerHref+"?news="+encodeURIComponent(item.id)}>Read short Bluebelly recap →</Link>
-        <a href={item.sourceUrl} rel="noopener noreferrer" target="_blank">{item.sourceName} · original report ↗</a>
-        <button type="button" onClick={()=>setShortlist(ids=>ids.includes(item.id)?ids.filter(i=>i!==item.id):[...ids,item.id])}
-          aria-pressed={shortlist.includes(item.id)}>{shortlist.includes(item.id)?"✓ Shortlisted":"+ Brief shortlist"}</button>
+        <Link href={readerHref+"?news="+encodeURIComponent(card.item.id)}>Read short Bluebelly recap →</Link>
+        <a href={card.item.sourceUrl} rel="noopener noreferrer" target="_blank">{card.item.sourceName} · original report ↗</a>
+        <button type="button" onClick={()=>setShortlist(ids=>ids.includes(card.item.id)?ids.filter(i=>i!==card.item.id):[...ids,card.item.id])}
+          aria-pressed={shortlist.includes(card.item.id)}>{shortlist.includes(card.item.id)?"✓ Shortlisted":"+ Brief shortlist"}</button>
        </div>
        <details className={styles.readMore}>
         <summary>Read the investor test and evidence boundary</summary>
         <div className={styles.detailBody}>
-         <h3>What happened?</h3><p>{item.summary}</p>
+         <h3>What happened?</h3><p>{card.item.summary}</p>
          <h3>Who bears the economics?</h3><p>Identify the companies, borrowers, customers or markets exposed. No balance-sheet effect is assumed without relevant source data.</p>
          <h3>What could challenge the first interpretation?</h3><p>Check the strongest alternative explanation and a dated comparable market measurement before assigning a cause to price action.</p>
-         <p>Observed by desk: {clock(item.observedAt)}. Reporting qualification does not constitute canonical regime evidence or a measured asset reaction.</p>
-         {storyTvInstrument(item.headline)?<TradingViewChart initial={storyTvInstrument(item.headline)!} compact/>:null}
+         <p>Observed by desk: {clock(card.item.observedAt)}. Reporting qualification does not constitute canonical regime evidence or a measured asset reaction.</p>
+         {storyTvInstrument(card.item.headline)?<TradingViewChart initial={storyTvInstrument(card.item.headline)!} compact/>:null}
         </div>
        </details>
       </div>
