@@ -9,6 +9,7 @@ export const EDITORIAL_TOPICS = [
   {id:"bonds",label:"Bonds & credit",pattern:/\b(bonds?|treasur(?:y|ies)|yields?|credit|auction|refinanc|debt|funding|duration|term premium|gilts?|bunds?)\b/i},
   {id:"energy",label:"Energy",pattern:/\b(oil|brent|wti|crude|hormuz|opec|lng|tanker|refiner|diesel|natural gas|pipeline)\b/i},
   {id:"fx",label:"FX & metals",pattern:/\b(dollar|usd|yen|jpy|forex|fx|currency|yuan|gold|bullion|silver|boj|exchange rate)\b/i},
+  {id:"crypto",label:"Crypto",pattern:/\b(bitcoin|btc|ether|ethereum|eth|binance|bnb|crypto|stablecoin|blockchain|safu)\b/i},
   {id:"earnings",label:"Earnings & stocks",pattern:/\b(earnings|revenue|guidance|shares?|stocks?|equities|profits?|cash flow|capex|s&p 500|nasdaq|ipo|dividend)\b/i},
   {id:"other",label:"Other stories",pattern:null},
 ] as const;
