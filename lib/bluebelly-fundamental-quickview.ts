@@ -29,7 +29,7 @@ export type FundamentalQuickView = Readonly<{
 }>;
 
 export const FUNDAMENTAL_VIEW_REVIEWED_ON = "2026-10-30" as const;
-export const FUNDAMENTAL_VIEW_VERSION = "editorial-fundamentals/2026-10-30/1" as const;
+export const FUNDAMENTAL_VIEW_VERSION = "editorial-fundamentals/2026-10-30/2" as const;
 
 export const FUNDAMENTAL_QUICK_VIEW: readonly FundamentalQuickView[] = [
   {
@@ -121,14 +121,15 @@ export const FUNDAMENTAL_QUICK_VIEW: readonly FundamentalQuickView[] = [
     lens: "breadth",
     bias: "MIXED",
     confidence: "LOW",
-    headline: "Strong supplier earnings coexist with fragile buyer valuations",
-    reason: "Some AI issuers' cash requirements are growing much faster than operating cash, but paid cloud and hardware demand remain robust. This is a selective valuation and credit warning, not a verified index-wide earnings collapse.",
+    headline: "Real technology demand, but crowded expectations and leverage raise risk",
+    reason: "Some AI issuers' cash requirements are growing faster than operating cash, while paid cloud and hardware demand remain robust. Why X's 30 October transcript argues that leverage and expensive valuations can amplify forced selling; that is an attributed fragility hypothesis, not proof of an index-wide earnings collapse or a dated crash forecast.",
     countercase: "Improving cloud utilisation, stable credit and broader earnings can sustain an advance despite expensive rates. Equities can also sell off without a fundamental collapse.",
-    decidingTest: "Use source-dated Nasdaq/QQQ, equal-weight breadth, sector revisions, issuer cash conversion and credit spreads on matching windows.",
+    decidingTest: "Use source-dated Nasdaq/QQQ and equal-weight breadth alongside issuer cash conversion, credible credit spreads, FINRA margin statistics scaled to market size, and refinancing access on matching dates.",
     sourceObservationDate: "2026-10-29",
     sources: [
       { name: "Alphabet issuer results", url: "https://www.sec.gov/Archives/edgar/data/1652044/000165204426000080/googexhibit991q32026.htm", publicationDate: "2026-10-28", role: "PRIMARY" },
       { name: "Amazon Q3 results", url: "https://ir.aboutamazon.com/news-release/news-release-details/2026/Amazon-com-Announces-Third-Quarter-Results/default.aspx", publicationDate: "2026-10-29", role: "PRIMARY" },
+      { name: "Why X — why stock markets crash", url: "https://www.youtube.com/watch?v=YgqpOe2H17o", publicationDate: "2026-10-30", role: "COMMENTARY" },
     ],
   },
   {
