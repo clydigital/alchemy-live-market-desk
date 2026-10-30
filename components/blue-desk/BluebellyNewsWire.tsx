@@ -87,7 +87,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
       <div className={styles.art}><EditorialStoryArt headline={card.item.headline} compact/></div>
       <div className={styles.content}>
        <span className={styles.chip}>{card.item.verificationLabel}</span>
-       <small className={styles.metadata}>{archiveTopics(item).join(" · ").toUpperCase()} · {card.item.eventAt?clock(card.item.eventAt):card.item.eventDay+" · date only"}</small>
+       <small className={styles.metadata}>{archiveTopics(card.item).join(" · ").toUpperCase()} · {card.item.eventAt?clock(card.item.eventAt):card.item.eventDay+" · date only"}</small>
        <h2><Link href={card.item.readerHref}>{card.item.headline}</Link></h2>
        <div className={styles.actions}>
         <Link href={card.item.readerHref}>Read Bluebelly's source-reviewed report →</Link>
@@ -99,7 +99,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
       <div className={styles.art}><EditorialStoryArt headline={card.item.headline} summary={card.item.summary} compact/></div>
       <div className={styles.content}>
        <span className={styles.chip}>{Date.parse(now)-Date.parse(card.item.occurredAt)>48*3600000?"VERIFIED · EARLIER THIS WEEK":"SOURCE VERIFIED · LAST 48H"}</span>
-       <small className={styles.metadata}>{editorialNewsTopics(item).join(" · ").toUpperCase()} · {clock(card.item.occurredAt)}</small>
+       <small className={styles.metadata}>{editorialNewsTopics(card.item).join(" · ").toUpperCase()} · {clock(card.item.occurredAt)}</small>
        <h2><Link href={readerHref+"?news="+encodeURIComponent(card.item.id)}>{card.item.headline}</Link></h2>
        <p>{card.item.summary}</p>
        <div className={styles.actions}>
