@@ -75,7 +75,7 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
     <p className={s.homeDeck}>{lead?(lead.status==='UPCOMING'?lead.why:lead.fact):'Current verified coverage is insufficient for a market verdict. Check the source-listed calendar for the next decision.'}</p>
     {lead?<div data-featured-story-sequence="recap-effects-outlook" aria-label="Featured story: recap, market effects and outlook">
      <section><h2>What happened</h2><p>{lead.status==='UPCOMING'?'The event is scheduled; no outcome has been reported.':lead.fact}</p></section>
-     <section><h2>What it means for markets</h2><p>{lead.mechanism}</p><small>Market mechanism, not a verified price reaction. Check timestamped market data before attributing a move.</small></section>
+     <section><h2>What it means for markets</h2><p>{lead.mechanism}</p><small>{lead.id==="ai-cash-selloff-2026-10-30"?"AP's intraday prices are reported observations, not final closing prices or a proven single-cause attribution.":"Market mechanism, not a verified price reaction. Check timestamped market data before attributing a move."}</small></section>
      <section><h2>What comes next</h2><p>{lead.test}</p><small>Conditional test · {lead.status==='UPCOMING'?'Outcome pending':'Reassess as new evidence arrives'} · <DualTimestamp value={lead.at.includes('T')?lead.at:null} sourceDate={lead.at}/></small></section>
     </div>:null}
     <div className={s.homeActions}>{lead?<Link className={s.homePrimary} href={reader+lead.href}>Read the story <span aria-hidden="true">↗</span></Link>:<Link className={s.homePrimary} href={calendarHref}>Check the calendar ↗</Link>}<Link className={s.homeSecondary} href={blueDeskPublicHref('/blue-desk/daily-report',host)}>Read the Daily Report ↗</Link></div>
