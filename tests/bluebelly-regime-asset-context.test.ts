@@ -63,6 +63,7 @@ test("stale, monthly, future, and absent prices cannot be passed off as current 
  assert.equal(projectAssetTape("brent",null,now).state,"UNAVAILABLE");
  assert.equal(projectAssetTape("brent",[],now).state,"MISSING");
  assert.equal(projectAssetTape("brent",[row("brent",75,70,"2026-10-19")],now).state,"STALE");
+ assert.equal(projectAssetTape("brent",[row("brent",123.1,128.1,"2026-10-27")],now).state,"STALE");
  assert.equal(projectAssetTape("brent",[row("brent",75,70,"2026-10-19")],now).change,null);
  assert.equal(projectAssetTape("brent",[row("brent",75,70,"2026-11-02")],now).state,"MISSING");
  assert.equal(projectAssetTape("brent",[row("brent",75,70,"2026-10-29","monthly")],now).state,"MISSING");
