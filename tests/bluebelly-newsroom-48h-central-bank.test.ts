@@ -45,6 +45,26 @@ test("unconfirmed TPG discussions are labelled and expire, rather than turning i
  assert.equal(reportedEditorialById("../../admin",instant),null);
  assert.equal(recentReportedEditorial(new Date("2026-11-04T00:00:00Z")).length,0);
 });
+test("Binance original statement and Reuters market reaction enter the existing dated editorial lane without inventing a net loss",()=>{
+ const now=new Date("2026-10-30T04:30:00Z");
+ const item=reportedEditorialById("binance-security-incident-2026-10-30",now);
+ assert.ok(item);
+ assert.equal(item.kind,"VERIFIED_INCIDENT");
+ assert.match(item.sourceUrl,/binance\.com/);
+ assert.match(item.secondarySourceUrl||"",/reuters\.com/);
+ assert.match(item.reporting,/estimated|estimates/i);
+ assert.match(item.countercase,/final net loss|initial/i);
+ assert.match(item.why,/NOT a confirmed final cash loss/);
+ assert.ok(recentReportedEditorial(now,48).some(row=>row.id===item.id));
+ assert.ok(!recentReportedEditorial(new Date("2026-11-04T04:30:00Z")).some(row=>row.id===item.id));
+ const home=content("components/blue-desk/DecisionBrief.tsx");
+ const timeline=content("components/blue-desk/Newsroom48hTimeline.tsx");
+ const reader=content("components/blue-desk/NewsroomEventReader.tsx");
+ assert.match(home,/data-bluebelly-live-crypto-incident="source-reviewed"/);
+ assert.match(timeline,/EXCHANGE INCIDENT · OFFICIAL STATEMENT/);
+ assert.match(reader,/BINANCE ORIGINAL STATEMENT/);
+ assert.match(reader,/final net loss/);
+});
 test("Newsroom uses two evidence categories and never calls unconfirmed events canonical NewsBrief",()=>{
  const newsroom=content("app/blue-desk/newsroom/page.tsx");
  const timeline=content("components/blue-desk/Newsroom48hTimeline.tsx");
