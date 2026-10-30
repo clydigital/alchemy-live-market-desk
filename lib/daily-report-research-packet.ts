@@ -158,6 +158,11 @@ export function buildDailyResearchPacket(input:{
   }
   if(!input.notion.sources.length)lines.push("No current Notion material accessible. Do not simulate its findings.");
   lines.push("","## REPORT WRITING CONTRACT",
+    "Separate WHY IT MOVED (a sourced proximate explanation of an actual time-matched market response) from WHY IT MATTERS (a forward-looking economic/regime transmission).",
+    "For each material top editorial candidate: WHAT event and clock; EXPECTED versus ACTUAL; OBSERVED move and base or UNKNOWN; leading WHY with directly evidenced / attributed reporting / plausible inference / unresolved grade; strongest countercase; affected lens; named next test.",
+    "The strongest available explanation may be a short sentence: for example, a whole AI/semiconductor sector de-rating that preceded a company earnings release. Never assert an issuer miss caused pre-release selling.",
+    "Prefer 3-5 distinct source-supported news picks ranked by verified surprise, measured cross-market relevance, causal explanation and regime implications; fewer are correct on quiet or source-poor days.",
+    "Research Gap or Notion commentary is a lead, not proof of either a price move or its cause; do not promote X market-cap aggregates, user forecasts, or provisional incident labels.",
     "Explain facts, then each causal step, then the affected markets, then a countercase.",
     "Use conditional, evidence-scoped hypotheses and identify missing pricing and source data.",
     "Reference the actual upcoming economic and earnings questions.",
