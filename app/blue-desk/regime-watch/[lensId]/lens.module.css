@@ -160,3 +160,33 @@
  .outlookWhy>div{padding:10px}
  .outlookFooter p{font-size:10px}
 }
+
+/* Fresh editorial corroboration is distinct from the human-reviewed outlook
+   and may use different observation clocks and market instruments. */
+.verifiedEditorial{border:1px solid var(--bb-card-border);border-left:3px solid var(--bb-accent);border-radius:9px;background:var(--bb-card-bg);padding:21px;margin:11px 0 18px;min-width:0;scroll-margin-top:25px}
+.verifiedHead{display:flex;gap:16px;align-items:flex-start;justify-content:space-between}
+.verifiedHead h2{font:590 clamp(22px,2.2vw,29px)/1.27 var(--bluebelly-font);margin:9px 0 0;color:var(--bb-text)}
+.verifiedSubhead{font-size:12px;color:var(--bb-muted);margin:7px 0 0}
+.verifiedKind{border:1px solid var(--bb-card-border);border-radius:5px;padding:6px 8px;font-size:9px;font-weight:800;letter-spacing:.07em;color:var(--bb-accent);white-space:nowrap}
+.verifiedStory{color:var(--bb-text);font-size:14px;line-height:1.75;max-width:105ch;margin:16px 0}
+.verifiedInterpretations{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.verifiedInterpretations>div{background:var(--bb-card-quiet);border:1px solid var(--bb-card-border);border-radius:6px;padding:14px}
+.verifiedInterpretations p{font-size:12px;line-height:1.75;color:var(--bb-text);margin:9px 0 0}
+.verifiedTest{font-size:12px;line-height:1.75;color:var(--bb-text);padding:12px 14px;background:var(--bb-card-quiet);border-left:2px solid var(--bb-accent);margin:13px 0}
+.verifiedTest strong{color:var(--bb-accent)}
+.verifiedSources summary{font-size:12px;font-weight:700;color:var(--bb-accent);cursor:pointer;padding:9px 0}
+.verifiedSources ul{list-style:none;padding:0;margin:8px 0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.verifiedSources li{min-width:0;background:var(--bb-card-quiet);border:1px solid var(--bb-card-border);border-radius:5px;padding:11px}
+.verifiedSources li a{color:var(--bb-accent);font-size:12px;font-weight:700}
+.verifiedSources li span,.verifiedSources li small{display:block;overflow-wrap:anywhere;margin-top:6px;line-height:1.5}
+.verifiedSources li span{color:var(--bb-text);font-size:12px}
+.verifiedSources li small{color:var(--bb-muted);font-size:10px}
+@media(max-width:750px){
+ .verifiedEditorial{padding:13px;margin-top:9px}
+ .verifiedHead{flex-direction:column;gap:7px}
+ .verifiedHead h2{font-size:23px}
+ .verifiedKind{white-space:normal}
+ .verifiedInterpretations,.verifiedSources ul{grid-template-columns:1fr}
+ .verifiedStory{font-size:13px;line-height:1.65;margin:10px 0}
+ .verifiedInterpretations>div{padding:11px}
+}

@@ -6,6 +6,7 @@ import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import {getPublicThesisLedger} from "@/lib/blue-desk-thesis-ledger-server";
 import {groupPublicResearch} from "@/lib/bluebelly-editorial-architecture";
 import {getLensOutlook,LENS_OUTLOOK_REVIEWED_ON} from "@/lib/bluebelly-regime-lens-outlook";
+import {getRegimeEditorialUpdate} from "@/lib/bluebelly-regime-verified-crossasset";
 import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import type {EditorialMotif} from "@/lib/bluebelly-editorial-visuals";
@@ -53,6 +54,7 @@ export default async function RegimeWatchPage(){
        <h3>{lens.name}</h3>
        <RegimeOutlookMeter assessment={getLensOutlook(lens.id)}/>
        <p className={styles.lensReason}><strong>Why:</strong> {getLensOutlook(lens.id).headline}</p>
+       {getRegimeEditorialUpdate(lens.id)?<span className={styles.editorialUpdate}>30 OCT · FRESH POST-DECISION EDITORIAL CHECK</span>:null}
        <p>{lens.question}</p>
        <div className={styles.coverage}>{theses===null?"Story coverage unavailable":lens.stories.length+" associated public Story snapshot"+(lens.stories.length===1?"":"s")}</div>
        <span className={styles.open}>Explore research and deciding tests <span aria-hidden="true">→</span></span>
