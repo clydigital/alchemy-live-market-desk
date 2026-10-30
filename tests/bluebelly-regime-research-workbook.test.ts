@@ -63,7 +63,9 @@ test("recent original-source topical matches are not inferred as causal evidence
 test("research lens page distinguishes plan, stored Story, and independently admitted sources",()=>{
  const page=read("app/blue-desk/regime-watch/[lensId]/page.tsx");
  assert.match(page,/getPublicThesisLedger/);
- assert.match(page,/getPublicSourceObservations\(now,12\)/);
+ assert.match(page,/getPublicSourceObservations\(now,24\)/);
+ assert.match(page,/matchAssetSourceEvents/);
+ assert.match(page,/projectAssetTape/);
  assert.match(page,/matchRecentLensObservations/);
  assert.match(page,/sourceObservations===null/);
  assert.match(page,/editorial topic match/i);

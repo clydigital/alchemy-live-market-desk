@@ -4,6 +4,10 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import EditorialStoryArt from "@/components/blue-desk/EditorialStoryArt";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import {getPublicThesisLedger} from "@/lib/blue-desk-thesis-ledger-server";
+import {getPublicSourceObservations} from "@/lib/blue-desk-source-observations";
+import {matchAssetSourceEvents,projectAssetTape} from "@/lib/bluebelly-regime-asset-context";
+import {getMarketMonitor} from "@/lib/market-monitor-public";
+import {FUNDAMENTAL_QUICK_VIEW,FUNDAMENTAL_VIEW_REVIEWED_ON,fundamentalSnapshotAgeDays} from "@/lib/bluebelly-fundamental-quickview";
 import {groupPublicResearch} from "@/lib/bluebelly-editorial-architecture";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import type {EditorialMotif} from "@/lib/bluebelly-editorial-visuals";
@@ -18,8 +22,13 @@ export const metadata={
 
 export default async function RegimeWatchPage(){
  const now=new Date(),host=(await headers()).get("host");
- const theses=await getPublicThesisLedger(now,38).catch(()=>null);
+ const [theses,sourceObservations,marketMonitor]=await Promise.all([
+  getPublicThesisLedger(now,38).catch(()=>null),
+  getPublicSourceObservations(now,24).catch(()=>null),
+  getMarketMonitor().catch(()=>null),
+ ]);
  const lenses=groupPublicResearch(theses||[]);
+ const snapshotAge=fundamentalSnapshotAgeDays(now);
  return <main className={desk.page} data-public-regime-watch="historical-story-research-no-verdict">
   <BlueDeskHeader activePath="/blue-desk/regime-watch"/>
   <div className={desk.content}>
@@ -27,6 +36,62 @@ export default async function RegimeWatchPage(){
     <h1>The market&apos;s bigger stories.</h1>
     <p>Nine persistent research questions, each with a dedicated workspace for recorded hypotheses, conflicting views and the evidence that could change the argument. Public Story snapshots are historical working views, not today&apos;s regime-engine verdicts.</p>
    </header>
+   <section className={styles.quickSection} aria-labelledby="fundamental-quick-view" data-fundamental-quick-view="dated-editorial-opinion-not-canonical">
+    <div className={styles.quickHead}>
+     <div><span className={styles.kicker}>ONE-STOP FUNDAMENTALS / RESEARCH ASSESSMENT</span>
+      <h2 id="fundamental-quick-view">Bullish, bearish or unresolved?</h2>
+      <p>Reviewed {FUNDAMENTAL_VIEW_REVIEWED_ON} (MYT). New source items and dated prices appear separately; neither automatically changes a fundamental verdict.</p>
+     </div>
+     <div className={styles.quickAge} data-assessment-age={snapshotAge===null?"unknown":snapshotAge>7?"stale":"dated"}>
+      <strong>{snapshotAge===null?"Review age unavailable":snapshotAge>7?"Assessment needs review":"Dated analyst assessment"}</strong>
+      <small>{snapshotAge===null?"Clock unavailable":snapshotAge+" day(s) since reviewed"} · underlying source dates vary</small>
+     </div>
+    </div>
+    <div className={styles.quickList} role="list">
+     {FUNDAMENTAL_QUICK_VIEW.map(asset=>{
+      const eventContext=matchAssetSourceEvents(asset.id,sourceObservations,now,2);
+      const marketContext=projectAssetTape(asset.id,marketMonitor?.rows??null,now);
+      return <article className={styles.quickRow} role="listitem" key={asset.id} data-asset={asset.id}>
+       <div className={styles.quickAsset}>
+        <Link href={blueDeskPublicHref("/blue-desk/regime-watch/"+asset.lens,host)}>{asset.asset} <span aria-hidden="true">↗</span></Link>
+        <span>{asset.headline}</span>
+       </div>
+       <div className={styles.quickState}>
+        <strong data-fundamental-bias={asset.bias}>{asset.bias==="UNRESOLVED"?"Not proven":asset.bias.toLowerCase()}</strong>
+        <small>{asset.confidence.toLowerCase()} confidence</small>
+       </div>
+       <div className={styles.quickReason}>
+        <p>{asset.reason}</p>
+        <details><summary>Counterargument, next test &amp; sources</summary>
+         <p><strong>Strongest objection:</strong> {asset.countercase}</p>
+         <p><strong>What would change our assessment:</strong> {asset.decidingTest}</p>
+         <ul>{asset.sources.map(source=><li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer">{source.name}</a> · {source.role==="COMMENTARY"?"Attributed opinion":"Original source"} · {source.publicationDate}</li>)}</ul>
+        </details>
+       </div>
+       <div className={styles.quickFresh}>
+        <span>Reviewed reference: {asset.sourceObservationDate}</span>
+        <strong>{eventContext.state==="UNAVAILABLE"?"Recent evidence feed unavailable":eventContext.state==="NO_MATCH"?"No direct source match in sample":eventContext.items.length+" qualified source match"+(eventContext.items.length===1?"":"es")}</strong>
+        {eventContext.items.map(event=><div className={styles.quickUpdate} key={event.id}>
+         <a href={event.sourceUrl} target="_blank" rel="noopener noreferrer">{event.description.length>122?event.description.slice(0,119).replace(/\\s+\\S*$/,"")+"…":event.description}</a>
+         <small>{event.sourceName} · {event.eventAt.slice(0,10)} · Original-source topic match</small>
+        </div>)}
+        <small>Rolling 48h bounded sample · not a verdict update</small>
+       </div>
+       <div className={styles.quickTape} data-tape-state={marketContext.state}>
+        <span>MARKET TAPE · SEPARATE FROM FUNDAMENTALS {marketContext.state==="STALE"?"· STALE OBSERVATION":""}</span>
+        {marketContext.last===null?<strong>{marketContext.note}</strong>:<>
+         <strong>{marketContext.last.toLocaleString("en-US",{maximumFractionDigits:marketContext.changeUnit==="bp"?2:3})}{marketContext.changeUnit==="bp"?"%":""} {marketContext.instrument?"· "+marketContext.instrument:""}</strong>
+         {marketContext.change!==null?<small>{marketContext.change>0?"+":""}{marketContext.change}{marketContext.changeUnit} vs previous close · {marketContext.observedAt}</small>:<small>{marketContext.state==="STALE"?"STALE · ": "Change unavailable · "}{marketContext.observedAt}</small>}
+         <small>{marketContext.measurement}</small>
+         {marketContext.sourceUrl?<a href={marketContext.sourceUrl} target="_blank" rel="noopener noreferrer">{marketContext.sourceName} ↗</a>:null}
+        </>}
+        <small>{marketContext.note}</small>
+       </div>
+      </article>;
+     })}
+    </div>
+    <p className={styles.quickFoot}>Unknown is a valid result. The 48-hour source sample is bounded, so no match does not mean no market events. Market-level series may lag, and their movement does not establish cause. A reviewed fundamental judgement changes only after independent assessment, separate from the canonical Regime/Dossier state.</p>
+   </section>
    <div className={styles.heading}>
     <h2>Explore a research lens</h2>
     <span>{theses===null?"Public Story coverage unavailable":theses.length+" public Story snapshots"} · Viewed <DualTimestamp value={now.toISOString()}/></span>
