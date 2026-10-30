@@ -39,6 +39,14 @@ test("creator, republisher and announcement-only items cannot clear an issuer ga
  for(const item of candidates){
   assert.ok(expectedIssuerReceiptGaps({items:[item]},after).some(x=>x.includes(":AMZN:")));
  }
+ const amazonActual=expectedIssuerReceiptGaps({items:[receipt({
+  title:"Amazon.com Announces Third Quarter Results",
+ })]},after);
+ assert.equal(amazonActual.some(x=>x.includes(":AMZN:")),false);
+ const premature=expectedIssuerReceiptGaps({items:[receipt({
+  title:"Amazon Announces Third Quarter Earnings Call",
+ })]},after);
+ assert.ok(premature.some(x=>x.includes(":AMZN:")));
  const verified=expectedIssuerReceiptGaps({items:[receipt()]},after);
  assert.equal(verified.some(x=>x.includes(":AMZN:")),false);
  assert.ok(verified.some(x=>x.includes(":SNDK:")));
