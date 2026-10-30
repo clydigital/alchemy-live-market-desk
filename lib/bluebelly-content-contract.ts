@@ -75,8 +75,9 @@ export type BluebellyContentRecord={
  verification:VerificationState;
  sources:ContentSource[];
  publication:PublicationReceipt;
- consensus:ConsensusState;consensusSourceId:string|null;
+ consensus:ConsensusState;consensusSourceId:string|null;consensusAsOf:string|null;
  reaction:ReactionState;marketObservationIds:string[];
+ reactionWindow:{startAt:string;endAt:string}|null;
  regimeLinks:RegimeRelationship[];
 };
 
@@ -179,14 +180,26 @@ export function validateContentRecord(value:unknown):string[]{
    identifier(p.supersedesRevisionId)&&p.supersedesRevisionId!==p.revisionId);
  add("consensus",inEnum(r.consensus,CONSENSUS_STATES));
  add("consensusSourceId",r.consensusSourceId===null||identifier(r.consensusSourceId));
+ add("consensusAsOf",r.consensusAsOf===null||utc(r.consensusAsOf));
  if(r.consensus==="SOURCE_VERIFIED")add("consensus.source",
-   identifier(r.consensusSourceId)&&sources.some(s=>object(s)?.sourceId===r.consensusSourceId));
+   identifier(r.consensusSourceId)&&utc(r.consensusAsOf)&&
+   sources.some(s=>object(s)?.sourceId===r.consensusSourceId&&
+     ["ATTRIBUTED_REPORTING","MARKET_DATA"].includes(String(object(s)?.sourceKind)))&&
+   (!t||t.precision==="DATE_ONLY" ?
+     r.consensusAsOf!==null&&String(r.consensusAsOf).slice(0,10)<=String(t?.eventDate):
+     Date.parse(String(r.consensusAsOf))<=Date.parse(String(t?.occurredAt))));
  add("reaction",inEnum(r.reaction,REACTION_STATES));
+ const window=object(r.reactionWindow);
+ add("reactionWindow",r.reactionWindow===null||!!window&&utc(window.startAt)&&utc(window.endAt)&&
+   Date.parse(String(window.startAt))<Date.parse(String(window.endAt)));
  const observations=safeArray(r.marketObservationIds);
  add("marketObservationIds",Array.isArray(r.marketObservationIds)&&observations.length<=20&&
    observations.every(identifier)&&new Set(observations).size===observations.length);
  if(r.reaction==="DATED_OBSERVATION_ONLY")add("reaction.observations",observations.length>=1);
- if(r.reaction==="EVENT_WINDOW_MEASURED")add("reaction.eventWindow",t?.precision==="INSTANT"&&observations.length>=2);
+ if(r.reaction==="EVENT_WINDOW_MEASURED")add("reaction.eventWindow",t?.precision==="INSTANT"&&observations.length>=2&&
+   !!window&&utc(window.startAt)&&utc(window.endAt)&&
+   Date.parse(String(window.startAt))<=Date.parse(String(t?.occurredAt))&&
+   Date.parse(String(t?.occurredAt))<=Date.parse(String(window.endAt)));
  const regimeLinks=safeArray(r.regimeLinks);
  add("regimeLinks",Array.isArray(r.regimeLinks)&&regimeLinks.length<=30&&
   regimeLinks.every(link=>{const l=object(link);if(!l)return false;
@@ -209,8 +222,8 @@ export const BLUEBELLY_CONTENT_JSON_SCHEMA={
  $schema:"https://json-schema.org/draft/2020-12/schema",
  title:"BluebellyContentRecord",type:"object",
  required:["contractVersion","eventId","headline","eventType","topics","entityKeys",
-   "eventTime","verification","sources","publication","consensus","consensusSourceId",
-   "reaction","marketObservationIds","regimeLinks"],
+   "eventTime","verification","sources","publication","consensus","consensusSourceId","consensusAsOf",
+   "reaction","marketObservationIds","reactionWindow","regimeLinks"],
  properties:{
   contractVersion:{const:CONTENT_CONTRACT_VERSION},
   eventId:{type:"string",minLength:3,maxLength:150},
@@ -232,7 +245,9 @@ export const BLUEBELLY_CONTENT_JSON_SCHEMA={
     permalink:{type:["string","null"]},publishedAt:{type:["string","null"]},
     reviewReceiptId:{type:["string","null"]},supersedesRevisionId:{type:["string","null"]}},additionalProperties:false},
   consensus:{enum:CONSENSUS_STATES},consensusSourceId:{type:["string","null"]},
+  consensusAsOf:{type:["string","null"]},
   reaction:{enum:REACTION_STATES},marketObservationIds:{type:"array",uniqueItems:true,items:{type:"string"}},
+  reactionWindow:{anyOf:[{type:"null"},{type:"object",required:["startAt","endAt"],properties:{startAt:{type:"string",format:"date-time"},endAt:{type:"string",format:"date-time"}},additionalProperties:false}]},
   regimeLinks:{type:"array",items:{type:"object",required:["regimeId","regimeKind","relationship","evidenceId","reviewReceiptId","thesisVersionId"],
    properties:{regimeId:{type:"string"},regimeKind:{enum:["CANONICAL","EDITORIAL_LENS"]},
     relationship:{enum:REGIME_LINK_STATES},evidenceId:{type:["string","null"]},
