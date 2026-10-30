@@ -20,10 +20,11 @@ test("seven destinations; exact public newsroom and regimes; owner stays private
  assert.equal(blueDeskHostAccess("/owner/research","bluebelly-desk.vercel.app"),"private");
 });
 test("topics allow multi-tagging and unmatched reports remain other",()=>{
- assert.equal(EDITORIAL_TOPICS.length,8);
+ assert.equal(EDITORIAL_TOPICS.length,9);
  assert.deepEqual(editorialNewsTopics(report("Fed announces Treasury bond purchase","Original rate decision")),["policy","bonds"]);
  assert.deepEqual(editorialNewsTopics(report("Other event","Government statement on unspecified matter")),["other"]);
  assert.ok(editorialNewsTopics(report("AI chip maker earnings report","Issuer revenue and cash flow")).includes("earnings"));
+ assert.ok(editorialNewsTopics(report("Binance suspends Bitcoin withdrawals","Crypto exchange security review")).includes("crypto"));
 });
 test("nine research lenses only index public historical Story snapshots",()=>{
  assert.equal(EDITORIAL_REGIME_LENSES.length,9);

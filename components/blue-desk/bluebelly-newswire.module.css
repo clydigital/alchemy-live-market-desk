@@ -49,3 +49,11 @@
 .hotIntro{font-size:12px;line-height:1.5;color:#f0cb9c;margin:2px 0 14px}
 
 .contextNews{margin-top:30px}
+
+/* Secondary chronological release tape is available on demand, not a
+   competing permanent Newsroom feed above the searchable articles. */
+.contextNews{border-top:1px solid #316177;padding:15px 0;margin-top:28px}
+.contextNews>summary{font-weight:700;color:#9ddff8;cursor:pointer;font-size:12px;list-style-position:inside}
+.contextNews>div{margin-top:15px}
+.item[data-newsroom-editorial-article] .chip{background:#eec378;color:#172434}
+.item[data-newsroom-editorial-article] .metadata{display:inline-block}

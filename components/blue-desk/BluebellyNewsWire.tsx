@@ -5,6 +5,7 @@ import Link from "next/link";
 import type {NewsBriefV1} from "@/lib/market-brief-news";
 import {publicArchiveSearchIndex,type ArchiveNewsItem} from "@/lib/bluebelly-publication-archive";
 import type {NewsroomHotPicks} from "@/lib/bluebelly-newsroom-hot-picks";
+import type {NewsroomEditorialItem} from "@/lib/bluebelly-newsroom-editorial";
 import {EDITORIAL_TOPICS,editorialNewsTopics,type EditorialTopicId} from "@/lib/bluebelly-editorial-architecture";
 import {storyTvInstrument} from "@/lib/bluebelly-editorial-visuals";
 import EditorialStoryArt from "./EditorialStoryArt";
@@ -22,32 +23,43 @@ function archiveTopics(item:ArchiveNewsItem):EditorialTopicId[]{
  if(item.topics.includes("RATES_BONDS")||item.topics.includes("CREDIT_FINANCING"))categories.add("bonds");
  if(item.topics.includes("ENERGY"))categories.add("energy");
  if(item.topics.includes("FX")||item.topics.includes("METALS"))categories.add("fx");
+ if(editorialNewsTopics({headline:item.headline,summary:""}).includes("crypto"))categories.add("crypto");
  return categories.size?[...categories]:["other"];
 }
 type NewsroomCategory=EditorialTopicId|"hot";
-export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailable=true,hotPicks,initialQuery="",now,readerHref,children}:{
+export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailable=true,hotPicks,editorials=[],initialQuery="",now,readerHref,children}:{
  news:readonly NewsBriefV1[];archiveEntries?:readonly ArchiveNewsItem[];archiveAvailable?:boolean;
- hotPicks:NewsroomHotPicks;
+ hotPicks:NewsroomHotPicks;editorials?:readonly NewsroomEditorialItem[];
  initialQuery?:string;now:string;readerHref:string;children?:ReactNode;
 }){
  const [topic,setTopic]=useState<NewsroomCategory>("all");
  const [query,setQuery]=useState(initialQuery.slice(0,100));
  const [shortlist,setShortlist]=useState<string[]>([]);
  const [feedback,setFeedback]=useState("");
- const newsOnly=news.filter(n=>!archiveEntries.some(a=>a.sourceUrl===n.sourceUrl));
+ const editorialSources=new Set(editorials.map(item=>item.sourceUrl));
+ const archiveOnly=archiveEntries.filter(a=>!editorialSources.has(a.sourceUrl));
+ const newsOnly=news.filter(n=>!archiveEntries.some(a=>a.sourceUrl===n.sourceUrl)&&!editorialSources.has(n.sourceUrl));
+ const editorialVisible=editorials.filter(item=>(topic==="hot"?hotPicks.keys.includes("editorial:"+item.id):
+    topic==="all"||item.topics.includes(topic))&&
+  (item.headline+" "+item.summary+" "+item.sourceName+" "+item.why).toLowerCase().includes(query.trim().toLowerCase()));
  const visible=newsOnly.filter(item=>(topic==="hot"?hotPicks.keys.includes("news:"+item.id):
     topic==="all"||editorialNewsTopics(item).includes(topic))&&
   (item.headline+" "+item.summary+" "+item.sourceName).toLowerCase().includes(query.trim().toLowerCase()));
- const archiveVisible=archiveEntries.filter(item=>(topic==="hot"?hotPicks.keys.includes("archive:"+item.id):
+ const archiveVisible=archiveOnly.filter(item=>(topic==="hot"?hotPicks.keys.includes("archive:"+item.id):
     topic==="all"||archiveTopics(item).includes(topic))&&
   publicArchiveSearchIndex(item).includes(query.trim().toLowerCase()));
  const visibleCards=[
+  ...editorialVisible.map(item=>({kind:"editorial" as const,item})),
   ...archiveVisible.map(item=>({kind:"archive" as const,item})),
   ...visible.map(item=>({kind:"news" as const,item})),
- ].sort((a,b)=>topic==="hot"?
-   hotPicks.keys.indexOf(a.kind+":"+a.item.id)-hotPicks.keys.indexOf(b.kind+":"+b.item.id):0);
+ ].sort((a,b)=>{
+  if(topic==="hot")return hotPicks.keys.indexOf(a.kind+":"+a.item.id)-hotPicks.keys.indexOf(b.kind+":"+b.item.id);
+  const aAt=Date.parse(a.kind==="archive"?(a.item.eventAt||(a.item.eventDay?a.item.eventDay+"T00:00:00Z":"")):a.item.occurredAt);
+  const bAt=Date.parse(b.kind==="archive"?(b.item.eventAt||(b.item.eventDay?b.item.eventDay+"T00:00:00Z":"")):b.item.occurredAt);
+  return (bAt||0)-(aAt||0)||a.kind.localeCompare(b.kind);
+ });
  const selected=shortlist.flatMap(id=>newsOnly.find(n=>n.id===id)||[]);
- const visibleCount=visible.length+archiveVisible.length;
+ const visibleCount=visible.length+archiveVisible.length+editorialVisible.length;
  function copy(){
   const content=selected.map((n,i)=>String(i+1)+". "+n.headline+"\nSource: "+n.sourceName+"\nOriginal: "+n.sourceUrl+
     "\nEvent (ET): "+clock(n.occurredAt)+"\nWhat was reported: "+n.summary).join("\n\n");
@@ -60,7 +72,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
  return <div className={styles.shell} data-editorial-newsroom="verified-only">
   <header className={styles.intro}><span>NEWSROOM / CATEGORISED WIRE</span>
    <h1>Every headline has a place.</h1>
-   <p>Central banks, AI, bonds, energy, FX and earnings. Read a short in-house explanation first, then consult the dated original. Older verified reports retain their event dates.</p>
+   <p>Central banks, AI, bonds, energy, crypto, FX and earnings. Read a short in-house explanation first, then consult the dated original. Older verified reports retain their event dates.</p>
   </header>
   <div className={styles.sectionTitle}><div><h2>Browse by category</h2><p>Publication time, provider and original link stay attached to each report.</p></div>
    <label className={styles.search}>Find a report <input type="search" value={query} onChange={e=>setQuery(e.target.value.slice(0,100))} placeholder="Search issuers, stories, themes" /></label>
@@ -69,9 +81,10 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
    <button type="button" data-newsroom-hot-picks-button="orange" aria-pressed={topic==="hot"}
     className={topic==="hot"?styles.hotSelected:styles.hotButton}
     onClick={()=>{setTopic("hot");setQuery("");}}>Hot Picks <small>{hotPicks.keys.length}</small></button>
-   {EDITORIAL_TOPICS.map(t=>{const count=t.id==="all"?newsOnly.length+archiveEntries.length:
+   {EDITORIAL_TOPICS.map(t=>{const count=t.id==="all"?newsOnly.length+archiveOnly.length+editorials.length:
      newsOnly.filter(n=>editorialNewsTopics(n).includes(t.id)).length+
-     archiveEntries.filter(a=>archiveTopics(a).includes(t.id)).length;
+     archiveOnly.filter(a=>archiveTopics(a).includes(t.id)).length+
+     editorials.filter(a=>a.topics.includes(t.id)).length;
     return <button key={t.id} type="button" aria-pressed={topic===t.id} className={topic===t.id?styles.selected:styles.filter}
      onClick={()=>setTopic(t.id)}>{t.label} <small>{count}</small></button>})}
   </div>
@@ -92,6 +105,26 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
         <Link href={card.item.readerHref}>Read Bluebelly's source-reviewed report →</Link>
         <a href={card.item.sourceUrl} rel="noopener noreferrer" target="_blank">{card.item.sourceName} · original source ↗</a>
        </div>
+      </div>
+    </article>:
+    card.kind==="editorial"?<article key={card.item.id} className={styles.item} data-newsroom-editorial-article={card.item.id}>
+      <div className={styles.art}><EditorialStoryArt headline={card.item.headline} summary={card.item.summary} compact/></div>
+      <div className={styles.content}>
+       <span className={styles.chip}>{card.item.verificationLabel}</span>
+       <small className={styles.metadata}>{card.item.topics.join(" · ").toUpperCase()} · {clock(card.item.occurredAt)}</small>
+       <h2><Link href={card.item.readerHref}>{card.item.headline}</Link></h2>
+       <p>{card.item.summary}</p>
+       <div className={styles.actions}>
+        <Link href={card.item.readerHref}>Read the source-reviewed analysis →</Link>
+        <a href={card.item.sourceUrl} rel="noopener noreferrer" target="_blank">{card.item.sourceName} · original source ↗</a>
+       </div>
+       <details className={styles.readMore}><summary>Market mechanism and next test</summary>
+        <div className={styles.detailBody}>
+         <h3>What could move markets?</h3><p>{card.item.why}</p>
+         <h3>What should be checked next?</h3><p>{card.item.nextTest}</p>
+         <p>The original statement and attributed price observations have separate evidence status. This article is not a canonical Regime or an intraday attribution study.</p>
+        </div>
+       </details>
       </div>
     </article>:
     <article key={card.item.id} className={styles.item}>
@@ -123,7 +156,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
    </section>
    <aside className={styles.rail}><div className={styles.panel}><h2>Evidence status</h2>
      <p>Source-verified wire reports and previously reviewed public-reader snapshots have different provenance labels. Neither represents automatic canonical regime evidence.</p>
-     <div className={styles.statusLine}><strong>{newsOnly.length+archiveEntries.length}</strong><span>qualifying recent reports</span></div>
+     <div className={styles.statusLine}><strong>{newsOnly.length+archiveOnly.length+editorials.length}</strong><span>qualifying recent reports</span></div>
      <p><strong>Rumours and creator theses</strong> stay in authenticated owner research until independently checked. Urgency does not confer credibility.</p>
    </div><div className={styles.panel}><h2>Working brief shortlist</h2>
      <p>Select reports to assemble a temporary copyable outline. This does not publish a report or save an editorial decision.</p>
@@ -131,6 +164,9 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
      <button type="button" className={styles.copy} onClick={copy}>Copy source-linked outline</button>
      <p role="status" aria-live="polite">{feedback}</p>
    </div></aside></div>
-  {topic==="all"?<div className={styles.contextNews}>{children}</div>:null}
+  {topic==="all"?<details className={styles.contextNews} data-newsroom-timeline="expandable-only">
+    <summary>Explore the release-clock timeline and related market watch</summary>
+    <div>{children}</div>
+   </details>:null}
  </div>;
 }

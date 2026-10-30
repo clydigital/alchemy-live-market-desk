@@ -6,6 +6,8 @@ import BluebellyNewsWire from "@/components/blue-desk/BluebellyNewsWire";
 import Newsroom48hTimeline from "@/components/blue-desk/Newsroom48hTimeline";
 import {recentBankDecisions} from "@/lib/bluebelly-bank-decision-snapshots";
 import {recentReportedEditorial} from "@/lib/bluebelly-reported-editorial";
+import {projectNewsroomEditorial} from "@/lib/bluebelly-newsroom-editorial";
+import {selectPostEventRecaps} from "@/lib/bluebelly-post-event-recap";
 import {getCurrentVerifiedMarketMotion} from "@/lib/market-motion";
 import {selectVerifiedNewsBriefs} from "@/lib/market-brief-news";
 import {getOriginalPressNews} from "@/lib/blue-desk-original-press-news-server";
@@ -28,13 +30,19 @@ export default async function NewsroomPage({searchParams}:Props){
  const news=combineQualifiedNews(selectVerifiedNewsBriefs(raw,now,18),official,18);
  const query=typeof params.q==="string"?params.q:"";
  const readerHref=blueDeskPublicHref("/blue-desk/key-stories",host);
- const hotPicks=selectNewsroomHotPicks(news,archiveResult.items,now);
  const bankDecisions=recentBankDecisions(now,48);
  const reported=recentReportedEditorial(now,48);
+ // Source-reviewed articles belong to the same categorised Newsroom wire,
+ // not permanent homepage hero banners or a separate unsearchable 48h strip.
+ const editorials=projectNewsroomEditorial(
+  recentBankDecisions(now,168),recentReportedEditorial(now,168),
+  selectPostEventRecaps(news,now,8),readerHref,now,
+ );
+ const hotPicks=selectNewsroomHotPicks(news,archiveResult.items,now,5,editorials);
  return <main className={desk.page} data-public-newsroom="original-source-only">
   <BlueDeskHeader activePath="/blue-desk/newsroom"/>
   <div className={desk.content}>
-    <BluebellyNewsWire news={news} archiveEntries={archiveResult.items} archiveAvailable={archiveResult.available} hotPicks={hotPicks}
+    <BluebellyNewsWire news={news} archiveEntries={archiveResult.items} archiveAvailable={archiveResult.available} hotPicks={hotPicks} editorials={editorials}
       initialQuery={query} now={now.toISOString()} readerHref={readerHref}>
       <div style={{margin:"3px 0 16px",padding:"12px 15px",background:"#0b3246",border:"1px solid #346d83",borderRadius:"8px",fontSize:"13px",lineHeight:1.6}}>
        <strong style={{color:"#f0d39e"}}>HORMUZ / OIL & REFINED FUELS</strong> · Track maritime disruption against Brent, diesel/gasoil crack proxies, refinery runs and US distillate inventories.

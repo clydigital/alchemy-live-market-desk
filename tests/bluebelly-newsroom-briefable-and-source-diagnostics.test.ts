@@ -14,7 +14,7 @@ test("Newsroom delegates future decisions to Calendar and mounts Hot Picks insid
  assert.match(page,/getOriginalPressNews\(now,18,7\)/);
  assert.match(page,/selectVerifiedNewsBriefs/);
  assert.match(page,/getRecentArchivedPublicReaderItems\(now\)/);
- assert.match(page,/selectNewsroomHotPicks\(news,archiveResult\.items,now\)/);
+ assert.match(page,/selectNewsroomHotPicks\(news,archiveResult\.items,now,5,editorials\)/);
  assert.match(page,/hotPicks=\{hotPicks\}/);
  assert.match(page,/<BluebellyNewsWire news=\{news\}/);
  assert.match(page,/Newsroom48hTimeline/);
