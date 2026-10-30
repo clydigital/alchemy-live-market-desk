@@ -7,14 +7,14 @@ import type { FundamentalQuickView } from "./bluebelly-fundamental-quickview.ts"
  * evidence admission. Never infer a fundamental judgement from price direction.
  */
 const ASSET_EVENT_PATTERNS: Record<FundamentalQuickView["id"], RegExp> = {
-  brent: /\b(?:brent|wti|crude(?: oil)?|opec|hormuz|oil (?:production|supply|demand|inventor)|tanker|strait of hormuz)\b/i,
-  diesel: /\b(?:diesel|distillates?|gasoil|ulsd|heating oil|refiner(?:y|ies)?|crack spread|jet fuel)\b/i,
+  brent: /\b(?:brent|wti|crude(?: oil)?|opec|hormuz|oil (?:production|supply|demand|inventor(?:y|ies))|tanker|strait of hormuz)\b/i,
+  diesel: /\b(?:diesel|distillates?|gasoil|ulsd|heating oil|crack spread|jet fuel)\b/i,
   "energy-producers": /\b(?:shell|totalenergies|equinor|chevron|exxon|oil producers?|upstream|oil earnings)\b/i,
   "ai-buyers": /\b(?:amazon|aws|alphabet|google|microsoft|azure|meta platforms|oracle|coreweave|hyperscaler|data.cent(?:er|re)|ai capex)\b/i,
   "ai-suppliers": /\b(?:sandisk|sk hynix|samsung|intel|nvidia|amd|micron|hbm|high.bandwidth memory|dram|semiconductor (?:sales|earnings|shipment))\b/i,
   nasdaq: /\b(?:nasdaq|s&p 500|sp500|spx|qqq|breadth|equal.weight|equity index|stock index)\b/i,
-  us10y: /\b(?:10.year|treasur(?:y|ies)|long.term (?:yield|rates)|term premium|treasury auction|bond yields?)\b/i,
-  usd: /\b(?:dxy|us dollar|dollar index|usd|foreign.exchange|eurusd|usd[jc]py|exchange.rate)\b/i,
+  us10y: /\b(?:10.year|treasur(?:y|ies) (?:yields?|rates?|auction|curve|bonds?)|long.term (?:yield|rates)|term premium|bond yields?)\b/i,
+  usd: /\b(?:dxy|us dollar|dollar index|foreign.exchange|eurusd|usd[jc]py|exchange.rate)\b/i,
   gold: /\b(?:gold|xau|bullion|gold reserves?|reserve gold|precious metals?)\b/i,
   yen: /\b(?:boj|bank of japan|yen|jpy|jgb|japanese bond|japan rate|carry trade|usd\/jpy|usdjpy)\b/i,
 };
