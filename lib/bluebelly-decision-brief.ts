@@ -1,4 +1,4 @@
-import {OCT30_SELL_OFF,oct30SelloffIsLead} from "./bluebelly-oct30-tech-selloff";
+import {OCT30_SELL_OFF,oct30SelloffIsLead} from "./bluebelly-oct30-tech-selloff.ts";
 import {getRecentVerifiedEarningsScorecards} from "./blue-desk-earnings-results.ts";
 import {getRecentOfficialMacroResults} from "./blue-desk-official-macro-results.ts";
 import type { NewsBriefV1 } from './market-brief-news.ts';
