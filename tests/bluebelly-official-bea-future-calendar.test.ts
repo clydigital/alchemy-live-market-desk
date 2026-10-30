@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {readFileSync} from "node:fs";
 import {getOriginalBeaPceSchedule,parseOfficialBeaPceSchedule} from "../lib/macro/official-bea-pce-schedule.ts";
-import {buildOfficialMacroReleaseSeedRows} from "../lib/macro/official-actuals.ts";
+import {buildOfficialMacroReleaseSeedRows,officialActualSourceUrl} from "../lib/macro/official-actuals.ts";
+import {beaPceReleaseUrl} from "../lib/macro/bea-pce-actual.ts";
 
 const current="https://www.bea.gov/news/schedule";
 const next="https://www.bea.gov/news/schedule/next-year";
@@ -31,6 +32,10 @@ test("official BEA next-year PCE schedule emits explicit 2027 reference period, 
  assert.equal(future.length,1);
  assert.equal(future[0].release_date,"2027-01-28T13:30:00.000Z");
  assert.equal(future[0].reference_period,"December 2026");
+ assert.equal(beaPceReleaseUrl("Personal Income and Outlays","December 2026",future[0].release_date),
+  "https://www.bea.gov/news/2027/personal-income-and-outlays-december-2026");
+ assert.equal(officialActualSourceUrl({...future[0],actual:null}),
+  "https://www.bea.gov/news/2027/personal-income-and-outlays-december-2026");
 });
 test("current-year schedule matches completed October, November and December without DST mistakes",()=>{
  const page=doc(2026,[
