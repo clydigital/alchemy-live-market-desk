@@ -1,3 +1,4 @@
+import {OCT30_SELL_OFF,oct30SelloffIsLead} from "@/lib/bluebelly-oct30-tech-selloff";
 import DecisionBrief from "@/components/blue-desk/DecisionBrief";
 import {EDITORIAL_FEATURES} from "@/components/blue-desk/AmazonFomcFeatures";
 import Link from "next/link";
@@ -59,6 +60,12 @@ export default async function DailyReportPage() {
     <BlueDeskHeader activePath="/blue-desk/daily-report" />
     <div className={styles.shell}>
       <DecisionBrief news={news} recentNews={recentNews} calendar={calendar} now={now} host={host} report/>
+      {oct30SelloffIsLead(now)?<section className={styles.section} data-daily-lead="oct30-ai-selloff">
+        <p className={styles.eyebrow}>MAIN STORY · 30 OCTOBER 2026 · DATED INTRADAY OBSERVATION</p>
+        <h2>{OCT30_SELL_OFF.headline}</h2><p>{OCT30_SELL_OFF.fact}</p><p>{OCT30_SELL_OFF.why}</p>
+        <p><strong>What matters next:</strong> {OCT30_SELL_OFF.test}</p>
+        <p><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+OCT30_SELL_OFF.href}>Read the full source-reviewed story →</Link>{" · "}<Link href={blueDeskPublicHref("/blue-desk/crash-opportunity",host)}>See Crash vs Opportunity →</Link></p>
+      </section>:null}
       <section className={styles.section} data-earnings-fundamentals-handoff="dated-financial-research">
         <p className={styles.eyebrow}>FUNDAMENTALS · SEVEN-COMPANY INVESTOR TEST</p>
         <h2>Earnings aren't the whole financial story</h2>
