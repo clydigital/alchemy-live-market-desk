@@ -6,13 +6,17 @@
 const MONTHS=["january","february","march","april","may","june",
  "july","august","september","october","november","december"] as const;
 
-export function beaPceReleaseUrl(name:string,referencePeriod:string|null){
+export function beaPceReleaseUrl(name:string,referencePeriod:string|null,releaseDate?:string|null){
  if(!/^Personal Income and Outlays$/i.test(name.trim())||!referencePeriod)return null;
  const m=/^(January|February|March|April|May|June|July|August|September|October|November|December) (20\d{2})$/i.exec(referencePeriod.trim());
  if(!m||!MONTHS.includes(m[1].toLowerCase() as typeof MONTHS[number]))return null;
- const year=Number(m[2]);
- if(year<2020||year>2035)return null;
- return "https://www.bea.gov/news/"+year+"/personal-income-and-outlays-"+m[1].toLowerCase()+"-"+year;
+ const referenceYear=Number(m[2]);
+ const releaseMs=releaseDate?Date.parse(releaseDate):Number.NaN;
+ if(releaseDate&&!Number.isFinite(releaseMs))return null;
+ const publicationYear=releaseDate?new Date(releaseMs).getUTCFullYear():referenceYear;
+ if(referenceYear<2020||referenceYear>2035||publicationYear<referenceYear
+   ||publicationYear>referenceYear+1)return null;
+ return "https://www.bea.gov/news/"+publicationYear+"/personal-income-and-outlays-"+m[1].toLowerCase()+"-"+referenceYear;
 }
 
 export type BeaPceReading={
