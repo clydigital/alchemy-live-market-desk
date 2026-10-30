@@ -27,7 +27,7 @@ export default async function RegimeWatchPage(){
   <div className={desk.content}>
    <header className={styles.intro}><span>ONGOING RESEARCH / NOT DAILY REPORTS</span>
     <h1>The market&apos;s bigger stories.</h1>
-    <p>Nine research lenses, each with a clear fundamental outlook, evidence confidence, the opposing argument and the test that could change the call. Historical Story records and market tape remain separate.</p>
+    <p>Nine research lenses with a clear outlook, confidence level, the opposing argument and the evidence that would change the call.</p>
    </header>
    <div className={styles.heading}>
     <h2>Explore a research lens</h2>
