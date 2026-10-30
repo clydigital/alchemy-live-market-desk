@@ -86,7 +86,7 @@ export function issuerOriginalUrl(value:string,source:Source){
  try{
   const url=new URL(value,source.listing);
   if(url.protocol!=="https:"||url.hostname.toLowerCase()!==source.host||
-    url.username||url.password||!source.path.test(url.pathname)||url.search)return null;
+    url.username||url.password||url.port||!source.path.test(url.pathname)||url.search)return null;
   url.hash="";
   return url.toString();
  }catch{return null;}
@@ -120,7 +120,7 @@ function listingUrls(html:string,source:Source){
  for(const match of matches){
   const url=issuerOriginalUrl(match[1].replace(/&amp;/g,"&"),source);
   if(url&&!discovered.includes(url))discovered.push(url);
-  if(discovered.length>=12)break;
+  if(discovered.length>=6)break;
  }
  return discovered;
 }
@@ -181,7 +181,7 @@ export async function applyIssuerResultsPressIntake(
    const direct=source.octoberOriginal&&event.scheduledCallAt.startsWith("2026-10-")
       &&now.getTime()<=Date.parse("2026-11-05T23:59:59Z")
      ?[source.octoberOriginal]:[];
-   const candidates=[...new Set([...direct,...results])].slice(0,8);
+   const candidates=[...new Set([...direct,...results])].slice(0,4);
    for(const url of candidates){
     const original=issuerOriginalUrl(url,source);
     if(!original)continue;
