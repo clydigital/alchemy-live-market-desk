@@ -25,21 +25,43 @@ export default function LearnSlideReader({ slides, deckId }: {
 
   const active = slides[current];
   function slideCard(slide: LearnSlide) {
-    return <article key={slide.number} className={ui.lessonSlide} aria-label={"Slide " + slide.number + " of " + slides.length}>
-      <div className={ui.slideMeta}>
-        <span>{deckId} / {slide.section}</span><span>{slide.number} / {slides.length}</span>
+    return <article key={slide.number} className={ui.lessonSlide} data-slide-design="cyberpunk-presentation" aria-label={"Slide " + slide.number + " of " + slides.length}>
+      <div className={ui.slideTopRail}>
+        <span>BLUEBELLY / PRESENTATION FILE {deckId}</span>
+        <span>MODULE {slide.section.toUpperCase()}</span>
+        <span>FRAME {String(slide.number).padStart(2, "0")} / {String(slides.length).padStart(2, "0")}</span>
       </div>
-      <h2>{slide.title}</h2>
-      <div className={ui.slideLines}>
-        {slide.lines.map((line, index) =>
-          <p key={index} className={line.length < 45 ? ui.slideShort : ui.slideLong}>{line}</p>)}
+      <div className={ui.slideStage}>
+        <div className={ui.slideMain}>
+          <div className={ui.slideMeta}>
+            <span>LESSON {deckId} / {slide.section}</span>
+            <span>ORIGINAL EDUCATIONAL EDITION</span>
+          </div>
+          <h2>{slide.title}</h2>
+          <div className={ui.slideAccentRule} aria-hidden="true"><span /></div>
+          <div className={ui.slideLines}>
+            {slide.lines.map((line, index) =>
+              <p key={index} className={line.length < 45 ? ui.slideShort : ui.slideLong}>
+                <span className={ui.slideLineIndex} aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+                <span>{line}</span>
+              </p>)}
+          </div>
+        </div>
+        <aside className={ui.slideVisualRail} aria-hidden="true">
+          <span className={ui.slideVisualLabel}>// KNOWLEDGE SYSTEM</span>
+          <div className={ui.slideReticle}>
+            <span className={ui.slideReticleCore}>{deckId}</span>
+          </div>
+          <strong>{String(slide.number).padStart(2, "0")}</strong>
+          <small>READ / CONNECT / VERIFY</small>
+        </aside>
       </div>
-      <footer>BLUEBELLY LEARN / ORIGINAL EDUCATIONAL MATERIAL / ILLUSTRATIVE — NOT LIVE MARKET DATA</footer>
+      <footer><span>BLUEBELLY LEARN / EDUCATIONAL, NOT LIVE MARKET DATA</span><span>© PRESENTATION READER / {deckId}</span></footer>
     </article>;
   }
   return <section className={ui.reader} aria-label="Presentation reader">
     <div className={ui.readerBar}>
-      <strong>{readAll ? "Reading edition — all slides" : "Presentation · " + (current + 1) + " / " + slides.length}</strong>
+      <strong>{readAll ? "FIELD MANUAL / ALL FRAMES" : "PRESENTATION FILE " + deckId + " / FRAME " + (current + 1) + " OF " + slides.length}</strong>
       <button type="button" aria-pressed={readAll} onClick={() => setReadAll((value) => !value)}>
         {readAll ? "Single-slide view" : "Read all slides"}
       </button>
