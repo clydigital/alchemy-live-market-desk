@@ -1,5 +1,5 @@
 import { fetchJinaReader } from "../acquisition/jina-reader.ts";
-import {beaPceReleaseUrl,parseBeaPceActual} from "./bea-pce-actual.ts";
+import {beaPceReleaseUrl,parseBeaPceActual,parseOfficialBeaPceMetricRows} from "./bea-pce-actual.ts";
 import { getEconomicCalendar, type EconomicCalendarEvent } from "../calendar.ts";
 import { createSupabaseAdminClient } from "../supabase/admin.ts";
 import { parseOfficialCpiMetricRows, type CpiPreviousValues } from "./official-cpi-metrics.ts";
@@ -619,6 +619,67 @@ export async function upsertOfficialCpiMetrics(
   return metrics.length;
 }
 
+/** Write only measured BEA-owned fields. A post-release upsert must never
+ * overwrite immutable pre-release consensus, expectations or analyst notes. */
+export async function upsertOfficialBeaPceMetrics(
+ client:ReturnType<typeof createSupabaseAdminClient>,
+ release:OfficialMacroRelease,resolved:OfficialActualResolution,fetchedAt:string,
+){
+ if(release.agency!=="U.S. Bureau of Economic Analysis"
+   ||!beaPceReleaseUrl(release.release_name,release.reference_period))return 0;
+ const metrics=parseOfficialBeaPceMetricRows(resolved.actual);
+ if(metrics.length!==4)throw new Error("BEA PCE summary is missing a comparable core/headline rate.");
+ const values=metrics.map(m=>({...m,release_id:release.id,source_url:resolved.sourceUrl,
+    retrieved_at:fetchedAt,metadata:{sourceRole:"official_actual",referencePeriod:release.reference_period}}));
+ const {error:insertError}=await client.from("macro_release_metrics").upsert(values,{
+   onConflict:"release_id,metric_key",ignoreDuplicates:true,
+ });
+ if(insertError)throw new Error("BEA PCE metric insert failed: "+insertError.message);
+ for(const m of metrics){
+  const {error}=await client.from("macro_release_metrics").update({
+   actual:m.actual,source_url:resolved.sourceUrl,retrieved_at:fetchedAt,
+  }).eq("release_id",release.id).eq("metric_key",m.metric_key);
+  if(error)throw new Error("BEA PCE metric update failed: "+m.metric_key+": "+error.message);
+ }
+ const {data:readback,error:readbackError}=await client.from("macro_release_metrics")
+  .select("metric_key,actual,source_url")
+  .eq("release_id",release.id).in("metric_key",metrics.map(m=>m.metric_key)).limit(4);
+ if(readbackError||!readback||readback.length!==4||metrics.some(m=>
+  !readback.some(row=>row.metric_key===m.metric_key
+    && Number(row.actual)===m.actual && row.source_url===resolved.sourceUrl)
+ ))throw new Error("BEA_PCE_FOUR_METRIC_READBACK_FAILED");
+ return metrics.length;
+}
+
+/** Repair a previously verified BEA release whose component metrics were not
+ * written by an older deploy. Bounded to the most recent week, exact original
+ * BEA permalink, and known four-value summary. No source-value inference. */
+async function recoverCompletedBeaPceMetrics(
+ client:ReturnType<typeof createSupabaseAdminClient>,now:Date,
+){
+ const since=new Date(now.getTime()-7*86_400_000).toISOString();
+ const {data,error}=await client.from("macro_releases")
+  .select("id,release_name,agency,release_date,reference_period,actual,status,source_url,actual_retrieved_at")
+  .gte("release_date",since).lte("release_date",now.toISOString())
+  .eq("agency","U.S. Bureau of Economic Analysis").eq("status","completed")
+  .not("actual","is",null).order("release_date",{ascending:false}).limit(12);
+ if(error)throw new Error("BEA PCE completed-release recovery lookup failed: "+error.message);
+ let restored=0;
+ const warnings:string[]=[];
+ for(const record of (data||[]) as (OfficialMacroRelease&{actual_retrieved_at?:string|null})[]){
+  const expected=beaPceReleaseUrl(record.release_name,record.reference_period);
+  if(!expected||record.source_url!==expected||!record.actual)continue;
+  try{
+   restored+=await upsertOfficialBeaPceMetrics(client,record,{
+     actual:record.actual,sourceUrl:expected,
+   },record.actual_retrieved_at||now.toISOString());
+  }catch(error){
+   warnings.push(record.id+":"+(error instanceof Error?error.message:"metric recovery failed"));
+  }
+ }
+ return {restored,warnings};
+}
+
 /** Historical recovery: completed releases were previously never normalised.
  * Limit recovery to seven days and only releases missing at least one metric. */
 async function recoverCompletedCpiMetrics(
@@ -729,6 +790,7 @@ export async function ingestOfficialMacroActuals(options: {
       completedReleaseIds.push(release.id);
       try {
         metricCount += await upsertOfficialCpiMetrics(client, release, resolved, attemptedAt);
+        metricCount += await upsertOfficialBeaPceMetrics(client, release, resolved, attemptedAt);
       } catch (cause) {
         // A successful official release must not be marked as missing merely
         // because its separate component-metric enrichment failed.
@@ -753,6 +815,9 @@ export async function ingestOfficialMacroActuals(options: {
   const recovery = await recoverCompletedCpiMetrics(client, now, options.fetcher ?? fetch);
   metricCount += recovery.restored;
   metricWarnings.push(...recovery.warnings);
+  const beaRecovery = await recoverCompletedBeaPceMetrics(client, now);
+  metricCount += beaRecovery.restored;
+  metricWarnings.push(...beaRecovery.warnings);
 
   return {
     attempted,
