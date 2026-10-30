@@ -132,6 +132,10 @@ export default function BlueDeskLearnExplorer({concepts}:{concepts:LearnConcept[
               <span className={ui.focusLabel}>EXAMPLE / MAKE IT REAL</span>
               <p>{selected.example}</p>
             </div>}
+            {selected.explanation && <div className={ui.focusBlock}>
+              <span className={ui.focusLabel}>HOW THE NUMBERS WORK</span>
+              <p>{selected.explanation}</p>
+            </div>}
             <div className={ui.focusBlock}>
               <span className={ui.focusLabel}>WHY YOU WOULD CARE</span>
               <p>{selected.whyItMatters}</p>
