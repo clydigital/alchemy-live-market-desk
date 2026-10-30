@@ -67,8 +67,10 @@ test("public pages use safe source-observation readers and keep opinions separat
   const css=read("app/blue-desk/regime-watch/regime-watch.module.css");
   assert.match(page,/data-fundamental-quick-view/);
   assert.match(page,/getPublicSourceObservations\(now,24\)/);
-  assert.match(page,/matchRecentLensObservations/);
-  assert.match(page,/48h topic matches.not verdict changes/);
+  assert.match(page,/matchAssetSourceEvents/);
+  assert.match(page,/projectAssetTape/);
+  assert.match(page,/getMarketMonitor/);
+  assert.match(page,/48.hour source sample is bounded/i);
   assert.match(page,/source\.role==="COMMENTARY"/);
   assert.match(detail,/quickViewsForLens/);
   assert.match(detail,/data-fundamental-assessment/);
