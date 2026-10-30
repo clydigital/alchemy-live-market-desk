@@ -24,7 +24,7 @@ export type LensResearchOutlook=Readonly<{
 }>;
 
 export const LENS_OUTLOOK_REVIEWED_ON="2026-10-30" as const;
-export const LENS_OUTLOOK_VERSION="bluebelly/editorial-lens-outlook/2026-10-30/3" as const;
+export const LENS_OUTLOOK_VERSION="bluebelly/editorial-lens-outlook/2026-10-30/4" as const;
 
 export const LENS_RESEARCH_OUTLOOKS:Readonly<Record<EditorialRegimeId,LensResearchOutlook>>={
  fed:{
@@ -164,19 +164,21 @@ export const LENS_RESEARCH_OUTLOOKS:Readonly<Record<EditorialRegimeId,LensResear
   lens:"gold",
   outlook:"BEARISH",
   confidence:"MEDIUM",
-  directionTarget:"Spot gold price in the near term, not long-run reserve ownership",
-  horizon:"Days to weeks",
-  headline:"Gold's weakness persists despite lower real yields",
-  why:"On 29 October, 10-year Treasury real yields eased from 2.67% to 2.63%, while the dollar index also weakened. Gold nevertheless fell; Reuters observed spot around $3,997 on 30 October. A dated automated Binance gold-futures proxy reported both 4H and daily downtrends, with price below the 4H EMA20/50 and daily EMA20/50. A separate GCUSD futures price series also closed below its 20/50-day averages. This supports a near-term bearish *price* view while reserve-allocation motives remain distinct.",
-  supporting:"A dated XAU/USD session fell even as 10Y yields and DXY retreated, showing price weakness beyond the usual dollar-rate explanation. Reuters reports further 30 October weakness around $4,000.",
-  opposing:"Geopolitical risk, falling real yields, reserve purchases and renewed dip buying could rapidly restore safe-haven demand. A short price decline is not proof of structural gold liquidation.",
-  decidingTest:"Match spot XAUUSD to DXY, 10Y TIPS and risk assets in the same windows; require stabilisation above the recent lows with independent flow/real-yield confirmation to upgrade.",
+  directionTarget:"Near-term spot XAU/USD direction; distinct from multi-year official reserve demand",
+  horizon:"Days to weeks; separately watch weekly structural risk",
+  headline:"Real-yield pressure explains the backdrop; weak gold tape explains the urgency",
+  why:"A high 10-year inflation-protected Treasury yield raises the alternative return to holding non-yielding gold. The Fed held 3.75–4.00% on 28 October and two members voted to hike, while September CPI printed 3.7% year on year. But the immediate 29 October divergence is essential: 10-year TIPS real yields actually fell from 2.67% to 2.63%, 10-year breakevens from 2.38% to 2.35%, and the dollar eased as gold kept falling. Reuters saw spot near $3,997 on 30 October. Futures-based 4H and daily trends remained below 20/50 EMAs. A bearish price regime with a positioning/flow question is more defensible than claiming every red gold candle was caused by higher yields.",
+  supporting:"The January spot high near $5,595 was followed by a roughly 9.5% single-session January 30 collapse; subsequent recoveries have not restored the prior high. A separate 29 October futures proxy remained below daily EMA20/50. Q2 official-sector buying of 288.9t demonstrates that powerful underlying buyers can coexist with a declining quoted gold price.",
+  opposing:"World Gold Council official-sector net buying rose 62% year on year in Q2; fiscal, monetary-credibility and geopolitical hedges remain live. Falling real yields, an equity/credit shock or stronger ETF/physical demand could reverse the immediate setup. In 2024–25 gold sometimes rose despite elevated real yields. No present CFTC/ETF or transaction-level receipt proves a specific forced-selling motive.",
+  decidingTest:"Verify spot XAU/USD 4H and weekly 20/50 EMA ±1SD on one consistent chart feed; compare like-for-like 10Y real yields (DFII10), breakevens (T10YIE), DXY, gold ETF holdings, COMEX open interest and miner relative strength. Upgrade only after higher lows and confirmed trend-band reclaim with stabilising flows; worsening verified weekly structure under supportive yields strengthens the longer-correction hypothesis.",
   reviewedAt:"2026-10-30",
-  evidenceStatus:"Spot decline, 29 Oct real-yield/DXY observations and two independent gold-futures daily chart sources now checked; 4H futures trend is proxy-qualified, not a single-feed spot confirmation or documented seller identity.",
+  evidenceStatus:"Fed, CPI, Reuters spot quote, 10Y breakeven and World Gold Council Q2 buying independently checked; the 29 Oct 2.63% real yield has a dated Treasury-derived secondary observation pending authoritative H.15/DFII10 matching. Futures EMA snapshots are not spot XAUUSD or the presenter's exact custom 1SD bands. Two uploaded creator transcripts have no original video URLs/IDs; their claimed weekly price levels and recovery-window sample are commentary only, excluded as canonical evidence.",
   sources:[
-   {name:"Reuters 30 Oct gold and rate-hike pricing",url:"https://www.reuters.com/world/india/gold-slips-higher-oil-us-inflation-data-bolster-fed-hike-bets-2026-10-30/",asOf:"30 Oct 2026",kind:"REPORTING"},
-   {name:"OANDA XAU/USD 29 Oct close attribution",url:"https://www.ausecure.com/gold-market-close-oct-29-2026/",asOf:"29 Oct 2026 US close",kind:"REPORTING"},
-   {name:"US Treasury real and nominal yield series",url:"https://home.treasury.gov/resource-center/data-chart-center/interest-rates",asOf:"29 Oct 2026 nominal; real yield vintage varies",kind:"PRIMARY"},
+   {name:"FOMC October 28 statement",url:"https://www.federalreserve.gov/newsevents/pressreleases/monetary20261028a.htm",asOf:"28 Oct 2026, 14:00 ET",kind:"PRIMARY"},
+   {name:"BLS September CPI",url:"https://www.bls.gov/news.release/cpi.nr0.htm",asOf:"14 Oct 2026, 08:30 ET",kind:"PRIMARY"},
+   {name:"FRED 10Y breakeven inflation T10YIE",url:"https://fred.stlouisfed.org/series/T10YIE",asOf:"29 Oct 2026 daily observation",kind:"PRIMARY"},
+   {name:"World Gold Council Q2 2026 central banks",url:"https://www.gold.org/goldhub/research/gold-demand-trends/gold-demand-trends-q2-2026/central-banks",asOf:"30 Jul 2026 Q2 statistics",kind:"PRIMARY"},
+   {name:"Reuters spot gold / December hike expectations",url:"https://www.reuters.com/world/india/gold-slips-higher-oil-us-inflation-data-bolster-fed-hike-bets-2026-10-30/",asOf:"30 Oct 2026 Asia session",kind:"REPORTING"},
   ]
  },
  housing:{
