@@ -1,4 +1,5 @@
 import type { VerifiedEarningsScorecard } from "@/lib/blue-desk-earnings-results";
+import {getDatedEarningsReaction} from "@/lib/bluebelly-earnings-reaction";
 import styles from "./RecentEarningsScorecards.module.css";
 
 function Metric({metric}:{metric:VerifiedEarningsScorecard["metrics"][number]}) {
@@ -12,6 +13,22 @@ function Metric({metric}:{metric:VerifiedEarningsScorecard["metrics"][number]}) 
       {metric.note?<small className={styles.note}>{metric.note}</small>:null}
     </div>
   </div>;
+}
+
+function MarketReaction({id}:{id:string}) {
+ const reaction=getDatedEarningsReaction(id);
+ return reaction?<div className={styles.why} data-calendar-earnings-reaction="attributed-source-dated">
+  <strong>Why did this share sell off?</strong>
+  <p>{reaction.ticker} fell {Math.abs(reaction.regularClose.changePct).toFixed(2)}% in regular trading BEFORE earnings (US$ {reaction.regularClose.usd.toFixed(2)} at 4 PM ET). It then traded at US$ {reaction.extended.usd.toFixed(2)}, {reaction.extendedChangePct.toFixed(2)}% from that SAME close, as of {reaction.extended.at}.</p>
+  <p><strong>Company facts:</strong> {reaction.companyFact}</p>
+  <p><strong>Expectations:</strong> {reaction.expectation}</p>
+  <p><strong>Investor interpretation:</strong> {reaction.interpretation}</p>
+  <p><strong>Best alternative:</strong> {reaction.countercase}</p>
+  <p><strong>Next check:</strong> {reaction.nextTest}</p>
+  <p><a href={reaction.issuerUrl} target="_blank" rel="noopener noreferrer">Issuer statement</a>{" · "}
+   <a href={reaction.reportingUrl} target="_blank" rel="noopener noreferrer">Reported context</a>{" · "}
+   <a href={reaction.extended.sourceUrl} target="_blank" rel="noopener noreferrer">Price snapshot</a>. Interpretation is not confirmed causation.</p>
+ </div>:<p data-calendar-earnings-reaction="REACTION_ANALYSIS_INCOMPLETE">A source-matched stock-price explanation has not been established for this result. Do not infer one from earnings alone.</p>;
 }
 
 /** Existing Calendar's source-qualified released results, not upcoming calls,
@@ -45,6 +62,7 @@ export default function RecentEarningsScorecards({
           <strong>Beat or miss?</strong>
           <p>{record.beatMiss}</p>
         </div>
+        <MarketReaction id={record.id}/>
         <div className={styles.metrics}>
           {record.metrics.map(m=><Metric key={m.name} metric={m}/>)}
         </div>
