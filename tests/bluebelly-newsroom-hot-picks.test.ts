@@ -84,7 +84,7 @@ test("US Eastern day governs daily pick identity, across local midnight",()=>{
 test("Newsroom no longer fetches calendar or mounts the redundant upcoming strip",()=>{
  const src=readFileSync(new URL("../app/blue-desk/newsroom/page.tsx",import.meta.url),"utf8");
  assert.doesNotMatch(src,/NextBankCatalysts|NewsroomBriefableEvents|getEconomicCalendar|getForwardEarningsEvents|buildPresenterCalendar/);
- assert.match(src,/selectNewsroomHotPicks\(news,archiveResult\.items,now\)/);
+ assert.match(src,/selectNewsroomHotPicks\(news,archiveResult\.items,now,5,editorials\)/);
  const ui=readFileSync(new URL("../components/blue-desk/BluebellyNewsWire.tsx",import.meta.url),"utf8");
  assert.match(ui,/Hot Picks <small>\{hotPicks\.keys\.length\}/);
  assert.match(ui,/styles\.hotSelected:styles\.hotButton/);
