@@ -101,7 +101,7 @@ export default function BlueDeskLearnExplorer({concepts}:{concepts:LearnConcept[
           {shown.map((item,index)=><article key={item.key} id={item.key}
             className={ui.entry} data-active={selected?.key===item.key ? "true" : "false"}>
             <button type="button" className={ui.entryButton}
-              aria-pressed={selected?.key===item.key} onClick={()=>setSelectedKey(item.key)}>
+              aria-pressed={selected?.key===item.key} onClick={()=>{setSelectedKey(item.key);if(window.matchMedia("(max-width:760px)").matches) document.getElementById("concept-focus")?.scrollIntoView({behavior:"smooth",block:"start"});}}>
               <span className={ui.entryNumber}>{String(index+1).padStart(2,"0")}</span>
               <span className={ui.entryCopy}>
                 <strong>{item.label}</strong><small>{termGroup(item)}</small>
