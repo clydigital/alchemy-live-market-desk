@@ -121,6 +121,21 @@ try{
   if(["energy","ai","bonds","yen","breadth","gold"].includes(lens))assertHtml(view.html,"data-regime-asset-live-context");
   console.log("Lens "+lens+" "+view.status+" · differentiated current view with falsifier");
  }
+
+ const crash=await waitResponse("/crash-opportunity");
+ assertHtml(crash.html,'data-crash-opportunity="source-dated-research-view"',
+   'data-crash-research-verdict="',
+   'data-historical-episode="2020"',
+   'data-historical-episode="2008"',
+   "What has been measured?",
+   "How a shock travels between regimes");
+ const forbidden=await waitResponse("/crash-opportunity/owner",code=>code!==200);
+ if(forbidden.status!==404)console.log("Nonpublic nested crash path blocked HTTP "+forbidden.status);
+ console.log("Crash Opportunity "+crash.status+" · contested source-dated gauge / mirrors / cross-regime links");
+ await renderChrome("http://127.0.0.1:"+PUBLIC+"/crash-opportunity",
+  "crash-opportunity-desktop.png",1440,1000);
+ await renderChrome("http://127.0.0.1:"+PUBLIC+"/crash-opportunity",
+  "crash-opportunity-mobile.png",390,844);
  const privateRoute=await waitResponse("/owner/presenter",code=>code!==200);
  console.log("Owner route HTTP "+privateRoute.status+" on public host (no anonymous access)");
  const url="http://127.0.0.1:"+PUBLIC+"/regime-watch";

@@ -15,7 +15,7 @@ import styles from "./regime-watch.module.css";
 export const dynamic="force-dynamic";
 export const metadata={
  title:"Regime Watch | Bluebelly",
- description:"Nine dedicated research areas, each with historical public Story context and testable questions."
+ description:"Nine thematic research lenses and a dedicated market crash versus opportunity watch, with dated evidence and historical mirrors."
 };
 
 export default async function RegimeWatchPage(){
@@ -27,13 +27,22 @@ export default async function RegimeWatchPage(){
   <div className={desk.content}>
    <header className={styles.intro}><span>ONGOING RESEARCH / NOT DAILY REPORTS</span>
     <h1>The market&apos;s bigger stories.</h1>
-    <p>Nine research lenses with a clear outlook, confidence level, the opposing argument and the evidence that would change the call.</p>
+    <p>Nine research lenses and one cross-regime Crash vs Opportunity watch, with a clear outlook, confidence level, the opposing argument and the evidence that would change the call.</p>
    </header>
    <div className={styles.heading}>
     <h2>Explore a research lens</h2>
     <span>Fundamental outlook reviewed {LENS_OUTLOOK_REVIEWED_ON} MYT · {theses===null?"Story coverage unavailable":theses.length+" public Story snapshots"} · Viewed <DualTimestamp value={now.toISOString()}/></span>
    </div>
    <p className={styles.lensIntro}>Each lens has its own outlook and confidence meter. These are reviewed fundamental judgements, not live price signals or automatic changes to canonical Regime state.</p>
+   <section className={styles.crashFeatured} aria-labelledby="crash-opportunity-featured" data-crash-watch-entry="own-research-watch">
+    <div>
+      <span className={styles.kicker}>FEATURED / CROSS-REGIME WATCH</span>
+      <h2 id="crash-opportunity-featured">Market Crash <em>vs</em> Opportunity</h2>
+      <p>When the index hides a stealth bear market, is that the warning before a wider collapse—or the setup for a broad recovery? Compare the Kobeissi and Burry cases, sourced breadth/credit signals and seven historical market scares.</p>
+      <span className={styles.crashNote}>Provisional research: contested · bull and bear evidence reviewed independently · no crash probability claimed</span>
+    </div>
+    <Link className={styles.crashFeaturedLink} href={blueDeskPublicHref("/blue-desk/crash-opportunity",host)}>Open the crash vs opportunity watch <span aria-hidden="true">→</span></Link>
+   </section>
    <div className={styles.cards}>{lenses.map(lens=>
     <Link key={lens.id} className={styles.card} data-research-lens={lens.id}
      href={blueDeskPublicHref("/blue-desk/regime-watch/"+lens.id,host)}
