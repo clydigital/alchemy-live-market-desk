@@ -8,7 +8,7 @@ import {getPublicThesisLedger} from "@/lib/blue-desk-thesis-ledger-server";
 import {getPublicSourceObservations} from "@/lib/blue-desk-source-observations";
 import {EDITORIAL_REGIME_LENSES,groupPublicResearch} from "@/lib/bluebelly-editorial-architecture";
 import {REGIME_LENS_WORKBOOKS,matchRecentLensObservations} from "@/lib/bluebelly-regime-lens-workbook";
-import {quickViewsForLens,FUNDAMENTAL_VIEW_REVIEWED_ON} from "@/lib/bluebelly-fundamental-quickview";
+import {quickViewsForLens} from "@/lib/bluebelly-fundamental-quickview";
 import {matchAssetSourceEvents,projectAssetTape} from "@/lib/bluebelly-regime-asset-context";
 import {getMarketMonitor} from "@/lib/market-monitor-public";
 import {getLensOutlook} from "@/lib/bluebelly-regime-lens-outlook";
@@ -88,13 +88,13 @@ export default async function ResearchLensPage({params}:Props){
     </div>
     <div className={styles.outlookFooter}>
      <p><strong>Evidence confidence:</strong> {outlook.evidenceStatus} New source matches do not automatically change the dated editorial assessment.</p>
-     <p><strong>Source references:</strong> {outlook.sources.map((source,index)=><span key={source.url}>{index>0?" · ":" "}<a href={source.url} target="_blank" rel="noopener noreferrer">{source.name}</a> ({source.kind==="COMMENTARY"?"attributed commentary":"original source"}; {source.asOf})</span>)}</p>
+     <p><strong>Source references:</strong> {outlook.sources.map((source,index)=><span key={source.url}>{index>0?" · ":" "}<a href={source.url} target="_blank" rel="noopener noreferrer">{source.name}</a> ({source.kind==="COMMENTARY"?"attributed creator opinion":source.kind==="REPORTING"?"dated independent reporting":"original source"}; {source.asOf})</span>)}</p>
     </div>
    </section>
 
    <nav className={styles.pageNav} aria-label="Sections in this research lens">
     <a href="#lens-outlook">Outlook &amp; confidence</a>
-    {assessments.length?<><a href="#fundamental-assessment">Fundamental assessment</a><a href="#asset-monitoring">Latest original sources &amp; tape</a></>:null}
+    {assessments.length?<a href="#asset-monitoring">Latest original sources &amp; tape</a>:null}
     <a href="#research-position">Recorded position</a>
     {workbook.policyDilemma?<a href="#policy-dilemma">Fed policy dilemma</a>:null}
     <a href="#mechanism">Transmission</a>
@@ -103,23 +103,6 @@ export default async function ResearchLensPage({params}:Props){
     <a href="#decision-fork">Decision tests</a>
     <a href="#story-history">Story records</a>
    </nav>
-
-   {assessments.length?<section id="fundamental-assessment" className={styles.section}
-    data-fundamental-assessment="dated-editorial-not-canonical">
-    <span className={styles.kicker}>FUNDAMENTAL VERDICT / SEPARATE FROM PRICE AND TECHNICALS</span>
-    <h2>What the evidence currently argues</h2>
-    <p>Reviewed {FUNDAMENTAL_VIEW_REVIEWED_ON} (MYT). These are source-dated analyst interpretations, not automatic or canonical Regime-state changes. Later observations in the source monitor below are refreshed separately; no opinion is silently promoted from a transcript, event headline or price move.</p>
-    <div className={styles.forkGrid}>{assessments.map(asset=><article className={styles.fork} key={asset.id} data-reviewed-asset={asset.id}>
-     <span className={styles.kicker}>{asset.asset.toUpperCase()} · {asset.bias} · {asset.confidence} CONFIDENCE</span>
-     <h3>{asset.headline}</h3>
-     <p><strong>Why:</strong> {asset.reason}</p>
-     <p><strong>What argues against it:</strong> {asset.countercase}</p>
-     <p><strong>What changes the call:</strong> {asset.decidingTest}</p>
-     <p><strong>Source references:</strong> {asset.sources.map((source,index)=><span key={source.url}>{index>0?" · ":" "}<a href={source.url} target="_blank" rel="noopener noreferrer">{source.name} ({source.role==="PRIMARY"?"original":"attributed"}, {source.publicationDate})</a></span>)}</p>
-     <small>Last dated supporting observation: {asset.sourceObservationDate}; current technical setup not certified here.</small>
-    </article>)}</div>
-    <p className={styles.caveat}>Mixed with low confidence means the evidence does not yet favour a defensible direction. Public source coverage and historical Story records do not certify an updated regime judgement.</p>
-   </section>:null}
 
    {assetContext.length?<section id="asset-monitoring" className={styles.section} aria-label="Dated original-source and market tape context" data-regime-asset-live-context="qualified-readers-only">
     <span className={styles.kicker}>SOURCE CHECK / PRICE TAPE / FRESHNESS</span>

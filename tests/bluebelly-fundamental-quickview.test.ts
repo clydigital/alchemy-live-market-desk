@@ -75,9 +75,10 @@ test("public pages use safe source-observation readers and keep opinions separat
   assert.match(detail,/The source sample is bounded/i);
   assert.match(detail,/source\.kind==="COMMENTARY"/);
   assert.match(detail,/quickViewsForLens/);
-  assert.match(detail,/data-fundamental-assessment/);
-  assert.match(detail,/what argues against it:/i);
-  assert.match(detail,/no opinion is silently promoted/i);
+  assert.match(detail,/data-lens-outlook/);
+  assert.doesNotMatch(detail,/data-fundamental-assessment/);
+  assert.match(detail,/WHAT CHALLENGES IT/);
+  assert.match(detail,/New source matches do not automatically change/i);
   assert.match(css,/@media\(max-width:750px\)/);
   for(const source of [page,detail]) assert.doesNotMatch(source,/service_role|createSupabaseAdminClient|story_thesis_versions|\.insert\(|\.update\(/);
 });
