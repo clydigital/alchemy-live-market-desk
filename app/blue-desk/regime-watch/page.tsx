@@ -50,11 +50,6 @@ export default async function RegimeWatchPage(){
     <div><span>03 / CROSS-REGIME WATCH</span><strong>01</strong><small>CRASH VERSUS OPPORTUNITY</small></div>
     <p>Every lens is a question, not a trade. Follow the evidence into its original context, then test the counterargument.</p>
    </div>
-   <div className={styles.heading} id="lens-grid">
-    <div><span className={styles.kicker}>01 / THE NINE RESEARCH FILES</span><h2>Choose the <em>pressure point.</em></h2></div>
-    <span>Fundamental outlook reviewed {LENS_OUTLOOK_REVIEWED_ON} MYT · {theses===null?"Story coverage unavailable":theses.length+" public Story snapshots"} · Viewed <DualTimestamp value={now.toISOString()}/></span>
-   </div>
-   <p className={styles.lensIntro}>Explore a research lens. Each lens has its own outlook and confidence meter. These are reviewed fundamental judgements, not live price signals or automatic changes to canonical Regime state.</p>
    <section id="cross-regime-watch" className={styles.crashFeatured} aria-labelledby="crash-opportunity-featured" data-crash-watch-entry="own-research-watch">
     <div>
       <span className={styles.kicker}>FEATURED / CROSS-REGIME WATCH</span>
@@ -64,6 +59,12 @@ export default async function RegimeWatchPage(){
     </div>
     <Link className={styles.crashFeaturedLink} href={blueDeskPublicHref("/blue-desk/crash-opportunity",host)}>OPEN THE TWO-SIDED INVESTIGATION <span aria-hidden="true">↗</span></Link>
    </section>
+
+   <div className={styles.heading} id="lens-grid">
+    <div><span className={styles.kicker}>01 / THE NINE RESEARCH FILES</span><h2>Choose the <em>pressure point.</em></h2></div>
+    <span>Fundamental outlook reviewed {LENS_OUTLOOK_REVIEWED_ON} MYT · {theses===null?"Story coverage unavailable":theses.length+" public Story snapshots"} · Viewed <DualTimestamp value={now.toISOString()}/></span>
+   </div>
+   <p className={styles.lensIntro}>Explore a research lens. Each lens has its own outlook and confidence meter. These are reviewed fundamental judgements, not live price signals or automatic changes to canonical Regime state.</p>
    <div className={styles.cards}>{lenses.map((lens,index)=>
     <Link key={lens.id} className={styles.card} data-research-lens={lens.id}
      href={blueDeskPublicHref("/blue-desk/regime-watch/"+lens.id,host)}
