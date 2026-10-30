@@ -53,8 +53,9 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
   ...visible.map(item=>({kind:"news" as const,item})),
  ].sort((a,b)=>{
   if(topic==="hot")return hotPicks.keys.indexOf(a.kind+":"+a.item.id)-hotPicks.keys.indexOf(b.kind+":"+b.item.id);
-  const date=(card:typeof visibleCards[number])=>Date.parse(card.kind==="archive"?(card.item.eventAt||card.item.eventDay+"T00:00:00Z"):card.item.occurredAt);
-  return date(b)-date(a)||a.kind.localeCompare(b.kind);
+  const aAt=Date.parse(a.kind==="archive"?(a.item.eventAt||(a.item.eventDay?a.item.eventDay+"T00:00:00Z":"")):a.item.occurredAt);
+  const bAt=Date.parse(b.kind==="archive"?(b.item.eventAt||(b.item.eventDay?b.item.eventDay+"T00:00:00Z":"")):b.item.occurredAt);
+  return (bAt||0)-(aAt||0)||a.kind.localeCompare(b.kind);
  });
  const selected=shortlist.flatMap(id=>newsOnly.find(n=>n.id===id)||[]);
  const visibleCount=visible.length+archiveVisible.length+editorialVisible.length;
