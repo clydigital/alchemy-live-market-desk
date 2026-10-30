@@ -17,7 +17,7 @@ test("ten differentiated fundamental assets have a dated, falsifiable, source-la
   const known=new Set(EDITORIAL_REGIME_LENSES.map(lens=>lens.id));
   for(const asset of FUNDAMENTAL_QUICK_VIEW){
     assert.ok(known.has(asset.lens),asset.id);
-    assert.ok(["BULLISH","BEARISH","MIXED","UNRESOLVED"].includes(asset.bias),asset.id);
+    assert.ok(["BULLISH","BEARISH","MIXED"].includes(asset.bias),asset.id);
     assert.ok(["HIGH","MEDIUM","LOW"].includes(asset.confidence),asset.id);
     assert.ok(asset.reason.length>=75,asset.id+" explained");
     assert.ok(asset.countercase.length>=65,asset.id+" has genuine countercase");
@@ -32,13 +32,13 @@ test("ten differentiated fundamental assets have a dated, falsifiable, source-la
   }
 });
 
-test("creator opinion is expressly commentary, and unverified asset tape remains unresolved",()=>{
+test("creator opinion stays attributed and low-confidence assets show Mixed",()=>{
   const brent=FUNDAMENTAL_QUICK_VIEW.find(row=>row.id==="brent")!;
   assert.equal(brent.sources.find(source=>source.name.includes("HFI"))?.role,"COMMENTARY");
   assert.match(brent.reason,/hypothesis/);
   for(const id of ["usd","gold","yen"]){
     const asset=FUNDAMENTAL_QUICK_VIEW.find(row=>row.id===id)!;
-    assert.equal(asset.bias,"UNRESOLVED");
+    assert.equal(asset.bias,"MIXED");
     assert.equal(asset.confidence,"LOW");
     assert.match(asset.sourceObservationDate,/no independently|pending verification/);
   }
@@ -65,13 +65,15 @@ test("public pages use safe source-observation readers and keep opinions separat
   const page=read("app/blue-desk/regime-watch/page.tsx");
   const detail=read("app/blue-desk/regime-watch/[lensId]/page.tsx");
   const css=read("app/blue-desk/regime-watch/regime-watch.module.css");
-  assert.match(page,/data-fundamental-quick-view/);
-  assert.match(page,/getPublicSourceObservations\(now,24\)/);
-  assert.match(page,/matchAssetSourceEvents/);
-  assert.match(page,/projectAssetTape/);
-  assert.match(page,/getMarketMonitor/);
-  assert.match(page,/48.hour source sample is bounded/i);
-  assert.match(page,/source\.role==="COMMENTARY"/);
+  assert.match(page,/data-research-lens/);
+  assert.match(page,/RegimeOutlookMeter/);
+  assert.doesNotMatch(page,/data-fundamental-quick-view/);
+  assert.match(detail,/getPublicSourceObservations\(now,24\)/);
+  assert.match(detail,/matchAssetSourceEvents/);
+  assert.match(detail,/projectAssetTape/);
+  assert.match(detail,/getMarketMonitor/);
+  assert.match(detail,/The source sample is bounded/i);
+  assert.match(detail,/source\.role==="COMMENTARY"/);
   assert.match(detail,/quickViewsForLens/);
   assert.match(detail,/data-fundamental-assessment/);
   assert.match(detail,/what argues against it:/i);
