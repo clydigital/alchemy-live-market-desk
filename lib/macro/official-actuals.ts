@@ -1,4 +1,5 @@
 import { fetchJinaReader } from "../acquisition/jina-reader.ts";
+import {beaPceReleaseUrl,parseBeaPceActual} from "./bea-pce-actual.ts";
 import { getEconomicCalendar, type EconomicCalendarEvent } from "../calendar.ts";
 import { createSupabaseAdminClient } from "../supabase/admin.ts";
 import { parseOfficialCpiMetricRows, type CpiPreviousValues } from "./official-cpi-metrics.ts";
@@ -284,6 +285,8 @@ async function resolveBlsApiActual(release: OfficialMacroRelease, fetcher: typeo
 }
 
 export function officialActualSourceUrl(release: OfficialMacroRelease) {
+  const bea = beaPceReleaseUrl(release.release_name,release.reference_period);
+  if(bea && release.agency==="U.S. Bureau of Economic Analysis") return bea;
   const archive = archiveDate(release.release_date);
   if (/consumer price index/i.test(release.release_name) && archive) {
     return `https://www.bls.gov/news.release/archives/cpi_${archive}.htm`;
@@ -407,10 +410,43 @@ async function resolveIsmActual(release: OfficialMacroRelease, fetcher: typeof f
   throw new Error(`Official ISM source could not be resolved for ${release.reference_period || "reference period"} (${directDetail}; ${readerDetail}).`);
 }
 
+async function resolveBeaPceActual(release:OfficialMacroRelease,fetcher:typeof fetch):Promise<OfficialActualResolution>{
+ const sourceUrl=beaPceReleaseUrl(release.release_name,release.reference_period);
+ if(!sourceUrl||release.agency!=="U.S. Bureau of Economic Analysis")
+  throw new Error("BEA result is not an approved official reference-period source.");
+ // Do not accept a publisher redirect to a different article or an older
+ // release. The strict reference-period parser also rejects preview pages.
+ let responseStatus:number|null=null;
+ try{
+  const response=await fetcher(sourceUrl,{
+   headers:{accept:"text/html,application/xhtml+xml", "user-agent":"Alchemy Live Desk BEA original release"},
+   cache:"no-store",signal:AbortSignal.timeout(10_000),
+  });
+  responseStatus=response.status;
+  if(response.ok && (!response.url||new URL(response.url).toString()===sourceUrl)){
+   const parsed=parseBeaPceActual(release.release_name,release.reference_period,await response.text());
+   if(parsed)return {actual:parsed.actual,sourceUrl};
+  }
+ }catch{
+  // Recovery never relaxes the exact publisher URL or reference-month gate.
+ }
+ const reader=await fetchJinaReader({
+  sourceUrl,apiKey:process.env.JINA_API_KEY,fetchImpl:fetcher,timeoutMs:12_000,
+ });
+ if(reader.ok){
+  const parsed=parseBeaPceActual(release.release_name,release.reference_period,reader.text);
+  if(parsed)return {actual:parsed.actual,sourceUrl};
+ }
+ throw new Error("BEA_PCE_SOURCE_UNVERIFIED:"+
+  (responseStatus===null?"direct_unavailable":"direct_"+responseStatus)+
+  ":"+(reader.ok?"reference_mismatch":reader.errorCode||"recovery_unavailable"));
+}
+
 export async function resolveOfficialActual(
   release: OfficialMacroRelease,
   fetcher: typeof fetch = fetch,
 ): Promise<OfficialActualResolution> {
+  if(beaPceReleaseUrl(release.release_name,release.reference_period)) return resolveBeaPceActual(release,fetcher);
   if (isBlsRelease(release)) return resolveBlsApiActual(release, fetcher);
   if (/ism manufacturing|ism services/i.test(release.release_name)) return resolveIsmActual(release, fetcher);
   throw new Error(`No deterministic official Actual adapter exists for ${release.release_name}.`);
@@ -484,8 +520,12 @@ export function buildOfficialMacroReleaseSeedRows(
   const upperBound = now.getTime() + OFFICIAL_RELEASE_SEED_FORWARD_DAYS * 86_400_000;
 
   return events.flatMap((event): OfficialMacroReleaseSeed[] => {
-    if (event.sourceName !== "U.S. Bureau of Labor Statistics") return [];
-    const seriesKey = blsSeriesKey(event.event);
+    const isBeaPce=event.sourceName==="U.S. Bureau of Economic Analysis"
+      && Boolean(beaPceReleaseUrl(event.event,event.referencePeriod))
+      && event.sourceUrl.replace(/\/$/,"")==="https://www.bea.gov/news/schedule";
+    const isBls=event.sourceName==="U.S. Bureau of Labor Statistics";
+    if(!isBls&&!isBeaPce)return [];
+    const seriesKey = isBeaPce?"bea-pce":blsSeriesKey(event.event);
     const reference = parseReferenceMonth(event.referencePeriod);
     const releaseDate = easternReleaseTimestamp(event.date, event.timeLabel);
     if (!seriesKey || !reference || !releaseDate) return [];
