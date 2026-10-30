@@ -73,7 +73,7 @@ test("public pages use safe source-observation readers and keep opinions separat
   assert.match(detail,/projectAssetTape/);
   assert.match(detail,/getMarketMonitor/);
   assert.match(detail,/The source sample is bounded/i);
-  assert.match(detail,/source\.role==="COMMENTARY"/);
+  assert.match(detail,/source\.kind==="COMMENTARY"/);
   assert.match(detail,/quickViewsForLens/);
   assert.match(detail,/data-fundamental-assessment/);
   assert.match(detail,/what argues against it:/i);
