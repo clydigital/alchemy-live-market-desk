@@ -130,14 +130,14 @@ async function verifiedHtml(url:string,source:Source,fetchImpl:typeof fetch,reco
  try{
   const res=await fetchImpl(url,{cache:"no-store",signal:AbortSignal.timeout(6500),
    headers:{accept:"text/html,application/xhtml+xml","user-agent":"Alchemy Bluebelly original issuer reader"}});
-  if(res.ok&&(!res.url||issuerOriginalUrl(res.url,source)===url)
+  if(res.ok&&(!res.url||(url===source.listing ? res.url===url : issuerOriginalUrl(res.url,source)===url))
      &&(res.headers.get("content-type")||"text/html").toLowerCase().includes("text/html"))
    body=(await res.text()).slice(0,225_000);
  }catch{ /* Same-publisher recovery is bounded and separately validated. */ }
  if(body)return body;
  const recovery=await recover(url,{timeoutMs:12000});
  if(!recovery.ok||!recovery.rawHtml||
-    (recovery.resolvedUrl&&issuerOriginalUrl(recovery.resolvedUrl,source)!==url))return "";
+    (recovery.resolvedUrl&&(url===source.listing ? recovery.resolvedUrl!==url : issuerOriginalUrl(recovery.resolvedUrl,source)!==url)))return "";
  return recovery.rawHtml.slice(0,225_000);
 }
 function makeItem(url:string,event:Candidate,source:Source,now:Date):IntakeItemInput{
