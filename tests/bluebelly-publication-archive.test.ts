@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {projectPublicArchive,type PublicArchiveRow} from "../lib/bluebelly-publication-archive.ts";
+import {projectPublicArchive,publicArchiveSearchIndex,type PublicArchiveRow} from "../lib/bluebelly-publication-archive.ts";
 
 const NOW=new Date("2026-10-30T11:00:00.000Z");
 const base:PublicArchiveRow={
@@ -85,4 +85,21 @@ test("archive migration is backend-private and seeds only previously existing pu
   "amazon-2026q3","intel-2026q3","sandisk-fy2027q1","sk-hynix-2026q3",
   "tsmc-2026q3","bea-pce-september-2026"])assert.ok(sql.includes(k),k);
  assert.doesNotMatch(sql,/grant select .*bluebelly_publication_archive/i);
+});
+
+test("FOMC and PCE aliases are discoverable without modifying review metadata",()=>{
+ const fed={...base,record_key:"fed-2026-10-28",event_type:"POLICY_DECISION",
+   event_day:null,event_at:"2026-10-28T18:00:00+00:00",entity_keys:["FED"],
+   source_module:"lib/bluebelly-bank-decision-snapshots.ts",
+   reader_href:"/key-stories?postEvent=fed-2026-10-28"};
+ const result=project([fed]);
+ assert.equal(result.length,1);
+ assert.ok(publicArchiveSearchIndex(result[0]).includes("fomc"));
+ assert.ok(publicArchiveSearchIndex(result[0]).includes("federal open market committee"));
+ assert.equal(result[0].headline,base.headline);
+ const pce={...base,record_key:"bea-pce-september-2026",event_type:"ECONOMIC_RELEASE",
+   event_day:null,event_at:"2026-10-29T12:30:00+00:00",entity_keys:["US-PCE"],
+   source_module:"lib/blue-desk-official-macro-results.ts",
+   reader_href:"/key-stories?brief=bea-pce-september-2026"};
+ assert.ok(publicArchiveSearchIndex(project([pce])[0]).includes("personal consumption expenditures"));
 });
