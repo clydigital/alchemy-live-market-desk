@@ -49,3 +49,58 @@
 .empty button{border-color:var(--bb-accent);background:var(--bb-card-quiet);color:var(--bb-text)}
 .search:focus-visible,.filter:focus-visible,.selected:focus-visible,.empty button:focus-visible{outline:2px solid var(--bb-card-focus)}
 @media(prefers-reduced-motion:reduce){.entry{transition:none}}
+
+
+/* Original presentation library – uses live Bluebelly palette variables. */
+.deckLibrary{margin-top:24px}
+.deckLibraryHeader{display:flex;justify-content:space-between;align-items:end;gap:24px;margin-bottom:17px}
+.deckLibraryHeader h2,.glossaryIntro h2{font-size:clamp(24px,2.6vw,36px);letter-spacing:-.035em;line-height:1.16;color:var(--bb-text);margin:0 0 9px}
+.deckLibraryHeader p:not(.eyebrow),.glossaryIntro p:not(.eyebrow){font-size:14px;line-height:1.65;color:var(--bb-muted);margin:0;max-width:680px}
+.deckLibraryHeader>span{border:1px solid var(--bb-card-border);border-radius:6px;padding:8px 12px;color:var(--bb-accent);background:var(--bb-card-quiet);font-size:12px;font-weight:800;white-space:nowrap}
+.deckCards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.deckCard{display:flex;flex-direction:column;gap:10px;min-height:250px;padding:22px;border:1px solid var(--bb-card-border);border-radius:11px;background:var(--bb-card-bg);overflow-wrap:anywhere}
+.deckCard:hover{border-color:var(--bb-accent);background:var(--bb-card-bg-hover)}
+.deckEyebrow{font-size:11px!important;font-weight:800;letter-spacing:.065em;color:var(--bb-accent)!important;margin:0!important;text-transform:uppercase}
+.deckCard h3{font-size:clamp(18px,1.7vw,23px);line-height:1.22;color:var(--bb-text);margin:0}
+.deckCard>p:not(.deckEyebrow){font-size:13px;line-height:1.58;color:var(--bb-muted);margin:0}
+.deckCardFooter{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:auto;padding-top:16px;border-top:1px solid var(--bb-line)}
+.deckCardFooter span{color:var(--bb-muted);font-size:11px}
+.deckCardFooter a{color:var(--bb-accent)!important;font-size:13px;font-weight:800;text-decoration:underline;text-underline-offset:3px}
+.glossaryIntro{margin-top:42px}
+.breadcrumb{font-size:13px;color:var(--bb-muted);margin:10px 0 20px}
+.breadcrumb a,.lessonSources a{color:var(--bb-accent);text-decoration:underline;text-underline-offset:3px}
+.deckHero{padding:clamp(22px,4vw,45px);border:1px solid var(--bb-card-border);border-radius:12px;background:var(--bb-card-bg)}
+.deckHero>span{font-size:11px;letter-spacing:.07em;font-weight:800;color:var(--bb-accent);text-transform:uppercase}
+.deckHero h1{font-size:clamp(28px,4vw,50px);line-height:1.14;letter-spacing:-.04em;color:var(--bb-text);margin:14px 0}
+.deckHero>p{font-size:16px;line-height:1.6;color:var(--bb-muted);max-width:830px;margin:0}
+.reader{margin-top:22px}
+.readerBar,.readerNav{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;background:var(--bb-card-quiet);padding:14px;border:1px solid var(--bb-card-border);border-radius:9px}
+.readerBar strong{font-size:13px;color:var(--bb-text)}
+.readerBar button,.readerNav button,.readerNav select{background:var(--bb-card-bg);color:var(--bb-text);border:1px solid var(--bb-card-border);border-radius:7px;font:inherit;padding:10px 14px;cursor:pointer}
+.readerNav button:disabled{opacity:.5;cursor:not-allowed}
+.readerNav label{color:var(--bb-muted);font-size:12px;font-weight:700}
+.readerNav select{max-width:min(430px,100%);min-width:130px;flex:1}
+.readerBar button:hover,.readerNav button:hover:not(:disabled){border-color:var(--bb-accent)}
+.readerBar button:focus-visible,.readerNav button:focus-visible,.readerNav select:focus-visible,.deckCardFooter a:focus-visible{outline:3px solid var(--bb-card-focus);outline-offset:3px}
+.lessonSlide{display:flex;flex-direction:column;gap:15px;min-height:425px;margin:16px 0;padding:clamp(20px,3.5vw,45px);border-radius:12px;border:1px solid var(--bb-card-border);background:var(--bb-card-bg)}
+.slideMeta{display:flex;gap:18px;justify-content:space-between;flex-wrap:wrap;color:var(--bb-accent);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.lessonSlide h2{font-size:clamp(25px,3.1vw,43px);line-height:1.15;letter-spacing:-.035em;color:var(--bb-text);margin:8px 0 4px;max-width:850px}
+.slideLines{display:flex;flex-direction:column;gap:9px;max-width:930px}
+.slideLines p{font-size:clamp(14px,1.5vw,18px);color:var(--bb-text);line-height:1.5;margin:0}
+.slideLines .slideShort{font-weight:700}
+.slideLines .slideLong{color:var(--bb-muted)}
+.lessonSlide footer{font-size:10px;line-height:1.5;letter-spacing:.045em;color:var(--bb-muted);margin-top:auto;padding-top:25px}
+.progress{height:6px;background:var(--bb-card-quiet);border-radius:99px;margin-top:12px;overflow:hidden}
+.progress>span{display:block;height:100%;background:var(--bb-accent);border-radius:99px;transition:width .15s}
+.readerDisclaimer{font-size:12px;line-height:1.65;color:var(--bb-muted);margin:18px 0}
+.readAll{display:grid;gap:8px}
+.readAll .lessonSlide{min-height:0}
+.lessonSources{margin:27px 0;padding:23px;border:1px solid var(--bb-card-border);border-radius:10px;background:var(--bb-card-quiet)}
+.lessonSources h2{color:var(--bb-text);margin:0 0 10px;font-size:22px}
+.lessonSources p,.lessonSources li{font-size:14px;line-height:1.6;color:var(--bb-muted)}
+.lessonSources li{margin-top:7px}
+.glossaryLinks{display:flex;gap:8px;flex-wrap:wrap}
+.glossaryLinks a{font-size:13px;border:1px solid var(--bb-card-border);background:var(--bb-card-bg);padding:7px 10px;border-radius:6px}
+@media(max-width:1100px){.deckCards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:730px){.deckLibraryHeader{display:block}.deckLibraryHeader>span{display:inline-block;margin-top:12px}.deckCards{grid-template-columns:1fr}.deckCard{min-height:0}.readerNav{justify-content:space-between}.readerNav select{order:4;flex-basis:100%;max-width:100%}.lessonSlide{min-height:420px}}
+@media(prefers-reduced-motion:reduce){.progress>span{transition:none}}
