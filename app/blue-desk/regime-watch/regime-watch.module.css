@@ -150,6 +150,11 @@
 .crashFeaturedLink:visited,
 .crashFeaturedLink:hover,
 .crashFeaturedLink:focus-visible{
- color:#101010;
+ /* Shared .page a and .page a:hover are more specific than a single class. */
+ color:#101010 !important;
+ -webkit-text-fill-color:#101010;
 }
-.crashFeaturedLink span{color:inherit}
+.crashFeaturedLink span{
+ color:#101010 !important;
+ -webkit-text-fill-color:#101010;
+}
