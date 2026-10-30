@@ -6,7 +6,7 @@ import type { EditorialRegimeId } from "./bluebelly-editorial-architecture.ts";
  * New public source observations must be shown alongside this snapshot, not used
  * to silently rewrite its bias. Data refresh and judgement refresh differ.
  */
-export type FundamentalBias = "BULLISH" | "BEARISH" | "MIXED" | "UNRESOLVED";
+export type FundamentalBias = "BULLISH" | "BEARISH" | "MIXED";
 export type FundamentalConfidence = "HIGH" | "MEDIUM" | "LOW";
 export type QuickViewSource = Readonly<{
   name: string;
@@ -152,7 +152,7 @@ export const FUNDAMENTAL_QUICK_VIEW: readonly FundamentalQuickView[] = [
     id: "usd",
     asset: "US dollar / DXY",
     lens: "fed",
-    bias: "UNRESOLVED",
+    bias: "MIXED",
     confidence: "LOW",
     headline: "Rate support exists; matched dollar confirmation is missing",
     reason: "Sticky September PCE and restrictive US yields can support the dollar, but the dated cross-currency and futures reaction needed for a directional judgement has not been independently reconciled.",
@@ -168,7 +168,7 @@ export const FUNDAMENTAL_QUICK_VIEW: readonly FundamentalQuickView[] = [
     id: "gold",
     asset: "Gold",
     lens: "gold",
-    bias: "UNRESOLVED",
+    bias: "MIXED",
     confidence: "LOW",
     headline: "The structural argument and the current tape are different",
     reason: "Geopolitical and reserve-allocation arguments may favour gold, while still-high real yields can work against it. Without a fresh matched gold/real-yield/dollar observation there is no defensible live direction label.",
@@ -183,7 +183,7 @@ export const FUNDAMENTAL_QUICK_VIEW: readonly FundamentalQuickView[] = [
     id: "yen",
     asset: "JPY / yen funding",
     lens: "yen",
-    bias: "UNRESOLVED",
+    bias: "MIXED",
     confidence: "LOW",
     headline: "Policy differentials are a watch, not proof of a carry unwind",
     reason: "Japan's late-October policy meeting can change yen funding costs. The market's same-window FX, JGB and international-flow evidence has not been reconciled into a confirmed direction.",

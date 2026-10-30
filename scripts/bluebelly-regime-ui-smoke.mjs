@@ -99,12 +99,18 @@ try{
  });
  server=await proxy();
  const root=await waitResponse("/regime-watch");
- assertHtml(root.html,"data-fundamental-quick-view","data-asset=\"brent\"","data-asset=\"diesel\"","data-asset=\"gold\"","MARKET TAPE");
- console.log("Overview "+root.status+" · source-dated fundamentals visible");
- for(const lens of ["energy","ai","bonds"]){
+ assertHtml(root.html,'data-research-lens="energy"','data-research-lens="gold"','data-outlook-meter="energy"',"Fundamental outlook","Confidence");
+ for(const lens of ["fed","bonds","ai","china","energy","yen","breadth","gold","housing"]){
+  if(!root.html.includes('data-outlook-meter="'+lens+'"'))throw Error("Lens meter missing from overview: "+lens);
+ }
+ if(root.html.includes("data-fundamental-quick-view"))throw Error("Legacy oversized asset table still present");
+ console.log("Overview "+root.status+" · all nine lens outlook meters visible");
+ for(const lens of ["energy","ai","bonds","gold"]){
   const view=await waitResponse("/regime-watch/"+lens);
-  assertHtml(view.html,"data-public-research-lens=\""+lens+"\"","data-regime-asset-live-context");
-  console.log("Lens "+lens+" "+view.status+" · source and tape cards visible");
+  assertHtml(view.html,'data-public-research-lens="'+lens+'"',"data-lens-outlook=","data-lens-confidence=",
+    'data-outlook-meter="'+lens+'"',"WHAT SUPPORTS THIS VIEW","WHAT CHALLENGES IT","WHAT WOULD CHANGE THE CALL");
+  if(["energy","ai","bonds"].includes(lens)) assertHtml(view.html,"data-regime-asset-live-context");
+  console.log("Lens "+lens+" "+view.status+" · confidence/outlook and reasoning visible");
  }
  const privateRoute=await waitResponse("/owner/presenter",code=>code!==200);
  console.log("Owner route HTTP "+privateRoute.status+" on public host (no anonymous access)");

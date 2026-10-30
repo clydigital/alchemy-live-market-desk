@@ -11,6 +11,8 @@ import {REGIME_LENS_WORKBOOKS,matchRecentLensObservations} from "@/lib/bluebelly
 import {quickViewsForLens,FUNDAMENTAL_VIEW_REVIEWED_ON} from "@/lib/bluebelly-fundamental-quickview";
 import {matchAssetSourceEvents,projectAssetTape} from "@/lib/bluebelly-regime-asset-context";
 import {getMarketMonitor} from "@/lib/market-monitor-public";
+import {getLensOutlook} from "@/lib/bluebelly-regime-lens-outlook";
+import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import type {EditorialMotif} from "@/lib/bluebelly-editorial-visuals";
 import desk from "../../blue-desk.module.css";
@@ -41,6 +43,7 @@ export default async function ResearchLensPage({params}:Props){
  ]);
  const lens=groupPublicResearch(publicTheses||[]).find(item=>item.id===lensId)!;
  const workbook=REGIME_LENS_WORKBOOKS[lens.id];
+ const outlook=getLensOutlook(lens.id);
  const assessments=quickViewsForLens(lens.id);
  const assetContext=assessments.map(asset=>({asset,sources:matchAssetSourceEvents(asset.id,sourceObservations,now),tape:projectAssetTape(asset.id,marketMonitor?.rows??null,now)}));
  const recent=matchRecentLensObservations(lens.id,sourceObservations||[],now);
@@ -66,7 +69,31 @@ export default async function ResearchLensPage({params}:Props){
     <div className={styles.heroArt}><EditorialStoryArt headline={lens.name} motif={lens.motif as EditorialMotif}/></div>
    </header>
 
+   <section id="lens-outlook" className={styles.outlookPanel} data-lens-outlook={outlook.outlook} data-lens-confidence={outlook.confidence} aria-labelledby="lens-outlook-title">
+    <div className={styles.outlookTop}>
+     <aside className={styles.outlookMeterPanel} aria-label="Lens outlook and confidence">
+      <RegimeOutlookMeter assessment={outlook} size="full"/>
+      <small>Editorial review: {outlook.reviewedAt} MYT. Meter position shows direction, not a statistical probability.</small>
+     </aside>
+     <div className={styles.outlookNarrative}>
+      <span className={styles.kicker}>WHY THIS OUTLOOK? · FUNDAMENTALS, NOT PRICE FORECAST</span>
+      <h2 id="lens-outlook-title">{outlook.headline}</h2>
+      <p>{outlook.why}</p>
+     </div>
+    </div>
+    <div className={styles.outlookWhy}>
+     <div><span className={styles.kicker}>WHAT SUPPORTS THIS VIEW</span><p>{outlook.supporting}</p></div>
+     <div><span className={styles.kicker}>WHAT CHALLENGES IT</span><p>{outlook.opposing}</p></div>
+     <div><span className={styles.kicker}>WHAT WOULD CHANGE THE CALL</span><p>{outlook.decidingTest}</p></div>
+    </div>
+    <div className={styles.outlookFooter}>
+     <p><strong>Evidence confidence:</strong> {outlook.evidenceStatus} New source matches do not automatically change the dated editorial assessment.</p>
+     <p><strong>Source references:</strong> {outlook.sources.map((source,index)=><span key={source.url}>{index>0?" · ":" "}<a href={source.url} target="_blank" rel="noopener noreferrer">{source.name}</a> ({source.kind==="COMMENTARY"?"attributed commentary":"original source"}; {source.asOf})</span>)}</p>
+    </div>
+   </section>
+
    <nav className={styles.pageNav} aria-label="Sections in this research lens">
+    <a href="#lens-outlook">Outlook &amp; confidence</a>
     {assessments.length?<><a href="#fundamental-assessment">Fundamental assessment</a><a href="#asset-monitoring">Latest original sources &amp; tape</a></>:null}
     <a href="#research-position">Recorded position</a>
     {workbook.policyDilemma?<a href="#policy-dilemma">Fed policy dilemma</a>:null}
@@ -83,7 +110,7 @@ export default async function ResearchLensPage({params}:Props){
     <h2>What the evidence currently argues</h2>
     <p>Reviewed {FUNDAMENTAL_VIEW_REVIEWED_ON} (MYT). These are source-dated analyst interpretations, not automatic or canonical Regime-state changes. Later observations in the source monitor below are refreshed separately; no opinion is silently promoted from a transcript, event headline or price move.</p>
     <div className={styles.forkGrid}>{assessments.map(asset=><article className={styles.fork} key={asset.id} data-reviewed-asset={asset.id}>
-     <span className={styles.kicker}>{asset.asset.toUpperCase()} · {asset.bias==="UNRESOLVED"?"DIRECTION UNPROVEN":asset.bias} · {asset.confidence} CONFIDENCE</span>
+     <span className={styles.kicker}>{asset.asset.toUpperCase()} · {asset.bias} · {asset.confidence} CONFIDENCE</span>
      <h3>{asset.headline}</h3>
      <p><strong>Why:</strong> {asset.reason}</p>
      <p><strong>What argues against it:</strong> {asset.countercase}</p>
@@ -91,7 +118,7 @@ export default async function ResearchLensPage({params}:Props){
      <p><strong>Source references:</strong> {asset.sources.map((source,index)=><span key={source.url}>{index>0?" · ":" "}<a href={source.url} target="_blank" rel="noopener noreferrer">{source.name} ({source.role==="PRIMARY"?"original":"attributed"}, {source.publicationDate})</a></span>)}</p>
      <small>Last dated supporting observation: {asset.sourceObservationDate}; current technical setup not certified here.</small>
     </article>)}</div>
-    <p className={styles.caveat}>No fresh matched data means the correct display may be UNRESOLVED. Public source coverage and stored Story records below do not certify an updated regime judgement.</p>
+    <p className={styles.caveat}>Mixed with low confidence means the evidence does not yet favour a defensible direction. Public source coverage and historical Story records do not certify an updated regime judgement.</p>
    </section>:null}
 
    {assetContext.length?<section id="asset-monitoring" className={styles.section} aria-label="Dated original-source and market tape context" data-regime-asset-live-context="qualified-readers-only">
