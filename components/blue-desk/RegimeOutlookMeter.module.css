@@ -20,3 +20,11 @@
 .confidence strong{font-size:11px;color:var(--bb-text);width:46px;text-align:right}
 .full .confidence{margin-top:18px}
 @media(max-width:650px){.full{padding:13px}.full .verdict{font-size:24px}.compact{margin:9px 0 5px}}
+
+/* Scope matters: the directional label is about one named exposure, not all assets in a lens. */
+.scope{display:flex;flex-direction:column;gap:3px;min-width:0;margin:0 0 10px;padding:0 0 9px;border-bottom:1px solid var(--bb-line)}
+.scope>span{font-size:9px;letter-spacing:.09em;font-weight:800;text-transform:uppercase;color:var(--bb-muted)}
+.scope>strong{font-size:11px;line-height:1.42;font-weight:700;color:var(--bb-text);overflow-wrap:anywhere}
+.full .scope>strong{font-size:13px}
+.horizon{font-size:10px;line-height:1.4;color:var(--bb-muted);margin-top:8px}
+@media(max-width:650px){.scope{margin-bottom:7px;padding-bottom:7px}.horizon{font-size:9px}}
