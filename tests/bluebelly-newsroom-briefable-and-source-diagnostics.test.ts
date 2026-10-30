@@ -6,39 +6,32 @@ import type {ResearchRunInput} from "../lib/research-update.ts";
 
 const file=(path:string)=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 
-test("newsroom provides distinct dated approved decision explainers without falsely inflating verified news",()=>{
+test("Newsroom delegates future decisions to Calendar and mounts Hot Picks inside Browse by category",()=>{
  const page=file("app/blue-desk/newsroom/page.tsx");
- const component=file("components/blue-desk/NewsroomBriefableEvents.tsx");
  const wire=file("components/blue-desk/BluebellyNewsWire.tsx");
- assert.match(page,/buildPresenterCalendar\(macro,earnings,now\)/);
- assert.match(page,/decisionTopics\(news,calendar,now\)/);
- assert.match(page,/<NewsroomBriefableEvents topics=\{briefableNoDuplicate\} readerHref=\{readerHref\}/);
- assert.match(page,/briefable\.filter\(t=>!\(t\.id==="rbnz-october-2026-editorial"/);
- assert.match(page,/<BluebellyNewsWire news=\{news\}/);
- assert.match(wire,/\{children\}/);
  const chrome=file("components/blue-desk/bluebelly-chrome.module.css");
  const css=file("components/blue-desk/bluebelly-newswire.module.css");
+ assert.match(page,/getOriginalPressNews\(now,18,7\)/);
+ assert.match(page,/selectVerifiedNewsBriefs/);
+ assert.match(page,/getRecentArchivedPublicReaderItems\(now\)/);
+ assert.match(page,/selectNewsroomHotPicks\(news,archiveResult\.items,now\)/);
+ assert.match(page,/hotPicks=\{hotPicks\}/);
+ assert.match(page,/<BluebellyNewsWire news=\{news\}/);
+ assert.match(page,/Newsroom48hTimeline/);
+ assert.doesNotMatch(page,/NextBankCatalysts|NewsroomBriefableEvents|decisionTopics|selectBlueDeskUpcoming|buildPresenterCalendar|getForwardEarningsEvents|getEconomicCalendar/);
+ assert.match(wire,/\{children\}/);
+ assert.match(wire,/data-newsroom-hot-picks-button="orange"/);
+ assert.match(wire,/setTopic\("hot"\)/);
+ assert.match(wire,/hotPicks\.keys/);
+ assert.match(wire,/data-hot-picks-day/);
+ assert.match(wire,/visibleCards\.map\(card=>card\.kind==="archive"/);
+ assert.match(wire,/source-qualified report/);
+ assert.match(wire,/item\.verificationLabel|card\.item\.verificationLabel/);
+ assert.match(css,/\.hotButton,\.hotSelected\{background:#f49b24/);
  assert.match(chrome,/\.brandText\{display:none\}/);
  assert.match(chrome,/\.mastRight \.micro:not\(:last-child\)\{display:none\}/);
  assert.doesNotMatch(chrome,/\.mastRight \.micro:first-child\{display:none\}/);
  assert.match(css,/\.intro h1\{font-size:clamp\(24px,7vw,30px\)/);
- assert.match(page,/getOriginalPressNews\(now,18,7\)/);
- assert.match(component,/data-newsroom-briefable="separate-from-news-wire"/);
- assert.match(component,/t\.status==="UPCOMING"\|\|t\.status==="FEATURE"\|\|t\.href\.startsWith\("\?brief="\)/);
- assert.match(component,/UPCOMING · OUTCOME UNKNOWN/);
- // A pending result teaches the financial mechanism; its next test is
- // separately action-oriented, not the same question repeated twice.
- assert.match(component,/item.status==="UPCOMING"\?item.mechanism:item.fact/);
- assert.match(component,/<strong>Next check:<\/strong> \{item.test\}/);
- assert.match(component,/ISSUER-VERIFIED RESULTS · COMPARISON UNVERIFIED/);
- assert.match(component,/href=\{readerHref\+item\.href\}/);
- assert.match(component,/not additional accepted news-wire records/);
- assert.match(component,/EditorialStoryArt/);
- assert.match(wire,/source-qualified report/);
- assert.match(wire,/item.verificationLabel/);
- assert.match(wire,/newsOnly=news\.filter/);
- assert.match(wire,/archiveVisible=archiveEntries\.filter/);
- assert.doesNotMatch(component,/createSupabaseAdminClient|fetch\(|generateContent|write.*Story/i);
 });
 
 test("official-source diagnostics distinguish no qualifying headlines from title/read failures",async()=>{
