@@ -3,14 +3,14 @@
  * Never turn a source date-only value into an invented release time or ET day.
  */
 const ET = "America/New_York";
-const SGT = "Asia/Singapore";
+const MYT = "Asia/Kuala_Lumpur";
 
 export type DualDeskTime = {
   iso: string;
   et: string;
-  sgt: string;
+  myt: string;
   etDay: string;
-  sgtDay: string;
+  mytDay: string;
 };
 
 function parts(date: Date, zone: string) {
@@ -34,15 +34,15 @@ export function formatDualDeskTime(value: string | Date | null | undefined): Dua
   const date = value instanceof Date ? value : new Date(value);
   if (!Number.isFinite(date.getTime())) return null;
   const east = parts(date, ET);
-  const singapore = parts(date, SGT);
+  const malaysia = parts(date, MYT);
   const zone = new Intl.DateTimeFormat("en-US", { timeZone: ET, timeZoneName: "short" })
     .formatToParts(date).find(part => part.type === "timeZoneName")?.value || "ET";
   return {
     iso: date.toISOString(),
     et: display(date, ET) + " " + (zone === "EDT" || zone === "EST" ? zone : "ET"),
-    sgt: display(date, SGT) + " SGT",
+    myt: display(date, MYT) + " MYT",
     etDay: [east.year, east.month, east.day].join("-"),
-    sgtDay: [singapore.year, singapore.month, singapore.day].join("-"),
+    mytDay: [malaysia.year, malaysia.month, malaysia.day].join("-"),
   };
 }
 
