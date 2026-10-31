@@ -94,3 +94,12 @@ test("MacroPulse owner component presents only private reading controls",()=>{
  assert.match(ui,/Public publication is disabled/);
  assert.doesNotMatch(ui,/publish\\(brief\\.id\\)|Approve research digest for Bluebelly|action:"publish"/);
 });
+
+test("the Newsroom preserves published MacroPulse research without classifying it as news proof",()=>{
+ const newsroom=readFileSync(new URL("../app/blue-desk/newsroom/page.tsx",import.meta.url),"utf8");
+ assert.match(newsroom,/getPublishedMacroPulseBriefs\(4\)/);
+ assert.match(newsroom,/data-macropulse-editorial="research-derived-not-canonical"/);
+ assert.match(newsroom,/brief\.countercase/);
+ assert.match(newsroom,/brief\.source_page_url/);
+ assert.match(newsroom,/brief\.source_links/);
+});

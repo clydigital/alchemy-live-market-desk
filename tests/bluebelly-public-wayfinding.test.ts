@@ -14,11 +14,11 @@ test("Bluebelly Treasury shortcuts open the source-dated rates view, not the hom
   assert.equal(blueDeskHostAccess("/markets", publicHost), "public");
 });
 
-test("Public shortcuts lead to the existing Earnings Hub and Daily Report", () => {
+test("Public shortcuts lead to the existing Earnings Hub and Newsroom", () => {
   assert.match(page, /href="\/calendar#earnings-hub">Company earnings this week/);
-  assert.match(page, /href="\/daily-report">Daily Market Report/);
+  assert.match(page, /href="\/newsroom">Market Newsroom/);
   assert.equal(blueDeskHostAccess("/calendar", publicHost), "public");
-  assert.equal(blueDeskHostAccess("/daily-report", publicHost), "public");
+  assert.equal(blueDeskHostAccess("/newsroom", publicHost), "public");
 });
 
 test("Public hero omits internal Dossier approval jargon and private destinations remain gated", () => {
