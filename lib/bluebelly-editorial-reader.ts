@@ -78,6 +78,7 @@ function validate(e:ReaderEdition):Map<string,ReaderSource>{
      throw new Error('Figure is missing verified source, method, period, unit or values');
    }else if(b.kind==='cause-chain'){
     joined(b.sourceIds);if(b.nodes.length<2||b.nodes.length>8||b.nodes.some(n=>!n.label))throw new Error('Invalid causal chain');
+    if(b.nodes.some(n=>n.observed)&&!b.sourceIds.some(id=>sources.get(id)?.status==='ORIGINAL_VERIFIED'))throw new Error('Observed causal node lacks original verified evidence');
    }else if(b.kind==='x-post'){
     joined(b.sourceIds);
     const u=new URL(httpsUrl(b.url));
@@ -86,6 +87,9 @@ function validate(e:ReaderEdition):Map<string,ReaderSource>{
      !validClock(b.publishedAt)||!b.summary.trim()||!/^[A-Za-z0-9_]{1,15}$/.test(b.handle)||
      u.pathname.split('/')[1].toLowerCase()!==b.handle.toLowerCase())
      throw new Error('X post requires exact attributed original');
+    if(b.originalVerified&&!b.sourceIds.some(id=>{
+      const r=sources.get(id);return r?.status==='ORIGINAL_VERIFIED'&&httpsUrl(r.url)===httpsUrl(b.url);
+    }))throw new Error('Verified X original requires exact independently verified post receipt');
    }
   }
  }
