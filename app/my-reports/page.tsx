@@ -91,7 +91,7 @@ export default async function MyBluebellyReports({searchParams}:{searchParams?:P
        <div>
          <p className={styles.kicker}>PRIVATE EDITIONS · CATEGORY LIBRARY</p>
          <h2>Read, research, reuse</h2>
-         <p>Historical Drive HTML collections. Choose one below to avoid mixing market stories,
+         <p>Four separate HTML collections from the historical Drive archive. Choose one below to avoid mixing market stories,
            editorial decisions and creator narratives. The documents live in your KQ Google Drive.</p>
        </div>
        <a href={DRIVE_FOLDER} target="_blank" rel="noopener noreferrer">Browse complete Drive archive ↗</a>
