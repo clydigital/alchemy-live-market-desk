@@ -1,4 +1,5 @@
 import "server-only";
+import {createHash} from "node:crypto";
 import {NextResponse,type NextRequest} from "next/server";
 import {createSupabaseServerClient} from "@/lib/supabase/server";
 import {blueDeskHostAccess} from "@/lib/blue-desk-host";
@@ -62,6 +63,7 @@ export async function POST(req:NextRequest){
   .filter(raw=>{
    try{const u=new URL(raw);return u.protocol==="https:"&&!u.username&&!u.password&&
     ["x.com","www.x.com","twitter.com","www.twitter.com"].includes(u.hostname)&&
+    !u.search&&!u.hash&&
     /^\/[A-Za-z0-9_]{1,15}\/status\/\d+\/?$/.test(u.pathname);}
    catch{return false;}
   });
@@ -88,7 +90,8 @@ export async function POST(req:NextRequest){
    for(const url of selectedXUrls){
     const p=matched.get(url);if(!p||!p.published_at||!p.handle||!p.body)continue;
     const parsed=new URL(url);
-    if(parsed.pathname.split("/")[1].toLowerCase()!==String(p.handle).toLowerCase())continue;
+    if(!/^[A-Za-z0-9_]{1,15}$/.test(String(p.handle))||
+       parsed.pathname.split("/")[1].toLowerCase()!==String(p.handle).toLowerCase())continue;
     const time=Date.parse(p.published_at);
     if(!Number.isFinite(time)||time>now.getTime())continue;
     const verified=p.original_verified===true;
@@ -108,6 +111,16 @@ export async function POST(req:NextRequest){
     });
     card++;
    }
+  }
+  // A downloaded HTML fixture must identify the actual X receipts as well as
+  // its article text. This remains a private draft, not an archived source proof.
+  const xReceipts=edition.sections.flatMap(section=>section.blocks.flatMap(block=>
+   block.kind==="x-post"?[[block.url,block.publishedAt,block.summary,block.originalVerified]]:[]));
+  if(xReceipts.length){
+   edition.snapshotSha256=createHash("sha256").update(
+    JSON.stringify({previous:edition.snapshotSha256,xReceipts})
+   ).digest("hex");
+   edition.editionId="preview-"+edition.snapshotSha256.slice(0,16);
   }
   const html=renderPrivateEditorialReaderHtml(edition);
   return new NextResponse(html,{status:200,headers:{
