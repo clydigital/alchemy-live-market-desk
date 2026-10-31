@@ -17,7 +17,7 @@ test("BEA URL requests exactly one registered NIPA table per GET", () => {
   const urls=buildBeaDataUrls("private-test-key","2026").map(value=>new URL(value));
   assert.deepEqual(urls.map(value=>value.searchParams.get("TableName")).sort(),["T10105","T20304"]);
   assert.ok(urls.every(value=>!value.searchParams.get("TableName")?.includes(",")));
-  assert.throws(()=>buildBeaDataUrl("key","2026","T10105"),/BEA_TABLE_NOT_ALLOWED/);
+  assert.throws(()=>buildBeaDataUrl("key","2026","T10101"),/BEA_TABLE_NOT_ALLOWED/);
   assert.equal(url.searchParams.get("Frequency"), "Q");
   assert.equal(url.searchParams.get("Year"), "2026");
   assert.equal(url.searchParams.get("ResultFormat"), "JSON");
