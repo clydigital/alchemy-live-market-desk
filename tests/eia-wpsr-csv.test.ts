@@ -106,8 +106,8 @@ test("complete API remains primary; stale CSV cannot overwrite fresher partial A
  assert.equal(primary.state,"ready");
  assert.equal(Object.keys(primary.metrics).length,8);
  assert.equal(primary.sourceUrl,"https://www.eia.gov/opendata/");
- const older1=week1.replaceAll("10/23/26","10/16/26").replaceAll("10/16/26","10/09/26");
- const older9=week9.replaceAll("10/23/26","10/16/26").replaceAll("10/16/26","10/09/26");
+ const older1=week1.replaceAll("10/16/26","10/09/26").replaceAll("10/23/26","10/16/26");
+ const older9=week9.replaceAll("10/16/26","10/09/26").replaceAll("10/23/26","10/16/26");
  const partial=async(input:RequestInfo|URL)=>{
   const u=new URL(String(input));
   if(u.href===WPSR_CSV_TABLE1)return new Response(older1,{status:200});
