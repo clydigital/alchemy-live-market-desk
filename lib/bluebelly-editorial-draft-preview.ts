@@ -49,6 +49,7 @@ export function buildPrivateDailyReaderDraft(input:{
  if(!chunks.length)throw new Error("EMPTY_NARRATIVE");
  const first=chunks[0].replace(/^#{1,3}\s+/,"");
  const opening=chunks.length>1?first.slice(0,1400):"Private editorial preview; the full original text is reproduced below without a source-verification claim.";
+ const firstRemainder=chunks.length>1?first.slice(opening.length).trim():"";
  const sections:ReaderSection[]=[];
  let current:ReaderSection|null=null;
  const start=(title:string)=>{
@@ -56,7 +57,7 @@ export function buildPrivateDailyReaderDraft(input:{
   sections.push(current);
  };
  start("The market story");
- for(const chunk of (chunks.length>1?chunks.slice(1):chunks)){
+ for(const chunk of (chunks.length>1?[...(firstRemainder?[firstRemainder]:[]),...chunks.slice(1)]:chunks)){
   const heading=chunk.match(/^#{1,3}\s+([^\n]{8,100})$/);
   if(heading){start(heading[1].trim());continue;}
   if(!current)start("Continuing analysis");
