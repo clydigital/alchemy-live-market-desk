@@ -4,6 +4,8 @@ import {headers} from "next/headers";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import BluebellyNewsWire from "@/components/blue-desk/BluebellyNewsWire";
 import Newsroom48hTimeline from "@/components/blue-desk/Newsroom48hTimeline";
+import DualTimestamp from "@/components/blue-desk/DualTimestamp";
+import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
 import {recentBankDecisions} from "@/lib/bluebelly-bank-decision-snapshots";
 import {recentReportedEditorial} from "@/lib/bluebelly-reported-editorial";
 import {projectNewsroomEditorial} from "@/lib/bluebelly-newsroom-editorial";
@@ -23,11 +25,12 @@ type Props={searchParams:Promise<{q?:string|string[]}>};
 export default async function NewsroomPage({searchParams}:Props){
  const now=new Date();
  const host=(await headers()).get("host");
- const [raw,official,params,archiveResult]=await Promise.all([
+ const [raw,official,params,archiveResult,researchDigests]=await Promise.all([
   getCurrentVerifiedMarketMotion({limit:36}).catch(()=>[]),
   getOriginalPressNews(now,18,7).catch(()=>[]),
   searchParams,
   getRecentArchivedPublicReaderItems(now).then(items=>({items,available:true})).catch(()=>({items:[],available:false})),
+  getPublishedMacroPulseBriefs(4).catch(()=>[]),
  ]);
  const news=combineQualifiedNews(selectVerifiedNewsBriefs(raw,now,18),official,18);
  const query=typeof params.q==="string"?params.q:"";
@@ -67,6 +70,23 @@ export default async function NewsroomPage({searchParams}:Props){
       </div>
       <Newsroom48hTimeline banks={bankDecisions} reports={reported} readerHref={readerHref}/>
     </BluebellyNewsWire>
+    {researchDigests.length>0?<section aria-label="Reviewed MacroPulse research dispatches" data-macropulse-editorial="research-derived-not-canonical" className={ui.contextBridge}>
+      <details>
+        <summary>Reviewed research dispatches · separate from verified news</summary>
+        <p>These are dated, owner-reviewed MacroPulse interpretations. Their sources and counterarguments are preserved, but publication does not make their market explanations canonical evidence.</p>
+        {researchDigests.map(brief=><article key={brief.id} style={{padding:"12px 0",borderTop:"1px solid currentColor"}}>
+          <p><strong>{brief.primary_region.toUpperCase()} · RESEARCH-DERIVED · NOT CANONICAL</strong></p>
+          <h3>{brief.headline}</h3>
+          <p>{brief.standfirst}</p>
+          <p><strong>What changed:</strong> {brief.what_changed}</p>
+          <p><strong>Why it may matter:</strong> {brief.why_it_matters}</p>
+          <p><strong>Countercase:</strong> {brief.countercase}</p>
+          <p><strong>What to watch:</strong> {brief.watch_next}</p>
+          <p><a href={brief.source_page_url} target="_blank" rel="noopener noreferrer">Original MacroPulse research</a> · Published <DualTimestamp value={brief.published_at}/></p>
+          <p>{brief.source_links.map((source,i)=><span key={source.url}>{i>0?" · ":""}<a href={source.url} target="_blank" rel="noopener noreferrer">{source.label}</a></span>)}</p>
+        </article>)}
+      </details>
+    </section>:null}
   </div>
  </main>;
 }
