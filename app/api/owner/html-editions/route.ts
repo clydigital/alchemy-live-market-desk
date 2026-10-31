@@ -8,6 +8,7 @@ import {
 } from "@/lib/bluebelly-private-html-archive-contract";
 import {saveHtmlArchive} from "@/lib/bluebelly-private-html-archive";
 import {importExistingHtmlEdition} from "@/lib/bluebelly-private-html-import";
+import {parseExistingHtmlEdition} from "@/lib/bluebelly-html-archive-import-contract";
 
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -43,7 +44,34 @@ export async function GET(req:NextRequest){
   const {data:edition,error:findError}=await db.from(HTML_TABLE)
    .select("id,report_day,html_path,html_sha256")
    .eq("owner_user_id",identity.userId).eq("id",id).maybeSingle();
-  if(findError||!edition)return error(404,"Edition not found");
+  if(findError)return error(503,"Private HTML history unavailable");
+  if(!edition){
+   // Work-generated complete HTML is deposited by the authorised Supabase
+   // connector: read only after the same owner session/allowlist gate.
+   const {data:work,error:workError}=await db.from("blue_desk_work_html_editions")
+    .select("id,report_day,html_content,html_sha256")
+    .eq("owner_user_id",identity.userId).eq("id",id).maybeSingle();
+   if(workError||!work)return error(404,"Edition not found");
+   try{
+    const checked=parseExistingHtmlEdition({
+     filename:"Bluebelly_"+work.report_day+".html",html:work.html_content,
+    });
+    const workBytes=new TextEncoder().encode(work.html_content);
+    if(workBytes.length>950000||workBytes.length<1000||
+       checked.edition.reportDay!==work.report_day||
+       digest(workBytes)!==work.html_sha256||
+       checked.edition.htmlSha256!==work.html_sha256)
+      return error(502,"Delivered Work HTML failed integrity verification");
+    const disposition=req.nextUrl.searchParams.get("download")==="1"?"attachment":"inline";
+    return new NextResponse(workBytes,{status:200,headers:{
+     ...headers,"Content-Type":"text/html; charset=utf-8",
+     "Content-Disposition":disposition+'; filename="Bluebelly-Work-'+work.report_day+'-'+id+'.html"',
+     "Content-Length":String(workBytes.length),
+     "Content-Security-Policy":"sandbox allow-popups; default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+     "X-Frame-Options":"DENY",
+    }});
+   }catch{return error(502,"Delivered Work HTML failed static-content validation");}
+  }
   const expected=archivePath(identity.userId,edition.report_day,id);
   if(edition.html_path!==expected)return error(404,"Edition path not valid");
   const {data:blob,error:blobError}=await db.storage.from(HTML_BUCKET).download(expected);
@@ -64,11 +92,20 @@ export async function GET(req:NextRequest){
    "X-Frame-Options":"DENY",
   }});
  }
- const {data:rows,error:queryError}=await db.from(HTML_TABLE)
-  .select("id,report_day,title,created_at,html_sha256,content_sha256,supersedes_id,review_status,source_manifest")
-  .eq("owner_user_id",identity.userId).order("created_at",{ascending:false}).limit(40);
- if(queryError)return error(503,"Private HTML edition index unavailable");
- return NextResponse.json({editions:rows||[],status:"PRIVATE_ARCHIVE"},{headers});
+ const [stored,fromWork]=await Promise.all([
+  db.from(HTML_TABLE)
+   .select("id,report_day,title,created_at,html_sha256,content_sha256,supersedes_id,review_status,source_manifest")
+   .eq("owner_user_id",identity.userId).order("created_at",{ascending:false}).limit(40),
+  db.from("blue_desk_work_html_editions")
+   .select("id,report_day,title,created_at,html_sha256,content_sha256,review_status,source_manifest,delivery_type")
+   .eq("owner_user_id",identity.userId).order("created_at",{ascending:false}).limit(40),
+ ]);
+ if(stored.error||fromWork.error)return error(503,"Private HTML edition index unavailable");
+ const entries=[
+  ...(stored.data||[]).map(v=>({...v,delivery_type:"OWNER"})),
+  ...(fromWork.data||[]).map(v=>({...v,supersedes_id:null})),
+ ].sort((a,b)=>b.created_at.localeCompare(a.created_at)).slice(0,40);
+ return NextResponse.json({editions:entries,status:"PRIVATE_ARCHIVE"},{headers});
 }
 /** No browser HTML upload: the server reconstructs a private reader using
  * the original draft, independently qualified sources and matched X receipts. */
