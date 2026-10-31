@@ -141,7 +141,7 @@ export function projectReportLedTopicIdeas(
  return result.map((idea,i)=>({...idea,rank:(i+1) as 1|2|3}));
 }
 /** Archive visibility cutover, not deletion of historical source records. */
-export const MY_DESK_ARCHIVE_CUTOVER="2026-10-31T09:11:10.000Z";
+export const MY_DESK_ARCHIVE_CUTOVER="2026-10-31T12:53:20.000Z";
 export function postCutoverDailyArchive<T extends {createdAt:string}>(
  editions:readonly T[],cutover=MY_DESK_ARCHIVE_CUTOVER
 ):T[]{
