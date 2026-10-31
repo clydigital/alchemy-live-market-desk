@@ -135,7 +135,8 @@ test("EIA parser handles missing data, malformed payloads and non-numeric rows w
 });
 
 test("EIA fetch degrades explicitly when no key is configured", async () => {
-  const result = await fetchEiaWeeklyPetroleumSnapshot("");
+  const unavailableCsv=async()=>new Response("Forbidden",{status:403});
+  const result = await fetchEiaWeeklyPetroleumSnapshot("",{fetchImpl:unavailableCsv as typeof fetch});
   assert.equal(result.state, "unconfigured");
   assert.equal(result.retrievedAt, null);
   assert.match(result.note || "", /EIA_API_KEY/);
