@@ -16,6 +16,7 @@ function news(kind="official",at="2026-10-30T18:00:00Z"):NewsBriefV1{
 const input=(body:string,source:NewsBriefV1[]=[news()])=>({
  title:"A source-qualified market story for today's desk",
  body,asOf:"2026-10-31T03:30:00Z",news:source,
+ selectedSourceUrls:["https://investor.example.com/releases/q3-2026"],
 });
 test("private reader holds full source narrative and does not invent causal citations",()=>{
  const chunks=Array.from({length:20},(_,i)=>"Paragraph "+i+" discusses a financial claim, a countercase and why the next dated source matters. "+("Factual statements remain unverified. ".repeat(6)));
@@ -44,13 +45,21 @@ test("single substantial paragraph remains intact without invented filler",()=>{
  assert.equal(edition.sections[0].blocks.length,0);
  assert.equal(edition.executiveSummary.includes("full original text"),true);
 });
-test("fresh source-qualified receipts required; reporting is not an official original",()=>{
+test("only explicit independent receipt joins qualify; quiet or weak coverage stays visibly unreviewed",()=>{
  const body="Financial analysis explaining competing outcomes in depth. ".repeat(20);
- assert.throws(()=>buildPrivateDailyReaderDraft(input(body,[])),/NO_RECENT_INDEPENDENT_SOURCE_RECEIPTS/);
- assert.throws(()=>buildPrivateDailyReaderDraft(input(body,[news("social")])),/NO_RECENT_INDEPENDENT_SOURCE_RECEIPTS/);
- assert.throws(()=>buildPrivateDailyReaderDraft(input(body,[news("official","2026-10-10T18:00:00Z")])),/NO_RECENT_INDEPENDENT_SOURCE_RECEIPTS/);
+ for(const source of [[],[news("social")],[news("official","2026-10-10T18:00:00Z")]]){
+  const draft=buildPrivateDailyReaderDraft(input(body,source));
+  assert.equal(draft.sources.length,0);
+  const html=renderPrivateEditorialReaderHtml(draft);
+  assert.match(html,/No independently source-qualified receipts attached/);
+  assert.match(html,/Private unapproved draft; not public/);
+ }
+ const unrelated=buildPrivateDailyReaderDraft({...input(body),selectedSourceUrls:[]});
+ assert.equal(unrelated.sources.length,0,"Unselected verified headlines must not launder an unrelated article");
  const report=buildPrivateDailyReaderDraft(input(body,[news("reporting")]));
  assert.equal(report.sources[0].status,"CORROBORATED");
+ const forged=buildPrivateDailyReaderDraft(input(body,[]));forged.status="OWNER_REVIEWED";
+ assert.throws(()=>renderPrivateEditorialReaderHtml(forged),/Missing evidence or narrative/);
 });
 test("snapshot hash binds body, source receipts and clock; no silent rewrite",()=>{
  const body="Market report about issuer economics and financial constraints. ".repeat(20);
@@ -77,7 +86,8 @@ test("owner preview API requires exact host gate, same origin and owner allowlis
  assert.match(route,/Cross-origin request denied/);
  assert.match(route,/session\.auth\.getUser\(\)/);
  assert.match(route,/app_access_allowlist/);
- assert.match(route,/No recent source-qualified news receipt available/);
+ assert.match(route,/selectedSourceUrls/);
+ assert.match(route,/app_access_allowlist/);
  assert.match(route,/Cache-Control":"private, no-store/);
  assert.ok(host.includes('"/api/owner/editorial-reader-preview"'));
  assert.match(writer,/Preview full draft in Editorial Reader v4/);
