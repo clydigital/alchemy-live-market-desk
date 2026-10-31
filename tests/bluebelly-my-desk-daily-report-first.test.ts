@@ -60,6 +60,9 @@ test("inline report reader uses owner-authenticated archive bytes in opaque sand
  assert.match(reader,/credentials:"same-origin",cache:"no-store"/);
  assert.match(reader,/sandbox="allow-popups"/);
  assert.match(reader,/srcDoc=\{html\}/);
+ assert.match(reader,/http-equiv="Content-Security-Policy"/);
+ assert.match(reader,/default-src &\#39;none&\#39;/);
+ assert.match(reader,/setHtml\(result\.replace\(/);
  assert.doesNotMatch(reader,/allow-scripts|allow-same-origin/);
  assert.match(reader,/integrity-checked archive/);
 });

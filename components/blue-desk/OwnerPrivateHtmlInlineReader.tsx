@@ -22,9 +22,13 @@ export default function OwnerPrivateHtmlInlineReader({editionId,title}:{
     });
     if(!res.ok)throw Error("The saved edition could not be loaded ("+res.status+").");
     const result=await res.text();
-    if(!/^\s*<!doctype html>/i.test(result)||result.length>950000)
+    if(!/^\s*<!doctype html>/i.test(result)||result.length>950000||
+       !/<head\b[^>]*>/i.test(result))
      throw Error("The archived HTML failed reader checks.");
-    setHtml(result);
+    // srcDoc does not inherit the archive response's sandbox CSP. Re-apply
+    // a no-network, no-script document policy inside the opaque iframe.
+    const csp='<meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;; img-src data:; base-uri &#39;none&#39;; form-action &#39;none&#39;">';
+    setHtml(result.replace(/<head\b[^>]*>/i,tag=>tag+csp));
    }catch(e){
     if(!abort.signal.aborted)setError(e instanceof Error?e.message:"Private reader unavailable");
    }
