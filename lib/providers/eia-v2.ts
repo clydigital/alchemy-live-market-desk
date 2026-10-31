@@ -1,3 +1,4 @@
+import {fetchOfficialWpsrCsv} from "./eia-wpsr-csv";
 export const EIA_WEEKLY_PETROLEUM_ROUTE = "https://api.eia.gov/v2/petroleum/sum/sndw/data/";
 
 export const EIA_WEEKLY_SERIES = {
@@ -202,14 +203,13 @@ export async function fetchEiaWeeklyPetroleumSnapshot(
   options: { fetchImpl?: typeof fetch } = {},
 ): Promise<EiaWeeklyPetroleumSnapshot> {
   if (!apiKey) {
+    const csv=await fetchOfficialWpsrCsv(options);
+    if(csv.state==="ready")return csv;
     return {
-      state: "unconfigured",
-      asOf: null,
-      retrievedAt: null,
-      metrics: {},
-      sourceName: "U.S. Energy Information Administration",
-      sourceUrl: EIA_WEEKLY_PETROLEUM_ROUTE,
-      note: "EIA_API_KEY is not configured.",
+      state:"unconfigured",asOf:null,retrievedAt:null,metrics:{},
+      sourceName:"U.S. Energy Information Administration",
+      sourceUrl:"https://www.eia.gov/petroleum/supply/weekly/",
+      note:"EIA_API_KEY not configured; OFFICIAL_WPSR_CSV_UNAVAILABLE",
     };
   }
 
@@ -249,11 +249,23 @@ export async function fetchEiaWeeklyPetroleumSnapshot(
   }
   const asOf=Object.values(metrics).map(x=>x?.latest.period??"").filter(Boolean).sort().at(-1)??null;
   const missing=results.filter(x=>x.error).map(x=>x.group+":"+x.error);
+  // Do not mix observations from two transports or unequal reporting weeks.
+  // Prefer one complete, at-least-as-fresh original WPSR snapshot when the
+  // API is missing metrics. A failed fallback never invents recovered rows.
+  if(Object.keys(metrics).length<8){
+    const csv=await fetchOfficialWpsrCsv(options);
+    if(csv.state==="ready"&&csv.asOf&&
+       (!asOf||csv.asOf>=asOf)&&Object.keys(csv.metrics).length>Object.keys(metrics).length){
+      return {...csv,note:csv.note+
+        (missing.length?"; API route gap: "+missing.join(", "):"")};
+    }
+    if(csv.state!=="ready")missing.push("official-wpsr-csv:UNAVAILABLE");
+    else if(csv.asOf&&asOf&&csv.asOf<asOf)missing.push("official-wpsr-csv:OLDER_WEEK");
+    else missing.push("official-wpsr-csv:PARTIAL");
+  }
   return {
     state: asOf?"ready":"unavailable",
-    asOf,
-    retrievedAt,
-    metrics,
+    asOf,retrievedAt,metrics,
     sourceName: "U.S. Energy Information Administration",
     sourceUrl: "https://www.eia.gov/opendata/",
     note: missing.length ? "EIA route coverage missing: "+missing.join(", ") : null,
