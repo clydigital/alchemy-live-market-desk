@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'app/blue-desk/regime-watch/**'
+      - 'app/blue-desk/learn/**'
+      - 'app/blue-desk/blue-desk.module.css'
       - 'app/blue-desk/key-stories/**'
       - 'app/blue-desk/daily-report/**'
       - 'app/blue-desk/newsroom/**'
