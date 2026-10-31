@@ -92,10 +92,10 @@ The BEA adapter (`lib/providers/bea.ts`) requests quarterly GDP and PCE price-in
 
 | Metric | Dataset / table | Line | Stable series ID |
 |---|---|---|---|
-| GDP | NIPA / `T10101` | `1` | `NIPA:T10101:1` |
+| Nominal GDP level (current-dollar) | NIPA / `T10105` | `1` | `NIPA:T10105:1` |
 | PCE price index | NIPA / `T20304` | `1` | `NIPA:T20304:1` |
 
-The adapter requests the five most recent calendar years and quarterly frequency. Each observation preserves its BEA table and line, period (`YYYYQn`), reported value and unit. `retrievedAt` records when the payload was read; it is not represented as the BEA release timestamp. The BEA response does not provide a release timestamp for each observation, so one is not fabricated.
+The adapter requests each BEA NIPA table in its own bounded call because the official BEA API accepts only one `TableName` per GetData request. It requests five recent calendar years and quarterly frequency. GDP uses **nominal current-dollar level (T10105)**; T10101 is **real GDP quarter-over-quarter growth**, not a GDP level and must not be substituted. If one table fails while the other succeeds, report `partial` and do not promote the partial response as complete macro evidence. Each observation preserves its BEA table and line, period (`YYYYQn`), reported value and unit. `retrievedAt` records when the payload was read; it is not represented as the BEA release timestamp. The BEA response does not provide a release timestamp for each observation, so one is not fabricated.
 
 Missing `BEA_API_KEY`, provider HTTP errors, malformed responses and unusable rows are reported as explicit states. The adapter is a read-only sensor and is not added to scheduled research, canonical evidence, Dossier, Stories or Hybrid in this change.
 

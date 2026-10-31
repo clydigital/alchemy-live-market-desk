@@ -2,7 +2,7 @@ import type { BeaSnapshot } from "./providers/bea.ts";
 import type { FredReadResult } from "./providers/fred-api-v1.ts";
 import type { FmpReadResult } from "./providers/fmp-rest.ts";
 
-type State = "ready" | "unconfigured" | "unavailable" | "restricted";
+type State = "ready" | "partial" | "unconfigured" | "unavailable" | "restricted";
 
 /** Safe operational receipt. Never include request URLs, keys, raw values or records. */
 export function providerAcceptanceReceipt(input: {
@@ -69,7 +69,8 @@ export function providerAcceptanceReceipt(input: {
       // BEA prose errors must never enter logs or the response; some transport
       // errors can embed the credential-bearing request URL.
       httpOrEntitlement: bea.state === "ready" ? null :
-        bea.state === "unconfigured" ? "BEA_CREDENTIAL_NOT_VISIBLE_AT_RUNTIME" : "BEA_UNAVAILABLE",
+        bea.state === "unconfigured" ? "BEA_CREDENTIAL_NOT_VISIBLE_AT_RUNTIME" :
+        bea.state === "partial" ? "BEA_PARTIAL_TABLES" : "BEA_UNAVAILABLE",
       observations: ["gdp", "pcePriceIndex"].flatMap((metric) => {
         const latest = bea.observations.find((item) => item.metric === metric);
         return latest ? [{ metric: latest.metric, period: latest.period, unit: latest.unit }] : [];

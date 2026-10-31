@@ -92,3 +92,31 @@ test("visible runtime credentials direct failures to provider HTTP and entitleme
   assert.equal(receipt.fmp.earningsCalendar.httpOrEntitlement, "FMP_ACCESS_DENIED_403");
   assert.equal(receipt.credentialDiagnostics.missingFromVercelClaimSupported, false);
 });
+
+
+test("partial BEA results never become an apparently ready API receipt", () => {
+  const fred: FredReadResult = {
+    state:"ready",seriesId:"DGS10",sourceUrl:"https://fred.stlouisfed.org/series/DGS10",
+    retrievedAt:"2026-10-31T00:00:00Z",vintageDate:null,observations:[{
+      date:"2026-10-30",value:4,realtimeStart:"2026-10-30",realtimeEnd:"2026-10-30"
+    }],note:null
+  };
+  const receipt=providerAcceptanceReceipt({
+    at:"2026-10-31T00:00:00Z",nominal10Y:fred,
+    breakeven10Y:{...fred,seriesId:"T10YIE"},
+    earningsCalendar:{state:"ready",endpoint:"earnings-calendar",
+      sourceUrl:"https://site.financialmodelingprep.com",symbol:null,
+      records:[{date:"2026-11-02"}],retrievedAt:"2026-10-31T00:00:00Z",note:null},
+    bea:{state:"partial",sourceName:"U.S. Bureau of Economic Analysis",
+      sourceUrl:"https://apps.bea.gov/api/data",retrievedAt:"2026-10-31T00:00:00Z",
+      observations:[{metric:"gdp",tableName:"T10105",lineNumber:"1",
+        seriesId:"NIPA:T10105:1",label:"Gross domestic product (current-dollar level)",
+        period:"2026Q3",value:32000,unit:"Current Dollars × 10^9",frequency:"Q"}],
+      note:"BEA_TABLES_INCOMPLETE: T20304:BEA_HTTP_503"},
+    runtimeKeys:{fred:true,fmp:true,bea:true},
+  });
+  assert.equal(receipt.bea.state,"partial");
+  assert.equal(receipt.bea.httpOrEntitlement,"BEA_PARTIAL_TABLES");
+  assert.equal(receipt.canonicalEvidenceWritten,false);
+  assert.doesNotMatch(JSON.stringify(receipt),/32000|secret_fixture/);
+});

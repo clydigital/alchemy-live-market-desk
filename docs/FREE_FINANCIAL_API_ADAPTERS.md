@@ -56,3 +56,21 @@ Use this order for every reported API failure (including BEA, EIA, Alpha Vantage
 The authenticated provider-acceptance receipt now includes `credentialDiagnostics` with non-secret runtime-presence statuses and an explicit `missingFromVercelClaimSupported: false`. **Runtime absence is not proof that the team Shared Variable is absent.** The diagnostic cannot independently enumerate Vercel Shared Variables; project attachment and target remain unverified until inspected in Team Settings or through a separately authorised shared-variable inventory tool.
 
 **Closeout contract:** Every incident must report `project + deployment`, `Shared scope checked/unknown`, `project attachment checked/unknown`, `production target checked/unknown`, `runtime visibility`, `provider response/entitlement`, `source observation date`, and `canonical write/readback`. An unknown is a finding, not a reason to make up a configuration verdict.
+
+
+## Owner-only five-provider manual readback (31 October 2026)
+
+The existing protected `/market-tools?check=providers` now checks FRED, EIA v2, Alpha Vantage, FMP earnings-calendar and BEA GDP/PCE **in parallel**. Its result is read-only, limited to server-side `process.env` key presence and dated source responses, and cached for 60 minutes. FMP event dates are **calendar-event dates**, not observations of issuer earnings outcomes. BEA results use official quarterly period identifiers. FMP `restricted` is displayed as `limited`; HTTP 403/entitlement failures must never be rewritten as missing keys.
+
+The UI explicitly states that it **cannot enumerate or attest Vercel Team Shared Variables, project attachments or environment targets**, and that successful direct API reads do not prove canonical research ingestion. The existing `/api/cron/provider-acceptance` keeps its schedule and CRON_SECRET protection; neither a new poll nor a new canonical writer was added.
+
+To finish an incident, inspect Team Shared scope through authorised Vercel Team Settings or a proper shared-variable inventory tool and confirm actual ingestion/dated readback separately. If those tools or auth are unavailable, return `SHARED_SCOPE_UNVERIFIED` / `CANONICAL_INGESTION_UNVERIFIED`, not a key-reset recommendation or a success claim.
+
+
+## Verified BEA adapter defect and repair — 31 October 2026
+
+Official BEA NIPA API guide (https://apps.bea.gov/api/_pdf/bea_web_service_api_user_guide.pdf, Appendix B) states that **each GetData request may specify only one NIPA TableName**. The old Bluebelly sensor incorrectly submitted `T10101,T20304` in one TableName parameter. This is a provider request bug, **not evidence of a missing Shared Environment Variable**. The corrected adapter makes two bounded parallel calls, one per registered table, and only declares `ready` when both return valid dated observations. A one-table failure is `partial` with explicit safe per-table status and no canonical evidence promotion.
+
+The old GDP table `T10101` measures **percent change from the preceding period in real GDP**. It was incorrectly labelled as a GDP level. Current-dollar GDP level uses `T10105`, line 1, with BEA-supplied metric and unit multiplier retained; PCE price index remains `T20304`, line 1. Neither is mislabelled as a monthly release, and retrieval time is not a publication time. The protected BEA sensor returns a failure status for partial results; the scheduled provider-acceptance receipt also fails its ready gate on partial BEA data.
+
+Official source: BEA API NIPA Appendix B; BEA Table 1.1.1 vs 1.1.5; BEA PCE Price Index table 2.3.4. No key values or credential-bearing URLs are recorded.
