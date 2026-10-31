@@ -27,8 +27,8 @@ test("private reader holds full source narrative and does not invent causal cita
  assert.equal(edition.sources[0].status,"ORIGINAL_VERIFIED");
  assert.ok(edition.sections.length>2,"Long-form is split visually, not condensed");
  const paragraphs=edition.sections.flatMap(s=>s.blocks).filter(b=>b.kind==="paragraph");
- assert.equal(paragraphs.length,19,"Lead moves into executive opening exactly once");
- assert.deepEqual(paragraphs.map(b=>b.kind==="paragraph"?b.text:""),chunks.slice(1));
+ const retained=[edition.executiveSummary,...edition.sections.flatMap(s=>[s.opening,...s.blocks.map(b=>b.kind==="paragraph"?b.text:"")])];
+ assert.deepEqual(retained,chunks,"Every original paragraph must appear exactly once and in order");
  assert.ok(paragraphs.every(b=>b.kind==="paragraph"&&b.sourceIds.length===0),
   "Independent news receipt does not verify the author's unrelated narrative");
  const html=renderPrivateEditorialReaderHtml(edition);
@@ -40,8 +40,8 @@ test("private reader holds full source narrative and does not invent causal cita
 test("single substantial paragraph remains intact without invented filler",()=>{
  const paragraph="A claim is discussed with its constraint and strongest countercase. ".repeat(18);
  const edition=buildPrivateDailyReaderDraft(input(paragraph));
- assert.equal(edition.sections[0].blocks[0].kind,"paragraph");
- assert.equal(edition.sections[0].blocks[0].kind==="paragraph"?edition.sections[0].blocks[0].text:null,paragraph.trim());
+ assert.equal(edition.sections[0].opening,paragraph.trim());
+ assert.equal(edition.sections[0].blocks.length,0);
  assert.equal(edition.executiveSummary.includes("full original text"),true);
 });
 test("fresh source-qualified receipts required; reporting is not an official original",()=>{
