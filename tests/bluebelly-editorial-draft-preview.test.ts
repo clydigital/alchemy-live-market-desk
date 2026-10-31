@@ -95,5 +95,16 @@ test("owner preview API requires exact host gate, same origin and owner allowlis
  assert.match(writer,/sandbox="allow-scripts allow-popups"/);
  assert.match(writer,/setBody\(e\.target\.value\.slice\(0,75000\)\);setPreviewHtml\(""\)/);
  assert.match(writer,/setSelectedSources\(e\.target\.value\.slice\(0,5500\)\);setPreviewHtml\(""\)/);
- assert.ok(!route.includes('createSupabaseAdminClient'));
+ assert.match(route,/createSupabaseAdminClient/);
+ assert.match(route,/\.in\("original_url",selectedXUrls\)/);
+ assert.match(route,/p\.original_verified===true/);
+});
+
+test("long executive opening is not silently discarded after the first 1,400 characters",()=>{
+ const lead="A source-qualified story with careful nuance and rival evidence. ".repeat(35);
+ const tail="This subsequent explanation describes the actor, cash constraint, and verification gap. ".repeat(9);
+ const e=buildPrivateDailyReaderDraft(input(lead+"\n\n"+tail));
+ const captured=e.executiveSummary+e.sections.flatMap(section=>[section.opening,...section.blocks.map(b=>b.kind==="paragraph"?b.text:"")]).join("");
+ const normalise=(x:string)=>x.replace(/\s+/g,"");
+ assert.equal(normalise(captured),normalise(lead+tail));
 });

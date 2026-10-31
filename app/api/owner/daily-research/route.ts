@@ -15,6 +15,7 @@ import { buildPresenterCalendar } from "@/lib/presenter-calendar";
 import { selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import {getOwnerDeliveredResearchBriefs} from "@/lib/blue-desk-delivered-research-server";
+import {getPrivateReviewedCreatorArguments} from "@/lib/bluebelly-private-creator-reviews";
 
 export const dynamic="force-dynamic";
 export const runtime="nodejs";
@@ -35,7 +36,7 @@ export async function GET(req:NextRequest){
   if(accessError||!access)return fail(403,"Owner account not authorised");
 
   const now=new Date();
-  const [notion,rawNews,originalPress,monitor,macro,earnings,delivery]=await Promise.all([
+  const [notion,rawNews,originalPress,monitor,macro,earnings,delivery,creatorDelivery]=await Promise.all([
     fetchTodayNotionResearch(now),
     getCurrentVerifiedMarketMotion({limit:24}).catch(()=>[]),
     getOriginalPressNews(now,12).catch(()=>[]),
@@ -47,6 +48,9 @@ export async function GET(req:NextRequest){
     getOwnerDeliveredResearchBriefs(6)
       .then(briefs=>({status:"AVAILABLE" as const,briefs}))
       .catch(()=>({status:"UNAVAILABLE" as const,briefs:[]})),
+    getPrivateReviewedCreatorArguments(now)
+      .then(reviews=>({status:"AVAILABLE" as const,reviews}))
+      .catch(()=>({status:"UNAVAILABLE" as const,reviews:[]})),
   ]);
   const motionNews=selectVerifiedNewsBriefs(rawNews,now,12);
   const news=combineQualifiedNews(motionNews,originalPress,12);
@@ -55,6 +59,8 @@ export async function GET(req:NextRequest){
   const packet=buildDailyResearchPacket({
     now:now.toISOString(),notion,news,
     editorialBriefs:delivery.briefs,
+    creatorReviews:creatorDelivery.reviews,
+    creatorCoverageStatus:creatorDelivery.status,
     prices:(monitor?.rows||[]).filter(r=>r.last!==null)
       .slice(0,12).map(r=>({
         label:r.label,level:r.last,asOf:r.asOf,
@@ -69,6 +75,8 @@ export async function GET(req:NextRequest){
   const health=assessDailyResearchHealth({now,notion,packet,news});
   return NextResponse.json({
     ...packet,health,
+    creatorReviewCoverage:{status:creatorDelivery.status,count:creatorDelivery.reviews.length,
+      caveat:"Reviews have original video dates and attributed mechanisms; their claims have not been independently source-verified."},
     deliveredResearch:{status:delivery.status,count:delivery.briefs.length,
       caveat:"Delivered editorial briefs are unverified research, not a substitute for full Notion or Research Gap source reads."},
     sourcePages:notion.sources.map(s=>({

@@ -1,4 +1,5 @@
 import "server-only";
+import {createHash} from "node:crypto";
 import {NextResponse,type NextRequest} from "next/server";
 import {createSupabaseServerClient} from "@/lib/supabase/server";
 import {blueDeskHostAccess} from "@/lib/blue-desk-host";
@@ -6,6 +7,7 @@ import {getCurrentVerifiedMarketMotion} from "@/lib/market-motion";
 import {selectVerifiedNewsBriefs} from "@/lib/market-brief-news";
 import {getOriginalPressNews} from "@/lib/blue-desk-original-press-news-server";
 import {combineQualifiedNews} from "@/lib/blue-desk-qualified-news";
+import {createSupabaseAdminClient} from "@/lib/supabase/admin";
 import {buildPrivateDailyReaderDraft} from "@/lib/bluebelly-editorial-draft-preview";
 import {renderPrivateEditorialReaderHtml} from "@/lib/bluebelly-editorial-reader";
 
@@ -53,8 +55,18 @@ export async function POST(req:NextRequest){
  const title=typeof input.title==="string"?input.title:"";
  const narrative=typeof input.body==="string"?input.body:"";
  const selected=typeof input.selectedSources==="string"?input.selectedSources:"";
+ const selectedX=typeof input.selectedX==="string"?input.selectedX:"";
+ if(selectedX.length>3500)return fail(413,"X post selection too large");
  if(selected.length>6000)return fail(413,"Source selection too large");
  const selectedSourceUrls=[...new Set(selected.split(/\s+/).map(v=>v.trim()).filter(Boolean))].slice(0,12);
+ const selectedXUrls=[...new Set(selectedX.split(/\s+/).map(v=>v.trim()).filter(Boolean))].slice(0,5)
+  .filter(raw=>{
+   try{const u=new URL(raw);return u.protocol==="https:"&&!u.username&&!u.password&&
+    ["x.com","www.x.com","twitter.com","www.twitter.com"].includes(u.hostname)&&
+    !u.search&&!u.hash&&
+    /^\/[A-Za-z0-9_]{1,15}\/status\/\d+\/?$/.test(u.pathname);}
+   catch{return false;}
+  });
  if(title.trim().length<8||narrative.trim().length<250||narrative.length>75000)
   return fail(422,"A substantial title and longform draft are required");
  const now=new Date();
@@ -67,6 +79,49 @@ export async function POST(req:NextRequest){
   const edition=buildPrivateDailyReaderDraft({
     title,body:narrative,asOf:now.toISOString(),news,selectedSourceUrls,
   });
+  if(selectedXUrls.length){
+   const {data:posts,error:postError}=await createSupabaseAdminClient()
+    .from("x_wire_posts")
+    .select("handle,post_id,original_url,published_at,body,original_verified")
+    .in("original_url",selectedXUrls).limit(5);
+   if(postError)return fail(503,"Private original X wire unavailable");
+   const matched=new Map((posts||[]).map(p=>[p.original_url,p]));
+   let card=0;
+   for(const url of selectedXUrls){
+    const p=matched.get(url);if(!p||!p.published_at||!p.handle||!p.body)continue;
+    const parsed=new URL(url);
+    if(!/^[A-Za-z0-9_]{1,15}$/.test(String(p.handle))||
+       parsed.pathname.split("/")[1].toLowerCase()!==String(p.handle).toLowerCase())continue;
+    const time=Date.parse(p.published_at);
+    if(!Number.isFinite(time)||time>now.getTime())continue;
+    const verified=p.original_verified===true;
+    const sourceId="x-post-"+(card+1);
+    edition.sources.push({
+     id:sourceId,title:"Dated X post by @"+p.handle,
+     publisher:"X / @"+p.handle,url,publishedAt:new Date(time).toISOString(),
+     status:verified?"ORIGINAL_VERIFIED":"ATTRIBUTED",
+     period:"Attributed social commentary; assertions are not independently verified",
+    });
+    const sectionIndex=Math.min(edition.sections.length-1,
+     Math.floor((card+1)*edition.sections.length/(selectedXUrls.length+1)));
+    const section=edition.sections[sectionIndex];
+    section.blocks.splice(Math.floor(section.blocks.length/2),0,{
+     kind:"x-post",url,handle:String(p.handle),publishedAt:new Date(time).toISOString(),
+     summary:String(p.body).slice(0,700),originalVerified:verified,sourceIds:[sourceId],
+    });
+    card++;
+   }
+  }
+  // A downloaded HTML fixture must identify the actual X receipts as well as
+  // its article text. This remains a private draft, not an archived source proof.
+  const xReceipts=edition.sections.flatMap(section=>section.blocks.flatMap(block=>
+   block.kind==="x-post"?[[block.url,block.publishedAt,block.summary,block.originalVerified]]:[]));
+  if(xReceipts.length){
+   edition.snapshotSha256=createHash("sha256").update(
+    JSON.stringify({previous:edition.snapshotSha256,xReceipts})
+   ).digest("hex");
+   edition.editionId="preview-"+edition.snapshotSha256.slice(0,16);
+  }
   const html=renderPrivateEditorialReaderHtml(edition);
   return new NextResponse(html,{status:200,headers:{
    ...headers,"Content-Type":"text/html; charset=utf-8",

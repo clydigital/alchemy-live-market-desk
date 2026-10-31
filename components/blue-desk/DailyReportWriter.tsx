@@ -4,6 +4,7 @@ import {useState} from "react";
 import Link from "next/link";
 import css from "./daily-report-writer.module.css";
 import {DAILY_BRIEFING_STEPS} from "@/lib/blue-desk-narrative-playbook";
+import {HTML_LONGFORM_CHAPTERS,assembleHtmlLongformDraft} from "@/lib/bluebelly-html-longform-generator";
 
 type Handoff={
   contractVersion:string;assembledAt:string;notionStatus:string;
@@ -20,16 +21,19 @@ type Handoff={
     nextActions:string[];
   };
 };
+type LongformProgress={title:string;packet:string;instructions:string;chapters:string[]};
 export default function DailyReportWriter(){
   const [research,setResearch]=useState<Handoff|null>(null);
   const [title,setTitle]=useState("Daily Market Report");
   const [body,setBody]=useState("");
   const [previewHtml,setPreviewHtml]=useState("");
+  const [longformProgress,setLongformProgress]=useState<LongformProgress|null>(null);
   const [revision,setRevision]=useState("");
-  const [busy,setBusy]=useState<"idle"|"read"|"draft"|"revise"|"preview">("idle");
+  const [busy,setBusy]=useState<"idle"|"read"|"draft"|"revise"|"preview"|"longform">("idle");
   const [notice,setNotice]=useState("");
   const [editedPacket,setEditedPacket]=useState("");
   const [selectedSources,setSelectedSources]=useState("");
+  const [selectedX,setSelectedX]=useState("");
   async function load(){
     if(busy!=="idle")return;
     if(research&&editedPacket!==research.packet&&
@@ -42,6 +46,8 @@ export default function DailyReportWriter(){
       setResearch(data);
       setEditedPacket(data.packet);
       setSelectedSources("");
+      setLongformProgress(null);
+      setPreviewHtml("");
       setNotice("Source-dated packet loaded. Verify cited originals before using your private report.");
     }catch(e){setNotice(e instanceof Error?e.message:"Research unavailable");}
     finally{setBusy("idle");}
@@ -52,6 +58,7 @@ export default function DailyReportWriter(){
     if(action==="revise"&&!body.trim()){setNotice("There is no draft to revise.");return;}
     if(action==="revise"&&body.length>15000){setNotice("The existing model revision limit is 15,000 characters. Your full draft is preserved; use Editorial Reader preview rather than silently truncating it.");return;}
     if(action==="draft"&&body.trim()&&!window.confirm("Replace current report draft?"))return;
+    setLongformProgress(null);
     setBusy(action);setNotice("");
     try{
       const res=await fetch("/api/owner/editorial-generate",{
@@ -68,6 +75,57 @@ export default function DailyReportWriter(){
     }catch(e){setNotice(e instanceof Error?e.message:"Model unavailable");}
     finally{setBusy("idle");}
   }
+  async function generateFullHtml(resume=false){
+    if(busy!=="idle"||!research||editedPacket.trim().length<100){
+      setNotice("Read a substantial research packet before generating the HTML report.");return;
+    }
+    if(!resume&&body.trim()&&!window.confirm("Replace the current article with a full HTML-only report? Save any edits first."))return;
+    const current:LongformProgress=resume&&longformProgress?longformProgress:
+      {title,packet:editedPacket.slice(0,24000),instructions:revision,chapters:[]};
+    if(resume&&(title!==current.title||editedPacket.slice(0,24000)!==current.packet)){
+      setNotice("Research/title changed. Start a new source-frozen HTML report rather than joining different evidence snapshots.");return;
+    }
+    setBusy("longform");setNotice("");setPreviewHtml("");
+    const chapters=[...current.chapters];
+    try{
+      for(let i=chapters.length;i<HTML_LONGFORM_CHAPTERS.length;i++){
+        const stage=HTML_LONGFORM_CHAPTERS[i];
+        setNotice("HTML report · chapter "+(i+1)+"/"+HTML_LONGFORM_CHAPTERS.length+" · "+stage.heading+". This runs in the open browser only.");
+        const response=await fetch("/api/owner/editorial-longform-chapter",{
+          method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({title:current.title,packet:current.packet,chapter:stage.key,
+            previous:chapters.slice(-2).join("\n\n").slice(-2100),instructions:current.instructions}),
+        });
+        const result=await response.json().catch(()=>({error:"Invalid model response"})) as {chapter?:string;error?:string};
+        if(!response.ok||!result.chapter)throw new Error(result.error||"Chapter generation unavailable");
+        chapters.push(result.chapter);
+        const partial=assembleHtmlLongformDraft(chapters);
+        if(partial.length>75000){
+          chapters.pop();
+          throw new Error("Generated article exceeds the 75,000-character editor limit. Existing chapters were preserved without truncation");
+        }
+        const progress={...current,chapters:[...chapters]};
+        setLongformProgress(progress);
+        setBody(partial);
+      }
+      const complete=assembleHtmlLongformDraft(chapters);
+      if(complete.length>75000)throw new Error("Complete report exceeds private editor length limit; completed chapters retained for review.");
+      const previewResponse=await fetch("/api/owner/editorial-reader-preview",{
+        method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({title:current.title,body:complete,selectedSources,selectedX}),
+      });
+      if(!previewResponse.ok){
+        const reason=await previewResponse.json().catch(()=>({error:"HTML export unavailable"})) as {error?:string};
+        throw new Error(reason.error||"HTML export unavailable");
+      }
+      const html=await previewResponse.text();
+      if(!html.includes('data-private-reader-v4="true"'))throw new Error("Invalid HTML reader");
+      setPreviewHtml(html);
+      setNotice("HTML-only report generated: "+chapters.length+" chapters, "+complete.split(/\s+/).length+" words. Review claims, original sources, inferred mechanisms and X attributions before using or saving the private HTML.");
+    }catch(e){
+      setNotice((e instanceof Error?e.message:"Chapter generation unavailable")+". "+chapters.length+"/"+HTML_LONGFORM_CHAPTERS.length+" chapters retained. "+(chapters.length===HTML_LONGFORM_CHAPTERS.length?"Use Preview full draft to rebuild the HTML export.":"Choose Continue HTML report to resume."));
+    }finally{setBusy("idle");}
+  }
   async function preview(){
     if(busy!=="idle"||body.trim().length<250||!title.trim()){
       setNotice("Enter at least 250 characters of report text before previewing.");return;
@@ -76,7 +134,7 @@ export default function DailyReportWriter(){
     try{
       const res=await fetch("/api/owner/editorial-reader-preview",{
         method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({title,body,selectedSources}),
+        body:JSON.stringify({title,body,selectedSources,selectedX}),
       });
       if(!res.ok){
         const data=await res.json().catch(()=>({error:"Private reader preview unavailable"})) as {error?:string};
@@ -163,16 +221,23 @@ export default function DailyReportWriter(){
           <p>No links were extracted from authorised Notion research.</p>}
         <label>Research packet — editable but unverified
           <textarea rows={22} value={editedPacket}
-            onChange={e=>setEditedPacket(e.target.value.slice(0,24000))}/>
+            onChange={e=>{setEditedPacket(e.target.value.slice(0,24000));setLongformProgress(null);setPreviewHtml("");}}/>
         </label>
         <button type="button" onClick={()=>copy(editedPacket)}>Copy source packet</button>
       </section>
       <section className={css.panel}>
         <h3>Analyst draft and source review</h3>
         <label>Report headline (max 63 characters)
-          <input maxLength={63} value={title} onChange={e=>{setTitle(e.target.value);setPreviewHtml("");}}/>
+          <input maxLength={63} value={title} onChange={e=>{setTitle(e.target.value);setPreviewHtml("");setLongformProgress(null);}}/>
         </label>
         <div className={css.actions}>
+          <button type="button" onClick={()=>generateFullHtml(false)} disabled={busy!=="idle"||editedPacket.length<100}>
+            {busy==="longform"?"Generating HTML chapters…":"Generate full-length HTML report"}
+          </button>
+          {longformProgress&&longformProgress.chapters.length<HTML_LONGFORM_CHAPTERS.length?
+            <button type="button" onClick={()=>generateFullHtml(true)} disabled={busy!=="idle"}>
+              Continue HTML report ({longformProgress.chapters.length}/{HTML_LONGFORM_CHAPTERS.length})
+            </button>:null}
           <button type="button" onClick={()=>generate("draft")} disabled={busy!=="idle"||!title.trim()}>
             {busy==="draft"?"Explaining…":"Draft chronological market story"}
           </button>
@@ -183,10 +248,10 @@ export default function DailyReportWriter(){
         <label>Revision instruction
           <input value={revision} maxLength={900}
             placeholder="Explain the physical oil-to-inflation mechanism more clearly…"
-            onChange={e=>setRevision(e.target.value)}/>
+            onChange={e=>{setRevision(e.target.value);setLongformProgress(null);}}/>
         </label>
         <label>Editable chronological Daily Report — not reviewed, not published
-          <textarea rows={28} value={body} onChange={e=>{setBody(e.target.value.slice(0,75000));setPreviewHtml("");}}
+          <textarea rows={28} value={body} onChange={e=>{setBody(e.target.value.slice(0,75000));setPreviewHtml("");setLongformProgress(null);}}
             placeholder="Generate a report from the research packet, or write your own evidence-based analysis."/>
         </label>
         <div className={css.actions}>
@@ -205,6 +270,12 @@ export default function DailyReportWriter(){
             placeholder={"https://www.example.gov/original-release\nhttps://www.example.com/issuer-filing"}
             onChange={e=>{setSelectedSources(e.target.value.slice(0,5500));setPreviewHtml("");}}/>
         </label>
+        <label>Original X post links to embed (optional, up to five)
+          <textarea rows={4} value={selectedX} disabled={busy==="longform"}
+            placeholder={"https://x.com/OriginalAccount/status/1234567890123456789"}
+            onChange={e=>{setSelectedX(e.target.value.slice(0,3500));setPreviewHtml("");}}/>
+        </label>
+        <p className={css.warning}>Only exact original X links already recorded by the private X wire will appear, at their recorded publication times. X statements remain attributed, not independently proven market causes. Embeds load only after you click them; the downloaded HTML retains plain-text links offline.</p>
         <p className={css.warning}>The imported source packet may contain up to 40 candidate links,
           including Notion, social posts, calendars and hypotheses. They are unverified candidates. Select only original documents you have checked.
           The publisher separately requires your approval and a matching PDF.</p>
@@ -233,14 +304,14 @@ export default function DailyReportWriter(){
       has been generated or verified in this session.</div>}
     {previewHtml ? <section className={css.editorialPreview} aria-label="Editorial Reader v4 unverified preview" data-reader-preview="private-unverified">
       <h2>Editorial Reader v4 · private formatting preview</h2>
-      <p>This is the complete draft in the approved reading layout, not a verified or archived edition. Source receipts listed at the end do not independently verify your article claims. X embeds require explicit user interaction.</p>
+      <p>This is the complete generated or edited report in the approved HTML reading layout, not a verified or archived edition. Source receipts listed at the end do not independently verify your article claims. X embeds require explicit user interaction.</p>
       <div className={css.actions}>
         <button type="button" onClick={()=>{
           const blob=new Blob([previewHtml],{type:"text/html;charset=utf-8"});
           const url=URL.createObjectURL(blob);
           const a=document.createElement("a");a.href=url;a.download="Bluebelly-Private-Editorial-Reader-PREVIEW.html";a.click();
           URL.revokeObjectURL(url);
-        }}>Save HTML preview (print to PDF from your browser)</button>
+        }}>Download HTML report</button>
         <button type="button" onClick={()=>setPreviewHtml("")}>Close preview</button>
       </div>
       <iframe title="Private Editorial Reader v4" className={css.editorialFrame} sandbox="allow-scripts allow-popups" srcDoc={previewHtml}/>

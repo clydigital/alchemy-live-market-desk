@@ -1,6 +1,7 @@
 import type { NotionResearchBundle } from "./notion-market-research.ts";
 import type { NewsBriefV1 } from "./market-brief-news.ts";
 import type { DeliveredMacroPulseBrief } from "./blue-desk-delivered-research";
+import type {PrivateCreatorReview} from "./bluebelly-private-creator-reviews.ts";
 
 export type DailyResearchCalendarItem = {
   title:string; scheduledAt:string|null; sourceName:string; sourceUrl:string|null;
@@ -39,6 +40,8 @@ export function buildDailyResearchPacket(input:{
   calendar:readonly DailyResearchCalendarItem[];
   prices:readonly DailyResearchPriceObservation[];
   editorialBriefs?:readonly DeliveredMacroPulseBrief[];
+  creatorReviews?:readonly PrivateCreatorReview[];
+  creatorCoverageStatus?:"AVAILABLE"|"UNAVAILABLE";
 }):DailyResearchPacket{
   const links=new Set<string>();
   const include=(url:unknown)=>{const safeLink=safeUrl(url);if(safeLink&&links.size<40)links.add(safeLink);};
@@ -96,6 +99,23 @@ export function buildDailyResearchPacket(input:{
     ...input.notion.warnings.map(w=>"COVERAGE WARNING: "+safe(w,550)),
     "",
   ];
+  const reviews=(input.creatorReviews||[]).slice(0,7);
+  if(reviews.length){
+    lines.push("","## PRIVATE CREATOR TRANSCRIPT ARGUMENTS — ATTRIBUTED / NOT ORIGINAL FACTS",
+      "These reviews were derived from actually stored YouTube transcripts with review receipts. They are hypotheses, not independent evidence or exhaustive new videos. Video publication dates are NOT current prices or verified transactions. Numbers in creator speech require the explicit verification targets below.");
+    for(const review of reviews){
+      include(review.url);
+      lines.push("### "+safe(review.publisher,75)+" | "+safe(review.title,145),
+        "Original video: "+review.url+" | ID "+safe(review.videoId,20)+
+        " | published "+safe(review.publishedAt,45),
+        "Attributed creator logic: "+safe(review.logic,580),
+        "Review synopsis (not independently verified): "+safe(review.summary,240));
+      for(const c of review.claimChecks.slice(0,2))
+        lines.push("Check ("+safe(c.kind,30)+"): "+safe(c.claim,200)+
+          " | Independent source target: "+safe(c.verificationTarget||"UNVERIFIED",170));
+    }
+    lines.push("");
+  }else lines.push("","CREATOR TRANSCRIPT COVERAGE: "+(input.creatorCoverageStatus==="UNAVAILABLE"?"RETRIEVAL UNAVAILABLE. This does not establish that there were no reviewed videos.":"No reviewed videos in the bounded recent window.")+" Do not invent video viewpoints.");
   if(delivered.length){
     lines.push("## PRIVATELY DELIVERED MACROPULSE EDITORIAL BRIEFS — RESEARCH ONLY",
       "These are attributed drafts supplied to the separate owner review queue, NOT independently verified News, accepted Motion, Dossier evidence, or proof of a live Notion API read.",
