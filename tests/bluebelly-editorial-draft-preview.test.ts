@@ -34,7 +34,7 @@ test("private reader holds full source narrative and does not invent causal cita
  const html=renderPrivateEditorialReaderHtml(edition);
  assert.match(html,/Source-qualified packet|independently matched market reaction/i);
  assert.match(html,/Private unapproved draft; not public/);
- assert.ok(html.includes(chunks[19]));
+ assert.ok(html.includes(chunks[19].trim()));
  assert.ok(html.includes("font:18px/1.76"));
 });
 test("single substantial paragraph remains intact without invented filler",()=>{
