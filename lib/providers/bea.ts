@@ -46,7 +46,8 @@ export function buildBeaDataUrl(apiKey: string, years: string, tableName: string
   url.searchParams.set("method", "GetData");
   url.searchParams.set("datasetname", "NIPA");
   // BEA NIPA GetData accepts exactly ONE TableName per request.
-  if (![BEA_SERIES.gdp.tableName, BEA_SERIES.pcePriceIndex.tableName].includes(tableName)) {
+  const allowedTables: readonly string[] = [BEA_SERIES.gdp.tableName, BEA_SERIES.pcePriceIndex.tableName];
+  if (!allowedTables.includes(tableName)) {
     throw new Error("BEA_TABLE_NOT_ALLOWED");
   }
   url.searchParams.set("TableName", tableName);
