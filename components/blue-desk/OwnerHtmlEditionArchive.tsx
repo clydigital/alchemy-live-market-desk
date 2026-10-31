@@ -6,7 +6,7 @@ type Receipt={url:string;publisher:string;status:string;publishedAt:string;title
 type Edition={
  id:string;report_day:string;title:string;created_at:string;
  html_sha256:string;content_sha256:string;supersedes_id:string|null;
- review_status:string;source_manifest:Receipt[];
+ review_status:string;source_manifest:Receipt[];delivery_type?:"OWNER"|"CHATGPT_WORK";
 };
 export default function OwnerHtmlEditionArchive(props:{
  title:string;body:string;selectedSources:string;selectedX:string;previewReady:boolean;disabled:boolean;
@@ -87,7 +87,7 @@ export default function OwnerHtmlEditionArchive(props:{
    <label>Correction of a previous edition (optional)
     <select value={supersedesId} disabled={busy} onChange={e=>setSupersedesId(e.target.value)}>
      <option value="">New edition (no previous correction)</option>
-     {editions.map(e=><option key={e.id} value={e.id}>
+     {editions.filter(e=>e.delivery_type!=="CHATGPT_WORK").map(e=><option key={e.id} value={e.id}>
       {e.report_day} · {e.title.slice(0,42)} · {e.id.slice(0,8)}
      </option>)}
     </select>
@@ -117,7 +117,7 @@ export default function OwnerHtmlEditionArchive(props:{
   <p className={css.message} role="status">{note}</p>
   <div className={css.history}>
    {editions.length?editions.map(e=><article key={e.id} className={css.entry}>
-    <p className={css.meta}>{e.report_day} · {new Date(e.created_at).toLocaleString()} · {e.review_status}</p>
+    <p className={css.meta}>{e.report_day} · {new Date(e.created_at).toLocaleString()} · {e.review_status} · {e.delivery_type==="CHATGPT_WORK"?"Automatically delivered from Work":"My Desk"}</p>
     <h4>{e.title}</h4>
     <p className={css.meta}>Edition {e.id.slice(0,8)} · SHA-256 {e.html_sha256.slice(0,16)}…
      {e.supersedes_id?" · Corrects "+e.supersedes_id.slice(0,8):""}</p>
@@ -125,6 +125,7 @@ export default function OwnerHtmlEditionArchive(props:{
      <a href={"/api/owner/html-editions?edition="+e.id} target="_blank" rel="noopener noreferrer">Read archived HTML</a>
      <a href={"/api/owner/html-editions?edition="+e.id+"&download=1"}>Download exact edition</a>
     </div>
+    {e.delivery_type==="CHATGPT_WORK"?<p className={css.warning}>Work-delivered private HTML; embedded original links are not independently verified by the archive.</p>:null}
     <details><summary>{e.source_manifest.length} source receipts and attributions</summary>
      <ul>{e.source_manifest.map((s,i)=><li key={s.url+String(i)}>
       <a href={s.url} target="_blank" rel="noopener noreferrer">{s.publisher}</a>
