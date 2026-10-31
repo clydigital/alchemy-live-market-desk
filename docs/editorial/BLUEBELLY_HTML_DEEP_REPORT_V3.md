@@ -1,5 +1,8 @@
 # Bluebelly HTML Deep Research — Edition v3
 
+> **CURRENT FORMAT OVERRIDE — 31 Oct 2026:** The owner-approved [Bluebelly Daily Intelligence Editorial Reader v4](./BLUEBELLY_DAILY_INTELLIGENCE_EDITORIAL_READER_V4.md) is now the canonical **private Daily Intelligence reading layout**. Preserve full research depth and add distributed evidence visuals, 18px web type, explicit X attribution and an HTML master/PDF derivative. This v3 page remains historical for research and earlier per-creator/commissioning experiments. In particular, the newer 07:00 Creator Market Intelligence policy limits scheduled output to creator evidence/claim packets, **not automatic routine creator HTML batches**. v4 is approved as a style, **not yet an automated deployed pipeline**.
+
+
 **Adopted:** 28 October 2026 · **Location:** owner-only My Desk + private KQ Documents 88 Google Drive HTML archive
 
 The 27 October editions revealed inadequate analytical depth: ~1,200–1,300 words across three major market events; ~1,500 words across three full creator transcripts. The v3 user-reviewed pilots use ~4,000 words for a substantive daily market narrative, ~5,000 for three extensively commissioned article decisions, ~3,800 for a three-video creator argument and ~2,600 for a source-handoff audit. Those are examples, **not word quotas**.
