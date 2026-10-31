@@ -95,5 +95,7 @@ test("owner preview API requires exact host gate, same origin and owner allowlis
  assert.match(writer,/sandbox="allow-scripts allow-popups"/);
  assert.match(writer,/setBody\(e\.target\.value\.slice\(0,75000\)\);setPreviewHtml\(""\)/);
  assert.match(writer,/setSelectedSources\(e\.target\.value\.slice\(0,5500\)\);setPreviewHtml\(""\)/);
- assert.ok(!route.includes('createSupabaseAdminClient'));
+ assert.match(route,/createSupabaseAdminClient/);
+ assert.match(route,/\.in\("original_url",selectedXUrls\)/);
+ assert.match(route,/p\.original_verified===true/);
 });
