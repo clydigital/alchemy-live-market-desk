@@ -170,7 +170,7 @@ export default function DailyReportWriter(){
       <section className={css.panel}>
         <h3>Analyst draft and source review</h3>
         <label>Report headline (max 63 characters)
-          <input maxLength={63} value={title} onChange={e=>setTitle(e.target.value)}/>
+          <input maxLength={63} value={title} onChange={e=>{setTitle(e.target.value);setPreviewHtml("");}}/>
         </label>
         <div className={css.actions}>
           <button type="button" onClick={()=>generate("draft")} disabled={busy!=="idle"||!title.trim()}>
@@ -186,7 +186,7 @@ export default function DailyReportWriter(){
             onChange={e=>setRevision(e.target.value)}/>
         </label>
         <label>Editable chronological Daily Report — not reviewed, not published
-          <textarea rows={28} value={body} onChange={e=>setBody(e.target.value.slice(0,75000))}
+          <textarea rows={28} value={body} onChange={e=>{setBody(e.target.value.slice(0,75000));setPreviewHtml("");}}
             placeholder="Generate a report from the research packet, or write your own evidence-based analysis."/>
         </label>
         <div className={css.actions}>
@@ -203,7 +203,7 @@ export default function DailyReportWriter(){
         <label>Original-source URLs selected for your independent review (maximum 12)
           <textarea rows={5} value={selectedSources}
             placeholder={"https://www.example.gov/original-release\nhttps://www.example.com/issuer-filing"}
-            onChange={e=>setSelectedSources(e.target.value.slice(0,5500))}/>
+            onChange={e=>{setSelectedSources(e.target.value.slice(0,5500));setPreviewHtml("");}}/>
         </label>
         <p className={css.warning}>The imported source packet may contain up to 40 candidate links,
           including Notion, social posts, calendars and hypotheses. They are unverified candidates. Select only original documents you have checked.
