@@ -99,9 +99,14 @@ export default function DailyReportWriter(){
         const result=await response.json().catch(()=>({error:"Invalid model response"})) as {chapter?:string;error?:string};
         if(!response.ok||!result.chapter)throw new Error(result.error||"Chapter generation unavailable");
         chapters.push(result.chapter);
+        const partial=assembleHtmlLongformDraft(chapters);
+        if(partial.length>75000){
+          chapters.pop();
+          throw new Error("Generated article exceeds the 75,000-character editor limit. Existing chapters were preserved without truncation");
+        }
         const progress={...current,chapters:[...chapters]};
         setLongformProgress(progress);
-        setBody(assembleHtmlLongformDraft(progress.chapters).slice(0,75000));
+        setBody(partial);
       }
       const complete=assembleHtmlLongformDraft(chapters);
       if(complete.length>75000)throw new Error("Complete report exceeds private editor length limit; completed chapters retained for review.");
@@ -118,7 +123,7 @@ export default function DailyReportWriter(){
       setPreviewHtml(html);
       setNotice("HTML-only report generated: "+chapters.length+" chapters, "+complete.split(/\s+/).length+" words. Review claims, original sources, inferred mechanisms and X attributions before using or saving the private HTML.");
     }catch(e){
-      setNotice((e instanceof Error?e.message:"Chapter generation unavailable")+". "+chapters.length+"/"+HTML_LONGFORM_CHAPTERS.length+" completed chapters retained. Choose Continue HTML report to retry.");
+      setNotice((e instanceof Error?e.message:"Chapter generation unavailable")+". "+chapters.length+"/"+HTML_LONGFORM_CHAPTERS.length+" chapters retained. "+(chapters.length===HTML_LONGFORM_CHAPTERS.length?"Use Preview full draft to rebuild the HTML export.":"Choose Continue HTML report to resume."));
     }finally{setBusy("idle");}
   }
   async function preview(){
