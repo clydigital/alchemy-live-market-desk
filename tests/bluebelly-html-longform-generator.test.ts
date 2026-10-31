@@ -37,7 +37,7 @@ test("longform chapters assemble in one chronological original text without a du
  const result=assembleHtmlLongformDraft([report,"Second section elaborates the actual lender constraints. "+report]);
  assert.ok(result.startsWith("A lender may demand"));
  assert.match(result,/## Follow the money: revenues, costs and funding/);
- assert.equal(result.split("A lender may demand").length,3);
+ assert.equal(result.split("A lender may demand").length,13,"Each source chapter contains its original six repetitions once");
  assert.throws(()=>assembleHtmlLongformDraft([]),/LONGFORM_INVALID_CHAPTER_COUNT/);
 });
 test("owner model route and reader export remain no-store/private and HTML only",()=>{
@@ -56,7 +56,8 @@ test("owner model route and reader export remain no-store/private and HTML only"
  assert.match(writer,/Generate full-length HTML report/);
  assert.match(writer,/Continue HTML report/);
  assert.match(writer,/assembleHtmlLongformDraft/);
- assert.match(writer,/setBody\(assembleHtmlLongformDraft\(progress\.chapters\)/);
+ assert.match(writer,/setBody\(partial\)/);
+ assert.match(writer,/partial\.length>75000/);
  assert.match(writer,/Download HTML report/);
  assert.match(preview,/\.in\("original_url",selectedXUrls\)/);
  assert.match(preview,/original_verified/);
