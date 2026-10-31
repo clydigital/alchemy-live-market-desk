@@ -88,7 +88,7 @@ test("fresh HTML editions use MYT day, while corrections retain original report 
  assert.equal(effectiveArchiveDay(new Date("2026-10-30T16:00:00.000Z")),"2026-10-31");
  assert.equal(effectiveArchiveDay(new Date("2026-10-31T15:59:59.999Z")),"2026-10-31");
  assert.equal(effectiveArchiveDay(new Date("2026-10-31T16:00:00.000Z")),"2026-11-01");
- assert.equal(effectiveArchiveDay(new Date("2026-11-02T03:00:00.000Z"),"2026-10-30"),"Correction keeps original story date");
+ assert.equal(effectiveArchiveDay(new Date("2026-11-02T03:00:00.000Z"),"2026-10-30"),"2026-10-30","Correction keeps original story date");
  assert.throws(()=>effectiveArchiveDay(new Date("invalid")) ,/INVALID_ARCHIVE_CLOCK/);
  assert.throws(()=>effectiveArchiveDay(new Date("2026-10-31T05:00:00Z"),"2026-02-30"),/INVALID_ARCHIVE_CORRECTION_DAY/);
 });
