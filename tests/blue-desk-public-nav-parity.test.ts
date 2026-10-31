@@ -62,3 +62,13 @@ test("no dead public links are advertised in the homepage special panels", () =>
   assert.match(homepage, /publicHost \? "Explore public research" : "Dossier, research and saved editions"/);
   assert.match(homepage, /newsFeature\.sourceUrl/);
 });
+
+test("retired Daily Report has no public navigation but redirects without discarding owner reports", () => {
+  const nav=header.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0]||"";
+  assert.ok(!nav.includes('["Daily Report", "/daily-report"]'));
+  const middleware=readFileSync(new URL("../middleware.ts",import.meta.url),"utf8");
+  assert.match(middleware,/pathname === "\/daily-report" \|\| pathname === "\/blue-desk\/daily-report"/);
+  assert.match(middleware,/NextResponse\.redirect\("https:\/\/bluebelly-desk\.vercel\.app\/newsroom"/);
+  assert.match(middleware,/request\.nextUrl\.searchParams\.has\(key\)/);
+  assert.equal(blueDeskHostAccess("/owner/daily-report","bluebelly-desk.vercel.app"),"private");
+});
