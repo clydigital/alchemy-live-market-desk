@@ -1,4 +1,5 @@
-import {digest} from "./bluebelly-private-html-archive-contract";
+import {createHash} from "node:crypto";
+const digest=(value:string)=>createHash("sha256").update(value).digest("hex");
 
 /** A locally authored reader is source text, not evidence that its claims were
  * independently checked. Keep graphics and text, remove active content and
