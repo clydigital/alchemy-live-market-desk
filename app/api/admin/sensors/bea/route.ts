@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   }
 
   const snapshot = await fetchBeaSnapshot(process.env.BEA_API_KEY);
-  const status = snapshot.state === "unavailable" ? 502 : 200;
+  const status = snapshot.state === "ready" || snapshot.state === "unconfigured" ? 200 : 502;
   return Response.json(snapshot, {
     status,
     headers: { "Cache-Control": "no-store" },
