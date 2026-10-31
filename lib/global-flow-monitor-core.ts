@@ -115,6 +115,7 @@ function eiaFlowMetric(input: {
   family: FlowMetric["family"];
   label: string;
   metric: EiaWeeklyMetric | undefined;
+  sourceUrl?: string;
   interpretation: string;
 }): FlowMetric {
   const metric = input.metric;
@@ -144,8 +145,10 @@ function eiaFlowMetric(input: {
     state: "ready",
     asOf: latest.period,
     cadence: "Weekly · EIA WPSR",
-    sourceName: `U.S. EIA Open Data v2 · ${metric.seriesId}`,
-    sourceUrl: EIA_WEEKLY_PETROLEUM_ROUTE,
+    sourceName: `${input.sourceUrl?.includes("ir.eia.gov/wpsr/")?"U.S. EIA official WPSR CSV":"U.S. EIA Open Data v2"} · ${metric.seriesId}`,
+    sourceUrl: input.sourceUrl?.includes("ir.eia.gov/wpsr/")&&
+      ["refineryUtilisation","refineryCrudeInputs"].includes(metric.key)
+      ?"https://ir.eia.gov/wpsr/table9.csv":(input.sourceUrl||EIA_WEEKLY_PETROLEUM_ROUTE),
     interpretation: input.interpretation,
   };
 }
@@ -330,6 +333,7 @@ export async function buildGlobalFlowMonitorFromInputs(
       id: "us-crude-stocks",
       family: "Oil Supply",
       label: "Commercial crude stocks ex-SPR",
+      sourceUrl: eia.sourceUrl,
       metric: eia.metrics.crudeStocksExSpr,
       interpretation: "A large weekly inventory build can absorb physical disruption and cap the crude risk premium; a draw tightens the balance.",
     }),
@@ -337,6 +341,7 @@ export async function buildGlobalFlowMonitorFromInputs(
       id: "us-gasoline-stocks",
       family: "Oil Demand",
       label: "Gasoline stocks",
+      sourceUrl: eia.sourceUrl,
       metric: eia.metrics.gasolineStocks,
       interpretation: "Gasoline inventories help distinguish weak end-demand from refinery/product tightness.",
     }),
@@ -344,6 +349,7 @@ export async function buildGlobalFlowMonitorFromInputs(
       id: "us-distillate-stocks",
       family: "Oil Demand",
       label: "Distillate stocks",
+      sourceUrl: eia.sourceUrl,
       metric: eia.metrics.distillateStocks,
       interpretation: "Distillate inventories are a direct physical check on diesel/product-market tightness.",
     }),
@@ -351,6 +357,7 @@ export async function buildGlobalFlowMonitorFromInputs(
       id: "us-refinery-utilisation",
       family: "Oil Supply",
       label: "Refinery operable utilisation",
+      sourceUrl: eia.sourceUrl,
       metric: eia.metrics.refineryUtilisation,
       interpretation: "Refinery utilisation shows whether downstream capacity is absorbing crude and replenishing product inventories.",
     }),
@@ -358,6 +365,7 @@ export async function buildGlobalFlowMonitorFromInputs(
       id: "us-refinery-inputs",
       family: "Oil Supply",
       label: "Refiner crude inputs",
+      sourceUrl: eia.sourceUrl,
       metric: eia.metrics.refineryCrudeInputs,
       interpretation: "Crude inputs measure actual refinery throughput rather than inferring runs from product prices.",
     }),
@@ -365,6 +373,7 @@ export async function buildGlobalFlowMonitorFromInputs(
       id: "us-implied-demand",
       family: "Oil Demand",
       label: "Finished motor gasoline product supplied",
+      sourceUrl: eia.sourceUrl,
       metric: eia.metrics.gasolineProductSupplied,
       interpretation: "EIA product supplied is the canonical weekly US demand proxy used here; it is not treated as literal end-consumption.",
     }),
@@ -372,6 +381,7 @@ export async function buildGlobalFlowMonitorFromInputs(
       id: "us-spr",
       family: "Strategic Reserves",
       label: "SPR crude stocks",
+      sourceUrl: eia.sourceUrl,
       metric: eia.metrics.sprStocks,
       interpretation: "A rising or falling SPR balance shows whether strategic inventories are adding to or subtracting from the commercial crude balance.",
     }),
@@ -379,6 +389,7 @@ export async function buildGlobalFlowMonitorFromInputs(
       id: "us-production",
       family: "Oil Supply",
       label: "US crude production",
+      sourceUrl: eia.sourceUrl,
       metric: eia.metrics.crudeProduction,
       interpretation: "Weekly domestic production provides an official US supply offset to geopolitical disruption and import risk.",
     }),
