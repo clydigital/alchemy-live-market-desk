@@ -27,19 +27,12 @@ test("same original source report is shown only once and current beats equally s
  assert.equal(result.length,2);
  assert.equal(result[0].news.id,"unique");
 });
-test("the owner report category library offers pagination and removes duplicate editor nav",()=>{
+test("My Desk retires legacy category pagination and keeps the private daily report first",()=>{
  const page=readFileSync(new URL("../app/my-reports/page.tsx",import.meta.url),"utf8");
  const header=readFileSync(new URL("../components/blue-desk/BlueDeskHeader.tsx",import.meta.url),"utf8");
- assert.match(page,/const PAGE_SIZE=2/);
- assert.match(page,/CATEGORIES\.map/);
- assert.match(page,/data-library-page=\{currentPage\}/);
- assert.match(page,/pageHref\(activeType,currentPage\+1\)/);
- assert.match(page,/data-edition-type=\{item\.kind\}/);
- assert.match(page,/"market"/);
- assert.match(page,/"angles"/);
- assert.match(page,/"creators"/);
- assert.match(page,/"audits"/);
- assert.match(page,/const PAGE_SIZE=2/);
+ assert.match(page,/OwnerDailyIntelligenceHome/);
+ assert.match(page,/OwnerDailyTopicIdeas/);
+ assert.doesNotMatch(page,/PAGE_SIZE|CATEGORIES\.map|data-library-page|pageHref|data-edition-type/);
  const nav=header.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0]||"";
  assert.doesNotMatch(nav,/Writing Desk/);
  assert.match(nav,/My Desk/);
