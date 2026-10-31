@@ -86,6 +86,7 @@ async function fetchProviderReadiness():Promise<{checkedAt:string;providers:Prov
     observationCount:b?.observations.length??0,
     retrievedAt:b?.retrievedAt??null,
     note:b?.state==="ready"?"Dated original BEA NIPA GDP/PCE observations received":
+      b?.state==="partial"?"BEA partial: one NIPA table unavailable; not accepted as complete evidence":
       b?.state==="unconfigured"?"Credential not visible to this server; team Shared Variables not inspected":
       "BEA response unavailable or missing usable original-series rows",
     sourceUrl:"https://apps.bea.gov/api/data/",
