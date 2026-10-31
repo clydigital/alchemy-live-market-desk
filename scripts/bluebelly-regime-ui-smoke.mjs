@@ -172,6 +172,17 @@ try{
    await renderChrome("http://127.0.0.1:"+PUBLIC+path,id+"-desktop.png",1440,1000);
   console.log("Public CP page "+path+" "+view.status+" · mobile render saved");
  }
+
+ // The Learn slide reader shares the visual system but its controls use
+ // independent styles; exercise both index and first presentation in Chrome.
+ for(const [path,name] of [["/learn","learn-index"],["/learn/decks/d13","learn-deck"]]){
+  const page=await waitResponse(path);
+  if(page.status!==200)throw Error("Learn readability route failed "+path+" HTTP "+page.status);
+  if(!page.html.includes("BLUEBELLY")&&!page.html.includes("Bluebelly"))
+   throw Error("Unexpected Learn response "+path);
+  await renderChrome("http://127.0.0.1:"+PUBLIC+path,name+"-mobile.png",390,844);
+  console.log("Learn readability "+path+" rendered at 390px");
+ }
  console.log("Regime UI smoke PASS; outputs in "+outputs);
 }catch(error){console.error(error);process.exitCode=1}
 finally{
