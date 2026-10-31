@@ -8,7 +8,7 @@ import {
   getSupabasePublicConfig,
 } from "@/lib/supabase/config";
 import { PRODUCTION_RESEARCH_AUTOMATION_PAUSED } from "@/lib/research-automation-routing";
-import { LIVE_DESK_PRESENTATION_HOST, blueDeskHostAccess, blueDeskPresentationTarget, publicLiveLegacyTabDestination } from "@/lib/blue-desk-host";
+import { LIVE_DESK_PRESENTATION_HOST, blueDeskHostAccess, blueDeskPresentationTarget, publicLiveLegacyTabDestination, retiredLivePublicDestination } from "@/lib/blue-desk-host";
 
 function startsWithAny(pathname: string, paths: readonly string[]) {
   return paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
@@ -64,14 +64,23 @@ export async function middleware(request: NextRequest) {
   // public allowlist; raw query data is never used to construct redirects.
   if (pathname === "/"
       && (host || "").trim().toLowerCase().replace(/:443$/, "") === LIVE_DESK_PRESENTATION_HOST
-      && request.nextUrl.searchParams.has("tab")) {
+      && request.nextUrl.searchParams.has("tab")
+      && !["edition","dossier","story","motion","regime","event","research_run","article","snapshot"]
+        .some(key=>request.nextUrl.searchParams.has(key))) {
     const publicDestination = publicLiveLegacyTabDestination(request.nextUrl.searchParams.get("tab"));
     const url = request.nextUrl.clone();
     const [safePath, anchor] = publicDestination.split("#");
     url.pathname = safePath;
     url.search = "";
     url.hash = anchor ? "#" + anchor : "";
-    return NextResponse.redirect(url);
+    // External redirect: old human bookmarks leave the Live domain, rather
+    // than looping into the now-retired Live presentation shell.
+    const destination = new URL("https://bluebelly-desk.vercel.app");
+    destination.pathname = safePath === "/owner/markets" ? "/markets" : safePath;
+    destination.hash = url.hash;
+    return NextResponse.redirect(destination, {
+      status: 307, headers: { "Cache-Control": "no-store" },
+    });
   }
 
   // The public hostname must never expose legacy pages, internal APIs,
@@ -82,7 +91,17 @@ export async function middleware(request: NextRequest) {
       headers: { "Cache-Control": "private, no-store" },
     });
   }
-  if (accessScope === "public") return presentationResponse(request);
+  if (accessScope === "public") {
+    const nextPublic = retiredLivePublicDestination(pathname, host, request.nextUrl.search);
+    if (nextPublic) {
+      // Use a non-cacheable temporary redirect until exact edition parity and
+      // historical bookmark handling are proven. Safe to roll back.
+      return NextResponse.redirect(nextPublic, {
+        status: 307, headers: { "Cache-Control": "no-store" },
+      });
+    }
+    return presentationResponse(request);
+  }
 
   if (PRODUCTION_RESEARCH_AUTOMATION_PAUSED && pathname.startsWith("/api/cron/research/")) {
     return NextResponse.json(
