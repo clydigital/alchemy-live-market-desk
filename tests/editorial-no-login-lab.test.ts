@@ -26,7 +26,9 @@ test("neither owner APIs nor live owner pages are unguarded by the new lab route
  }
  const middleware=text("middleware.ts");
  assert.match(middleware,/if \(accessScope === "blocked"\)/);
- assert.match(middleware,/if \(accessScope === "public"\) return presentationResponse\(request\)/);
+ assert.match(middleware,/if \(accessScope === "public"\) \{/);
+ assert.match(middleware,/return presentationResponse\(request\);/);
+ assert.match(middleware,/retiredLivePublicDestination\(pathname, host, request\.nextUrl\.search\)/);
  assert.match(middleware,/supabase\.auth\.getClaims\(\)/);
  assert.match(middleware,/app_access_allowlist/);
 });
