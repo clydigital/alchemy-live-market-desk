@@ -11,6 +11,7 @@ on:
       - 'app/blue-desk/newsroom/**'
       - 'app/blue-desk/hormuz/**'
       - 'app/blue-desk/markets/**'
+      - 'components/blue-desk/DecisionBrief.module.css'
       - 'components/blue-desk/bluebelly-newswire.module.css'
       - 'app/bluebelly-tokens.css'
       - 'lib/bluebelly-fundamental-quickview.ts'
