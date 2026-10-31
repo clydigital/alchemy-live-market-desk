@@ -4,11 +4,14 @@ on:
   pull_request:
     paths:
       - 'app/blue-desk/regime-watch/**'
+      - 'app/blue-desk/learn/**'
+      - 'app/blue-desk/blue-desk.module.css'
       - 'app/blue-desk/key-stories/**'
       - 'app/blue-desk/daily-report/**'
       - 'app/blue-desk/newsroom/**'
       - 'app/blue-desk/hormuz/**'
       - 'app/blue-desk/markets/**'
+      - 'components/blue-desk/DecisionBrief.module.css'
       - 'components/blue-desk/bluebelly-newswire.module.css'
       - 'app/bluebelly-tokens.css'
       - 'lib/bluebelly-fundamental-quickview.ts'

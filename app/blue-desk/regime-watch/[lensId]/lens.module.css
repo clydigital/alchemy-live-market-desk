@@ -314,3 +314,37 @@
 @media(max-width:760px){.hero{grid-template-columns:1fr;min-height:0;padding:25px 21px;gap:10px}.hero h1{font-size:clamp(34px,7vw,53px)}.heroArt{display:none}.scope{display:block;max-height:none;-webkit-line-clamp:unset;overflow:visible}.lensQuickStrip{grid-template-columns:1fr 1fr}.lensQuickStrip>div{padding:14px 16px}.lensQuickStrip>div:nth-child(3){grid-column:1/-1;border-top:1px solid var(--bb-line)}.lensQuickStrip>div:nth-child(2){border-right:0}.lensQuickStrip p{-webkit-line-clamp:3}.pageNav{margin:11px 0 18px}.outlookTop{grid-template-columns:1fr}.outlookWhy{grid-template-columns:1fr}.outlookWhy>div{min-height:0}.section{padding:20px}.section h2{font-size:clamp(23px,5.5vw,32px)}.sidebar{grid-template-columns:1fr}.otherGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.atGlanceMain,.atGlanceAside{padding:21px}}
 @media(max-width:520px){.breadcrumb{font-size:10px}.hero{padding:23px 18px}.hero h1{font-size:37px}.hero .kicker{font-size:10px}.heroActions a{flex:1;min-width:180px}.question{font-size:17px}.scope{font-size:13px}.meta{font-size:10px}.lensQuickStrip strong{font-size:22px}.lensQuickStrip small,.lensQuickStrip span{font-size:9px}.pageNav a{padding:12px 10px;font-size:9px}.outlookPanel{padding:16px}.outlookNarrative h2{font-size:26px}.verifiedEditorial{padding:16px}.verifiedInterpretations{grid-template-columns:1fr}.mechanismRail{grid-template-columns:1fr}.mechanismRail li{min-height:0}.mechanismRail li:after{display:none!important}.monitorGrid,.forkGrid,.recentList,.otherGrid{grid-template-columns:1fr}.story{padding:17px}}
 @media(prefers-reduced-motion:reduce){.story,.monitor,.recentItem,.fork,.otherGrid a,.railCard{transition:none}}
+
+/* Lens workbooks: distinguish reviewed conclusions from source metadata. */
+.hero .kicker,.meta,.artCaption,.artFootnote{font-size:11px;line-height:1.5}
+.question{font-size:clamp(18px,1.7vw,23px);line-height:1.57;max-width:66ch}
+.scope{font-size:15px;line-height:1.73;max-width:73ch}
+.heroActions a{font-size:12px;min-height:44px;line-height:1.45}
+.lensQuickStrip span,.lensQuickStrip small{font-size:11px;line-height:1.5}
+.lensQuickStrip p{font-size:14px;line-height:1.7;-webkit-line-clamp:unset;display:block;overflow:visible}
+.pageNav a{font-size:12px;line-height:1.45;min-height:44px;display:inline-flex;align-items:center}
+.outlookNarrative>p,.verifiedStory{font-size:16px;line-height:1.78;max-width:76ch}
+.outlookWhy p,.verifiedInterpretations p,.verifiedTest p{font-size:15px;line-height:1.72}
+.section>p,.atGlanceMain>p{font-size:15px;line-height:1.76;max-width:77ch}
+.atGlanceAside p{font-size:17px;line-height:1.62}
+.mechanismRail strong{font-size:15px;line-height:1.65}
+.mechanismNote{font-size:14px;line-height:1.7}
+.monitor h3{font-size:clamp(19px,1.7vw,25px);line-height:1.35}
+.monitor>p,.recentItem p,.fork p,.scenario p,.thesis p{font-size:15px;line-height:1.76;color:var(--bb-text)}
+.monitorTop,.monitorTop small,.discriminator strong,.discriminator p{font-size:12px;line-height:1.6}
+.monitor a,.railCard a,.sourceFooter a{font-size:13px;line-height:1.6}
+.railCard p,.evidenceGrid p,.tests p,.pricing{font-size:14px;line-height:1.75}
+.recorded,.measurementState{font-size:12px;line-height:1.55}
+.story h4{font-size:16px;line-height:1.5}
+.otherGrid span{font-size:11px}
+.otherGrid strong{font-size:17px;line-height:1.35}
+@media(max-width:760px){
+ .hero .kicker,.meta{font-size:11px}
+ .scope{font-size:15px}
+ .lensQuickStrip span,.lensQuickStrip small{font-size:11px}
+ .lensQuickStrip p{font-size:14px}
+ .section{padding:21px}
+ .story{padding:19px}
+ .verifiedStory,.outlookNarrative>p{font-size:16px}
+ .pageNav a{font-size:12px;min-height:44px}
+}

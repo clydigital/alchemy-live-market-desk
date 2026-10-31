@@ -76,3 +76,26 @@
 .releasedLink:hover{text-decoration:underline}
 .releasedLink:focus-visible{outline:2px solid var(--bb-accent);outline-offset:-2px}
 @media(max-width:700px){.lanes{grid-template-columns:1fr}.lanes>section:first-child{grid-column:auto}.releasedLink{font-size:14px}}
+
+/* Accent-panel source clocks must stay legible: shared .brief small had
+   mistakenly tinted the MYT timestamp grey on bright yellow. */
+.headlineRow .cutoff,
+.headlineRow .cutoff small,
+.homeLead .homeFoot,
+.homeLead .homeFoot small{color:var(--bb-accent-ink)!important;-webkit-text-fill-color:var(--bb-accent-ink)}
+.headlineRow .cutoff small,.homeLead .homeFoot small{opacity:1!important;font-size:12px!important;line-height:1.55!important}
+.headlineRow .cutoff,.homeLead .homeFoot{font-size:12px;line-height:1.6}
+.header .verdict{font-size:17px;line-height:1.76;color:var(--bb-text)}
+.header .verdict span{color:var(--bb-text)}
+.header .next{font-size:16px;line-height:1.75;color:var(--bb-text)}
+.header .evidence summary{font-size:13px;min-height:44px;display:flex;align-items:center}
+.brief details p{font-size:15px;line-height:1.75}
+.brief .releasedLink{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;min-height:44px;padding:12px 0;line-height:1.55;font-size:15px}
+.homeAside .evidence p{font-size:15px;line-height:1.7;color:var(--bb-text)}
+.homeAside .verdict,.homeTest .next{font-size:16px;line-height:1.76}
+@media(max-width:700px){
+ .header .verdict,.header .next{font-size:16px;line-height:1.74}
+ .homeAside .verdict,.homeTest .next{font-size:16px}
+ .homeDeck{font-size:17px;line-height:1.74}
+ .homeLead .homeFoot small{font-size:12px!important}
+}

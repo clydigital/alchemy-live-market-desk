@@ -158,3 +158,32 @@
  color:#101010 !important;
  -webkit-text-fill-color:#101010;
 }
+
+/* Research-index reading hierarchy: the case comes before metadata. */
+.intro p{font-size:clamp(15px,1.45vw,18px);line-height:1.75;max-width:68ch}
+.introContent>small{font-size:12px;line-height:1.55}
+.heroActions a{font-size:12px;min-height:44px;padding:13px 17px;line-height:1.4}
+.intelStrip div>span,.intelStrip small{font-size:11px;line-height:1.45}
+.intelStrip>p{font-size:14px;line-height:1.72;color:var(--bb-text)}
+.crashFeatured p{font-size:16px;line-height:1.73;max-width:72ch;color:var(--bb-text)}
+.crashNote{font-size:12px;line-height:1.65;color:var(--bb-muted)}
+.crashFeaturedLink,.crashFeaturedLink:visited,.crashFeaturedLink:hover,.crashFeaturedLink:focus-visible{font-size:13px;line-height:1.5;min-height:50px;padding:15px 17px;color:var(--bb-accent-ink)!important;-webkit-text-fill-color:var(--bb-accent-ink)}
+.crashFeaturedLink span{color:var(--bb-accent-ink)!important;-webkit-text-fill-color:var(--bb-accent-ink)}
+.heading>span{font-size:12px;line-height:1.6}
+.lensIntro,.transmission>p{font-size:15px;line-height:1.72;max-width:77ch}
+.card .content>p,.card .content>p:not(.lensReason){font-size:14px;line-height:1.7;color:var(--bb-muted)}
+.card .content .lensReason{font-size:15px;line-height:1.73;color:var(--bb-text)}
+.cardHeading .kicker,.cardSerial,.editorialUpdate,.coverage{font-size:11px;line-height:1.5}
+.card .open{font-size:12px;line-height:1.45;min-height:44px;padding:14px}
+.path span,.path small{font-size:12px;line-height:1.5}
+.path strong{font-size:16px;line-height:1.55}
+@media(max-width:680px){
+ .intro p,.crashFeatured p{font-size:15px}
+ .intelStrip div>span,.intelStrip small{font-size:10px}
+ .intelStrip>p{font-size:14px;padding:17px}
+ .card .content{padding:19px}
+ .card .content .lensReason{font-size:15px}
+ .crashFeaturedLink{flex:1 1 100%;justify-content:space-between;min-height:50px}
+ .heroActions a{flex-basis:100%;font-size:12px}
+ .heading>span{font-size:12px}
+}
