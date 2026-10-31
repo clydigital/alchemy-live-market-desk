@@ -8,6 +8,17 @@ export type ArchiveInput={title:string;body:string;selectedSources:string;select
 export type Receipt={url:string;publisher:string;publishedAt:string;title:string;status:"ORIGINAL_VERIFIED"|"CORROBORATED"|"ATTRIBUTED"};
 export const digest=(s:string|Uint8Array)=>createHash("sha256").update(s).digest("hex");
 export const validArchiveId=(s:unknown):s is string=>typeof s==="string"&&UUID.test(s);
+/** The editorial date follows MYT. Corrections retain the original edition
+ * date while their as-of clock remains the actual revision timestamp. */
+export function effectiveArchiveDay(asOf:Date,correctionOfDay?:string|null):string{
+ if(!Number.isFinite(asOf.getTime()))throw Error("INVALID_ARCHIVE_CLOCK");
+ const derived=new Date(asOf.getTime()+8*3600_000).toISOString().slice(0,10);
+ if(correctionOfDay==null)return derived;
+ if(!/^\d{4}-\d\d-\d\d$/.test(correctionOfDay)||
+    new Date(correctionOfDay+"T00:00:00.000Z").toISOString().slice(0,10)!==correctionOfDay)
+  throw Error("INVALID_ARCHIVE_CORRECTION_DAY");
+ return correctionOfDay;
+}
 export function archivePath(owner:string,day:string,id:string){
  if(!validArchiveId(owner)||!validArchiveId(id)||!/^\d{4}-\d\d-\d\d$/.test(day))
   throw Error("INVALID_ARCHIVE_PATH");
