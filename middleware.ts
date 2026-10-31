@@ -64,7 +64,9 @@ export async function middleware(request: NextRequest) {
   // public allowlist; raw query data is never used to construct redirects.
   if (pathname === "/"
       && (host || "").trim().toLowerCase().replace(/:443$/, "") === LIVE_DESK_PRESENTATION_HOST
-      && request.nextUrl.searchParams.has("tab")) {
+      && request.nextUrl.searchParams.has("tab")
+      && !["edition","dossier","story","motion","regime","event","research_run","article","snapshot"]
+        .some(key=>request.nextUrl.searchParams.has(key))) {
     const publicDestination = publicLiveLegacyTabDestination(request.nextUrl.searchParams.get("tab"));
     const url = request.nextUrl.clone();
     const [safePath, anchor] = publicDestination.split("#");
