@@ -74,7 +74,7 @@ export default function OwnerHtmlEditionArchive(props:{
   }catch(e){setNote(e instanceof Error?e.message:"Import unavailable");}
   finally{setBusy(false);}
  }
- return <section className={css.archive} data-owner-private-html-archive="session-authorised">
+ return <section id="html-report-library" className={css.archive} data-owner-private-html-archive="session-authorised">
   <header className={css.heading}>
    <div><p className={css.kicker}>PRIVATE HTML / IMMUTABLE HISTORY</p>
     <h3>My HTML report editions</h3>
