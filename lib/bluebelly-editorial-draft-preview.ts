@@ -47,7 +47,7 @@ export function buildPrivateDailyReaderDraft(input:{
  const sections:ReaderSection[]=[];
  let current:ReaderSection|null=null;
  const start=(title:string)=>{
-  current={id:"chapter-"+(sections.length+1),title,opening:"Private editorial draft; each factual and causal claim still requires review.",blocks:[]};
+  current={id:"chapter-"+(sections.length+1),title,opening:"",blocks:[]};
   sections.push(current);
  };
  start("The market story");
@@ -55,12 +55,15 @@ export function buildPrivateDailyReaderDraft(input:{
   const heading=chunk.match(/^#{1,3}\s+([^\n]{8,100})$/);
   if(heading){start(heading[1].trim());continue;}
   if(!current)start("Continuing analysis");
-  // Keep reasonable visual pacing without inventing new subsections.
-  // An automatic break is navigational, not a new editorial interpretation.
-  if(current!.blocks.length>=7)start("Continuing analysis — part "+(sections.length+1));
+  // The first real paragraph becomes the section's opening, once only.
+  // Long sections break for navigation without rewriting or inventing content.
+  if(current!.blocks.length>=7)start("Continuation "+(sections.length+1));
+  if(!current!.opening){current!.opening=chunk;continue;}
   current!.blocks.push({kind:"paragraph",text:chunk,sourceIds:[]});
  }
- if(!sections.some(s=>s.blocks.length))throw new Error("EMPTY_NARRATIVE");
+ if(!sections.some(s=>s.opening))throw new Error("EMPTY_NARRATIVE");
+ // A dangling heading with no copy must not emit an artificial summary.
+const active=sections.filter(s=>Boolean(s.opening));
  const snapshotSha256=createHash("sha256").update(JSON.stringify({
    title,body,asOf:input.asOf,
    sources:sources.map(s=>[s.id,s.url,s.publishedAt,s.status]),
@@ -71,6 +74,6 @@ export function buildPrivateDailyReaderDraft(input:{
   snapshotSha256,title,
   deck:"Private formatting preview · Independent source receipts are listed, but this draft's claims are not adjudicated.",
   executiveSummary:opening,
-  sections,sources,status:"PRIVATE_DRAFT",
+  sections:active,sources,status:"PRIVATE_DRAFT",
  };
 }
