@@ -8,13 +8,18 @@ import type {ReaderEdition,ReaderSection,ReaderSource} from "./bluebelly-editori
  */
 export function buildPrivateDailyReaderDraft(input:{
  title:string;body:string;asOf:string;news:readonly NewsBriefV1[];
+ selectedSourceUrls?:readonly string[];
 }):ReaderEdition{
  const title=input.title.trim(),body=input.body.trim();
  const at=Date.parse(input.asOf);
  if(!Number.isFinite(at)||!input.asOf.endsWith("Z")||
    title.length<8||title.length>110||body.length<250||body.length>75000)
    throw new Error("INVALID_PRIVATE_READER_DRAFT");
- const factual=input.news.filter(n=>
+ const selected=new Set((input.selectedSourceUrls||[]).slice(0,12).flatMap(raw=>{
+  try{const u=new URL(raw);return u.protocol==="https:"&&!u.username&&!u.password?[u.toString()]:[];}
+  catch{return [];}
+ }));
+ const factual=input.news.filter(n=>selected.has(n.sourceUrl)&&
    n.verification==="SOURCE_VERIFIED"&&
    Number.isFinite(Date.parse(n.occurredAt))&&Date.parse(n.occurredAt)<=at&&
    at-Date.parse(n.occurredAt)<=48*3600_000&&
@@ -36,7 +41,7 @@ export function buildPrivateDailyReaderDraft(input:{
    period:"Source-dated event, not independently matched market reaction",
   });
  }
- if(!sources.length)throw new Error("NO_RECENT_INDEPENDENT_SOURCE_RECEIPTS");
+ // A private layout preview may have no qualifying source. Never forge a ledger.
  // Preserve every paragraph. Do not synthesize an opinion or reorder scenes.
  // Explicit headings are used only as layout cues. One original lead is lifted
  // to the executive opening rather than being duplicated in the main narrative.
