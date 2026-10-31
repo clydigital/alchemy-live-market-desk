@@ -5,19 +5,18 @@ import {blueDeskHostAccess} from "../lib/blue-desk-host.ts";
 import {parseEditorialSlate} from "../lib/editorial-slate-core.ts";
 const read=(p:string)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 
-test("Writing Brain's latest saved slate renders directly as private HTML, never inferred as a published article",()=>{
+test("the private My Desk shows only latest report-linked ideas, not stale saved slate HTML",()=>{
  const page=read("app/my-reports/page.tsx");
- const view=read("components/blue-desk/OwnerEditorialSlateHtml.tsx");
- assert.match(page,/getLatestEditorialSlate\(\)/);
- assert.match(page,/<OwnerEditorialSlateHtml slate=\{liveSlate.slate\} status=\{liveSlate.status\}\/>/);
- assert.match(view,/data-owner-editorial-slate-html="private-read-only"/);
- for(const field of ["catalystTimeline","expectation","priceReaction","mechanism",
-  "countercase","nextTrigger","chartGuidance","missingProof","sourceUrls"])
-  assert.ok(view.includes("idea."+field),field);
- assert.match(view,/PARTIAL VERIFICATION/);
- assert.match(view,/slate.ageLabel/);
- assert.match(view,/target="_blank" rel="noopener noreferrer"/);
- assert.doesNotMatch(view,/dangerouslySetInnerHTML|generateContent|createSupabaseAdminClient/);
+ const view=read("components/blue-desk/OwnerDailyTopicIdeas.tsx");
+ const server=read("lib/bluebelly-owner-report-led-ideas.ts");
+ assert.match(page,/<OwnerDailyTopicIdeas\/>/);
+ assert.doesNotMatch(page,/getLatestEditorialSlate|OwnerEditorialSlateHtml|OwnerEditorialSlatePdfReader/);
+ assert.match(view,/DAILY_REPORT|daily-report-linked|current-three-ideas/);
+ assert.match(view,/Antithesis:/);
+ assert.match(view,/What to look for:/);
+ assert.match(view,/Original source/);
+ assert.match(server,/app_access_allowlist/);
+ assert.match(server,/digest\(data\.html_content\)/);
  assert.equal(blueDeskHostAccess("/my-reports","bluebelly-desk.vercel.app"),"private");
  const valid=parseEditorialSlate({day_myt:"2026-10-29",
   produced_at:"2026-10-29T01:29:00Z",verification_status:"partial",
@@ -44,7 +43,7 @@ test("Legacy PDF runs default to off while existing research cron and HTML paths
  assert.match(gap,/process.env.BLUEBELLY_ENABLE_LEGACY_PDF==="true"/);
  assert.match(gap,/handleScheduledResearchGapHandoff/);
  assert.match(retry,/process.env.BLUEBELLY_ENABLE_LEGACY_PDF!=="true"/);
- assert.match(read("app/my-reports/page.tsx"),/getPrivateHtmlEditions/);
- assert.match(read("app/my-reports/page.tsx"),/data-my-desk-pdf-legacy="hidden-by-default"/);
+ assert.match(read("app/my-reports/page.tsx"),/OwnerDailyIntelligenceHome/);
+ assert.doesNotMatch(read("app/my-reports/page.tsx"),/data-my-desk-pdf-legacy="hidden-by-default"/);
  assert.doesNotMatch(read("vercel.json"),/bluebelly-html-slate/);
 });

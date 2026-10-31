@@ -128,7 +128,9 @@ test("Bluebelly My Reports enclave is login-protected and nothing else gains own
  assert.ok(pdf.includes('app_access_allowlist'));
  assert.ok(pdf.includes('data.pdf_path!==exact'));
  const page=readFileSync(new URL("../app/my-reports/page.tsx",import.meta.url),"utf8");
- assert.ok(page.includes("<OwnerAutomaticReportReader/>"));
+ assert.ok(page.includes("<OwnerDailyIntelligenceHome/>"));
+ assert.ok(page.includes("<OwnerDailyTopicIdeas/>"));
+ assert.ok(!page.includes("<OwnerAutomaticReportReader/>"));
  assert.ok(!page.includes("ReportPublisher"));
  assert.ok(page.includes("index:false,follow:false"));
  const publicDaily=readFileSync(new URL("../app/blue-desk/daily-report/page.tsx",import.meta.url),"utf8");

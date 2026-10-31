@@ -29,16 +29,16 @@ test("distinct corrections retain separate hashes and latest report day wins",()
  assert.deepEqual(result.editions.map(x=>x.id),[newer.id,revised.id,base.id]);
  assert.equal(result.duplicatesHidden,0);
 });
-test("My Desk puts saved Daily Intelligence above editorial suggestions; old archives remain collapsed",()=>{
+test("My Desk puts the latest report before inline suggestions and removes old archives",()=>{
  const p=read("app/my-reports/page.tsx");
  const main=p.indexOf("<OwnerDailyIntelligenceHome/>");
- const ideas=p.indexOf("<OwnerEditorialSlateHtml");
- const history=p.indexOf('data-my-desk-tertiary="legacy-drive-and-research"');
- assert.ok(main>0&&ideas>main&&history>ideas);
+ const ideas=p.indexOf("<OwnerDailyTopicIdeas/>");
+ assert.ok(main>0&&ideas>main);
  assert.match(p,/data-my-desk-secondary="daily-report-to-ob-cotd"/);
- assert.match(p,/Existing saved slates may predate the current edition/);
- assert.match(p,/<details className=\{layout.secondaryLibrary\}/);
- assert.match(p,/Historical investigations and manual rates worksheets/);
+ assert.doesNotMatch(p,/OwnerEditorialSlateHtml|legacy-drive-and-research|manual-research|OwnerEditorialSlatePdfReader/);
+ const reader=read("components/blue-desk/OwnerDailyIntelligenceHome.tsx");
+ assert.match(reader,/postCutoverDailyArchive\(previous\)/);
+ assert.match(reader,/data-my-desk-archive="post-cutover-daily-reports-only"/);
 });
 test("My Desk reads both owner-only private stores rather than the legacy Drive registry",()=>{
  const h=read("lib/bluebelly-owner-daily-intelligence.ts");
@@ -49,7 +49,7 @@ test("My Desk reads both owner-only private stores rather than the legacy Drive 
  assert.match(h,/blue_desk_work_html_editions/);
  assert.match(h,/blue_desk_private_html_editions/);
  assert.match(h,/uniquePrivateDailyIntelligence\(rows\)/);
- assert.match(card,/Latest saved/);
+ assert.match(card,/Current report/);
  assert.match(card,/OwnerPrivateHtmlInlineReader/);
  assert.match(card,/No saved Daily Intelligence edition yet/);
  assert.match(card,/Private draft, not publicly published/);
