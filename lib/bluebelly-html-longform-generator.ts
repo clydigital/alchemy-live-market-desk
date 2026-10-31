@@ -39,23 +39,57 @@ export function longformChapterPrompt(input:{
   evidencePacket:input.packet.slice(0,24000),
  });
 }
-const monetary=/[$£€]\s*(\d+(?:[.,]\d+)*)|\b(\d+(?:[.,]\d+)*)(?:\s?%|\s*(?:bn|billion|million|trillion|bps|basis points)\b)/gi;
-const numeric=(s:string)=>[...s.matchAll(/\d+(?:[.,]\d+)*/g)].map(m=>m[0].replaceAll(",",""));
+/**
+ * Bounded, lexical evidence gate only. A repeated number is not proof of a
+ * financial claim: 3.7% must never authorise $3.7bn or 3.7 basis points.
+ * The caller still needs human/primary-source verification of each assertion.
+ */
+const quantified=/(?:([$£€])\s*)?(\d[\d,]*(?:\.\d+)?)(?:\s*)(%|percentage points?|percent(?:age)?|basis[ -]points?|bps?|trillions?|billions?|millions?|thousands?|bn|mm)?/gi;
+const normalUnit=(value:string)=>{
+ const unit=value.toLowerCase().trim().replace(/\s+/g," ");
+ if(unit==="% "||unit==="%"||unit==="percent"||unit==="percentage")return "%";
+ if(unit.startsWith("percentage point"))return "percentage-points";
+ if(unit==="bp"||unit==="bps"||unit.startsWith("basis"))return "bps";
+ if(unit==="bn"||unit.startsWith("billion"))return "billion";
+ if(unit==="mm"||unit.startsWith("million"))return "million";
+ if(unit.startsWith("trillion"))return "trillion";
+ if(unit.startsWith("thousand"))return "thousand";
+ return unit;
+};
+function quantifiedClaims(text:string):Set<string>{
+ const claims=new Set<string>();
+ for(const match of text.matchAll(quantified)){
+  const currency=match[1]||"";
+  const unit=match[3]?normalUnit(match[3]):"";
+  if(!currency&&!unit)continue;
+  const amount=Number(match[2].replaceAll(",",""));
+  if(!Number.isFinite(amount))continue;
+  const magnitude=String(amount)+"|"+unit;
+  // Currency-free paraphrases of an exact monetary source are safe to admit,
+  // but a different currency or an invented scale are not.
+  claims.add(magnitude+(currency?"|"+currency:""));
+  if(currency&&unit)claims.add(magnitude);
+ }
+ return claims;
+}
+const citedUrls=(text:string)=>new Set((text.match(/https?:\/\/[^\s<>")]+/gi)||[])
+ .map(url=>url.replace(/[.,;!?]+$/,"")));
 export function validateHtmlLongformChapter(raw:unknown,sourcePacket:string):string{
  if(typeof raw!=="string")throw new Error("LONGFORM_EMPTY_RESPONSE");
  const value=raw.trim().replace(/\r\n/g,"\n");
  if(value.length<420||value.length>19000||value.split(/\s+/).length<75)
   throw new Error("LONGFORM_INCOMPLETE_CHAPTER");
- if(/<\s*(?:script|iframe|img|a|style)\b/i.test(value)||/\x60{3}/.test(value))
+ // Model output is prose, not an HTML channel. Block all actual tags rather
+ // than only the subset that was previously disallowed.
+ if(/<\s*\/?\s*[a-z][^>]*>/i.test(value)||/\x60{3}/.test(value))
   throw new Error("LONGFORM_UNSAFE_MARKUP");
- const urls=value.match(/https?:\/\/[^\s<>")]+/gi)||[];
- for(const rawUrl of urls){
-  if(!sourcePacket.includes(rawUrl.replace(/[.,;!?]+$/,"")))throw new Error("LONGFORM_UNRECEIPTED_URL");
+ const allowedUrls=citedUrls(sourcePacket);
+ for(const url of citedUrls(value)){
+  if(!allowedUrls.has(url))throw new Error("LONGFORM_UNRECEIPTED_URL");
  }
- const known=new Set(numeric(sourcePacket));
- for(const match of value.matchAll(monetary)){
-  const number=(match[1]||match[2]).replaceAll(",","");
-  if(!known.has(number))throw new Error("LONGFORM_UNRECEIPTED_NUMERIC_CLAIM");
+ const allowedClaims=quantifiedClaims(sourcePacket);
+ for(const claim of quantifiedClaims(value)){
+  if(!allowedClaims.has(claim))throw new Error("LONGFORM_UNRECEIPTED_NUMERIC_CLAIM");
  }
  return value;
 }
