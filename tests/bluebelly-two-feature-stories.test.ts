@@ -53,7 +53,7 @@ test("Research is discoverable on both home and Key Stories and separate from ca
  for(const slug of ["asia-equities","global-bonds"]){
   assert.match(home,new RegExp("/blue-desk/features/"+slug));
   assert.match(keys,new RegExp("/blue-desk/features/"+slug));
-  assert.match(owner,new RegExp("/features/"+slug));
+  assert.doesNotMatch(owner,new RegExp("/features/"+slug)); // Historical manual research moved out of My Desk.
  }
  assert.match(feature,/data-evidence-status="independent-editorial-not-canonical"/);
  assert.match(feature,/data-manual-research=/);
