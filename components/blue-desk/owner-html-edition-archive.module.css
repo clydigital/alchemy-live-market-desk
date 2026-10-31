@@ -2,9 +2,9 @@
 .heading{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
 .heading h3{font-size:25px;margin:4px 0 12px;color:#eefbff}
 .heading p{font-size:13px;line-height:1.65;color:#b7d1df;max-width:790px}
-.kicker{font:700 11px Arial,sans-serif!important;color:#80d7e9!important;letter-spacing:.13em}
+.kicker{font:700 11px var(--bluebelly-font)!important;color:#80d7e9!important;letter-spacing:.13em}
 .actions{display:flex;align-items:end;gap:12px;margin:22px 0;flex-wrap:wrap}
-.actions label{display:grid;gap:7px;font:600 13px Arial,sans-serif;color:#d5e7f0;flex:1;min-width:240px}
+.actions label{display:grid;gap:7px;font:600 13px var(--bluebelly-font);color:#d5e7f0;flex:1;min-width:240px}
 .actions select{background:#041d2c;border:1px solid #517589;color:white;border-radius:5px;padding:11px;max-width:100%}
 .archive button{border:0;border-radius:6px;background:#b7e5fa;color:#042437;padding:10px 15px;font-weight:700;cursor:pointer}
 .archive button:disabled{opacity:.5;cursor:not-allowed}
