@@ -421,3 +421,9 @@
 @media(max-width:640px){.filingMetricList{grid-template-columns:minmax(0,1fr)}}
 
 .page{background:var(--bb-canvas);color:var(--bb-text);font-size:16px;line-height:1.7}.page a{color:var(--bb-accent)}.page a:focus-visible{outline-color:var(--bb-accent)}.content{max-width:1460px}.page h1,.page h2{letter-spacing:-.035em}.page p{line-height:1.7}.sectionHead{border-bottom:1px solid var(--bb-line)}.panel,.rates,.hero,.storyCard,.calendarCard{background:var(--bb-surface);border-color:var(--bb-line);border-radius:0}.kicker,.panelTop{color:var(--bb-accent);font-size:12px}.muted{color:var(--bb-muted)}
+
+
+/* Shared navigation legibility: improves keyboard/touch use without altering routes. */
+.navItem,.navActive{min-height:44px;font-size:14px;line-height:1.45;display:inline-flex;align-items:center}
+.page a:focus-visible{outline-width:3px;outline-offset:3px}
+@media(max-width:740px){.navItem,.navActive{min-height:44px;font-size:13px}}
