@@ -18,10 +18,10 @@ test("historical records remain visible but clearly labelled", () => {
 });
 
 
-test("What’s New bundles exact-video creator Motion before applying the 60-unit presentation ceiling", () => {
+test("What’s New bundles creator Motion before the bounded 60-unit Story-reserved presentation ceiling", () => {
   assert.match(page, /buildMarketMotionPresentationUnits\(motionRecords\)/);
   const bundle = page.indexOf("buildMarketMotionPresentationUnits(motionRecords)");
-  const ceiling = page.indexOf(".slice(0, 60)");
+  const ceiling = page.indexOf("selectRecentWithStoryReserve(candidateDeltas, 60, 8)");
   assert.ok(bundle >= 0 && ceiling > bundle);
   assert.match(page, /motionBundle:/);
   assert.match(page, /previewClaimIds/);
