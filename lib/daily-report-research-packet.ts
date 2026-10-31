@@ -41,6 +41,7 @@ export function buildDailyResearchPacket(input:{
   prices:readonly DailyResearchPriceObservation[];
   editorialBriefs?:readonly DeliveredMacroPulseBrief[];
   creatorReviews?:readonly PrivateCreatorReview[];
+  creatorCoverageStatus?:"AVAILABLE"|"UNAVAILABLE";
 }):DailyResearchPacket{
   const links=new Set<string>();
   const include=(url:unknown)=>{const safeLink=safeUrl(url);if(safeLink&&links.size<40)links.add(safeLink);};
@@ -114,7 +115,7 @@ export function buildDailyResearchPacket(input:{
           " | Independent source target: "+safe(c.verificationTarget||"UNVERIFIED",170));
     }
     lines.push("");
-  }else lines.push("","CREATOR TRANSCRIPT COVERAGE: none accessible from the authorised reviewed-intake subset. Do not invent video viewpoints.");
+  }else lines.push("","CREATOR TRANSCRIPT COVERAGE: "+(input.creatorCoverageStatus==="UNAVAILABLE"?"RETRIEVAL UNAVAILABLE. This does not establish that there were no reviewed videos.":"No reviewed videos in the bounded recent window.")+" Do not invent video viewpoints.");
   if(delivered.length){
     lines.push("## PRIVATELY DELIVERED MACROPULSE EDITORIAL BRIEFS — RESEARCH ONLY",
       "These are attributed drafts supplied to the separate owner review queue, NOT independently verified News, accepted Motion, Dossier evidence, or proof of a live Notion API read.",
