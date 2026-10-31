@@ -82,7 +82,7 @@ test("BEA makes two separate requests and merges only the correctly sourced metr
     :{TableName:"T20304",LineNumber:"1",LineDescription:"Personal consumption expenditures",
       TimePeriod:"2026Q2",DataValue:"131.006",METRIC_NAME:"Index Numbers",UNIT_MULT:"0"};
   return new Response(JSON.stringify({BEAAPI:{Results:{Data:[datum]}}}),{status:200});
- }}});
+ }});
  assert.deepEqual(queried.sort(),["T10105","T20304"]);
  assert.equal(result.state,"ready");
  assert.equal(result.observations.length,2);
@@ -99,7 +99,7 @@ test("BEA does not promote one-table partial success to ready or canonical macro
       TableName:"T10105",LineNumber:"1",TimePeriod:"2026Q2",
       DataValue:"31000",Unit:"Billions of dollars"}]}}}),{status:200})
    : new Response("down",{status:503});
- }}});
+ }});
  assert.equal(result.state,"partial");
  assert.equal(result.observations.length,1);
  assert.match(result.note??"",/T20304:BEA_HTTP_503/);
