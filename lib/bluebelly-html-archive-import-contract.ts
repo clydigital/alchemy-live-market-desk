@@ -46,7 +46,7 @@ export function parseExistingHtmlEdition(raw:unknown):{input:ExistingHtmlInput;e
  const title=plainTitle(heading).slice(0,110);
  if(title.length<8)throw Error("HTML_TITLE_MISSING");
  const date=(filename+" "+plainTitle(titleTag)+" "+html.slice(0,20000))
-  .match(/\b20\d{2}-\d{2}-\d{2}\b/)?.[0]||"";
+  .match(/20\d{2}-\d{2}-\d{2}/)?.[0]||"";
  if(!realDay(date))throw Error("HTML_REPORT_DAY_MISSING");
  const htmlSha256=digest(html);
  const contentSha256=digest(JSON.stringify({
