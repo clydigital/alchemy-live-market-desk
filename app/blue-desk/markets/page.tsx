@@ -60,7 +60,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
     <main className={`${styles.page} ${legibility.publicMarketsLegibility}`} data-blue-desk-markets="public-observations">
       <BlueDeskHeader activePath="/blue-desk/markets" />
       <div className={styles.content}>
-        <header className={styles.calendarHero}>
+        <header className={`${styles.calendarHero} ${legibility.marketHero}`}>
           <div>
             <p className={styles.kicker}>CROSS-ASSET OBSERVATIONS</p>
             <h1><MarketIcon name="market" size={33} /> Markets</h1>
@@ -77,7 +77,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           </div>
         </header>
 
-        <nav aria-label="Market group" className={styles.publicMarketGroups}>
+        <nav aria-label="Market group" className={`${styles.publicMarketGroups} ${legibility.marketGroups}`}>
           {PUBLIC_MARKET_GROUPS.map(item => (
             <Link
               key={item.id}
@@ -91,7 +91,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           ))}
         </nav>
 
-        <section className={styles.section} aria-label="TradingView market chart" data-market-chart-provider="tradingview">
+        <section className={`${styles.section} ${legibility.marketSection}`} aria-label="TradingView market chart" data-market-chart-provider="tradingview">
           <div className={styles.sectionHead}><div>
             <h2>Market charts · TradingView</h2>
             <p>Interactive TradingView prices and yields. The source-dated observations below are separate; the widget is not evidence of a specific event reaction.</p>
@@ -99,7 +99,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <TradingViewChart initial={TV_MARKET_GROUP_DEFAULTS[group] || "us10y"} showPicker />
         </section>
 
-        <section aria-labelledby="market-group-heading" className={styles.section}>
+        <section aria-labelledby="market-group-heading" className={`${styles.section} ${legibility.marketSection}`}>
           <div className={styles.sectionHead}>
             <div>
               <h2 id="market-group-heading"><MarketIcon name={GROUP_ICONS[group]} size={24} /> {selected.label}</h2>
@@ -110,7 +110,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <PublicMarketScreener key={group} observations={observations} group={group} dataAvailable={Boolean(monitor)} />
         </section>
 
-        <details id="earnings-research" className={styles.section} data-earnings-reader-entry="seven-company">
+        <details id="earnings-research" className={`${styles.section} ${legibility.marketSection}`} data-earnings-reader-entry="seven-company">
           <summary>Optional: seven company earnings and financing investigations</summary>
           <p>Original-source investor research. These are dated investigations, not a live earnings-result feed. <Link href="#coreweave-credit-watch">Jump to the CoreWeave financing case</Link> after expanding.</p>
           <EarningsFundamentals amazonFeatureHref={blueDeskPublicHref("/blue-desk/key-stories",host)+"?feature=amazon-cash-test-october-2026"} deepBaseHref={blueDeskPublicHref("/blue-desk/markets",host)} />
