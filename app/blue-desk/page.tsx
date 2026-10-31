@@ -136,15 +136,15 @@ export default async function BlueDeskPage() {
               ) : olderStory ? (
                 <Link className={styles.primaryAction} href={blueDeskPublicHref("/blue-desk/key-stories",host)+"?story="+olderStory.slug}>Read the ongoing story →</Link>
               ) : (
-                <Link className={styles.primaryAction} href={blueDeskPublicHref("/blue-desk/daily-report", host)}>
-                  Daily Report →</Link>
+                <Link className={styles.primaryAction} href={blueDeskPublicHref("/blue-desk/newsroom", host)}>
+                  Newsroom →</Link>
               )}
               {newsFeature ? <DualTimestamp value={newsFeature.occurredAt} className={styles.heroTime} /> :
                 observedFeature ? <DualTimestamp value={observedFeature.eventAt} sourceDate={observedFeature.eventAt} className={styles.heroTime} /> :
                 olderStory ? <DualTimestamp value={olderStory.updatedAt} className={styles.heroTime}/> : null}
             </div>
-            <p><Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/daily-report",host)}>
-              Full Daily Report and upcoming catalysts →</Link></p>
+            <p><Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/newsroom",host)}>
+              Newsroom updates and upcoming catalysts →</Link></p>
           </div>
           <aside className={styles.rates} aria-label="Observed US Treasury yield context">
             <h2 id="rates-title"><MarketIcon name="rates" size={25} /> Rates &amp; yields</h2>
@@ -201,7 +201,7 @@ export default async function BlueDeskPage() {
               <h2 id="macropulse-brief-head"><MarketIcon name="layers" size={22}/> Research desk briefing</h2>
               <p>Attributed analysis from prior MacroPulse posts. It is separate from independently verified News and canonical Dossier verdicts.</p>
             </div>
-            <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/daily-report",host)}>
+            <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/newsroom",host)}>
               Read full research context →
             </Link>
           </div>
@@ -212,7 +212,7 @@ export default async function BlueDeskPage() {
               <p>{brief.standfirst}</p>
               <div className={styles.storyBottom}>
                 <DualTimestamp value={brief.source_published_at} className={styles.cardTime}/>
-                <Link href={blueDeskPublicHref("/blue-desk/daily-report",host)+"#macropulse-editorial"}>
+                <Link href={blueDeskPublicHref("/blue-desk/newsroom",host)+"#macropulse-editorial"}>
                   Read countercase and what comes next →
                 </Link>
               </div>
@@ -330,7 +330,7 @@ export default async function BlueDeskPage() {
                 <Link href="/markets">Public markets →</Link>
                 <Link href="/calendar">Public calendar →</Link>
                 <Link href="/calendar#earnings-hub">Company earnings this week →</Link>
-                <Link href="/daily-report">Daily Market Report →</Link>
+                <Link href="/newsroom">Market Newsroom →</Link>
               </>
             ) : (
               <>

@@ -163,6 +163,7 @@ export function retiredLivePublicDestination(
  else if(pathname==="/owner/markets")clean="/markets";
  else if(pathname==="/blue-desk")clean="/";
  else if(pathname.startsWith("/blue-desk/"))clean=pathname.slice("/blue-desk".length);
+ if(clean==="/daily-report")clean="/newsroom"; // Public page retired; no backend change.
  const dest=new URL(clean,"https://"+BLUEBELLY_PRESENTATION_HOST);
  // Carry only bounded, known public filter state. Discard unknown parameters;
  // never forward token/credential-style query data to the public product.

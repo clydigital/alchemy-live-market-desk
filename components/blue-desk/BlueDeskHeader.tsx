@@ -21,7 +21,7 @@ const PRIVATE_NAV = [
   ["Learn", "/blue-desk/learn"],
 ] as const;
 
-// All seven navigation destinations are visible on Bluebelly. The three owner
+// Public destinations explicitly omit the retired Daily Report reader. The three owner
 // destinations remain protected by middleware and the active account allowlist.
 const PUBLIC_NAV = [
   ["Today", "/"],
@@ -30,7 +30,6 @@ const PUBLIC_NAV = [
   ["Regime Watch", "/regime-watch"],
   ["Markets", "/markets"],
   ["Calendar", "/calendar"],
-  ["Daily Report", "/daily-report"],
   ["Learn", "/learn"],
   ["My Desk", "/my-reports"],
 ] as const;
