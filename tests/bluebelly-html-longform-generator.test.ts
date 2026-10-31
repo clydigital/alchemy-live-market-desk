@@ -33,6 +33,16 @@ test("chapter validation rejects unreceipted monetary claims and social URLs",()
  assert.throws(()=>validateHtmlLongformChapter(report+" <script>alert(1)</script>",packet),/LONGFORM_UNSAFE_MARKUP/);
  assert.throws(()=>validateHtmlLongformChapter("short",packet),/LONGFORM_INCOMPLETE_CHAPTER/);
 });
+test("financial quantity proof does not confuse dollars, percentages, basis points or scale",()=>{
+ const sourced=[packet,"Official financing figure: 10 basis points.","Original filing: https://issuer.example/filing"].join("\n");
+ assert.equal(validateHtmlLongformChapter(report+" Reported capex was $5.4 billion, inflation 3.70%, financing moved 10 bps.",sourced).includes("3.70%"),true);
+ assert.throws(()=>validateHtmlLongformChapter(report+" Funding cost was 3.7 basis points.",sourced),/LONGFORM_UNRECEIPTED_NUMERIC_CLAIM/);
+ assert.throws(()=>validateHtmlLongformChapter(report+" The funding round was $3.7 billion.",sourced),/LONGFORM_UNRECEIPTED_NUMERIC_CLAIM/);
+ assert.throws(()=>validateHtmlLongformChapter(report+" Capex increased to €5.4 billion.",sourced),/LONGFORM_UNRECEIPTED_NUMERIC_CLAIM/);
+ assert.throws(()=>validateHtmlLongformChapter(report+" Capex increased to $5.4 million.",sourced),/LONGFORM_UNRECEIPTED_NUMERIC_CLAIM/);
+ assert.throws(()=>validateHtmlLongformChapter(report+" https://issuer.example/filing-fake",sourced),/LONGFORM_UNRECEIPTED_URL/);
+ assert.throws(()=>validateHtmlLongformChapter(report+" <svg><circle/></svg>",sourced),/LONGFORM_UNSAFE_MARKUP/);
+});
 test("longform chapters assemble in one chronological original text without a duplicate opener",()=>{
  const result=assembleHtmlLongformDraft([report,"Second section elaborates the actual lender constraints. "+report]);
  assert.ok(result.startsWith("A lender may demand"));
@@ -49,6 +59,8 @@ test("owner model route and reader export remain no-store/private and HTML only"
  assert.match(route,/app_access_allowlist/);
  assert.match(route,/Cross-origin request denied/);
  assert.match(route,/LONGFORM_MODEL_TIMEOUT/);
+ assert.match(route,/abortSignal:controller\.signal/);
+ assert.match(route,/controller\.abort\(\)/);
  assert.match(route,/validateHtmlLongformChapter/);
  assert.match(route,/Cache-Control":"private, no-store/);
  assert.doesNotMatch(route,/\.storage\.|\.insert\(|\.upsert\(|runAutomatedDailyPdfReport/);
