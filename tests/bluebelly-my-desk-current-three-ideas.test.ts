@@ -72,7 +72,7 @@ test("only post-cutover Daily Report editions qualify for the new visible histor
  const editions=[{createdAt:"2026-10-31T08:57:30Z",type:"DAILY"},
   {createdAt:"2026-10-31T09:11:09Z",type:"DAILY"},
   {createdAt:"2026-10-31T09:11:11Z",type:"DAILY"}];
- assert.equal(MY_DESK_ARCHIVE_CUTOVER,"2026-10-31T09:11:10.000Z");
+ assert.equal(MY_DESK_ARCHIVE_CUTOVER,"2026-10-31T12:53:20.000Z");
  assert.deepEqual(postCutoverDailyArchive(editions),[editions[2]]);
 });
 test("My Desk no longer displays the former Drive, PDF or saved slate archives",()=>{
