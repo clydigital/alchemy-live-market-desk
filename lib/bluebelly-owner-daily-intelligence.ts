@@ -1,11 +1,8 @@
 import "server-only";
 import {createSupabaseServerClient} from "@/lib/supabase/server";
 import {createSupabaseAdminClient} from "@/lib/supabase/admin";
+import {uniquePrivateDailyIntelligence,type PrivateDailyIntelligenceEdition} from "./bluebelly-private-edition-dedupe";
 
-export type PrivateDailyIntelligenceEdition={
- id:string;reportDay:string;title:string;createdAt:string;htmlSha256:string;
- reviewStatus:"PRIVATE_DRAFT"|"OWNER_REVIEWED";delivery:"WORK"|"MY_DESK";
-};
 export type PrivateDailyIntelligenceIndex={
  editions:PrivateDailyIntelligenceEdition[];
  state:"available"|"empty"|"partial"|"unavailable"|"unauthorised";
@@ -27,16 +24,6 @@ function record(row:RawRow,delivery:"WORK"|"MY_DESK"):PrivateDailyIntelligenceEd
 }
 /** One editorial edition per exact HTML SHA, even if both Work and My Desk
  * stored identical static reader bytes. Never collapse distinct revisions. */
-export function uniquePrivateDailyIntelligence(rows:PrivateDailyIntelligenceEdition[]){
- const ordered=[...rows].sort((a,b)=>
-  b.reportDay.localeCompare(a.reportDay)||b.createdAt.localeCompare(a.createdAt));
- const seen=new Set<string>();
- const editions=ordered.filter(e=>{
-  if(seen.has(e.htmlSha256))return false;
-  seen.add(e.htmlSha256);return true;
- });
- return {editions,duplicatesHidden:ordered.length-editions.length};
-}
 export async function getOwnerDailyIntelligenceIndex(limit=30):Promise<PrivateDailyIntelligenceIndex>{
  const session=await createSupabaseServerClient().catch(()=>null);
  if(!session)return {editions:[],state:"unavailable",duplicatesHidden:0};
