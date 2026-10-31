@@ -33,6 +33,7 @@ export default function DailyReportWriter(){
   const [notice,setNotice]=useState("");
   const [editedPacket,setEditedPacket]=useState("");
   const [selectedSources,setSelectedSources]=useState("");
+  const [selectedX,setSelectedX]=useState("");
   async function load(){
     if(busy!=="idle")return;
     if(research&&editedPacket!==research.packet&&
@@ -93,7 +94,7 @@ export default function DailyReportWriter(){
         const response=await fetch("/api/owner/editorial-longform-chapter",{
           method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},
           body:JSON.stringify({title:current.title,packet:current.packet,chapter:stage.key,
-            previous:chapters.slice(-2).join("\\n\\n").slice(-2100),instructions:current.instructions}),
+            previous:chapters.slice(-2).join("\n\n").slice(-2100),instructions:current.instructions}),
         });
         const result=await response.json().catch(()=>({error:"Invalid model response"})) as {chapter?:string;error?:string};
         if(!response.ok||!result.chapter)throw new Error(result.error||"Chapter generation unavailable");
@@ -106,7 +107,7 @@ export default function DailyReportWriter(){
       if(complete.length>75000)throw new Error("Complete report exceeds private editor length limit; completed chapters retained for review.");
       const previewResponse=await fetch("/api/owner/editorial-reader-preview",{
         method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({title:current.title,body:complete,selectedSources}),
+        body:JSON.stringify({title:current.title,body:complete,selectedSources,selectedX}),
       });
       if(!previewResponse.ok){
         const reason=await previewResponse.json().catch(()=>({error:"HTML export unavailable"})) as {error?:string};
@@ -115,7 +116,7 @@ export default function DailyReportWriter(){
       const html=await previewResponse.text();
       if(!html.includes('data-private-reader-v4="true"'))throw new Error("Invalid HTML reader");
       setPreviewHtml(html);
-      setNotice("HTML-only report generated: "+chapters.length+" chapters, "+complete.split(/\\s+/).length+" words. Review claims, original sources, inferred mechanisms and X attributions before using or saving the private HTML.");
+      setNotice("HTML-only report generated: "+chapters.length+" chapters, "+complete.split(/\s+/).length+" words. Review claims, original sources, inferred mechanisms and X attributions before using or saving the private HTML.");
     }catch(e){
       setNotice((e instanceof Error?e.message:"Chapter generation unavailable")+". "+chapters.length+"/"+HTML_LONGFORM_CHAPTERS.length+" completed chapters retained. Choose Continue HTML report to retry.");
     }finally{setBusy("idle");}
@@ -128,7 +129,7 @@ export default function DailyReportWriter(){
     try{
       const res=await fetch("/api/owner/editorial-reader-preview",{
         method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({title,body,selectedSources}),
+        body:JSON.stringify({title,body,selectedSources,selectedX}),
       });
       if(!res.ok){
         const data=await res.json().catch(()=>({error:"Private reader preview unavailable"})) as {error?:string};
@@ -264,6 +265,12 @@ export default function DailyReportWriter(){
             placeholder={"https://www.example.gov/original-release\nhttps://www.example.com/issuer-filing"}
             onChange={e=>{setSelectedSources(e.target.value.slice(0,5500));setPreviewHtml("");}}/>
         </label>
+        <label>Original X post links to embed (optional, up to five)
+          <textarea rows={4} value={selectedX} disabled={busy==="longform"}
+            placeholder={"https://x.com/OriginalAccount/status/1234567890123456789"}
+            onChange={e=>{setSelectedX(e.target.value.slice(0,3500));setPreviewHtml("");}}/>
+        </label>
+        <p className={css.warning}>Only exact original X links already recorded by the private X wire will appear, at their recorded publication times. X statements remain attributed, not independently proven market causes. Embeds load only after you click them; the downloaded HTML retains plain-text links offline.</p>
         <p className={css.warning}>The imported source packet may contain up to 40 candidate links,
           including Notion, social posts, calendars and hypotheses. They are unverified candidates. Select only original documents you have checked.
           The publisher separately requires your approval and a matching PDF.</p>
