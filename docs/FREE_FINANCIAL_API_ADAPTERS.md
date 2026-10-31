@@ -56,3 +56,12 @@ Use this order for every reported API failure (including BEA, EIA, Alpha Vantage
 The authenticated provider-acceptance receipt now includes `credentialDiagnostics` with non-secret runtime-presence statuses and an explicit `missingFromVercelClaimSupported: false`. **Runtime absence is not proof that the team Shared Variable is absent.** The diagnostic cannot independently enumerate Vercel Shared Variables; project attachment and target remain unverified until inspected in Team Settings or through a separately authorised shared-variable inventory tool.
 
 **Closeout contract:** Every incident must report `project + deployment`, `Shared scope checked/unknown`, `project attachment checked/unknown`, `production target checked/unknown`, `runtime visibility`, `provider response/entitlement`, `source observation date`, and `canonical write/readback`. An unknown is a finding, not a reason to make up a configuration verdict.
+
+
+## Owner-only five-provider manual readback (31 October 2026)
+
+The existing protected `/market-tools?check=providers` now checks FRED, EIA v2, Alpha Vantage, FMP earnings-calendar and BEA GDP/PCE **in parallel**. Its result is read-only, limited to server-side `process.env` key presence and dated source responses, and cached for 60 minutes. FMP event dates are **calendar-event dates**, not observations of issuer earnings outcomes. BEA results use official quarterly period identifiers. FMP `restricted` is displayed as `limited`; HTTP 403/entitlement failures must never be rewritten as missing keys.
+
+The UI explicitly states that it **cannot enumerate or attest Vercel Team Shared Variables, project attachments or environment targets**, and that successful direct API reads do not prove canonical research ingestion. The existing `/api/cron/provider-acceptance` keeps its schedule and CRON_SECRET protection; neither a new poll nor a new canonical writer was added.
+
+To finish an incident, inspect Team Shared scope through authorised Vercel Team Settings or a proper shared-variable inventory tool and confirm actual ingestion/dated readback separately. If those tools or auth are unavailable, return `SHARED_SCOPE_UNVERIFIED` / `CANONICAL_INGESTION_UNVERIFIED`, not a key-reset recommendation or a success claim.
