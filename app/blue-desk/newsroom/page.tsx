@@ -70,7 +70,7 @@ export default async function NewsroomPage({searchParams}:Props){
       </div>
       <Newsroom48hTimeline banks={bankDecisions} reports={reported} readerHref={readerHref}/>
     </BluebellyNewsWire>
-    {researchDigests.length>0?<section aria-label="Reviewed MacroPulse research dispatches" data-macropulse-editorial="research-derived-not-canonical" className={ui.contextBridge}>
+    {researchDigests.length>0?<section id="macropulse-editorial" aria-label="Reviewed MacroPulse research dispatches" data-macropulse-editorial="research-derived-not-canonical" className={ui.contextBridge}>
       <details>
         <summary>Reviewed research dispatches · separate from verified news</summary>
         <p>These are dated, owner-reviewed MacroPulse interpretations. Their sources and counterarguments are preserved, but publication does not make their market explanations canonical evidence.</p>
