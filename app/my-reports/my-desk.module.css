@@ -87,7 +87,7 @@
  border-radius:11px;overflow:hidden}
 .dailyIssueTop{padding:25px 27px 11px;display:flex;align-items:flex-start;justify-content:space-between;gap:15px;flex-wrap:wrap}
 .dailyStamp{text-transform:uppercase;letter-spacing:.09em;color:#397b87;font-size:11px;font-weight:800;margin:0 0 9px}
-.dailyIssue h3{font-family:Georgia,serif;font-size:clamp(26px,3vw,39px);line-height:1.2;
+.dailyIssue h3{font-family:var(--bluebelly-font),sans-serif;font-size:clamp(26px,3vw,39px);line-height:1.2;
  letter-spacing:-.025em;max-width:25ch;margin:0 0 12px;color:#132a3c}
 .dailyIssueTop p:not(.dailyStamp){font-size:12px;line-height:1.6;color:#637784}
 .dailyPrivate{font-size:10px;font-weight:850;letter-spacing:.05em;background:#e0edf1;
@@ -99,7 +99,7 @@
 .dailyReader{margin:0 22px 20px;border:1px solid #b2ced1;border-radius:9px;
  overflow:hidden;background:#fff;color:#173948}
 .readerToggle{border:0;border-bottom:1px solid #b2ced1;background:#e5f0f2;color:#174c5d;
- width:100%;font:800 14px/1.4 Arial,sans-serif;text-align:left;padding:13px 17px;cursor:pointer}
+ width:100%;font:800 14px/1.4 var(--bluebelly-font),sans-serif;text-align:left;padding:13px 17px;cursor:pointer}
 .readerFrame{display:block;width:100%;min-height:770px;border:0;background:#fff}
 .readerLoading{font-size:13px;color:#527583;padding:16px}
 .readerFoot{font-size:11px;line-height:1.6;color:#587582;padding:10px 16px 14px;margin:0}
