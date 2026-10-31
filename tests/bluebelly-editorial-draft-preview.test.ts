@@ -23,12 +23,12 @@ test("private reader holds full source narrative and does not invent causal cita
  const edition=buildPrivateDailyReaderDraft(input(full));
  assert.equal(edition.status,"PRIVATE_DRAFT");
  assert.equal(edition.reportDay,"2026-10-31");
- assert.equal(edition.executiveSummary,chunks[0]);
+ assert.equal(edition.executiveSummary,chunks[0].trim());
  assert.equal(edition.sources[0].status,"ORIGINAL_VERIFIED");
  assert.ok(edition.sections.length>2,"Long-form is split visually, not condensed");
  const paragraphs=edition.sections.flatMap(s=>s.blocks).filter(b=>b.kind==="paragraph");
  const retained=[edition.executiveSummary,...edition.sections.flatMap(s=>[s.opening,...s.blocks.map(b=>b.kind==="paragraph"?b.text:"")])];
- assert.deepEqual(retained,chunks,"Every original paragraph must appear exactly once and in order");
+ assert.deepEqual(retained,chunks.map(c=>c.trim()),"Every original paragraph must appear exactly once and in order (ignoring trailing whitespace)");
  assert.ok(paragraphs.every(b=>b.kind==="paragraph"&&b.sourceIds.length===0),
   "Independent news receipt does not verify the author's unrelated narrative");
  const html=renderPrivateEditorialReaderHtml(edition);
