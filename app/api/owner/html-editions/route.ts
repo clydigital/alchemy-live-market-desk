@@ -4,8 +4,9 @@ import {createSupabaseServerClient} from "@/lib/supabase/server";
 import {createSupabaseAdminClient} from "@/lib/supabase/admin";
 import {blueDeskHostAccess} from "@/lib/blue-desk-host";
 import {
- HTML_BUCKET,HTML_TABLE,archivePath,digest,parseArchiveInput,saveHtmlArchive,validArchiveId
-} from "@/lib/bluebelly-private-html-archive";
+ HTML_BUCKET,HTML_TABLE,archivePath,digest,parseArchiveInput,validArchiveId
+} from "@/lib/bluebelly-private-html-archive-contract";
+import {saveHtmlArchive} from "@/lib/bluebelly-private-html-archive";
 
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
