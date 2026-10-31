@@ -10,6 +10,7 @@ import {combineQualifiedNews} from "@/lib/blue-desk-qualified-news";
 import {createSupabaseAdminClient} from "@/lib/supabase/admin";
 import {buildPrivateDailyReaderDraft} from "@/lib/bluebelly-editorial-draft-preview";
 import {renderPrivateEditorialReaderHtml} from "@/lib/bluebelly-editorial-reader";
+import {archiveRenderedOwnerReader} from "@/lib/bluebelly-autoarchive-rendered-reader";
 
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -56,6 +57,7 @@ export async function POST(req:NextRequest){
  const narrative=typeof input.body==="string"?input.body:"";
  const selected=typeof input.selectedSources==="string"?input.selectedSources:"";
  const selectedX=typeof input.selectedX==="string"?input.selectedX:"";
+ const autoArchive=input.autoArchive===true;
  if(selectedX.length>3500)return fail(413,"X post selection too large");
  if(selected.length>6000)return fail(413,"Source selection too large");
  const selectedSourceUrls=[...new Set(selected.split(/\s+/).map(v=>v.trim()).filter(Boolean))].slice(0,12);
@@ -123,13 +125,24 @@ export async function POST(req:NextRequest){
    edition.editionId="preview-"+edition.snapshotSha256.slice(0,16);
   }
   const html=renderPrivateEditorialReaderHtml(edition);
-  return new NextResponse(html,{status:200,headers:{
+  // Completed HTML becomes a private, immutable edition in the *same*
+  // authenticated request. Never claim saved if private storage fails.
+  const receipt=autoArchive?await archiveRenderedOwnerReader(user.id,edition,html):null;
+  return new NextResponse(receipt?.html||html,{status:200,headers:{
    ...headers,"Content-Type":"text/html; charset=utf-8",
-   "Content-Disposition":'inline; filename="Bluebelly-Private-Reader-PREVIEW.html"',
+   "Content-Disposition":'inline; filename="Bluebelly-Private-Reader-'+
+    (receipt?"ARCHIVED":"PREVIEW")+'.html"',
+   ...(receipt?{
+    "X-Bluebelly-Archive-Id":receipt.id,
+    "X-Bluebelly-Archive-Status":receipt.created?"CREATED":"ALREADY_SAVED",
+    "X-Bluebelly-Archive-SHA256":receipt.htmlSha256,
+   }:{}),
   }});
  }catch(e){
   if(e instanceof Error&&(/INVALID_PRIVATE_READER_DRAFT|EMPTY_NARRATIVE|Unsafe URL|Invalid source receipt/.test(e.message)))
    return fail(422,"Invalid source-frozen preview input");
+  if(e instanceof Error&&e.message.startsWith("AUTOSAVE_"))
+   return fail(503,"Report rendered but automatic private HTML archive failed. No edition was claimed; retry the HTML preview to save.");
   return fail(503,"Private reader preview unavailable; existing draft unchanged");
  }
 }
