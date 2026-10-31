@@ -268,3 +268,29 @@
 .storyRead{font:800 11px var(--bb-mono)}
 @media(max-width:760px){.intro{min-height:0;padding:25px 19px!important}.intro h1{font-size:clamp(34px,9vw,48px)!important}.indexNav a{font-size:10px;min-height:40px}.section{margin-top:28px}.card,.catalystCard,.calendarCard{clip-path:none}.summary{margin:15px 0 22px}}
 @media(prefers-reduced-motion:reduce){.card,.catalystCard,.calendarCard{transition:none}}
+
+/* Story-reading hierarchy: support dates quietly, give conclusions breathing room. */
+.intro>p{font-size:clamp(15px,1.35vw,17px)!important;line-height:1.75!important;max-width:72ch}
+.indexNav a,.indexNav a:first-child{font-size:12px;line-height:1.4;min-height:44px;padding:12px 15px}
+.section h2{line-height:1.16}
+.section>p,.storyContext,.coverageNote{font-size:15px!important;line-height:1.72!important;color:var(--bb-muted)!important;max-width:80ch}
+.card p,.catalystCard p,.calendarCard p{font-size:15px;line-height:1.72;color:var(--bb-text)}
+.card small,.catalystClock,.timeNote{font-size:12px!important;line-height:1.58}
+.card h3,.catalystCard h3,.calendarCard h3{line-height:1.27;overflow-wrap:break-word;text-transform:none}
+.storyIntro,.storyExplanation{display:block;-webkit-line-clamp:unset;overflow:visible;font-size:15px!important;line-height:1.77!important;color:var(--bb-text)!important}
+.catalystCard .catalystFact{font-size:16px;line-height:1.75;color:var(--bb-text)}
+.catalystMechanism,.catalystQuestion,.storyTests p,.humanStakes p{font-size:15px!important;line-height:1.72!important}
+.test p,.sourceTrail p{font-size:14px;line-height:1.72}
+.more summary{font-size:13px;line-height:1.5;min-height:44px;display:flex;align-items:center}
+.summaryMetric>span{font-size:13px;line-height:1.5}
+.summaryLabel{font-size:12px}
+.summaryTime{font-size:13px;line-height:1.5}
+.summaryTime>small{font-size:11px!important}
+.categoryLink,.categorySelected{min-height:44px;display:inline-flex;align-items:center;line-height:1.45}
+@media(max-width:760px){
+ .intro h1{line-height:1.08!important}
+ .indexNav a{font-size:12px;min-height:44px;padding:12px}
+ .card,.catalystCard,.calendarCard{padding:19px}
+ .summaryMetric,.summaryTimestamp{min-height:95px;padding:14px}
+ .storyIntro,.storyExplanation{font-size:15px!important}
+}
