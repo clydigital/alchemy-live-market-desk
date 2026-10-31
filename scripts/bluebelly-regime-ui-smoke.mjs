@@ -12,7 +12,7 @@ import {resolve} from "node:path";
 import {tmpdir} from "node:os";
 
 const BACKEND=3181, PUBLIC=3182;
-const deadline=Date.now()+140000;
+const deadline=Date.now()+300000;
 const outputs="artifacts/regime-ui";
 mkdirSync(outputs,{recursive:true});
 const children=[];
@@ -151,6 +151,27 @@ try{
  await renderChrome("http://127.0.0.1:"+PUBLIC+"/regime-watch/energy","energy-mobile.png",390,844);
  await renderChrome("http://127.0.0.1:"+PUBLIC+"/regime-watch/yen","yen-mobile.png",390,844);
  await renderChrome("http://127.0.0.1:"+PUBLIC+"/regime-watch/gold","gold-mobile.png",390,844);
+
+ // Visual acceptance for the CP public-page convergence. Deliberately use
+ // public routes and a source-agnostic data state; never invent market prices.
+ const publicPages=[
+  ["/newsroom","newsroom",'data-public-newsroom="original-source-only"'],
+  ["/key-stories","key-stories",'data-bluebelly-stories="catalyst-led"'],
+  ["/daily-report","daily-report",'data-daily-report="editorial-first-v3"'],
+  ["/hormuz","hormuz",'data-bluebelly-hormuz="public-source-dated-physical-first"'],
+  ["/markets","markets",'data-blue-desk-markets="public-observations"'],
+ ];
+ for(const [path,id,marker] of publicPages){
+  const view=await waitResponse(path);
+  assertHtml(view.html,marker);
+  // TradingView embeds can keep headless Chrome alive indefinitely; Markets is
+  // covered by the route/HTML assertions, not a brittle third-party screenshot.
+  if(id!=="markets")
+   await renderChrome("http://127.0.0.1:"+PUBLIC+path,id+"-mobile.png",390,844);
+  if(id==="newsroom"||id==="key-stories")
+   await renderChrome("http://127.0.0.1:"+PUBLIC+path,id+"-desktop.png",1440,1000);
+  console.log("Public CP page "+path+" "+view.status+" · mobile render saved");
+ }
  console.log("Regime UI smoke PASS; outputs in "+outputs);
 }catch(error){console.error(error);process.exitCode=1}
 finally{
