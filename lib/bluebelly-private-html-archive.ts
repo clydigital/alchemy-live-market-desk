@@ -1,7 +1,7 @@
 import "server-only";
 import {randomUUID} from "node:crypto";
 import {
- HTML_BUCKET,HTML_TABLE,digest,parseArchiveInput,archivePath,validArchiveId,
+ HTML_BUCKET,HTML_TABLE,digest,parseArchiveInput,archivePath,validArchiveId,effectiveArchiveDay,
  type ArchiveInput,type Receipt
 } from "./bluebelly-private-html-archive-contract";
 import {createSupabaseAdminClient} from "@/lib/supabase/admin";
@@ -27,7 +27,7 @@ function urls(text:string,limit:number,x=false):string[]{
  return [...out];
 }
 export type BuiltArchive={id:string;reportDay:string;title:string;html:string;htmlSha256:string;contentSha256:string;manifest:Receipt[]};
-export async function buildArchive(input:ArchiveInput,now=new Date()):Promise<BuiltArchive>{
+export async function buildArchive(input:ArchiveInput,now=new Date(),correctionDay?:string|null):Promise<BuiltArchive>{
  const db=createSupabaseAdminClient();
  const selected=urls(input.selectedSources,12);
  const xURLs=urls(input.selectedX,5,true);
@@ -42,6 +42,13 @@ export async function buildArchive(input:ArchiveInput,now=new Date()):Promise<Bu
  const edition=buildPrivateDailyReaderDraft({
   title:input.title,body:input.body,asOf:now.toISOString(),news,selectedSourceUrls:selected,
  });
+ const reportDay=effectiveArchiveDay(now,correctionDay);
+ edition.reportDay=reportDay;
+ if(input.supersedesId){
+  edition.deck="Private revised draft for "+reportDay+
+   "; correction of edition "+input.supersedesId.slice(0,8)+
+   ", reassembled "+now.toISOString()+". Claims remain unreviewed.";
+ }
  const manifest:Receipt[]=edition.sources.map(s=>({
   url:s.url,publisher:s.publisher,publishedAt:s.publishedAt,title:s.title,
   status:s.status as Receipt["status"],
@@ -73,14 +80,14 @@ export async function buildArchive(input:ArchiveInput,now=new Date()):Promise<Bu
   });
   count++;
  }
- const contentSha256=digest(JSON.stringify({kind:"BLUEBELLY_PRIVATE_HTML_V4",title:input.title,
-  body:input.body,receipts:manifest}));
+ const contentSha256=digest(JSON.stringify({kind:"BLUEBELLY_PRIVATE_HTML_V4",reportDay,
+  supersedesId:input.supersedesId,title:input.title,body:input.body,receipts:manifest}));
  edition.editionId="archived-"+contentSha256.slice(0,16);
  edition.snapshotSha256=contentSha256;
  edition.status="PRIVATE_DRAFT";
  const html=renderPrivateEditorialReaderHtml(edition);
  if(Buffer.byteLength(html,"utf8")>950000)throw Error("ARCHIVE_HTML_TOO_LARGE");
- return {id:randomUUID(),reportDay:edition.reportDay,title:input.title,
+ return {id:randomUUID(),reportDay,title:input.title,
   html,htmlSha256:digest(html),contentSha256,manifest};
 }
 /** Append-only: first snapshot wins, corrective edition links to old row. */
@@ -94,13 +101,13 @@ export async function saveHtmlArchive(ownerId:string,input:ArchiveInput,now=new 
   if(error||!old)throw Error("ARCHIVE_PARENT_NOT_OWNED");
   parentDay=old.report_day;
  }
- const built=await buildArchive(input,now);
+ const built=await buildArchive(input,now,parentDay);
  const {data:existing,error:checkError}=await db.from(HTML_TABLE)
   .select("id,report_day,html_sha256").eq("owner_user_id",ownerId)
   .eq("content_sha256",built.contentSha256).maybeSingle();
  if(checkError)throw Error("ARCHIVE_LOOKUP_FAILED");
  if(existing)return {id:existing.id,reportDay:existing.report_day,htmlSha256:existing.html_sha256,created:false};
- const day=parentDay||built.reportDay;
+ const day=built.reportDay;
  const path=archivePath(ownerId,day,built.id);
  const {error:uploadError}=await db.storage.from(HTML_BUCKET)
   .upload(path,new TextEncoder().encode(built.html),{
