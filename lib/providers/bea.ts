@@ -1,7 +1,7 @@
 export const BEA_DATA_URL = "https://apps.bea.gov/api/data";
 
 export const BEA_SERIES = {
-  gdp: { tableName: "T10101", lineNumber: "1", label: "Gross domestic product" },
+  gdp: { tableName: "T10105", lineNumber: "1", label: "Gross domestic product (current-dollar level)" },
   pcePriceIndex: { tableName: "T20304", lineNumber: "1", label: "Personal consumption expenditures price index" },
 } as const;
 
@@ -20,7 +20,7 @@ export type BeaObservation = {
 };
 
 export type BeaSnapshot = {
-  state: "ready" | "unconfigured" | "unavailable";
+  state: "ready" | "partial" | "unconfigured" | "unavailable";
   observations: BeaObservation[];
   retrievedAt: string | null;
   sourceName: "U.S. Bureau of Economic Analysis";
@@ -36,18 +36,28 @@ type BeaRow = {
   DataValue?: unknown;
   Unit?: unknown;
   CL_UNIT?: unknown;
+  METRIC_NAME?: unknown;
+  UNIT_MULT?: unknown;
 };
 
-export function buildBeaDataUrl(apiKey: string, years: string) {
+export function buildBeaDataUrl(apiKey: string, years: string, tableName: string = BEA_SERIES.gdp.tableName) {
   const url = new URL(BEA_DATA_URL);
   url.searchParams.set("UserID", apiKey);
   url.searchParams.set("method", "GetData");
   url.searchParams.set("datasetname", "NIPA");
-  url.searchParams.set("TableName", [...new Set(Object.values(BEA_SERIES).map((item) => item.tableName))].join(","));
+  // BEA NIPA GetData accepts exactly ONE TableName per request.
+  if (![BEA_SERIES.gdp.tableName, BEA_SERIES.pcePriceIndex.tableName].includes(tableName)) {
+    throw new Error("BEA_TABLE_NOT_ALLOWED");
+  }
+  url.searchParams.set("TableName", tableName);
   url.searchParams.set("Frequency", "Q");
   url.searchParams.set("Year", years);
   url.searchParams.set("ResultFormat", "JSON");
   return url.toString();
+}
+
+export function buildBeaDataUrls(apiKey: string, years: string) {
+  return Object.values(BEA_SERIES).map(series => buildBeaDataUrl(apiKey, years, series.tableName));
 }
 
 function unavailable(note: string, retrievedAt: string | null = null): BeaSnapshot {
@@ -81,7 +91,10 @@ export function parseBeaPayload(payload: unknown, options?: { retrievedAt?: stri
       seriesId: `NIPA:${row.TableName}:${lineNumber}`,
       label: typeof row.LineDescription === "string" && row.LineDescription.trim() ? row.LineDescription.trim() : table.label,
       period, value: rawValue,
-      unit: typeof row.Unit === "string" ? row.Unit : typeof row.CL_UNIT === "string" ? row.CL_UNIT : null,
+      unit: typeof row.Unit === "string" ? row.Unit :
+        typeof row.METRIC_NAME === "string" && typeof row.UNIT_MULT === "string"
+          ? row.METRIC_NAME + " × 10^" + row.UNIT_MULT :
+        typeof row.CL_UNIT === "string" ? row.CL_UNIT : null,
       frequency: "Q",
     }];
   }).sort((a, b) => b.period.localeCompare(a.period) || a.metric.localeCompare(b.metric));
@@ -104,14 +117,40 @@ export async function fetchBeaSnapshot(
   };
   const currentYear = (options?.now ?? new Date()).getUTCFullYear();
   const years = options?.years ?? Array.from({ length: 5 }, (_, index) => String(currentYear - index)).reverse().join(",");
-  try {
-    const response = await (options?.fetchImpl ?? fetch)(buildBeaDataUrl(apiKey, years), {
-      headers: { accept: "application/json" }, signal: AbortSignal.timeout(15000),
-    });
-    if (!response.ok) return unavailable(`BEA request failed with HTTP ${response.status}.`);
-    return parseBeaPayload(await response.json());
-  } catch {
-    // Fetch errors may contain the request URL, including its UserID query parameter.
-    return unavailable("BEA_REQUEST_FAILED");
-  }
+  // BEA NIPA cannot query multiple tables in one request; fetch two bounded
+  // official tables in parallel and fail closed on partial results.
+  const tableNames = [...new Set(Object.values(BEA_SERIES).map(series => series.tableName))];
+  const outcomes = await Promise.all(tableNames.map(async tableName => {
+    try {
+      const response = await (options?.fetchImpl ?? fetch)(buildBeaDataUrl(apiKey, years, tableName), {
+        headers: { accept: "application/json" }, signal: AbortSignal.timeout(15000),
+      });
+      if (!response.ok) return { tableName, snapshot: unavailable(`BEA_HTTP_${response.status}`) };
+      const parsed = parseBeaPayload(await response.json());
+      const observations = parsed.observations.filter(row => row.tableName === tableName);
+      if (parsed.state !== "ready" || !observations.length) {
+        return { tableName, snapshot: unavailable("BEA_TABLE_NO_VALID_ROWS") };
+      }
+      return { tableName, snapshot: { ...parsed, observations } };
+    } catch {
+      // Transport errors can include a URL with UserID. Never expose them.
+      return { tableName, snapshot: unavailable("BEA_REQUEST_FAILED") };
+    }
+  }));
+  const successful = outcomes.filter(result => result.snapshot.state === "ready");
+  const observations = successful.flatMap(result => result.snapshot.observations)
+    .sort((a, b) => b.period.localeCompare(a.period) || a.metric.localeCompare(b.metric));
+  const allReady = successful.length === tableNames.length;
+  const ready = successful.length > 0;
+  const failed = outcomes.filter(result => result.snapshot.state !== "ready");
+  return {
+    state: allReady ? "ready" : ready ? "partial" : "unavailable",
+    observations,
+    retrievedAt: ready ? new Date().toISOString() : null,
+    sourceName: "U.S. Bureau of Economic Analysis",
+    sourceUrl: BEA_DATA_URL,
+    note: allReady ? null : "BEA_TABLES_INCOMPLETE: " +
+      failed.map(result => result.tableName + ":" + (result.snapshot.note ?? "NO_VALID_ROWS")).join(", "),
+  };
+
 }
