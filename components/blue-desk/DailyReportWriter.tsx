@@ -76,7 +76,7 @@ export default function DailyReportWriter(){
     try{
       const res=await fetch("/api/owner/editorial-reader-preview",{
         method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({title,body}),
+        body:JSON.stringify({title,body,selectedSources}),
       });
       if(!res.ok){
         const data=await res.json().catch(()=>({error:"Private reader preview unavailable"})) as {error?:string};
@@ -194,7 +194,7 @@ export default function DailyReportWriter(){
             {busy==="preview"?"Preparing private reader…":"Preview full draft in Editorial Reader v4"}
           </button>
         </div>
-        <p className={css.warning}>Full-length drafts up to 75,000 characters can be previewed without cutting their analysis. Source-qualified receipts are fetched independently by the server; all draft claims remain unreviewed.</p>
+        <p className={css.warning}>Full-length drafts up to 75,000 characters can be previewed without cutting their analysis. The server attaches only exact independent matches to your selected original-source URLs. If none qualify, the private draft remains readable but the source ledger shows the coverage gap. All draft claims remain unreviewed.</p>
         {body.trim() ? <details className={css.readAloud} data-private-narrative-preview="unverified">
           <summary>Read-aloud briefing preview</summary>
           <div>{body}</div>
