@@ -69,7 +69,8 @@ export function providerAcceptanceReceipt(input: {
       // BEA prose errors must never enter logs or the response; some transport
       // errors can embed the credential-bearing request URL.
       httpOrEntitlement: bea.state === "ready" ? null :
-        bea.state === "unconfigured" ? "BEA_CREDENTIAL_NOT_VISIBLE_AT_RUNTIME" : "BEA_UNAVAILABLE",
+        bea.state === "unconfigured" ? "BEA_CREDENTIAL_NOT_VISIBLE_AT_RUNTIME" :
+        bea.state === "partial" ? "BEA_PARTIAL_TABLES" : "BEA_UNAVAILABLE",
       observations: ["gdp", "pcePriceIndex"].flatMap((metric) => {
         const latest = bea.observations.find((item) => item.metric === metric);
         return latest ? [{ metric: latest.metric, period: latest.period, unit: latest.unit }] : [];
