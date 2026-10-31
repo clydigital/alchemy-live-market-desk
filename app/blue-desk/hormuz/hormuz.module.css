@@ -121,3 +121,9 @@
  .risk p,.sectionHead p{font-size:14px}
  .number{font-size:clamp(30px,8vw,42px)}
 }
+
+/* Narrow phones: present full action labels rather than three compressed columns. */
+@media(max-width:720px){
+ .actions{display:grid;grid-template-columns:minmax(0,1fr);gap:9px}
+ .actions a{display:flex;align-items:center;min-height:46px;width:100%;padding:13px 16px;flex:none;font-size:13px;line-height:1.45}
+}
