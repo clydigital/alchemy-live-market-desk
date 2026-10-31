@@ -187,3 +187,24 @@
  .heroActions a{flex-basis:100%;font-size:12px}
  .heading>span{font-size:12px}
 }
+
+/* Reuse stored research. The scan is a review queue, not another verdict. */
+.viewScan{scroll-margin-top:90px;margin:28px 0 34px;border:1px solid var(--bb-card-border);border-top:4px solid var(--bb-accent);background:var(--bb-card-bg);padding:clamp(19px,3vw,30px)}
+.viewScanHead{display:flex;gap:22px;justify-content:space-between;align-items:start}
+.viewScanHead>div:first-child{max-width:760px}
+.viewScan h2{font:900 clamp(23px,2.5vw,34px)/1.22 var(--bb-display);margin:10px 0}
+.viewScan p{font-size:14px;line-height:1.7;color:var(--bb-text)}
+.viewScanCounts{display:grid;grid-template-columns:repeat(3,minmax(82px,1fr));gap:8px;min-width:300px}
+.viewScanCounts>div{display:flex;flex-direction:column;padding:13px;border:1px solid var(--bb-card-border);background:var(--bb-card-quiet)}
+.viewScanCounts strong{font:900 28px/1.1 var(--bb-display);color:var(--bb-accent)}
+.viewScanCounts span{font:800 10px/1.5 var(--bb-mono);color:var(--bb-muted)}
+.viewScanList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:18px 0}
+.viewScanList a{display:flex;flex-direction:column;gap:6px;min-width:0;padding:14px 17px;background:var(--bb-card-quiet);border:1px solid var(--bb-card-border)}
+.viewScanList a strong{font:800 15px/1.4 var(--bb-display);color:var(--bb-text)}
+.viewScanList a span{font:700 11px/1.5 var(--bb-mono);color:var(--bb-accent)}
+.viewScan>small,.scanCaution{color:var(--bb-muted);font-size:12px;line-height:1.65}
+.viewScan .scanCaution{color:var(--bb-text);border-left:3px solid var(--bb-accent);padding-left:12px}
+.viewState{display:block;margin:12px 0;padding:10px 12px;background:var(--bb-card-quiet);border-left:3px solid var(--bb-card-border);font:700 11px/1.55 var(--bb-mono);color:var(--bb-text)}
+.viewState[data-view-scan-state="NEW_VIEW"],.viewState[data-view-scan-state="UPDATED_RECORD"],.viewState[data-view-scan-state="NEW_SOURCE"]{border-left-color:var(--bb-accent)}
+@media(max-width:900px){.viewScanHead{flex-direction:column}.viewScanCounts{width:100%;min-width:0}}
+@media(max-width:600px){.viewScanCounts{grid-template-columns:repeat(3,minmax(0,1fr))}.viewScanCounts>div{padding:9px}.viewScanCounts span{font-size:9px}.viewScanList{grid-template-columns:1fr}}
