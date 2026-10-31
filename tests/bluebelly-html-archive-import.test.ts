@@ -12,6 +12,7 @@ const example=String.raw`<!DOCTYPE html><html lang="en-GB"><head>
 <div class="reading-banner">PRIVATE · MANUAL · NOT LIVE</div>
 <section id="creator"><h2>Creator reasoning</h2>
 <p>Paragraph about the market, investor doubts and future cash flow.</p>
+<p>A second paragraph compares company cash generation, infrastructure commitments and creditor sensitivity without asserting an unsupported conclusion. A second paragraph compares company cash generation, infrastructure commitments and creditor sensitivity without asserting an unsupported conclusion. A second paragraph compares company cash generation, infrastructure commitments and creditor sensitivity without asserting an unsupported conclusion. A second paragraph compares company cash generation, infrastructure commitments and creditor sensitivity without asserting an unsupported conclusion. </p>
 <figure><svg viewBox="0 0 100 100"><rect width="20" height="20" /></svg></figure>
 <a href="https://www.reuters.com/">Original reporting</a>
 <blockquote><a href="https://x.com/example/status/2116167673822183644">Open original X post</a></blockquote>
