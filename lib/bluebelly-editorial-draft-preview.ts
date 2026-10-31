@@ -43,7 +43,7 @@ export function buildPrivateDailyReaderDraft(input:{
  const chunks=body.split(/\n\s*\n+/).map(v=>v.trim()).filter(Boolean);
  if(!chunks.length)throw new Error("EMPTY_NARRATIVE");
  const first=chunks[0].replace(/^#{1,3}\s+/,"");
- const opening=first.slice(0,1400);
+ const opening=chunks.length>1?first.slice(0,1400):"Private editorial preview; the full original text is reproduced below without a source-verification claim.";
  const sections:ReaderSection[]=[];
  let current:ReaderSection|null=null;
  const start=(title:string)=>{
@@ -51,7 +51,7 @@ export function buildPrivateDailyReaderDraft(input:{
   sections.push(current);
  };
  start("The market story");
- for(const chunk of chunks.slice(1)){
+ for(const chunk of (chunks.length>1?chunks.slice(1):chunks)){
   const heading=chunk.match(/^#{1,3}\s+([^\n]{8,100})$/);
   if(heading){start(heading[1].trim());continue;}
   if(!current)start("Continuing analysis");
@@ -60,9 +60,7 @@ export function buildPrivateDailyReaderDraft(input:{
   if(current!.blocks.length>=7)start("Continuing analysis — part "+(sections.length+1));
   current!.blocks.push({kind:"paragraph",text:chunk,sourceIds:[]});
  }
- if(!sections.some(s=>s.blocks.length))sections[0].blocks.push({
-  kind:"paragraph",text:"The supplied draft contains only its opening. More evidence-led analysis is needed.",sourceIds:[],
- });
+ if(!sections.some(s=>s.blocks.length))throw new Error("EMPTY_NARRATIVE");
  const snapshotSha256=createHash("sha256").update(JSON.stringify({
    title,body,asOf:input.asOf,
    sources:sources.map(s=>[s.id,s.url,s.publishedAt,s.status]),
