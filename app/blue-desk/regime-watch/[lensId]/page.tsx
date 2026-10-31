@@ -6,6 +6,7 @@ import EditorialStoryArt from "@/components/blue-desk/EditorialStoryArt";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import {getPublicThesisLedger} from "@/lib/blue-desk-thesis-ledger-server";
 import {getPublicSourceObservations} from "@/lib/blue-desk-source-observations";
+import {scanRegimeViews} from "@/lib/bluebelly-regime-view-scan";
 import {EDITORIAL_REGIME_LENSES,groupPublicResearch} from "@/lib/bluebelly-editorial-architecture";
 import {REGIME_LENS_WORKBOOKS,matchRecentLensObservations} from "@/lib/bluebelly-regime-lens-workbook";
 import {quickViewsForLens} from "@/lib/bluebelly-fundamental-quickview";
@@ -46,6 +47,7 @@ export default async function ResearchLensPage({params}:Props){
  const lensNumber=String(EDITORIAL_REGIME_LENSES.findIndex(item=>item.id===lensId)+1).padStart(2,"0");
  const workbook=REGIME_LENS_WORKBOOKS[lens.id];
  const outlook=getLensOutlook(lens.id);
+ const viewScan=scanRegimeViews(lens.id,outlook.reviewedAt,publicTheses,sourceObservations,now);
  const latestEditorial=getRegimeEditorialUpdate(lens.id);
  const assessments=quickViewsForLens(lens.id);
  const assetContext=assessments.map(asset=>({asset,sources:matchAssetSourceEvents(asset.id,sourceObservations,now),tape:projectAssetTape(asset.id,marketMonitor?.rows??null,now)}));
@@ -132,7 +134,47 @@ export default async function ResearchLensPage({params}:Props){
     </details>
    </section>:null}
 
+   <section id="view-scan" className={styles.changeScan} data-regime-view-scan={viewScan.state} aria-labelledby="lens-scan-heading">
+    <span className={styles.kicker}>AUTOMATIC SOURCE + VIEW RECHECK / SINCE {outlook.reviewedAt} MYT</span>
+    <h2 id="lens-scan-heading">Has the evidence or the market view changed?</h2>
+    <p>The current stored position is checked against new publicly tracked views, revisions to existing Story records and newer source-qualified observations. None automatically changes the editorial meter above; the underlying research system must verify the implications.</p>
+    {viewScan.state==="PARTIAL"||viewScan.state==="UNAVAILABLE"?
+     <p className={styles.changeWarning}>Source comparison incomplete. The missing reader is not evidence of a quiet market.</p>:null}
+    <div className={styles.changeCounts}>
+     <div><strong>{viewScan.newViews.length}</strong><span>New tracked views</span></div>
+     <div><strong>{viewScan.updatedRecords.length}</strong><span>Existing Story updates</span></div>
+     <div><strong>{viewScan.sourceInputs.length}</strong><span>New original-source inputs</span></div>
+    </div>
+    {viewScan.newViews.length>0?<div className={styles.changeGroup}>
+     <h3>New views that entered the Story memory</h3>
+     {viewScan.newViews.slice(0,4).map(story=><article key={story.id}>
+      <strong>{story.title}</strong><small>{story.status==="develop"?"Working/developing view":"Tracked Story"} · <DualTimestamp value={story.createdAt||story.updatedAt}/></small>
+      <p>{story.thesis}</p><p><strong>Current challenge:</strong> {story.contradiction||"Countercase not recorded."}</p>
+     </article>)}
+    </div>:null}
+    {viewScan.updatedRecords.length>0?<div className={styles.changeGroup}>
+     <h3>Previously tracked views with newer records</h3>
+     {viewScan.updatedRecords.slice(0,4).map(story=><article key={story.id}>
+      <strong>{story.title}</strong><small>Stored record updated <DualTimestamp value={story.updatedAt}/></small>
+      <p>{story.thesis}</p><p><strong>What would invalidate it:</strong> {story.invalidation||"No invalidation trigger recorded."}</p>
+     </article>)}
+     <small>An updated timestamp alone is not proof of a changed thesis or material Regime decision.</small>
+    </div>:null}
+    {viewScan.sourceInputs.length>0?<div className={styles.changeGroup}>
+     <h3>Newly available original observations to test</h3>
+     {viewScan.sourceInputs.map(item=><article key={item.id}>
+      <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">{item.description}</a>
+      <small>{item.sourceName} · Event <DualTimestamp value={item.eventAt}/> · Recorded <DualTimestamp value={item.recordedAt}/></small>
+     </article>)}
+     <small>Topical source matches, not evidence that the currently held view is confirmed or disproved.</small>
+    </div>:null}
+    {!viewScan.newViews.length&&!viewScan.updatedRecords.length&&!viewScan.sourceInputs.length&&
+      viewScan.state!=="UNAVAILABLE"&&viewScan.state!=="PARTIAL"?
+     <p>No qualifying new inputs found in this bounded scan. The latest full research review may still identify changes beyond this public 48-hour source window.</p>:null}
+    <p className={styles.changeFoot}>This page reuses existing Story memory and source-ingestion results; it does not poll creators, trigger another model run, or automatically publish a new fundamental verdict.</p>
+   </section>
    <nav className={styles.pageNav} aria-label="Sections in this research lens">
+    <a href="#view-scan">Changes since review</a>
     <a href="#lens-outlook">Outlook &amp; confidence</a>
     {latestEditorial?<a href="#latest-editorial">Latest editorial evidence</a>:null}
     {assessments.length?<a href="#asset-monitoring">Latest original sources &amp; tape</a>:null}
