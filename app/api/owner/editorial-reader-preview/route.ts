@@ -52,6 +52,9 @@ export async function POST(req:NextRequest){
   ?body as Record<string,unknown>:{};
  const title=typeof input.title==="string"?input.title:"";
  const narrative=typeof input.body==="string"?input.body:"";
+ const selected=typeof input.selectedSources==="string"?input.selectedSources:"";
+ if(selected.length>6000)return fail(413,"Source selection too large");
+ const selectedSourceUrls=[...new Set(selected.split(/\s+/).map(v=>v.trim()).filter(Boolean))].slice(0,12);
  if(title.trim().length<8||narrative.trim().length<250||narrative.length>75000)
   return fail(422,"A substantial title and longform draft are required");
  const now=new Date();
@@ -62,7 +65,7 @@ export async function POST(req:NextRequest){
   ]);
   const news=combineQualifiedNews(selectVerifiedNewsBriefs(raw,now,12),press,12);
   const edition=buildPrivateDailyReaderDraft({
-    title,body:narrative,asOf:now.toISOString(),news,
+    title,body:narrative,asOf:now.toISOString(),news,selectedSourceUrls,
   });
   const html=renderPrivateEditorialReaderHtml(edition);
   return new NextResponse(html,{status:200,headers:{
@@ -70,8 +73,6 @@ export async function POST(req:NextRequest){
    "Content-Disposition":'inline; filename="Bluebelly-Private-Reader-PREVIEW.html"',
   }});
  }catch(e){
-  if(e instanceof Error&&e.message==="NO_RECENT_INDEPENDENT_SOURCE_RECEIPTS")
-   return fail(422,"No recent source-qualified news receipt available. Preview withheld rather than inventing an original-source ledger.");
   if(e instanceof Error&&(/INVALID_PRIVATE_READER_DRAFT|EMPTY_NARRATIVE|Unsafe URL|Invalid source receipt/.test(e.message)))
    return fail(422,"Invalid source-frozen preview input");
   return fail(503,"Private reader preview unavailable; existing draft unchanged");
