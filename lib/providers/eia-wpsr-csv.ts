@@ -8,7 +8,7 @@
  * third-party mirror, cron, persistence or guessed metric/period joins.
  */
 import {EIA_WEEKLY_SERIES, type EiaWeeklyMetricKey,
- type EiaWeeklyMetric, type EiaWeeklyPetroleumSnapshot} from "./eia-v2";
+ type EiaWeeklyMetric, type EiaWeeklyPetroleumSnapshot} from "./eia-v2.ts";
 
 export const WPSR_CSV_TABLE1="https://ir.eia.gov/wpsr/table1.csv";
 export const WPSR_CSV_TABLE9="https://ir.eia.gov/wpsr/table9.csv";
