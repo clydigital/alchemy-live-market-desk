@@ -24,8 +24,9 @@ export default function DailyReportWriter(){
   const [research,setResearch]=useState<Handoff|null>(null);
   const [title,setTitle]=useState("Daily Market Report");
   const [body,setBody]=useState("");
+  const [previewHtml,setPreviewHtml]=useState("");
   const [revision,setRevision]=useState("");
-  const [busy,setBusy]=useState<"idle"|"read"|"draft"|"revise">("idle");
+  const [busy,setBusy]=useState<"idle"|"read"|"draft"|"revise"|"preview">("idle");
   const [notice,setNotice]=useState("");
   const [editedPacket,setEditedPacket]=useState("");
   const [selectedSources,setSelectedSources]=useState("");
@@ -49,6 +50,7 @@ export default function DailyReportWriter(){
     if(busy!=="idle"||!research)return;
     if(editedPacket.trim().length<100){setNotice("Research packet is too short.");return;}
     if(action==="revise"&&!body.trim()){setNotice("There is no draft to revise.");return;}
+    if(action==="revise"&&body.length>15000){setNotice("The existing model revision limit is 15,000 characters. Your full draft is preserved; use Editorial Reader preview rather than silently truncating it.");return;}
     if(action==="draft"&&body.trim()&&!window.confirm("Replace current report draft?"))return;
     setBusy(action);setNotice("");
     try{
@@ -61,8 +63,30 @@ export default function DailyReportWriter(){
       const data=await res.json() as {body?:string;error?:string};
       if(!res.ok||!data.body)throw Error(data.error||"Model drafting unavailable.");
       setBody(data.body);
+      setPreviewHtml("");
       setNotice("Private unverified draft generated. Review all prices, original citations and any causal claim.");
     }catch(e){setNotice(e instanceof Error?e.message:"Model unavailable");}
+    finally{setBusy("idle");}
+  }
+  async function preview(){
+    if(busy!=="idle"||body.trim().length<250||!title.trim()){
+      setNotice("Enter at least 250 characters of report text before previewing.");return;
+    }
+    setBusy("preview");setNotice("");
+    try{
+      const res=await fetch("/api/owner/editorial-reader-preview",{
+        method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({title,body}),
+      });
+      if(!res.ok){
+        const data=await res.json().catch(()=>({error:"Private reader preview unavailable"})) as {error?:string};
+        throw new Error(data.error||"Private reader preview unavailable");
+      }
+      const html=await res.text();
+      if(!html.includes('data-private-reader-v4="true"'))throw new Error("Reader output did not pass the v4 contract");
+      setPreviewHtml(html);
+      setNotice("Private Editorial Reader preview is ready below. This is not an approved publication or an immutable archived edition.");
+    }catch(e){setNotice(e instanceof Error?e.message:"Private preview unavailable");}
     finally{setBusy("idle");}
   }
   const copy=async(value:string)=>{
@@ -162,9 +186,15 @@ export default function DailyReportWriter(){
             onChange={e=>setRevision(e.target.value)}/>
         </label>
         <label>Editable chronological Daily Report — not reviewed, not published
-          <textarea rows={28} value={body} onChange={e=>setBody(e.target.value.slice(0,15000))}
+          <textarea rows={28} value={body} onChange={e=>setBody(e.target.value.slice(0,75000))}
             placeholder="Generate a report from the research packet, or write your own evidence-based analysis."/>
         </label>
+        <div className={css.actions}>
+          <button type="button" onClick={preview} disabled={busy!=="idle"||body.trim().length<250}>
+            {busy==="preview"?"Preparing private reader…":"Preview full draft in Editorial Reader v4"}
+          </button>
+        </div>
+        <p className={css.warning}>Full-length drafts up to 75,000 characters can be previewed without cutting their analysis. Source-qualified receipts are fetched independently by the server; all draft claims remain unreviewed.</p>
         {body.trim() ? <details className={css.readAloud} data-private-narrative-preview="unverified">
           <summary>Read-aloud briefing preview</summary>
           <div>{body}</div>
@@ -201,6 +231,20 @@ export default function DailyReportWriter(){
       </section>
     </div> : <div className={css.empty}>Read the current sources to begin. No report
       has been generated or verified in this session.</div>}
+    {previewHtml ? <section className={css.editorialPreview} aria-label="Editorial Reader v4 unverified preview" data-reader-preview="private-unverified">
+      <h2>Editorial Reader v4 · private formatting preview</h2>
+      <p>This is the complete draft in the approved reading layout, not a verified or archived edition. Source receipts listed at the end do not independently verify your article claims. X embeds require explicit user interaction.</p>
+      <div className={css.actions}>
+        <button type="button" onClick={()=>{
+          const blob=new Blob([previewHtml],{type:"text/html;charset=utf-8"});
+          const url=URL.createObjectURL(blob);
+          const a=document.createElement("a");a.href=url;a.download="Bluebelly-Private-Editorial-Reader-PREVIEW.html";a.click();
+          URL.revokeObjectURL(url);
+        }}>Save HTML preview (print to PDF from your browser)</button>
+        <button type="button" onClick={()=>setPreviewHtml("")}>Close preview</button>
+      </div>
+      <iframe title="Private Editorial Reader v4" className={css.editorialFrame} sandbox="allow-scripts allow-popups" srcDoc={previewHtml}/>
+    </section>:null}
     <p className={css.status} role="status">{notice}</p>
   </section>;
 }
