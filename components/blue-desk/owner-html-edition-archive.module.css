@@ -20,3 +20,13 @@
 .entry summary{cursor:pointer}
 .entry li{margin:8px 0;line-height:1.5}
 @media(max-width:800px){.archive{margin:20px 12px;padding:14px}.heading{display:block}.heading button{margin:8px 0}.actions{align-items:stretch}.actions label{min-width:200px}.actions button{width:100%}}
+
+.importBox{margin:16px 0 22px;padding:18px;border:1px solid #39798b;border-radius:9px;background:#0b3042}
+.importBox strong{display:block;font-size:16px;color:#ecf9ff;margin-bottom:7px}
+.importBox p{margin:0;color:#c4d7e0;font-size:13px;line-height:1.55}
+.importGrid{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:15px 0}
+.importGrid input{min-width:220px;flex:1;max-width:100%;font-size:13px;color:#effaff}
+.importGrid input::file-selector-button{background:#183f54;color:#d2f0ff;border:1px solid #618ca0;border-radius:5px;padding:10px;margin-right:8px;cursor:pointer}
+.importGrid button{min-height:42px}
+.importNote{font-size:12px!important;color:#b6cad5!important}
+@media(max-width:650px){.importGrid{display:grid}.importGrid input,.importGrid button{width:100%}}
