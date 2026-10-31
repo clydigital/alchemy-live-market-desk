@@ -72,7 +72,6 @@ export default async function HistoryPage() {
           </Panel>
         </div>
 
-        <Link className={styles.link} href="/legacy?tab=Ledger">Open detailed research Ledger</Link>
       </div>
     </LiveDeskShell>
   );
