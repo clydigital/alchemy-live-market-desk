@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {
- archivePath,parseArchiveInput,validArchiveId,digest,HTML_BUCKET,HTML_TABLE
+ archivePath,parseArchiveInput,validArchiveId,digest,effectiveArchiveDay,HTML_BUCKET,HTML_TABLE
 } from "../lib/bluebelly-private-html-archive-contract.ts";
 
 const read=(path:string)=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
@@ -82,4 +82,23 @@ test("reader history offers exact saved HTML and linked corrections without publ
  assert.match(component,/source_manifest\.map/);
  assert.match(writer,/OwnerHtmlEditionArchive/);
  assert.match(writer,/previewReady=\{Boolean\(previewHtml\)\}/);
+});
+
+test("fresh HTML editions use MYT day, while corrections retain original report day",()=>{
+ assert.equal(effectiveArchiveDay(new Date("2026-10-30T16:00:00.000Z")),"2026-10-31");
+ assert.equal(effectiveArchiveDay(new Date("2026-10-31T15:59:59.999Z")),"2026-10-31");
+ assert.equal(effectiveArchiveDay(new Date("2026-10-31T16:00:00.000Z")),"2026-11-01");
+ assert.equal(effectiveArchiveDay(new Date("2026-11-02T03:00:00.000Z"),"2026-10-30"),"Correction keeps original story date");
+ assert.throws(()=>effectiveArchiveDay(new Date("invalid")) ,/INVALID_ARCHIVE_CLOCK/);
+ assert.throws(()=>effectiveArchiveDay(new Date("2026-10-31T05:00:00Z"),"2026-02-30"),/INVALID_ARCHIVE_CORRECTION_DAY/);
+});
+test("correction's HTML date, storage day and content hash all use same original editorial day",()=>{
+ const service=read("lib/bluebelly-private-html-archive.ts");
+ assert.match(service,/edition\.reportDay=reportDay/);
+ assert.match(service,/effectiveArchiveDay\(now,correctionDay\)/);
+ assert.match(service,/buildArchive\(input,now,parentDay\)/);
+ assert.match(service,/const day=built\.reportDay/);
+ assert.match(service,/supersedesId:input\.supersedesId,title:input\.title,body:input\.body,receipts:manifest/);
+ assert.match(service,/Private revised draft for/);
+ assert.doesNotMatch(service,/const day=parentDay\|\|built\.reportDay/);
 });
