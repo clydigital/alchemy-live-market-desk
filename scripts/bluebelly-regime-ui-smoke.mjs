@@ -41,7 +41,7 @@ async function waitResponse(path,accepted=(code)=>code===200){
   try{
    const resp=await fetch("http://127.0.0.1:"+PUBLIC+path,{signal:AbortSignal.timeout(16000),redirect:"manual"});
    const html=await resp.text();
-   if(accepted(resp.status))return {status:resp.status,html};
+   if(accepted(resp.status))return {status:resp.status,html,location:resp.headers.get("location")};
    last=path+" HTTP "+resp.status+" "+html.slice(0,200);
   }catch(e){last=String(e)}
   await sleep(2500);
@@ -157,10 +157,18 @@ try{
  const publicPages=[
   ["/newsroom","newsroom",'data-public-newsroom="original-source-only"'],
   ["/key-stories","key-stories",'data-bluebelly-stories="catalyst-led"'],
-  ["/daily-report","daily-report",'data-daily-report="editorial-first-v3"'],
   ["/hormuz","hormuz",'data-bluebelly-hormuz="public-source-dated-physical-first"'],
   ["/markets","markets",'data-blue-desk-markets="public-observations"'],
  ];
+ // The retired public report must redirect, not render an obsolete page.
+ for(const retired of ["/daily-report","/blue-desk/daily-report"]){
+  const response=await waitResponse(retired,code=>code===307);
+  if(response.location!=="https://bluebelly-desk.vercel.app/newsroom")
+   throw Error("Retired report redirected unexpectedly: "+response.location);
+  console.log("Retired "+retired+" "+response.status+" → Newsroom");
+ }
+ const historical=await waitResponse("/daily-report?edition=legacy",code=>code===404);
+ if(historical.status!==404)throw Error("Historical edition silently redirected");
  for(const [path,id,marker] of publicPages){
   const view=await waitResponse(path);
   assertHtml(view.html,marker);
