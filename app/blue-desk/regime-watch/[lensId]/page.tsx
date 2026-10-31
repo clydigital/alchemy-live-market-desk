@@ -171,7 +171,7 @@ export default async function ResearchLensPage({params}:Props){
     {!viewScan.newViews.length&&!viewScan.updatedRecords.length&&!viewScan.sourceInputs.length&&
       viewScan.state!=="UNAVAILABLE"&&viewScan.state!=="PARTIAL"?
      <p>No qualifying new inputs found in this bounded scan. The latest full research review may still identify changes beyond this public 48-hour source window.</p>:null}
-    <p className={styles.changeFoot}>This page reuses existing Story memory and source-ingestion results; it does not poll creators, trigger another model run, or automatically publish a new fundamental verdict.</p>
+    <p className={styles.changeFoot}>This page reuses existing Story memory and source-ingestion results; it does not poll creators, trigger another model run, or issue a new fundamental verdict.</p>
    </section>
    <nav className={styles.pageNav} aria-label="Sections in this research lens">
     <a href="#view-scan">Changes since review</a>
