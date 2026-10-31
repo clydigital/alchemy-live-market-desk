@@ -21,7 +21,15 @@ export async function GET(request: Request) {
     readFmpRecords({ endpoint: "earnings-calendar", from, to }),
     fetchBeaSnapshot(process.env.BEA_API_KEY),
   ]);
+  // Only inspect *presence* in this server process. Never echo keys or
+  // confuse the project-level inventory with team Shared Environment Variables.
+  const visible = (...names: string[]) => names.some(name => Boolean(process.env[name]?.trim()));
   const receipt = providerAcceptanceReceipt({
+    runtimeKeys: {
+      fred: visible("FRED_API", "FRED_API_KEY"),
+      fmp: visible("FMP_API", "FMP_API_KEY"),
+      bea: visible("BEA_API_KEY"),
+    },
     at: now.toISOString(), nominal10Y, breakeven10Y, earningsCalendar, bea,
   });
   console.info(JSON.stringify(receipt));
