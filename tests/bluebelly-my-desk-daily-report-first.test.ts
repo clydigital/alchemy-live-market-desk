@@ -12,10 +12,10 @@ const base:PrivateDailyIntelligenceEdition={
  reviewStatus:"PRIVATE_DRAFT",delivery:"WORK",
 };
 test("same byte-identical private HTML stored in Work and owner bucket appears once",()=>{
- const duplicate:{[k:string]:unknown}={...base,
+ const duplicate:PrivateDailyIntelligenceEdition={...base,
   id:"65a0ecf4-2651-4d12-9611-494679bc3daa",delivery:"MY_DESK",
   createdAt:"2026-10-31T08:57:30Z"};
- const result=uniquePrivateDailyIntelligence([duplicate as PrivateDailyIntelligenceEdition,base]);
+ const result=uniquePrivateDailyIntelligence([duplicate,base]);
  assert.equal(result.editions.length,1);
  assert.equal(result.duplicatesHidden,1);
  assert.equal(result.editions[0].id,base.id);
