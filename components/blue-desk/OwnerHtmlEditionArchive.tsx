@@ -10,6 +10,7 @@ type Edition={
 };
 export default function OwnerHtmlEditionArchive(props:{
  title:string;body:string;selectedSources:string;selectedX:string;previewReady:boolean;disabled:boolean;
+ autoArchivedId?:string|null;
 }){
  const [editions,setEditions]=useState<Edition[]>([]);
  const [supersedesId,setSupersedesId]=useState("");
@@ -26,6 +27,7 @@ export default function OwnerHtmlEditionArchive(props:{
   }catch{setNote("Could not read private HTML edition history.");}
  },[]);
  useEffect(()=>{void refresh();},[refresh]);
+ useEffect(()=>{if(props.autoArchivedId)void refresh();},[props.autoArchivedId,refresh]);
  async function save(){
   if(busy||props.disabled||!props.previewReady||props.body.trim().length<250){
    setNote("Preview the complete article first, then save an immutable private edition.");return;
@@ -78,7 +80,7 @@ export default function OwnerHtmlEditionArchive(props:{
   <header className={css.heading}>
    <div><p className={css.kicker}>PRIVATE HTML / IMMUTABLE HISTORY</p>
     <h3>My HTML report editions</h3>
-    <p>Save an independent, server-rendered copy of the current full-length report. Every revision is a new edition; old versions remain unchanged.</p></div>
+    <p>Complete HTML reports and full previews save to this private archive automatically. Previous editions remain unchanged; corrections create linked new editions.</p></div>
    <button type="button" onClick={()=>void refresh()} disabled={busy}>Refresh history</button>
   </header>
   <div className={css.actions}>
@@ -91,8 +93,8 @@ export default function OwnerHtmlEditionArchive(props:{
     </select>
    </label>
    <button type="button" onClick={()=>void save()}
-    disabled={busy||props.disabled||!props.previewReady||props.body.length<250}>
-    {busy?"Saving private HTML…":supersedesId?"Save correction as new HTML edition":"Archive current HTML report"}
+    disabled={busy||props.disabled||!props.previewReady||props.body.length<250||Boolean(props.autoArchivedId&&!supersedesId)}>
+    {busy?"Saving private HTML…":supersedesId?"Save correction as new HTML edition":props.autoArchivedId?"Already saved automatically":"Archive current HTML report"}
    </button>
   </div>
   <div className={css.importBox} data-owner-html-file-import="private">
@@ -109,7 +111,8 @@ export default function OwnerHtmlEditionArchive(props:{
     </div>
     <p className={css.importNote}>Private owner-only archive. JavaScript widgets are removed; original links and charts remain. Import does not independently verify the report's claims.</p>
    </div>
-  {!props.previewReady?<p className={css.warning}>Generate or preview the complete HTML reader first; source-linked draft text alone cannot be silently marked reviewed.</p>:null}
+  {props.autoArchivedId&&props.previewReady?<p className={css.message} data-autoarchive-receipt="saved">Automatically saved private edition {props.autoArchivedId.slice(0,8)}. No separate upload required.</p>:null}
+  {!props.previewReady?<p className={css.warning}>Generate or preview the complete HTML reader first; incomplete chapters are not archived as finished reports.</p>:null}
   <p className={css.warning}>All editions are PRIVATE_DRAFT. The source manifest records exact available independent receipts and attributed X originals, not proof that every sentence has been verified. Historical HTML opens without scripts; download to keep a personal copy.</p>
   <p className={css.message} role="status">{note}</p>
   <div className={css.history}>

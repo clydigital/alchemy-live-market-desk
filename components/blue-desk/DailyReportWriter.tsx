@@ -28,6 +28,7 @@ export default function DailyReportWriter(){
   const [title,setTitle]=useState("Daily Market Report");
   const [body,setBody]=useState("");
   const [previewHtml,setPreviewHtml]=useState("");
+  const [archivedEditionId,setArchivedEditionId]=useState<string|null>(null);
   const [longformProgress,setLongformProgress]=useState<LongformProgress|null>(null);
   const [revision,setRevision]=useState("");
   const [busy,setBusy]=useState<"idle"|"read"|"draft"|"revise"|"preview"|"longform">("idle");
@@ -113,16 +114,19 @@ export default function DailyReportWriter(){
       if(complete.length>75000)throw new Error("Complete report exceeds private editor length limit; completed chapters retained for review.");
       const previewResponse=await fetch("/api/owner/editorial-reader-preview",{
         method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({title:current.title,body:complete,selectedSources,selectedX}),
+        body:JSON.stringify({title:current.title,body:complete,selectedSources,selectedX,autoArchive:true}),
       });
       if(!previewResponse.ok){
         const reason=await previewResponse.json().catch(()=>({error:"HTML export unavailable"})) as {error?:string};
         throw new Error(reason.error||"HTML export unavailable");
       }
       const html=await previewResponse.text();
-      if(!html.includes('data-private-reader-v4="true"'))throw new Error("Invalid HTML reader");
-      setPreviewHtml(html);
-      setNotice("HTML-only report generated: "+chapters.length+" chapters, "+complete.split(/\s+/).length+" words. Review claims, original sources, inferred mechanisms and X attributions before using or saving the private HTML.");
+      const archiveId=previewResponse.headers.get("X-Bluebelly-Archive-Id");
+      if(!html.includes('data-private-reader-v4="true"')||!archiveId)
+       throw new Error("Complete HTML was not durably archived; retry preview. Draft chapters are retained.");
+      setPreviewHtml(html);setArchivedEditionId(archiveId);
+      setNotice("HTML-only report saved automatically to private My Desk history · edition "+archiveId.slice(0,8)+
+       " · "+chapters.length+" chapters, "+complete.split(/\s+/).length+" words. PRIVATE_DRAFT — review claims and sources before external use.");
     }catch(e){
       setNotice((e instanceof Error?e.message:"Chapter generation unavailable")+". "+chapters.length+"/"+HTML_LONGFORM_CHAPTERS.length+" chapters retained. "+(chapters.length===HTML_LONGFORM_CHAPTERS.length?"Use Preview full draft to rebuild the HTML export.":"Choose Continue HTML report to resume."));
     }finally{setBusy("idle");}
@@ -135,16 +139,19 @@ export default function DailyReportWriter(){
     try{
       const res=await fetch("/api/owner/editorial-reader-preview",{
         method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({title,body,selectedSources,selectedX}),
+        body:JSON.stringify({title,body,selectedSources,selectedX,autoArchive:true}),
       });
       if(!res.ok){
         const data=await res.json().catch(()=>({error:"Private reader preview unavailable"})) as {error?:string};
         throw new Error(data.error||"Private reader preview unavailable");
       }
       const html=await res.text();
-      if(!html.includes('data-private-reader-v4="true"'))throw new Error("Reader output did not pass the v4 contract");
-      setPreviewHtml(html);
-      setNotice("Private Editorial Reader preview is ready below. This is not an approved publication or an immutable archived edition.");
+      const archiveId=res.headers.get("X-Bluebelly-Archive-Id");
+      if(!html.includes('data-private-reader-v4="true"')||!archiveId)
+       throw new Error("Reader was not saved to the private archive. Retry preview.");
+      setPreviewHtml(html);setArchivedEditionId(archiveId);
+      setNotice("Private Editorial Reader saved automatically · edition "+archiveId.slice(0,8)+
+       ". This is an immutable PRIVATE_DRAFT, not an approved or public report.");
     }catch(e){setNotice(e instanceof Error?e.message:"Private preview unavailable");}
     finally{setBusy("idle");}
   }
@@ -279,7 +286,7 @@ export default function DailyReportWriter(){
         <p className={css.warning}>Only exact original X links already recorded by the private X wire will appear, at their recorded publication times. X statements remain attributed, not independently proven market causes. Embeds load only after you click them; the downloaded HTML retains plain-text links offline.</p>
         <p className={css.warning}>The imported source packet may contain up to 40 candidate links,
           including Notion, social posts, calendars and hypotheses. They are unverified candidates. Select only original documents you have checked.
-          The publisher separately requires your approval and a matching PDF.</p>
+          Public publication remains separate and requires source checking and owner approval; private HTML archival does not publish.</p>
         <p className={css.warning}>Personal review checklist: independently check original
           source documents, event and market observation times, alternative causes,
           actual versus expected readings, and calendar/earnings precision.</p>
@@ -304,10 +311,11 @@ export default function DailyReportWriter(){
     </div> : <div className={css.empty}>Read the current sources to begin. No report
       has been generated or verified in this session.</div>}
     <OwnerHtmlEditionArchive title={title} body={body} selectedSources={selectedSources}
-      selectedX={selectedX} previewReady={Boolean(previewHtml)} disabled={busy!=="idle"}/>
+      selectedX={selectedX} previewReady={Boolean(previewHtml)} 
+      autoArchivedId={previewHtml?archivedEditionId:null} disabled={busy!=="idle"}/>
     {previewHtml ? <section className={css.editorialPreview} aria-label="Editorial Reader v4 unverified preview" data-reader-preview="private-unverified">
       <h2>Editorial Reader v4 · private formatting preview</h2>
-      <p>This is the complete generated or edited report in the approved HTML reading layout, not a verified or archived edition. Source receipts listed at the end do not independently verify your article claims. X embeds require explicit user interaction.</p>
+      <p>This is an automatically archived PRIVATE_DRAFT in the approved HTML reading layout, not an approved public edition. Source receipts listed at the end do not independently verify your article claims. X embeds require explicit user interaction.</p>
       <div className={css.actions}>
         <button type="button" onClick={()=>{
           const blob=new Blob([previewHtml],{type:"text/html;charset=utf-8"});
