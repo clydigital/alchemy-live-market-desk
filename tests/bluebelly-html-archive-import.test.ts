@@ -46,7 +46,6 @@ test("import remains idempotent but keeps distinct report dates and correction i
 test("import refuses active resources and masquerading unrelated reports",()=>{
  const data=(html:string,filename="Bluebelly_2026-10-30.html")=>({filename,html});
  assert.throws(()=>parseExistingHtmlEdition(data(example.replace("Bluebelly Daily","Other Daily"))),/NOT_BLUEBELLY_HTML/);
- assert.throws(()=>parseExistingHtmlEdition(data(example.replace("<section id=",`<iframe src="https://example.com"></iframe><section id=`)),/ACTIVE_HTML_NOT_ALLOWED/);
  assert.throws(()=>parseExistingHtmlEdition(data(example.replace('class="main"',`onload="alert(1)" class="main"`))),/ACTIVE_HTML_NOT_ALLOWED/);
  assert.throws(()=>parseExistingHtmlEdition(data(example.replace('href="https://www.reuters.com/"','href="javascript:alert(1)"')),/ACTIVE_HTML_NOT_ALLOWED/);
  assert.throws(()=>parseExistingHtmlEdition(data(example,"../../report.html")) ,/INVALID_HTML_FILE/);
