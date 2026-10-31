@@ -97,3 +97,28 @@ test("private override never substitutes an older history over a newer source da
   assert.equal(p.values[120].coefficient,null);
   assert.equal(p.dateRight,"2026-10-27");
 });
+
+test("expanded cross-asset families are read-only and preserve proxy disclosure",()=>{
+ const ids=["yen-carry-equities","rates-dollar","real-yields-growth","equal-weight-breadth",
+  "semis-nasdaq","miners-gold","credit-equities","oil-energy-equities","brent-distillate"];
+ const rows=buildMarketToolsCorrelations([],[],NOW);
+ assert.equal(new Set(rows.map(r=>r.id)).size,rows.length);
+ for(const id of ids){
+  const pair=rows.find(r=>r.id===id);
+  assert.ok(pair,`Missing expanded pair: ${id}`);
+  assert.equal(pair.status,"unavailable");
+  assert.ok(pair.proxyNote.length>40);
+  assert.equal(pair.values[20].coefficient,null);
+ }
+});
+test("new semi and breadth pairs use matched returns, and credit fails closed without spread",()=>{
+ const rows=buildMarketToolsCorrelations(
+  [prices("RSP",1),prices("^GSPC",1),prices("SOXX",-1),prices("^IXIC",1)],[],NOW);
+ const breadth=rows.find(p=>p.id==="equal-weight-breadth")!;
+ const semis=rows.find(p=>p.id==="semis-nasdaq")!;
+ const credit=rows.find(p=>p.id==="credit-equities")!;
+ assert.equal(breadth.status,"measured");
+ assert.equal(breadth.values[60].coefficient,1);
+ assert.equal(semis.values[20].coefficient,-1);
+ assert.equal(credit.status,"unavailable");
+});
