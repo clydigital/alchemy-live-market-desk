@@ -74,7 +74,7 @@ export default async function MacroDataPage() {
         <Panel
           title="Current release monitor"
           description="Verified release records, source links and market questions from the current research feed."
-          action={<Link className={styles.link} href="/legacy?tab=Macro%20Data">Open detailed Macro module</Link>}
+          action={<Link className={styles.link} href="https://bluebelly-desk.vercel.app/calendar">Open Bluebelly calendar</Link>}
         >
           <div className={styles.recordList}>
             {data.macroReleases.length ? data.macroReleases.map((release) => {
