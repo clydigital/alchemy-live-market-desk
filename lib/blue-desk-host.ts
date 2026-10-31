@@ -137,6 +137,43 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
 }
 
 /**
+ * Reversible retirement of the old human-facing Live hostname. The underlying
+ * Vercel project remains essential to research, cron, provider, owner and API
+ * services. Only the exact public presentation allowlist is redirected.
+ *
+ * Never translate historical edition / evidence selectors into today's page.
+ * A null result retains the original gated route for a later exact-replay
+ * migration, instead of producing an inaccurate current-market substitute.
+ */
+export function retiredLivePublicDestination(
+ pathname: string, host: string | null | undefined, search = "",
+): string | null {
+ if (normalizedHost(host) !== LIVE_DESK_PRESENTATION_HOST
+   || blueDeskHostAccess(pathname,host) !== "public"
+   || typeof search !== "string" || search.length > 1024) return null;
+ const query=new URLSearchParams(search.startsWith("?")?search.slice(1):search);
+ for(const key of ["edition","dossier","story","motion","regime","event","research_run","article","snapshot"]){
+  if(query.has(key)) return null;
+ }
+ let clean=pathname;
+ if(pathname==="/owner/live")clean="/";
+ else if(pathname==="/owner/markets")clean="/markets";
+ else if(pathname==="/blue-desk")clean="/";
+ else if(pathname.startsWith("/blue-desk/"))clean=pathname.slice("/blue-desk".length);
+ const dest=new URL(clean,"https://"+BLUEBELLY_PRESENTATION_HOST);
+ // Carry only bounded, known public filter state. Discard unknown parameters;
+ // never forward token/credential-style query data to the public product.
+ const one=(key:string,pattern:RegExp)=>{
+  const value=query.get(key);
+  if(value && pattern.test(value))dest.searchParams.set(key,value);
+ };
+ if(clean==="/markets")one("group",/^[a-z0-9-]{1,40}$/);
+ if(clean==="/calendar")one("window",/^[a-z0-9-]{1,40}$/);
+ if(clean==="/key-stories")one("feature",/^[a-z0-9-]{1,56}$/);
+ return dest.toString();
+}
+
+/**
  * Old Live Desk query bookmarks should land on a public read-only surface,
  * never an owner-only operational route that demands sign-in. This function
  * intentionally maps to a small allowlist; it cannot be an open redirect.
