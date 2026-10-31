@@ -1,4 +1,4 @@
-import {fetchOfficialWpsrCsv} from "./eia-wpsr-csv";
+import {fetchOfficialWpsrCsv} from "./eia-wpsr-csv.ts";
 export const EIA_WEEKLY_PETROLEUM_ROUTE = "https://api.eia.gov/v2/petroleum/sum/sndw/data/";
 
 export const EIA_WEEKLY_SERIES = {
