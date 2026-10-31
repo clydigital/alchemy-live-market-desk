@@ -37,3 +37,22 @@ Use one or two low-volume requests to test each key once the shared variables ar
 3. Execute a controlled, authenticated server-side smoke test with one FRED daily series and one FMP Basic-eligible endpoint, recording only status, observation/filing date, source, and provider entitlement. Do not record the credential-bearing request URL.
 4. Validate source identity/units/periods and licence terms, including FMP redistribution rights, before connecting to canonical Evidence.
 5. Only after passing these checks should a separate PR wire approved inputs through Research Gate / Dossier and existing monitoring cadence. No new reasoning engine or concurrent schedule.
+
+
+## Mandatory Shared Environment Variable diagnostic gate (31 October 2026)
+
+**Source-of-truth incident rule for humans, ChatGPT research plugins and coding agents:**
+FRED_API and FMP_API were declared configured in Vercel **Team Shared Environment Variables**, not necessarily project-level variable listings. Never infer their absence from `filter_project_envs` or any project-level-only inventory. Do not request the user to recreate keys without these checks.
+
+Use this order for every reported API failure (including BEA, EIA, Alpha Vantage, SEC and third-party market providers):
+
+1. Read **this document** and the deployed provider-adapter names/fallbacks. Establish which team, Vercel project, deployment SHA and environment actually run the request.
+2. Inspect **Vercel Team Settings → Environment Variables → Shared**. Confirm the named key exists **without revealing its value**. If a connector cannot enumerate Shared Variables, record `SHARED_SCOPE_UNVERIFIED`, not `MISSING_KEY`.
+3. Verify the **Shared Variable's project attachment**, its **Production/Preview target**, and whether the key was changed *after* the active deployment; redeploy when necessary. A project-level key list cannot complete this check.
+4. Run the **authenticated existing** `/api/cron/provider-acceptance` diagnostic (FRED/FMP/BEA) or owner-only `/market-tools?check=providers` check (FRED/EIA/Alpha). Respect existing cron schedules and low free-tier quotas; do not create another task or fetch secret values.
+5. Classify separately: `SHARED_SCOPE_UNVERIFIED`, `NOT_VISIBLE_TO_RUNNING_DEPLOYMENT`, `HTTP_AUTH_FAILURE`, `PLAN_OR_ENDPOINT_RESTRICTED`, `RATE_LIMITED`, `NETWORK_OR_TIMEOUT`, `EMPTY_OR_INVALID_PAYLOAD`, `STALE_OR_NOT_INGESTED`, or `READY_WITH_DATED_ROWS`.
+6. Verify **canonical ingestion and source-dated readback** independently of HTTP 200 / provider readiness before declaring a Bluebelly research feed fixed.
+
+The authenticated provider-acceptance receipt now includes `credentialDiagnostics` with non-secret runtime-presence statuses and an explicit `missingFromVercelClaimSupported: false`. **Runtime absence is not proof that the team Shared Variable is absent.** The diagnostic cannot independently enumerate Vercel Shared Variables; project attachment and target remain unverified until inspected in Team Settings or through a separately authorised shared-variable inventory tool.
+
+**Closeout contract:** Every incident must report `project + deployment`, `Shared scope checked/unknown`, `project attachment checked/unknown`, `production target checked/unknown`, `runtime visibility`, `provider response/entitlement`, `source observation date`, and `canonical write/readback`. An unknown is a finding, not a reason to make up a configuration verdict.
