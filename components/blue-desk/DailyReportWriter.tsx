@@ -3,6 +3,7 @@
 import {useState} from "react";
 import Link from "next/link";
 import css from "./daily-report-writer.module.css";
+import OwnerHtmlEditionArchive from "./OwnerHtmlEditionArchive";
 import {DAILY_BRIEFING_STEPS} from "@/lib/blue-desk-narrative-playbook";
 import {HTML_LONGFORM_CHAPTERS,assembleHtmlLongformDraft} from "@/lib/bluebelly-html-longform-generator";
 
@@ -302,6 +303,8 @@ export default function DailyReportWriter(){
       </section>
     </div> : <div className={css.empty}>Read the current sources to begin. No report
       has been generated or verified in this session.</div>}
+    <OwnerHtmlEditionArchive title={title} body={body} selectedSources={selectedSources}
+      selectedX={selectedX} previewReady={Boolean(previewHtml)} disabled={busy!=="idle"}/>
     {previewHtml ? <section className={css.editorialPreview} aria-label="Editorial Reader v4 unverified preview" data-reader-preview="private-unverified">
       <h2>Editorial Reader v4 · private formatting preview</h2>
       <p>This is the complete generated or edited report in the approved HTML reading layout, not a verified or archived edition. Source receipts listed at the end do not independently verify your article claims. X embeds require explicit user interaction.</p>
