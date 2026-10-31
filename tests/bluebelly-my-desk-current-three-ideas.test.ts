@@ -71,7 +71,7 @@ test("reject non-HTTPS links and never convert a research gap into market facts"
 test("only post-cutover Daily Report editions qualify for the new visible history",()=>{
  const editions=[{createdAt:"2026-10-31T08:57:30Z",type:"DAILY"},
   {createdAt:"2026-10-31T09:11:09Z",type:"DAILY"},
-  {createdAt:"2026-10-31T09:11:11Z",type:"DAILY"}];
+  {createdAt:"2026-10-31T12:53:21Z",type:"DAILY"}];
  assert.equal(MY_DESK_ARCHIVE_CUTOVER,"2026-10-31T12:53:20.000Z");
  assert.deepEqual(postCutoverDailyArchive(editions),[editions[2]]);
 });
