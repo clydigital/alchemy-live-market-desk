@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 
 const read=(path:string)=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
+const decision=read("components/blue-desk/DecisionBrief.module.css");
 const files={
  newsroom:read("components/blue-desk/bluebelly-newswire.module.css"),
  stories:read("app/blue-desk/key-stories/key-stories.module.css"),
@@ -38,6 +39,9 @@ test("secondary text stays readable and primary controls offer touch targets",()
   ["learn controls",files.learn,/\.readerBar button,\.readerNav button,\.readerNav select\{[^}]*min-height:44px/],
   ["global nav",files.header,/\.navItem,\.navActive\{[^}]*min-height:44px/],
  ] as const)assert.match(file,selector,label);
+ assert.match(files.hormuz,/@media\(max-width:720px\)\{\s*\.actions\{display:grid;grid-template-columns:minmax\(0,1fr\)/);
+ assert.match(decision,/\.headlineRow \.cutoff small,\.homeLead \.homeFoot small\{opacity:1!important;font-size:12px!important/);
+ assert.match(decision,/\.brief \.releasedLink\{white-space:normal;overflow:visible;text-overflow:clip/);
  assert.match(files.newsroom,/@media\(max-width:560px\)[\s\S]*\.item p\{display:block;font-size:15px/);
  assert.match(files.learn,/@media\(max-width:730px\)[\s\S]*\.slideLines p\{font-size:16px/);
  assert.match(files.regime,/@media\(max-width:680px\)/);
