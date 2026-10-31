@@ -2,7 +2,7 @@ import type { BeaSnapshot } from "./providers/bea.ts";
 import type { FredReadResult } from "./providers/fred-api-v1.ts";
 import type { FmpReadResult } from "./providers/fmp-rest.ts";
 
-type State = "ready" | "unconfigured" | "unavailable" | "restricted";
+type State = "ready" | "partial" | "unconfigured" | "unavailable" | "restricted";
 
 /** Safe operational receipt. Never include request URLs, keys, raw values or records. */
 export function providerAcceptanceReceipt(input: {
