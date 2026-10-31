@@ -6,6 +6,7 @@ import OwnerAutomaticReportReader from "@/components/blue-desk/OwnerAutomaticRep
 import OwnerEditorialSlatePdfReader from "@/components/blue-desk/OwnerEditorialSlatePdfReader";
 import OwnerPrivatePdfInputHealth from "@/components/blue-desk/OwnerPrivatePdfInputHealth";
 import OwnerEditorialSlateHtml from "@/components/blue-desk/OwnerEditorialSlateHtml";
+import OwnerDailyIntelligenceHome from "@/components/blue-desk/OwnerDailyIntelligenceHome";
 import {getLatestEditorialSlate} from "@/lib/editorial-slate-server";
 import styles from "@/app/blue-desk/blue-desk.module.css";
 import layout from "./my-desk.module.css";
@@ -62,19 +63,35 @@ export default async function MyBluebellyReports({searchParams}:{searchParams?:P
     <div>
      <p className={styles.kicker}>PRIVATE / BLUEBELLY</p>
      <h1>My Desk</h1>
-     <p className={styles.heroDeck}>HTML-first reading room: longer market stories,
-       expanded ranked article decisions, and one grouped narrative per eligible creator.
-       Editions live in your private Google Drive, not Vercel file storage.
-       Source provenance and missing evidence stay visible.</p>
+     <p className={styles.heroDeck}>Your private market intelligence reading room.
+       Read the latest Daily Intelligence first; its strongest, source-checked tensions
+       should direct COTD and Opening Bell ideas. Historical research and diagnostics
+       remain available separately, without competing with the main report.</p>
     </div>
    </header>
-   <OwnerEditorialSlateHtml slate={liveSlate.slate} status={liveSlate.status}/>
+   <OwnerDailyIntelligenceHome/>
+   <section className={layout.editorialDirection} data-my-desk-secondary="daily-report-to-ob-cotd">
+    <div>
+     <p className={styles.kicker}>02 / STORY SELECTION · FOLLOW THE DAILY REPORT</p>
+     <h2>COTD / Opening Bell directions</h2>
+     <p>The Daily Intelligence establishes the market story, its uncertainties and what needs watching.
+      These article ideas should be selected from that story, not produced as a competing daily report.
+      Existing saved slates may predate the current edition and do not yet prove report-to-idea lineage.</p>
+    </div>
+    <details>
+     <summary>Explore {liveSlate.slate?.ideas.length||0} saved article directions
+      {liveSlate.slate?" · "+liveSlate.slate.ageLabel:" · no current slate"}</summary>
+     <OwnerEditorialSlateHtml slate={liveSlate.slate} status={liveSlate.status}/>
+    </details>
+   </section>
+   <details className={layout.secondaryLibrary} data-my-desk-tertiary="legacy-drive-and-research">
+    <summary>Research library, creator editions and source-assurance checks</summary>
    <section className={layout.driveArchive} data-drive-archive="kqdocuments88-html-primary">
      <div className={layout.driveHead}>
        <div>
          <p className={styles.kicker}>PRIVATE EDITIONS · CATEGORY LIBRARY</p>
          <h2>Read, research, reuse</h2>
-         <p>Four separate HTML collections. Choose one below to avoid mixing market stories,
+         <p>Historical Drive HTML collections. Choose one below to avoid mixing market stories,
            editorial decisions and creator narratives. The documents live in your KQ Google Drive.</p>
        </div>
        <a href={DRIVE_FOLDER} target="_blank" rel="noopener noreferrer">Browse complete Drive archive ↗</a>
@@ -110,7 +127,7 @@ export default async function MyBluebellyReports({searchParams}:{searchParams?:P
        {currentPage>1?<Link href={pageHref(activeType,currentPage-1)}>← Previous</Link>:<span>Beginning</span>}
        {currentPage<pageCount?<Link href={pageHref(activeType,currentPage+1)}>Next →</Link>:<span>Latest available</span>}
      </nav>
-     <p className={layout.driveNote}>New scheduled HTML editions: {registry.status==="available"
+     <p className={layout.driveNote}>Legacy Drive-only scheduled HTML editions: {registry.status==="available"
         ?"loaded from verified private report receipts"
         :registry.status==="empty"?"no automated HTML receipt yet"
         :"report receipt storage unavailable"}. Older files remain in a labelled, fixed historic index.</p>
@@ -146,9 +163,12 @@ export default async function MyBluebellyReports({searchParams}:{searchParams?:P
        REPORTed and a creator claim stays LEAD until independently source-verified.
        Any post-cutoff event belongs to the next editorial cycle.</p>
    </section>
+   </details>
   </div>
 
   <div className={styles.content}>
+   <details className={layout.secondaryLibrary} data-my-desk-tertiary="manual-research">
+    <summary>Historical investigations and manual rates worksheets</summary>
    <section className={layout.driveArchive} data-bluebelly-manual-research="2026-10-27" aria-label="Manual Asia and global bonds research">
      <div className={layout.driveHead}><div>
        <p className={styles.kicker}>MANUAL RESEARCH · SOURCE CHECKS · 27 OCTOBER 2026</p>
@@ -182,6 +202,7 @@ export default async function MyBluebellyReports({searchParams}:{searchParams?:P
       <p>Record as-of times for US02Y, US10Y, US30Y, real yields, breakevens, investment-grade and high-yield spreads, DXY and USD/JPY. Test the inflation/fiscal-stress explanation against the competing flight-to-safety explanation. Keep pre-event expectation, immediate reaction, close, next-session result and the falsifier separate.</p>
      </div>
    </section>
+   </details>
   </div>
   <div className={layout.technical}>
    <details data-my-desk-pdf-legacy="hidden-by-default">
