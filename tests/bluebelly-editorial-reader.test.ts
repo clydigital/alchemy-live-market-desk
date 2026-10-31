@@ -89,3 +89,14 @@ test("edition identity, duplicates and invalid negative chart values fail closed
  fig.rows[0].value=-1;
  assert.throws(()=>renderPrivateEditorialReaderHtml(negative),/Figure is missing verified source/);
 });
+
+test("verified X and observed causal claims require independent original receipts",()=>{
+ const forged=edition();const p=forged.sections[1].blocks[1];
+ if(p.kind!=="x-post")throw Error("Bad post fixture");
+ p.originalVerified=true;
+ assert.throws(()=>renderPrivateEditorialReaderHtml(forged),/Verified X original requires exact/);
+ const causal=edition();const chain=causal.sections[1].blocks[0];
+ if(chain.kind!=="cause-chain")throw Error("Bad chain fixture");
+ chain.sourceIds=["creator-1"];
+ assert.throws(()=>renderPrivateEditorialReaderHtml(causal),/Observed causal node lacks original verified/);
+});
