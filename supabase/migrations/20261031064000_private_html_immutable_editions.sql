@@ -8,7 +8,7 @@ create table if not exists public.blue_desk_private_html_editions (
   content_sha256 text not null check(content_sha256 ~ '^[0-9a-f]{64}$'),
   html_sha256 text not null check(html_sha256 ~ '^[0-9a-f]{64}$'),
   html_path text not null unique check(
-    html_path ~ '^private-html/[0-9a-f-]{36}/[0-9]{4}-[0-9]{2}-[0-9]{2}/[0-9a-f-]{36}\\.html$'
+    html_path ~ '^private-html/[0-9a-f-]{36}/[0-9]{4}-[0-9]{2}-[0-9]{2}/[0-9a-f-]{36}\.html$'
   ),
   source_manifest jsonb not null default '[]'::jsonb check(
     jsonb_typeof(source_manifest)='array' and jsonb_array_length(source_manifest)<=24
