@@ -11,7 +11,7 @@ export async function getPublicThesisLedger(now=new Date(),limit=24):Promise<Pub
   autoRefreshToken:false,persistSession:false,detectSessionInUrl:false,
  }});
  const {data,error}=await client.from("stories")
- .select("id,slug,title,market_question,thesis,strongest_support,strongest_contradiction,confirmation_trigger,invalidation_trigger,next_catalyst,priced_assessment,updated_at,status,rank")
+ .select("id,slug,title,market_question,thesis,strongest_support,strongest_contradiction,confirmation_trigger,invalidation_trigger,next_catalyst,priced_assessment,updated_at,created_at,status,rank")
  .in("status",["publish","monitor","develop"])
  .order("updated_at",{ascending:false}).limit(38);
  if(error)throw new Error("Public tracked-thesis read unavailable");

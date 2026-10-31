@@ -4,6 +4,8 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import EditorialStoryArt from "@/components/blue-desk/EditorialStoryArt";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import {getPublicThesisLedger} from "@/lib/blue-desk-thesis-ledger-server";
+import {getPublicSourceObservations} from "@/lib/blue-desk-source-observations";
+import {scanRegimeViews,summarizeRegimeScans} from "@/lib/bluebelly-regime-view-scan";
 import {groupPublicResearch} from "@/lib/bluebelly-editorial-architecture";
 import {getLensOutlook,LENS_OUTLOOK_REVIEWED_ON} from "@/lib/bluebelly-regime-lens-outlook";
 import {getRegimeEditorialUpdate} from "@/lib/bluebelly-regime-verified-crossasset";
@@ -21,8 +23,13 @@ export const metadata={
 
 export default async function RegimeWatchPage(){
  const now=new Date(),host=(await headers()).get("host");
- const theses=await getPublicThesisLedger(now,38).catch(()=>null);
+ const [theses,observations]=await Promise.all([
+  getPublicThesisLedger(now,38).catch(()=>null),
+  getPublicSourceObservations(now,12).catch(()=>null),
+ ]);
  const lenses=groupPublicResearch(theses||[]);
+ const scans=lenses.map(lens=>scanRegimeViews(lens.id,getLensOutlook(lens.id).reviewedAt,theses,observations,now));
+ const changes=summarizeRegimeScans(scans);
  return <main className={desk.page} data-public-regime-watch="dated-editorial-lens-outlooks">
   <BlueDeskHeader activePath="/blue-desk/regime-watch"/>
   <div className={desk.content}>
@@ -50,6 +57,32 @@ export default async function RegimeWatchPage(){
     <div><span>03 / CROSS-REGIME WATCH</span><strong>01</strong><small>CRASH VERSUS OPPORTUNITY</small></div>
     <p>Every lens is a question, not a trade. Follow the evidence into its original context, then test the counterargument.</p>
    </div>
+   <section id="view-changes" className={styles.viewScan} data-regime-view-scan="stored-stories-and-admitted-original-sources" aria-labelledby="view-scan-title">
+    <div className={styles.viewScanHead}>
+     <div><span className={styles.kicker}>AUTOMATED REVIEW QUEUE / EXISTING + EMERGING VIEWS</span>
+      <h2 id="view-scan-title">What has changed since the last review?</h2>
+      <p>Bluebelly compares the existing tracked Story views with newly recorded views and source-qualified releases. These are reasons to revisit a thesis—not automatic changes to the nine reviewed outlooks.</p>
+     </div>
+     <div className={styles.viewScanCounts}>
+      <div><strong>{changes.newViewLenses}</strong><span>LENSES WITH NEW VIEWS</span></div>
+      <div><strong>{changes.revisedRecordLenses}</strong><span>LENSES WITH UPDATED RECORDS</span></div>
+      <div><strong>{changes.sourceInputLenses}</strong><span>LENSES WITH NEW SOURCES</span></div>
+     </div>
+    </div>
+    {changes.incompleteLenses>0?<p className={styles.scanCaution}>Partial coverage: at least one source reader is unavailable. Do not treat missing updates as a verified unchanged market.</p>:null}
+    <div className={styles.viewScanList}>
+     {scans.filter(scan=>scan.newViews.length||scan.updatedRecords.length||scan.sourceInputs.length).slice(0,6).map(scan=>{
+      const lens=lenses.find(item=>item.id===scan.lens)!;
+      return <Link key={scan.lens} href={blueDeskPublicHref("/blue-desk/regime-watch/"+scan.lens,host)+"#view-scan"}>
+       <strong>{lens.name}</strong>
+       <span>{scan.newViews.length} new view{scan.newViews.length===1?"":"s"} · {scan.updatedRecords.length} updated record{scan.updatedRecords.length===1?"":"s"} · {scan.sourceInputs.length} newly available original source{scan.sourceInputs.length===1?"":"s"}</span>
+      </Link>;
+     })}
+     {!scans.some(scan=>scan.newViews.length||scan.updatedRecords.length||scan.sourceInputs.length)?
+      <p>No newer qualifying inputs were found in this bounded scan. This does not mean all nine market theses are unchanged.</p>:null}
+    </div>
+    <small>Existing Story memory and a bounded 48-hour sample of tier-1/2 original observations only. Creator/X opinions remain research leads until independently verified and admitted. No separate polling or research job.</small>
+   </section>
    <section id="cross-regime-watch" className={styles.crashFeatured} aria-labelledby="crash-opportunity-featured" data-crash-watch-entry="own-research-watch">
     <div>
       <span className={styles.kicker}>FEATURED / CROSS-REGIME WATCH</span>
@@ -75,7 +108,14 @@ export default async function RegimeWatchPage(){
        <h3>{lens.name}</h3>
        <RegimeOutlookMeter assessment={getLensOutlook(lens.id)}/>
        <p className={styles.lensReason}><strong>Why:</strong> {getLensOutlook(lens.id).headline}</p>
-       {getRegimeEditorialUpdate(lens.id)?<span className={styles.editorialUpdate}>30 OCT · FRESH POST-DECISION EDITORIAL CHECK</span>:null}
+       {getRegimeEditorialUpdate(lens.id)?<span className={styles.editorialUpdate}>30 OCT · POST-DECISION EDITORIAL CHECK</span>:null}
+       <span className={styles.viewState} data-view-scan-state={scans[index].state}>
+        {scans[index].newViews.length?scans[index].newViews.length+" new tracked view(s) to assess":
+         scans[index].updatedRecords.length?scans[index].updatedRecords.length+" existing record(s) updated since review":
+         scans[index].sourceInputs.length?scans[index].sourceInputs.length+" new original-source item(s) to check":
+         scans[index].state==="UNAVAILABLE"||scans[index].state==="PARTIAL"?"Source comparison incomplete":
+         "No newer inputs in bounded scan"}
+       </span>
        <p>{lens.question}</p>
        <div className={styles.coverage}>{theses===null?"Story coverage unavailable":lens.stories.length+" associated public Story snapshot"+(lens.stories.length===1?"":"s")}</div>
        <span className={styles.open}>OPEN RESEARCH / EVIDENCE &amp; TESTS <span aria-hidden="true">↗</span></span>
