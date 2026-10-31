@@ -3,7 +3,7 @@
 export type PublicThesis = {
  id:string;slug:string;title:string;question:string;thesis:string;
  support:string;contradiction:string;confirmation:string;invalidation:string;
- nextTest:string;pricedAssessment:string;updatedAt:string;status:string;rank:number|null;
+ nextTest:string;pricedAssessment:string;updatedAt:string;createdAt?:string;status:string;rank:number|null;
 };
 type RecordInput=Record<string,unknown>;
 const trim=(value:unknown,max=1700)=>typeof value==="string"?value.trim().slice(0,max):"";
@@ -34,7 +34,9 @@ export function projectPublicTheses(rows:readonly RecordInput[],now=new Date(),l
    invalidation:trim(row.invalidation_trigger,850),
    nextTest:trim(row.next_catalyst,550),
    pricedAssessment:trim(row.priced_assessment,850),
-   updatedAt:new Date(updated).toISOString(),status,
+   updatedAt:new Date(updated).toISOString(),
+   ...(typeof row.created_at==='string' && Number.isFinite(Date.parse(row.created_at))
+    && Date.parse(row.created_at)<=current?{createdAt:new Date(row.created_at).toISOString()}:{}),status,
    rank:Number.isInteger(rank)&&rank>=1&&rank<=5?rank:null,
   }];
  });
