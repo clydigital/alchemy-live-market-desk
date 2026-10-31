@@ -100,6 +100,19 @@ export async function middleware(request: NextRequest) {
         status: 307, headers: { "Cache-Control": "no-store" },
       });
     }
+    // Retire the redundant public Daily Report reader only, preserving owner
+    // drafts, original research, publication machinery and frozen editions.
+    if ((pathname === "/daily-report" || pathname === "/blue-desk/daily-report")
+      && (host || "").trim().toLowerCase().replace(/:443$/, "") === "bluebelly-desk.vercel.app") {
+      // An edition selector must never silently resolve to a current report.
+      if (["edition","dossier","story","motion","regime","event","research_run","article","snapshot"]
+          .some(key => request.nextUrl.searchParams.has(key))) {
+        return new NextResponse(null, { status: 404, headers: { "Cache-Control": "no-store" } });
+      }
+      return NextResponse.redirect("https://bluebelly-desk.vercel.app/newsroom", {
+        status: 307, headers: { "Cache-Control": "no-store" },
+      });
+    }
     return presentationResponse(request);
   }
 
