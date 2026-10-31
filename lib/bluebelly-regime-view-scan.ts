@@ -28,7 +28,7 @@ const MS_DAY=86400000;
 function reviewCutoff(reviewedAt:string):number|null{
  // Editorial dates are MYT calendar days. Compare AFTER that entire day,
  // avoiding false "new" signals for inputs already in the dated review.
- if(!/^20\\d{2}-\\d{2}-\\d{2}$/.test(reviewedAt))return null;
+ if(!/^20\d{2}-\d{2}-\d{2}$/.test(reviewedAt))return null;
  const start=Date.parse(reviewedAt+"T00:00:00+08:00");
  if(!Number.isFinite(start)||new Date(start+8*3600000).toISOString().slice(0,10)!==reviewedAt)return null;
  return start+MS_DAY-1;
