@@ -9,6 +9,7 @@ export const metadata={title:"Private Daily Report Studio | Bluebelly",
 export default function OwnerDailyReportPage(){
   return <main className={desk.page} data-private-daily-report="owner-only">
     <BlueDeskHeader activePath="/owner/daily-report"/>
+    <p style={{margin:"14px auto",padding:"12px 16px",maxWidth:1140,textAlign:"right"}}><a href="#html-report-library">Already have an HTML report? Import it into My Desk</a></p>
     <OwnerAutomaticReportReader/>
     <MacroPulseBriefQueue/>
     <DailyReportWriter/>

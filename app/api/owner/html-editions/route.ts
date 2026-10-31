@@ -7,6 +7,7 @@ import {
  HTML_BUCKET,HTML_TABLE,archivePath,digest,parseArchiveInput,validArchiveId
 } from "@/lib/bluebelly-private-html-archive-contract";
 import {saveHtmlArchive} from "@/lib/bluebelly-private-html-archive";
+import {importExistingHtmlEdition} from "@/lib/bluebelly-private-html-import";
 
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -83,14 +84,37 @@ export async function POST(req:NextRequest){
      (url.protocol==="http:"&&url.hostname==="localhost")))
     return error(403,"Cross-origin request denied");
  }catch{return error(403,"Invalid request origin");}
- if(Number(req.headers.get("content-length")||"0")>90000)
+ // Existing fully laid-out HTML editions may be larger than a text draft.
+ // Imported HTML is statically validated and stripped of scripts before upload.
+ if(Number(req.headers.get("content-length")||"0")>1100000)
   return error(413,"Archive request too large");
- let input:ReturnType<typeof parseArchiveInput>;
+ let payload:unknown;
  try{
   const raw=await req.text();
-  if(raw.length>90000)return error(413,"Archive request too large");
-  input=parseArchiveInput(JSON.parse(raw) as unknown);
- }catch{return error(422,"Invalid HTML edition draft");}
+  if(Buffer.byteLength(raw,"utf8")>1100000)return error(413,"Archive request too large");
+  payload=JSON.parse(raw) as unknown;
+ }catch{return error(400,"Invalid archive request");}
+ if(payload&&typeof payload==="object"&&!Array.isArray(payload)&&
+    (payload as Record<string,unknown>).mode==="existing_html"){
+  try{
+   const result=await importExistingHtmlEdition(identity.userId,payload);
+   return NextResponse.json({...result,status:"PRIVATE_DRAFT",
+    note:"Imported original links remain attributed, not independently verified."},
+    {status:result.created?201:200,headers});
+  }catch(e){
+   if(e instanceof Error&&["INVALID_HTML_FILE","NOT_BLUEBELLY_HTML",
+     "ACTIVE_HTML_NOT_ALLOWED","HTML_TITLE_MISSING","HTML_REPORT_DAY_MISSING"].includes(e.message))
+    return error(422,"Import rejected: expected a dated, static Bluebelly HTML reader without active content");
+   if(e instanceof Error&&e.message==="HTML_IMPORT_PARENT_NOT_FOUND")
+    return error(404,"Correction target not found");
+   if(e instanceof Error&&e.message==="HTML_IMPORT_CORRECTION_DAY_MISMATCH")
+    return error(422,"Correction and original edition have different report dates");
+   return error(503,"Private HTML import unavailable; existing editions unchanged");
+  }
+ }
+ let input:ReturnType<typeof parseArchiveInput>;
+ try{input=parseArchiveInput(payload);}
+ catch{return error(422,"Invalid HTML edition draft");}
  try{
   const result=await saveHtmlArchive(identity.userId,input);
   return NextResponse.json({
