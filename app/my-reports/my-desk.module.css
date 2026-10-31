@@ -132,3 +132,10 @@
  .readerFrame{min-height:610px}.dailyNote{padding:0 16px 13px}
  .dailyHistoryItems{grid-template-columns:1fr}.editorialDirection{padding:16px}
 }
+
+
+/* Report-dependent editorial triage; visible without opening a Drive or PDF archive. */
+.ideaOrigin{font-size:10px!important;letter-spacing:.065em;font-weight:800;color:#8ce0d3!important}
+.dailyArchivePolicy{font-size:11px;line-height:1.65;color:#afd0dd;padding-top:12px;margin:9px 0 0}
+.myDeskRelated{font-size:12px;line-height:1.7;color:#c0dce7;margin:12px 0 23px}
+.myDeskRelated a{color:#9be9f9;text-underline-offset:3px}
