@@ -58,7 +58,7 @@ function validate(e:ReaderEdition):Map<string,ReaderSource>{
  if(!e.editionId||!e.title||!e.deck||!e.executiveSummary||!validClock(e.asOf)||
   !/^\d{4}-\d\d-\d\d$/.test(e.reportDay)||!/^[a-f\d]{64}$/i.test(e.snapshotSha256))
   throw new Error('Incomplete immutable edition identity');
- if(!e.sections.length||!e.sources.length)throw new Error('Missing evidence or narrative');
+ if(!e.sections.length||(e.status==="OWNER_REVIEWED"&&!e.sources.length))throw new Error('Missing evidence or narrative');
  const sources=new Map<string,ReaderSource>();
  for(const s of e.sources){
   if(!s.id||sources.has(s.id)||!s.title||!s.publisher||!validClock(s.publishedAt))throw new Error('Invalid source receipt');
@@ -121,7 +121,7 @@ export function renderPrivateEditorialReaderHtml(e:ReaderEdition):string{
  const sources=validate(e);
  const toc=e.sections.map((s,i)=>'<a href="#'+s.id+'">'+String(i+1).padStart(2,'0')+' · '+esc(s.title)+'</a>').join('');
  const sections=e.sections.map((s,i)=>'<section id="'+s.id+'"><p class="kicker">'+String(i+1).padStart(2,'0')+' / daily intelligence</p><h2>'+esc(s.title)+'</h2><p class="opening">'+esc(s.opening)+'</p>'+s.blocks.map(b=>renderBlock(b,sources)).join('')+'</section>').join('');
- const ledger=e.sources.map(s=>'<li><b>'+esc(s.id)+' · '+esc(s.publisher)+'</b> · '+esc(s.status)+' · '+esc(s.publishedAt)+' · '+esc(s.period||'No period')+'<br/><a href="'+esc(httpsUrl(s.url))+'" rel="noopener noreferrer" target="_blank">'+esc(s.title)+'</a></li>').join('');
+ const ledger=e.sources.length?e.sources.map(s=>'<li><b>'+esc(s.id)+' · '+esc(s.publisher)+'</b> · '+esc(s.status)+' · '+esc(s.publishedAt)+' · '+esc(s.period||'No period')+'<br/><a href="'+esc(httpsUrl(s.url))+'" rel="noopener noreferrer" target="_blank">'+esc(s.title)+'</a></li>').join(''):'<li>No independently source-qualified receipts attached to this private unreviewed preview. This is a formatting surface, not a factual source certificate.</li>';
  const clickJs='(function(){document.addEventListener("click",function(ev){var b=ev.target.closest("[data-load-x]");if(!b)return;var url=b.getAttribute("data-load-x");if(!/^https:\\/\\/(?:www\\.)?(?:x\\.com|twitter\\.com)\\/[A-Za-z0-9_]{1,15}\\/status\\/\\d+\\/?$/.test(url))return;var frame=b.parentElement.querySelector(".x-native");if(!frame||frame.firstChild)return;var q=document.createElement("blockquote");q.className="twitter-tweet";q.setAttribute("data-dnt","true");var a=document.createElement("a");a.href=url;a.textContent="Read original post";q.appendChild(a);frame.appendChild(q);var script=document.querySelector("script[data-x-widget]");if(!script){script=document.createElement("script");script.src="https://platform.twitter.com/widgets.js";script.async=true;script.dataset.xWidget="1";document.head.appendChild(script);script.addEventListener("load",function(){window.twttr?.widgets?.load(frame);});}else window.twttr?.widgets?.load(frame);b.textContent="Embed requested";b.disabled=true;});})();';
  return '<!doctype html><html lang="en-GB"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>'+esc(e.title)+' | Bluebelly Private</title><style>'+CSS+'</style></head><body>'+
   '<div class="layout"><nav aria-label="Report contents"><b>BLUEBELLY</b><div class="toc">'+toc+'</div></nav><article data-private-reader-v4="true" data-snapshot-sha256="'+e.snapshotSha256+'">'+

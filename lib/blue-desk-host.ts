@@ -88,6 +88,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     "/owner/daily-report", "/api/owner/macropulse-briefs",
     "/api/owner/daily-research",
     "/api/owner/editorial-generate", "/api/owner/editorial-investigate",
+    "/api/owner/editorial-reader-preview",
     "/api/presenter/technical-checks",
   ].includes(pathname)) return "private";
 

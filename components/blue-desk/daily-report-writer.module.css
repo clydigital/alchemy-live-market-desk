@@ -11,3 +11,11 @@
 .readAloud summary{font-size:13px;font-weight:750;cursor:pointer;color:#a3e3fa}
 .readAloud div{white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px;line-height:1.75;padding:14px 0;color:#e6eff5;max-height:540px;overflow:auto}
 .readAloud p{color:#a9cbdc}
+
+/* Full-width, owner-only v4 reader, never a public report or a source-verification claim. */
+.editorialPreview{max-width:1160px;margin:28px auto 18px;padding:20px;background:#062437;border:1px solid #356980;border-radius:9px;color:#eaf5fb}
+.editorialPreview h2{font-size:26px;margin:2px 0 12px}
+.editorialPreview p{max-width:890px;color:#c4dbe5;font-size:14px;line-height:1.7}
+.editorialPreview .actions{margin:16px 0}
+.editorialFrame{display:block;width:100%;min-height:880px;height:calc(100vh - 150px);max-height:1100px;border:1px solid #456e81;border-radius:8px;background:#fff}
+@media(max-width:850px){.editorialPreview{padding:12px;margin:18px 12px}.editorialFrame{height:820px;min-height:650px}}
