@@ -51,17 +51,19 @@ export default async function MarketToolsPage({searchParams}:{searchParams:Promi
         <div>
           <p className={styles.eyebrow}>PROVIDER CONNECTIVITY / MANUAL CHECK</p>
           <h2>Are the API keys actually working?</h2>
-          <p>Check one dated observation from FRED, EIA and Alpha Vantage. This does not expose credentials, activate a scheduled poll, publish market claims or admit canonical evidence.</p>
+          <p>Check FRED, EIA, Alpha Vantage, FMP and BEA against the running server. This read-only check does not expose keys, activate a scheduled poll, publish market claims or prove canonical ingestion. Missing runtime credentials do not establish absence from Vercel Team Shared Variables.</p>
         </div>
         <Link href="/market-tools?check=providers" className={styles.providerCheckLink}>Check connected APIs ↗</Link>
         {checkProviders && <div className={styles.providerResults}>
-          <small className={styles.providerCheckedAt}>Last checked: {readiness?.checkedAt ?? "Unavailable"} · cached up to 60 minutes</small>
+          <small className={styles.providerCheckedAt}>Last checked: {readiness?.checkedAt ?? "Unavailable"} · cached up to 60 minutes · Team Shared Variable presence, project attachments and environment targets are not inspected here.</small>
           {readiness?.providers.map(provider=><article key={provider.provider} className={styles.providerStatus}>
             <div><strong>{provider.provider}</strong><p>{provider.note}</p>
               <a href={provider.sourceUrl} target="_blank" rel="noopener noreferrer">Official provider documentation ↗</a></div>
             <div className={styles.providerStatusRight}>
               <span className={provider.state === "ready" ? styles.providerReady : styles.providerPending}>{provider.state.toUpperCase()}</span>
-              <small>Observation: {provider.asOf ?? "—"}</small>
+              <small>Source observation/event: {provider.asOf ?? "—"}</small>
+              <small>Runtime credential: {provider.runtimeCredential === "visible_at_runtime" ? "visible" : "not visible"}</small>
+              <small>Vercel Shared scope: unverified</small>
               <small>Valid rows/metrics: {provider.observationCount}</small>
             </div>
           </article>) ?? <p>Provider check could not be completed; existing market data is unaffected.</p>}
