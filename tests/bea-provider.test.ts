@@ -66,7 +66,8 @@ test("BEA transport failures never expose a credential-bearing URL", async () =>
     fetchImpl: async () => { throw new Error("https://apps.bea.gov/api/data?UserID=private-test-key"); },
   });
   assert.equal(result.state, "unavailable");
-  assert.equal(result.note, "BEA_REQUEST_FAILED");
+  assert.match(result.note ?? "", /T10105:BEA_REQUEST_FAILED/);
+  assert.match(result.note ?? "", /T20304:BEA_REQUEST_FAILED/);
   assert.doesNotMatch(JSON.stringify(result), /private-test-key/);
 });
 
