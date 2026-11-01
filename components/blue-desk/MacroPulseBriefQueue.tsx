@@ -54,7 +54,7 @@ export default function MacroPulseBriefQueue(){
   }catch(e){setNotice(e instanceof Error?e.message:"Publication unavailable");}
   finally{setState("idle");}
  };
- return <section className={css.workbench} data-owner-macropulse-queue="private-review">
+ return <section id="macropulse-review" className={css.workbench} data-owner-macropulse-queue="private-review">
   <div className={css.head}><div>
     <p className={css.kicker}>MACROPULSE → BLUEBELLY · EDITORIAL REVIEW</p>
     <h2>Review incoming research dispatches</h2>
