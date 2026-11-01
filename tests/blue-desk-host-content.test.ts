@@ -214,7 +214,7 @@ test("full Markets terminal is public only on the exact canonical Live URL", () 
   assert.match(legacy, /<MarketsMonitor monitor=\{monitor\} flows=\{flows\} \/>/);
   assert.doesNotMatch(legacy, /LiveDeskShell|createSupabaseAdminClient|service_role|mutation|use server/);
   assert.match(current, /getMarketMonitor\(\)/);
-  assert.match(current, /publicMarketObservations\(monitor\?\.rows \|\| \[\], group\)/);
+  assert.match(current, /const monitoredRows=publicMarketObservations/);
   for (const host of ["bluebelly-desk.vercel.app", LIVE_DESK_PRESENTATION_HOST]) {
     assert.equal(blueDeskHostAccess("/markets", host), "public");
     assert.equal(blueDeskPresentationTarget("/markets", host), "/blue-desk/markets");
