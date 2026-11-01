@@ -121,6 +121,11 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
               {item.label}
             </Link>
           ))}
+          <Link href="/power-stack" className={styles.calendarTab}
+            data-market-private-link="google-required"
+            aria-label="My Power Stack — approved Google sign-in required">
+            <MarketIcon name="equities" size={17} /> 🔒 My Power Stack
+          </Link>
         </nav>
 
         <section className={`${styles.section} ${legibility.marketSection}`} aria-label="TradingView market chart" data-market-chart-provider="tradingview">
