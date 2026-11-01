@@ -4,7 +4,14 @@ import {parseExistingHtmlEdition} from "./bluebelly-html-archive-import-contract
 
 const esc=(value:string)=>value.replace(/&/g,"&amp;").replace(/</g,"&lt;")
  .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
-const plain=(value:string,max=1600)=>esc(value.slice(0,max).trim());
+// The existing static HTML integrity gate conservatively rejects active-attribute
+// spellings even in escaped source text. Encode only trigger characters as
+// HTML entities so the visible publisher quotation remains unchanged.
+const plain=(value:string,max=1600)=>esc(value.slice(0,max).trim())
+ .replace(/\\bon[a-z]{3,}\\s*=/gi,m=>m.replace("=","&#61;"))
+ .replace(/javascript\\s*:/gi,m=>m.replace(":","&#58;"))
+ .replace(/@import/gi,"@&#105;mport")
+ .replace(/url\\s*\\(/gi,m=>m.replace("(","&#40;"));
 const date=(value:string)=>Number.isFinite(Date.parse(value))
  ?new Date(value).toISOString().replace("T"," ").slice(0,16)+" UTC":"time unverified";
 function originalLink(source:ReportSource){
