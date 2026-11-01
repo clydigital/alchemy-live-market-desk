@@ -63,13 +63,18 @@ test("Private portfolio uses owner RLS and refuses public upstream or unverified
  assert.doesNotMatch(view,/clydigital\.github\.io|holdings-fundamentals\.json|service_role|createSupabaseAdminClient/);
 });
 
-test("Portfolio quote tracking is source-dated and never implies balance/quantity automation",()=>{
+test("Portfolio quote tracking uses full owner-only scan rather than public monitor overlap",()=>{
  const view=read("components/blue-desk/OwnerPortfolioHome.tsx");
- assert.match(view,/getMarketMonitor\(\)\.catch/);
- assert.match(view,/publicMarketObservations\(monitor\?\.rows\|\|\[\],"all"\)/);
- assert.match(view,/market\?\.asOf/);
- assert.match(view,/change3d/);
- assert.match(view,/change5d/);
- assert.match(view,/Quantities, cost bases/);
- assert.match(view,/archived-not-live/);
+ const full=read("components/blue-desk/OwnerPowerStackFullScan.tsx");
+ const parser=read("lib/bluebelly-owner-power-stack-quote-scan.ts");
+ assert.match(view,/readOwnerPowerStackQuoteScan/);
+ assert.match(view,/<OwnerPowerStackFullScan/);
+ assert.match(full,/data-full-watchlist=\{watchlist.length\}/);
+ assert.match(full,/change3d/);
+ assert.match(full,/change5d/);
+ assert.match(full,/Thesis and decision gates/);
+ assert.match(full,/Quantit|quantity|positions/i);
+ assert.match(parser,/recentSession/);
+ assert.match(parser,/raw.status==="CLOSED"/);
+ assert.doesNotMatch(full,/clydigital.github.io|service_role/);
 });
