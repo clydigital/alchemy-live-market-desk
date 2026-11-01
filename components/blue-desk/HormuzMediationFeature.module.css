@@ -1,0 +1,27 @@
+.feature,.preview{border:1px solid #547183;border-top:3px solid #e2b66e;background:linear-gradient(120deg,#12394b,#092839 65%,#0b293c);border-radius:12px;padding:clamp(16px,2.4vw,27px);color:#eff7f9;margin:16px 0 19px}
+.eyebrow{font-size:10px;letter-spacing:.12em;font-weight:850;color:#f6d59d}
+.feature h2,.preview h2{font-size:clamp(25px,3vw,39px);line-height:1.13;letter-spacing:-.025em;margin:11px 0;color:#fff;max-width:960px}
+.deck{font-size:15px;line-height:1.65;color:#d4e8ed;max-width:86ch}
+.statusRow{display:flex;flex-wrap:wrap;gap:7px;margin:13px 0 19px}
+.statusRow span{border:1px solid #59717e;background:#173c4e;border-radius:5px;font-size:10px;padding:6px 9px;font-weight:800;color:#f1d9b0}
+.sequence{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
+.sequence>div{border:1px solid #4a6d80;background:#0a2a3b;padding:15px;border-radius:8px}
+.sequence b{font-size:11px;letter-spacing:.05em;color:#f7ce90}
+.feature p,.preview p{line-height:1.6}
+.sequence p{font-size:12px;color:#c1dce6;margin:8px 0 0}
+.conflict{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;margin-top:19px}
+.conflict>div{border-left:2px solid #85b8c5;padding:1px 0 1px 15px}
+.conflict h3,.detail h3,.tests h3{font-size:19px;margin:0 0 9px;color:#fff}
+.conflict p,.detail p,.tests p{font-size:13px;color:#d0e1e8;margin:8px 0}
+.conflict a,.readMore{font-size:12px;color:#a2e5f7;font-weight:750}
+.footer{border-top:1px solid #426579;margin-top:18px;padding-top:12px}
+.footer p{font-size:13px;color:#d4e7ed}
+.readMore{display:inline-block;margin-top:10px;padding:10px 14px;border:1px solid #648b9f;border-radius:6px;text-decoration:none;background:#14435a}
+.detail{margin-top:23px;max-width:90ch}
+.tests{margin-top:23px}
+.tests>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
+.tests>div>div{padding:15px;border:1px solid #426579;border-radius:7px;background:#0b2e40}
+.tests strong{color:#f0d3a3;font-size:13px}
+.verdict{margin:24px 0 12px;padding:15px 17px;border-left:3px solid #e2b66e;background:#133648;color:#e7f0f4;font-size:14px}
+.sourceNote{color:#adc5ce;font-size:11px}
+@media(max-width:750px){.sequence,.conflict,.tests>div{grid-template-columns:1fr}.feature h2,.preview h2{font-size:28px}.deck{font-size:14px}.conflict>div{padding-left:11px}}
