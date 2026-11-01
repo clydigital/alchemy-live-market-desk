@@ -27,7 +27,8 @@ export async function GET(request:NextRequest){
  try{
   const db=createSupabaseAdminClient();
   const {data,error}=await db.from("blue_desk_automated_reports")
-   .select("pdf_path,report_day,slot,status,report_kind").eq("id",id).eq("status","ready").maybeSingle();
+   .select("pdf_path,report_day,slot,status,report_kind,file_format").eq("id",id).eq("status","ready")
+   .eq("file_format","pdf").maybeSingle();
   if(error||!data||!data.pdf_path)return denied(404);
   const prefix=data.report_kind==="DAILY_MACRO"?"automated-daily":
    data.report_kind==="COTD_OB_RESEARCH"?"private-packs/editorial-slate":null;

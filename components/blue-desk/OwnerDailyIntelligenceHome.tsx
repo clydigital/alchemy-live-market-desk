@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {getOwnerDailyIntelligenceIndex} from "@/lib/bluebelly-owner-daily-intelligence";
 import {postCutoverDailyArchive,MY_DESK_ARCHIVE_CUTOVER} from "@/lib/bluebelly-my-desk-suggestions";
+import {expectedCompletedUsWeekdaySessionDay,privateDailySessionCoverage} from "@/lib/bluebelly-daily-report-session";
 import OwnerPrivateHtmlInlineReader from "./OwnerPrivateHtmlInlineReader";
 import styles from "@/app/my-reports/my-desk.module.css";
 
@@ -17,22 +18,34 @@ export default async function OwnerDailyIntelligenceHome(){
  const result=await getOwnerDailyIntelligenceIndex();
  const [latest,...previous]=result.editions;
  const older=postCutoverDailyArchive(previous);
- const todayMYT=new Date(Date.now()+8*3600_000).toISOString().slice(0,10);
+ const expectedDay=expectedCompletedUsWeekdaySessionDay(new Date());
+ const coverage=privateDailySessionCoverage(latest?.reportDay||null,expectedDay);
+ const coverageCopy=coverage==="current"?"Latest completed US weekday session covered":
+  coverage==="behind"?"REPORT HANDOFF PENDING — newest saved edition predates the expected US weekday session":
+  coverage==="missing"?"NO SAVED REPORT — the expected US weekday session is not yet archived":
+  coverage==="newer_than_expected"?"CHECK SESSION DATE — latest saved edition is newer than the expected regular US weekday session":
+  "Session freshness could not be established";
  return <section id="daily-intelligence" className={styles.dailyFocus}
   data-my-desk-primary="private-daily-intelligence">
   <div className={styles.dailyHeader}>
    <div><p className={styles.dailyEyebrow}>01 / DAILY INTELLIGENCE · PRIVATE</p>
     <h2>Your Daily Intelligence</h2>
     <p>The current complete report is the parent of the three article suggestions below.
-     Its exact archived HTML remains accessible here, with full evidence and source links.</p>
+     Its exact archived HTML remains accessible here, with its original source links and visible provenance limits.</p>
    </div>
    <Link href="/owner/daily-report" className={styles.dailyStudio}>Daily Report Studio</Link>
   </div>
+  <p className={styles.dailyNote} data-private-daily-report-coverage={coverage} role="status">
+   <strong>{coverageCopy}</strong>
+   {expectedDay?<> · Expected completed US weekday session: {dateDay(expectedDay)} (after 16:00 ET).</>:null}
+   {" "}This is a weekday-close expectation, not an exchange calendar; holidays and early closes can differ.
+   A saved report is a private draft, not proof of independent source verification.
+  </p>
   {latest?<div className={styles.dailyIssue}>
    <div className={styles.dailyIssueTop}>
     <div>
-     <p className={styles.dailyStamp}>Current report · {dateDay(latest.reportDay)}
-      {latest.reportDay!==todayMYT?" · Previous market session":""}</p>
+     <p className={styles.dailyStamp}>Latest saved report · {dateDay(latest.reportDay)}
+      {coverage==="current"?" · Expected session covered":""}</p>
      <h3>{latest.title}</h3>
      <p>Saved {savedTime(latest.createdAt)} · {latest.delivery==="WORK"?"Delivered from Work":"Generated in My Desk"}
       {" · "}Private draft, not publicly published</p>
