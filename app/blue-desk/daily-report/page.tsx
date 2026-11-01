@@ -30,7 +30,10 @@ export const metadata = {
   description: "A complete, readable market desk: new developments, longer-running stories, market impact and what to watch next.",
 };
 
-export default async function DailyReportPage() {
+export default async function DailyReportPage({ searchParams }: { searchParams?: Promise<{ storiesPage?: string | string[] }> }) {
+  const rawPage = (await searchParams)?.storiesPage;
+  const pageText = Array.isArray(rawPage) ? rawPage[0] : rawPage;
+  const storyPage = pageText && /^\d{1,2}$/.test(pageText) ? Number(pageText) : 1;
   const now = new Date();
   const host = (await headers()).get("host");
   // All feeds are existing public read models. There is no Dossier, Story
@@ -59,7 +62,7 @@ export default async function DailyReportPage() {
   return <main className={styles.page} data-daily-report="editorial-first-v3">
     <BlueDeskHeader activePath="/blue-desk/daily-report" />
     <div className={styles.shell}>
-      <DecisionBrief news={news} recentNews={recentNews} calendar={calendar} now={now} host={host} report/>
+      <DecisionBrief news={news} recentNews={recentNews} calendar={calendar} now={now} host={host} report storyPage={storyPage}/>
       {oct30SelloffIsLead(now)?<section className={styles.section} data-daily-lead="oct30-ai-selloff">
         <p className={styles.eyebrow}>MAIN STORY · 30 OCTOBER 2026 · DATED INTRADAY OBSERVATION</p>
         <h2>{OCT30_SELL_OFF.headline}</h2><p>{OCT30_SELL_OFF.fact}</p><p>{OCT30_SELL_OFF.why}</p>

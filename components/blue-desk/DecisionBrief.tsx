@@ -5,7 +5,7 @@ import type {PostEventRecap} from "@/lib/bluebelly-post-event-recap";
 import Link from 'next/link';
 import type {NewsBriefV1} from '@/lib/market-brief-news';
 import type {PresenterCalendar,PresenterCalendarEvent} from '@/lib/presenter-calendar';
-import {decisionTopics,decisionCalendar,calendarOutcome} from '@/lib/bluebelly-decision-brief';
+import {decisionTopics,decisionCalendar,calendarOutcome,paginateDecisionTopics,decisionSourceFreshness} from '@/lib/bluebelly-decision-brief';
 import {selectCrossBankPolicyBridge} from '@/lib/bluebelly-cross-bank-policy-bridge';
 import {blueDeskPublicHref} from '@/lib/blue-desk-host';
 import DualTimestamp from './DualTimestamp';
@@ -30,8 +30,12 @@ function Event({event}:{event:PresenterCalendarEvent}){
    </details>
  </article>;
 }
-export default function DecisionBrief({news,recentNews=[],calendar,now,host,report=false,postEventRecaps=[]}:{news:readonly NewsBriefV1[];recentNews?:readonly NewsBriefV1[];calendar:PresenterCalendar;now:Date;host:string|null;report?:boolean;postEventRecaps?:readonly PostEventRecap[]}){
+export default function DecisionBrief({news,recentNews=[],calendar,now,host,report=false,postEventRecaps=[],storyPage=1}:{news:readonly NewsBriefV1[];recentNews?:readonly NewsBriefV1[];calendar:PresenterCalendar;now:Date;host:string|null;report?:boolean;postEventRecaps?:readonly PostEventRecap[];storyPage?:number}){
  const topics=decisionTopics(news,calendar,now), lanes=decisionCalendar(calendar,now);
+ const storyPages=paginateDecisionTopics(topics,storyPage,6), visibleTopics=storyPages.items;
+ const freshSourceCount=topics.filter(t=>decisionSourceFreshness(t.at,t.status,now)==='SOURCE DATED WITHIN 48H').length;
+ const storyPageUrl=blueDeskPublicHref(report?'/blue-desk/daily-report':'/blue-desk',host);
+ const storyHref=(page:number)=>storyPageUrl+'?storiesPage='+page+'#story-grid';
  const crossBank=selectCrossBankPolicyBridge(news,calendar,now);
  const onAir=buildPresenterOneMinute(news,calendar,now);
  const reader=blueDeskPublicHref('/blue-desk/key-stories',host), calendarHref=blueDeskPublicHref('/blue-desk/calendar',host);
@@ -108,15 +112,25 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
    </details>
   </header>}
   <PresenterOneMinute brief={onAir} marketsHref={blueDeskPublicHref('/blue-desk/markets',host)}/>
-  <div className={s.topics}>{topics.map((t,i)=><article className={i===0?s.lead:s.topic} key={t.id}>
-    <p className={s.kicker}>{String(i+1).padStart(2,'0')} / {t.status}</p>
+  <div className={s.storyState} id="story-grid" role="status">
+   <strong>{storyPages.total} qualified stories · {storyPages.total?('Showing '+((storyPages.page-1)*6+1)+'–'+Math.min(storyPages.page*6,storyPages.total)):'No qualifying story'} · Page {storyPages.page} of {storyPages.totalPages}</strong>
+   <span>{freshSourceCount?freshSourceCount+' source-dated development'+(freshSourceCount===1?'':'s')+' within 48 hours.':'No qualifying source-dated developments within 48 hours.'} Older analysis and upcoming events retain their own dates. Reader time is not ingestion proof.</span>
+  </div>
+  <div className={s.topics}>{visibleTopics.map((t,i)=><article className={i===0&&storyPages.page===1?s.lead:s.topic} key={t.id}>
+    <p className={s.kicker}>{String((storyPages.page-1)*6+i+1).padStart(2,'0')} / {t.status}</p>
     <div className={s.art}><EditorialStoryArt headline={t.title} summary={t.fact} compact/></div>
     <ScopeStrip assets={t.assets} max={2} label="In focus"/><h2><Link href={reader+t.href}>{t.title}</Link></h2>
     <p>{t.status==='UPCOMING'?t.why:t.fact}</p>
-    <small>{t.status==='UPCOMING'?'Scheduled':t.status==='FEATURE'?'Dated editorial feature':'Source event'} <DualTimestamp value={t.at.includes('T')?t.at:null} sourceDate={t.at}/></small>
+    <small>{decisionSourceFreshness(t.at,t.status,now)} · {t.status==='FEATURE'?'Editorial feature':t.status==='NEW'?'Source event':'Official calendar'} <DualTimestamp value={t.at.includes('T')?t.at:null} sourceDate={t.at}/></small>
     {t.assets.length?<small>{t.assets.join(' · ')}</small>:null}
     <a className={s.source} href={t.sourceUrl} target="_blank" rel="noreferrer">{t.sourceName} ↗</a>
   </article>)}</div>
+  {storyPages.totalPages>1?<nav className={s.storyPagination} aria-label="Story pages">
+   {storyPages.page>1?<Link href={storyHref(storyPages.page-1)}>← Previous six</Link>:null}
+   {Array.from({length:storyPages.totalPages},(_,i)=>i+1).map(page=><Link
+     key={page} href={storyHref(page)} aria-current={page===storyPages.page?'page':undefined}>Page {page}</Link>)}
+   {storyPages.page<storyPages.totalPages?<Link href={storyHref(storyPages.page+1)}>Next six →</Link>:null}
+  </nav>:null}
   <div className={s.lanes} aria-label="Results and forward catalysts">
    <section data-bluebelly-released-reading="links-only">
     <h2>Released · last 7 days</h2>
@@ -147,6 +161,6 @@ export default function DecisionBrief({news,recentNews=[],calendar,now,host,repo
     <small>Source: {n.sourceName}</small></div>
    </article>)}</div>
   </section>:null}
-  {report?<div className={s.explainers}>{topics.map(t=><article key={t.id} id={'topic-'+t.id}><p className={s.kicker}>{t.status} / THE DECIDING QUESTION</p><h2>{t.title}</h2><p>{t.fact}</p><p>{t.mechanism}</p><p><strong>What would change the reading:</strong> {t.test}</p><p>Consensus comparison and independently attributable price reaction are not established by this source summary.</p><details><summary>Source and event clock</summary><DualTimestamp value={t.at.includes('T')?t.at:null} sourceDate={t.at}/><p><a href={t.sourceUrl}>{t.sourceName}</a></p></details></article>)}</div>:<p><Link href={blueDeskPublicHref('/blue-desk/newsroom',host)}>Browse the Newsroom →</Link> · <Link href={reader}>Browse Key Stories →</Link></p>}
+  {report?<div className={s.explainers}>{visibleTopics.map(t=><article key={t.id} id={'topic-'+t.id}><p className={s.kicker}>{t.status} / THE DECIDING QUESTION</p><h2>{t.title}</h2><p>{t.fact}</p><p>{t.mechanism}</p><p><strong>What would change the reading:</strong> {t.test}</p><p>Consensus comparison and independently attributable price reaction are not established by this source summary.</p><details><summary>Source and event clock</summary><DualTimestamp value={t.at.includes('T')?t.at:null} sourceDate={t.at}/><p><a href={t.sourceUrl}>{t.sourceName}</a></p></details></article>)}</div>:<p><Link href={blueDeskPublicHref('/blue-desk/newsroom',host)}>Browse the Newsroom →</Link> · <Link href={reader}>Browse Key Stories →</Link></p>}
  </section>;
 }

@@ -15,7 +15,7 @@ export function decisionTopics(news: readonly NewsBriefV1[], calendar: Presenter
     why:t.humanStake,test:t.guidingQuestion,at:t.latestObservedAt,
     sourceUrl:t.updates[0].sourceUrl,sourceName:t.updates[0].sourceName,
     href:'?news='+encodeURIComponent(t.updates[0].id),status:'NEW' as 'NEW'|'UPCOMING'|'FEATURE',
-    mechanism:t.marketMechanism, assets:[] as string[], priority:2,
+    mechanism:t.marketMechanism, assets:[] as string[], priority:8,
   }));
   // Already-published public Key Stories can lead on weekends without approving
   // private MacroPulse drafts or inventing a publication clock.
@@ -75,11 +75,11 @@ export function decisionTopics(news: readonly NewsBriefV1[], calendar: Presenter
   const upcoming = selectBlueDeskUpcoming(calendar,now,7);
   // One policy decision and one earnings theme; never pad the slate with tickers.
   for(const kind of ['economic','earnings'] as const){
-    const event=upcoming.find(e=>e.kind===kind && e.verificationState==='official');
-    if(!event) continue;
+    const eligible=upcoming.filter(e=>e.kind===kind && e.verificationState==='official').slice(0,2);
+    for(const [eventIndex,event] of eligible.entries()){
     // A scheduled issuer report is a distinct decision even if current AI news
     // shares the broad sector. Do not hide the earnings receipt in another topic.
-    const related=kind==='economic'?topics.find(t=>t.id==='rates-bonds-credit'):null;
+    const related=kind==='economic' && eventIndex===0?topics.find(t=>t.id==='rates-bonds-credit'):null;
     if(related){related.test=event.title+' · '+(event.scheduledAt||event.localDate)+' · '+event.decidingQuestion;continue;}
     topics.push({id:event.id,title:event.title,fact:'Scheduled decision; no verified outcome yet.',
       why:event.decidingQuestion,test:event.decidingQuestion,at:event.scheduledAt||event.localDate,
@@ -87,12 +87,33 @@ export function decisionTopics(news: readonly NewsBriefV1[], calendar: Presenter
       mechanism:kind==='earnings'?'Revenue growth must become cash after operating costs and investment. Compare guidance and cash conversion before drawing a valuation conclusion.':'The decision matters relative to expectations. Compare the policy message with independently measured yields and currency moves before assigning a cause.',
       assets:event.affectedAssets,priority:(kind==='economic'?(/\b(?:fomc|rate decision|interest rate|central bank|monetary policy)\b/i.test(event.title)?6:4):3)
         + (event.scheduledAt && Date.parse(event.scheduledAt)-+now<=24*3600000?1:0)});
+    }
   }
   return topics.sort((a,b)=>b.priority-a.priority ||
     (a.status==='UPCOMING' && b.status==='UPCOMING'
        ? (Date.parse(a.at)||Infinity)-(Date.parse(b.at)||Infinity)
        : b.status==='NEW'&&a.status==='NEW'
-         ? (Date.parse(b.at)||0)-(Date.parse(a.at)||0) : 0) || a.id.localeCompare(b.id)).slice(0,5);
+         ? (Date.parse(b.at)||0)-(Date.parse(a.at)||0)  : 0) || a.id.localeCompare(b.id))
+    .filter((topic,index,all)=>all.findIndex(other=>other.id===topic.id)===index)
+    .slice(0,36);
+}
+
+/** Pagination applies only after evidence admission, priority sorting and deduplication. */
+export function paginateDecisionTopics<T>(items:readonly T[], requestedPage=1, pageSize=6){
+  const size=Number.isSafeInteger(pageSize) && pageSize>0?Math.min(pageSize,24):6;
+  const totalPages=Math.max(1,Math.ceil(items.length/size));
+  const page=Number.isSafeInteger(requestedPage)?Math.min(Math.max(requestedPage,1),totalPages):1;
+  return {items:items.slice((page-1)*size,page*size),page,totalPages,total:items.length,pageSize:size};
+}
+
+/** This labels source/event age, not the health of a provider or the review pipeline. */
+export function decisionSourceFreshness(at:string,status:'NEW'|'UPCOMING'|'FEATURE',now:Date){
+  if(status==='UPCOMING')return 'SCHEDULED · OUTCOME PENDING';
+  const ts=Date.parse(at),age=+now-ts;
+  if(!Number.isFinite(ts)||age<0)return 'SOURCE DATE NEEDS REVIEW';
+  if(age<=48*3600000)return 'SOURCE DATED WITHIN 48H';
+  if(age<=7*86400000)return 'DATED THIS WEEK';
+  return 'OLDER EDITORIAL / ARCHIVE';
 }
 
 export function decisionCalendar(calendar:PresenterCalendar,now:Date){
