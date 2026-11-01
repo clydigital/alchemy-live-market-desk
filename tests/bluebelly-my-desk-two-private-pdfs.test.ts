@@ -6,7 +6,7 @@ const read=(p:string)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 
 test("private My Desk leads with Daily Intelligence and three inline ideas, not legacy PDF archives",()=>{
  const page=read("app/my-reports/page.tsx");
- assert.match(page,/data-private-desk="daily-report-led-three-ideas"/);
+ assert.match(page,/data-private-desk=\{view==="portfolio"\?"portfolio-home":"daily-report-led-three-ideas"\}/);
  assert.match(page,/<OwnerDailyIntelligenceHome\/>/);
  assert.match(page,/<OwnerDailyTopicIdeas\/>/);
  assert.match(page,/data-my-desk-technical="collapsed-by-default"/);
