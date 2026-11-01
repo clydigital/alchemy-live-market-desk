@@ -197,7 +197,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
           <th scope="col" aria-sort={columnSort==="source"?(ascending?"ascending":"descending"):undefined}><button type="button" className={ui.columnSort} onClick={()=>sortColumn("source")}>Source and vintage {columnSort==="source"?(ascending?"▲":"▼"):"↕"}</button></th></tr></thead>
         <tbody>{visible.map(row => <tr key={row.id}>
           <th scope="row"><EntityRow identity={entityForAsset(row.symbol) || {kind: "asset", code: row.symbol}}
-            title={row.label} subtitle={row.symbol + " · " + (row.researchRole ? `Power Stack ${row.researchRole}` : row.type)} /></th>
+            title={row.label} subtitle={row.symbol + " · " + (row.researchRole ? "Research instrument" : row.type)} /></th>
           <td className={styles.publicMarketNumber}>{level(row)}</td>
           {(["1D", "3D", "5D"] as const).map(period => {
             const value = publicMarketWindowChange(row, period);
@@ -208,8 +208,8 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
             </td>;
           })}
           <td className={styles.publicMarketSource}>
-            <span>{row.type === "Breadth" ? "External breadth chart · no verified reading" : row.researchRole && row.last === null ? `Power Stack ${row.researchRole} registry · price unavailable/stale` : `${row.asOf ? `Observation: ${row.asOf}` : "Observation date unavailable"} · ${row.frequency} observation`}</span>
-            {row.sourceUrl ? <a href={row.sourceUrl} target="_blank" rel="noreferrer">{row.sourceName} · {row.type === "Breadth" ? "open chart ↗" : row.researchRole && row.last === null ? "research registry ↗" : "original data ↗"}</a>
+            <span>{row.type === "Breadth" ? "External breadth chart · no verified reading" : row.researchRole && row.last === null ? "Public symbol catalogue · price unavailable/stale" : `${row.asOf ? `Observation: ${row.asOf}` : "Observation date unavailable"} · ${row.frequency} observation`}</span>
+            {row.sourceUrl ? <a href={row.sourceUrl} target="_blank" rel="noreferrer">{row.sourceName} · {row.type === "Breadth" ? "open chart ↗" : row.researchRole && row.last === null ? "source ↗" : "original data ↗"}</a>
               : <span>Original-source link unavailable</span>}
           </td>
         </tr>)}</tbody>
@@ -221,6 +221,6 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
         : "Market data unavailable. Filtering cannot restore a missing feed."}</p>
       {dataAvailable ? <button type="button" className={ui.reset} onClick={reset}>Reset filters</button> : null}
     </div>}
-    <p className={styles.publicMarketNote}>Power Stack watchlist and holdings include 1D/3D/5D returns where a completed-session price source is available; no account values or quantities are displayed. Breadth levels are percentages of constituents, while changes are in percentage points (pp). Stock/ETF changes are percentages (%); rate changes are basis points (bp). Incomplete or stale windows display —. Data may lag.</p>
+    <p className={styles.publicMarketNote}>Public equity and ETF radar has 1D/3D/5D returns only where independently sourced market-monitor sessions exist. Portfolio ownership and private watchlists are never displayed here. Breadth levels are percentages of constituents, while changes are in percentage points (pp). Stock/ETF changes are percentages (%); rate changes are basis points (bp). Incomplete or stale windows display —. Data may lag.</p>
   </div>;
 }

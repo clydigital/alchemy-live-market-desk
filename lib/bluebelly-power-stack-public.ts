@@ -1,161 +1,398 @@
 import "server-only";
-
 import type { PublicMarketObservation } from "./blue-desk-public-markets";
-import {sourceDateFresh} from "./bluebelly-breadth-dated";
 
-const POWER_STACK = "https://clydigital.github.io/power-stack/";
-const WATCH_URL = POWER_STACK + "data/watchlist.json";
-const HOLD_URL = POWER_STACK + "data/holdings-fundamentals.json";
-const HOLD_TAPE_URL = POWER_STACK + "data/holding-tape.json";
-const WATCH_TAPE_URL = POWER_STACK + "data/watchlist-market-tape.json";
-
-export type PowerStackDatedPrice = {
-  last: number;
-  change: number;
-  change3d: number | null;
-  change5d: number | null;
-  asOf: string;
-  sourceName: string;
-  sourceUrl: string;
-};
+/**
+ * Neutral, immutable public symbol catalogue, not a Power Stack owner feed.
+ * Derived from existing publicly discussed equity/ETF research; padded with
+ * broad indexes/sector ETFs. No account identity, holdings, weights, scores,
+ * investment decisions, membership dates, owner notes or broker data.
+ *
+ * This catalogue stays available after private Power Stack GitHub Pages
+ * publishing is retired. Quotes come ONLY from the independently dated
+ * existing Bluebelly market monitor; unmatched symbols show unavailable.
+ */
+const PUBLIC_RESEARCH_UNIVERSE: ReadonlyArray<{ticker:string;name:string}> = [
+  {
+    "ticker": "3191.HK",
+    "name": "Global X China Semiconductor ETF"
+  },
+  {
+    "ticker": "3308.HK",
+    "name": "Zhongji Innolight"
+  },
+  {
+    "ticker": "6742UW",
+    "name": "YTL Power structured warrant / linked instrument"
+  },
+  {
+    "ticker": "6809.HK",
+    "name": "Montage Technology"
+  },
+  {
+    "ticker": "688825",
+    "name": "CXMT"
+  },
+  {
+    "ticker": "9988.HK",
+    "name": "Alibaba Group"
+  },
+  {
+    "ticker": "AEM",
+    "name": "Agnico Eagle Mines"
+  },
+  {
+    "ticker": "ARKK",
+    "name": "ARK Innovation ETF"
+  },
+  {
+    "ticker": "AVGO",
+    "name": "Broadcom"
+  },
+  {
+    "ticker": "BG",
+    "name": "Bunge Global"
+  },
+  {
+    "ticker": "BKR",
+    "name": "Baker Hughes"
+  },
+  {
+    "ticker": "BTC",
+    "name": "Bitcoin"
+  },
+  {
+    "ticker": "BWXT",
+    "name": "BWX Technologies"
+  },
+  {
+    "ticker": "CCJ",
+    "name": "Cameco"
+  },
+  {
+    "ticker": "CEG",
+    "name": "Constellation Energy"
+  },
+  {
+    "ticker": "CF",
+    "name": "CF Industries"
+  },
+  {
+    "ticker": "COIN",
+    "name": "Coinbase Global"
+  },
+  {
+    "ticker": "CRDO",
+    "name": "Credo Technology"
+  },
+  {
+    "ticker": "CRM",
+    "name": "Salesforce"
+  },
+  {
+    "ticker": "CRWD",
+    "name": "CrowdStrike"
+  },
+  {
+    "ticker": "CTVA",
+    "name": "Corteva"
+  },
+  {
+    "ticker": "DAYANG",
+    "name": "Dayang Enterprise Holdings Berhad"
+  },
+  {
+    "ticker": "DELL",
+    "name": "Dell Technologies"
+  },
+  {
+    "ticker": "DIA",
+    "name": "SPDR Dow Jones ETF"
+  },
+  {
+    "ticker": "ETN",
+    "name": "Eaton"
+  },
+  {
+    "ticker": "FCFS",
+    "name": "FirstCash Holdings"
+  },
+  {
+    "ticker": "FCX",
+    "name": "Freeport-McMoRan"
+  },
+  {
+    "ticker": "FLEX",
+    "name": "Flex"
+  },
+  {
+    "ticker": "GDX",
+    "name": "VanEck Gold Miners ETF"
+  },
+  {
+    "ticker": "GEV",
+    "name": "GE Vernova"
+  },
+  {
+    "ticker": "GLD",
+    "name": "SPDR Gold Shares"
+  },
+  {
+    "ticker": "GLDM",
+    "name": "SPDR Gold MiniShares"
+  },
+  {
+    "ticker": "GRAB",
+    "name": "Grab Holdings"
+  },
+  {
+    "ticker": "HIBISCS",
+    "name": "Hibiscus Petroleum Berhad"
+  },
+  {
+    "ticker": "HYG",
+    "name": "iShares iBoxx High Yield Corporate Bond ETF"
+  },
+  {
+    "ticker": "IEF",
+    "name": "iShares 7-10 Year Treasury Bond ETF"
+  },
+  {
+    "ticker": "IGV",
+    "name": "iShares Expanded Tech Software ETF"
+  },
+  {
+    "ticker": "IWM",
+    "name": "iShares Russell 2000 ETF"
+  },
+  {
+    "ticker": "LNG",
+    "name": "Cheniere Energy"
+  },
+  {
+    "ticker": "LQD",
+    "name": "iShares iBoxx Investment Grade Corporate Bond ETF"
+  },
+  {
+    "ticker": "MISC",
+    "name": "MISC Berhad"
+  },
+  {
+    "ticker": "MNHLDG",
+    "name": "MN Holdings"
+  },
+  {
+    "ticker": "MPC",
+    "name": "Marathon Petroleum"
+  },
+  {
+    "ticker": "MSTR",
+    "name": "Strategy"
+  },
+  {
+    "ticker": "MU",
+    "name": "Micron Technology"
+  },
+  {
+    "ticker": "NTR",
+    "name": "Nutrien"
+  },
+  {
+    "ticker": "NVT",
+    "name": "nVent Electric"
+  },
+  {
+    "ticker": "PSX",
+    "name": "Phillips 66"
+  },
+  {
+    "ticker": "PWR",
+    "name": "Quanta Services"
+  },
+  {
+    "ticker": "QQQ",
+    "name": "Invesco Nasdaq 100 ETF"
+  },
+  {
+    "ticker": "RSP",
+    "name": "Invesco S&P 500 Equal Weight ETF"
+  },
+  {
+    "ticker": "SGOV",
+    "name": "iShares 0-3 Month Treasury Bond ETF"
+  },
+  {
+    "ticker": "SLB",
+    "name": "SLB"
+  },
+  {
+    "ticker": "SMH",
+    "name": "VanEck Semiconductor ETF"
+  },
+  {
+    "ticker": "SMR",
+    "name": "NuScale Power"
+  },
+  {
+    "ticker": "SOXX",
+    "name": "iShares Semiconductor ETF"
+  },
+  {
+    "ticker": "SPY",
+    "name": "SPDR S&P 500 ETF"
+  },
+  {
+    "ticker": "STNG",
+    "name": "Scorpio Tankers"
+  },
+  {
+    "ticker": "SYM",
+    "name": "Symbotic"
+  },
+  {
+    "ticker": "TENAGA",
+    "name": "Tenaga Nasional"
+  },
+  {
+    "ticker": "TLT",
+    "name": "iShares 20+ Year Treasury Bond ETF"
+  },
+  {
+    "ticker": "TSLA",
+    "name": "Tesla"
+  },
+  {
+    "ticker": "TTWO",
+    "name": "Take-Two Interactive Software"
+  },
+  {
+    "ticker": "VGIT",
+    "name": "Vanguard Intermediate-Term Treasury ETF"
+  },
+  {
+    "ticker": "VGT",
+    "name": "Vanguard Information Technology ETF"
+  },
+  {
+    "ticker": "VLO",
+    "name": "Valero Energy"
+  },
+  {
+    "ticker": "VMI",
+    "name": "Valmont Industries"
+  },
+  {
+    "ticker": "VST",
+    "name": "Vistra"
+  },
+  {
+    "ticker": "VYX",
+    "name": "NCR Voyix"
+  },
+  {
+    "ticker": "WPM",
+    "name": "Wheaton Precious Metals"
+  },
+  {
+    "ticker": "XBI",
+    "name": "SPDR S&P Biotech ETF"
+  },
+  {
+    "ticker": "XLB",
+    "name": "Materials Select Sector SPDR"
+  },
+  {
+    "ticker": "XLC",
+    "name": "Communication Services Select Sector SPDR"
+  },
+  {
+    "ticker": "XLE",
+    "name": "Energy Select Sector SPDR"
+  },
+  {
+    "ticker": "XLF",
+    "name": "Financial Select Sector SPDR"
+  },
+  {
+    "ticker": "XLI",
+    "name": "Industrial Select Sector SPDR"
+  },
+  {
+    "ticker": "XLK",
+    "name": "Technology Select Sector SPDR"
+  },
+  {
+    "ticker": "XLP",
+    "name": "Consumer Staples Select Sector SPDR"
+  },
+  {
+    "ticker": "XLRE",
+    "name": "Real Estate Select Sector SPDR"
+  },
+  {
+    "ticker": "XLU",
+    "name": "Utilities Select Sector SPDR"
+  },
+  {
+    "ticker": "XLV",
+    "name": "Health Care Select Sector SPDR"
+  },
+  {
+    "ticker": "XLY",
+    "name": "Consumer Discretionary Select Sector SPDR"
+  },
+  {
+    "ticker": "XOM",
+    "name": "ExxonMobil"
+  },
+  {
+    "ticker": "YTLPOWR",
+    "name": "YTL Power International Berhad"
+  }
+];
 
 export type PowerStackResearchAsset = {
   ticker: string;
   name: string;
-  role: "holding" | "watchlist";
-  asOf: string | null;
-  price?: PowerStackDatedPrice;
+  role: "research";
+  asOf: null;
 };
-
-function clean(value: unknown, max = 100): string {
-  return typeof value === "string" ? value.trim().slice(0, max) : "";
-}
-
-function ticker(value: unknown): string | null {
-  const code = clean(value, 24).toUpperCase();
-  return /^[A-Z0-9][A-Z0-9.\-]{0,17}$/.test(code) ? code : null;
-}
-
-async function readPublicJson(url: string): Promise<Record<string, unknown> | null> {
-  try {
-    // Public GitHub Pages research and market tape. Never read broker data.
-    const response = await fetch(url, {
-      next: { revalidate: 3600 },
-      signal: AbortSignal.timeout(4500),
-    });
-    if (!response.ok) return null;
-    const payload: unknown = await response.json();
-    return payload && typeof payload === "object" && !Array.isArray(payload)
-      ? payload as Record<string, unknown> : null;
-  } catch { return null; }
-}
-
-export function validPowerStackPrice(raw: unknown, now = new Date()): PowerStackDatedPrice | null {
-  if (!raw || typeof raw !== "object") return null;
-  const row = raw as Record<string, unknown>;
-  const asOf = clean(row.sessionDate, 15);
-  const sourceUrl = clean(row.sourceUrl, 600);
-  const price = row.close, one = row.changePct;
-  const three = row.change3dPct, five = row.change5dPct;
-  if (row.status !== "CLOSED" || !sourceDateFresh(asOf,now) ||
-    typeof price !== "number" || !Number.isFinite(price) || price <= 0 ||
-    typeof one !== "number" || !Number.isFinite(one) ||
-    ![three,five].every(value => value === null || value === undefined ||
-      typeof value === "number" && Number.isFinite(value)) ||
-    !/^https:\/\/(query1|query2)\.finance\.yahoo\.com\//.test(sourceUrl) &&
-    !/^https:\/\/finnhub\.io\/api\/v1\/quote\?symbol=/.test(sourceUrl)) return null;
-  return {
-    last:price, change:one,
-    change3d:typeof three==="number"?three:null,
-    change5d:typeof five==="number"?five:null,
-    asOf,
-    sourceName:clean(row.sourceName) || "Dated market quote",
-    sourceUrl,
-  };
-}
 
 export async function getPowerStackResearchAssets(): Promise<{
   items: PowerStackResearchAsset[];
-  status: "available" | "partial" | "unavailable";
-  tapeStatus: "available" | "partial" | "unavailable";
+  status: "available";
+  tapeStatus: "unavailable";
 }> {
-  const [watch, held, watchTape, holdingTape] = await Promise.all([
-    readPublicJson(WATCH_URL), readPublicJson(HOLD_URL),
-    readPublicJson(WATCH_TAPE_URL), readPublicJson(HOLD_TAPE_URL),
-  ]);
-  const now = new Date();
-  const prices = new Map<string,PowerStackDatedPrice>();
-  for (const raw of Array.isArray(watchTape?.rows) ? watchTape.rows : []) {
-    if (!raw || typeof raw !== "object") continue;
-    const item = raw as Record<string,unknown>;
-    const code = ticker(item.ticker), value=validPowerStackPrice(item,now);
-    if(code && value)prices.set(code,value);
-  }
-  for (const raw of Array.isArray(holdingTape?.holdings) ? holdingTape.holdings : []) {
-    if (!raw || typeof raw !== "object") continue;
-    const item = raw as Record<string,unknown>;
-    const code = ticker(item.ticker), value=validPowerStackPrice(item,now);
-    if(!code || !value)continue;
-    const previous = prices.get(code);
-    const fullness = (p:PowerStackDatedPrice) => Number(p.change3d!==null)+Number(p.change5d!==null);
-    if(!previous || value.asOf>previous.asOf ||
-       value.asOf===previous.asOf && fullness(value)>=fullness(previous))prices.set(code,value);
-  }
-
-  const items = new Map<string,PowerStackResearchAsset>();
-  for (const raw of Array.isArray(watch?.candidates) ? watch.candidates.slice(0, 250) : []) {
-    if (!raw || typeof raw !== "object")continue;
-    const row=raw as Record<string,unknown>, code=ticker(row.ticker);
-    if(!code)continue;
-    items.set(code,{
-      ticker:code,name:clean(row.name)||code,role:"watchlist",
-      asOf:clean(watch?.asOf,30)||null,price:prices.get(code),
-    });
-  }
-  for (const raw of Array.isArray(held?.holdings) ? held.holdings.slice(0, 100) : []) {
-    if (!raw || typeof raw !== "object")continue;
-    const row=raw as Record<string,unknown>, code=ticker(row.ticker);
-    if(!code)continue;
-    items.set(code,{
-      ticker:code,name:clean(row.name)||items.get(code)?.name||code,
-      role:"holding",asOf:clean(held?.asOf,30)||null,price:prices.get(code),
-    });
-  }
   return {
-    items:[...items.values()],
-    status:watch && held?"available":watch || held?"partial":"unavailable",
-    tapeStatus:watchTape && holdingTape?"available":watchTape || holdingTape?"partial":"unavailable",
+    items: PUBLIC_RESEARCH_UNIVERSE.map(asset=>({
+      ticker:asset.ticker,name:asset.name,role:"research" as const,asOf:null,
+    })),
+    status:"available",
+    tapeStatus:"unavailable",
   };
 }
 
-/** Price source authority remains in upstream providers. PS is the registry for
- * research membership, not a second independently validating market source.
- */
+/** Public registry membership does NOT encode actual owner positions. */
 export function mergePowerStackMarketSearch(
   observations: readonly PublicMarketObservation[],
   assets: readonly PowerStackResearchAsset[],
 ): PublicMarketObservation[] {
-  const byCode = new Map(assets.map(asset=>[asset.ticker,asset]));
+  const byTicker = new Map(assets.map(asset=>[asset.ticker,asset]));
   const matched = new Set<string>();
   const rows = observations.map(row=>{
-    const asset=byCode.get(row.symbol.toUpperCase());
+    const asset=byTicker.get(row.symbol.toUpperCase());
     if(!asset)return row;
     matched.add(asset.ticker);
-    return {...row,researchRole:asset.role,researchAsOf:asset.asOf};
+    return {...row,researchRole:"research" as const,researchAsOf:null};
   });
   for(const asset of assets) {
     if(matched.has(asset.ticker))continue;
-    const price=asset.price;
     rows.push({
-      id:"power-stack:"+asset.ticker,
-      label:asset.name,symbol:asset.ticker,type:"Power Stack",
-      last:price?.last??null,change:price?.change??null,
-      change3d:price?.change3d??null,change5d:price?.change5d??null,
-      changeUnit:"%",asOf:price?.asOf??null,frequency:"daily",
-      sourceName:price?.sourceName||"Power Stack research registry · price unavailable",
-      sourceUrl:price?.sourceUrl||POWER_STACK,
-      researchRole:asset.role,researchAsOf:asset.asOf,
-      dataStatus:price?"SOURCE_DATED_SECONDARY":"UNAVAILABLE_OR_STALE",
+      id:"research:"+asset.ticker,label:asset.name,symbol:asset.ticker,
+      type:"Power Stack",last:null,change:null,change3d:null,change5d:null,
+      changeUnit:"%",asOf:null,frequency:"daily",
+      sourceName:"Public symbol catalogue · market quote unavailable",
+      sourceUrl:null,researchRole:"research",researchAsOf:null,
+      dataStatus:"UNAVAILABLE_OR_STALE",
     });
   }
   return rows;

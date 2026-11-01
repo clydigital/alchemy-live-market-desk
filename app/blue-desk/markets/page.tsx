@@ -156,11 +156,11 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <div className={styles.sectionHead}>
             <div>
               <h2 id="market-group-heading"><MarketIcon name={GROUP_ICONS[group]} size={24} /> {selected.label}</h2>
-              <p>{sourceObservations.length} monitored instruments · {breadthObservations.length} breadth watches{group === "all" ? ` · ${observations.length - sourceObservations.length - breadthObservations.length} additional Power Stack research tickers` : ""}{group === "powerstack" ? ` · ${observations.length} held/watchlisted` : ""}</p>
+              <p>{sourceObservations.length} monitored instruments · {breadthObservations.length} breadth watches{group === "all" ? ` · ${observations.length - sourceObservations.length - breadthObservations.length} additional public research instruments` : ""}{group === "powerstack" ? ` · ${observations.length} neutral research tickers` : ""}</p>
             </div>
           </div>
 
-          {group === "all" || group === "powerstack" ? <p className={styles.muted}>Power Stack holdings and watchlist use source-dated daily price bars for 1D/3D/5D when available. Missing or stale quote windows stay blank; no position sizes or broker data are exposed. Source: <a href="https://clydigital.github.io/power-stack/" target="_blank" rel="noreferrer">Power Stack research vault ↗</a>{powerStack.status !== "available" ? ` · Registry ${powerStack.status}` : ""}{powerStack.tapeStatus !== "available" ? ` · Price tape ${powerStack.tapeStatus}` : ""}.</p> : null}
+          {group === "all" || group === "powerstack" ? <p className={styles.muted}>Public instrument search is independent of private Power Stack holdings and watchlists. Dated 1D/3D/5D changes are shown only when observed by the Bluebelly market monitor. Missing source windows remain blank; the private portfolio is accessible through My Desk after Google login.</p> : null}
           <PublicMarketScreener key={group} observations={observations} group={group} dataAvailable={Boolean(monitor)} />
         </section>
 
