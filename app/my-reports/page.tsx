@@ -4,6 +4,7 @@ import OwnerPrivatePdfInputHealth from "@/components/blue-desk/OwnerPrivatePdfIn
 import OwnerDailyIntelligenceHome from "@/components/blue-desk/OwnerDailyIntelligenceHome";
 import OwnerDailyTopicIdeas from "@/components/blue-desk/OwnerDailyTopicIdeas";
 import OwnerPortfolioHome from "@/components/blue-desk/OwnerPortfolioHome";
+import type {PortfolioTableQuery} from "@/lib/bluebelly-owner-portfolio-filter";
 import styles from "@/app/blue-desk/blue-desk.module.css";
 import layout from "./my-desk.module.css";
 
@@ -14,8 +15,14 @@ export const metadata={title:"My Desk | Bluebelly",robots:{index:false,follow:fa
 /** Private decision desk: one live Daily Intelligence edition and exactly
  * three report-dependent writing directions. Older article archives are not
  * presented here; immutable source records remain retained downstream. */
-export default async function MyBluebellyReports({searchParams}:{searchParams:Promise<{view?:string|string[]}>}){
- const view=(await searchParams).view==="portfolio"?"portfolio":"intelligence";
+export default async function MyBluebellyReports({searchParams}:{searchParams:Promise<Record<string,string|string[]|undefined>>}){
+ const params=await searchParams;
+ const view=params.view==="portfolio"?"portfolio":"intelligence";
+ const single=(key:keyof PortfolioTableQuery)=>typeof params[key]==="string"?params[key]:"";
+ const filters:PortfolioTableQuery={
+  hs:single("hs"),hsort:single("hsort"),hquote:single("hquote"),
+  ws:single("ws"),wsort:single("wsort"),wquote:single("wquote"),wtheme:single("wtheme"),
+ };
  return <main className={styles.page} data-bluebelly-my-reports="owner-only"
   data-private-desk={view==="portfolio"?"portfolio-home":"daily-report-led-three-ideas"}>
   <BlueDeskHeader activePath="/my-reports"/>
@@ -35,7 +42,7 @@ export default async function MyBluebellyReports({searchParams}:{searchParams:Pr
     <Link href="/my-reports?view=portfolio" className={view==="portfolio"?layout.deskViewSelected:layout.deskView}
       aria-current={view==="portfolio"?"page":undefined}>My Portfolio</Link>
    </nav>
-   {view==="portfolio"?<OwnerPortfolioHome/>:<>
+   {view==="portfolio"?<OwnerPortfolioHome filters={filters}/>:<>
     <OwnerDailyIntelligenceHome/>
     <div data-my-desk-secondary="daily-report-to-ob-cotd"><OwnerDailyTopicIdeas/></div>
     <p className={layout.myDeskRelated}>Explore fresh source-linked developments in
