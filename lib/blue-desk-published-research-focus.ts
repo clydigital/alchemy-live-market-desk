@@ -48,7 +48,8 @@ export function projectPublishedResearchFocus(
    !row.why_it_matters?.trim()||!row.countercase?.trim()||!row.watch_next?.trim()||
    !safeHttps(row.source_page_url)||!Array.isArray(row.source_links)||
    row.source_links.length<1||row.source_links.length>8||
-   !row.source_links.every(link=>safeHttps(link.url)&&
+   !row.source_links.every(link=>!!link&&typeof link==="object"&&
+    typeof link.url==="string"&&safeHttps(link.url)&&
     ["PRIMARY_RELEASE","DATA_OBSERVATION","REPORTING","SOCIAL_LEAD"].includes(link.kind)&&
     typeof link.label==="string"&&link.label.length>=4))return [];
   seen.add(row.source_pulse_id);
