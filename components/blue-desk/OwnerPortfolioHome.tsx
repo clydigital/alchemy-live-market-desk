@@ -5,6 +5,7 @@ import {createSupabaseServerClient} from "@/lib/supabase/server";
 import ui from "./OwnerPortfolioHome.module.css";
 import OwnerPowerStackFullScan from "./OwnerPowerStackFullScan";
 import {readOwnerPowerStackQuoteScan} from "@/lib/bluebelly-owner-power-stack-quote-scan";
+import type {PortfolioTableQuery} from "@/lib/bluebelly-owner-portfolio-filter";
 
 type Position={ticker:string;name:string;quantity:number|null;currency:string;recordedPrice:number|null;quantityAsOf:string|null;priceAsOf:string|null};
 type Candidate={ticker:string;name:string;rank:number|null;theme:string;entry:string;invalidation:string};
@@ -62,7 +63,7 @@ function advisorFromArchive(snapshot:unknown):AdvisorView|null{
 /** My Desk is already middleware-protected; verify the owner again before the RLS read.
  * Never load portfolio holdings from public GitHub Pages or silently mark an archive as live.
  * Existing market-monitor observations can refresh on visits, but quantities never self-update. */
-export default async function OwnerPortfolioHome(){
+export default async function OwnerPortfolioHome({filters}:{filters:PortfolioTableQuery}){
  const supabase=await createSupabaseServerClient().catch(()=>null);
  if(!supabase)return <section className={ui.status}><h2>Portfolio unavailable</h2><p>Google authentication is not configured.</p></section>;
  const {data:{user},error:authError}=await supabase.auth.getUser();
@@ -122,7 +123,7 @@ export default async function OwnerPortfolioHome(){
       </article>)}</div>
       <small>This is a dated archived briefing. It is not an automatically updated buy/sell recommendation.</small>
     </section>:null}
-    <OwnerPowerStackFullScan snapshot={snapshot?.snapshot} ownerSnapshotAsOf={snapshot?.snapshot_as_of||null}/>
+    <OwnerPowerStackFullScan snapshot={snapshot?.snapshot} ownerSnapshotAsOf={snapshot?.snapshot_as_of||null} filters={filters}/>
    </>}
   </section>;
 }
