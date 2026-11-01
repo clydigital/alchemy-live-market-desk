@@ -46,7 +46,7 @@ test("Bluebelly market instrument boxes use legible text sizes without changing 
   const css = readFileSync(new URL("../app/blue-desk/markets/legibility.module.css", import.meta.url), "utf8");
   assert.match(page, /legibility\.publicMarketsLegibility/);
   assert.match(page, /data-blue-desk-markets="public-observations"/);
-  assert.match(page, /publicMarketObservations\(monitor\?\.rows \|\| \[\], group\)/);
+  assert.match(page, /const monitoredRows=publicMarketObservations/);
   assert.match(css, /table\s*\{\s*font-size:\s*16px/);
   assert.match(css, /table thead th\s*\{\s*font-size:\s*13px/);
   assert.match(css, /table tbody th span,[\s\S]*?font-size:\s*14px/);
