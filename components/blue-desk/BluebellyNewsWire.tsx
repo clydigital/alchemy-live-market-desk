@@ -1,6 +1,8 @@
 "use client";
 import {useState} from "react";
 import type {ReactNode} from "react";
+import PublishedResearchDispatches from "./PublishedResearchDispatches";
+import type {PublicResearchFocus} from "@/lib/blue-desk-published-research-focus";
 import Link from "next/link";
 import type {NewsBriefV1} from "@/lib/market-brief-news";
 import {publicArchiveSearchIndex,type ArchiveNewsItem} from "@/lib/bluebelly-publication-archive";
@@ -29,15 +31,25 @@ function archiveTopics(item:ArchiveNewsItem):EditorialTopicId[]{
  return categories.size?[...categories]:["other"];
 }
 type NewsroomCategory=EditorialTopicId|"hot";
-export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailable=true,hotPicks,editorials=[],initialQuery="",now,readerHref,children}:{
+export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailable=true,hotPicks,editorials=[],researchItems=[],initialQuery="",now,readerHref,children}:{
  news:readonly NewsBriefV1[];archiveEntries?:readonly ArchiveNewsItem[];archiveAvailable?:boolean;
  hotPicks:NewsroomHotPicks;editorials?:readonly NewsroomEditorialItem[];
+ researchItems?:readonly PublicResearchFocus[];
  initialQuery?:string;now:string;readerHref:string;children?:ReactNode;
 }){
  const [topic,setTopic]=useState<NewsroomCategory>("all");
  const [query,setQuery]=useState(initialQuery.slice(0,100));
  const [shortlist,setShortlist]=useState<string[]>([]);
  const [feedback,setFeedback]=useState("");
+ const researched=researchItems.filter(item=>{
+   if(topic==="hot")return false; // Never relabel research as verified Hot Picks.
+   const topicMatch=topic==="all"||
+     ((topic==="energy")&&item.navigationTags.includes("energy"))||
+     ((topic==="policy"||topic==="bonds")&&item.navigationTags.includes("rates"))||
+     (topic==="ai"&&item.navigationTags.includes("ai"));
+   return topicMatch&&[item.headline,item.standfirst,item.whatChanged,item.whyItMatters,
+     item.countercase,item.nextTest,item.region].join(" ").toLowerCase().includes(query.trim().toLowerCase());
+ });
  const editorialSources=new Set(editorials.map(item=>item.sourceUrl));
  const archiveOnly=archiveEntries.filter(a=>!editorialSources.has(a.sourceUrl));
  const newsOnly=news.filter(n=>!archiveEntries.some(a=>a.sourceUrl===n.sourceUrl)&&!editorialSources.has(n.sourceUrl));
@@ -76,6 +88,9 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
    <h1>Every headline has a place.</h1>
    <p>Central banks, AI, bonds, energy, crypto, FX and earnings. Read a short in-house explanation first, then consult the dated original. Older verified reports retain their event dates.</p>
   </header>
+  <div data-macropulse-editorial="research-derived-not-canonical">
+    <PublishedResearchDispatches items={researched} mode="newsroom"/>
+  </div>
   <div className={styles.sectionTitle}><div><h2>Browse by category</h2><p>Publication time, provider and original link stay attached to each report.</p></div>
    <label className={styles.search}>Find a report <input type="search" value={query} onChange={e=>setQuery(e.target.value.slice(0,100))} placeholder="Search issuers, stories, themes" /></label>
   </div>
