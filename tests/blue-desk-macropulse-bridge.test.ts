@@ -65,7 +65,7 @@ test("public hosts cannot access machine ingestion or signed-in review API",()=>
  assert.match(receiver,/duplicate:true/);
  assert.doesNotMatch(receiver,/story_thesis_versions|market_motion_items|\.upsert\(/);
 });
-test("MacroPulse briefs stay private: review GET works and public POST is disabled",()=>{
+test("MacroPulse briefs stay private until owner-checked, explicitly approved research publication",()=>{
  const migration=readFileSync(new URL("../supabase/migrations/20261025220902_blue_desk_macropulse_briefs.sql",import.meta.url),"utf8");
  assert.match(migration,/enable row level security/);
  assert.match(migration,/using\(status='published'\)/);
@@ -76,8 +76,13 @@ test("MacroPulse briefs stay private: review GET works and public POST is disabl
  assert.match(owner,/session\.auth\.getUser\(\)/);
  assert.match(owner,/app_access_allowlist/);
  assert.match(owner,/\.eq\("status","review"\)/);
- assert.match(owner,/fail\(410,"Public digest publication is disabled/);
- assert.doesNotMatch(owner,/published_at:new Date/);
+ assert.match(owner,/authenticated\(req\)/);
+ assert.match(owner,/parseDigestApproval/);
+ assert.match(owner,/dispatchIsReviewable/);
+ assert.match(owner,/originHost!==host/);
+ assert.match(owner,/\.eq\("status","review"\)/);
+ assert.match(owner,/reviewed_by:auth\.email/);
+ assert.match(owner,/Publication readback failed/);
  assert.doesNotMatch(owner,/generateContent|story_thesis_versions/);
  const publicReader=readFileSync(new URL("../lib/blue-desk-macropulse-brief-server.ts",import.meta.url),"utf8");
  assert.match(publicReader,/getSupabasePublicConfig/);
@@ -88,11 +93,13 @@ test("MacroPulse briefs stay private: review GET works and public POST is disabl
  assert.match(page,/not independently verified breaking News/);
 });
 
-test("MacroPulse owner component presents only private reading controls",()=>{
+test("MacroPulse owner component requires explicit, separate publication confirmations",()=>{
  const ui=readFileSync(new URL("../components/blue-desk/MacroPulseBriefQueue.tsx",import.meta.url),"utf8");
- assert.match(ui,/data-owner-macropulse-queue="private-reading"/);
- assert.match(ui,/Public publication is disabled/);
- assert.doesNotMatch(ui,/publish\\(brief\\.id\\)|Approve research digest for Bluebelly|action:"publish"/);
+ assert.match(ui,/data-owner-macropulse-queue="private-review"/);
+ for(const key of ["checkedSources","checkedTimeWindows","checkedCountercase","approvePublicResearch"])
+  assert.ok(ui.includes(key));
+ assert.match(ui,/disabled=\{!ready\|\|state!=="idle"\}/);
+ assert.match(ui,/No automatic public publication/);
 });
 
 test("the Newsroom preserves published MacroPulse research without classifying it as news proof",()=>{

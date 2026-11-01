@@ -44,6 +44,7 @@ export default async function MyBluebellyReports({searchParams}:{searchParams:Pr
    </nav>
    {view==="portfolio"?<OwnerPortfolioHome filters={filters}/>:<>
     <OwnerDailyIntelligenceHome/>
+    <p className={layout.myDeskRelated}><Link href="/owner/daily-report#macropulse-review">Review incoming MacroPulse dispatches →</Link> (owner-only, publication requires source checks)</p>
     <div data-my-desk-secondary="daily-report-to-ob-cotd"><OwnerDailyTopicIdeas/></div>
     <p className={layout.myDeskRelated}>Explore fresh source-linked developments in
      {" "}<Link href="/blue-desk/newsroom">Newsroom</Link>.
