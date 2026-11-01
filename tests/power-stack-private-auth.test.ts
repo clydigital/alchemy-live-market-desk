@@ -49,11 +49,15 @@ test("No public Power Stack holdings fallback; private RLS and retirement gate r
   assert.match(sql, /legacy_source_retired boolean not null default false/);
 });
 
-test("Private Power Stack is in owner navigation only", () => {
+test("Power Stack is accessible through My Desk rather than a separate primary navigation entry", () => {
   const header = source("components/blue-desk/BlueDeskHeader.tsx");
   const afterPrivate = header.split("const PRIVATE_NAV = ")[1].split("const PUBLIC_NAV = ")[0];
   const afterPublic = header.split("const PUBLIC_NAV = ")[1].split("const NAV_ICONS")[0];
-  assert.match(afterPrivate, /\["Power Stack", "\/power-stack"\]/);
+  assert.doesNotMatch(afterPrivate, /\["Power Stack", "\/power-stack"\]/);
+  assert.match(afterPrivate, /\["My Desk", "\/my-reports"\]/);
+  const desk = source("app/my-reports/page.tsx");
+  assert.match(desk, /<OwnerPortfolioHome\/>/);
+  assert.match(desk, /view="portfolio"|view=== "portfolio"|view==="portfolio"/);
   assert.doesNotMatch(afterPublic, /Power Stack/);
   assert.match(header, /activePath === "\/power-stack"/);
 });
