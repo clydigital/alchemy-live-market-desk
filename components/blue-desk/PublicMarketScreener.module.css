@@ -77,3 +77,19 @@
   outline-offset: 2px;
   border-radius: 3px;
 }
+
+
+.comparePanel { border: 1px solid var(--bb-card-border, #47667a); background: var(--bb-card-quiet, #102a3b); padding: 14px 17px; margin-bottom: 20px; color: var(--bb-text); }
+.comparePanel summary { cursor: pointer; font-weight: 800; font-size: 17px; min-height: 44px; padding: 9px 2px; }
+.comparePanel > p { color: var(--bb-muted); margin: 8px 0 15px; font-size: 14px; }
+.comparePresets { display: flex; flex-wrap: wrap; gap: 8px; margin: 13px 0; }
+.comparePresets button { min-height: 40px; padding: 8px 12px; border: 1px solid var(--bb-card-border); background: var(--bb-card-bg); color: var(--bb-text); font: inherit; cursor: pointer; }
+.comparePresets button:focus-visible, .compareChoices input:focus-visible { outline: 2px solid var(--bb-accent); outline-offset: 2px; }
+.compareChoices { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+.compareChoices label { border: 1px solid var(--bb-card-border); background: var(--bb-card-bg); padding: 7px 9px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+.compareChoices label:has(input:checked) { border-color: var(--bb-accent); }
+.compareChoices input { accent-color: var(--bb-accent); width: 16px; height: 16px; }
+.compareChoices small { color: var(--bb-muted); font-size: 11px; }
+.compareTable { min-width: 690px; }
+.comparisonNote { font-size: 12px !important; margin-top: 11px !important; }
+@media(max-width:690px){.comparePanel{padding:11px}.compareChoices label small{display:none}}

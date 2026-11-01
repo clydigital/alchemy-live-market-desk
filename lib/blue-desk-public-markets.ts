@@ -8,6 +8,7 @@ import type { MarketMonitorRow, MarketMonitorType } from "./market-monitor.ts";
 export const PUBLIC_MARKET_GROUPS = [
   { id: "all", label: "All markets" },
   { id: "ai", label: "AI & semiconductors" },
+  { id: "breadth", label: "Market breadth" },
   { id: "rates", label: "Government rates" },
   { id: "energy", label: "Oil & energy" },
   { id: "fx", label: "Currencies" },
@@ -22,7 +23,10 @@ export type PublicMarketObservation = {
   id: string;
   label: string;
   symbol: string;
-  type: MarketMonitorType;
+  type: MarketMonitorType | "Power Stack" | "Breadth";
+  /** Public Power Stack research status; never a live account or price feed. */
+  researchRole?: "holding" | "watchlist";
+  researchAsOf?: string | null;
   last: number | null;
   /** Change over the latest 1, 3 and 5 available daily trading sessions. */
   change: number | null;
@@ -35,7 +39,6 @@ export type PublicMarketObservation = {
   sourceUrl: string | null;
 };
 
-const MAX_PUBLIC_ROWS = 80;
 
 export function publicMarketGroup(value: string | string[] | undefined): PublicMarketGroup {
   return typeof value === "string" && PUBLIC_MARKET_GROUPS.some(group => group.id === value)
@@ -45,6 +48,7 @@ export function publicMarketGroup(value: string | string[] | undefined): PublicM
 function includedType(type: MarketMonitorType, group: PublicMarketGroup): boolean {
   switch (group) {
     case "ai": return type === "AI / Semis";
+    case "breadth": return false; // Breadth is externally linked, not a measured price type.
     case "rates": return type === "Rates";
     case "energy": return type === "Energy";
     case "fx": return type === "FX";
@@ -112,8 +116,7 @@ export function publicMarketObservations(
   rows: readonly MarketMonitorRow[],
   group: PublicMarketGroup,
 ): PublicMarketObservation[] {
-  return rows.filter(row => includedType(row.type, group))
-    .slice(0, MAX_PUBLIC_ROWS).map(publicRow);
+  return rows.filter(row => includedType(row.type, group)).map(publicRow);
 }
 
 /**
