@@ -61,6 +61,7 @@ export default async function HormuzTracker(){
      </div>
      <nav className={s.actions} aria-label="Related market research">
       <Link href="#mediation">Mediation update ↓</Link>
+      <Link href={blueDeskPublicHref("/blue-desk/newsroom?q=hormuz",host)}>Search the reviewed Newsroom story →</Link>
       <Link href="#shipping">See physical traffic ↓</Link>
       <Link href="#fuels">Crude and distillates ↓</Link>
       <Link href={blueDeskPublicHref("/blue-desk/regime-watch/energy",host)}>Energy regime research →</Link>
