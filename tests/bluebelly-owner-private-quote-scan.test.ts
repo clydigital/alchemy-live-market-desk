@@ -33,7 +33,7 @@ test("Never turn missing, future, stale, unresolved or invalid rows into observa
 });
 
 test("The full private scan stays behind owner RLS and the CP public page remains condensed",()=>{
- const read=p=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
+ const read=(p:string)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
  const owner=read("components/blue-desk/OwnerPortfolioHome.tsx");
  const full=read("components/blue-desk/OwnerPowerStackFullScan.tsx");
  const publicPage=read("app/blue-desk/markets/page.tsx");
