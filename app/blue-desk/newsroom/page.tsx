@@ -1,5 +1,4 @@
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
-import PublishedResearchDispatches from "@/components/blue-desk/PublishedResearchDispatches";
 import {projectPublishedResearchFocus} from "@/lib/blue-desk-published-research-focus";
 import Link from "next/link";
 import {headers} from "next/headers";
@@ -73,14 +72,7 @@ export default async function NewsroomPage({searchParams}:Props){
         <p><Link href={readerHref+OCT30_SELL_OFF.href}>Read the complete source-led Key Story →</Link>{" · "}<Link href={blueDeskPublicHref("/blue-desk/crash-opportunity",host)}>Crash vs Opportunity watch →</Link></p>
         <a href={OCT30_SELL_OFF.sourceUrl} target="_blank" rel="noopener noreferrer" className={ui.featureSource}>{OCT30_SELL_OFF.sourceName} ↗</a>
       </article>:null}
-    <section data-macropulse-editorial="research-derived-not-canonical">
-      <PublishedResearchDispatches
-        items={projectPublishedResearchFocus(researchDigests,now,6).filter(item=>
-          !query||[item.headline,item.standfirst,item.whyItMatters,item.countercase,item.region]
-           .join(" ").toLowerCase().includes(query.toLowerCase()))}
-        mode="newsroom" readerHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/>
-    </section>
-    <BluebellyNewsWire news={news} archiveEntries={archiveResult.items} archiveAvailable={archiveResult.available} hotPicks={hotPicks} editorials={editorials}
+    <BluebellyNewsWire news={news} researchItems={projectPublishedResearchFocus(researchDigests,now,6)} archiveEntries={archiveResult.items} archiveAvailable={archiveResult.available} hotPicks={hotPicks} editorials={editorials}
       initialQuery={query} now={now.toISOString()} readerHref={readerHref}>
       <div className={ui.contextBridge}>
        <strong >HORMUZ / OIL & REFINED FUELS</strong> · Track maritime disruption against Brent, diesel/gasoil crack proxies, refinery runs and US distillate inventories.
