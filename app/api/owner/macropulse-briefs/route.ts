@@ -30,7 +30,11 @@ export async function GET(req:NextRequest){
    .select("id,source_page_id,source_pulse_id,source_page_url,source_published_at,source_retrieved_at,headline,standfirst,what_changed,why_it_matters,countercase,watch_next,source_links,primary_region,verification_label,received_at,digest_sha256")
    .eq("status","review").order("received_at",{ascending:false}).limit(15);
   return error?fail(503,"Brief review queue unavailable"):
-   NextResponse.json({status:"REVIEW_REQUIRED",briefs:data||[]},{headers:HEADERS});
+   NextResponse.json({status:"REVIEW_REQUIRED",briefs:data||[],deliveryHealth:{
+    notionReaderConfigured:Boolean(process.env.NOTION_API_TOKEN?.trim()||process.env.NOTION_MARKET_RESEARCH_TOKEN?.trim()),
+    macroPulseIngestConfigured:Boolean(process.env.BLUEBELLY_MACROPULSE_INGEST_TOKEN?.trim()),
+    latestDraftAt:data?.[0]?.received_at||null,
+   }},{headers:HEADERS});
  }catch{return fail(503,"Brief review queue unavailable");}
 }
 /**
