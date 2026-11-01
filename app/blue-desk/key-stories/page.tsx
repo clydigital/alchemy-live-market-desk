@@ -1,4 +1,5 @@
 import Oct30TechSelloffFeature from "@/components/blue-desk/Oct30TechSelloffFeature";
+import HormuzMediationFeature from "@/components/blue-desk/HormuzMediationFeature";
 import Link from "next/link";
 import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
@@ -76,6 +77,13 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     <div className={desk.content}>
       <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link>
       <Oct30TechSelloffFeature host={host}/>
+    </div>
+  </main>;
+  if(params?.feature==="hormuz-mediation-november-2026")return <main className={desk.page} data-key-story="hormuz-mediation-source-reviewed">
+    <BlueDeskHeader activePath="/blue-desk/key-stories"/>
+    <div className={desk.content}>
+      <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link>
+      <HormuzMediationFeature mode="full" />
     </div>
   </main>;
   const editorialKind=params?.feature==="amazon-cash-test-october-2026"?"amazon":params?.feature==="fomc-october-2026"?"fomc":null;
@@ -338,6 +346,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
           <a href="#persistent-theses">Browse by topic</a>
           <a href="#upcoming-decisions">What's next</a>
           <Link href={blueDeskPublicHref("/blue-desk/markets",host)+"#earnings-fundamentals"}>Earnings &amp; fundamentals</Link>
+          <Link href={indexHref+"?feature=hormuz-mediation-november-2026"}>Hormuz mediation</Link>
           <Link href={indexHref+"?feature=rbnz-october-2026"}>RBNZ explainer</Link>
         </nav>
       </header>
@@ -352,7 +361,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
         </div>
       </div>
       <section className={ui.section} aria-label="Dated editorial features"><h2>The decision and the money</h2><p><Link href={blueDeskPublicHref("/blue-desk/markets",host)+"#earnings-fundamentals"}>Investor fundamentals: Amazon, Intel, SanDisk, AMD, Apple, Pfizer and Palantir →</Link></p><div className={ui.cards}>{EDITORIAL_FEATURES.map(feature=><article className={ui.card} key={feature.id}><p className={ui.kicker}>DATED EDITORIAL · 29 OCTOBER 2026</p><h3><Link href={indexHref+"?feature="+feature.id}>{feature.title}</Link></h3><p>{feature.summary}</p></article>)}</div></section>
-      <section className={ui.section} id="current-developments" aria-label="Current event readers"><h2>Current developments</h2><div className={ui.cards}>{topics.map(topic=><article className={ui.card} key={topic.id}><p className={ui.kicker}>VERIFIED NEWS · <DualTimestamp value={topic.latestObservedAt}/></p><h3><Link href={indexHref+"?catalyst="+topic.id}>{topic.updates[0].headline}</Link></h3><p>{topic.guidingQuestion}</p></article>)}<article className={ui.card}><p className={ui.kicker}>DATED FEATURE · 28 OCTOBER 2026</p><h3><Link href={indexHref+"?feature=rbnz-october-2026"}>New Zealand’s surprise pause</Link></h3><p>Why a hold can surprise: follow expectations, the decision and the reported currency response.</p></article></div></section>
+      <section className={ui.section} id="current-developments" aria-label="Current event readers"><h2>Current developments</h2><div className={ui.cards}><article className={ui.card} data-feature="hormuz-mediation-november-2026"><p className={ui.kicker}>DATED DIPLOMACY / MARITIME SECURITY · 1 NOVEMBER 2026</p><h3><Link href={indexHref+"?feature=hormuz-mediation-november-2026"}>Iran offers a two-day Hormuz reopening. What is the catch?</Link></h3><p>Qatar-mediated conditions, an attack on a Qatari LNG carrier and the physical evidence needed before calling the strait open.</p><p><Link href={blueDeskPublicHref("/blue-desk/hormuz",host)}>Inspect ship crossings and diesel evidence →</Link></p></article>{topics.map(topic=><article className={ui.card} key={topic.id}><p className={ui.kicker}>VERIFIED NEWS · <DualTimestamp value={topic.latestObservedAt}/></p><h3><Link href={indexHref+"?catalyst="+topic.id}>{topic.updates[0].headline}</Link></h3><p>{topic.guidingQuestion}</p></article>)}<article className={ui.card}><p className={ui.kicker}>DATED FEATURE · 28 OCTOBER 2026</p><h3><Link href={indexHref+"?feature=rbnz-october-2026"}>New Zealand’s surprise pause</Link></h3><p>Why a hold can surprise: follow expectations, the decision and the reported currency response.</p></article></div></section>
       {earlierNews.length?<section className={ui.section} id="recent-reports" aria-label="More verified reports from this week">
         <p className={ui.kicker}>SOURCE-VERIFIED / DATED PREVIOUS DAYS</p>
         <h2>More news from the past seven days</h2>
