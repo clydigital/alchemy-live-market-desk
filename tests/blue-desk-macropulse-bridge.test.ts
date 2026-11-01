@@ -113,3 +113,18 @@ test("the Newsroom preserves published MacroPulse research without classifying i
  assert.match(shelf,/item\.sourcePageUrl/);
  assert.match(shelf,/item\.sourceLinks/);
 });
+
+test("owner delivery health distinguishes stored connector receipts from server env and unproven scheduled runs",()=>{
+ const route=readFileSync(new URL("../app/api/owner/macropulse-briefs/route.ts",import.meta.url),"utf8");
+ assert.match(route,/latestSourceAt/);
+ assert.match(route,/latestStoredStatus/);
+ assert.match(route,/automaticWorkBridgeVerified:false/);
+ assert.match(route,/\.order\("received_at",\{ascending:false\}\)\.limit\(1\)\.maybeSingle\(\)/);
+ assert.match(route,/\.eq\("status","review"\)/);
+ const ui=readFileSync(new URL("../components/blue-desk/MacroPulseBriefQueue.tsx",import.meta.url),"utf8");
+ assert.match(ui,/data-macropulse-delivery-health="separate-transports"/);
+ assert.match(ui,/The separately connected ChatGPT Work/);
+ assert.match(ui,/A stored receipt alone does not prove unattended completion/);
+ assert.match(ui,/request a corrected, separately versioned draft/);
+ assert.doesNotMatch(ui,/Automatic editorial delivery is NOT configured/);
+});
