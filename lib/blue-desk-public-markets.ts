@@ -8,6 +8,7 @@ import type { MarketMonitorRow, MarketMonitorType } from "./market-monitor.ts";
 export const PUBLIC_MARKET_GROUPS = [
   { id: "all", label: "All markets" },
   { id: "ai", label: "AI & semiconductors" },
+  { id: "breadth", label: "Market breadth" },
   { id: "rates", label: "Government rates" },
   { id: "energy", label: "Oil & energy" },
   { id: "fx", label: "Currencies" },
@@ -22,7 +23,7 @@ export type PublicMarketObservation = {
   id: string;
   label: string;
   symbol: string;
-  type: MarketMonitorType | "Power Stack";
+  type: MarketMonitorType | "Power Stack" | "Breadth";
   /** Public Power Stack research status; never a live account or price feed. */
   researchRole?: "holding" | "watchlist";
   researchAsOf?: string | null;
