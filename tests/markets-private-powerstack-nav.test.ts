@@ -15,7 +15,7 @@ test("Public Markets remains open, private Power Stack is reached within My Desk
  assert.equal(blueDeskHostAccess("/power-stack",host),"private");
  assert.doesNotMatch(publicPage, /<Link href="\/power-stack"|data-market-private-link|My Power Stack/);
  assert.match(desk,/href="\/my-reports\?view=portfolio"/);
- assert.match(desk,/<OwnerPortfolioHome\/>/);
+ assert.match(desk,/<OwnerPortfolioHome\s+filters=\{filters\}\/>/);
  assert.match(privatePage,/createSupabaseServerClient/);
  assert.match(privatePage,/app_access_allowlist/);
  assert.match(privatePage,/legacy_source_retired === true/);
