@@ -125,46 +125,76 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           </nav>
         </details>
         
-        <section className={`${styles.section} ${legibility.marketSection}`} aria-label="TradingView market chart" data-market-chart-provider="tradingview">
+        <section className={`${styles.section} ${legibility.marketSection}`}
+          aria-labelledby="breadth-watch-heading" data-market-breadth-watch="research-first">
           <div className={styles.sectionHead}><div>
-            <h2>Market charts · TradingView</h2>
-            <p>Interactive TradingView prices and yields. The source-dated observations below are separate; the widget is not evidence of a specific event reaction.</p>
+            <p className={styles.kicker}>01 / THE HEALTH OF THE RALLY</p>
+            <h2 id="breadth-watch-heading">Market breadth</h2>
+            <p>Are more stocks joining the move, or is the index being carried by a few leaders?</p>
           </div></div>
-          <TradingViewChart initial={TV_MARKET_GROUP_DEFAULTS[group] || "us10y"} showPicker />
-        </section>
-
-        <section className={`${styles.section} ${legibility.marketSection}`} aria-labelledby="breadth-watch-heading" data-market-breadth-watch="chart-only">
-          <div className={styles.sectionHead}><div>
-            <h2 id="breadth-watch-heading">Market breadth · participation watch</h2>
-            <p>S5FI and S5TH track S&P 500 participation above 50- and 200-day moving averages. S5FI and S5TH have source-dated daily participation readings and 1D/3D/5D percentage-point changes below. Other symbols remain chart-only until verified history is available.</p>
-          </div></div>
-          <div className={legibility.breadthGrid}>
-            {BREADTH_WATCHES.map(item => <a key={item.symbol}
-              href={`https://www.tradingview.com/chart/?symbol=INDEX%3A${item.symbol}`}
-              target="_blank" rel="noreferrer" className={legibility.breadthLink}>
-              <strong>{item.symbol}</strong><span>{item.label}</span><small>{item.family} · inspect chart ↗</small>
-            </a>)}
+          <div className={legibility.breadthPrimary}>
+            {breadthPrimary.map(({item,reading})=><article key={item.symbol}
+              className={legibility.breadthStat}>
+              <div className={legibility.breadthStatHeading}>
+                <strong>{item.symbol}</strong><span>{item.label}</span>
+              </div>
+              <strong className={legibility.breadthLevel}>{breadthValue(reading.last,"%")}</strong>
+              <p>Constituents above {item.symbol==="S5FI"?"50":"200"}-day average</p>
+              <div className={legibility.breadthChanges}>
+                {([{name:"1D",value:reading.change},{name:"3D",value:reading.change3d},
+                  {name:"5D",value:reading.change5d}] as const).map(period=><div key={period.name}>
+                  <small>{period.name}</small>
+                  <strong data-direction={period.value===null?"unknown":period.value>0?"up":period.value<0?"down":"flat"}>
+                    {breadthValue(period.value,"pp")}</strong>
+                </div>)}
+              </div>
+              <small>Source session {reading.asOf||"unavailable"} · {reading.dataStatus==="SOURCE_DATED_SECONDARY"?
+               "Secondary daily observation":"Stale or unverified"}</small>
+            </article>)}
           </div>
-          <p>Use RSP against SPY and semiconductor breadth against SMH/SOXX to check whether participation confirms headline index gains. Breadth changes are in percentage points, ETF returns are percentages. Secondary vendor data is diagnostic only.</p>
-          {participation ? <div className={styles.secondaryPanel} data-breadth-research-diagnostic={participation.status}>
+          <div className={styles.secondaryPanel} data-breadth-research-diagnostic={participation.status}>
             <h3>{participation.headline}</h3>
             <p>{participation.interpretation}</p>
-            <p><strong>Research follow-up:</strong> {participation.nextTest}</p>
-            <small>Source session: {participation.asOf || "Unavailable"} · Source refresh: {breadthHistory.retrievalStatus}. Not a canonical Regime/Dossier update.</small>
-          </div> : null}
+            <p><strong>What to check next:</strong> {participation.nextTest}</p>
+            <small>Through {participation.asOf||"an unavailable source date"} ·
+              Source refresh: {breadthHistory.retrievalStatus}.
+              Research context, not an automatic Regime/Dossier update or trade signal.</small>
+          </div>
+          <details className={legibility.breadthMore}>
+            <summary>Other breadth charts · Nasdaq and Russell</summary>
+            <p>These series are chart links until independently source-dated histories are verified.
+              We do not substitute S&P 500 readings for Nasdaq or Russell participation.</p>
+            <div className={legibility.breadthGrid}>
+              {BREADTH_WATCHES.filter(item=>item.symbol!=="S5FI"&&item.symbol!=="S5TH")
+                .map(item=><a key={item.symbol}
+                 href={`https://www.tradingview.com/chart/?symbol=INDEX%3A${item.symbol}`}
+                 target="_blank" rel="noreferrer" className={legibility.breadthLink}>
+                  <strong>{item.symbol}</strong><span>{item.label}</span>
+                  <small>Inspect external chart ↗</small>
+                </a>)}
+            </div>
+          </details>
         </section>
 
         <section aria-labelledby="market-group-heading" className={`${styles.section} ${legibility.marketSection}`}>
           <div className={styles.sectionHead}>
             <div>
               <h2 id="market-group-heading"><MarketIcon name={GROUP_ICONS[group]} size={24} /> {selected.label}</h2>
-              <p>{sourceObservations.length} monitored instruments · {breadthObservations.length} breadth watches{group === "all" ? ` · ${observations.length - sourceObservations.length - breadthObservations.length} additional public research instruments` : ""}{group === "powerstack" ? ` · ${observations.length} neutral research tickers` : ""}</p>
+              <p>Compare source-dated 1D, 3D and 5D sector performance. The full screener is optional.</p>
             </div>
           </div>
 
-          {group === "all" || group === "powerstack" ? <p className={styles.muted}>Public instrument search is independent of private Power Stack holdings and watchlists. Dated 1D/3D/5D changes are shown only when observed by the Bluebelly market monitor. Missing source windows remain blank; the private portfolio is accessible through My Desk after Google login.</p> : null}
+
           <PublicMarketScreener key={group} observations={observations} group={group} dataAvailable={Boolean(monitor)} />
         </section>
+
+        <details id="advanced-market-charts"
+          className={`${styles.section} ${legibility.marketSection} ${legibility.breadthMore}`}
+          data-market-chart-provider="tradingview">
+          <summary>Market charts · TradingView</summary>
+          <p>Interactive charts are optional and are not independent evidence of an event reaction.</p>
+          <TradingViewChart initial={TV_MARKET_GROUP_DEFAULTS[group]||"us10y"} showPicker/>
+        </details>
 
         <details id="earnings-research" className={`${styles.section} ${legibility.marketSection}`} data-earnings-reader-entry="seven-company">
           <summary>Optional: seven company earnings and financing investigations</summary>
@@ -172,7 +202,6 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <EarningsFundamentals amazonFeatureHref={blueDeskPublicHref("/blue-desk/key-stories",host)+"?feature=amazon-cash-test-october-2026"} deepBaseHref={blueDeskPublicHref("/blue-desk/markets",host)} />
         </details>
 
-        {hormuz ? <HormuzCrossings monitor={hormuz} /> : null}
 
         <div className={styles.lastLinks}>
           <h2>Continue reading</h2>
