@@ -14,6 +14,9 @@ import { getForwardEarningsEvents } from "@/lib/forward-earnings-sources";
 import { buildPresenterCalendar } from "@/lib/presenter-calendar";
 import { selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
+import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
+import {calculateBreadthRow,marketParticipationResearch} from "@/lib/bluebelly-breadth-dated";
+import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
 import {getOwnerDeliveredResearchBriefs} from "@/lib/blue-desk-delivered-research-server";
 import {getPrivateReviewedCreatorArguments} from "@/lib/bluebelly-private-creator-reviews";
 
@@ -36,7 +39,7 @@ export async function GET(req:NextRequest){
   if(accessError||!access)return fail(403,"Owner account not authorised");
 
   const now=new Date();
-  const [notion,rawNews,originalPress,monitor,macro,earnings,delivery,creatorDelivery]=await Promise.all([
+  const [notion,rawNews,originalPress,monitor,macro,earnings,delivery,creatorDelivery,breadthSource]=await Promise.all([
     fetchTodayNotionResearch(now),
     getCurrentVerifiedMarketMotion({limit:24}).catch(()=>[]),
     getOriginalPressNews(now,12).catch(()=>[]),
@@ -51,16 +54,26 @@ export async function GET(req:NextRequest){
     getPrivateReviewedCreatorArguments(now)
       .then(reviews=>({status:"AVAILABLE" as const,reviews}))
       .catch(()=>({status:"UNAVAILABLE" as const,reviews:[]})),
+    getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
   ]);
   const motionNews=selectVerifiedNewsBriefs(rawNews,now,12);
   const news=combineQualifiedNews(motionNews,originalPress,12);
   const calendar=buildPresenterCalendar(macro,earnings,now);
   const upcoming=selectBlueDeskUpcoming(calendar,now,30).slice(0,14);
+  const bfi=calculateBreadthRow("S5FI","S&P 500 above 50D",
+    breadthSource.series.find(item=>item.symbol==="S5FI"),now);
+  const bth=calculateBreadthRow("S5TH","S&P 500 above 200D",
+    breadthSource.series.find(item=>item.symbol==="S5TH"),now);
+  const breadthDiagnostic=marketParticipationResearch([
+    ...publicMarketObservations(monitor?.rows||[],"all"),bfi,bth,
+  ]);
   const packet=buildDailyResearchPacket({
     now:now.toISOString(),notion,news,
     editorialBriefs:delivery.briefs,
     creatorReviews:creatorDelivery.reviews,
     creatorCoverageStatus:creatorDelivery.status,
+    marketDiagnostics:[{...breadthDiagnostic,
+      sourceUrls:breadthSource.series.map(item=>item.sourceUrl)}],
     prices:(monitor?.rows||[]).filter(r=>r.last!==null)
       .slice(0,12).map(r=>({
         label:r.label,level:r.last,asOf:r.asOf,

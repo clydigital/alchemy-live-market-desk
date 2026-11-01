@@ -78,7 +78,7 @@ test("source-dated public Markets is server-rendered, bounded, and preserves old
   const presenter = readFileSync(new URL("../app/owner/markets/page.tsx", import.meta.url), "utf8");
   const host = readFileSync(new URL("../lib/blue-desk-host.ts", import.meta.url), "utf8");
   assert.match(page, /getMarketMonitor\(\)\.catch\(\(\) => null\)/);
-  assert.match(page, /publicMarketObservations\(monitor\?\.rows \|\| \[\], group\)/);
+  assert.match(page, /const monitoredRows=publicMarketObservations/);
   const screener = readFileSync(new URL("../components/blue-desk/PublicMarketScreener.tsx", import.meta.url), "utf8");
   assert.match(page, /<PublicMarketScreener key=/);
   assert.match(screener, /row\.sourceUrl/);
@@ -136,10 +136,11 @@ test("All Markets no longer truncates the research source universe at eighty", (
 });
 
 
-test("breadth remains chart-only and does not mislabel equity prices as breadth", () => {
+test("breadth group uses independently source-dated series, not a market-price proxy", () => {
   const inputs = [marketRow({ id: "s5fi", type: "Major Index" })];
   assert.deepEqual(publicMarketObservations(inputs, "breadth"), []);
   const page = readFileSync(new URL("../app/blue-desk/markets/page.tsx", import.meta.url), "utf8");
   for (const code of ["S5FI", "S5TH", "NDFI", "R2FI"]) assert.match(page, new RegExp(code));
-  assert.match(page, /last: null, change: null, change3d: null, change5d: null/);
+  assert.match(page, /calculateBreadthRow/);
+  assert.match(page, /getSourceDatedBreadth/);
 });

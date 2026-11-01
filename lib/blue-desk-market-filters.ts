@@ -1,7 +1,7 @@
 import type { PublicMarketObservation } from "./blue-desk-public-markets.ts";
 
 /** Display-only market screener. All values retain their original source units. */
-export type MarketChangeUnit = "all" | "%" | "bp";
+export type MarketChangeUnit = "all" | "%" | "bp" | "pp";
 export type MarketChangeWindow = "1D" | "3D" | "5D";
 
 export function publicMarketWindowChange(row: PublicMarketObservation, window: MarketChangeWindow): number | null {
@@ -51,7 +51,7 @@ export function filterPublicMarketObservations(
     if (aChange === null) return bChange === null ? a.label.localeCompare(b.label) : 1;
     if (bChange === null) return -1;
     // Never rank a 5 bp move against a 5% move as if the units were comparable.
-    if (a.changeUnit !== b.changeUnit) return a.changeUnit === "%" ? -1 : 1;
+    if (a.changeUnit !== b.changeUnit) return ({ "%":0, "pp":1, "bp":2 })[a.changeUnit] - ({ "%":0, "pp":1, "bp":2 })[b.changeUnit];
     const result = filters.sort === "magnitude" ? Math.abs(bChange) - Math.abs(aChange)
       : filters.sort === "gainers" ? bChange - aChange
       : aChange - bChange;
@@ -86,7 +86,7 @@ export function sortPublicMarketColumns(
       return bv === null || !Number.isFinite(bv) ? a.label.localeCompare(b.label) : 1;
     if (bv === null || !Number.isFinite(bv)) return -1;
     if (column !== "last" && a.changeUnit !== b.changeUnit)
-      return a.changeUnit === "%" ? -1 : 1;
+      return ({ "%":0, "pp":1, "bp":2 })[a.changeUnit] - ({ "%":0, "pp":1, "bp":2 })[b.changeUnit];
     return sign * (av - bv) || a.label.localeCompare(b.label);
   });
 }

@@ -42,6 +42,8 @@ export function buildDailyResearchPacket(input:{
   editorialBriefs?:readonly DeliveredMacroPulseBrief[];
   creatorReviews?:readonly PrivateCreatorReview[];
   creatorCoverageStatus?:"AVAILABLE"|"UNAVAILABLE";
+  marketDiagnostics?: readonly {status:"ready"|"insufficient";headline:string;interpretation:string;
+    nextTest:string;asOf:string|null;sourceUrls:readonly string[]}[];
 }):DailyResearchPacket{
   const links=new Set<string>();
   const include=(url:unknown)=>{const safeLink=safeUrl(url);if(safeLink&&links.size<40)links.add(safeLink);};
@@ -157,6 +159,17 @@ export function buildDailyResearchPacket(input:{
     ", frequency: "+safe(p.frequency,35)+")",
   );
   if(!input.prices.length)lines.push("Price/context source unavailable. Price action UNKNOWN.");
+  // Market internals guide the next investigation; never bypass source admission.
+  lines.push("","## MARKET PARTICIPATION — SOURCE-DATED, NONCANONICAL RESEARCH CHECK");
+  for(const d of (input.marketDiagnostics||[]).slice(0,3)){
+    lines.push("Status: "+safe(d.status,25)+" | source session: "+safe(d.asOf||"UNKNOWN",35),
+      "Observation/diagnostic: "+safe(d.headline,150),
+      "Interpretation — NOT market causality or an accepted Regime/Dossier finding: "+safe(d.interpretation,850),
+      "Next independent test: "+safe(d.nextTest,450));
+    for(const url of d.sourceUrls.slice(0,4)){include(url);lines.push("Dated original vendor page: "+safeUrl(url));}
+  }
+  if(!input.marketDiagnostics?.length)lines.push("No eligible breadth research diagnostic. Do not infer index-wide participation from a proxy.");
+
   lines.push("","## ECONOMIC RELEASES & ISSUER EARNINGS (upcoming, not outcomes)");
   for(const e of input.calendar.slice(0,14)){
     include(e.sourceUrl);
