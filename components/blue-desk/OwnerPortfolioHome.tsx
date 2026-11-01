@@ -38,6 +38,27 @@ function candidates(snapshot:unknown):Candidate[]{
    theme:clean(x.theme,180),entry:clean(x.entry,500),invalidation:clean(x.invalidation,500)}]:[];
  }).sort((a,b)=>(a.rank??999)-(b.rank??999));
 }
+type AdvisorView={headline:string;summary:string;asOf:string;capitalMYR:number|null;
+  cashVerified:boolean;positionsVerified:boolean;
+  moves:Array<{title:string;description:string;next:string;notYet:string}>};
+function advisorFromArchive(snapshot:unknown):AdvisorView|null{
+ if(!snapshot||typeof snapshot!=="object"||Array.isArray(snapshot))return null;
+ const raw=(snapshot as Record<string,unknown>).investmentAdvisor;
+ if(!raw||typeof raw!=="object"||Array.isArray(raw))return null;
+ const x=raw as Record<string,unknown>;
+ const capital=x.capital&&typeof x.capital==="object"&&!Array.isArray(x.capital)
+   ?x.capital as Record<string,unknown>:{};
+ const moves=(Array.isArray(x.firstMoves)?x.firstMoves:[]).slice(0,3)
+  .filter(v=>v&&typeof v==="object"&&!Array.isArray(v))
+  .map(v=>{const m=v as Record<string,unknown>;return {
+   title:clean(m.title,160),description:clean(m.description,360),
+   next:clean(m.do,320),notYet:clean(m.notYet,320),
+  };});
+ return {headline:clean(x.heading,180),summary:clean(x.standfirst,550),
+  asOf:clean(x.asOf,30),capitalMYR:num(capital.totalMYR),
+  cashVerified:capital.cashVerified===true,
+  positionsVerified:capital.positionsVerified===true,moves};
+}
 const showChange=(n:number|null,unit:"%"|"bp"|"pp"="%")=>n===null?"—":`${n>0?"+":""}${n.toFixed(2)}${unit}`;
 function latest(row:PublicMarketObservation|undefined){
  if(!row)return null;
@@ -62,6 +83,7 @@ export default async function OwnerPortfolioHome(){
  const ready=snapshot?.legacy_source_retired===true;
  const holdings=ready?positions(snapshot?.snapshot):[];
  const watchlist=ready?candidates(snapshot?.snapshot):[];
+ const advice=ready?advisorFromArchive(snapshot?.snapshot):null;
  // This is only an observed public market quote overlay inside the private page,
  // not an ownership feed or a reconstructed balance. On invalid or missing sessions
  // we preserve null rather than invent current market values.
@@ -96,6 +118,23 @@ export default async function OwnerPortfolioHome(){
      <div><small>Research watchlist</small><strong>{watchlist.length}</strong><span>Saved candidates</span></div>
      <div><small>Quote coverage</small><strong>{observed}/{holdings.length}</strong><span>Source-dated monitor</span></div>
     </div>
+    {advice?<section className={ui.advisor} data-portfolio-advisor="archived-not-live">
+      <p className={ui.kicker}>Recorded investment decisions · {advice.asOf||"undated"}</p>
+      <h3>{advice.headline||"Investment review"}</h3>
+      <p>{advice.summary}</p>
+      <div className={ui.advisorCapital}>
+       <strong>{advice.capitalMYR===null?"Capital unverified":
+        `RM ${advice.capitalMYR.toLocaleString("en-MY",{maximumFractionDigits:2})}`}</strong>
+       <span>Archived investment mandate · cash verified: {advice.cashVerified?"yes":"no"}
+        {" · "}positions reconciled: {advice.positionsVerified?"yes":"no"}</span>
+      </div>
+      <div className={ui.advisorMoves}>{advice.moves.map((move,i)=><article key={i}>
+        <h4>{move.title}</h4><p>{move.description}</p>
+        <p><strong>Recorded next step:</strong> {move.next||"Not recorded"}</p>
+        <p><strong>Wait for:</strong> {move.notYet||"Independent validation"}</p>
+      </article>)}</div>
+      <small>This is a dated archived briefing. It is not an automatically updated buy/sell recommendation.</small>
+    </section>:null}
     <p className={ui.vintage}>Portfolio snapshot: {snapshot?.snapshot_as_of||"date unavailable"}.
       Market observations are refreshed from Bluebelly's existing market monitor when
       this page is loaded; they are not live brokerage quotes. Quantities, cost bases,
