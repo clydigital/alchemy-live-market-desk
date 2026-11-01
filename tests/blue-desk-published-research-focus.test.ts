@@ -64,9 +64,13 @@ test("each public page has dynamic reviewed research, not an automatic SOURCE_VE
  for(const file of ["app/blue-desk/page.tsx","app/blue-desk/newsroom/page.tsx",
   "app/blue-desk/markets/page.tsx","app/blue-desk/hormuz/page.tsx"]){
   const source=read(file);
-  assert.match(source,/PublishedResearchDispatches/);
+  assert.match(source,file.endsWith("/newsroom/page.tsx")?/researchItems=/:/PublishedResearchDispatches/);
   assert.match(source,/projectPublishedResearchFocus/);
  }
+ const wire=read("components/blue-desk/BluebellyNewsWire.tsx");
+ assert.match(wire,/data-macropulse-editorial="research-derived-not-canonical"/);
+ assert.match(wire,/if\(topic==="hot"\)return false/);
+ assert.match(wire,/item\.navigationTags/);
  const shared=read("components/blue-desk/PublishedResearchDispatches.tsx");
  assert.match(shared,/RESEARCH-DERIVED · NOT CANONICAL/);
  assert.match(shared,/not independently source-verified breaking news/);
