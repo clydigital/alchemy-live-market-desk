@@ -49,7 +49,7 @@ test("My Desk reads both owner-only private stores rather than the legacy Drive 
  assert.match(h,/blue_desk_work_html_editions/);
  assert.match(h,/blue_desk_private_html_editions/);
  assert.match(h,/uniquePrivateDailyIntelligence\(rows\)/);
- assert.match(card,/Current report/);
+ assert.match(card,/Latest saved report/);
  assert.match(card,/OwnerPrivateHtmlInlineReader/);
  assert.match(card,/No saved Daily Intelligence edition yet/);
  assert.match(card,/Private draft, not publicly published/);
