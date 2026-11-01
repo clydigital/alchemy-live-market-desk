@@ -93,3 +93,13 @@
 .publicMarketsLegibility table th,.publicMarketsLegibility table td{line-height:1.6}
 .publicMarketsLegibility table td a{font-size:14px;line-height:1.55}
 @media(max-width:720px){.marketGroups a,.publicMarketsLegibility nav[aria-label="Market group"] a{font-size:12px;min-height:44px}}
+
+
+.breadthGrid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin:18px 0; }
+.breadthLink { display:grid; gap:7px; border:1px solid var(--bb-card-border); background:var(--bb-card-quiet); color:var(--bb-text)!important; text-decoration:none; padding:16px 14px; min-height:110px; }
+.breadthLink strong { color:var(--bb-accent); font:900 21px/1.2 var(--bb-display); }
+.breadthLink span { font-size:14px; }
+.breadthLink small { font-size:12px; color:var(--bb-muted); }
+.breadthLink:hover,.breadthLink:focus-visible { outline:2px solid var(--bb-accent); outline-offset:2px; }
+@media(max-width:900px){.breadthGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:440px){.breadthGrid{grid-template-columns:1fr}}
