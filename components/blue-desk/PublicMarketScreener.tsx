@@ -26,16 +26,16 @@ function level(row: PublicMarketObservation) {
   const value = row.last.toLocaleString("en-GB", {
     maximumFractionDigits: Math.abs(row.last) >= 1000 ? 1 : 3,
   });
-  return row.type === "Rates" ? `${value}%` : value;
+  return row.type === "Rates" || row.type === "Breadth" ? `${value}%` : value;
 }
 
-function change(value: number | null, unit: "%" | "bp") {
+function change(value: number | null, unit: "%" | "bp" | "pp") {
   if (value === null) return "—";
-  return `${value > 0 ? "+" : ""}${value.toFixed(2)}${unit === "bp" ? " bp" : "%"}`;
+  return `${value > 0 ? "+" : ""}${value.toFixed(2)}${unit === "bp" ? " bp" : unit === "pp" ? " pp" : "%"}`;
 }
 
 export default function PublicMarketScreener({ observations, group, dataAvailable }: Props) {
-  const initialUnit: MarketChangeUnit = group === "rates" ? "bp" : "all";
+  const initialUnit: MarketChangeUnit = group === "rates" ? "bp" : group === "breadth" ? "pp" : group === "powerstack" ? "%" : "all";
   const [query, setQuery] = useState("");
   const [window, setWindow] = useState<MarketChangeWindow>("1D");
   const [unit, setUnit] = useState<MarketChangeUnit>(initialUnit);
@@ -130,6 +130,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
         <button type="button" onClick={() => preset("%", "down", 1)}>Down ≥1%</button>
         <button type="button" onClick={() => preset("%", "all", 2)}>Move ≥2%</button>
         <button type="button" onClick={() => preset("bp", "all", 10)}>Rates ≥10 bp</button>
+        <button type="button" onClick={() => preset("pp", "all", 2)}>Breadth ≥2 pp</button>
       </div>
       <div className={ui.controls}>
         <label>Screen / sort period
@@ -148,6 +149,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
             <option value="all">All units</option>
             <option value="%">Percentage (%)</option>
             <option value="bp">Rate changes (bp)</option>
+            <option value="pp">Breadth change (pp)</option>
           </select>
         </label>
         <label>Direction
@@ -181,10 +183,10 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
         </label>
         <button type="button" className={ui.reset} onClick={reset}>Reset filters</button>
       </div>
-      <p className={ui.disclaimer}>1D, 3D and 5D count completed source sessions, not calendar days. All three appear below; filters and sorting use the selected period ({window}). Percentage moves and yield changes in bp remain separate. Missing history is unavailable, not zero.</p>
+      <p className={ui.disclaimer}>1D, 3D and 5D count completed source sessions, not calendar days. All three appear below; filters and sorting use the selected period ({window}). Price returns (%), yield moves (bp), and breadth participation moves (pp) are distinct units. Missing history is unavailable, not zero.</p>
       <p className={ui.count} role="status" aria-live="polite">
         <strong>{visible.length}</strong> of {observations.length} instruments shown
-        {` · Screening ${window}`}{unit === "all" ? " · All units" : ` · ${unit === "%" ? "Percentage moves" : "Rate changes in bp"}`}
+        {` · Screening ${window}`}{unit === "all" ? " · All units" : ` · ${unit === "%" ? "Price returns" : unit === "bp" ? "Rate changes in bp" : "Breadth percentage points"}`}
       </p>
     </div>
 
@@ -206,7 +208,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
             </td>;
           })}
           <td className={styles.publicMarketSource}>
-            <span>{row.type === "Breadth" ? "External breadth chart · no verified reading" : row.researchRole && row.last === null ? `Power Stack ${row.researchRole} registry · ${row.researchAsOf || "undated"}` : `${row.asOf ? `Observation: ${row.asOf}` : "Observation date unavailable"} · ${row.frequency} observation`}</span>
+            <span>{row.type === "Breadth" ? "External breadth chart · no verified reading" : row.researchRole && row.last === null ? `Power Stack ${row.researchRole} registry · price unavailable/stale` : `${row.asOf ? `Observation: ${row.asOf}` : "Observation date unavailable"} · ${row.frequency} observation`}</span>
             {row.sourceUrl ? <a href={row.sourceUrl} target="_blank" rel="noreferrer">{row.sourceName} · {row.type === "Breadth" ? "open chart ↗" : row.researchRole && row.last === null ? "research registry ↗" : "original data ↗"}</a>
               : <span>Original-source link unavailable</span>}
           </td>
