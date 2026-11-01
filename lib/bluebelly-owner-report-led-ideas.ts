@@ -31,7 +31,7 @@ export async function getOwnerReportLedIdeas():Promise<ReportLedIdeaRead>{
   if(allowError||!allow)return missing("unauthorised");
   const db=createSupabaseAdminClient();
   let html:string|null=null;
-  if(latest.delivery==="WORK"){
+  if(latest.delivery==="WORK"||latest.delivery==="AUTOMATED"){
    const {data,error:readError}=await db.from("blue_desk_work_html_editions")
     .select("html_content,html_sha256,report_day")
     .eq("owner_user_id",user.id).eq("id",latest.id).maybeSingle();
