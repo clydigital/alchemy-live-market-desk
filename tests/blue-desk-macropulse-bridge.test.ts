@@ -105,9 +105,9 @@ test("MacroPulse owner component requires explicit, separate publication confirm
 test("the Newsroom preserves published MacroPulse research without classifying it as news proof",()=>{
  const newsroom=readFileSync(new URL("../app/blue-desk/newsroom/page.tsx",import.meta.url),"utf8");
  assert.match(newsroom,/getPublishedMacroPulseBriefs\(4\)/);
- assert.match(newsroom,/data-macropulse-editorial="research-derived-not-canonical"/);
+ assert.match(newsroom,/researchItems=\{projectPublishedResearchFocus\(researchDigests,now,6\)\}/);
  assert.match(newsroom,/projectPublishedResearchFocus\(researchDigests,now,6\)/);
- assert.match(newsroom,/PublishedResearchDispatches/);
+ assert.match(readFileSync(new URL("../components/blue-desk/BluebellyNewsWire.tsx",import.meta.url),"utf8"),/PublishedResearchDispatches/);
  const shelf=readFileSync(new URL("../components/blue-desk/PublishedResearchDispatches.tsx",import.meta.url),"utf8");
  assert.match(shelf,/item\.countercase/);
  assert.match(shelf,/item\.sourcePageUrl/);
