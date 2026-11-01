@@ -2,6 +2,9 @@ import EarningsFundamentals from "@/components/blue-desk/EarningsFundamentals";
 import EarningsInvestorDeepDive from "@/components/blue-desk/EarningsInvestorDeepDive";
 import {getEarningsCase} from "@/lib/bluebelly-earnings-investor-stories";
 import Link from "next/link";
+import PublishedResearchDispatches from "@/components/blue-desk/PublishedResearchDispatches";
+import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
+import {projectPublishedResearchFocus,researchForPublicLens} from "@/lib/blue-desk-published-research-focus";
 import { headers } from "next/headers";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
@@ -61,9 +64,10 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
       <EarningsInvestorDeepDive ticker={detail.ticker} backHref={blueDeskPublicHref("/blue-desk/markets",host)} />
     </div>
   </main>;
-  const [monitor,breadthHistory] = await Promise.all([
+  const [monitor,breadthHistory,researchDigests] = await Promise.all([
     getMarketMonitor().catch(() => null),
     getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
+    getPublishedMacroPulseBriefs(6).catch(()=>[]),
   ]);
   // No personal Power Stack registry may be fetched in anonymous Markets.
   const monitoredRows=publicMarketObservations(monitor?.rows || [],group);
@@ -86,6 +90,8 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
 
   const selected = PUBLIC_MARKET_GROUPS.find(item => item.id === group)!;
   const reviewedFocus=(group==="all"||group==="energy")?currentReviewedPublicFocus(now):[];
+  const lens=group==="all"?"all":group==="energy"?"energy":group==="rates"?"rates":group==="ai"?"ai":null;
+  const editorialResearch=lens?researchForPublicLens(projectPublishedResearchFocus(researchDigests,now,6),lens):[];
 
   return (
     <main className={`${styles.page} ${legibility.publicMarketsLegibility} ${legibility.compactMarkets}`} data-blue-desk-markets="public-observations">
@@ -114,6 +120,8 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <a href="#market-group-heading">ETF comparisons</a>
           <a href="#advanced-market-charts">Open charts</a>
         </nav>
+        <PublishedResearchDispatches items={editorialResearch} mode="market"
+          readerHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/>
         {reviewedFocus.map(focus=><section key={focus.id} data-markets-reviewed-catalyst={focus.id}
           className={legibility.marketSection} style={{padding:"14px 18px",margin:"10px 0"}}>
           <p className={styles.kicker}>REVIEWED ENERGY CATALYST · {focus.eventDay} · SOURCE DATE ONLY</p>
