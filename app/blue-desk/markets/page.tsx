@@ -178,7 +178,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
         <section aria-labelledby="market-group-heading" className={`${styles.section} ${legibility.marketSection}`}>
           <div className={styles.sectionHead}>
             <div>
-              <h2 id="market-group-heading"><MarketIcon name={GROUP_ICONS[group]} size={24} /> {selected.label}</h2>
+              <h2 id="market-group-heading"><MarketIcon name={GROUP_ICONS[group]} size={24} /> {group==="all"?"ETF & sector comparisons":selected.label}</h2>
               <p>Compare source-dated 1D, 3D and 5D sector performance. The full screener is optional.</p>
             </div>
           </div>
