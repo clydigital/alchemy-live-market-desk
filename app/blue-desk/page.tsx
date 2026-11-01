@@ -1,4 +1,6 @@
 import DecisionBrief from "@/components/blue-desk/DecisionBrief";
+import PublishedResearchDispatches from "@/components/blue-desk/PublishedResearchDispatches";
+import {projectPublishedResearchFocus} from "@/lib/blue-desk-published-research-focus";
 import Link from "next/link";
 import { headers } from "next/headers";
 
@@ -95,6 +97,8 @@ export default async function BlueDeskPage() {
       <div className={styles.content}>
         <DecisionBrief news={verifiedNews} recentNews={recentNews} calendar={calendar} now={now} host={host}
           postEventRecaps={postEventRecaps}/>
+        <PublishedResearchDispatches items={projectPublishedResearchFocus(digestBriefs,now,3)}
+          mode="today" readerHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/>
         {/* Legacy research archive remains accessible on the old desk only; Bluebelly readers use dedicated Markets and Key Stories pages. */}
         {!publicHost ? <>
         {/* Historical, source-dated price SVGs stay visible before the long archive. */}
@@ -194,30 +198,6 @@ export default async function BlueDeskPage() {
             </article>
           </div>
         </section>
-
-        {digestBriefs.length ? <section className={styles.section} aria-labelledby="macropulse-brief-head" data-home-macropulse="reviewed-digest">
-          <div className={styles.sectionHead}>
-            <div><p className={styles.kicker}>MACROPULSE / EDITOR-REVIEWED RESEARCH</p>
-              <h2 id="macropulse-brief-head"><MarketIcon name="layers" size={22}/> Research desk briefing</h2>
-              <p>Attributed analysis from prior MacroPulse posts. It is separate from independently verified News and canonical Dossier verdicts.</p>
-            </div>
-            <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/newsroom",host)}>
-              Read full research context →
-            </Link>
-          </div>
-          <div className={styles.storyGrid}>{digestBriefs.map(brief=>
-            <article key={brief.id} className={styles.storyCard}>
-              <span className={styles.kicker}>RESEARCH-DERIVED · OWNER REVIEWED · {brief.primary_region.toUpperCase()}</span>
-              <h3>{brief.headline}</h3>
-              <p>{brief.standfirst}</p>
-              <div className={styles.storyBottom}>
-                <DualTimestamp value={brief.source_published_at} className={styles.cardTime}/>
-                <Link href={blueDeskPublicHref("/blue-desk/newsroom",host)+"#macropulse-editorial"}>
-                  Read countercase and what comes next →
-                </Link>
-              </div>
-            </article>)}</div>
-        </section>:null}
 
         <section className={styles.section} aria-labelledby="ongoing-stories-head" data-public-thesis-ledger="read-only">
           <div className={styles.sectionHead}>
