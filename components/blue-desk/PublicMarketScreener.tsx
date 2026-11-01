@@ -221,6 +221,6 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
         : "Market data unavailable. Filtering cannot restore a missing feed."}</p>
       {dataAvailable ? <button type="button" className={ui.reset} onClick={reset}>Reset filters</button> : null}
     </div>}
-    <p className={styles.publicMarketNote}>Power Stack-only tickers are searchable research records, not price observations. Holdings are labels only; no quantities, account values or broker data are shown. Change periods: 1, 3 and 5 source sessions, measured through each instrument's observation date. Rates in bp; others in %. Monthly yields show levels only. Data may lag.</p>
+    <p className={styles.publicMarketNote}>Power Stack watchlist and holdings include 1D/3D/5D returns where a completed-session price source is available; no account values or quantities are displayed. Breadth levels are percentages of constituents, while changes are in percentage points (pp). Stock/ETF changes are percentages (%); rate changes are basis points (bp). Incomplete or stale windows display —. Data may lag.</p>
   </div>;
 }
