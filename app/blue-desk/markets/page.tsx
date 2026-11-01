@@ -48,6 +48,7 @@ const BREADTH_WATCHES = [
 
 export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   const query = await searchParams;
+  const now = new Date();
   const group = publicMarketGroup(query.group);
   const host = (await headers()).get("host");
   // Keep the public route allowlist unchanged: a bounded query selects only
@@ -84,7 +85,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
     n===null?"—":`${n>0&&unit==="pp"?"+":""}${n.toFixed(2)}${unit==="pp"?" pp":"%"}`;
 
   const selected = PUBLIC_MARKET_GROUPS.find(item => item.id === group)!;
-  const reviewedFocus=(group==="all"||group==="energy")?currentReviewedPublicFocus(new Date()):[];
+  const reviewedFocus=(group==="all"||group==="energy")?currentReviewedPublicFocus(now):[];
 
   return (
     <main className={`${styles.page} ${legibility.publicMarketsLegibility} ${legibility.compactMarkets}`} data-blue-desk-markets="public-observations">
