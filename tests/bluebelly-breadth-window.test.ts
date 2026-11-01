@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import {readFileSync} from "node:fs";
 import {calculateBreadthRow,REVIEWED_BREADTH_SEED,marketParticipationResearch,sourceDateFresh}
  from "../lib/bluebelly-breadth-dated.ts";
 import {filterPublicMarketObservations,sortPublicMarketColumns,DEFAULT_PUBLIC_MARKET_FILTERS}
@@ -44,4 +45,13 @@ test("market participation remains research-only and requires matched source dat
  assert.match(note.interpretation,/not an admitted Regime or trade trigger/);
  assert.equal(marketParticipationResearch([fi]).status,"insufficient");
  assert.equal(marketParticipationResearch([fi,{...th,asOf:"2026-10-29"}]).status,"insufficient");
+});
+
+test("owner writing packet receives research-only breadth prompt without canonical mutation",()=>{
+ const route=readFileSync(new URL("../app/api/owner/daily-research/route.ts",import.meta.url),"utf8");
+ const packet=readFileSync(new URL("../lib/daily-report-research-packet.ts",import.meta.url),"utf8");
+ assert.match(route,/marketDiagnostics:\[\{\.\.\.breadthDiagnostic/);
+ assert.match(packet,/MARKET PARTICIPATION — SOURCE-DATED, NONCANONICAL RESEARCH CHECK/);
+ assert.match(packet,/NOT market causality or an accepted Regime\/Dossier finding/);
+ assert.doesNotMatch(route,/updateDossier|applyRegimeVerdict|publishStoryVersion/);
 });
