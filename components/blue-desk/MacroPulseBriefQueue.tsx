@@ -15,14 +15,15 @@ export default function MacroPulseBriefQueue(){
  const [checks,setChecks]=useState<Record<string,Checks>>({});
  const [state,setState]=useState<"idle"|"loading"|"publishing">("idle");
  const [notice,setNotice]=useState("");
+ const [deliveryHealth,setDeliveryHealth]=useState<{notionReaderConfigured:boolean;macroPulseIngestConfigured:boolean;latestDraftAt:string|null}|null>(null);
  const load=async()=>{
   if(state!=="idle")return;
   setState("loading");setNotice("");
   try{
    const r=await fetch("/api/owner/macropulse-briefs",{credentials:"same-origin",cache:"no-store"});
-   const d=await r.json() as {briefs?:Brief[];error?:string};
+   const d=await r.json() as {briefs?:Brief[];error?:string;deliveryHealth?:{notionReaderConfigured:boolean;macroPulseIngestConfigured:boolean;latestDraftAt:string|null}};
    if(!r.ok||!d.briefs)throw Error(d.error||"Review queue unavailable");
-   setBriefs(d.briefs);setChecks({});
+   setBriefs(d.briefs);setChecks({});setDeliveryHealth(d.deliveryHealth||null);
    setNotice(d.briefs.length
     ?"Read original links and check event clocks before any public research approval."
     :"No new digests awaiting review.");
@@ -63,6 +64,11 @@ export default function MacroPulseBriefQueue(){
    <button type="button" disabled={state!=="idle"} onClick={()=>void load()}>
     {state==="loading"?"Loading…":"Load proposed briefs"}</button>
   </div>
+  {deliveryHealth&&!deliveryHealth.notionReaderConfigured&&!deliveryHealth.macroPulseIngestConfigured?
+   <p role="status" className={css.warning} data-macropulse-delivery-health="not-configured">
+    Automatic editorial delivery is NOT configured. Existing queued drafts can be reviewed, but new Notion research will not arrive through the configured Bluebelly server readers until a secure connection is established.
+   </p>:null}
+  {deliveryHealth?<p><small>Most recent delivered draft: {deliveryHealth.latestDraftAt||"no recorded receipt"} · Notion server reader: {deliveryHealth.notionReaderConfigured?"configured":"not configured"} · Private editorial ingest: {deliveryHealth.macroPulseIngestConfigured?"configured":"not configured"}</small></p>:null}
   {briefs.map(brief=>{
    const checked=checks[brief.id]||EMPTY;
    const ready=Object.values(checked).every(Boolean);
