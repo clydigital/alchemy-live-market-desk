@@ -122,16 +122,28 @@ function linkedWatchItems(theme: PowerStackTheme, fallbackDate: Date): IntakeIte
 
 export async function acquirePowerStackThemes(now = new Date()): Promise<PowerStackThemeAcquisition> {
   try {
-    const response = await fetch(POWER_STACK_FEED_URL, {
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "Alchemy Live Desk developing-theme watchlist",
-      },
-      cache: "no-store",
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const payload = await response.json() as PowerStackPayload;
+    // Prefer the private, owner-scoped research archive. The old GitHub Pages
+    // data URL is retained as a bounded transitional fallback only.
+    const privatePayload = await import("./power-stack-private-research-server")
+      .then(module => module.getPrivatePowerStackArchiveField("developingThemes"))
+      .catch(() => null);
+    let payload: PowerStackPayload;
+    let source = "private archived";
+    if (privatePayload && typeof privatePayload === "object" && !Array.isArray(privatePayload)) {
+      payload = privatePayload as PowerStackPayload;
+    } else {
+      const response = await fetch(POWER_STACK_FEED_URL, {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "Alchemy Live Desk developing-theme watchlist",
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      payload = await response.json() as PowerStackPayload;
+      source = "public transitional";
+    }
     const themes = (Array.isArray(payload.themes) ? payload.themes : [])
       .filter((theme) => {
         if (!theme.lastUpdated) return true;
@@ -144,7 +156,7 @@ export async function acquirePowerStackThemes(now = new Date()): Promise<PowerSt
     const themesWithWatchLeads = themes.filter((theme) => linkedWatchItems(theme, now).length > 0).length;
     return {
       items,
-      note: `Power Stack watchlist scanned ${themes.length} developing theme${themes.length === 1 ? "" : "s"}; recorded ${items.length} watch lead${items.length === 1 ? "" : "s"} across ${themesWithWatchLeads} theme${themesWithWatchLeads === 1 ? "" : "s"}. These rows are excluded from canonical evidence. Independent Live sources must surface and confirm any material change.`,
+      note: `Power Stack ${source} research scan found ${themes.length} developing theme${themes.length === 1 ? "" : "s"}; recorded ${items.length} watch lead${items.length === 1 ? "" : "s"} across ${themesWithWatchLeads} theme${themesWithWatchLeads === 1 ? "" : "s"}. These rows are excluded from canonical evidence. Independent Live sources must surface and confirm any material change.`,
     };
   } catch (error) {
     const detail = error instanceof Error ? error.message : "unknown acquisition failure";
