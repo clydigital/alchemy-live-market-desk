@@ -74,7 +74,8 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   // Public Markets sees only the independently sourced monitor and breadth
   // projection. Power Stack holdings/watchlist identity and metadata must
   // never reach this route, its serialized props, or anonymous search.
-  const sourceObservations=publicMarketObservations(monitor?.rows || [],group);
+  const monitoredRows=publicMarketObservations(monitor?.rows || [],group);
+  const sourceObservations=monitoredRows;
   const breadthObservations=group==="all" || group==="breadth"
     ? BREADTH_WATCHES.map(item=>calculateBreadthRow(
         item.symbol,item.label,breadthHistory.series.find(row=>row.symbol===item.symbol)))
