@@ -1,4 +1,5 @@
 import {handleScheduledResearchGapHandoff} from "@/lib/research-gap-cron";
+import {runPrivateDailyHtmlFallback} from "@/lib/bluebelly-scheduled-daily-html-job";
 import {isAutomaticReportFallbackWindow,type AutomaticReportSlot}
  from "@/lib/blue-desk-automated-report-contract";
 import {attemptPrivateDailyPdfInExistingHandoff}
@@ -20,10 +21,22 @@ export async function GET(request:Request){
     status:"failed" as const,reason:"private_pdf_retry_unavailable"
    }))
   :null;
- // Start both concurrently. A slow/partial Research Gap result must not make
+ const htmlTask=slot==="morning"&&now.getUTCHours()===3
+  ?runPrivateDailyHtmlFallback(request,now).catch(()=>({status:"failed" as const,reason:"daily_html_fallback_unavailable"}))
+  :null;
+ // Start all independent private work concurrently. A slow/partial Research Gap result must not make
  // the PDF miss the same pre-existing Vercel cron window.
  const result=await handleScheduledResearchGapHandoff(request);
- if(!reportTask)return result;
+ const html=htmlTask?await htmlTask:null;
+ if(!reportTask&&!html)return result;
+ if(!reportTask){
+  if(result.status!==200)return result;
+  let payload:Record<string,unknown>;
+  try{payload=await result.clone().json() as Record<string,unknown>;}
+  catch{return result;}
+  return Response.json({...payload,privateDailyHtml:html},{
+   status:200,headers:{"Cache-Control":"private, no-store"}});
+ }
  const report=await reportTask;
  if(result.status!==200)return result;
  let payload:Record<string,unknown>;
@@ -37,6 +50,6 @@ export async function GET(request:Request){
   reportStatus:report.status,
   reportReason:("reason" in report?report.reason:null)||null,
  }));
- return Response.json({...payload,automatedDailyPdf:report},{
+ return Response.json({...payload,automatedDailyPdf:report,privateDailyHtml:html},{
   status:200,headers:{"Cache-Control":"private, no-store"}});
 }
