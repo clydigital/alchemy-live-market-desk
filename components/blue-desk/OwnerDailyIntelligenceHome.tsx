@@ -30,7 +30,7 @@ export default async function OwnerDailyIntelligenceHome(){
   <div className={styles.dailyHeader}>
    <div><p className={styles.dailyEyebrow}>01 / DAILY INTELLIGENCE · PRIVATE</p>
     <h2>Your Daily Intelligence</h2>
-    <p>The current complete report is the parent of the three article suggestions below.
+    <p>The latest saved private report is the parent of the three article suggestions below. Source-led fallbacks are explicitly marked until a complete editorial report is delivered.
      Its exact archived HTML remains accessible here, with its original source links and visible provenance limits.</p>
    </div>
    <Link href="/owner/daily-report" className={styles.dailyStudio}>Daily Report Studio</Link>
@@ -47,7 +47,7 @@ export default async function OwnerDailyIntelligenceHome(){
      <p className={styles.dailyStamp}>Latest saved report · {dateDay(latest.reportDay)}
       {coverage==="current"?" · Expected session covered":""}</p>
      <h3>{latest.title}</h3>
-     <p>Saved {savedTime(latest.createdAt)} · {latest.delivery==="WORK"?"Delivered from Work":"Generated in My Desk"}
+     <p>Saved {savedTime(latest.createdAt)} · {latest.delivery==="WORK"?"Delivered from Work":latest.delivery==="AUTOMATED"?"Scheduled source-led fallback · full editorial review pending":"Generated in My Desk"}
       {" · "}Private draft, not publicly published</p>
     </div>
     <span className={styles.dailyPrivate}>PRIVATE_DRAFT</span>
