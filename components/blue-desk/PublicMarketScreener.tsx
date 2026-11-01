@@ -35,7 +35,7 @@ function change(value: number | null, unit: "%" | "bp" | "pp") {
 }
 
 export default function PublicMarketScreener({ observations, group, dataAvailable }: Props) {
-  const initialUnit: MarketChangeUnit = group === "rates" ? "bp" : group === "breadth" ? "pp" : group === "powerstack" ? "%" : "all";
+  const initialUnit: MarketChangeUnit = group === "rates" ? "bp" : group === "breadth" ? "pp" : "all";
   const [query, setQuery] = useState("");
   const [window, setWindow] = useState<MarketChangeWindow>("1D");
   const [unit, setUnit] = useState<MarketChangeUnit>(initialUnit);
@@ -122,6 +122,10 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
       </div> : <p>Select at least one ETF to compare.</p>}
       <p className={ui.comparisonNote}>Relative comparisons are percentage-point differences against RSP over the same five source sessions and matching observation date. Missing values are not filled in.</p>
     </details> : null}
+    <details className={ui.advancedPanel} open={group !== "all"} data-market-advanced="optional">
+      <summary>All instruments · search and advanced filters</summary>
+      <p>Need a specific market, source or date? Open the full instrument table here.
+       The comparison above stays available without using any of these controls.</p>
     <div className={ui.screener} aria-label="Market change filters">
       <div className={ui.quick}>
         <span>Quick screens</span>
@@ -221,6 +225,9 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
         : "Market data unavailable. Filtering cannot restore a missing feed."}</p>
       {dataAvailable ? <button type="button" className={ui.reset} onClick={reset}>Reset filters</button> : null}
     </div>}
-    <p className={styles.publicMarketNote}>Public equity and ETF radar has 1D/3D/5D returns only where independently sourced market-monitor sessions exist. Portfolio ownership and private watchlists are never displayed here. Breadth levels are percentages of constituents, while changes are in percentage points (pp). Stock/ETF changes are percentages (%); rate changes are basis points (bp). Incomplete or stale windows display —. Data may lag.</p>
+    <p className={styles.publicMarketNote}>1D/3D/5D are completed source sessions.
+      Breadth moves use percentage points (pp), ETFs use percentage returns (%),
+      and yields use basis points (bp). Missing observations are never filled in.</p>
+    </details>
   </div>;
 }
