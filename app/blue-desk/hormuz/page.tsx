@@ -1,4 +1,7 @@
 import Link from "next/link";
+import PublishedResearchDispatches from "@/components/blue-desk/PublishedResearchDispatches";
+import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
+import {projectPublishedResearchFocus,researchForPublicLens} from "@/lib/blue-desk-published-research-focus";
 import {headers} from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import HormuzCrossings from "@/components/blue-desk/HormuzCrossings";
@@ -37,11 +40,12 @@ function reading(tile:HormuzWatchTile){
 }
 export default async function HormuzTracker(){
  const now=new Date(),host=(await headers()).get("host");
- const [raw,incidents]=await Promise.all([getGlobalFlowMonitor().catch(async()=>({
+ const [raw,incidents,researchDigests]=await Promise.all([getGlobalFlowMonitor().catch(async()=>({
   hormuz:await getHormuzMonitor().catch(()=>({snapshot:null,checkedAt:now.toISOString(),nextAttemptAt:null,refreshFailed:true})),
   updatedAt:now.toISOString(),oil:[],gold:[],researchTriggers:[],coverageGaps:[]
- } satisfies GlobalFlowMonitor)),getHormuzIncidents(now)]);
+ } satisfies GlobalFlowMonitor)),getHormuzIncidents(now),getPublishedMacroPulseBriefs(6).catch(()=>[])]);
  const watch=projectHormuzPublicWatch(raw,now);
+ const reviewedResearch=researchForPublicLens(projectPublishedResearchFocus(researchDigests,now,6),"hormuz");
  const pick=(ids:string[])=>ids.map(id=>watch.tiles.find(x=>x.id===id)).filter((x):x is HormuzWatchTile=>!!x);
  const crude=pick(["brent-confirmation","wti-confirmation"]);
  const products=pick(["distillate-crack","gasoline-crack","321-crack"]);
@@ -79,6 +83,9 @@ export default async function HormuzTracker(){
    <section id="mediation" aria-label="Dated Hormuz mediation report">
     <HormuzMediationFeature mode="preview" storyHref={blueDeskPublicHref("/blue-desk/key-stories",host)+"?feature=hormuz-mediation-november-2026"}/>
    </section>
+
+   <PublishedResearchDispatches items={reviewedResearch} mode="hormuz"
+     readerHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/>
 
    <section className={s.risk} aria-label="Current evidence and source coverage">
     <div><span className={s.label}>PHYSICAL OBSERVATION</span>
