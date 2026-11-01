@@ -11,7 +11,7 @@ const host="bluebelly-desk.vercel.app";
 test("Markets stays public but the Power Stack subroute requires Google-owner auth",()=>{
  for(const path of ["/markets","/blue-desk/markets"]){
   assert.equal(blueDeskHostAccess(path,host),"public");
-  assert.equal(blueDeskPresentationTarget(path,host),"/blue-desk/markets");
+  assert.equal(blueDeskPresentationTarget(path,host),path==="/markets"?"/blue-desk/markets":null);
  }
  assert.equal(blueDeskHostAccess("/markets/powerstack",host),"private");
  assert.equal(blueDeskPresentationTarget("/markets/powerstack",host),null);
