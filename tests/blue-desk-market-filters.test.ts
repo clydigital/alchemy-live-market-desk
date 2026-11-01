@@ -94,3 +94,12 @@ test("clickable columns sort both directions, keep missing observations last and
   assert.match(ui,/onClick=\{\(\)=>sortColumn\(period\)\}/);
   assert.match(ui,/aria-sort=/);
 });
+
+
+test("search can find breadth tickers and Power Stack-only holdings even with null prices", () => {
+  const breadth = { ...row("breadth", null), type: "Breadth" as const, label: "S&P 500 above 50D", symbol: "S5FI", last: null };
+  const holding = { ...row("holding", null), type: "Power Stack" as const, symbol: "DAYANG", label: "Dayang Enterprise", last: null, researchRole: "holding" as const };
+  assert.deepEqual(filterPublicMarketObservations([breadth, holding], {...defaults, query:"S5FI"}).map(x=>x.symbol), ["S5FI"]);
+  assert.deepEqual(filterPublicMarketObservations([breadth, holding], {...defaults, query:"DAYANG"}).map(x=>x.symbol), ["DAYANG"]);
+  assert.equal(filterPublicMarketObservations([breadth, holding], {...defaults, unit:"%", minMove:1}).length, 0);
+});
