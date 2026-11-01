@@ -39,7 +39,7 @@ test("No public Power Stack holdings fallback; private RLS and retirement gate r
   const page = source("app/power-stack/page.tsx");
   const sql = source("supabase/migrations/20261101091500_power_stack_owner_snapshots.sql");
   assert.match(page, /legacy_source_retired === true/);
-  assert.match(page, /ready \? parseOwnerHoldings\(row\.snapshot\) : \[\]/);
+  assert.match(page, /ready && row \? parseOwnerHoldings\(row\.snapshot\) : \[\]/);
   assert.match(page, /\.eq\("owner_user_id", identity\.user\.id\)/);
   assert.doesNotMatch(page, /clydigital\.github\.io|raw\.githubusercontent\.com|\/data\/holdings-fundamentals\.json/);
   assert.match(sql, /enable row level security/);
