@@ -139,3 +139,9 @@
 .dailyArchivePolicy{font-size:11px;line-height:1.65;color:#afd0dd;padding-top:12px;margin:9px 0 0}
 .myDeskRelated{font-size:12px;line-height:1.7;color:#c0dce7;margin:12px 0 23px}
 .myDeskRelated a{color:#9be9f9;text-underline-offset:3px}
+
+/* My Desk keeps investment research distinct from report-led writing, with one familiar workspace. */
+.deskViews{display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--bb-line,#3d6f86);padding:16px 0;margin:10px 0 20px;flex-wrap:wrap}
+.deskView,.deskViewSelected{display:inline-flex;min-height:44px;align-items:center;padding:10px 17px;border-radius:8px;color:var(--bb-text,#e3f5fa);border:1px solid var(--bb-line,#3d6f86);background:var(--bb-surface,#062d40);font-size:14px;font-weight:750;text-decoration:none}
+.deskViewSelected{background:var(--bb-raised,#17516e);border-color:var(--bb-accent,#75cce5);box-shadow:inset 0 -2px var(--bb-accent,#75cce5)}
+.deskView:focus-visible,.deskViewSelected:focus-visible{outline:2px solid var(--bb-accent,#9cecff);outline-offset:3px}
