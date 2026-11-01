@@ -95,9 +95,11 @@ test("MacroPulse briefs stay private until owner-checked, explicitly approved re
 
 test("MacroPulse owner component requires explicit, separate publication confirmations",()=>{
  const ui=readFileSync(new URL("../components/blue-desk/MacroPulseBriefQueue.tsx",import.meta.url),"utf8");
- assert.match(ui,/data-owner-macropulse-queue="private-reading"/);
- assert.match(ui,/Public publication is disabled/);
- assert.doesNotMatch(ui,/publish\\(brief\\.id\\)|Approve research digest for Bluebelly|action:"publish"/);
+ assert.match(ui,/data-owner-macropulse-queue="private-review"/);
+ for(const key of ["checkedSources","checkedTimeWindows","checkedCountercase","approvePublicResearch"])
+  assert.ok(ui.includes(key));
+ assert.match(ui,/disabled=\{!ready\|\|state!=="idle"\}/);
+ assert.match(ui,/No automatic public publication/);
 });
 
 test("the Newsroom preserves published MacroPulse research without classifying it as news proof",()=>{
