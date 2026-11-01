@@ -99,12 +99,15 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
         <button type="button" onClick={() => setCompareSymbols(["RSP", "SMH", "SOXX", "XLK"])}>Semis vs market</button>
         <button type="button" onClick={() => setCompareSymbols([])}>Clear</button>
       </div>
+      <details className={ui.comparePickDisclosure}>
+        <summary>Customize ETF selection ({compareSymbols.length} chosen)</summary>
       <div className={ui.compareChoices}>
         {comparisonUniverse.map(row => <label key={row.id}>
           <input type="checkbox" checked={compareSymbols.includes(row.symbol)} onChange={event => toggleComparison(row.symbol, event.target.checked)} />
           <span>{row.symbol}</span><small>{row.label}</small>
         </label>)}
       </div>
+      </details>
       {comparisonRows.length ? <div className={styles.publicMarketTableScroll}>
         <table className={`${styles.publicMarketTable} ${ui.compareTable}`}>
           <thead><tr><th>Instrument</th><th>Source session</th><th>1D</th><th>3D</th><th>5D</th><th>5D vs RSP</th></tr></thead>

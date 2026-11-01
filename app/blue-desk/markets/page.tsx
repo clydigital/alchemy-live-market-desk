@@ -85,7 +85,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   const selected = PUBLIC_MARKET_GROUPS.find(item => item.id === group)!;
 
   return (
-    <main className={`${styles.page} ${legibility.publicMarketsLegibility}`} data-blue-desk-markets="public-observations">
+    <main className={`${styles.page} ${legibility.publicMarketsLegibility} ${legibility.compactMarkets}`} data-blue-desk-markets="public-observations">
       <BlueDeskHeader activePath="/blue-desk/markets" />
       <div className={styles.content}>
         <header className={`${styles.calendarHero} ${legibility.marketHero}`}>
@@ -93,7 +93,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
             <p className={styles.kicker}>CROSS-ASSET OBSERVATIONS</p>
             <h1><MarketIcon name="market" size={33} /> Markets</h1>
             <p className={styles.heroDeck}>
-              Observed levels and session changes, with source dates.
+              Breadth first. Compare market leadership in one place.
             </p>
           </div>
           <div className={styles.calendarClock}>

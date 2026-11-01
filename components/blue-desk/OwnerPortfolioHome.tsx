@@ -2,9 +2,9 @@ import "server-only";
 import Link from "next/link";
 import {redirect} from "next/navigation";
 import {createSupabaseServerClient} from "@/lib/supabase/server";
-import {getMarketMonitor} from "@/lib/market-monitor-public";
-import {publicMarketObservations, type PublicMarketObservation} from "@/lib/blue-desk-public-markets";
 import ui from "./OwnerPortfolioHome.module.css";
+import OwnerPowerStackFullScan from "./OwnerPowerStackFullScan";
+import {readOwnerPowerStackQuoteScan} from "@/lib/bluebelly-owner-power-stack-quote-scan";
 
 type Position={ticker:string;name:string;quantity:number|null;currency:string;recordedPrice:number|null;quantityAsOf:string|null;priceAsOf:string|null};
 type Candidate={ticker:string;name:string;rank:number|null;theme:string;entry:string;invalidation:string};
@@ -59,12 +59,6 @@ function advisorFromArchive(snapshot:unknown):AdvisorView|null{
   cashVerified:capital.cashVerified===true,
   positionsVerified:capital.positionsVerified===true,moves};
 }
-const showChange=(n:number|null,unit:"%"|"bp"|"pp"="%")=>n===null?"—":`${n>0?"+":""}${n.toFixed(2)}${unit}`;
-function latest(row:PublicMarketObservation|undefined){
- if(!row)return null;
- return row.asOf&&row.last!==null?row:null;
-}
-
 /** My Desk is already middleware-protected; verify the owner again before the RLS read.
  * Never load portfolio holdings from public GitHub Pages or silently mark an archive as live.
  * Existing market-monitor observations can refresh on visits, but quantities never self-update. */
@@ -84,17 +78,9 @@ export default async function OwnerPortfolioHome(){
  const holdings=ready?positions(snapshot?.snapshot):[];
  const watchlist=ready?candidates(snapshot?.snapshot):[];
  const advice=ready?advisorFromArchive(snapshot?.snapshot):null;
- // This is only an observed public market quote overlay inside the private page,
- // not an ownership feed or a reconstructed balance. On invalid or missing sessions
- // we preserve null rather than invent current market values.
- const monitor=ready&&holdings.length?await getMarketMonitor().catch(()=>null):null;
- const tape=new Map<string,PublicMarketObservation>();
- for(const row of publicMarketObservations(monitor?.rows||[],"all")){
-  if(!row.symbol||row.last===null||!row.asOf)continue;
-  const old=tape.get(row.symbol.toUpperCase());
-  if(!old||row.asOf>=(old.asOf||""))tape.set(row.symbol.toUpperCase(),row);
- }
- const observed=holdings.filter(h=>latest(tape.get(h.ticker))).length;
+ const scan=ready?readOwnerPowerStackQuoteScan(snapshot?.snapshot):null;
+ const observed=scan?.holdingPriced||0;
+ const watchObserved=scan?.watchPriced||0;
  return <section className={ui.root} data-my-desk-portfolio="google-allowlisted"
      data-private-data-ready={ready?"yes":"no"}>
    <div className={ui.intro}>
@@ -116,7 +102,8 @@ export default async function OwnerPortfolioHome(){
     <div className={ui.metrics}>
      <div><small>Recorded holdings</small><strong>{holdings.length}</strong><span>Private snapshot</span></div>
      <div><small>Research watchlist</small><strong>{watchlist.length}</strong><span>Saved candidates</span></div>
-     <div><small>Quote coverage</small><strong>{observed}/{holdings.length}</strong><span>Source-dated monitor</span></div>
+     <div><small>Holding quotes</small><strong>{observed}/{holdings.length}</strong><span>Source-dated private scan</span></div>
+     <div><small>Watchlist quotes</small><strong>{watchObserved}/{watchlist.length}</strong><span>Source-dated private scan</span></div>
     </div>
     {advice?<section className={ui.advisor} data-portfolio-advisor="archived-not-live">
       <p className={ui.kicker}>Recorded investment decisions · {advice.asOf||"undated"}</p>
@@ -135,41 +122,7 @@ export default async function OwnerPortfolioHome(){
       </article>)}</div>
       <small>This is a dated archived briefing. It is not an automatically updated buy/sell recommendation.</small>
     </section>:null}
-    <p className={ui.vintage}>Portfolio snapshot: {snapshot?.snapshot_as_of||"date unavailable"}.
-      Market observations are refreshed from Bluebelly's existing market monitor when
-      this page is loaded; they are not live brokerage quotes. Quantities, cost bases,
-      allocations and account cash do not update automatically.</p>
-    <div className={ui.tableWrap}><table className={ui.table}>
-      <thead><tr><th>Holding</th><th>Recorded quantity</th><th>Recorded price</th><th>Observed price</th>
-       <th>1D</th><th>3D</th><th>5D</th><th>Market session</th></tr></thead>
-      <tbody>{holdings.map(holding=>{
-       const market=latest(tape.get(holding.ticker));
-       return <tr key={holding.ticker}><th scope="row">{holding.ticker}<span>{holding.name}</span></th>
-        <td>{holding.quantity??"—"}</td>
-        <td>{holding.recordedPrice===null?"—":`${holding.currency} ${holding.recordedPrice.toLocaleString("en-GB")}`}
-         <small>{holding.priceAsOf||"Undated"}</small></td>
-        <td>{market?.last?.toLocaleString("en-GB",{maximumFractionDigits:3})??"—"}</td>
-        {([market?.change??null,market?.change3d??null,market?.change5d??null] as const)
-          .map((v,i)=><td key={i} data-direction={v===null?"unknown":v>0?"up":v<0?"down":"flat"}>{showChange(v,market?.changeUnit||"%")}</td>)}
-        <td>{market?.asOf||"Unavailable"}<small>{market?.sourceName||"No matching market quote"}</small></td>
-       </tr>;
-      })}</tbody>
-     </table></div>
-    {holdings.length===0?<p className={ui.vintage}>No validated holdings in this private snapshot.</p>:null}
-    <details className={ui.watchlist}>
-     <summary>Research watchlist · {watchlist.length} candidates</summary>
-     <div className={ui.watchGrid}>{watchlist.map(asset=><article key={asset.ticker}>
-      <strong>{asset.ticker} <span>{asset.name}</span></strong>
-      <small>{asset.rank===null?"Unranked":`Research rank #${asset.rank}`} · {asset.theme||"Theme not recorded"}</small>
-      <details><summary>Entry and invalidation</summary>
-       <p><b>Entry:</b> {asset.entry||"Not recorded"}</p>
-       <p><b>Invalidation:</b> {asset.invalidation||"Not recorded"}</p>
-      </details>
-     </article>)}</div>
-    </details>
-    <p className={ui.vintage}>These are archived research observations, not automatically recalculated
-      positions or actionable trading signals. Source-date alignment and independent verification
-      remain necessary before investment decisions.</p>
+    <OwnerPowerStackFullScan snapshot={snapshot?.snapshot} ownerSnapshotAsOf={snapshot?.snapshot_as_of||null}/>
    </>}
   </section>;
 }

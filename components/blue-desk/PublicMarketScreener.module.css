@@ -99,3 +99,15 @@
 .advancedPanel>summary{cursor:pointer;font-size:15px;font-weight:800;min-height:42px;padding:10px 3px;color:var(--bb-text,#f6fbff)}
 .advancedPanel>p{font-size:12px;line-height:1.6;color:var(--bb-muted,#bdcfdb)}
 .advancedPanel>summary:focus-visible{outline:2px solid var(--bb-accent,#8ceaff);outline-offset:2px}
+
+/* Comparison presets stay one click away; full checkbox universe is secondary. */
+.comparePickDisclosure{margin:10px 0 12px;border-top:1px solid var(--bb-line,#366782)}
+.comparePickDisclosure>summary{cursor:pointer;padding:10px 1px;min-height:43px;color:var(--bb-accent);font-weight:800;font-size:12px}
+.comparePickDisclosure>summary:focus-visible{outline:2px solid var(--bb-accent);outline-offset:3px}
+.comparePickDisclosure .compareChoices{margin-top:8px}
+.comparePanel{padding:12px 14px;margin:0 0 12px}
+.comparePanel summary{min-height:40px;font-size:15px;padding:7px 2px}
+.comparePanel>p{font-size:12px;margin:5px 0 9px}
+.comparePresets{margin:9px 0}
+.comparePresets button{font-size:12px;min-height:40px;padding:8px 11px}
+.compareTable{font-size:12px}
