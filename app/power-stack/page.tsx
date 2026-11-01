@@ -85,7 +85,7 @@ export default async function PrivatePowerStack() {
   // An authenticated view must not imply privacy while original holdings,
   // quantities and account notes are still publicly served by GitHub Pages.
   const ready = row?.legacy_source_retired === true;
-  const holdings = ready ? parseOwnerHoldings(row.snapshot) : [];
+  const holdings = ready && row ? parseOwnerHoldings(row.snapshot) : [];
 
   return (
     <main className={styles.page} data-power-stack="owner-only"
@@ -116,7 +116,7 @@ export default async function PrivatePowerStack() {
         ) : (
           <section className={styles.section} data-power-stack-holdings="private">
             <h2>Recorded positions</h2>
-            <p>Snapshot dated {row.snapshot_as_of}. These are historical position
+            <p>Snapshot dated {row?.snapshot_as_of ?? "unknown"}. These are historical position
               records, not a live broker reconciliation or trade instruction.</p>
             <div style={{overflowX:"auto"}}>
               <table style={{width:"100%",borderCollapse:"collapse",textAlign:"left"}}>
