@@ -1,4 +1,6 @@
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import PublishedResearchDispatches from "@/components/blue-desk/PublishedResearchDispatches";
+import {projectPublishedResearchFocus} from "@/lib/blue-desk-published-research-focus";
 import Link from "next/link";
 import {headers} from "next/headers";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
@@ -71,6 +73,13 @@ export default async function NewsroomPage({searchParams}:Props){
         <p><Link href={readerHref+OCT30_SELL_OFF.href}>Read the complete source-led Key Story →</Link>{" · "}<Link href={blueDeskPublicHref("/blue-desk/crash-opportunity",host)}>Crash vs Opportunity watch →</Link></p>
         <a href={OCT30_SELL_OFF.sourceUrl} target="_blank" rel="noopener noreferrer" className={ui.featureSource}>{OCT30_SELL_OFF.sourceName} ↗</a>
       </article>:null}
+    <section data-macropulse-editorial="research-derived-not-canonical">
+      <PublishedResearchDispatches
+        items={projectPublishedResearchFocus(researchDigests,now,6).filter(item=>
+          !query||[item.headline,item.standfirst,item.whyItMatters,item.countercase,item.region]
+           .join(" ").toLowerCase().includes(query.toLowerCase()))}
+        mode="newsroom" readerHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/>
+    </section>
     <BluebellyNewsWire news={news} archiveEntries={archiveResult.items} archiveAvailable={archiveResult.available} hotPicks={hotPicks} editorials={editorials}
       initialQuery={query} now={now.toISOString()} readerHref={readerHref}>
       <div className={ui.contextBridge}>
@@ -79,23 +88,6 @@ export default async function NewsroomPage({searchParams}:Props){
       </div>
       <Newsroom48hTimeline banks={bankDecisions} reports={reported} readerHref={readerHref}/>
     </BluebellyNewsWire>
-    {researchDigests.length>0?<section id="macropulse-editorial" aria-label="Reviewed MacroPulse research dispatches" data-macropulse-editorial="research-derived-not-canonical" className={ui.contextBridge}>
-      <details>
-        <summary>Reviewed research dispatches · separate from verified news</summary>
-        <p>These are dated, owner-reviewed MacroPulse interpretations. Their sources and counterarguments are preserved, but publication does not make their market explanations canonical evidence.</p>
-        {researchDigests.map(brief=><article key={brief.id} style={{padding:"12px 0",borderTop:"1px solid currentColor"}}>
-          <p><strong>{brief.primary_region.toUpperCase()} · RESEARCH-DERIVED · NOT CANONICAL</strong></p>
-          <h3>{brief.headline}</h3>
-          <p>{brief.standfirst}</p>
-          <p><strong>What changed:</strong> {brief.what_changed}</p>
-          <p><strong>Why it may matter:</strong> {brief.why_it_matters}</p>
-          <p><strong>Countercase:</strong> {brief.countercase}</p>
-          <p><strong>What to watch:</strong> {brief.watch_next}</p>
-          <p><a href={brief.source_page_url} target="_blank" rel="noopener noreferrer">Original MacroPulse research</a> · Published <DualTimestamp value={brief.published_at}/></p>
-          <p>{brief.source_links.map((source,i)=><span key={source.url}>{i>0?" · ":""}<a href={source.url} target="_blank" rel="noopener noreferrer">{source.label}</a></span>)}</p>
-        </article>)}
-      </details>
-    </section>:null}
   </div>
  </main>;
 }
