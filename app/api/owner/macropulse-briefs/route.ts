@@ -26,14 +26,28 @@ export async function GET(req:NextRequest){
  const auth=await authenticated(req);if(auth.error)return auth.error;
  try{
   const admin=createSupabaseAdminClient();
-  const {data,error}=await admin.from("blue_desk_macropulse_briefs")
-   .select("id,source_page_id,source_pulse_id,source_page_url,source_published_at,source_retrieved_at,headline,standfirst,what_changed,why_it_matters,countercase,watch_next,source_links,primary_region,verification_label,received_at,digest_sha256")
-   .eq("status","review").order("received_at",{ascending:false}).limit(15);
-  return error?fail(503,"Brief review queue unavailable"):
-   NextResponse.json({status:"REVIEW_REQUIRED",briefs:data||[],deliveryHealth:{
+  // Database receipt health is independent of the Vercel server-to-server
+  // tokens. ChatGPT Work may deliver through the authorised connected
+  // Supabase tool even when both server-side token routes are absent.
+  const [queued,latest]=await Promise.all([
+   admin.from("blue_desk_macropulse_briefs")
+    .select("id,source_page_id,source_pulse_id,source_page_url,source_published_at,source_retrieved_at,headline,standfirst,what_changed,why_it_matters,countercase,watch_next,source_links,primary_region,verification_label,received_at,digest_sha256")
+    .eq("status","review").order("received_at",{ascending:false}).limit(15),
+   admin.from("blue_desk_macropulse_briefs")
+    .select("id,status,received_at,source_published_at,source_pulse_id")
+    .order("received_at",{ascending:false}).limit(1).maybeSingle(),
+  ]);
+  if(queued.error||latest.error)return fail(503,"Brief review queue unavailable");
+  return NextResponse.json({status:"REVIEW_REQUIRED",briefs:queued.data||[],deliveryHealth:{
     notionReaderConfigured:Boolean(process.env.NOTION_API_TOKEN?.trim()||process.env.NOTION_MARKET_RESEARCH_TOKEN?.trim()),
     macroPulseIngestConfigured:Boolean(process.env.BLUEBELLY_MACROPULSE_INGEST_TOKEN?.trim()),
-    latestDraftAt:data?.[0]?.received_at||null,
+    latestDraftAt:latest.data?.received_at||null,
+    latestSourceAt:latest.data?.source_published_at||null,
+    latestStoredStatus:latest.data?.status||null,
+    // This is a receipt, NOT proof that a particular scheduled Work run
+    // completed, that the Notion backlog was fully processed, or that
+    // the public website received the research.
+    automaticWorkBridgeVerified:false,
    }},{headers:HEADERS});
  }catch{return fail(503,"Brief review queue unavailable");}
 }

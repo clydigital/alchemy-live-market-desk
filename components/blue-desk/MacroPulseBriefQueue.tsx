@@ -9,19 +9,22 @@ type Brief={
  watch_next:string;source_links:SourceLink[];
 };
 type Checks={sources:boolean;clocks:boolean;countercase:boolean;publicLabel:boolean};
+type DeliveryHealth={notionReaderConfigured:boolean;macroPulseIngestConfigured:boolean;
+ latestDraftAt:string|null;latestSourceAt:string|null;latestStoredStatus:string|null;
+ automaticWorkBridgeVerified:boolean};
 const EMPTY:Checks={sources:false,clocks:false,countercase:false,publicLabel:false};
 export default function MacroPulseBriefQueue(){
  const [briefs,setBriefs]=useState<Brief[]>([]);
  const [checks,setChecks]=useState<Record<string,Checks>>({});
  const [state,setState]=useState<"idle"|"loading"|"publishing">("idle");
  const [notice,setNotice]=useState("");
- const [deliveryHealth,setDeliveryHealth]=useState<{notionReaderConfigured:boolean;macroPulseIngestConfigured:boolean;latestDraftAt:string|null}|null>(null);
+ const [deliveryHealth,setDeliveryHealth]=useState<DeliveryHealth|null>(null);
  const load=async()=>{
   if(state!=="idle")return;
   setState("loading");setNotice("");
   try{
    const r=await fetch("/api/owner/macropulse-briefs",{credentials:"same-origin",cache:"no-store"});
-   const d=await r.json() as {briefs?:Brief[];error?:string;deliveryHealth?:{notionReaderConfigured:boolean;macroPulseIngestConfigured:boolean;latestDraftAt:string|null}};
+   const d=await r.json() as {briefs?:Brief[];error?:string;deliveryHealth?:DeliveryHealth};
    if(!r.ok||!d.briefs)throw Error(d.error||"Review queue unavailable");
    setBriefs(d.briefs);setChecks({});setDeliveryHealth(d.deliveryHealth||null);
    setNotice(d.briefs.length
@@ -64,11 +67,20 @@ export default function MacroPulseBriefQueue(){
    <button type="button" disabled={state!=="idle"} onClick={()=>void load()}>
     {state==="loading"?"Loading…":"Load proposed briefs"}</button>
   </div>
-  {deliveryHealth&&!deliveryHealth.notionReaderConfigured&&!deliveryHealth.macroPulseIngestConfigured?
-   <p role="status" className={css.warning} data-macropulse-delivery-health="not-configured">
-    Automatic editorial delivery is NOT configured. Existing queued drafts can be reviewed, but new Notion research will not arrive through the configured Bluebelly server readers until a secure connection is established.
-   </p>:null}
-  {deliveryHealth?<p><small>Most recent delivered draft: {deliveryHealth.latestDraftAt||"no recorded receipt"} · Notion server reader: {deliveryHealth.notionReaderConfigured?"configured":"not configured"} · Private editorial ingest: {deliveryHealth.macroPulseIngestConfigured?"configured":"not configured"}</small></p>:null}
+  {deliveryHealth?<div role="status" data-macropulse-delivery-health="separate-transports"
+    style={{padding:"10px 12px",border:"1px solid currentColor",borderRadius:6,marginBottom:12}}>
+    <p><strong>Editorial transport and receipt health — private</strong></p>
+    <p>Latest stored receipt: {deliveryHealth.latestDraftAt||"none"} ·
+      {" "}Original research slot: {deliveryHealth.latestSourceAt||"unknown"} ·
+      {" "}Recorded status: {deliveryHealth.latestStoredStatus||"none"}</p>
+    <p>Vercel's direct Notion reader: {deliveryHealth.notionReaderConfigured?"configured":"not configured"} ·
+      {" "}Server-to-server ingestion endpoint: {deliveryHealth.macroPulseIngestConfigured?"configured":"not configured"}.
+      {" "}The separately connected ChatGPT Work → Supabase bridge can still deliver private drafts;
+      these server settings do not test it.</p>
+    <p><strong>Scheduled Work bridge:</strong> {deliveryHealth.automaticWorkBridgeVerified?
+      "independently verified":"not yet independently verified by this endpoint"}.
+      {" "}A stored receipt alone does not prove unattended completion or complete source coverage.</p>
+   </div>:null}
   {briefs.map(brief=>{
    const checked=checks[brief.id]||EMPTY;
    const ready=Object.values(checked).every(Boolean);
@@ -92,7 +104,7 @@ export default function MacroPulseBriefQueue(){
       <label><input type="checkbox" checked={checked.clocks} onChange={e=>mark(brief.id,"clocks",e.target.checked)}/>
         {" "}I checked event, publication and observation clocks; no price reaction is implied without a measured window.</label>
       <label><input type="checkbox" checked={checked.countercase} onChange={e=>mark(brief.id,"countercase",e.target.checked)}/>
-        {" "}I checked the countercase and next test and corrected misleading assertions before approval.</label>
+        {" "}I checked the countercase and next test. If the draft is misleading, I will NOT approve it; I will request a corrected, separately versioned draft.</label>
       <label><input type="checkbox" checked={checked.publicLabel} onChange={e=>mark(brief.id,"publicLabel",e.target.checked)}/>
         {" "}Publish this as attributed, owner-reviewed research, NOT independently verified breaking news.</label>
     </div>
