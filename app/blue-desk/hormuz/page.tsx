@@ -2,6 +2,7 @@ import Link from "next/link";
 import {headers} from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import HormuzCrossings from "@/components/blue-desk/HormuzCrossings";
+import HormuzMediationFeature from "@/components/blue-desk/HormuzMediationFeature";
 import {getGlobalFlowMonitor} from "@/lib/global-flow-monitor";
 import {getHormuzMonitor} from "@/lib/hormuz-monitor";
 import {getHormuzIncidents} from "@/lib/bluebelly-hormuz-incidents";
@@ -59,6 +60,7 @@ export default async function HormuzTracker(){
       <span>{watch.available}/{watch.tiles.length} market and fuel indicators within their date windows</span>
      </div>
      <nav className={s.actions} aria-label="Related market research">
+      <Link href="#mediation">Mediation update ↓</Link>
       <Link href="#shipping">See physical traffic ↓</Link>
       <Link href="#fuels">Crude and distillates ↓</Link>
       <Link href={blueDeskPublicHref("/blue-desk/regime-watch/energy",host)}>Energy regime research →</Link>
@@ -72,6 +74,10 @@ export default async function HormuzTracker(){
      <i aria-hidden="true">↓</i><div><b>04</b><span>Inflation & rates</span><small>Freight / CPI / policy path</small></div>
     </div>
    </header>
+
+   <section id="mediation" aria-label="Dated Hormuz mediation report">
+    <HormuzMediationFeature mode="preview" storyHref={blueDeskPublicHref("/blue-desk/key-stories",host)+"?feature=hormuz-mediation-november-2026"}/>
+   </section>
 
    <section className={s.risk} aria-label="Current evidence and source coverage">
     <div><span className={s.label}>PHYSICAL OBSERVATION</span>
