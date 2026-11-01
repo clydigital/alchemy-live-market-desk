@@ -11,7 +11,7 @@ test("Public Markets is anonymous and contains no private portfolio category or 
  assert.equal(blueDeskHostAccess("/markets",host),"public");
  assert.equal(blueDeskHostAccess("/my-reports",host),"private");
  assert.equal(publicMarketGroup("powerstack"),"all");
- assert.ok(!PUBLIC_MARKET_GROUPS.some(g=>g.id==="powerstack"));
+ assert.ok(!PUBLIC_MARKET_GROUPS.map(g=>String(g.id)).includes("powerstack"));
  const page=read("app/blue-desk/markets/page.tsx");
  assert.doesNotMatch(page,/getPowerStackResearchAssets|mergePowerStackMarketSearch|powerStack\.items|href="\/power-stack"|data-market-private-link/);
  assert.match(page,/const observations=\[\.\.\.monitoredRows,\.\.\.breadthObservations\]/);
