@@ -48,6 +48,7 @@ export function publicMarketGroup(value: string | string[] | undefined): PublicM
 function includedType(type: MarketMonitorType, group: PublicMarketGroup): boolean {
   switch (group) {
     case "ai": return type === "AI / Semis";
+    case "breadth": return false; // Breadth is externally linked, not a measured price type.
     case "rates": return type === "Rates";
     case "energy": return type === "Energy";
     case "fx": return type === "FX";
