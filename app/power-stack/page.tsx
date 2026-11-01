@@ -21,6 +21,17 @@ type Holding = {
   priceAsOf: string | null;
   quantityAsOf: string | null;
 };
+type WatchAsset = {
+  ticker: string;
+  name: string;
+  rank: number | null;
+  score: number | null;
+  bucket: string;
+  action: string;
+  theme: string;
+  entry: string;
+  invalidation: string;
+};
 type SnapshotRow = {
   snapshot_as_of: string;
   legacy_source_retired: boolean;
@@ -58,6 +69,25 @@ function parseOwnerHoldings(snapshot: unknown): Holding[] {
   });
 }
 
+/** Archived research queue, not a live order or an independently updated rating. */
+function parseOwnerWatchlist(snapshot: unknown): WatchAsset[] {
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) return [];
+  const rows = (snapshot as { watchlist?: unknown }).watchlist;
+  if (!Array.isArray(rows)) return [];
+  return rows.slice(0, 200).flatMap((raw: unknown) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+    const obj = raw as Record<string,unknown>;
+    const ticker=cleanString(obj.ticker,20).toUpperCase();
+    if (!/^[A-Z0-9][A-Z0-9.\-]{0,17}$/.test(ticker)) return [];
+    return [{
+      ticker,name:cleanString(obj.name)||ticker,rank:finiteOrNull(obj.rank),
+      score:finiteOrNull(obj.score),bucket:cleanString(obj.bucket,30),
+      action:cleanString(obj.action,180),theme:cleanString(obj.theme,180),
+      entry:cleanString(obj.entry,600),invalidation:cleanString(obj.invalidation,600),
+    }];
+  }).sort((a,b)=>(a.rank??999)-(b.rank??999));
+}
+
 export default async function PrivatePowerStack() {
   // This page enforces owner identity itself, even if a preview/alias is
   // misconfigured to disable the general middleware dashboard gate.
@@ -86,6 +116,7 @@ export default async function PrivatePowerStack() {
   // quantities and account notes are still publicly served by GitHub Pages.
   const ready = row?.legacy_source_retired === true;
   const holdings = ready && row ? parseOwnerHoldings(row.snapshot) : [];
+  const watchlist = ready && row ? parseOwnerWatchlist(row.snapshot) : [];
 
   return (
     <main className={styles.page} data-power-stack="owner-only"
@@ -114,28 +145,54 @@ export default async function PrivatePowerStack() {
               {" "}<Link href="/my-reports">Return to My Desk</Link>.</p>
           </section>
         ) : (
-          <section className={styles.section} data-power-stack-holdings="private">
-            <h2>Recorded positions</h2>
-            <p>Snapshot dated {row?.snapshot_as_of ?? "unknown"}. These are historical position
-              records, not a live broker reconciliation or trade instruction.</p>
-            <div style={{overflowX:"auto"}}>
-              <table style={{width:"100%",borderCollapse:"collapse",textAlign:"left"}}>
-                <thead><tr><th scope="col">Instrument</th><th scope="col">Quantity</th>
-                  <th scope="col">Last recorded price</th><th scope="col">Quote as of</th></tr></thead>
-                <tbody>{holdings.map(holding => (
-                  <tr key={holding.ticker}>
-                    <td>{holding.ticker} · {holding.name}</td>
-                    <td>{holding.quantity ?? "Unavailable"}</td>
-                    <td>{holding.lastPrice === null ? "Unavailable" : holding.currency + " " + holding.lastPrice}</td>
-                    <td>{holding.priceAsOf ?? "Unknown"}</td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            </div>
-            {holdings.length === 0 ? <p>No valid positions in this private snapshot.</p> : null}
-            <p>Position quantities last checked on their individual quantity-as-of dates;
-              confirm with your broker before using these figures for orders.</p>
-          </section>
+          <>
+            <section className={styles.section} data-power-stack-holdings="private">
+              <h2>Recorded holdings · {holdings.length}</h2>
+              <p>Archived portfolio record dated {row?.snapshot_as_of ?? "unknown"}.
+                Quantities are historical and require broker reconciliation before any order.
+                Prices use their original observation dates.</p>
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",textAlign:"left"}}>
+                  <thead><tr>
+                    <th scope="col">Instrument</th><th scope="col">Quantity</th>
+                    <th scope="col">Price as recorded</th><th scope="col">Quantity / price date</th>
+                  </tr></thead>
+                  <tbody>{holdings.map(holding => (
+                    <tr key={holding.ticker}>
+                      <td>{holding.ticker} · {holding.name}</td>
+                      <td>{holding.quantity ?? "Unavailable"}</td>
+                      <td>{holding.lastPrice === null ? "Unavailable" : holding.currency + " " + holding.lastPrice}</td>
+                      <td>{holding.quantityAsOf ?? "Unknown"} / {holding.priceAsOf ?? "Unknown"}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+              {holdings.length === 0 ? <p>No valid positions in this private snapshot.</p> : null}
+            </section>
+            <section className={styles.section} data-power-stack-watchlist="private">
+              <h2>Research watchlist · {watchlist.length}</h2>
+              <p>Archived rankings and thesis gates from the original Power Stack.
+                Scores are historical research assessments, not present-day trade signals.
+                Open a ticker for its entry condition and invalidation.</p>
+              <div style={{display:"grid",gap:12,gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,320px),1fr))"}}>
+                {watchlist.map(asset => (
+                  <details key={asset.ticker} style={{padding:16,border:"1px solid currentColor",borderRadius:10}}>
+                    <summary>
+                      <strong>{asset.ticker} · {asset.name}</strong>
+                      {" · "}Rank {asset.rank ?? "—"}
+                      {" · "}Score {asset.score ?? "—"}
+                    </summary>
+                    <p>{asset.theme || "Theme not recorded"}</p>
+                    <p><strong>Recorded action:</strong> {asset.action || asset.bucket || "Research pending"}</p>
+                    <p><strong>Entry test:</strong> {asset.entry || "Unavailable"}</p>
+                    <p><strong>Invalidation:</strong> {asset.invalidation || "Unavailable"}</p>
+                  </details>
+                ))}
+              </div>
+              <p>Research dates, price levels and assertions may now be stale. Recheck
+                broker balances, official issuer releases and live quotes before acting.</p>
+            </section>
+          </>
         )}
       </div>
     </main>
