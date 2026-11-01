@@ -9,7 +9,6 @@ export const PUBLIC_MARKET_GROUPS = [
   { id: "all", label: "All markets" },
   { id: "ai", label: "AI & semiconductors" },
   { id: "breadth", label: "Market breadth" },
-  { id: "powerstack", label: "Equity & ETF radar" },
   { id: "rates", label: "Government rates" },
   { id: "energy", label: "Oil & energy" },
   { id: "fx", label: "Currencies" },
@@ -51,7 +50,6 @@ function includedType(type: MarketMonitorType, group: PublicMarketGroup): boolea
   switch (group) {
     case "ai": return type === "AI / Semis";
     case "breadth": return false; // Breadth is externally linked, not a measured price type.
-    case "powerstack": return false; // Symbol universe assembled locally without owner data.
     case "rates": return type === "Rates";
     case "energy": return type === "Energy";
     case "fx": return type === "FX";
