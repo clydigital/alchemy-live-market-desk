@@ -206,8 +206,8 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
             </td>;
           })}
           <td className={styles.publicMarketSource}>
-            <span>{row.asOf ? `Observation: ${row.asOf}` : "Observation date unavailable"} · {row.frequency} observation</span>
-            {row.sourceUrl ? <a href={row.sourceUrl} target="_blank" rel="noreferrer">{row.sourceName} · {row.researchRole && row.last === null ? "research registry ↗" : "original data ↗"}</a>
+            <span>{row.type === "Breadth" ? "External breadth chart · no verified reading" : row.researchRole && row.last === null ? `Power Stack ${row.researchRole} registry · ${row.researchAsOf || "undated"}` : `${row.asOf ? `Observation: ${row.asOf}` : "Observation date unavailable"} · ${row.frequency} observation`}</span>
+            {row.sourceUrl ? <a href={row.sourceUrl} target="_blank" rel="noreferrer">{row.sourceName} · {row.type === "Breadth" ? "open chart ↗" : row.researchRole && row.last === null ? "research registry ↗" : "original data ↗"}</a>
               : <span>Original-source link unavailable</span>}
           </td>
         </tr>)}</tbody>
