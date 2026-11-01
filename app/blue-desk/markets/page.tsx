@@ -5,6 +5,7 @@ import {getEarningsCase} from "@/lib/bluebelly-earnings-investor-stories";
 import { getHormuzMonitor } from "@/lib/hormuz-monitor";
 import Link from "next/link";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import TradingViewChart from "@/components/blue-desk/TradingViewChart";
@@ -18,7 +19,6 @@ import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
 import {calculateBreadthRow,marketParticipationResearch} from "@/lib/bluebelly-breadth-dated";
-import { getPowerStackResearchAssets, mergePowerStackMarketSearch } from "@/lib/bluebelly-power-stack-public";
 import styles from "../blue-desk.module.css";
 import legibility from "./legibility.module.css";
 
@@ -51,6 +51,8 @@ const BREADTH_WATCHES = [
 export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   const query = await searchParams;
   const group = publicMarketGroup(query.group);
+  // Old shared bookmarks never serialize private research into a public RSC payload.
+  if (group === "powerstack") redirect("/markets/powerstack");
   const host = (await headers()).get("host");
   // Keep the public route allowlist unchanged: a bounded query selects only
   // one of seven dated editorial cases, never arbitrary owner records.
@@ -62,26 +64,22 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
       <EarningsInvestorDeepDive ticker={detail.ticker} backHref={blueDeskPublicHref("/blue-desk/markets",host)} />
     </div>
   </main>;
-  const [monitor, hormuz, powerStack, breadthHistory] = await Promise.all([
+  const [monitor, hormuz, breadthHistory] = await Promise.all([
     getMarketMonitor().catch(() => null),
     group === "all" || group === "energy" ? getHormuzMonitor() : Promise.resolve(null),
-    group === "all" || group === "powerstack"
-      ? getPowerStackResearchAssets()
-      : Promise.resolve({items: [], status: "available" as const, tapeStatus: "available" as const}),
     group === "all" || group === "breadth"
       ? getSourceDatedBreadth()
       : Promise.resolve({series:[],retrievalStatus:"fallback" as const}),
   ]);
-  const monitoredRows=publicMarketObservations(monitor?.rows || [], group === "powerstack" ? "all" : group);
-  const breadthObservations = group === "all" || group === "breadth"
-    ? BREADTH_WATCHES.map(item => calculateBreadthRow(
+  // Public Markets sees only the independently sourced monitor and breadth
+  // projection. Power Stack holdings/watchlist identity and metadata must
+  // never reach this route, its serialized props, or anonymous search.
+  const sourceObservations=publicMarketObservations(monitor?.rows || [],group);
+  const breadthObservations=group==="all" || group==="breadth"
+    ? BREADTH_WATCHES.map(item=>calculateBreadthRow(
         item.symbol,item.label,breadthHistory.series.find(row=>row.symbol===item.symbol)))
     : [];
-  const merged=group==="all" || group==="powerstack"
-    ? mergePowerStackMarketSearch([...monitoredRows,...breadthObservations],powerStack.items)
-    : [...monitoredRows,...breadthObservations];
-  const observations=group==="powerstack" ? merged.filter(row=>Boolean(row.researchRole)) : merged;
-  const sourceObservations=group==="powerstack" ? observations.filter(row=>row.type!=="Power Stack") : monitoredRows;
+  const observations=[...sourceObservations,...breadthObservations];
   const participation=group==="all" || group==="breadth"
     ? marketParticipationResearch([...publicMarketObservations(monitor?.rows||[],"all"),...breadthObservations])
     : null;
@@ -113,12 +111,12 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           {PUBLIC_MARKET_GROUPS.map(item => (
             <Link
               key={item.id}
-              href={blueDeskPublicHref("/blue-desk/markets?group=" + item.id, host)}
+              href={item.id === "powerstack" ? "/markets/powerstack" : blueDeskPublicHref("/blue-desk/markets?group=" + item.id, host)}
               className={group === item.id ? styles.calendarTabActive : styles.calendarTab}
               aria-current={group === item.id ? "page" : undefined}
             >
               <MarketIcon name={GROUP_ICONS[item.id] || "market"} size={17} />
-              {item.label}
+              {item.id === "powerstack" ? "🔒 Power Stack" : item.label}
             </Link>
           ))}
         </nav>
@@ -156,11 +154,11 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <div className={styles.sectionHead}>
             <div>
               <h2 id="market-group-heading"><MarketIcon name={GROUP_ICONS[group]} size={24} /> {selected.label}</h2>
-              <p>{sourceObservations.length} monitored instruments · {breadthObservations.length} breadth watches{group === "all" ? ` · ${observations.length - sourceObservations.length - breadthObservations.length} additional Power Stack research tickers` : ""}{group === "powerstack" ? ` · ${observations.length} held/watchlisted` : ""}</p>
+              <p>{sourceObservations.length} monitored instruments · {breadthObservations.length} breadth watches</p>
             </div>
           </div>
 
-          {group === "all" || group === "powerstack" ? <p className={styles.muted}>Power Stack holdings and watchlist use source-dated daily price bars for 1D/3D/5D when available. Missing or stale quote windows stay blank; no position sizes or broker data are exposed. Source: <a href="https://clydigital.github.io/power-stack/" target="_blank" rel="noreferrer">Power Stack research vault ↗</a>{powerStack.status !== "available" ? ` · Registry ${powerStack.status}` : ""}{powerStack.tapeStatus !== "available" ? ` · Price tape ${powerStack.tapeStatus}` : ""}.</p> : null}
+          {group==="all" ? <p className={styles.muted}>All public market observations and breadth are searchable here. Your Power Stack watchlist is separate and requires an approved Google sign-in. <Link href="/markets/powerstack">Open private Power Stack →</Link></p> : null}
           <PublicMarketScreener key={group} observations={observations} group={group} dataAvailable={Boolean(monitor)} />
         </section>
 
