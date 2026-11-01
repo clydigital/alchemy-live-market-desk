@@ -31,7 +31,7 @@ type Props = {
 };
 
 const GROUP_ICONS: Record<string, MarketIconName> = {
-  all: "global", ai: "chip", rates: "rates", energy: "oil",
+  all: "global", ai: "chip", breadth: "equities", rates: "rates", energy: "oil",
   fx: "currency", credit: "credit", equities: "equities", metals: "gold",
 };
 
@@ -66,9 +66,21 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
     group === "all" ? getPowerStackResearchAssets() : Promise.resolve({items: [], status: "available" as const}),
   ]);
   const sourceObservations = publicMarketObservations(monitor?.rows || [], group);
+  const breadthObservations = group === "all" || group === "breadth"
+    ? BREADTH_WATCHES.map(item => ({
+      id: "breadth:" + item.symbol,
+      label: item.label,
+      symbol: item.symbol,
+      type: "Breadth" as const,
+      last: null, change: null, change3d: null, change5d: null,
+      changeUnit: "%" as const, asOf: null, frequency: "daily" as const,
+      sourceName: "TradingView index breadth · chart only",
+      sourceUrl: "https://www.tradingview.com/chart/?symbol=INDEX%3A" + item.symbol,
+    })) : [];
+  const listedObservations = [...sourceObservations, ...breadthObservations];
   const observations = group === "all"
-    ? mergePowerStackMarketSearch(sourceObservations, powerStack.items)
-    : sourceObservations;
+    ? mergePowerStackMarketSearch(listedObservations, powerStack.items)
+    : listedObservations;
 
   const selected = PUBLIC_MARKET_GROUPS.find(item => item.id === group)!;
 
@@ -134,11 +146,11 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <div className={styles.sectionHead}>
             <div>
               <h2 id="market-group-heading"><MarketIcon name={GROUP_ICONS[group]} size={24} /> {selected.label}</h2>
-              <p>{sourceObservations.length} source-dated instrument{sourceObservations.length === 1 ? "" : "s"}{group === "all" ? ` · ${observations.length - sourceObservations.length} additional Power Stack research tickers without a market price` : ""}</p>
+              <p>{sourceObservations.length} monitored instruments · {breadthObservations.length} breadth charts{group === "all" ? ` · ${observations.length - sourceObservations.length - breadthObservations.length} additional Power Stack research tickers` : ""}</p>
             </div>
           </div>
 
-          {group === "all" ? <p className={styles.muted}>The complete monitored universe is searchable. Power Stack holdings and watchlist names are included for discovery only; unmatched tickers have no invented prices. Source: <a href="https://clydigital.github.io/power-stack/" target="_blank" rel="noreferrer">Power Stack research vault ↗</a>{powerStack.status !== "available" ? ` · Power Stack sync ${powerStack.status}` : ""}.</p> : null}
+          {group === "all" ? <p className={styles.muted}>The full monitored universe and breadth watch symbols are searchable. Power Stack holdings and watchlist names are included for discovery only; unmatched tickers have no invented prices. Source: <a href="https://clydigital.github.io/power-stack/" target="_blank" rel="noreferrer">Power Stack research vault ↗</a>{powerStack.status !== "available" ? ` · Power Stack sync ${powerStack.status}` : ""}.</p> : null}
           <PublicMarketScreener key={group} observations={observations} group={group} dataAvailable={Boolean(monitor)} />
         </section>
 
