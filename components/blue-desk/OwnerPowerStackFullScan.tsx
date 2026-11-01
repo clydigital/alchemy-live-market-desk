@@ -1,6 +1,8 @@
 import "server-only";
 import {readOwnerPowerStackQuoteScan} from "@/lib/bluebelly-owner-power-stack-quote-scan";
 import styles from "./OwnerPortfolioHome.module.css";
+import {filterPortfolioRows} from "@/lib/bluebelly-owner-portfolio-filter";
+import type {PortfolioTableQuery} from "@/lib/bluebelly-owner-portfolio-filter";
 
 type Row=Record<string,unknown>;
 const text=(v:unknown,max=520)=>typeof v==="string"?v.trim().slice(0,max):"";
@@ -11,12 +13,15 @@ const pct=(v:number|null)=>v===null?"—":`${v>0?"+":""}${v.toFixed(2)}%`;
 function Delta({value}:{value:number|null}){
  return <td data-direction={value===null?"unknown":value>0?"up":value<0?"down":"flat"}>{pct(value)}</td>;
 }
-export default function OwnerPowerStackFullScan({snapshot,ownerSnapshotAsOf}:{
- snapshot:unknown;ownerSnapshotAsOf:string|null;
+export default function OwnerPowerStackFullScan({snapshot,ownerSnapshotAsOf,filters}:{
+ snapshot:unknown;ownerSnapshotAsOf:string|null;filters:PortfolioTableQuery;
 }){
  const record=snapshot&&typeof snapshot==="object"&&!Array.isArray(snapshot)?snapshot as Record<string,unknown>:{};
  const holdings=asRows(record.holdings,100),watchlist=asRows(record.watchlist,200);
  const scan=readOwnerPowerStackQuoteScan(snapshot);
+ const shownHoldings=filterPortfolioRows(holdings,scan?.holdingRows,"holdings",filters);
+ const shownWatchlist=filterPortfolioRows(watchlist,scan?.watchRows,"watchlist",filters);
+ const themes=[...new Set(watchlist.map(r=>text(r.theme,180)).filter(Boolean))].sort();
  return <div data-power-stack-full-private-scan={scan?"source-dated":"missing"}>
   <div className={styles.scanHealth}>
    <div><strong>Source-dated market scan</strong>
@@ -29,11 +34,27 @@ export default function OwnerPowerStackFullScan({snapshot,ownerSnapshotAsOf}:{
      <p>{[...scan.unresolvedHolding,...scan.unresolvedWatch].map(r=>r.ticker+": "+r.reason).join(" · ")}</p>
     </details>:null}
   </div>
-  <h3 className={styles.scanTitle}>Recorded holdings · {holdings.length}</h3>
+  <h3 className={styles.scanTitle}>Recorded holdings · {shownHoldings.length}/{holdings.length} shown</h3>
+  <form method="get" action="/my-reports" className={styles.tableFilters} aria-label="Filter and sort holdings">
+   <input type="hidden" name="view" value="portfolio"/>
+   {(["ws","wsort","wquote","wtheme"] as const).map(k=>filters[k]
+    ?<input key={k} type="hidden" name={k} value={filters[k]}/>:null)}
+   <label>Search holdings<input name="hs" type="search" maxLength={80} defaultValue={filters.hs||""} placeholder="Ticker or company"/></label>
+   <label>Quote status<select name="hquote" defaultValue={filters.hquote||""}>
+    <option value="">All quotes</option><option value="priced">Priced</option><option value="missing">Missing / stale</option>
+   </select></label>
+   <label>Sort by<select name="hsort" defaultValue={filters.hsort||"original"}>
+    <option value="original">Recorded order</option><option value="alpha">Ticker A–Z</option>
+    <option value="gain1d">1D biggest gains</option><option value="loss1d">1D biggest losses</option>
+    <option value="gain3d">3D biggest gains</option><option value="gain5d">5D biggest gains</option>
+    <option value="close">Close: high to low</option><option value="quantity">Quantity: high to low</option>
+   </select></label>
+   <button type="submit">Apply</button><a href="/my-reports?view=portfolio">Clear all</a>
+  </form>
   <div className={styles.tableWrap}><table className={styles.table}>
    <thead><tr><th>Asset</th><th>Recorded quantity</th><th>Recorded price</th><th>Market close</th>
     <th>1D</th><th>3D</th><th>5D</th><th>Research / session</th></tr></thead>
-   <tbody>{holdings.map((r,i)=>{
+   <tbody>{shownHoldings.map((r,i)=>{
     const ticker=code(r.ticker)||"UNKNOWN-"+i;
     const pos=r.position&&typeof r.position==="object"&&!Array.isArray(r.position)?r.position as Row:{};
     const quote=scan?.holdingRows.get(ticker);
@@ -54,16 +75,35 @@ export default function OwnerPowerStackFullScan({snapshot,ownerSnapshotAsOf}:{
       </details>
      </td>
     </tr>;
-   })}</tbody>
+   })}{shownHoldings.length===0?<tr><td colSpan={8} className={styles.filterEmpty}>No holdings match these filters.</td></tr>:null}</tbody>
   </table></div>
   <details className={styles.watchlist} open data-full-watchlist={watchlist.length}>
-   <summary>All {watchlist.length} watchlist candidates · ranked research</summary>
+   <summary>Watchlist · {shownWatchlist.length}/{watchlist.length} shown · ranked research</summary>
    <p className={styles.vintage}>All symbols are included—even those without verified prices.
     Ratings, entry tests and invalidation were recorded on the older investment-research date.</p>
+   <form method="get" action="/my-reports" className={styles.tableFilters} aria-label="Filter and sort research watchlist">
+    <input type="hidden" name="view" value="portfolio"/>
+    {(["hs","hsort","hquote"] as const).map(k=>filters[k]
+     ?<input key={k} type="hidden" name={k} value={filters[k]}/>:null)}
+    <label>Search candidates<input name="ws" type="search" maxLength={80} defaultValue={filters.ws||""} placeholder="Ticker or company"/></label>
+    <label>Theme<select name="wtheme" defaultValue={filters.wtheme||""}>
+     <option value="">All themes</option>{themes.map(theme=><option key={theme} value={theme}>{theme}</option>)}
+    </select></label>
+    <label>Quote status<select name="wquote" defaultValue={filters.wquote||""}>
+     <option value="">All quotes</option><option value="priced">Priced</option><option value="missing">Missing / stale</option>
+    </select></label>
+    <label>Sort by<select name="wsort" defaultValue={filters.wsort||"rank"}>
+     <option value="rank">Research rank</option><option value="score">Highest score</option>
+     <option value="alpha">Ticker A–Z</option><option value="gain1d">1D biggest gains</option>
+     <option value="loss1d">1D biggest losses</option><option value="gain3d">3D biggest gains</option>
+     <option value="gain5d">5D biggest gains</option><option value="close">Close: high to low</option>
+    </select></label>
+    <button type="submit">Apply</button><a href="/my-reports?view=portfolio">Clear all</a>
+   </form>
    <div className={styles.tableWrap}><table className={styles.table}>
     <thead><tr><th>Candidate</th><th>Archived action / score</th><th>Close</th>
      <th>1D</th><th>3D</th><th>5D</th><th>Research / source date</th></tr></thead>
-    <tbody>{watchlist.map((r,i)=>{
+    <tbody>{shownWatchlist.map((r,i)=>{
       const ticker=code(r.ticker)||"UNKNOWN-"+i;
       const quote=scan?.watchRows.get(ticker);
       return <tr key={ticker}>
@@ -82,7 +122,7 @@ export default function OwnerPowerStackFullScan({snapshot,ownerSnapshotAsOf}:{
         </details>
        </td>
       </tr>;
-    })}</tbody>
+    })}{shownWatchlist.length===0?<tr><td colSpan={7} className={styles.filterEmpty}>No watchlist candidates match these filters.</td></tr>:null}</tbody>
    </table></div>
   </details>
   <p className={styles.vintage}>Market returns use independently collected completed sessions, not portfolio
