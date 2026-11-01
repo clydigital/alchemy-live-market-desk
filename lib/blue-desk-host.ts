@@ -78,6 +78,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   // Only exact paths can be used; legacy operational owner routes and all
   // unrelated APIs remain blocked on the public presentation hostname.
   if(hostname === BLUEBELLY_PRESENTATION_HOST && [
+    "/markets/powerstack",
     "/my-reports", "/login", "/auth/google", "/auth/callback",
     "/auth/signout", "/api/owner/automated-report-pdf",
     // Native Bluebelly owner tools only; every path still requires a
