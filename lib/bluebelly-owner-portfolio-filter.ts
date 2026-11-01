@@ -39,7 +39,7 @@ export function filterPortfolioRows<T extends Row>(
   const quote=prices?.get(tickerOf(r));
   return finite(quote?.[key==="1d"?"change":key==="3d"?"change3d":key==="5d"?"change5d":"last"]);
  };
- if(!sort||sort==="original"&&isHolding)return eligible;
+ if(isHolding&&(!sort||sort==="original"))return eligible;
  if(sort==="alpha")return eligible.sort((a,b)=>tickerOf(a).localeCompare(tickerOf(b)));
  const mapping:Record<string,["1d"|"3d"|"5d"|"close"|"quantity"|"score"|"rank",boolean]>={
   gain1d:["1d",true],loss1d:["1d",false],gain3d:["3d",true],gain5d:["5d",true],
