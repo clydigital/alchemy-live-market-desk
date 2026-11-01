@@ -18,7 +18,7 @@ export const metadata={title:"My Desk | Bluebelly",robots:{index:false,follow:fa
 export default async function MyBluebellyReports({searchParams}:{searchParams:Promise<Record<string,string|string[]|undefined>>}){
  const params=await searchParams;
  const view=params.view==="portfolio"?"portfolio":"intelligence";
- const single=(key:keyof PortfolioTableQuery)=>typeof params[key]==="string"?params[key]:"";
+ const single=(key:keyof PortfolioTableQuery)=>typeof params[key]==="string"?params[key].slice(0,key==="wtheme"?180:80):"";
  const filters:PortfolioTableQuery={
   hs:single("hs"),hsort:single("hsort"),hquote:single("hquote"),
   ws:single("ws"),wsort:single("wsort"),wquote:single("wquote"),wtheme:single("wtheme"),
