@@ -134,3 +134,12 @@ test("All Markets no longer truncates the research source universe at eighty", (
   assert.equal(results.at(-1)?.symbol, "XL120");
   assert.equal(publicMarketObservations(inputs, "equities").length, 121);
 });
+
+
+test("breadth remains chart-only and does not mislabel equity prices as breadth", () => {
+  const inputs = [marketRow({ id: "s5fi", type: "Major Index" })];
+  assert.deepEqual(publicMarketObservations(inputs, "breadth"), []);
+  const page = readFileSync(new URL("../app/blue-desk/markets/page.tsx", import.meta.url), "utf8");
+  for (const code of ["S5FI", "S5TH", "NDFI", "R2FI"]) assert.match(page, new RegExp(code));
+  assert.match(page, /last: null, change: null, change3d: null, change5d: null/);
+});
