@@ -157,6 +157,22 @@ export async function fetchPowerStackFundamentalsImport({
   sourceUrl?: string;
   importedAt?: string;
 } = {}): Promise<FrozenPowerStackFundamentalsImport | null> {
+  if (sourceUrl === DEFAULT_POWER_STACK_FUNDAMENTALS_URL) {
+    const privateValue = await import("./power-stack-private-research-server")
+      .then(module => module.getPrivatePowerStackArchiveField("fundamentalsSnapshot"))
+      .catch(() => null);
+    const archived = parsePowerStackFundamentalsSnapshot(privateValue);
+    if (archived) return {
+      contractVersion: POWER_STACK_FUNDAMENTALS_IMPORT_V1,
+      importedAt,
+      sourceSnapshotAt: archived.snapshotAt,
+      sourceCommit: archived.sourceCommit,
+      companies: archived.companies,
+      sourceFiles: archived.sourceFiles,
+      guardrails: [...archived.guardrails, "Owner-archived research; verify freshness before use."],
+      sourceUrl: "private:power-stack-owner-snapshot",
+    };
+  }
   try {
     const response = await fetch(sourceUrl, {
       cache: "no-store",
