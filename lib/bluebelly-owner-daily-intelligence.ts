@@ -10,7 +10,7 @@ export type PrivateDailyIntelligenceIndex={
 };
 type RawRow={
  id:string;report_day:string;title:string;created_at:string;
- html_sha256:string;review_status:string;
+ html_sha256:string;review_status:string;delivery_type?:string;
 };
 function record(row:RawRow,delivery:"WORK"|"MY_DESK"):PrivateDailyIntelligenceEdition|null{
  if(!/^[a-f0-9-]{36}$/i.test(row.id)||!/^20\d{2}-\d{2}-\d{2}$/.test(row.report_day)||
@@ -20,7 +20,7 @@ function record(row:RawRow,delivery:"WORK"|"MY_DESK"):PrivateDailyIntelligenceEd
     !Number.isFinite(Date.parse(row.created_at)))return null;
  return {id:row.id,reportDay:row.report_day,title:row.title,createdAt:row.created_at,
   htmlSha256:row.html_sha256,reviewStatus:row.review_status as PrivateDailyIntelligenceEdition["reviewStatus"],
-  delivery};
+  delivery:delivery==="WORK"&&row.delivery_type==="SCHEDULED_RESEARCH"?"AUTOMATED":delivery};
 }
 /** One editorial edition per exact HTML SHA, even if both Work and My Desk
  * stored identical static reader bytes. Never collapse distinct revisions. */
@@ -36,7 +36,7 @@ export async function getOwnerDailyIntelligenceIndex(limit=30):Promise<PrivateDa
  const size=Math.max(1,Math.min(40,limit));
  const [work,owner]=await Promise.all([
   admin.from("blue_desk_work_html_editions")
-   .select("id,report_day,title,created_at,html_sha256,review_status")
+   .select("id,report_day,title,created_at,html_sha256,review_status,delivery_type")
    .eq("owner_user_id",user.id).order("created_at",{ascending:false}).limit(size),
   admin.from("blue_desk_private_html_editions")
    .select("id,report_day,title,created_at,html_sha256,review_status")
