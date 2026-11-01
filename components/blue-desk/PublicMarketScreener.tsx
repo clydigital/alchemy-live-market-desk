@@ -44,6 +44,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
   const [sort, setSort] = useState<MarketChangeSort>("source");
   const [columnSort, setColumnSort] = useState<MarketSortColumn | null>(null);
   const [ascending, setAscending] = useState(true);
+  const [compareSymbols, setCompareSymbols] = useState<string[]>(["RSP", "XLK", "XLF", "XLE"]);
 
   function sortColumn(column: MarketSortColumn) {
     setAscending(columnSort===column ? !ascending : column==="instrument" || column==="source");
@@ -57,6 +58,18 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
     });
     return columnSort ? sortPublicMarketColumns(filtered, columnSort, ascending) : filtered;
   }, [observations, query, window, unit, direction, minimum, sort, columnSort, ascending]);
+
+  const comparisonUniverse = useMemo(() => observations.filter(row =>
+    row.type === "Sector" || ["RSP", "SMH", "SOXX", "QQQ", "SPY"].includes(row.symbol)
+  ), [observations]);
+  const comparisonRows = comparisonUniverse.filter(row => compareSymbols.includes(row.symbol));
+  const equalWeight = comparisonUniverse.find(row => row.symbol === "RSP");
+
+  function toggleComparison(symbol: string, checked: boolean) {
+    setCompareSymbols(current => checked
+      ? [...new Set([...current, symbol])].slice(0, 20)
+      : current.filter(item => item !== symbol));
+  }
 
   function reset() {
     setColumnSort(null);
@@ -77,6 +90,38 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
   }
 
   return <div data-market-change-screener="read-only">
+    {group === "all" && comparisonUniverse.length ? <details className={ui.comparePanel} open>
+      <summary>Compare sector ETFs, equal weight and semiconductors</summary>
+      <p>Choose ETFs to compare 1D, 3D and 5D percentage returns from their source-dated sessions. This is not a live chart or a total-return series.</p>
+      <div className={ui.comparePresets}>
+        <button type="button" onClick={() => setCompareSymbols(comparisonUniverse.filter(row => row.type === "Sector").map(row => row.symbol))}>All XL sectors</button>
+        <button type="button" onClick={() => setCompareSymbols(["RSP", "XLK", "XLF", "XLE"])}>RSP vs XL sectors</button>
+        <button type="button" onClick={() => setCompareSymbols(["RSP", "SMH", "SOXX", "XLK"])}>Semis vs market</button>
+        <button type="button" onClick={() => setCompareSymbols([])}>Clear</button>
+      </div>
+      <div className={ui.compareChoices}>
+        {comparisonUniverse.map(row => <label key={row.id}>
+          <input type="checkbox" checked={compareSymbols.includes(row.symbol)} onChange={event => toggleComparison(row.symbol, event.target.checked)} />
+          <span>{row.symbol}</span><small>{row.label}</small>
+        </label>)}
+      </div>
+      {comparisonRows.length ? <div className={styles.publicMarketTableScroll}>
+        <table className={`${styles.publicMarketTable} ${ui.compareTable}`}>
+          <thead><tr><th>Instrument</th><th>Source session</th><th>1D</th><th>3D</th><th>5D</th><th>5D vs RSP</th></tr></thead>
+          <tbody>{comparisonRows.map(row => {
+            const matched = Boolean(equalWeight && row.asOf && row.asOf === equalWeight.asOf
+              && row.change5d !== null && equalWeight.change5d !== null);
+            const relative = matched ? row.change5d! - equalWeight!.change5d! : null;
+            return <tr key={row.id}><th scope="row">{row.symbol} · {row.label}</th>
+              <td>{row.asOf || "Unavailable"}</td>
+              {(["1D","3D","5D"] as const).map(period => <td key={period} data-direction={(publicMarketWindowChange(row,period) ?? 0) > 0 ? "up" : "flat"}>{change(publicMarketWindowChange(row,period), "%")}</td>)}
+              <td>{relative === null ? "—" : `${relative > 0 ? "+" : ""}${relative.toFixed(2)} pp`}</td>
+            </tr>;
+          })}</tbody>
+        </table>
+      </div> : <p>Select at least one ETF to compare.</p>}
+      <p className={ui.comparisonNote}>Relative comparisons are percentage-point differences against RSP over the same five source sessions and matching observation date. Missing values are not filled in.</p>
+    </details> : null}
     <div className={ui.screener} aria-label="Market change filters">
       <div className={ui.quick}>
         <span>Quick screens</span>
@@ -150,7 +195,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
           <th scope="col" aria-sort={columnSort==="source"?(ascending?"ascending":"descending"):undefined}><button type="button" className={ui.columnSort} onClick={()=>sortColumn("source")}>Source and vintage {columnSort==="source"?(ascending?"▲":"▼"):"↕"}</button></th></tr></thead>
         <tbody>{visible.map(row => <tr key={row.id}>
           <th scope="row"><EntityRow identity={entityForAsset(row.symbol) || {kind: "asset", code: row.symbol}}
-            title={row.label} subtitle={row.symbol + " · " + row.type} /></th>
+            title={row.label} subtitle={row.symbol + " · " + (row.researchRole ? `Power Stack ${row.researchRole}` : row.type)} /></th>
           <td className={styles.publicMarketNumber}>{level(row)}</td>
           {(["1D", "3D", "5D"] as const).map(period => {
             const value = publicMarketWindowChange(row, period);
@@ -162,7 +207,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
           })}
           <td className={styles.publicMarketSource}>
             <span>{row.asOf ? `Observation: ${row.asOf}` : "Observation date unavailable"} · {row.frequency} observation</span>
-            {row.sourceUrl ? <a href={row.sourceUrl} target="_blank" rel="noreferrer">{row.sourceName} · original data ↗</a>
+            {row.sourceUrl ? <a href={row.sourceUrl} target="_blank" rel="noreferrer">{row.sourceName} · {row.researchRole && row.last === null ? "research registry ↗" : "original data ↗"}</a>
               : <span>Original-source link unavailable</span>}
           </td>
         </tr>)}</tbody>
@@ -174,6 +219,6 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
         : "Market data unavailable. Filtering cannot restore a missing feed."}</p>
       {dataAvailable ? <button type="button" className={ui.reset} onClick={reset}>Reset filters</button> : null}
     </div>}
-    <p className={styles.publicMarketNote}>Change periods: 1, 3 and 5 source sessions, measured through each instrument's observation date. Rates in bp; others in %. Monthly yields show levels only. Data may lag.</p>
+    <p className={styles.publicMarketNote}>Power Stack-only tickers are searchable research records, not price observations. Holdings are labels only; no quantities, account values or broker data are shown. Change periods: 1, 3 and 5 source sessions, measured through each instrument's observation date. Rates in bp; others in %. Monthly yields show levels only. Data may lag.</p>
   </div>;
 }
