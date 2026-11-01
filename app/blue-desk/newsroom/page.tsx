@@ -17,6 +17,7 @@ import {combineQualifiedNews} from "@/lib/blue-desk-qualified-news";
 import {getRecentArchivedPublicReaderItems} from "@/lib/bluebelly-publication-archive-server";
 import {selectNewsroomHotPicks} from "@/lib/bluebelly-newsroom-hot-picks";
 import {OCT30_SELL_OFF,oct30SelloffIsLead} from "@/lib/bluebelly-oct30-tech-selloff";
+import {currentReviewedPublicFocus} from "@/lib/bluebelly-reviewed-public-focus";
 import desk from "../blue-desk.module.css";
 import ui from "./newsroom.module.css";
 export const dynamic="force-dynamic";
@@ -43,6 +44,14 @@ export default async function NewsroomPage({searchParams}:Props){
   recentBankDecisions(now,168),recentReportedEditorial(now,168),
   selectPostEventRecaps(news,now,8),readerHref,now,
  );
+ // An already-reviewed public Key Story is searchable; never promote MacroPulse drafts.
+ for(const focus of currentReviewedPublicFocus(now))editorials.push({
+   id:focus.id,headline:focus.headline,summary:focus.fact,
+   occurredAt:focus.eventDay,sourceName:focus.sourceName,
+   sourceUrl:focus.sourceUrl,readerHref:readerHref+focus.href,
+   topics:[...focus.topics],verificationLabel:"REVIEWED EDITORIAL · PROPOSAL NOT AGREEMENT",
+   why:focus.mechanism,nextTest:focus.test,kind:"reported",
+ });
  if(oct30SelloffIsLead(now))editorials.unshift({
    id:OCT30_SELL_OFF.id,headline:OCT30_SELL_OFF.headline,summary:OCT30_SELL_OFF.fact+" "+OCT30_SELL_OFF.why,
    occurredAt:OCT30_SELL_OFF.occurredAt,sourceName:OCT30_SELL_OFF.sourceName,
@@ -54,7 +63,7 @@ export default async function NewsroomPage({searchParams}:Props){
  return <main className={desk.page} data-public-newsroom="original-source-only">
   <BlueDeskHeader activePath="/blue-desk/newsroom"/>
   <div className={desk.content}>
-      {oct30SelloffIsLead(now)?<article data-newsroom-lead="oct30-ai-selloff" className={ui.featureLead}>
+      {oct30SelloffIsLead(now)&&+now-Date.parse(OCT30_SELL_OFF.occurredAt)<48*3600000&&currentReviewedPublicFocus(now).length===0?<article data-newsroom-lead="oct30-ai-selloff" className={ui.featureLead}>
         <p className={ui.featureKicker}>NEWSROOM LEAD · 30 OCTOBER 2026 · SOURCE-REPORTED INTRADAY REACTION</p>
         <h2 >{OCT30_SELL_OFF.headline}</h2>
         <p >{OCT30_SELL_OFF.fact} {OCT30_SELL_OFF.why}</p>

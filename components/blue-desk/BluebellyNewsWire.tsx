@@ -12,6 +12,8 @@ import EditorialStoryArt from "./EditorialStoryArt";
 import TradingViewChart from "./TradingViewChart";
 import styles from "./bluebelly-newswire.module.css";
 function clock(value:string){
+ // Date-only source reporting must not acquire a fabricated midnight clock.
+ if(/^\d{4}-\d{2}-\d{2}$/.test(value))return value+" · source date only";
  const d=new Date(value);
  return Number.isFinite(d.getTime())?new Intl.DateTimeFormat("en-GB",{timeZone:"America/New_York",day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",timeZoneName:"short"}).format(d):"Time unavailable";
 }

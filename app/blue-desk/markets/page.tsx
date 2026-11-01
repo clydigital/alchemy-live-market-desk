@@ -15,6 +15,7 @@ import {
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
+import {currentReviewedPublicFocus} from "@/lib/bluebelly-reviewed-public-focus";
 import {calculateBreadthRow,marketParticipationResearch} from "@/lib/bluebelly-breadth-dated";
 import styles from "../blue-desk.module.css";
 import legibility from "./legibility.module.css";
@@ -47,6 +48,7 @@ const BREADTH_WATCHES = [
 
 export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   const query = await searchParams;
+  const now = new Date();
   const group = publicMarketGroup(query.group);
   const host = (await headers()).get("host");
   // Keep the public route allowlist unchanged: a bounded query selects only
@@ -83,6 +85,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
     n===null?"—":`${n>0&&unit==="pp"?"+":""}${n.toFixed(2)}${unit==="pp"?" pp":"%"}`;
 
   const selected = PUBLIC_MARKET_GROUPS.find(item => item.id === group)!;
+  const reviewedFocus=(group==="all"||group==="energy")?currentReviewedPublicFocus(now):[];
 
   return (
     <main className={`${styles.page} ${legibility.publicMarketsLegibility} ${legibility.compactMarkets}`} data-blue-desk-markets="public-observations">
@@ -111,6 +114,14 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <a href="#market-group-heading">ETF comparisons</a>
           <a href="#advanced-market-charts">Open charts</a>
         </nav>
+        {reviewedFocus.map(focus=><section key={focus.id} data-markets-reviewed-catalyst={focus.id}
+          className={legibility.marketSection} style={{padding:"14px 18px",margin:"10px 0"}}>
+          <p className={styles.kicker}>REVIEWED ENERGY CATALYST · {focus.eventDay} · SOURCE DATE ONLY</p>
+          <h2>{focus.headline}</h2><p>{focus.fact}</p>
+          <p><strong>Market test:</strong> {focus.test} This is not evidence of a verified price reaction.</p>
+          <p><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+focus.href}>Read the source-reviewed story →</Link>
+          {" · "}<Link href={blueDeskPublicHref("/blue-desk/hormuz",host)}>Check source-dated crossings and fuel markets →</Link></p>
+        </section>)}
         <details className={legibility.categoryDisclosure}>
           <summary>Browse markets by category</summary>
           <nav aria-label="Market group" className={`${styles.publicMarketGroups} ${legibility.marketGroups}`}>

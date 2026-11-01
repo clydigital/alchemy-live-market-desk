@@ -1,4 +1,5 @@
 import {OCT30_SELL_OFF,oct30SelloffIsLead} from "./bluebelly-oct30-tech-selloff.ts";
+import {currentReviewedPublicFocus,reviewedFocusIsRecent} from "./bluebelly-reviewed-public-focus.ts";
 import {getRecentVerifiedEarningsScorecards} from "./blue-desk-earnings-results.ts";
 import {getRecentOfficialMacroResults} from "./blue-desk-official-macro-results.ts";
 import type { NewsBriefV1 } from './market-brief-news.ts';
@@ -16,6 +17,15 @@ export function decisionTopics(news: readonly NewsBriefV1[], calendar: Presenter
     href:'?news='+encodeURIComponent(t.updates[0].id),status:'NEW' as 'NEW'|'UPCOMING'|'FEATURE',
     mechanism:t.marketMechanism, assets:[] as string[], priority:2,
   }));
+  // Already-published public Key Stories can lead on weekends without approving
+  // private MacroPulse drafts or inventing a publication clock.
+  for(const focus of currentReviewedPublicFocus(now))topics.push({
+    id:focus.id,title:focus.headline,fact:focus.fact,why:focus.why,
+    test:focus.test,at:focus.eventDay,sourceUrl:focus.sourceUrl,
+    sourceName:focus.sourceName,href:focus.href,status:"FEATURE",
+    mechanism:focus.mechanism,assets:[...focus.assets],
+    priority:reviewedFocusIsRecent(focus.eventDay,now)?13:1,
+  });
   // Source-reviewed BEA outcome: only after official release, expires after
   // seven days, and never masquerades as a canonical source-admitted NewsBrief.
   // If original-source news intake has published it, avoid duplicate cards.
@@ -60,7 +70,7 @@ export function decisionTopics(news: readonly NewsBriefV1[], calendar: Presenter
     why:OCT30_SELL_OFF.why,test:OCT30_SELL_OFF.test,at:OCT30_SELL_OFF.occurredAt,
     sourceUrl:OCT30_SELL_OFF.sourceUrl,sourceName:OCT30_SELL_OFF.sourceName,
     href:OCT30_SELL_OFF.href,status:'FEATURE',mechanism:OCT30_SELL_OFF.mechanism,
-    assets:[...OCT30_SELL_OFF.assets],priority:12,
+    assets:[...OCT30_SELL_OFF.assets],priority:(+now-Date.parse(OCT30_SELL_OFF.occurredAt)<48*3600000?12:1),
   });
   const upcoming = selectBlueDeskUpcoming(calendar,now,7);
   // One policy decision and one earnings theme; never pad the slate with tickers.
