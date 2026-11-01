@@ -34,7 +34,7 @@ test("private legacy navigation remains available only on owner host", () => {
   const privateNav=header.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0]||"";
   const privateLinks=[...privateNav.matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m=>m[1]);
   assert.deepEqual(privateLinks, ["/blue-desk", "/blue-desk/key-stories", "/markets",
-    "/my-reports", "/owner/research", "/market-tools", "/owner/x-wire", "/blue-desk/calendar", "/blue-desk/learn"]);
+    "/my-reports", "/power-stack", "/owner/research", "/market-tools", "/owner/x-wire", "/blue-desk/calendar", "/blue-desk/learn"]);
   for(const privatePath of ["/articles","/data/macro","/concepts","/owner/daily-articles"]){
     assert.equal(blueDeskHostAccess(privatePath,"bluebelly-desk.vercel.app"),"blocked");
     assert.ok(!privateLinks.includes(privatePath),"legacy links stay outside the main navigation");
