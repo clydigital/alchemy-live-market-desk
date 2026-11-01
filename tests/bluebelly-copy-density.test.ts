@@ -11,8 +11,8 @@ test("Bluebelly keeps sources, date information and status without repetitive pr
   const home = source("app/blue-desk/page.tsx");
   assert.match(marketTable, /row\.sourceUrl/);
   assert.match(marketTable, /row\.asOf/);
-  assert.match(marketTable, /1D\/3D\/5D returns/);
-  assert.match(marketTable, /Stock\/ETF changes are percentages/);
+  assert.match(marketTable, /1D\/3D\/5D are completed source sessions/);
+  assert.match(marketTable, /ETFs use percentage returns/);
   assert.match(marketTable, /percentage points \(pp\)/);
   assert.match(marketTable, /basis points \(bp\)/);
   assert.doesNotMatch(markets, /not a causal explanation, trading signal/);
