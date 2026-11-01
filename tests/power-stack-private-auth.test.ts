@@ -56,7 +56,7 @@ test("Power Stack is accessible through My Desk rather than a separate primary n
   assert.doesNotMatch(afterPrivate, /\["Power Stack", "\/power-stack"\]/);
   assert.match(afterPrivate, /\["My Desk", "\/my-reports"\]/);
   const desk = source("app/my-reports/page.tsx");
-  assert.match(desk, /<OwnerPortfolioHome\/>/);
+  assert.match(desk, /<OwnerPortfolioHome\s+filters=\{filters\}\/>/);
   assert.match(desk, /view="portfolio"|view=== "portfolio"|view==="portfolio"/);
   assert.doesNotMatch(afterPublic, /Power Stack/);
   assert.match(header, /activePath === "\/power-stack"/);
