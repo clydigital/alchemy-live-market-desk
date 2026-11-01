@@ -70,7 +70,6 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
         item.symbol,item.label,breadthHistory.series.find(row=>row.symbol===item.symbol)))
     : [];
   const observations=[...monitoredRows,...breadthObservations];
-  const sourceObservations=monitoredRows;
   const participation=marketParticipationResearch([
     ...publicMarketObservations(monitor?.rows||[],"all"),
     ...BREADTH_WATCHES.map(item=>calculateBreadthRow(
@@ -203,15 +202,6 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
         </details>
 
 
-        <div className={styles.lastLinks}>
-          <h2>Continue reading</h2>
-          <div className={styles.quickLinks}>
-            <Link href={blueDeskPublicHref("/blue-desk", host)}>Market stories →</Link>
-            <Link href="#earnings-research">Earnings &amp; fundamentals →</Link>
-            <Link href={blueDeskPublicHref("/blue-desk/calendar", host)}>Economic calendar →</Link>
-            <Link href={blueDeskPublicHref("/blue-desk/hormuz", host)}>Hormuz / oil / distillates watch →</Link>
-          </div>
-        </div>
         <footer className={styles.footer}><span>Blue Desk</span></footer>
       </div>
     </main>
