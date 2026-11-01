@@ -21,6 +21,13 @@ type Holding = {
   priceAsOf: string | null;
   quantityAsOf: string | null;
 };
+type ArchivedMove={id:string;title:string;description:string;do:string;notYet:string};
+type ArchivedOpportunity={symbol:string;name:string;action:string;buyWhen:string;sellWhen:string};
+type ArchivedAdvisor={
+  headline:string;summary:string;asOf:string;totalMYR:number|null;
+  cashVerified:boolean;positionsVerified:boolean;
+  moves:ArchivedMove[];opportunities:ArchivedOpportunity[];
+};
 type WatchAsset = {
   ticker: string;
   name: string;
@@ -67,6 +74,36 @@ function parseOwnerHoldings(snapshot: unknown): Holding[] {
       quantityAsOf: cleanString(pos.quantityAsOf, 30) || null,
     }];
   });
+}
+
+/** Decision-first archive; no stored recommendation becomes a live order. */
+function parseOwnerAdvisor(snapshot:unknown):ArchivedAdvisor|null {
+  if(!snapshot || typeof snapshot!=="object" || Array.isArray(snapshot))return null;
+  const raw=(snapshot as Record<string,unknown>).investmentAdvisor;
+  if(!raw || typeof raw!=="object" || Array.isArray(raw))return null;
+  const obj=raw as Record<string,unknown>;
+  const capital=obj.capital && typeof obj.capital==="object" && !Array.isArray(obj.capital)
+    ? obj.capital as Record<string,unknown> : {};
+  const moves=(Array.isArray(obj.firstMoves)?obj.firstMoves:[]).slice(0,4)
+    .filter((item:unknown)=>item && typeof item==="object" && !Array.isArray(item))
+    .map((value:unknown)=>{
+      const x=value as Record<string,unknown>;
+      return {id:cleanString(x.id,25),title:cleanString(x.title,180),
+        description:cleanString(x.description,500),do:cleanString(x.do,600),
+        notYet:cleanString(x.notYet,600)};
+    });
+  const opportunities=(Array.isArray(obj.opportunities)?obj.opportunities:[]).slice(0,12)
+    .filter((item:unknown)=>item && typeof item==="object" && !Array.isArray(item))
+    .map((value:unknown)=>{
+      const x=value as Record<string,unknown>;
+      return {symbol:cleanString(x.symbol,20),name:cleanString(x.name),
+        action:cleanString(x.action,150),buyWhen:cleanString(x.buyWhen,600),
+        sellWhen:cleanString(x.sellWhen,600)};
+    });
+  return {headline:cleanString(obj.heading,180),summary:cleanString(obj.standfirst,650),
+    asOf:cleanString(obj.asOf,30),totalMYR:finiteOrNull(capital.totalMYR),
+    cashVerified:capital.cashVerified===true,positionsVerified:capital.positionsVerified===true,
+    moves,opportunities};
 }
 
 /** Archived research queue, not a live order or an independently updated rating. */
@@ -117,6 +154,7 @@ export default async function PrivatePowerStack() {
   const ready = row?.legacy_source_retired === true;
   const holdings = ready && row ? parseOwnerHoldings(row.snapshot) : [];
   const watchlist = ready && row ? parseOwnerWatchlist(row.snapshot) : [];
+  const advisor = ready && row ? parseOwnerAdvisor(row.snapshot) : null;
 
   return (
     <main className={styles.page} data-power-stack="owner-only"
@@ -146,6 +184,34 @@ export default async function PrivatePowerStack() {
           </section>
         ) : (
           <>
+            {advisor ? <section className={styles.section} data-power-stack-advisor="private">
+              <p className={styles.kicker}>ARCHIVED DECISION BRIEF · {advisor.asOf || "Date unavailable"}</p>
+              <h2>{advisor.headline || "Investment decision brief"}</h2>
+              <p>{advisor.summary}</p>
+              <p><strong>Recorded total mandate:</strong> {advisor.totalMYR === null ?
+                "Unavailable" : "RM" + advisor.totalMYR.toLocaleString("en-MY")}
+                {" · "}Cash independently verified: {advisor.cashVerified ? "Yes" : "No"}
+                {" · "}Positions reconciled: {advisor.positionsVerified ? "Yes" : "No"}</p>
+              <h3>Decisions to revisit</h3>
+              <div style={{display:"grid",gap:12,gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,290px),1fr))"}}>
+                {advisor.moves.map((move,i)=><article key={move.id||i}
+                  style={{padding:16,border:"1px solid currentColor",borderRadius:10}}>
+                  <h3>{move.title}</h3>
+                  <p>{move.description}</p>
+                  <p><strong>Original next step:</strong> {move.do}</p>
+                  <p><strong>Hold off until:</strong> {move.notYet}</p>
+                </article>)}
+              </div>
+              <h3>Investigated opportunities</h3>
+              {advisor.opportunities.map((asset,i)=><details key={asset.symbol||i}
+                style={{padding:12,marginBottom:8,border:"1px solid currentColor",borderRadius:8}}>
+                <summary>{asset.symbol} · {asset.name} — {asset.action}</summary>
+                <p><strong>Original entry test:</strong> {asset.buyWhen||"Unavailable"}</p>
+                <p><strong>Risk / exit test:</strong> {asset.sellWhen||"Unavailable"}</p>
+              </details>)}
+              <p>Archived decision support only. No new capital is committed, and broker verification,
+                cash reconciliation and fresh issuer/price evidence are required.</p>
+            </section> : null}
             <section className={styles.section} data-power-stack-holdings="private">
               <h2>Recorded holdings · {holdings.length}</h2>
               <p>Archived portfolio record dated {row?.snapshot_as_of ?? "unknown"}.
