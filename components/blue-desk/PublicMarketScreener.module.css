@@ -93,3 +93,9 @@
 .compareTable { min-width: 690px; }
 .comparisonNote { font-size: 12px !important; margin-top: 11px !important; }
 @media(max-width:690px){.comparePanel{padding:11px}.compareChoices label small{display:none}}
+
+/* The comparison is primary. Full market screening is a disclosed secondary tool. */
+.advancedPanel{border:1px solid var(--bb-line,#376c83);border-radius:10px;background:var(--bb-surface,#08283a);padding:13px 16px;margin-top:18px}
+.advancedPanel>summary{cursor:pointer;font-size:15px;font-weight:800;min-height:42px;padding:10px 3px;color:var(--bb-text,#f6fbff)}
+.advancedPanel>p{font-size:12px;line-height:1.6;color:var(--bb-muted,#bdcfdb)}
+.advancedPanel>summary:focus-visible{outline:2px solid var(--bb-accent,#8ceaff);outline-offset:2px}

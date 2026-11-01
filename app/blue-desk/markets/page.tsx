@@ -1,8 +1,6 @@
-import HormuzCrossings from "@/components/blue-desk/HormuzCrossings";
 import EarningsFundamentals from "@/components/blue-desk/EarningsFundamentals";
 import EarningsInvestorDeepDive from "@/components/blue-desk/EarningsInvestorDeepDive";
 import {getEarningsCase} from "@/lib/bluebelly-earnings-investor-stories";
-import { getHormuzMonitor } from "@/lib/hormuz-monitor";
 import Link from "next/link";
 import { headers } from "next/headers";
 
@@ -18,7 +16,6 @@ import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
 import {calculateBreadthRow,marketParticipationResearch} from "@/lib/bluebelly-breadth-dated";
-import { getPowerStackResearchAssets, mergePowerStackMarketSearch } from "@/lib/bluebelly-power-stack-public";
 import styles from "../blue-desk.module.css";
 import legibility from "./legibility.module.css";
 
@@ -33,7 +30,7 @@ type Props = {
 };
 
 const GROUP_ICONS: Record<string, MarketIconName> = {
-  all: "global", ai: "chip", breadth: "equities", powerstack: "equities", rates: "rates", energy: "oil",
+  all: "global", ai: "chip", breadth: "equities", rates: "rates", energy: "oil",
   fx: "currency", credit: "credit", equities: "equities", metals: "gold",
 };
 
@@ -62,29 +59,28 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
       <EarningsInvestorDeepDive ticker={detail.ticker} backHref={blueDeskPublicHref("/blue-desk/markets",host)} />
     </div>
   </main>;
-  const [monitor, hormuz, powerStack, breadthHistory] = await Promise.all([
+  const [monitor,breadthHistory] = await Promise.all([
     getMarketMonitor().catch(() => null),
-    group === "all" || group === "energy" ? getHormuzMonitor() : Promise.resolve(null),
-    group === "all" || group === "powerstack"
-      ? getPowerStackResearchAssets()
-      : Promise.resolve({items: [], status: "available" as const, tapeStatus: "available" as const}),
-    group === "all" || group === "breadth"
-      ? getSourceDatedBreadth()
-      : Promise.resolve({series:[],retrievalStatus:"fallback" as const}),
+    getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
   ]);
-  const monitoredRows=publicMarketObservations(monitor?.rows || [], group === "powerstack" ? "all" : group);
-  const breadthObservations = group === "all" || group === "breadth"
-    ? BREADTH_WATCHES.map(item => calculateBreadthRow(
+  // No personal Power Stack registry may be fetched in anonymous Markets.
+  const monitoredRows=publicMarketObservations(monitor?.rows || [],group);
+  const breadthObservations = group==="all" || group==="breadth"
+    ? BREADTH_WATCHES.map(item=>calculateBreadthRow(
         item.symbol,item.label,breadthHistory.series.find(row=>row.symbol===item.symbol)))
     : [];
-  const merged=group==="all" || group==="powerstack"
-    ? mergePowerStackMarketSearch([...monitoredRows,...breadthObservations],powerStack.items)
-    : [...monitoredRows,...breadthObservations];
-  const observations=group==="powerstack" ? merged.filter(row=>Boolean(row.researchRole)) : merged;
-  const sourceObservations=group==="powerstack" ? observations.filter(row=>row.type!=="Power Stack") : monitoredRows;
-  const participation=group==="all" || group==="breadth"
-    ? marketParticipationResearch([...publicMarketObservations(monitor?.rows||[],"all"),...breadthObservations])
-    : null;
+  const observations=[...monitoredRows,...breadthObservations];
+  const participation=marketParticipationResearch([
+    ...publicMarketObservations(monitor?.rows||[],"all"),
+    ...BREADTH_WATCHES.map(item=>calculateBreadthRow(
+      item.symbol,item.label,breadthHistory.series.find(row=>row.symbol===item.symbol))),
+  ]);
+  const breadthPrimary=["S5FI","S5TH"].map(symbol=>
+    BREADTH_WATCHES.find(row=>row.symbol===symbol)!
+  ).map(item=>({item,reading:calculateBreadthRow(item.symbol,item.label,
+    breadthHistory.series.find(row=>row.symbol===item.symbol))}));
+  const breadthValue=(n:number|null,unit:"%"|"pp")=>
+    n===null?"—":`${n>0&&unit==="pp"?"+":""}${n.toFixed(2)}${unit==="pp"?" pp":"%"}`;
 
   const selected = PUBLIC_MARKET_GROUPS.find(item => item.id === group)!;
 
@@ -109,65 +105,95 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           </div>
         </header>
 
-        <nav aria-label="Market group" className={`${styles.publicMarketGroups} ${legibility.marketGroups}`}>
-          {PUBLIC_MARKET_GROUPS.map(item => (
-            <Link
-              key={item.id}
-              href={blueDeskPublicHref("/blue-desk/markets?group=" + item.id, host)}
-              className={group === item.id ? styles.calendarTabActive : styles.calendarTab}
-              aria-current={group === item.id ? "page" : undefined}
-            >
-              <MarketIcon name={GROUP_ICONS[item.id] || "market"} size={17} />
-              {item.label}
-            </Link>
-          ))}
-          <Link href="/power-stack" className={styles.calendarTab}
-            data-market-private-link="google-required"
-            aria-label="My Power Stack — approved Google sign-in required">
-            <MarketIcon name="equities" size={17} /> 🔒 My Power Stack
-          </Link>
+        <nav aria-label="Markets page sections" className={legibility.focusNavigation}
+          data-markets-primary="breadth-and-comparison">
+          <a href="#breadth-watch-heading">Market breadth</a>
+          <a href="#market-group-heading">ETF comparisons</a>
+          <a href="#advanced-market-charts">Open charts</a>
         </nav>
-
-        <section className={`${styles.section} ${legibility.marketSection}`} aria-label="TradingView market chart" data-market-chart-provider="tradingview">
+        <details className={legibility.categoryDisclosure}>
+          <summary>Browse markets by category</summary>
+          <nav aria-label="Market group" className={`${styles.publicMarketGroups} ${legibility.marketGroups}`}>
+            {PUBLIC_MARKET_GROUPS.map(item=><Link key={item.id}
+              href={blueDeskPublicHref("/blue-desk/markets?group="+item.id,host)}
+              className={group===item.id?styles.calendarTabActive:styles.calendarTab}
+              aria-current={group===item.id?"page":undefined}>
+              <MarketIcon name={GROUP_ICONS[item.id]||"market"} size={17}/>
+              {item.label}
+            </Link>)}
+          </nav>
+        </details>
+        
+        <section className={`${styles.section} ${legibility.marketSection}`}
+          aria-labelledby="breadth-watch-heading" data-market-breadth-watch="research-first">
           <div className={styles.sectionHead}><div>
-            <h2>Market charts · TradingView</h2>
-            <p>Interactive TradingView prices and yields. The source-dated observations below are separate; the widget is not evidence of a specific event reaction.</p>
+            <p className={styles.kicker}>01 / THE HEALTH OF THE RALLY</p>
+            <h2 id="breadth-watch-heading">Market breadth</h2>
+            <p>Are more stocks joining the move, or is the index being carried by a few leaders?</p>
           </div></div>
-          <TradingViewChart initial={TV_MARKET_GROUP_DEFAULTS[group] || "us10y"} showPicker />
-        </section>
-
-        <section className={`${styles.section} ${legibility.marketSection}`} aria-labelledby="breadth-watch-heading" data-market-breadth-watch="chart-only">
-          <div className={styles.sectionHead}><div>
-            <h2 id="breadth-watch-heading">Market breadth · participation watch</h2>
-            <p>S5FI and S5TH track S&P 500 participation above 50- and 200-day moving averages. S5FI and S5TH have source-dated daily participation readings and 1D/3D/5D percentage-point changes below. Other symbols remain chart-only until verified history is available.</p>
-          </div></div>
-          <div className={legibility.breadthGrid}>
-            {BREADTH_WATCHES.map(item => <a key={item.symbol}
-              href={`https://www.tradingview.com/chart/?symbol=INDEX%3A${item.symbol}`}
-              target="_blank" rel="noreferrer" className={legibility.breadthLink}>
-              <strong>{item.symbol}</strong><span>{item.label}</span><small>{item.family} · inspect chart ↗</small>
-            </a>)}
+          <div className={legibility.breadthPrimary}>
+            {breadthPrimary.map(({item,reading})=><article key={item.symbol}
+              className={legibility.breadthStat}>
+              <div className={legibility.breadthStatHeading}>
+                <strong>{item.symbol}</strong><span>{item.label}</span>
+              </div>
+              <strong className={legibility.breadthLevel}>{breadthValue(reading.last,"%")}</strong>
+              <p>Constituents above {item.symbol==="S5FI"?"50":"200"}-day average</p>
+              <div className={legibility.breadthChanges}>
+                {([{name:"1D",value:reading.change},{name:"3D",value:reading.change3d},
+                  {name:"5D",value:reading.change5d}] as const).map(period=><div key={period.name}>
+                  <small>{period.name}</small>
+                  <strong data-direction={period.value===null?"unknown":period.value>0?"up":period.value<0?"down":"flat"}>
+                    {breadthValue(period.value,"pp")}</strong>
+                </div>)}
+              </div>
+              <small>Source session {reading.asOf||"unavailable"} · {reading.dataStatus==="SOURCE_DATED_SECONDARY"?
+               "Secondary daily observation":"Stale or unverified"}</small>
+            </article>)}
           </div>
-          <p>Use RSP against SPY and semiconductor breadth against SMH/SOXX to check whether participation confirms headline index gains. Breadth changes are in percentage points, ETF returns are percentages. Secondary vendor data is diagnostic only.</p>
-          {participation ? <div className={styles.secondaryPanel} data-breadth-research-diagnostic={participation.status}>
+          <div className={styles.secondaryPanel} data-breadth-research-diagnostic={participation.status}>
             <h3>{participation.headline}</h3>
             <p>{participation.interpretation}</p>
-            <p><strong>Research follow-up:</strong> {participation.nextTest}</p>
-            <small>Source session: {participation.asOf || "Unavailable"} · Source refresh: {breadthHistory.retrievalStatus}. Not a canonical Regime/Dossier update.</small>
-          </div> : null}
+            <p><strong>What to check next:</strong> {participation.nextTest}</p>
+            <small>Through {participation.asOf||"an unavailable source date"} ·
+              Source refresh: {breadthHistory.retrievalStatus}.
+              Research context, not an automatic Regime/Dossier update or trade signal.</small>
+          </div>
+          <details className={legibility.breadthMore}>
+            <summary>Other breadth charts · Nasdaq and Russell</summary>
+            <p>These series are chart links until independently source-dated histories are verified.
+              We do not substitute S&P 500 readings for Nasdaq or Russell participation.</p>
+            <div className={legibility.breadthGrid}>
+              {BREADTH_WATCHES.filter(item=>item.symbol!=="S5FI"&&item.symbol!=="S5TH")
+                .map(item=><a key={item.symbol}
+                 href={`https://www.tradingview.com/chart/?symbol=INDEX%3A${item.symbol}`}
+                 target="_blank" rel="noreferrer" className={legibility.breadthLink}>
+                  <strong>{item.symbol}</strong><span>{item.label}</span>
+                  <small>Inspect external chart ↗</small>
+                </a>)}
+            </div>
+          </details>
         </section>
 
         <section aria-labelledby="market-group-heading" className={`${styles.section} ${legibility.marketSection}`}>
           <div className={styles.sectionHead}>
             <div>
-              <h2 id="market-group-heading"><MarketIcon name={GROUP_ICONS[group]} size={24} /> {selected.label}</h2>
-              <p>{sourceObservations.length} monitored instruments · {breadthObservations.length} breadth watches{group === "all" ? ` · ${observations.length - sourceObservations.length - breadthObservations.length} additional public research instruments` : ""}{group === "powerstack" ? ` · ${observations.length} neutral research tickers` : ""}</p>
+              <h2 id="market-group-heading"><MarketIcon name={GROUP_ICONS[group]} size={24} /> {group==="all"?"ETF & sector comparisons":selected.label}</h2>
+              <p>Compare source-dated 1D, 3D and 5D sector performance. The full screener is optional.</p>
             </div>
           </div>
 
-          {group === "all" || group === "powerstack" ? <p className={styles.muted}>Public instrument search is independent of private Power Stack holdings and watchlists. Dated 1D/3D/5D changes are shown only when observed by the Bluebelly market monitor. Missing source windows remain blank; the private portfolio is accessible through My Desk after Google login.</p> : null}
+
           <PublicMarketScreener key={group} observations={observations} group={group} dataAvailable={Boolean(monitor)} />
         </section>
+
+        <details id="advanced-market-charts"
+          className={`${styles.section} ${legibility.marketSection} ${legibility.breadthMore}`}
+          data-market-chart-provider="tradingview">
+          <summary>Market charts · TradingView</summary>
+          <p>Interactive charts are optional and are not independent evidence of an event reaction.</p>
+          <TradingViewChart initial={TV_MARKET_GROUP_DEFAULTS[group]||"us10y"} showPicker/>
+        </details>
 
         <details id="earnings-research" className={`${styles.section} ${legibility.marketSection}`} data-earnings-reader-entry="seven-company">
           <summary>Optional: seven company earnings and financing investigations</summary>
@@ -175,17 +201,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <EarningsFundamentals amazonFeatureHref={blueDeskPublicHref("/blue-desk/key-stories",host)+"?feature=amazon-cash-test-october-2026"} deepBaseHref={blueDeskPublicHref("/blue-desk/markets",host)} />
         </details>
 
-        {hormuz ? <HormuzCrossings monitor={hormuz} /> : null}
 
-        <div className={styles.lastLinks}>
-          <h2>Continue reading</h2>
-          <div className={styles.quickLinks}>
-            <Link href={blueDeskPublicHref("/blue-desk", host)}>Market stories →</Link>
-            <Link href="#earnings-research">Earnings &amp; fundamentals →</Link>
-            <Link href={blueDeskPublicHref("/blue-desk/calendar", host)}>Economic calendar →</Link>
-            <Link href={blueDeskPublicHref("/blue-desk/hormuz", host)}>Hormuz / oil / distillates watch →</Link>
-          </div>
-        </div>
         <footer className={styles.footer}><span>Blue Desk</span></footer>
       </div>
     </main>

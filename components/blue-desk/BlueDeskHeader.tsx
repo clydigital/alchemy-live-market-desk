@@ -14,7 +14,6 @@ const PRIVATE_NAV = [
   ["Key Stories", "/blue-desk/key-stories"],
   ["Markets", "/markets"],
   ["My Desk", "/my-reports"],
-  ["Power Stack", "/power-stack"],
   ["Research Library", "/owner/research"],
   ["Market Tools", "/market-tools"],
   ["X Wire", "/owner/x-wire"],
