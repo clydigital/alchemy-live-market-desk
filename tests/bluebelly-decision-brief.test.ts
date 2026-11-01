@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {decisionTopics,decisionCalendar,compareRelease,calendarOutcome} from '../lib/bluebelly-decision-brief.ts';
+import {decisionTopics,decisionCalendar,compareRelease,calendarOutcome,paginateDecisionTopics,decisionSourceFreshness} from '../lib/bluebelly-decision-brief.ts';
 import {buildPresenterCalendar} from '../lib/presenter-calendar.ts';
 import {storyMarketTransmission} from '../lib/blue-desk-thesis-ledger.ts';
 import type {NewsBriefV1} from '../lib/market-brief-news.ts';
@@ -49,4 +49,40 @@ test('decision-first layout keeps market verdict compact and evidence limits exp
  assert.ok(ui.indexOf('<details className={s.evidence}>')<ui.indexOf('<div className={s.topics}>'));
  assert.match(css,/\.headlineRow\{display:flex/);
  assert.match(css,/@media\(max-width:700px\)/);
+});
+
+test('six cards per page, no padding, no repeated stories and bounded page navigation',()=>{
+ const items=Array.from({length:13},(_,i)=>'story-'+(i+1));
+ assert.deepEqual(paginateDecisionTopics(items,1).items,items.slice(0,6));
+ assert.deepEqual(paginateDecisionTopics(items,2).items,items.slice(6,12));
+ assert.deepEqual(paginateDecisionTopics(items,3).items,items.slice(12));
+ assert.equal(paginateDecisionTopics(items,2).totalPages,3);
+ assert.equal(paginateDecisionTopics(items,0).page,1);
+ assert.equal(paginateDecisionTopics(items,99).page,3);
+ assert.equal(paginateDecisionTopics(items,Number.NaN).page,1);
+ assert.deepEqual(paginateDecisionTopics([],2),{items:[],page:1,totalPages:1,total:0,pageSize:6});
+ assert.deepEqual(paginateDecisionTopics(items.slice(0,5)).items,items.slice(0,5));
+});
+test('source-age labels distinguish the observed event date, historical copy and pending events',()=>{
+ const asOf=new Date('2026-11-02T00:00:00Z');
+ assert.equal(decisionSourceFreshness('2026-11-01T12:00:00Z','NEW',asOf),'SOURCE DATED WITHIN 48H');
+ assert.equal(decisionSourceFreshness('2026-10-29T12:00:00Z','FEATURE',asOf),'DATED THIS WEEK');
+ assert.equal(decisionSourceFreshness('2026-10-18','FEATURE',asOf),'OLDER EDITORIAL / ARCHIVE');
+ assert.equal(decisionSourceFreshness('2026-11-03T12:00:00Z','UPCOMING',asOf),'SCHEDULED · OUTCOME PENDING');
+ assert.equal(decisionSourceFreshness('2026-11-03T12:00:00Z','NEW',asOf),'SOURCE DATE NEEDS REVIEW');
+ assert.equal(decisionSourceFreshness('not-a-date','NEW',asOf),'SOURCE DATE NEEDS REVIEW');
+});
+test('both public views honour six-story pagination while preserving evidence boundaries',()=>{
+ const home=readFileSync(new URL('../app/blue-desk/page.tsx',import.meta.url),'utf8');
+ const daily=readFileSync(new URL('../app/blue-desk/daily-report/page.tsx',import.meta.url),'utf8');
+ const cards=readFileSync(new URL('../components/blue-desk/DecisionBrief.tsx',import.meta.url),'utf8');
+ for(const page of [home,daily]){
+   assert.match(page,/storiesPage/);
+   assert.match(page,/storyPage=\{storyPage\}/);
+ }
+ assert.match(cards,/paginateDecisionTopics\(topics,storyPage,6\)/);
+ assert.match(cards,/aria-current=\{page===storyPages.page/);
+ assert.match(cards,/decisionSourceFreshness/);
+ assert.match(cards,/Reader time is not ingestion proof/);
+ assert.match(cards,/visibleTopics\.map/);
 });

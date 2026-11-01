@@ -99,3 +99,14 @@
  .homeDeck{font-size:17px;line-height:1.74}
  .homeLead .homeFoot small{font-size:12px!important}
 }
+
+
+/* Six-source-qualified stories per reader page. Pagination never clones stale stories. */
+.storyState{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px 22px;padding:12px 0 4px;border-top:1px solid var(--bb-line);font-size:12px;line-height:1.5}
+.storyState strong{color:var(--bb-text);font-size:13px}
+.storyState span{color:var(--bb-muted);max-width:78ch}
+.storyPagination{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:-3px 0 24px}
+.storyPagination a{display:inline-flex;min-height:37px;padding:8px 13px;align-items:center;border:1px solid var(--bb-line);background:var(--bb-surface);font-size:12px;font-weight:700;text-decoration:none}
+.storyPagination a:hover,.storyPagination a:focus-visible{border-color:var(--bb-accent)}
+.storyPagination a[aria-current="page"]{background:var(--bb-accent);color:#080a0c;border-color:var(--bb-accent)}
+@media(max-width:700px){.storyPagination{gap:6px}.storyPagination a{padding:8px 10px}}

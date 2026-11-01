@@ -56,7 +56,10 @@ function ellipsis(value: string, max = 175) {
   return value.slice(0, max).replace(/\s+\S*$/, "") + "…";
 }
 
-export default async function BlueDeskPage() {
+export default async function BlueDeskPage({ searchParams }: { searchParams?: Promise<{ storiesPage?: string | string[] }> }) {
+  const rawPage = (await searchParams)?.storiesPage;
+  const pageText = Array.isArray(rawPage) ? rawPage[0] : rawPage;
+  const storyPage = pageText && /^\d{1,2}$/.test(pageText) ? Number(pageText) : 1;
   const now = new Date();
   const host = (await headers()).get("host");
   const publicHost = isBlueDeskPublicReaderHost(host);
@@ -96,7 +99,7 @@ export default async function BlueDeskPage() {
       <BlueDeskHeader activePath="/blue-desk" />
       <div className={styles.content}>
         <DecisionBrief news={verifiedNews} recentNews={recentNews} calendar={calendar} now={now} host={host}
-          postEventRecaps={postEventRecaps}/>
+          postEventRecaps={postEventRecaps} storyPage={storyPage}/>
         <PublishedResearchDispatches items={projectPublishedResearchFocus(digestBriefs,now,3)}
           mode="today" readerHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/>
         {/* Legacy research archive remains accessible on the old desk only; Bluebelly readers use dedicated Markets and Key Stories pages. */}
