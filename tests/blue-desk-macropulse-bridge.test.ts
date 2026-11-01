@@ -106,7 +106,10 @@ test("the Newsroom preserves published MacroPulse research without classifying i
  const newsroom=readFileSync(new URL("../app/blue-desk/newsroom/page.tsx",import.meta.url),"utf8");
  assert.match(newsroom,/getPublishedMacroPulseBriefs\(4\)/);
  assert.match(newsroom,/data-macropulse-editorial="research-derived-not-canonical"/);
- assert.match(newsroom,/brief\.countercase/);
- assert.match(newsroom,/brief\.source_page_url/);
- assert.match(newsroom,/brief\.source_links/);
+ assert.match(newsroom,/projectPublishedResearchFocus\(researchDigests,now,6\)/);
+ assert.match(newsroom,/PublishedResearchDispatches/);
+ const shelf=readFileSync(new URL("../components/blue-desk/PublishedResearchDispatches.tsx",import.meta.url),"utf8");
+ assert.match(shelf,/item\.countercase/);
+ assert.match(shelf,/item\.sourcePageUrl/);
+ assert.match(shelf,/item\.sourceLinks/);
 });
