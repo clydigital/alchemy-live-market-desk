@@ -1,8 +1,6 @@
-import HormuzCrossings from "@/components/blue-desk/HormuzCrossings";
 import EarningsFundamentals from "@/components/blue-desk/EarningsFundamentals";
 import EarningsInvestorDeepDive from "@/components/blue-desk/EarningsInvestorDeepDive";
 import {getEarningsCase} from "@/lib/bluebelly-earnings-investor-stories";
-import { getHormuzMonitor } from "@/lib/hormuz-monitor";
 import Link from "next/link";
 import { headers } from "next/headers";
 
@@ -18,7 +16,6 @@ import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
 import {calculateBreadthRow,marketParticipationResearch} from "@/lib/bluebelly-breadth-dated";
-import { getPowerStackResearchAssets, mergePowerStackMarketSearch } from "@/lib/bluebelly-power-stack-public";
 import styles from "../blue-desk.module.css";
 import legibility from "./legibility.module.css";
 
@@ -33,7 +30,7 @@ type Props = {
 };
 
 const GROUP_ICONS: Record<string, MarketIconName> = {
-  all: "global", ai: "chip", breadth: "equities", powerstack: "equities", rates: "rates", energy: "oil",
+  all: "global", ai: "chip", breadth: "equities", rates: "rates", energy: "oil",
   fx: "currency", credit: "credit", equities: "equities", metals: "gold",
 };
 
@@ -62,29 +59,29 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
       <EarningsInvestorDeepDive ticker={detail.ticker} backHref={blueDeskPublicHref("/blue-desk/markets",host)} />
     </div>
   </main>;
-  const [monitor, hormuz, powerStack, breadthHistory] = await Promise.all([
+  const [monitor,breadthHistory] = await Promise.all([
     getMarketMonitor().catch(() => null),
-    group === "all" || group === "energy" ? getHormuzMonitor() : Promise.resolve(null),
-    group === "all" || group === "powerstack"
-      ? getPowerStackResearchAssets()
-      : Promise.resolve({items: [], status: "available" as const, tapeStatus: "available" as const}),
-    group === "all" || group === "breadth"
-      ? getSourceDatedBreadth()
-      : Promise.resolve({series:[],retrievalStatus:"fallback" as const}),
+    getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
   ]);
-  const monitoredRows=publicMarketObservations(monitor?.rows || [], group === "powerstack" ? "all" : group);
-  const breadthObservations = group === "all" || group === "breadth"
-    ? BREADTH_WATCHES.map(item => calculateBreadthRow(
+  // No personal Power Stack registry may be fetched in anonymous Markets.
+  const monitoredRows=publicMarketObservations(monitor?.rows || [],group);
+  const breadthObservations = group==="all" || group==="breadth"
+    ? BREADTH_WATCHES.map(item=>calculateBreadthRow(
         item.symbol,item.label,breadthHistory.series.find(row=>row.symbol===item.symbol)))
     : [];
-  const merged=group==="all" || group==="powerstack"
-    ? mergePowerStackMarketSearch([...monitoredRows,...breadthObservations],powerStack.items)
-    : [...monitoredRows,...breadthObservations];
-  const observations=group==="powerstack" ? merged.filter(row=>Boolean(row.researchRole)) : merged;
-  const sourceObservations=group==="powerstack" ? observations.filter(row=>row.type!=="Power Stack") : monitoredRows;
-  const participation=group==="all" || group==="breadth"
-    ? marketParticipationResearch([...publicMarketObservations(monitor?.rows||[],"all"),...breadthObservations])
-    : null;
+  const observations=[...monitoredRows,...breadthObservations];
+  const sourceObservations=monitoredRows;
+  const participation=marketParticipationResearch([
+    ...publicMarketObservations(monitor?.rows||[],"all"),
+    ...BREADTH_WATCHES.map(item=>calculateBreadthRow(
+      item.symbol,item.label,breadthHistory.series.find(row=>row.symbol===item.symbol))),
+  ]);
+  const breadthPrimary=["S5FI","S5TH"].map(symbol=>
+    BREADTH_WATCHES.find(row=>row.symbol===symbol)!
+  ).map(item=>({item,reading:calculateBreadthRow(item.symbol,item.label,
+    breadthHistory.series.find(row=>row.symbol===item.symbol))}));
+  const breadthValue=(n:number|null,unit:"%"|"pp")=>
+    n===null?"—":`${n>0&&unit==="pp"?"+":""}${n.toFixed(2)}${unit==="pp"?" pp":"%"}`;
 
   const selected = PUBLIC_MARKET_GROUPS.find(item => item.id === group)!;
 
@@ -109,25 +106,25 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           </div>
         </header>
 
-        <nav aria-label="Market group" className={`${styles.publicMarketGroups} ${legibility.marketGroups}`}>
-          {PUBLIC_MARKET_GROUPS.map(item => (
-            <Link
-              key={item.id}
-              href={blueDeskPublicHref("/blue-desk/markets?group=" + item.id, host)}
-              className={group === item.id ? styles.calendarTabActive : styles.calendarTab}
-              aria-current={group === item.id ? "page" : undefined}
-            >
-              <MarketIcon name={GROUP_ICONS[item.id] || "market"} size={17} />
-              {item.label}
-            </Link>
-          ))}
-          <Link href="/power-stack" className={styles.calendarTab}
-            data-market-private-link="google-required"
-            aria-label="My Power Stack — approved Google sign-in required">
-            <MarketIcon name="equities" size={17} /> 🔒 My Power Stack
-          </Link>
+        <nav aria-label="Markets page sections" className={legibility.focusNavigation}
+          data-markets-primary="breadth-and-comparison">
+          <a href="#breadth-watch-heading">Market breadth</a>
+          <a href="#market-group-heading">ETF comparisons</a>
+          <a href="#advanced-market-charts">Open charts</a>
         </nav>
-
+        <details className={legibility.categoryDisclosure}>
+          <summary>Browse markets by category</summary>
+          <nav aria-label="Market group" className={`${styles.publicMarketGroups} ${legibility.marketGroups}`}>
+            {PUBLIC_MARKET_GROUPS.map(item=><Link key={item.id}
+              href={blueDeskPublicHref("/blue-desk/markets?group="+item.id,host)}
+              className={group===item.id?styles.calendarTabActive:styles.calendarTab}
+              aria-current={group===item.id?"page":undefined}>
+              <MarketIcon name={GROUP_ICONS[item.id]||"market"} size={17}/>
+              {item.label}
+            </Link>)}
+          </nav>
+        </details>
+        
         <section className={`${styles.section} ${legibility.marketSection}`} aria-label="TradingView market chart" data-market-chart-provider="tradingview">
           <div className={styles.sectionHead}><div>
             <h2>Market charts · TradingView</h2>
