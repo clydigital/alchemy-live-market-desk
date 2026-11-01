@@ -9,6 +9,7 @@ export const PUBLIC_MARKET_GROUPS = [
   { id: "all", label: "All markets" },
   { id: "ai", label: "AI & semiconductors" },
   { id: "breadth", label: "Market breadth" },
+  { id: "powerstack", label: "Power Stack" },
   { id: "rates", label: "Government rates" },
   { id: "energy", label: "Oil & energy" },
   { id: "fx", label: "Currencies" },
@@ -32,7 +33,8 @@ export type PublicMarketObservation = {
   change: number | null;
   change3d: number | null;
   change5d: number | null;
-  changeUnit: "%" | "bp";
+  changeUnit: "%" | "bp" | "pp";
+  dataStatus?: "SOURCE_DATED_SECONDARY" | "UNAVAILABLE_OR_STALE";
   asOf: string | null;
   frequency: "daily" | "monthly";
   sourceName: string;
@@ -49,6 +51,7 @@ function includedType(type: MarketMonitorType, group: PublicMarketGroup): boolea
   switch (group) {
     case "ai": return type === "AI / Semis";
     case "breadth": return false; // Breadth is externally linked, not a measured price type.
+    case "powerstack": return false; // Power Stack assets are assembled from its public research registry.
     case "rates": return type === "Rates";
     case "energy": return type === "Energy";
     case "fx": return type === "FX";
