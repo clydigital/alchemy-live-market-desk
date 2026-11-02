@@ -30,7 +30,7 @@ export default function PublishedResearchDispatches({
       <small style={{fontWeight:700}}>RESEARCH-DERIVED · NOT CANONICAL · {item.region.toUpperCase()}</small>
       <h3 style={{fontSize:compact?16:19,margin:"8px 0"}}>{item.headline}</h3>
       <p>{item.standfirst}</p>
-      <p><strong>Why it could matter:</strong> {item.whyItMatters}</p>
+      <div data-market-takeaway="owner-reviewed-research" style={{background:"var(--bb-card-quiet)",borderLeft:"3px solid var(--bb-heading-markets)",padding:"11px 13px",margin:"10px 0"}}><strong style={{color:"var(--bb-heading-markets)",fontSize:13}}>Market takeaway</strong><p style={{margin:"6px 0"}}>{item.whyItMatters}</p><p style={{margin:"6px 0"}}><strong>What would clarify this:</strong> {item.nextTest}</p><small>Reviewed research, not proof of a measured market-price cause.</small></div>
       <details><summary>Countercase, next test and source provenance</summary>
        <p><strong>What changed:</strong> {item.whatChanged}</p>
        <p><strong>Countercase:</strong> {item.countercase}</p>
