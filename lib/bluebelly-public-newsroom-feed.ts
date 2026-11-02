@@ -9,6 +9,8 @@ import {selectPostEventRecaps} from "./bluebelly-post-event-recap.ts";
 import {weekAheadNewsroomEditorial} from "./bluebelly-week-ahead-newsroom.ts";
 import {currentReviewedPublicFocus} from "./bluebelly-reviewed-public-focus.ts";
 import {OCT30_SELL_OFF,oct30SelloffIsLead} from "./bluebelly-oct30-tech-selloff.ts";
+import {getRecentVerifiedEarningsScorecards} from "./blue-desk-earnings-results.ts";
+import {getRecentOfficialMacroResults} from "./blue-desk-official-macro-results.ts";
 
 /** The *same* read-only Newsroom editorial admission on Today and Newsroom.
  * Source attribution and review status are not upgraded here.
@@ -23,6 +25,36 @@ export function publicNewsroomEditorials(
   selectPostEventRecaps(news,now,8),reader,now,
  );
  result.push(...weekAheadNewsroomEditorial(now,blueDeskPublicHref("/blue-desk/newsroom/week-ahead",host)));
+ // A completed original issuer or official macro release should not disappear
+ // from the Newsroom merely because no new verified canonical Motion exists.
+ // Reuse the already source-reviewed and time-gated public scorecards; never
+ // promote a private Work report, a research lead, or unsourced consensus.
+ const existing=new Set([...news.map(n=>n.sourceUrl),...result.map(e=>e.sourceUrl)]);
+ for(const release of getRecentOfficialMacroResults(now)){
+  if(existing.has(release.sourceUrl))continue;
+  existing.add(release.sourceUrl);
+  result.push({id:"macro-release:"+release.id,headline:release.title,
+   summary:release.fact,occurredAt:release.releaseAt,sourceName:release.sourceName,
+   sourceUrl:release.sourceUrl,readerHref:reader+"?brief="+encodeURIComponent(release.id),
+   topics:["policy","bonds"],verificationLabel:"REVIEWED ORIGINAL ECONOMIC RELEASE",
+   why:release.mechanism,nextTest:release.test,kind:"macro"});
+ }
+ for(const release of getRecentVerifiedEarningsScorecards(now,7)){
+  if(existing.has(release.sourceUrl))continue;
+  existing.add(release.sourceUrl);
+  result.push({id:"earnings-release:"+release.id,headline:release.headline,
+   summary:release.conclusion,occurredAt:release.releaseDay,sourceName:release.sourceName,
+   sourceUrl:release.sourceUrl,readerHref:reader+"?brief="+encodeURIComponent(release.id),
+   topics:["earnings"],verificationLabel:release.preliminary?
+    "PRELIMINARY ISSUER RELEASE · CONSENSUS NOT VERIFIED":
+    release.beatSource==="pre_release_consensus"?
+     "REVIEWED ISSUER RELEASE · ANALYST COMPARISON":
+     release.beatSource==="company_guidance"?
+      "REVIEWED ISSUER RELEASE · COMPANY GUIDANCE ONLY":
+      "REVIEWED ISSUER RELEASE · CONSENSUS NOT VERIFIED",
+   why:release.outlook,nextTest:release.nextTest,kind:"earnings"});
+ }
+
  for(const focus of currentReviewedPublicFocus(now))result.push({
   id:focus.id,headline:focus.headline,summary:focus.fact,
   occurredAt:focus.eventDay,sourceName:focus.sourceName,
