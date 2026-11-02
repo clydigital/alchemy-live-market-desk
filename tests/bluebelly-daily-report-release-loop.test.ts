@@ -52,17 +52,23 @@ test("Newsroom and Today share already-reviewed releases, with source and consen
  const macro=getRecentOfficialMacroResults(today);
  assert.ok(issuer.length>0&&macro.length>0);
  for(const item of issuer){
-  const match=editorials.find(x=>x.id==="earnings-release:"+item.id);
-  assert.ok(match,item.id);
-  assert.equal(match?.sourceUrl,item.sourceUrl);
-  assert.equal(match?.occurredAt,item.releaseDay);
-  assert.equal(match?.readerHref,"/key-stories?brief="+item.id);
-  if(item.beatSource==="unavailable")assert.match(match?.verificationLabel||"",/CONSENSUS NOT VERIFIED/);
+  // Already-published post-event recaps have first claim on the same original
+  // URL. The source must appear exactly once, not as two duplicative cards.
+  const matches=editorials.filter(x=>x.sourceUrl===item.sourceUrl);
+  assert.equal(matches.length,1,item.id);
+  const match=matches[0];
+  assert.ok(match.readerHref.startsWith("/key-stories"));
+  if(match.id==="earnings-release:"+item.id){
+   assert.equal(match.occurredAt,item.releaseDay);
+   assert.equal(match.readerHref,"/key-stories?brief="+item.id);
+   if(item.beatSource==="unavailable")assert.match(match.verificationLabel,/CONSENSUS NOT VERIFIED/);
+  }
  }
  for(const item of macro){
-  const match=editorials.find(x=>x.id==="macro-release:"+item.id);
-  assert.ok(match,item.id);assert.equal(match?.sourceUrl,item.sourceUrl);
-  assert.equal(match?.kind,"macro");
+  const matches=editorials.filter(x=>x.sourceUrl===item.sourceUrl);
+  assert.equal(matches.length,1,item.id);
+  const match=matches[0];
+  if(match.id==="macro-release:"+item.id)assert.equal(match.kind,"macro");
  }
  const shared=selectTodayNewsroomItems([],[],editorials,today,5);
  assert.ok(shared.length>0);
