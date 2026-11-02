@@ -25,7 +25,12 @@ const week:readonly {day:string;label:string;companies:readonly Preview[]}[]=[
    source:"https://investors.palantir.com/news-details/2026/Palantir-Announces-Date-of-Third-Quarter-2026-Earnings-Release-and-Webcast/",sourceName:"Palantir IR notice",confirmed:true},
  ]},
  {day:"Tuesday 3 November",label:"The AI hardware-to-power conversion chain",companies:[
-  {ticker:"ETN",name:"Eaton",time:"Before US open · 11:00 ET call",business:"Electrical equipment and power-management systems",
+  {ticker:"PFE",name:"Pfizer",time:"Before US open · 10:00 ET call",business:"Innovative medicines, oncology and vaccines",
+   test:"Identify which new medicines and oncology products offset patent expiries and post-pandemic declines; compare adjusted profitability with operating cash, debt, interest and dividend coverage.",
+   counter:"Cost savings can lift adjusted EPS without restoring sales or repairing the long-term exclusivity cliff.",
+   market:"The healthcare test: can a pharmaceutical company finance its next growth engine from cash generation?",
+   source:"https://www.pfizer.com/news/press-release/press-release-detail/pfizer-invites-public-view-and-listen-webcast-november-3",sourceName:"Pfizer IR announcement",confirmed:true},
+ {ticker:"ETN",name:"Eaton",time:"Before US open · 11:00 ET call",business:"Electrical equipment and power-management systems",
    test:"The company previously guided to 13.5–15.5% Q3 organic growth, 24.6–25.0% segment margins and $3.46–3.56 adjusted EPS. Check order growth, Electrical Americas backlog and cash conversion against that issuer bar.",
    counter:"Backlog does not equal immediate profit: capacity, costs, acquisition effects and order timing can erode returns.",
    market:"The power bottleneck test: does data-centre spending turn into electrical orders and sustainable margins?",
