@@ -130,7 +130,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
        <span className={styles.chip}>{card.item.verificationLabel}</span>
        <small className={styles.metadata}>{card.item.topics.join(" · ").toUpperCase()} · {clock(card.item.occurredAt)}</small>
        <h2><Link href={card.item.readerHref}>{card.item.headline}</Link></h2>
-       <p>{card.item.summary}</p>
+       <p data-quick-market-brief="source-qualified-summary">{card.item.summary}</p>
        <div className={styles.actions}>
         <Link href={card.item.readerHref}>Read the source-reviewed analysis →</Link>
         <a href={card.item.sourceUrl} rel="noopener noreferrer" target="_blank">{card.item.sourceName} · original source ↗</a>
@@ -150,7 +150,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
        <span className={styles.chip}>{Date.parse(now)-Date.parse(card.item.occurredAt)>48*3600000?"VERIFIED · EARLIER THIS WEEK":"SOURCE VERIFIED · LAST 48H"}</span>
        <small className={styles.metadata}>{editorialNewsTopics(card.item).join(" · ").toUpperCase()} · {clock(card.item.occurredAt)}</small>
        <h2><Link href={readerHref+"?news="+encodeURIComponent(card.item.id)}>{card.item.headline}</Link></h2>
-       <p>{card.item.summary}</p>
+       <p data-quick-market-brief="source-qualified-summary">{card.item.summary}</p>
        <div className={styles.actions}>
         <Link href={readerHref+"?news="+encodeURIComponent(card.item.id)}>Read short Bluebelly recap →</Link>
         <a href={card.item.sourceUrl} rel="noopener noreferrer" target="_blank">{card.item.sourceName} · original report ↗</a>
