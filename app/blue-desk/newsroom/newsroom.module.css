@@ -12,3 +12,6 @@
 .contextBridge strong{color:var(--bb-accent);font:800 11px var(--bb-mono)}
 .contextBridge a{color:var(--bb-accent);font-weight:800}
 @media(max-width:700px){.featureLead{padding:22px 18px;clip-path:none}.featureLead h2{font-size:clamp(26px,7vw,36px)}.contextBridge{padding:14px 15px}}
+
+.featureLead{background:var(--bb-surface);border-color:var(--bb-heading-newsroom)}
+.featureLead h2{color:var(--bb-heading-newsroom)}
