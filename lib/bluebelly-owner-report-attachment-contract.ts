@@ -2,7 +2,7 @@
  * These are not canonical observations, published reports or source verification. */
 export const REPORT_ATTACHMENT_BUCKET="editorial-pdfs";
 export const REPORT_ATTACHMENT_PREFIX="private-daily-research";
-export const REPORT_ATTACHMENT_MAX_BYTES=5_000_000;
+export const REPORT_ATTACHMENT_MAX_BYTES=3_000_000;
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FILENAME=/^20\d{2}-\d{2}-\d{2}--[a-z0-9-]{1,56}--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$/;
 export function attachmentOwnerPrefix(ownerId:string){
