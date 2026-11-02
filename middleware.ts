@@ -104,7 +104,7 @@ export async function middleware(request: NextRequest) {
     // Frozen/historical identifiers remain unavailable here: never silently
     // replay a current report in place of an exact historical edition.
     if ((pathname === "/daily-report" || pathname === "/blue-desk/daily-report")
-      && (host || "").trim().toLowerCase().replace(/:443$/, "") === "bluebelly-desk.vercel.app"
+      && ["bluebelly-desk.vercel.app","alchemy-live-market-desk.vercel.app"].includes((host || "").trim().toLowerCase().replace(/:443$/, ""))
       && ["edition","dossier","story","motion","regime","event","research_run","article","snapshot"]
         .some(key => request.nextUrl.searchParams.has(key))) {
       return new NextResponse(null, { status: 404, headers: { "Cache-Control": "no-store" } });
