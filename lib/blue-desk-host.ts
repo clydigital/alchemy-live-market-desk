@@ -167,7 +167,8 @@ export function retiredLivePublicDestination(
  else if(pathname==="/owner/markets")clean="/markets";
  else if(pathname==="/blue-desk")clean="/";
  else if(pathname.startsWith("/blue-desk/"))clean=pathname.slice("/blue-desk".length);
- // Daily Report is a source-qualified public reader again; preserve its path.\n const dest=new URL(clean,"https://"+BLUEBELLY_PRESENTATION_HOST);
+ // Daily Report is a source-qualified public reader again; preserve its path.
+ const dest=new URL(clean,"https://"+BLUEBELLY_PRESENTATION_HOST);
  // Carry only bounded, known public filter state. Discard unknown parameters;
  // never forward token/credential-style query data to the public product.
  const one=(key:string,pattern:RegExp)=>{
