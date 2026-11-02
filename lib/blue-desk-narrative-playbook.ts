@@ -26,6 +26,9 @@ export const DAILY_BRIEFING_STEPS = Object.freeze([
 export function privateNarrativeInstructions(kind: DeskNarrativeKind): string {
   const shared = [
     "Two desks, one evidence packet: Research gathers attributed originals, dated observations, gaps and competing explanations; Storytelling can ONLY rearrange and explain what the packet actually supports.",
+    "Follow docs/editorial/BLUEBELLY_MARKET_CONSEQUENCE_STANDARD.md: first produce a QUICK MARKET BRIEF of one to three plain-English sentences under the headline, then the FULL STORY with actual-versus-expected figures, source clocks, guidance, cash/valuation context and limitations. The quick brief never replaces the details.",
+    "Run five checks in order: verified event; economic effect for a named entity; SPECIFIC uncertainty that increased/decreased or remains unknown; frozen pre-release expectations or EXPECTATIONS NOT VERIFIED; dated named-instrument price response or MARKET REACTION UNMEASURED. Do not infer economic direction from share-price direction.",
+    "If verified economic direction and observed asset reaction materially conflict, offer at most three initially relevant candidate explanations with evidence for/against and a next discriminator. Peak earnings priced in, valuation compression, guidance and position effects are HYPOTHESES, not facts. Say CAUSE NOT ESTABLISHED when evidence is missing. No automatic canonical thesis mutation.",
     "Use the chronological explanatory style of a Shark Tank deal breakdown, NOT dialogue, roleplay, invented speakers, contrived excitement or direct quotes.",
     "Open with one concise big-picture interpretation grounded in the packet, then show what actually happened before explaining mechanisms.",
     "Keep the five-beat narrative spine: setup -> reveal -> teaching moment -> catch -> next decision. Write natural flowing prose, not five repeated mechanical subheadings.",
