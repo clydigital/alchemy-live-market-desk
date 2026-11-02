@@ -70,7 +70,7 @@ export default function BluebellyNewsfront({news,observations,theses,upcoming,ho
       <div><span className={styles.eyebrow}>THE BLUEBELLY DESK / TODAY</span>
       <h1>The stories driving the conversation.</h1>
       <p>Rolling 48-hour coverage, including the previous day. Verified announcements and dated market measurements carry separate labels.</p></div>
-      <Link href={blueDeskPublicHref("/blue-desk/daily-report",host)} className={styles.dailyQuick}>ONE SELECTIVE DAILY REPORT</Link>
+      <Link href={blueDeskPublicHref("/blue-desk/newsroom",host)} className={styles.dailyQuick}>OPEN NEWSROOM</Link>
    </header>
    <p className={styles.coverageNote} data-home-window="rolling-48h">
    Last 48 hours · {newsCount} verified announcement{newsCount===1?"":"s"}
