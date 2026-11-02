@@ -16,10 +16,10 @@ export default function DailyFiveTopicBrief({report,now,reader,calendar}:{report
    <p className={styles.deck}>The important developments, the possible economic effect and the evidence that would change the interpretation. Full figures and original sources remain in each story.</p>
    <div className={styles.meta}>
     <span>Report read at <DualTimestamp value={now.toISOString()}/></span>
-    <span>{report.stories.length} source-qualified topics · {report.freshWithin48h} sourced within 48 hours</span>
+    <span>{report.stories.length} source-qualified topics · {report.freshWithin48h} newly verified releases within 48 hours</span>
    </div>
    {report.status==="RECENT_REVIEWED_ONLY"?<p className={styles.coverage} role="status">
-    No selected story has a verified source date within the past 48 hours. These are earlier reviewed developments, not newly released results.
+    No new verified release is among these five topics for the past 48 hours. Earlier reviewed developments remain visible with their source dates; this does not prove no new releases occurred.
    </p>:report.status==="NO_QUALIFIED_SOURCES"?<p className={styles.coverage} role="status">
     No source-qualified market developments are available for this rolling report. Do not interpret an empty feed as a quiet market.
    </p>:null}
