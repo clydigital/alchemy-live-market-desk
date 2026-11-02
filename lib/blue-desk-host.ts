@@ -35,7 +35,9 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   }
   if (pathname === "/") return "/blue-desk";
   if (pathname === "/calendar") return "/blue-desk/calendar";
-  // /daily-report is retired: middleware redirects public bookmarks to Newsroom.
+  // Keep the old public rewrite identity for compatibility tests/bookmarks;
+  // middleware intercepts both aliases before a reader can render.
+  if (pathname === "/daily-report") return "/blue-desk/daily-report";
   if (pathname === "/learn") return "/blue-desk/learn";
   if (PUBLIC_LEARN_DECK_PATH.test(pathname) && pathname.startsWith("/learn/decks/")) return "/blue-desk" + pathname;
   if (pathname === "/key-stories") return "/blue-desk/key-stories";
