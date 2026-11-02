@@ -5,6 +5,7 @@ import {readFileSync} from "node:fs";
 const read=(p:string)=>readFileSync(new URL(p,import.meta.url),"utf8");
 const key=read("../app/blue-desk/key-stories/page.tsx");
 const feature=read("../components/blue-desk/MidtermRallyFeature.tsx");
+const midtermPath=read("../components/blue-desk/MidtermHistoricalPath.tsx");
 const news=read("../app/blue-desk/newsroom/week-ahead/page.tsx");
 
 test("midterm feature is an explicit, finite public Key Stories article",()=>{
@@ -41,4 +42,19 @@ test("feature retains authenticated data separation and does not create new APIs
  assert.doesNotMatch(feature,/from ["']@\/lib\/(?:blue-desk-.*-server|supabase|private)/);
  assert.doesNotMatch(feature,/fetch\(|process\.env|cookies\(/);
  assert.match(feature,/not a canonical market-regime verdict/);
+});
+
+test("midterm historical path is finite, data-labelled and chart-limited to one month",()=>{
+ assert.match(feature,/MidtermHistoricalPath/);
+ assert.match(midtermPath,/data-midterm-path-chart="first-month-only"/);
+ assert.match(midtermPath,/const PATH=\[\{label:"Election"/);
+ assert.match(midtermPath,/WEEKLY\.map/);
+ assert.match(midtermPath,/MONTHLY:Window\[\]/);
+ for(const number of ["1.11","0.02","0.70","1.70","3.52","7.70","14.14","15.11"]){
+  assert.match(midtermPath,new RegExp(number.replace(".","\\.")));
+ }
+ assert.match(midtermPath,/months six through nine/);
+ assert.match(midtermPath,/17\/19 at months ten and eleven/);
+ assert.match(midtermPath,/Financial Modeling Prep/);
+ assert.match(midtermPath,/excluding dividends|exclude dividends/);
 });
