@@ -55,8 +55,8 @@ export function selectNewsroomHotPicks(
   const at=Date.parse(item.occurredAt);
   if(!Number.isFinite(at)||at>+now||+now-at>7*DAY)continue;
   const ageDays=(+now-at)/DAY;
-  const topic=item.kind==="incident"?"CRYPTO":item.kind==="bank"?"MACRO":item.kind==="earnings"?"EQUITIES":"AI";
-  const priority=item.kind==="incident"?102:item.kind==="bank"?90:item.kind==="earnings"?84:65;
+  const topic=item.kind==="incident"?"CRYPTO":item.kind==="bank"||item.kind==="macro"?"MACRO":item.kind==="earnings"?"EQUITIES":"AI";
+  const priority=item.kind==="incident"?102:item.kind==="bank"?90:item.kind==="macro"?88:item.kind==="earnings"?84:65;
   candidates.push({key:"editorial:"+item.id,eventType:"EDITORIAL_"+item.kind,topic,at,
    score:priority+freshPoints(ageDays)+stableDailyTie(item.id,etDay),sourceUrl:item.sourceUrl});
  }
