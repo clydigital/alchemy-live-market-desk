@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import test from "node:test";
+import {officialEarningsEvents} from "../lib/forward-earnings-sources.ts";
 import {blueDeskHostAccess,blueDeskPresentationTarget,blueDeskPublicHref}
  from "../lib/blue-desk-host.ts";
 
@@ -45,4 +46,19 @@ test("Earnings research has source links and remains a single grouped feature",(
    "../app/blue-desk/daily-report/page.tsx"]){
   assert.match(read(path),/blue-desk\/earnings-week/);
  }
+});
+
+test("Six November company IR notices feed live earnings Calendar and Daily Report input",()=>{
+ const now=new Date("2026-11-02T04:30:00Z");
+ const events=officialEarningsEvents(now);
+ for(const ticker of ["ETN","SMCI","NVTS","UBER","QCOM","MRNA"]){
+  const event=events.find(e=>e.affectedAssets.includes(ticker));
+  assert.ok(event,ticker+" should be issuer-admitted");
+  assert.equal(event.verificationState,"official");
+  assert.equal(event.timePrecision,"exact");
+  assert.ok(event.sourceUrl.startsWith("https://"));
+  assert.match(event.expectedStage||"",/release|call|webcast|results|report/i);
+ }
+ assert.equal(events.find(e=>e.affectedAssets.includes("AAPL")),undefined,
+  "Earnings Whispers schedule is not silently promoted to an issuer-confirmed event");
 });
