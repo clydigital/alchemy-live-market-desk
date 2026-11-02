@@ -1,4 +1,5 @@
 import styles from "./MarketTakeaway.module.css";
+import {takeawayExcerpt} from "@/lib/bluebelly-market-takeaway-excerpt";
 
 /**
  * One compact, human-readable explanation. Inputs are already source-reviewed
@@ -11,12 +12,19 @@ export default function MarketTakeaway({why,nextTest,mode="reviewed",compact=fal
  mode?:"reviewed"|"source-only"|"archived";compact?:boolean;
 }){
  const researched=mode==="reviewed"&&Boolean(why?.trim())&&Boolean(nextTest?.trim());
+ const reason=takeawayExcerpt(why||"");
+ const check=takeawayExcerpt(nextTest||"",180);
  return <aside className={styles.takeaway} data-market-takeaway={researched?"reviewed":mode==="archived"?"see-archived-story":"not-yet-assessed"}
    data-compact={compact?"true":"false"} aria-label="Market takeaway">
   <strong className={styles.heading}>Market takeaway</strong>
   {researched?<>
-   <p><b>Why markets care:</b> {why}</p>
-   <p><b>What would clarify this:</b> {nextTest}</p>
+   <p><b>Why markets care:</b> {reason.preview}</p>
+   <p><b>What would clarify this:</b> {check.preview}</p>
+   {reason.expanded||check.expanded?<details className={styles.more}>
+     <summary>Full reviewed reasoning and next test</summary>
+     <p><b>Why markets care:</b> {why}</p>
+     <p><b>What would clarify this:</b> {nextTest}</p>
+   </details>:null}
    <small>The economic interpretation is conditional. A market-price cause or a “priced in” verdict needs separate event-window and expectation evidence.</small>
   </>:<>
    <p><b>{mode==="archived"?"Full interpretation in report.":"Impact not yet assessed."}</b> {mode==="archived"?
