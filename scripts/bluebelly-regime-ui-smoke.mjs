@@ -176,6 +176,7 @@ try{
  for(const [path,id,marker] of publicPages){
   const view=await waitResponse(path);
   assertHtml(view.html,marker);
+  if(id==="newsroom")assertHtml(view.html,'data-newsroom-release-rail="qualified-originals-and-reviewed-results"');
   // TradingView embeds can keep headless Chrome alive indefinitely; Markets is
   // covered by the route/HTML assertions, not a brittle third-party screenshot.
   if(id!=="markets")
