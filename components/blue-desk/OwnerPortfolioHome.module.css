@@ -46,7 +46,7 @@
 .compactHead{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin:10px 0 12px}
 .compactHead h3{margin:0;font:800 20px/1.25 var(--bb-display,inherit);color:var(--bb-text,#eef7fa)}
 .compactHead p{margin:4px 0 0;font-size:12px;color:var(--bb-muted,#b9d4de)}
-.tableNote{font:700 11px/1.5 var(--bb-mono,monospace);color:var(--bb-muted,#b9d4de)}
+.tableNote{font:700 11px/1.5 var(--bluebelly-font,var(--font-figtree));color:var(--bb-muted,#b9d4de)}
 .compactFilters{display:flex;gap:12px;flex-wrap:wrap;align-items:end;justify-content:space-between;margin:8px 0 12px}
 .compactFilters label{display:grid;gap:4px;max-width:260px;width:100%;font-size:11px;color:var(--bb-muted,#b9d4de)}
 .compactFilters input{width:100%;min-height:34px;background:var(--bb-surface,#082a3a);border:1px solid var(--bb-line,#3b748d);color:var(--bb-text,#eef7fa);padding:7px 10px;border-radius:6px}
