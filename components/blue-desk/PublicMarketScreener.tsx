@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { EntityRow } from "@/components/blue-desk/EntityIdentity";
+import MarketObservationTakeaway from "./MarketObservationTakeaway";
 import { entityForAsset } from "@/lib/bluebelly-entity-identity";
 import {
   DEFAULT_PUBLIC_MARKET_FILTERS,
@@ -249,6 +250,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
             <span>{row.type === "Breadth" ? "External breadth chart · no verified reading" : row.researchRole && row.last === null ? "Public symbol catalogue · price unavailable/stale" : `${row.asOf ? `Observation: ${row.asOf}` : "Observation date unavailable"} · ${row.frequency} observation`}</span>
             {row.sourceUrl ? <a href={row.sourceUrl} target="_blank" rel="noreferrer">{row.sourceName} · {row.type === "Breadth" ? "open chart ↗" : row.researchRole && row.last === null ? "source ↗" : "original data ↗"}</a>
               : <span>Original-source link unavailable</span>}
+            <MarketObservationTakeaway row={row} window={window}/>
           </td>
         </tr>)}</tbody>
       </table>

@@ -1,0 +1,19 @@
+.takeaway{margin:11px 0 12px;padding:12px 14px;border-left:3px solid var(--bb-heading-newsroom,#5dbaff);background:var(--bb-card-quiet,#171b1f);border-top:1px solid var(--bb-line,#3c454c);border-bottom:1px solid var(--bb-line,#3c454c);color:var(--bb-text,#f1f1e9)}
+.heading{display:block;color:var(--bb-heading-newsroom,#5dbaff);font:900 12px/1.4 var(--bb-mono);text-transform:uppercase;letter-spacing:.055em;margin-bottom:6px}
+.takeaway p{font-size:14px!important;line-height:1.6!important;color:var(--bb-text,#f1f1e9)!important;margin:5px 0!important;overflow-wrap:anywhere}
+.takeaway b{color:var(--bb-text,#f1f1e9)}
+.takeaway small{display:block;font-size:11px;line-height:1.58;color:var(--bb-muted,#b4bec1);margin-top:7px}
+.takeaway[data-compact="true"]{padding:10px 12px}
+.takeaway[data-compact="true"] p{font-size:13px!important}
+@media(max-width:600px){.takeaway{margin:10px 0;padding:12px}.takeaway p{font-size:14px!important}}
+
+.observation{margin:8px 0 1px;padding:8px 10px;background:var(--bb-card-quiet);border:1px solid var(--bb-line);border-left:2px solid var(--bb-heading-markets);font-size:12px;line-height:1.55;max-width:380px}
+.observation summary{display:list-item;cursor:pointer;color:var(--bb-heading-markets);font:800 12px/1.4 var(--bb-mono);padding:4px 0}
+.observation p{font-size:12px!important;line-height:1.55!important;color:var(--bb-text)!important;white-space:normal;overflow-wrap:anywhere;margin:8px 0}
+.observation small{display:block;color:var(--bb-muted);font-size:11px;line-height:1.5}
+.observation:focus-within{outline:2px solid var(--bb-heading-markets);outline-offset:2px}
+
+.more{margin:7px 0;border-top:1px solid var(--bb-line);padding-top:5px}
+.more summary{cursor:pointer;color:var(--bb-heading-newsroom,#69c9ff);font:750 12px/1.55 var(--bb-mono);min-height:36px;display:flex;align-items:center}
+.more summary:focus-visible{outline:2px solid var(--bb-heading-newsroom,#69c9ff);outline-offset:2px}
+.more p{margin:7px 0!important;font-size:13px!important;color:var(--bb-muted)!important}

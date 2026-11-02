@@ -1,6 +1,6 @@
 # Bluebelly Market Consequence Standard v1.0
 
-**Status:** Editorial and deterministic quality contract, not a new evidence authority or second reasoning engine. **Owner:** Existing MacroPulse → Research Gap → canonical Dossier/System 2 → approved editorial publication. **Date:** 3 November 2026. **Surface:** Bluebelly public Newsroom, Key Stories, Daily Report and owner-only writing/presenter drafts.
+**Status:** Editorial and deterministic quality contract, not a new evidence authority or second reasoning engine. **Owner:** Existing MacroPulse → Research Gap → canonical Dossier/System 2 → approved editorial publication. **Date:** 3 November 2026. **Surface:** Bluebelly public Today, Newsroom, Key Stories and Markets; full Daily Intelligence in the private My Desk and owner-only writing/presenter drafts. The duplicate public Daily Report reader was retired at owner request.
 
 ## The reader's experience: brief first, receipts underneath
 
@@ -12,6 +12,22 @@ Every significant source-qualified story SHOULD open under the headline with a *
 - Use no unsourced price move, causal certainty or "priced in" claim. Do not pad a minor fact to manufacture a consequence.
 
 Below the brief, preserve the **Full Story**: original releases, previous/baseline, comparably measured pre-event expectations, actual and guidance, cash/economic route, matched market reactions if available, competing explanations, valuation where justified, remaining gaps and next tests. Never trade detail for readability: **the brief is a door into the evidence, not a replacement for it**. Render details directly below or in an accessible disclosure; keep mobile readability and provenance.
+
+## Automated reader: Market takeaway (3 Nov owner update)
+
+The public label is **Market takeaway**, never “transmission framework”. A source-reviewed editorial supplies two existing fields to the public reader: (1) **Why markets care**: plain-English, named economics or financing channel, conditional if not observed; (2) **What would clarify this**: the specific follow-up data/decision that would test that channel. The audience sees this **on the card**, not hidden behind an expansion. The long-form Key Story retains actual/expected/prior figures, vintage and sourced market observations.
+
+**Three immutable boundaries, shared across Today, Newsroom and Markets:**
+
+- **Reviewed editorial:** project the already owner/source-reviewed `why` and `nextTest` automatically to a visible Market takeaway. Never convert these to “bullish”, “headwind” or “uncertainty increased” unless those directions were actually reviewed and supported. Price causality remains separate.
+- **Source-only original / archived item without a matching reviewed market channel:** show an honest unassessed state and the next evidence request; link to the full archived reader where available. Do not ask the frontend to improvise market reasoning.
+- **Markets observations:** compute only the selected 1D/3D/5D source-session change with sign, unit and source date. A short per-instrument Market takeaway can state the observed move and the **question to check**, but not what caused it, whether it was priced in or whether it is cheap. Rates are in basis points, breadth in percentage points and security returns in percentages; missing/stale observations remain unavailable.
+
+**Automated handoff:** Existing MacroPulse annotates candidate mechanism/open question; Research Investigation verifies source, comparator and countercase; Writing Brain publishes one brief-first **private My Desk** edition and approved public editorial only via the existing review/publisher pipeline. When these existing reviewed `why` / `nextTest` fields change, Today and Newsroom reflect them on the next read without a new schedule, LLM call, public model or duplicate report page. Missing official-release intake remains a separate P0 operational gap and must never be masked with speculative interpretation.
+
+**Visual semantics:** near-black canvas and neutral charcoal cards; yellow Today, light-blue Newsroom and light-green Markets heading accents. Header color denotes section identity only, **not** market sentiment or verification status. Preserve the existing four selectable themes and high-contrast body text.
+
+**Daily QA:** check the latest private My Desk immutable edition and readback, latest official original receipts, at least one source-reviewed Newsroom card with the two visible consequence lines, source-only explicitly unassessed cards, dated Markets comparisons and owner authentication. A green schedule without a fresh private report or public original receipt is an incomplete delivery.
 
 ## Five sequential checks: System 1's bounded job
 
@@ -52,7 +68,7 @@ For a contradiction, System 2 may test **at most three initially relevant explan
 | Dossier/System 2 | Existing canonical adjudication and Story versions | Escalate selectively, rank up to three explanations, document next test; do not create another reasoning writer. |
 | Notion | Existing full Posts, Logs, investigation and issuer pages | Preserve same source receipts, as-of expectations, uncertainty question, separate economic/price verdict, gap status and canonical ID if available. A Notion note is not admission or publication. |
 | Writing Brain / private generator | Existing evidence packet and owner review | Draft the quick brief first and detailed source-backed analysis beneath. Keep LY chart-first flow for COTD and source-led macro OB. |
-| Bluebelly readers | Current Newsroom summaries, Key Stories depth, Daily Report | Display short plain-English consequence above detailed source-dated story; do not fabricate absent enrichment. Keep exact historical edition and private/public segregation. |
+| Bluebelly readers | Shared Today/Newsroom reviewed editorial projection, full Key Stories, source-dated Markets | Display a visible **Market takeaway** on every eligible card, ahead of the detailed story. Preserve original figures and explicit unavailable states; no inference from headlines, P/E alone or asset direction. My Desk remains the only full Daily Intelligence report. |
 | QA/publisher | Existing approval and receipt path | Validate observed/claimed attribution, comparable numbers, missing-data states, exact edition and public readback. |
 
 ## Acceptance cases — source-dated, NOT simulated live quotes

@@ -170,3 +170,11 @@
  .compactMarkets .marketSection{padding:12px}
  .compactMarkets .focusNavigation a{flex:1 1 auto}
 }
+
+/* Distinct green market-section headings over neutral-black panels. These are
+   navigation colours, not security signals or trading verdicts. */
+.publicMarketsLegibility{--bb-heading-newsroom:var(--bb-heading-markets)}
+.marketHero{background:var(--bb-surface);border-color:var(--bb-heading-markets)}
+.marketHero h1,.marketSection h2,.marketSection h3{color:var(--bb-heading-markets)}
+.marketSection{background:var(--bb-card-bg);border-color:var(--bb-line)}
+.marketSection:before{background:var(--bb-heading-markets)}

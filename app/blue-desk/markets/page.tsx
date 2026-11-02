@@ -3,6 +3,7 @@ import EarningsInvestorDeepDive from "@/components/blue-desk/EarningsInvestorDee
 import {getEarningsCase} from "@/lib/bluebelly-earnings-investor-stories";
 import Link from "next/link";
 import PublishedResearchDispatches from "@/components/blue-desk/PublishedResearchDispatches";
+import MarketTakeaway from "@/components/blue-desk/MarketTakeaway";
 import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
 import {projectPublishedResearchFocus,researchForPublicLens} from "@/lib/blue-desk-published-research-focus";
 import { headers } from "next/headers";
@@ -126,6 +127,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           className={legibility.marketSection} style={{padding:"14px 18px",margin:"10px 0"}}>
           <p className={styles.kicker}>REVIEWED ENERGY CATALYST · {focus.eventDay} · SOURCE DATE ONLY</p>
           <h2>{focus.headline}</h2><p>{focus.fact}</p>
+          <MarketTakeaway why={focus.mechanism} nextTest={focus.test} compact/>
           <p><strong>Market test:</strong> {focus.test} This is not evidence of a verified price reaction.</p>
           <p><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+focus.href}>Read the source-reviewed story →</Link>
           {" · "}<Link href={blueDeskPublicHref("/blue-desk/hormuz",host)}>Check source-dated crossings and fuel markets →</Link></p>
@@ -172,7 +174,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           </div>
           <div className={styles.secondaryPanel} data-breadth-research-diagnostic={participation.status}>
             <h3>{participation.headline}</h3>
-            <p>{participation.interpretation}</p>
+            <MarketTakeaway why={participation.interpretation} nextTest={participation.nextTest} compact/>
             <p><strong>What to check next:</strong> {participation.nextTest}</p>
             <small>Through {participation.asOf||"an unavailable source date"} ·
               Source refresh: {breadthHistory.retrievalStatus}.
