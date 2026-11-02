@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type {ReactNode} from "react";
 import {headers} from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
@@ -11,7 +12,7 @@ export const metadata={
 };
 export const dynamic="force-dynamic";
 
-function Source({href,children}:{href:string;children:React.ReactNode}){
+function Source({href,children}:{href:string;children:ReactNode}){
  return <a href={href} target="_blank" rel="noopener noreferrer">{children} ↗</a>;
 }
 export default async function WeekAheadNewsroom(){
