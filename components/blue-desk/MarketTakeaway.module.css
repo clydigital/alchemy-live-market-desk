@@ -12,3 +12,8 @@
 .observation p{font-size:12px!important;line-height:1.55!important;color:var(--bb-text)!important;white-space:normal;overflow-wrap:anywhere;margin:8px 0}
 .observation small{display:block;color:var(--bb-muted);font-size:11px;line-height:1.5}
 .observation:focus-within{outline:2px solid var(--bb-heading-markets);outline-offset:2px}
+
+.more{margin:7px 0;border-top:1px solid var(--bb-line);padding-top:5px}
+.more summary{cursor:pointer;color:var(--bb-heading-newsroom,#69c9ff);font:750 12px/1.55 var(--bb-mono);min-height:36px;display:flex;align-items:center}
+.more summary:focus-visible{outline:2px solid var(--bb-heading-newsroom,#69c9ff);outline-offset:2px}
+.more p{margin:7px 0!important;font-size:13px!important;color:var(--bb-muted)!important}
