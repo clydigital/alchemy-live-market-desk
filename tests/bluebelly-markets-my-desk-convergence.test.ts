@@ -37,12 +37,13 @@ test("Public CP Markets begins with breadth and keeps date-aware ETF comparison 
  assert.match(legibility,/\.breadthPrimary/);
 });
 
-test("My Desk has portfolio view without replacing daily intelligence",()=>{
+test("My Desk retains daily intelligence without an embedded portfolio",()=>{
  const desk=read("app/my-reports/page.tsx");
  assert.match(desk,/<OwnerDailyIntelligenceHome\/>/);
  assert.match(desk,/<OwnerDailyTopicIdeas\/>/);
- assert.match(desk,/<OwnerPortfolioHome\s+filters=\{filters\}\/>/);
- assert.match(desk,/href="\/my-reports\?view=portfolio"/);
+ assert.doesNotMatch(desk,/OwnerPortfolioHome|OwnerPowerStackFullScan/);
+ assert.doesNotMatch(desk,/href="\/my-reports\?view=portfolio"/);
+ assert.match(desk,/if\(params\.view==="portfolio"\)redirect\("\/my-reports"\)/);
  assert.match(desk,/data-private-desk=/);
  const nav=read("components/blue-desk/BlueDeskHeader.tsx");
  const privateNav=nav.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0]||"";
