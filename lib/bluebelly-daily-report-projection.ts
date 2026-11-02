@@ -43,7 +43,7 @@ export function projectDailyReport(
   validOriginal(t.sourceUrl)&&Number.isFinite(eventAt(t.at))&&
   eventAt(t.at)>=time-60*60000&&eventAt(t.at)<=time+14*DAY)
   .sort((a,b)=>eventAt(a.at)-eventAt(b.at)).slice(0,3);
- const freshWithin48h=stories.filter(t=>time-eventAt(t.at)<=48*3600000).length;
+ const freshWithin48h=stories.filter(t=>t.status==="NEW"&&time-eventAt(t.at)<=48*3600000).length;
  const newestSourceAt=stories.length?stories.map(t=>t.at)
   .sort((a,b)=>eventAt(b)-eventAt(a))[0]:null;
  return {stories,upcoming,newestSourceAt,freshWithin48h,
