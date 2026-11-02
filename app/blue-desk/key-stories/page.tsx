@@ -346,6 +346,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
           <a href="#persistent-theses">Browse by topic</a>
           <a href="#upcoming-decisions">What's next</a>
           <Link href={blueDeskPublicHref("/blue-desk/markets",host)+"#earnings-fundamentals"}>Earnings &amp; fundamentals</Link>
+          <Link href={blueDeskPublicHref("/blue-desk/earnings-week",host)}>This week’s earnings preview</Link>
           <Link href={indexHref+"?feature=hormuz-mediation-november-2026"}>Hormuz mediation</Link>
           <Link href={indexHref+"?feature=rbnz-october-2026"}>RBNZ explainer</Link>
         </nav>
