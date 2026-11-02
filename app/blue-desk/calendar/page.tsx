@@ -246,6 +246,7 @@ export default async function BlueDeskCalendarPage({
           aria-labelledby="earnings-hub-title" data-calendar-earnings-hub="source-dated">
           <p className={styles.kicker}>EARNINGS HUB / THIS WEEK + THE NEXT 30 DAYS</p>
           <h2 id="earnings-hub-title">What companies are reporting next?</h2>
+           <p><Link href={blueDeskPublicHref("/blue-desk/earnings-week",host)} className={styles.textLink}>Read the 2–6 November pre-earnings investor investigation: AI, power, robotaxis and healthcare →</Link></p>
           <p className={styles.muted}>Major tracked companies, grouped by the current US trading week.
             Company-announced dates are confirmed; vendor estimates are not. A conference-call
             time is not the results-release time. Times are shown in ET and Malaysia time only
