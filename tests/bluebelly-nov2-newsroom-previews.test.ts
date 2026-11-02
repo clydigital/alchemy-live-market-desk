@@ -66,7 +66,8 @@ test("Original sources and 2-6 November release times are explicit",()=>{
  assert.match(p,/State Street/);
  assert.match(p,/future result/);
  assert.doesNotMatch(p,/\$9 trillion of GDP will/);
- assert.match(editorial,/weekAheadNewsroomEditorial/);
+ assert.match(editorial,/publicNewsroomEditorials/);
+ assert.match(source("../lib/bluebelly-public-newsroom-feed.ts"),/weekAheadNewsroomEditorial/);
  assert.match(daily,/blue-desk\/newsroom\/week-ahead/);
  for(const url of Object.values(NEWSROOM_NOVEMBER_SOURCES))assert.ok(url.startsWith("https://"));
  assert.doesNotMatch(p,/election results are now known/i);
