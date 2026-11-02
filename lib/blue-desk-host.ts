@@ -127,6 +127,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     pathname === "/blue-desk/key-stories" ||
     pathname === "/earnings-week" || pathname === "/blue-desk/earnings-week" ||
     pathname === "/newsroom" || pathname === "/blue-desk/newsroom" ||
+    pathname === "/newsroom/week-ahead" || pathname === "/blue-desk/newsroom/week-ahead" ||
     pathname === "/hormuz" || pathname === "/blue-desk/hormuz" ||
     pathname === "/regime-watch" || pathname === "/blue-desk/regime-watch" ||
     pathname === "/crash-opportunity" || pathname === "/blue-desk/crash-opportunity" ||
