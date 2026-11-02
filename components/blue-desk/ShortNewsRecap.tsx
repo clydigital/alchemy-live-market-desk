@@ -61,6 +61,7 @@ export default function ShortNewsRecap({recap,backHref,coverage}:{recap:Recap;ba
     <section><p className={ui.kicker}>WHAT IS STILL MISSING</p><h2>What must be researched before calling this the full story?</h2>
       <ul>{coverage.missing.map(item=><li key={item}>{item}</li>)}</ul>
       {sourceOnly?<p data-market-consequence="source-only-unassessed" className={ui.caution}>Business effect: not yet established. Expectations: {sourceOnly.expectations.status.replace("_"," ").toLowerCase()}. Share-price response: {sourceOnly.price.status.replace("_"," ").toLowerCase()}. No change in uncertainty or price causality is asserted from the headline.</p>:null}
+      <p className={ui.caution}>No consensus surprise, specific price reaction or company impact has been inferred from the headline.</p>
     </section>
   </div>
   <footer className={ui.source}><strong>Dated source evidence</strong>
