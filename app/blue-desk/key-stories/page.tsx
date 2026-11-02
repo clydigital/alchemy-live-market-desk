@@ -426,7 +426,8 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
         <h2 id="manual-feature-stories">Deep research and historical comparisons</h2>
         <p>The market does not begin and end with today’s headlines. Read the wider investigations and their unresolved questions.</p>
         <div className={ui.cards}>
-          <article className={ui.card}><h3>New Zealand’s surprise pause</h3><p>Expectations, the rate decision and the currency response — a dated October 2026 feature.</p><Link href={indexHref+"?feature=rbnz-october-2026"}>Read the RBNZ story →</Link></article>
+          <article className={ui.card}><p className={ui.kicker}>PRE-EARNINGS · 2–6 NOVEMBER 2026</p><h3>Who keeps the cash from the AI boom?</h3><p>Apple, Palantir, Eaton, AMD, Super Micro, Navitas, Uber, Qualcomm and the power chain. Earnings expectations, objections and the exact tests that matter.</p><Link href={blueDeskPublicHref("/blue-desk/earnings-week",host)}>Read this week’s investor preview →</Link></article>
+           <article className={ui.card}><h3>New Zealand’s surprise pause</h3><p>Expectations, the rate decision and the currency response — a dated October 2026 feature.</p><Link href={indexHref+"?feature=rbnz-october-2026"}>Read the RBNZ story →</Link></article>
           <article className={ui.card}>
             <p className={ui.kicker}>ASIA EQUITIES · 27 OCTOBER 2026</p>
             <div style={{maxWidth:370,marginBottom:12}}><EditorialStoryArt motif="china" headline="Asia AI equities"/></div>
