@@ -1,5 +1,6 @@
 import Link from "next/link";
 import MidtermHistoricalPath from "@/components/blue-desk/MidtermHistoricalPath";
+import MidtermPolicyScenarios from "@/components/blue-desk/MidtermPolicyScenarios";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 
 const ARTICLE_AS_OF="2 November 2026, before the US midterm vote and November releases";
@@ -54,6 +55,7 @@ export default function MidtermRallyFeature({host}:{host:string|null}){
    <p>Sample endpoints, election-date conventions and dividends matter. Other independent calculations do not always replicate the perfect twelve-month score, so the sound conclusion is narrower: <strong>post-midterm equity performance has historically been exceptionally strong, not mathematically guaranteed.</strong> And a seasonal pattern built across nineteen events cannot tell us whether the next two weeks will bring a sell-off, a short squeeze or a quiet rotation.</p>
   </section>
    <MidtermHistoricalPath/>
+   <MidtermPolicyScenarios/>
 
   <section style={segment}>
    <h2>Now comes the contradiction: the traders sound cautious</h2>
