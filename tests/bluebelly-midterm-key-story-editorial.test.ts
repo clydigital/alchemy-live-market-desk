@@ -6,6 +6,7 @@ const read=(p:string)=>readFileSync(new URL(p,import.meta.url),"utf8");
 const key=read("../app/blue-desk/key-stories/page.tsx");
 const feature=read("../components/blue-desk/MidtermRallyFeature.tsx");
 const midtermPath=read("../components/blue-desk/MidtermHistoricalPath.tsx");
+const midtermPolicy=read("../components/blue-desk/MidtermPolicyScenarios.tsx");
 const news=read("../app/blue-desk/newsroom/week-ahead/page.tsx");
 
 test("midterm feature is an explicit, finite public Key Stories article",()=>{
@@ -57,4 +58,24 @@ test("midterm historical path is finite, data-labelled and chart-limited to one 
  assert.match(midtermPath,/17\/19 at months ten and eleven/);
  assert.match(midtermPath,/Financial Modeling Prep/);
  assert.match(midtermPath,/excluding dividends|exclude dividends/);
+});
+
+test("part two connects election control, historical returns and five sectors without partisan forecasts",()=>{
+ assert.match(feature,/MidtermPolicyScenarios/);
+ assert.match(midtermPolicy,/data-midterm-policy-scenarios="pre-election-2026"/);
+ assert.match(midtermPolicy,/Republican sweep of Congress/);
+ assert.match(midtermPolicy,/Democratic sweep of Congress/);
+ assert.match(midtermPolicy,/Split Congress/);
+ assert.match(midtermPolicy,/3 January 2027/);
+ assert.match(midtermPolicy,/Trump remains president/);
+ assert.match(midtermPolicy,/not estimates of a partisan performance premium/);
+ for(const v of ["-0.18","-0.58","2.19","16.49","17.11"]){
+  assert.ok(midtermPolicy.includes(v),"Missing grouped historic return "+v);
+ }
+ for(const name of ["Traditional energy","Renewables","Big Tech","Financials","Healthcare"])assert.ok(midtermPolicy.includes(name));
+ assert.match(midtermPolicy,/does not itself reverse Trump's tariff programme/);
+ assert.match(midtermPolicy,/Dividends excluded/);
+ assert.match(midtermPolicy,/not a verified outcome/);
+ assert.doesNotMatch(midtermPolicy,/from ["']@\/lib\/(?:blue-desk-.*-server|supabase|private)/);
+ assert.doesNotMatch(midtermPolicy,/fetch\(|process\.env|cookies\(/);
 });
