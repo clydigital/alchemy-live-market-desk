@@ -21,8 +21,8 @@ export default function OwnerDailyReportAttachments(){
  useEffect(()=>{void refresh();},[]);
  async function upload(){
   if(!file||busy)return;
-  if(!/\.pdf$/i.test(file.name)||file.size>5_000_000){
-   setMessage("Select a PDF under 5 MB.");return;
+  if(!/\.pdf$/i.test(file.name)||file.size>3_000_000){
+   setMessage("Select a PDF under 3 MB.");return;
   }
   setBusy(true);setMessage("");
   try{
@@ -45,7 +45,7 @@ export default function OwnerDailyReportAttachments(){
    </div>
   </div>
   <div className={css.uploader}>
-   <label htmlFor="daily-report-attachment">Add a completed PDF chart pack (up to 5 MB)</label>
+   <label htmlFor="daily-report-attachment">Add a completed PDF chart pack (up to 3 MB)</label>
    <div className={css.controls}>
     <input id="daily-report-attachment" type="file" accept=".pdf,application/pdf"
      onChange={e=>setFile(e.target.files?.[0]||null)} disabled={busy}/>
