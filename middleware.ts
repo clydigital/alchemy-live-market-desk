@@ -100,14 +100,20 @@ export async function middleware(request: NextRequest) {
         status: 307, headers: { "Cache-Control": "no-store" },
       });
     }
-    // New source-qualified Daily Report is a public read-only digest.
-    // Frozen/historical identifiers remain unavailable here: never silently
-    // replay a current report in place of an exact historical edition.
-    if ((pathname === "/daily-report" || pathname === "/blue-desk/daily-report")
-      && ["bluebelly-desk.vercel.app","alchemy-live-market-desk.vercel.app"].includes((host || "").trim().toLowerCase().replace(/:443$/, ""))
-      && ["edition","dossier","story","motion","regime","event","research_run","article","snapshot"]
-        .some(key => request.nextUrl.searchParams.has(key))) {
-      return new NextResponse(null, { status: 404, headers: { "Cache-Control": "no-store" } });
+    // Retire only the duplicate public Daily Report reader. Old human links
+    // lead to the Newsroom; the complete owner Daily Intelligence stays at
+    // /my-reports and /owner/daily-report with its existing access controls.
+    if (pathname === "/daily-report" || pathname === "/blue-desk/daily-report") {
+      // Never show a current Newsroom page in place of an exact older edition.
+      if (["edition","dossier","story","motion","regime","event","research_run","article","snapshot"]
+          .some(key => request.nextUrl.searchParams.has(key))) {
+        return new NextResponse(null, {
+          status: 404, headers: { "Cache-Control": "no-store" },
+        });
+      }
+      return NextResponse.redirect("https://bluebelly-desk.vercel.app/newsroom", {
+        status: 307, headers: { "Cache-Control": "no-store" },
+      });
     }
     return presentationResponse(request);
   }
