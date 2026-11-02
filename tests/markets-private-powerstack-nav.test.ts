@@ -9,13 +9,14 @@ const privatePage=read("app/power-stack/page.tsx");
 const desk=read("app/my-reports/page.tsx");
 const host="bluebelly-desk.vercel.app";
 
-test("Public Markets remains open, private Power Stack is reached within My Desk",()=>{
+test("Public Markets remains open, My Desk is editorial-only and legacy Power Stack remains private",()=>{
  assert.equal(blueDeskHostAccess("/markets",host),"public");
  assert.equal(blueDeskHostAccess("/my-reports",host),"private");
  assert.equal(blueDeskHostAccess("/power-stack",host),"private");
  assert.doesNotMatch(publicPage, /<Link href="\/power-stack"|data-market-private-link|My Power Stack/);
- assert.match(desk,/href="\/my-reports\?view=portfolio"/);
- assert.match(desk,/<OwnerPortfolioHome\s+filters=\{filters\}\/>/);
+ assert.doesNotMatch(desk,/href="\/my-reports\?view=portfolio"/);
+ assert.doesNotMatch(desk,/OwnerPortfolioHome|OwnerPowerStackFullScan/);
+ assert.match(desk,/if\(params\.view==="portfolio"\)redirect\("\/my-reports"\)/);
  assert.match(privatePage,/createSupabaseServerClient/);
  assert.match(privatePage,/app_access_allowlist/);
  assert.match(privatePage,/legacy_source_retired === true/);
