@@ -90,3 +90,37 @@ export function sortPublicMarketColumns(
     return sign * (av - bv) || a.label.localeCompare(b.label);
   });
 }
+
+/** Sort the public ETF comparison independently from the advanced screener.
+ * A missing observation or an unmatched RSP session stays last in either
+ * direction; relative performance is only calculated for matching dates. */
+export type EtfComparisonSortColumn = "instrument" | "sourceSession" | "1D" | "3D" | "5D" | "relative5D";
+
+export function sortEtfComparisonRows(
+  rows: readonly PublicMarketObservation[],
+  column: EtfComparisonSortColumn,
+  ascending: boolean,
+  benchmark?: PublicMarketObservation,
+): PublicMarketObservation[] {
+  const sign = ascending ? 1 : -1;
+  const benchmark5d = benchmark ? publicMarketWindowChange(benchmark, "5D") : null;
+  const relative5d = (row: PublicMarketObservation): number | null => {
+    const value = publicMarketWindowChange(row, "5D");
+    return row.changeUnit === "%" && benchmark?.changeUnit === "%"
+      && row.asOf && row.asOf === benchmark.asOf && value !== null && benchmark5d !== null
+      ? value - benchmark5d : null;
+  };
+  return [...rows].sort((a, b) => {
+    if (column === "instrument")
+      return sign * a.symbol.localeCompare(b.symbol) || a.symbol.localeCompare(b.symbol);
+    const av = column === "sourceSession" ? a.asOf || null
+      : column === "relative5D" ? relative5d(a) : publicMarketWindowChange(a, column);
+    const bv = column === "sourceSession" ? b.asOf || null
+      : column === "relative5D" ? relative5d(b) : publicMarketWindowChange(b, column);
+    if (av === null) return bv === null ? a.symbol.localeCompare(b.symbol) : 1;
+    if (bv === null) return -1;
+    const result = typeof av === "number" && typeof bv === "number"
+      ? av - bv : String(av).localeCompare(String(bv));
+    return sign * result || a.symbol.localeCompare(b.symbol);
+  });
+}

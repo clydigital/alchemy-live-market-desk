@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { filterPublicMarketObservations, sortPublicMarketColumns, type PublicMarketFilters } from "../lib/blue-desk-market-filters.ts";
+import { filterPublicMarketObservations, sortPublicMarketColumns, sortEtfComparisonRows, type PublicMarketFilters } from "../lib/blue-desk-market-filters.ts";
 import type { PublicMarketObservation } from "../lib/blue-desk-public-markets.ts";
 
 function row(id: string, change: number | null, unit: "%" | "bp" = "%"): PublicMarketObservation {
@@ -102,4 +102,36 @@ test("search can find breadth tickers and neutral research instruments even with
   assert.deepEqual(filterPublicMarketObservations([breadth, research], {...defaults, query:"S5FI"}).map(x=>x.symbol), ["S5FI"]);
   assert.deepEqual(filterPublicMarketObservations([breadth, research], {...defaults, query:"DAYANG"}).map(x=>x.symbol), ["DAYANG"]);
   assert.equal(filterPublicMarketObservations([breadth, research], {...defaults, unit:"%", minMove:1}).length, 0);
+});
+
+
+test("ETF comparison column headers sort independently, both ways, with source-dated RSP deltas", () => {
+  const etfs = [
+    { ...row("rsp", 1), symbol: "RSP", change5d: 2, asOf: "2026-10-30" },
+    { ...row("xlk", 2), symbol: "XLK", change5d: 4, asOf: "2026-10-30" },
+    { ...row("xle", -1), symbol: "XLE", change5d: -2, asOf: "2026-10-30" },
+    { ...row("xlf", null), symbol: "XLF", change5d: null, asOf: "2026-10-30" },
+    { ...row("smh", 3), symbol: "SMH", change5d: 6, asOf: "2026-10-29" },
+  ];
+  assert.deepEqual(sortEtfComparisonRows(etfs, "instrument", true).map(x => x.symbol),
+    ["RSP", "SMH", "XLE", "XLF", "XLK"]);
+  assert.deepEqual(sortEtfComparisonRows(etfs, "instrument", false).map(x => x.symbol),
+    ["XLK", "XLF", "XLE", "SMH", "RSP"]);
+  assert.deepEqual(sortEtfComparisonRows(etfs, "1D", false).map(x => x.symbol),
+    ["SMH", "XLK", "RSP", "XLE", "XLF"]);
+  assert.deepEqual(sortEtfComparisonRows(etfs, "5D", true).map(x => x.symbol),
+    ["XLE", "RSP", "XLK", "SMH", "XLF"]);
+  assert.deepEqual(sortEtfComparisonRows(etfs, "relative5D", false, etfs[0]).map(x => x.symbol),
+    ["XLK", "RSP", "XLE", "SMH", "XLF"]);
+  assert.deepEqual(sortEtfComparisonRows(etfs, "relative5D", true, etfs[0]).map(x => x.symbol),
+    ["XLE", "RSP", "XLK", "SMH", "XLF"]);
+  assert.equal(sortEtfComparisonRows(etfs, "sourceSession", true)[0].symbol, "SMH");
+  assert.equal(sortEtfComparisonRows(etfs, "sourceSession", false).at(-1)?.symbol, "SMH");
+  assert.equal(etfs[0].symbol, "RSP"); // original source/preset order is immutable
+
+  const ui = readFileSync(new URL("../components/blue-desk/PublicMarketScreener.tsx", import.meta.url), "utf8");
+  assert.match(ui, /sortEtfComparisonRows\(comparisonRows, comparisonSort, comparisonAscending, equalWeight\)/);
+  assert.match(ui, /onClick=\{\(\)=>sortComparisonColumn\(period\)\}/);
+  assert.match(ui, /comparisonHeader\("relative5D", "5D vs RSP"\)/);
+  assert.match(ui, /aria-sort=\{comparisonSort/);
 });
