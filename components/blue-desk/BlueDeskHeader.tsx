@@ -21,10 +21,12 @@ const PRIVATE_NAV = [
   ["Learn", "/blue-desk/learn"],
 ] as const;
 
-// Public Daily Report and Newsroom are distinct read-only surfaces. Owner-only\n// reporting and publication tools retain the existing account allowlist.
+// Public Daily Report and Newsroom are distinct read-only surfaces. Owner-only
+// reporting and publication tools retain the existing account allowlist.
 const PUBLIC_NAV = [
   ["Today", "/"],
-  ["Newsroom", "/newsroom"],\n  ["Daily Report", "/daily-report"],
+  ["Newsroom", "/newsroom"],
+  ["Daily Report", "/daily-report"],
   ["Hormuz Watch", "/hormuz"],
   ["Regime Watch", "/regime-watch"],
   ["Markets", "/markets"],
