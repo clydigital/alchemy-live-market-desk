@@ -42,10 +42,11 @@ export const metadata = {
 };
 
 export default async function DailyReportPage({ searchParams }: { searchParams?: Promise<{ storiesPage?: string | string[] }> }) {
-  redirect("/my-reports");
   const rawPage = (await searchParams)?.storiesPage;
   const pageText = Array.isArray(rawPage) ? rawPage[0] : rawPage;
   const storyPage = pageText && /^\d{1,2}$/.test(pageText) ? Number(pageText) : 1;
+  // Query parsing is local only. Redirect before any research data retrieval.
+  redirect("/my-reports");
   const now = new Date();
   const host = (await headers()).get("host");
   // All feeds are existing public read models. There is no Dossier, Story
