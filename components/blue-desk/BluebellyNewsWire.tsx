@@ -2,6 +2,7 @@
 import {useState} from "react";
 import type {ReactNode} from "react";
 import PublishedResearchDispatches from "./PublishedResearchDispatches";
+import MarketTakeaway from "./MarketTakeaway";
 import type {PublicResearchFocus} from "@/lib/blue-desk-published-research-focus";
 import Link from "next/link";
 import type {NewsBriefV1} from "@/lib/market-brief-news";
@@ -135,6 +136,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
        <span className={styles.chip}>{card.item.verificationLabel}</span>
        <small className={styles.metadata}>{archiveTopics(card.item).join(" · ").toUpperCase()} · {card.item.eventAt?clock(card.item.eventAt):card.item.eventDay+" · date only"}</small>
        <h2><Link href={card.item.readerHref}>{card.item.headline}</Link></h2>
+       <MarketTakeaway mode="archived" compact/>
        <div className={styles.actions}>
         <Link href={card.item.readerHref}>Read Bluebelly's source-reviewed report →</Link>
         <a href={card.item.sourceUrl} rel="noopener noreferrer" target="_blank">{card.item.sourceName} · original source ↗</a>
@@ -148,6 +150,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
        <small className={styles.metadata}>{card.item.topics.join(" · ").toUpperCase()} · {clock(card.item.occurredAt)}</small>
        <h2><Link href={card.item.readerHref}>{card.item.headline}</Link></h2>
        <p data-quick-market-brief="source-qualified-summary">{card.item.summary}</p>
+       <MarketTakeaway why={card.item.why} nextTest={card.item.nextTest} compact/>
        <div className={styles.actions}>
         <Link href={card.item.readerHref}>Read the source-reviewed analysis →</Link>
         <a href={card.item.sourceUrl} rel="noopener noreferrer" target="_blank">{card.item.sourceName} · original source ↗</a>
@@ -168,6 +171,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
        <small className={styles.metadata}>{editorialNewsTopics(card.item).join(" · ").toUpperCase()} · {clock(card.item.occurredAt)}</small>
        <h2><Link href={readerHref+"?news="+encodeURIComponent(card.item.id)}>{card.item.headline}</Link></h2>
        <p data-quick-market-brief="source-qualified-summary">{card.item.summary}</p>
+       <MarketTakeaway mode="source-only" compact/>
        <div className={styles.actions}>
         <Link href={readerHref+"?news="+encodeURIComponent(card.item.id)}>Read short Bluebelly recap →</Link>
         <a href={card.item.sourceUrl} rel="noopener noreferrer" target="_blank">{card.item.sourceName} · original report ↗</a>
