@@ -27,7 +27,7 @@ export function projectDailyReport(
  const seen=new Set<string>(), groups=new Map<string,number>();
  const qualified=topics.filter(t=>t.status!=="UPCOMING"&&
   typeof t.id==="string"&&t.id.length>2&&t.title.trim().length>=8&&
-  t.fact.trim().length>=18&&t.mechanism.trim().length>=15&&
+  t.fact.trim().length>=18&&t.why.trim().length>=10&&t.mechanism.trim().length>=15&&
   t.test.trim().length>=8&&validOriginal(t.sourceUrl)&&
   Number.isFinite(eventAt(t.at))&&eventAt(t.at)<=time&&time-eventAt(t.at)<=7*DAY);
  // Released original facts first, then established official macro/issuer
