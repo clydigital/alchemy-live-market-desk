@@ -21,8 +21,10 @@ test("Today and Newsroom share reviewed public story metadata without inventing 
  const newsroom=read("app/blue-desk/newsroom/page.tsx");
  const wire=read("components/blue-desk/BluebellyNewsWire.tsx");
  assert.match(home,/currentReviewedPublicFocus\(now\)/);
- assert.match(newsroom,/currentReviewedPublicFocus\(now\)/);
- assert.match(newsroom,/eventDay/);
+ assert.match(newsroom,/publicNewsroomEditorials/);
+ const shared=read("lib/bluebelly-public-newsroom-feed.ts");
+ assert.match(shared,/currentReviewedPublicFocus\(now\)/);
+ assert.match(shared,/eventDay/);
  assert.match(wire,/source date only/);
  assert.match(home,/reviewedFocusIsRecent/);
 });
