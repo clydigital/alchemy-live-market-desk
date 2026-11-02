@@ -6,3 +6,9 @@
 .takeaway[data-compact="true"]{padding:10px 12px}
 .takeaway[data-compact="true"] p{font-size:13px!important}
 @media(max-width:600px){.takeaway{margin:10px 0;padding:12px}.takeaway p{font-size:14px!important}}
+
+.observation{margin:8px 0 1px;padding:8px 10px;background:var(--bb-card-quiet);border:1px solid var(--bb-line);border-left:2px solid var(--bb-heading-markets);font-size:12px;line-height:1.55;max-width:380px}
+.observation summary{display:list-item;cursor:pointer;color:var(--bb-heading-markets);font:800 12px/1.4 var(--bb-mono);padding:4px 0}
+.observation p{font-size:12px!important;line-height:1.55!important;color:var(--bb-text)!important;white-space:normal;overflow-wrap:anywhere;margin:8px 0}
+.observation small{display:block;color:var(--bb-muted);font-size:11px;line-height:1.5}
+.observation:focus-within{outline:2px solid var(--bb-heading-markets);outline-offset:2px}
