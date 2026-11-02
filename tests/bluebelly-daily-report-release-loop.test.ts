@@ -44,6 +44,21 @@ test("recent editorials are not falsely counted as fresh verified releases",()=>
  assert.equal(projectDailyReport([topic("bad","2026-11-02T16:00:00Z"),topic("bad","2026-11-02T16:00:00Z")],at).stories.length,1);
 });
 
+test("today's reviewed context outranks last week's earnings, but new verified original releases remain first",()=>{
+ const inputs=[
+  topic("issuer-old","2026-10-29","NEW",["AMZN"]),
+  topic("feature-now","2026-11-02","FEATURE",["SPX"]),
+  {...topic("news-now","2026-11-02T16:30:00Z","NEW"),href:"?news=verified-source"},
+  topic("feature-two","2026-11-02","FEATURE",["DXY"]),
+  topic("feature-three","2026-11-02","FEATURE",["US02Y"]),
+ ];
+ const result=projectDailyReport(inputs,at);
+ assert.equal(result.stories[0].id,"news-now");
+ assert.equal(result.stories[1].id,"feature-now");
+ assert.equal(result.stories.filter(t=>t.status==="FEATURE").length,2);
+ assert.equal(result.stories.at(-1)?.id,"issuer-old");
+});
+
 test("Newsroom and Today share already-reviewed releases, with source and consensus labels",()=>{
  const today=new Date("2026-11-02T05:30:00Z"),host="bluebelly-desk.vercel.app";
  const editorials=publicNewsroomEditorials([],today,host);
