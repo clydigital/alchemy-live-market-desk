@@ -1,4 +1,5 @@
 import Link from "next/link";
+import MarketTakeaway from "./MarketTakeaway";
 import type {NewsBriefV1} from "@/lib/market-brief-news";
 import type {NewsroomEditorialItem} from "@/lib/bluebelly-newsroom-editorial";
 import styles from "./NewsroomReleaseRail.module.css";
@@ -39,6 +40,7 @@ export default function NewsroomReleaseRail({news,editorials,now}:{
     <small>{release.verificationLabel} · {sourceTime(release.occurredAt)}</small>
     <h3><Link href={release.readerHref}>{release.headline}</Link></h3>
     <p>{release.summary}</p>
+    <MarketTakeaway why={release.why} nextTest={release.nextTest} compact/>
     <a href={release.sourceUrl} target="_blank" rel="noopener noreferrer">Original: {release.sourceName}</a>
    </article>)}
   </div>
