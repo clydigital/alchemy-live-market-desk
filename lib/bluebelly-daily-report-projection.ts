@@ -33,17 +33,23 @@ export function projectDailyReport(
  // Released original facts first, then established official macro/issuer
  // scorecards, followed by reviewed explanatory features. Older editorial
  // seasonality cannot crowd out newly released results.
- const rank=(t:DailyDecisionTopic)=>t.status==="NEW"&&t.href.startsWith("?news=")?110:
-  t.status==="NEW"&&t.href.startsWith("?brief=")?90:
-  t.href.startsWith("?brief=")?85:
-  t.status==="NEW"?80:60;
+ const rank=(t:DailyDecisionTopic)=>{
+  const fresh=time-eventAt(t.at)<=48*3600000;
+  if(t.status==="NEW"&&fresh&&t.href.startsWith("?news="))return 120;
+  if(t.status==="NEW"&&fresh)return 115;
+  if(t.status==="FEATURE"&&fresh)return 100;
+  if(t.href.startsWith("?brief="))return 85;
+  return t.status==="NEW"?80:60;
+ };
  const ordered=[...qualified].sort((a,b)=>rank(b)-rank(a)||
    eventAt(b.at)-eventAt(a.at)||a.id.localeCompare(b.id));
  const stories:DailyDecisionTopic[]=[];
  for(const t of ordered){
   if(stories.length===limit)break;
-  const group=t.href.startsWith("?brief=")&&t.assets.length===1?"issuer":t.id;
-  if((groups.get(group)||0)>=2||seen.has(t.sourceUrl))continue;
+  const group=t.status==="FEATURE"&&!t.href.startsWith("?brief=")?"feature":
+    t.href.startsWith("?brief=")&&t.assets.length===1?"issuer":t.id;
+  const cap=group==="issuer"||group==="feature"?2:1;
+  if((groups.get(group)||0)>=cap||seen.has(t.sourceUrl))continue;
   seen.add(t.sourceUrl);groups.set(group,(groups.get(group)||0)+1);
   stories.push(t);
  }
