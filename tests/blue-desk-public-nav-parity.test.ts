@@ -67,9 +67,9 @@ test("public Daily Report is distinct, read-only and guards historical selectors
   const nav=header.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0]||"";
   assert.ok(nav.includes('["Daily Report", "/daily-report"]'));
   const middleware=readFileSync(new URL("../middleware.ts",import.meta.url),"utf8");
-  assert.match(middleware,/pathname === "\\/daily-report" \\|\\| pathname === "\\/blue-desk\\/daily-report"/);
-  assert.doesNotMatch(middleware,/NextResponse\\.redirect\\("https:\\/\\/bluebelly-desk\\.vercel\\.app\\/newsroom"/);
-  assert.match(middleware,/request\\.nextUrl\\.searchParams\\.has\\(key\\)/);
+  assert.ok(middleware.includes('pathname === "/daily-report" || pathname === "/blue-desk/daily-report"'));
+  assert.ok(!middleware.includes('NextResponse.redirect("https://bluebelly-desk.vercel.app/newsroom"'));
+  assert.ok(middleware.includes("request.nextUrl.searchParams.has(key)"));
   assert.equal(blueDeskHostAccess("/daily-report","bluebelly-desk.vercel.app"),"public");
   assert.equal(blueDeskHostAccess("/owner/daily-report","bluebelly-desk.vercel.app"),"private");
 });
