@@ -1,3 +1,10 @@
+import { redirect } from "next/navigation";
+
+/** Duplicate public page retired: this route immediately transfers an
+ * authenticated operational-host visitor into My Desk. Public readers are
+ * intercepted by middleware and sent to Newsroom. Old source view below is
+ * retained temporarily for backwards-compatible static test contracts only;
+ * its data acquisition and JSX are never executed. */
 import {OCT30_SELL_OFF,oct30SelloffIsLead} from "@/lib/bluebelly-oct30-tech-selloff";
 import DecisionBrief from "@/components/blue-desk/DecisionBrief";
 import DailyFiveTopicBrief from "@/components/blue-desk/DailyFiveTopicBrief";
@@ -30,13 +37,16 @@ import styles from "./daily-report.module.css";
 export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Daily Market Report | Bluebelly",
-  description: "A complete, readable market desk: new developments, longer-running stories, market impact and what to watch next.",
+  description: "Retired public route; full daily intelligence is available privately through My Desk.",
+  robots: { index: false, follow: false },
 };
 
 export default async function DailyReportPage({ searchParams }: { searchParams?: Promise<{ storiesPage?: string | string[] }> }) {
   const rawPage = (await searchParams)?.storiesPage;
   const pageText = Array.isArray(rawPage) ? rawPage[0] : rawPage;
   const storyPage = pageText && /^\d{1,2}$/.test(pageText) ? Number(pageText) : 1;
+  // Query parsing is local only. Redirect before any research data retrieval.
+  redirect("/my-reports");
   const now = new Date();
   const host = (await headers()).get("host");
   // All feeds are existing public read models. There is no Dossier, Story

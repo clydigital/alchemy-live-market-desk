@@ -68,7 +68,7 @@ test("every browser API remains signed-in and field-specific, not a cross-site m
  assert.match(checklist,/expectedRevision/);
 });
 
-test("all nine main Bluebelly links remain visible while private routes stay gated",()=>{
+test("the eight public reader links omit duplicate Daily Report and keep My Desk gated",()=>{
  const header=read("components/blue-desk/BlueDeskHeader.tsx");
  const presenter=read("app/owner/presenter/page.tsx");
  const editorial=read("app/owner/editorial/page.tsx");
@@ -76,12 +76,13 @@ test("all nine main Bluebelly links remain visible while private routes stay gat
  assert.match(header,/activePath === "\/my-reports"/);
  const nav=header.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0]||"";
  for (const [label,href] of [
-  ["Today","/"],["Newsroom","/newsroom"],["Daily Report","/daily-report"],["Hormuz Watch","/hormuz"],["Regime Watch","/regime-watch"],
+  ["Today","/"],["Newsroom","/newsroom"],["Hormuz Watch","/hormuz"],["Regime Watch","/regime-watch"],
   ["Markets","/markets"],["Calendar","/calendar"],
   ["Learn","/learn"],
   ["My Desk","/my-reports"],
  ]) assert.ok(nav.includes('["'+label+'", "'+href+'"]'),label);
- assert.equal((nav.match(/\["/g)||[]).length,9);
+ assert.equal((nav.match(/\["/g)||[]).length,8);
+ assert.ok(!nav.includes('["Daily Report", "/daily-report"]'));
  assert.ok(!nav.includes("/api/"));
  assert.match(presenter,/redirect\("\/my-reports"\)/);
  assert.doesNotMatch(presenter,/PresenterTechnicalChecks|EditorialWorkbench/);

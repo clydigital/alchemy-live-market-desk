@@ -34,7 +34,7 @@ export default async function WeekAheadNewsroom(){
     <Link href={link("/blue-desk/newsroom")}>← Newsroom</Link>
     <Link href={link("/blue-desk/earnings-week")}>Earnings Investor Test</Link>
     <Link href={link("/blue-desk/calendar")}>Economic Calendar</Link>
-    <Link href={link("/blue-desk/daily-report")}>Daily Report</Link>
+    <Link href={link("/blue-desk/newsroom")}>Newsroom</Link>
    </nav>
    <header className={styles.hero}>
     <p className={styles.kicker}>BLUEBELLY NEWSROOM / MACRO & POLICY / 2–6 NOVEMBER 2026</p>

@@ -35,6 +35,8 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   }
   if (pathname === "/") return "/blue-desk";
   if (pathname === "/calendar") return "/blue-desk/calendar";
+  // Keep the old public rewrite identity for compatibility tests/bookmarks;
+  // middleware intercepts both aliases before a reader can render.
   if (pathname === "/daily-report") return "/blue-desk/daily-report";
   if (pathname === "/learn") return "/blue-desk/learn";
   if (PUBLIC_LEARN_DECK_PATH.test(pathname) && pathname.startsWith("/learn/decks/")) return "/blue-desk" + pathname;
@@ -167,7 +169,7 @@ export function retiredLivePublicDestination(
  else if(pathname==="/owner/markets")clean="/markets";
  else if(pathname==="/blue-desk")clean="/";
  else if(pathname.startsWith("/blue-desk/"))clean=pathname.slice("/blue-desk".length);
- // Daily Report is a source-qualified public reader again; preserve its path.
+ if(clean==="/daily-report")clean="/newsroom"; // Retired duplicate public reader.
  const dest=new URL(clean,"https://"+BLUEBELLY_PRESENTATION_HOST);
  // Carry only bounded, known public filter state. Discard unknown parameters;
  // never forward token/credential-style query data to the public product.

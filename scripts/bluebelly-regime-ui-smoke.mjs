@@ -160,18 +160,16 @@ try{
   ["/hormuz","hormuz",'data-bluebelly-hormuz="public-source-dated-physical-first"'],
   ["/markets","markets",'data-blue-desk-markets="public-observations"'],
  ];
- // The Daily Report is now a distinct source-qualified public read, not a
- // generic redirect or an exposed owner HTML edition. Exact history stays denied.
- const daily=await waitResponse("/daily-report");
- assertHtml(daily.html,'data-daily-report-lead="five-source-qualified-topics"',
-   "Today's market decisions","What needs checking:","The next decisions");
+ // The duplicate public report is retired; old public bookmarks must
+ // land on Newsroom without exposing or substituting a private daily edition.
+ for(const path of ["/daily-report","/blue-desk/daily-report"]){
+  const retired=await waitResponse(path,code=>code===307);
+  if(new URL(retired.location,"https://bluebelly-desk.vercel.app").pathname!=="/newsroom")
+   throw new Error("Retired Daily Report did not lead to Newsroom: "+path+" -> "+retired.location);
+ }
  const historical=await waitResponse("/daily-report?edition=legacy",code=>code===404);
- if(historical.status!==404)throw Error("Historical Daily edition unexpectedly fell through to current report");
- await renderChrome("http://127.0.0.1:"+PUBLIC+"/daily-report",
-  "daily-report-desktop.png",1440,1000);
- await renderChrome("http://127.0.0.1:"+PUBLIC+"/daily-report",
-  "daily-report-mobile.png",390,844);
- console.log("Public Daily Report "+daily.status+" · five-topic brief and historical fail-closed");
+ if(historical.status!==404)throw Error("Retired historical selector incorrectly forwarded to today's Newsroom");
+ console.log("Retired duplicate Daily Report redirects 307 · historical selector fails closed");
 
  for(const [path,id,marker] of publicPages){
   const view=await waitResponse(path);

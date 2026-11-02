@@ -10,7 +10,7 @@ test("all visible public header links target approved host paths and real anchor
   const match = header.match(/const PUBLIC_NAV = \[([\s\S]*?)\] as const;/);
   assert.ok(match, "public navigation must be explicitly enumerated");
   const hrefs = [...match[1].matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m => m[1]);
-  assert.deepEqual(hrefs, ["/", "/newsroom", "/daily-report", "/hormuz", "/regime-watch", "/markets", "/calendar",
+  assert.deepEqual(hrefs, ["/", "/newsroom", "/hormuz", "/regime-watch", "/markets", "/calendar",
     "/learn", "/my-reports"]);
   for (const href of hrefs) {
     const url = new URL(href, "https://bluebelly-desk.vercel.app");
@@ -63,13 +63,15 @@ test("no dead public links are advertised in the homepage special panels", () =>
   assert.match(homepage, /newsFeature\.sourceUrl/);
 });
 
-test("public Daily Report is distinct, read-only and guards historical selectors", () => {
+test("duplicate public Daily Report is retired without exposing owner reports", () => {
   const nav=header.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0]||"";
-  assert.ok(nav.includes('["Daily Report", "/daily-report"]'));
+  assert.ok(!nav.includes('["Daily Report", "/daily-report"]'));
+  assert.ok(nav.includes('["My Desk", "/my-reports"]'));
   const middleware=readFileSync(new URL("../middleware.ts",import.meta.url),"utf8");
   assert.ok(middleware.includes('pathname === "/daily-report" || pathname === "/blue-desk/daily-report"'));
-  assert.ok(!middleware.includes('NextResponse.redirect("https://bluebelly-desk.vercel.app/newsroom"'));
+  assert.match(middleware,/NextResponse\.redirect\("https:\/\/bluebelly-desk\.vercel\.app\/newsroom"/);
   assert.ok(middleware.includes("request.nextUrl.searchParams.has(key)"));
   assert.equal(blueDeskHostAccess("/daily-report","bluebelly-desk.vercel.app"),"public");
   assert.equal(blueDeskHostAccess("/owner/daily-report","bluebelly-desk.vercel.app"),"private");
+  assert.equal(blueDeskHostAccess("/my-reports","bluebelly-desk.vercel.app"),"private");
 });

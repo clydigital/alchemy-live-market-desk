@@ -95,32 +95,30 @@ test("Newsroom and Today share already-reviewed releases, with source and consen
  assert.equal(withExactSource.some(x=>x.id==="macro-release:"+macro[0].id),false);
 });
 
-test("public route is real, legacy live human link maps to it, historical editions remain fail closed",()=>{
+test("the duplicate public reader retires to Newsroom, while private My Desk remains the canonical full report",()=>{
  const host="bluebelly-desk.vercel.app",live="alchemy-live-market-desk.vercel.app";
  assert.equal(blueDeskHostAccess("/daily-report",host),"public");
  assert.equal(blueDeskHostAccess("/owner/daily-report",host),"private");
- assert.equal(retiredLivePublicDestination("/daily-report",live),"https://bluebelly-desk.vercel.app/daily-report");
+ assert.equal(blueDeskHostAccess("/my-reports",host),"private");
+ assert.equal(retiredLivePublicDestination("/daily-report",live),"https://bluebelly-desk.vercel.app/newsroom");
+ assert.equal(retiredLivePublicDestination("/blue-desk/daily-report",live),"https://bluebelly-desk.vercel.app/newsroom");
  assert.equal(retiredLivePublicDestination("/daily-report",live,"?edition=some-old-id"),null);
  const page=src("app/blue-desk/daily-report/page.tsx");
  const middleware=src("middleware.ts");
  const nav=src("components/blue-desk/BlueDeskHeader.tsx");
- assert.match(page,/projectDailyReport\(decisionTopics\(news,calendar,now\),now,5\)/);
- assert.match(page,/<DailyFiveTopicBrief report=\{dailyReport\}/);
- assert.match(page,/data-daily-report-background="expandable-detailed-research"/);
- assert.match(page,/<DecisionBrief/);
+ assert.match(page,/redirect\("\/my-reports"\)/);
+ assert.ok(page.indexOf('redirect("/my-reports");') < page.indexOf("getCurrentVerifiedMarketMotion({ limit"),"Owner redirect happens before legacy data retrieval");
+ assert.match(page,/index: false, follow: false/);
  assert.match(middleware,/pathname === "\/daily-report" \|\| pathname === "\/blue-desk\/daily-report"/);
- assert.doesNotMatch(middleware,/NextResponse\.redirect\("https:\/\/bluebelly-desk\.vercel\.app\/newsroom"/);
- assert.match(nav,/\["Daily Report", "\/daily-report"\]/);
- const component=src("components/blue-desk/DailyFiveTopicBrief.tsx");
- assert.match(component,/data-daily-report-lead="five-source-qualified-topics"/);
- assert.match(component,/data-quick-market-brief="public-source-qualified"/);
- assert.match(component,/A specific price reaction or a “priced in” explanation requires separately matched evidence/);
- assert.match(component,/rolling public, source-led briefing, not a fixed archival edition/);
+ assert.ok(middleware.includes('NextResponse.redirect("https://bluebelly-desk.vercel.app/newsroom"'));
+ assert.ok(middleware.includes("request.nextUrl.searchParams.has(key)"));
+ const publicNav=nav.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0]||"";
+ assert.ok(!publicNav.includes('["Daily Report", "/daily-report"]'));
+ assert.ok(publicNav.includes('["My Desk", "/my-reports"]'));
  const release=src("components/blue-desk/NewsroomReleaseRail.tsx");
  const newsroom=src("app/blue-desk/newsroom/page.tsx");
  assert.match(release,/data-newsroom-release-rail="qualified-originals-and-reviewed-results"/);
- assert.match(release,/No newly verified original is currently in the rolling window/);
- assert.match(newsroom,/<NewsroomReleaseRail news=\{news\} editorials=\{editorials\}/);
- assert.match(release,/Today's five-topic market report/);
- assert.doesNotMatch(component,/createSupabaseAdminClient|process\.env|generateContent|notion\.fetch/);
+ assert.doesNotMatch(release,/Today.s five-topic market report|reportHref/);
+ assert.match(newsroom,/<NewsroomReleaseRail news=\{news\} editorials=\{editorials\} now=\{now\}\/>/);
+ assert.doesNotMatch(newsroom,/reportHref=|blue-desk\/daily-report/);
 });
