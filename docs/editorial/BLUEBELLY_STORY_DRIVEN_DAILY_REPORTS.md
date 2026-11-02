@@ -154,3 +154,10 @@ Never end with an unconditional trade command.
 > **Why this matters:** higher oil prices can raise inflation expectations, while weaker growth data can push rate expectations in the opposite direction. The next clue is whether short-dated yields follow the inflation story or the growth story.
 
 This example is intentionally free of fabricated figures or events. Fill it only with verified daily evidence.
+
+
+## Addendum · 3 November 2026 — Quick Market Brief above evidence
+
+For a major verified Newsroom/Key Story/Daily Report item, present a **Quick Market Brief** directly beneath its headline: one to three plain-English sentences explaining the event and conditional consequence for a named business, sector or market. It is a summary, **not** an independently sourced conclusion. The detailed narrative, original citations, comparable previous/consensus/actual figures, guidance and exact market observation windows remain below. Do not remove numerical depth to keep the brief simple. Routine original-source news without enough evidence may show only the event summary and explicit research-depth limitation.
+
+Apply the five checks in [Bluebelly Market Consequence Standard](./BLUEBELLY_MARKET_CONSEQUENCE_STANDARD.md): verified event, separate economic effect, concrete uncertainty question, frozen pre-release expectation (or not verified), and actual dated price reaction (or unmeasured). A positive economic result and falling asset price are not logically inconsistent: ask System 2 to test a few candidate explanations, including expectations, guidance, valuation and broader market drivers. Do not automatically say an event is priced in or attribute a move without supporting measurements. Mark **cause not established** where appropriate. Do not create a new scheduler or canonical thesis writer.
