@@ -9,8 +9,6 @@ import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
 import {recentBankDecisions} from "@/lib/bluebelly-bank-decision-snapshots";
 import {recentReportedEditorial} from "@/lib/bluebelly-reported-editorial";
-import {projectNewsroomEditorial} from "@/lib/bluebelly-newsroom-editorial";
-import {weekAheadNewsroomEditorial} from "@/lib/bluebelly-week-ahead-newsroom";
 import {selectPostEventRecaps} from "@/lib/bluebelly-post-event-recap";
 import {getCurrentVerifiedMarketMotion} from "@/lib/market-motion";
 import {selectVerifiedNewsBriefs} from "@/lib/market-brief-news";
@@ -18,6 +16,7 @@ import {getOriginalPressNews} from "@/lib/blue-desk-original-press-news-server";
 import {combineQualifiedNews} from "@/lib/blue-desk-qualified-news";
 import {getRecentArchivedPublicReaderItems} from "@/lib/bluebelly-publication-archive-server";
 import {selectNewsroomHotPicks} from "@/lib/bluebelly-newsroom-hot-picks";
+import {publicNewsroomEditorials} from "@/lib/bluebelly-public-newsroom-feed";
 import {OCT30_SELL_OFF,oct30SelloffIsLead} from "@/lib/bluebelly-oct30-tech-selloff";
 import {currentReviewedPublicFocus} from "@/lib/bluebelly-reviewed-public-focus";
 import desk from "../blue-desk.module.css";
@@ -42,27 +41,7 @@ export default async function NewsroomPage({searchParams}:Props){
  const reported=recentReportedEditorial(now,48);
  // Source-reviewed articles belong to the same categorised Newsroom wire,
  // not permanent homepage hero banners or a separate unsearchable 48h strip.
- const editorials=projectNewsroomEditorial(
-  recentBankDecisions(now,168),recentReportedEditorial(now,168),
-  selectPostEventRecaps(news,now,8),readerHref,now,
- );
- // Source-qualified, frozen pre-event newsroom articles; do not imply release actuals.
- editorials.push(...weekAheadNewsroomEditorial(now,blueDeskPublicHref("/blue-desk/newsroom/week-ahead",host)));
- // An already-reviewed public Key Story is searchable; never promote MacroPulse drafts.
- for(const focus of currentReviewedPublicFocus(now))editorials.push({
-   id:focus.id,headline:focus.headline,summary:focus.fact,
-   occurredAt:focus.eventDay,sourceName:focus.sourceName,
-   sourceUrl:focus.sourceUrl,readerHref:readerHref+focus.href,
-   topics:[...focus.topics],verificationLabel:"REVIEWED EDITORIAL · PROPOSAL NOT AGREEMENT",
-   why:focus.mechanism,nextTest:focus.test,kind:"reported",
- });
- if(oct30SelloffIsLead(now))editorials.unshift({
-   id:OCT30_SELL_OFF.id,headline:OCT30_SELL_OFF.headline,summary:OCT30_SELL_OFF.fact+" "+OCT30_SELL_OFF.why,
-   occurredAt:OCT30_SELL_OFF.occurredAt,sourceName:OCT30_SELL_OFF.sourceName,
-   sourceUrl:OCT30_SELL_OFF.sourceUrl,readerHref:readerHref+OCT30_SELL_OFF.href,
-   topics:["ai","earnings"],verificationLabel:"DATED EDITORIAL · REPORTED INTRADAY",
-   why:OCT30_SELL_OFF.mechanism,nextTest:OCT30_SELL_OFF.test,kind:"reported",
- });
+ const editorials=publicNewsroomEditorials(news,now,host);
  const hotPicks=selectNewsroomHotPicks(news,archiveResult.items,now,5,editorials);
  return <main className={desk.page} data-public-newsroom="original-source-only">
   <BlueDeskHeader activePath="/blue-desk/newsroom"/>
