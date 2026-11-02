@@ -10,6 +10,7 @@ import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-ser
 import {recentBankDecisions} from "@/lib/bluebelly-bank-decision-snapshots";
 import {recentReportedEditorial} from "@/lib/bluebelly-reported-editorial";
 import {projectNewsroomEditorial} from "@/lib/bluebelly-newsroom-editorial";
+import {weekAheadNewsroomEditorial} from "@/lib/bluebelly-week-ahead-newsroom";
 import {selectPostEventRecaps} from "@/lib/bluebelly-post-event-recap";
 import {getCurrentVerifiedMarketMotion} from "@/lib/market-motion";
 import {selectVerifiedNewsBriefs} from "@/lib/market-brief-news";
