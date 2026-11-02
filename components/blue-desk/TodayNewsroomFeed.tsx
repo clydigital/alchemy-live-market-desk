@@ -1,4 +1,5 @@
 import Link from "next/link";
+import MarketTakeaway from "./MarketTakeaway";
 import type {TodayNewsroomItem} from "@/lib/bluebelly-public-newsroom-feed";
 import styles from "./TodayNewsroomFeed.module.css";
 
@@ -33,6 +34,8 @@ export default function TodayNewsroomFeed({items,newsroomHref}:{
     </div>
     <h3><Link href={entry.readerHref}>{entry.headline}</Link></h3>
     {entry.summary?<p>{entry.summary}</p>:null}
+    <MarketTakeaway why={entry.takeawayWhy} nextTest={entry.takeawayTest}
+      mode={entry.takeawayWhy&&entry.takeawayTest?"reviewed":entry.id.startsWith("archive:")?"archived":"source-only"} compact/>
     <div className={styles.foot}>
      <Link href={entry.readerHref}>Read analysis <span aria-hidden="true">→</span></Link>
      <a href={entry.sourceUrl} rel="noopener noreferrer" target="_blank">Original: {entry.sourceName} ↗</a>
