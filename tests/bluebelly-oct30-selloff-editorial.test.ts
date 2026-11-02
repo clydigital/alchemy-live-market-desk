@@ -31,7 +31,8 @@ test("new source-dated market story is directly readable from homepage, Newsroom
  assert.match(stories,/feature==="ai-cash-selloff-october-2026"/);
  assert.match(landing,/Market mechanism, not a verified price reaction/);
  assert.match(newsroom,/data-newsroom-lead="oct30-ai-selloff"/);
- assert.match(newsroom,/editorials\.unshift/);
+ assert.match(newsroom,/publicNewsroomEditorials/);
+ assert.match(read("lib/bluebelly-public-newsroom-feed.ts"),/result\.unshift/);
  assert.ok(newsroom.indexOf("data-newsroom-lead")<newsroom.indexOf("<BluebellyNewsWire"),"Lead precedes the ordinary wire");
  assert.match(daily,/data-daily-lead="oct30-ai-selloff"/);
  assert.match(crash,/data-oct30-newsroom-context/);
