@@ -1,14 +1,14 @@
-import {blueDeskPublicHref} from "./blue-desk-host";
-import type {NewsBriefV1} from "./market-brief-news";
-import type {ArchiveNewsItem} from "./bluebelly-publication-archive";
-import type {NewsroomEditorialItem} from "./bluebelly-newsroom-editorial";
-import {projectNewsroomEditorial} from "./bluebelly-newsroom-editorial";
-import {recentBankDecisions} from "./bluebelly-bank-decision-snapshots";
-import {recentReportedEditorial} from "./bluebelly-reported-editorial";
-import {selectPostEventRecaps} from "./bluebelly-post-event-recap";
-import {weekAheadNewsroomEditorial} from "./bluebelly-week-ahead-newsroom";
-import {currentReviewedPublicFocus} from "./bluebelly-reviewed-public-focus";
-import {OCT30_SELL_OFF,oct30SelloffIsLead} from "./bluebelly-oct30-tech-selloff";
+import {blueDeskPublicHref} from "./blue-desk-host.ts";
+import type {NewsBriefV1} from "./market-brief-news.ts";
+import type {ArchiveNewsItem} from "./bluebelly-publication-archive.ts";
+import type {NewsroomEditorialItem} from "./bluebelly-newsroom-editorial.ts";
+import {projectNewsroomEditorial} from "./bluebelly-newsroom-editorial.ts";
+import {recentBankDecisions} from "./bluebelly-bank-decision-snapshots.ts";
+import {recentReportedEditorial} from "./bluebelly-reported-editorial.ts";
+import {selectPostEventRecaps} from "./bluebelly-post-event-recap.ts";
+import {weekAheadNewsroomEditorial} from "./bluebelly-week-ahead-newsroom.ts";
+import {currentReviewedPublicFocus} from "./bluebelly-reviewed-public-focus.ts";
+import {OCT30_SELL_OFF,oct30SelloffIsLead} from "./bluebelly-oct30-tech-selloff.ts";
 
 /** The *same* read-only Newsroom editorial admission on Today and Newsroom.
  * Source attribution and review status are not upgraded here.
