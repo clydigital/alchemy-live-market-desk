@@ -14,6 +14,8 @@ export const NEWSROOM_NOVEMBER_SOURCES={
  election:"https://www.fec.gov/introduction-campaign-finance/election-results-and-voting-information/",
  congress:"https://www.usa.gov/midterm-elections",
  earnings:"https://www.earningswhispers.com/calweek/20261102",
+ meetKevinOctober:"https://www.youtube.com/watch?v=H1xVMX__KNc",
+ meetKevinNovember:"https://www.youtube.com/watch?v=7KqjagCM80I",
 } as const;
 export function weekAheadNewsroomEditorial(now:Date,href:string):NewsroomEditorialItem[]{
  const t=now.getTime();
@@ -24,10 +26,10 @@ export function weekAheadNewsroomEditorial(now:Date,href:string):NewsroomEditori
  const base=href.split("#")[0];
  const item=(id:string,headline:string,summary:string,sourceName:string,
   sourceUrl:string,topics:NewsroomEditorialItem["topics"],why:string,nextTest:string,
-  kind:NewsroomEditorialItem["kind"]):NewsroomEditorialItem=>({
+  kind:NewsroomEditorialItem["kind"],verificationLabel="FROZEN PRE-EVENT ANALYSIS · 2 NOV · NOT RESULTS"):NewsroomEditorialItem=>({
    id:"nov2-week-ahead:"+id,headline,summary,occurredAt:PREVIEW_DAY,
    sourceName,sourceUrl,readerHref:base+"#"+id,topics,
-   verificationLabel:"FROZEN PRE-EVENT ANALYSIS · 2 NOV · NOT RESULTS",
+   verificationLabel,
    why,nextTest,kind,
   });
  return [
@@ -36,6 +38,13 @@ export function weekAheadNewsroomEditorial(now:Date,href:string):NewsroomEditori
    "Federal Election Commission",NEWSROOM_NOVEMBER_SOURCES.election,["policy","bonds","energy"],
    "The important price question is whether the likely path for deficits, spending, debt issuance and regulation changes. A blocked bill and a new enacted policy have very different cash-flow consequences.",
    "Confirm chamber control with official results, then compare specific proposed legislation, Treasury yields, DXY, banks, healthcare, utilities and energy on matched time windows.","reported"),
+  item("creator-midterms","Meet Kevin versus Wall Street: Three midterm scenarios, two versions of gridlock",
+   "In his 1 November video Kevin argues a Democratic sweep could simplify White House negotiations, while a split House/Senate risks budget friction; Morgan Stanley and J.P. Morgan emphasise continuing fiscal and AI permitting constraints.",
+   "Meet Kevin · original 1 Nov transcript",NEWSROOM_NOVEMBER_SOURCES.meetKevinNovember,
+   ["policy","bonds","ai"],
+   "Kevin's 7 Oct video additionally tests whether delayed data-centre investment could increase incumbent cloud pricing power. This is a dated creator hypothesis, not an official Morgan Stanley forecast.",
+   "Compare the newest video against Morgan Stanley's 7 Oct AI policy transcript and J.P. Morgan/Goldman debt analysis; then check actual funding legislation, Treasury yields and local grid permits, not sponsored election odds.",
+   "reported","ATTRIBUTED CREATOR OPINION · 1 NOV VIDEO · NOT VERIFIED OUTCOME"),
   item("ism","ISM's inflation contradiction: factory orders rose, but input prices surged",
    "September Manufacturing PMI was 54.5 while prices rose to 77.9; services PMI was 54.9 with prices at 74.0. October manufacturing and services reports are scheduled for 2 and 4 November at 10:00 ET.",
    "Institute for Supply Management",NEWSROOM_NOVEMBER_SOURCES.manufacturing,["policy","bonds"],

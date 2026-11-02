@@ -21,15 +21,17 @@ test("Source-dated Newsroom preview route is exact-public, owner/API remains blo
   assert.equal(blueDeskHostAccess(path,host),"blocked",path);
  }
 });
-test("Midterms, ISM, jobs and earnings form four distinct preview cards",()=>{
+test("Midterms, creator-sourced opinion, ISM, jobs and earnings form five separately classified cards",()=>{
  const href="/newsroom/week-ahead";
  const items=weekAheadNewsroomEditorial(new Date("2026-11-02T04:00:00Z"),href);
  assert.deepEqual(items.map(i=>i.id),["nov2-week-ahead:midterms",
-  "nov2-week-ahead:ism","nov2-week-ahead:labour","nov2-week-ahead:earnings"]);
+  "nov2-week-ahead:creator-midterms","nov2-week-ahead:ism",
+  "nov2-week-ahead:labour","nov2-week-ahead:earnings"]);
  for(const item of items){
   assert.match(item.readerHref,/^\/newsroom\/week-ahead#/);
   assert.equal(item.occurredAt,"2026-11-02");
-  assert.match(item.verificationLabel,/PRE-EVENT.*NOT RESULTS/);
+  if(item.id.endsWith(":creator-midterms"))assert.match(item.verificationLabel,/CREATOR OPINION.*NOT VERIFIED OUTCOME/);
+  else assert.match(item.verificationLabel,/PRE-EVENT.*NOT RESULTS/);
   assert.ok(item.sourceUrl.startsWith("https://"));
   assert.ok(item.nextTest.length>75);
  }
@@ -55,6 +57,15 @@ test("Original sources and 2-6 November release times are explicit",()=>{
  assert.match(p,/time-matched/);
  assert.match(p,/The strongest objection/);
  assert.match(p,/blue-desk\/earnings-week/);
+ assert.match(p,/Meet Kevin revisited the midterms in two videos/);
+ assert.match(p,/7KqjagCM80I/);
+ assert.match(p,/H1xVMX__KNc/);
+ assert.match(p,/bilateral bargaining is not Morgan Stanley/);
+ assert.match(p,/Goldman Sachs Asset Management/);
+ assert.match(p,/J.P. Morgan Private Bank/);
+ assert.match(p,/State Street/);
+ assert.match(p,/future result/);
+ assert.doesNotMatch(p,/\$9 trillion of GDP will/);
  assert.match(editorial,/weekAheadNewsroomEditorial/);
  assert.match(daily,/blue-desk\/newsroom\/week-ahead/);
  for(const url of Object.values(NEWSROOM_NOVEMBER_SOURCES))assert.ok(url.startsWith("https://"));
