@@ -61,6 +61,14 @@ test("existing cron calls authorised private generator without new schedules or 
  assert.match(job,/delivery_type:"SCHEDULED_RESEARCH"/);
  assert.match(job,/\.eq\("report_day",day\)/);
  assert.match(job,/private_daily_html_archived/);
+ // Same ET session can have multiple immutable editions. Work must win even
+ // when an older fallback was written first or a newer addendum arrived.
+ assert.match(job,/\.order\("created_at",\{ascending:false\}\)\.limit\(40\)/);
+ assert.match(job,/delivery_type==="CHATGPT_WORK"/);
+ assert.match(job,/mode:complete\?"COMPLETE_WORK":"OWNER_REVISION"/);
+ assert.match(job,/status:"withheld",reportDay:day,id:work\.data\[0\]\.id/);
+ assert.match(job,/reason:"full_work_report_pending"/);
+ assert.doesNotMatch(job,/eq\("report_day",day\)\.limit\(2\)/);
  assert.doesNotMatch(job,/story_thesis_versions|market_regime_current|status:"published"/);
  assert.match(migration,/blue_desk_work_html_one_scheduled_session/);
  assert.doesNotMatch(migration,/grant .* authenticated|grant .* anon/i);
