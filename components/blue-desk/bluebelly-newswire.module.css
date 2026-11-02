@@ -139,3 +139,12 @@
  .metadata{font-size:12px}
  .sectionTitle h2{font-size:27px}
 }
+
+/* Black-first editorial cards. Category colour identifies the section, not an
+   invented bullish/bearish market assessment. */
+.shell{background:var(--bb-canvas);color:var(--bb-text)}
+.intro h1,.sectionTitle h2,.item h2,.panel h2{color:var(--bb-heading-newsroom)}
+.item{background:var(--bb-card-bg);border-left-color:var(--bb-heading-newsroom)}
+.item:hover,.item:focus-within{border-color:var(--bb-heading-newsroom);background:var(--bb-card-bg-hover)}
+.item .readMore{border-top:1px solid var(--bb-line);margin-top:10px}
+.item .readMore summary{color:var(--bb-heading-newsroom)}
