@@ -10,7 +10,7 @@ export type NewsroomEditorialItem={
  id:string;headline:string;summary:string;occurredAt:string;
  sourceName:string;sourceUrl:string;readerHref:string;
  topics:readonly EditorialTopicId[];verificationLabel:string;
- why:string;nextTest:string;kind:"incident"|"reported"|"bank"|"earnings";
+ why:string;nextTest:string;kind:"incident"|"reported"|"bank"|"macro"|"earnings";
 };
 export function projectNewsroomEditorial(
  banks:readonly BankDecisionSnapshot[],reports:readonly ReportedEditorial[],

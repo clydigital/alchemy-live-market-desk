@@ -1,5 +1,8 @@
 import {OCT30_SELL_OFF,oct30SelloffIsLead} from "@/lib/bluebelly-oct30-tech-selloff";
 import DecisionBrief from "@/components/blue-desk/DecisionBrief";
+import DailyFiveTopicBrief from "@/components/blue-desk/DailyFiveTopicBrief";
+import {decisionTopics} from "@/lib/bluebelly-decision-brief";
+import {projectDailyReport} from "@/lib/bluebelly-daily-report-projection";
 import {EDITORIAL_FEATURES} from "@/components/blue-desk/AmazonFomcFeatures";
 import Link from "next/link";
 import { headers } from "next/headers";
@@ -58,10 +61,15 @@ export default async function DailyReportPage({ searchParams }: { searchParams?:
   const economics = upcoming.filter(e => e.kind === "economic").slice(0, 6);
   const results = upcoming.filter(e => e.kind === "earnings").slice(0, 6);
   const calendarHref = blueDeskPublicHref("/blue-desk/calendar", host);
+  const dailyReport=projectDailyReport(decisionTopics(news,calendar,now),now,5);
 
   return <main className={styles.page} data-daily-report="editorial-first-v3">
     <BlueDeskHeader activePath="/blue-desk/daily-report" />
     <div className={styles.shell}>
+      <DailyFiveTopicBrief report={dailyReport} now={now}
+        reader={blueDeskPublicHref("/blue-desk/key-stories",host)} calendar={calendarHref}/>
+      <details className={styles.moreStories} data-daily-report-background="expandable-detailed-research">
+        <summary>Expand the full market desk, source inventory and historical research</summary>
       <DecisionBrief news={news} recentNews={recentNews} calendar={calendar} now={now} host={host} report storyPage={storyPage}/>
       {oct30SelloffIsLead(now)?<section className={styles.section} data-daily-lead="oct30-ai-selloff">
         <p className={styles.eyebrow}>MAIN STORY · 30 OCTOBER 2026 · DATED INTRADAY OBSERVATION</p>
@@ -303,6 +311,7 @@ export default async function DailyReportPage({ searchParams }: { searchParams?:
         history, recent eligible original observations and the upcoming calendar. It is not
         an exhaustive transcript of every MacroPulse post or every market print.
         Event impact is conditional unless matched market measurements establish it.</footer>
+      </details>
       </details>
     </div>
   </main>;
