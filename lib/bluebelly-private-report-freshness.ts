@@ -5,7 +5,7 @@
  * were checked. This pure gate is shared by the cron and its tests.
  */
 export type PrivateReportReceipt={
- id:string;created_at:string;delivery_type?:"CHATGPT_WORK"|"SCHEDULED_RESEARCH";
+ id:string;created_at:string;delivery_type?:string;
 };
 export type PrivateArchiveSelection={
  action:"reuse_complete"|"reuse_fallback"|"generate"|"stale_fallback";
