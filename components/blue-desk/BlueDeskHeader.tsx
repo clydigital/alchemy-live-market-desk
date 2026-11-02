@@ -21,12 +21,11 @@ const PRIVATE_NAV = [
   ["Learn", "/blue-desk/learn"],
 ] as const;
 
-// Public Daily Report and Newsroom are distinct read-only surfaces. Owner-only
-// reporting and publication tools retain the existing account allowlist.
+// Public reading sections do not duplicate the full owner Daily Intelligence.
+// My Desk stays session-gated; legacy Daily Report bookmarks redirect safely.
 const PUBLIC_NAV = [
   ["Today", "/"],
   ["Newsroom", "/newsroom"],
-  ["Daily Report", "/daily-report"],
   ["Hormuz Watch", "/hormuz"],
   ["Regime Watch", "/regime-watch"],
   ["Markets", "/markets"],
