@@ -77,6 +77,7 @@ export function publicNewsroomEditorials(
 export type TodayNewsroomItem={
  id:string;headline:string;summary:string;readerHref:string;
  sourceName:string;sourceUrl:string;sourceAt:string;label:string;
+ takeawayWhy?:string;takeawayTest?:string;
 };
 
 function validSource(url:string):boolean{
@@ -103,7 +104,8 @@ export function selectTodayNewsroomItems(
   if(!validInternal(item.readerHref)||!validSource(item.sourceUrl))continue;
   entries.push({id:"editorial:"+item.id,headline:item.headline,summary:item.summary,
    readerHref:item.readerHref,sourceName:item.sourceName,sourceUrl:item.sourceUrl,
-   sourceAt:item.occurredAt,label:item.verificationLabel});
+   sourceAt:item.occurredAt,label:item.verificationLabel,
+   takeawayWhy:item.why,takeawayTest:item.nextTest});
  }
  for(const item of archive){
   if(editorialSources.has(item.sourceUrl)||!validSource(item.sourceUrl))continue;
