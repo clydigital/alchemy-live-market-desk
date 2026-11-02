@@ -1,4 +1,6 @@
 import Link from "next/link";
+import {headers} from "next/headers";
+import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import styles from "./earnings-week.module.css";
 
@@ -110,11 +112,12 @@ const outlook=[{
 },{
  title:"The healthcare exception",text:"Pfizer and Moderna are useful counterweights to the AI story. Pfizer tests replacement-product profit and dividend coverage; Moderna tests cash runway and pipeline economics. The market's appetite for long-duration growth can be compared across sectors without pretending those businesses have the same risks."
 }];
-export default function EarningsWeekPage(){
+export default async function EarningsWeekPage(){
+ const host=(await headers()).get("host");
  return <main className={styles.page} data-earnings-preview="source-dated-2026-11-02">
   <BlueDeskHeader activePath="/blue-desk/key-stories"/>
   <article className={styles.body}>
-   <nav className={styles.back}><Link href="/blue-desk/key-stories">← Key Stories</Link><Link href="/blue-desk/calendar#earnings-hub">Earnings Hub</Link><Link href="/blue-desk/daily-report">Daily Report</Link></nav>
+   <nav className={styles.back}><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← Key Stories</Link><Link href={blueDeskPublicHref("/blue-desk/calendar#earnings-hub",host)}>Earnings Hub</Link><Link href={blueDeskPublicHref("/blue-desk/daily-report",host)}>Daily Report</Link></nav>
    <header className={styles.hero}>
     <p className={styles.kicker}>BLUEBELLY / EARNINGS WEEK / 2–6 NOVEMBER 2026 · ET</p>
     <h1>The AI boom is reporting its numbers. Who actually keeps the cash?</h1>
@@ -161,7 +164,7 @@ export default function EarningsWeekPage(){
     <p className={styles.kicker}>EVIDENCE RULES AND NEXT UPDATE</p><h2>What we still need before calling a beat</h2>
     <p>For each release compare fiscal-period-matched revenue and EPS, GAAP versus adjusted adjustments, like-for-like pre-release consensus, operating cash, cash capex, free cash flow, next-quarter guidance and stock reaction at a precisely observed time. Treat a share-price move as an observation, not proof of what caused it. A management statement is not an independent forecast.</p>
     <p><a href="https://www.earningswhispers.com/calweek/20261102" target="_blank" rel="noopener noreferrer">Earnings Whispers · week of 2 November · calendar and sentiment context ↗</a>. Company sources above determine official release details and results. No paid or login-gated whisper estimate has been assumed.</p>
-    <p><Link href="/blue-desk/calendar#earnings-hub">Follow the changing official calendar and verified results →</Link></p>
+    <p><Link href={blueDeskPublicHref("/blue-desk/calendar#earnings-hub",host)}>Follow the changing official calendar and verified results →</Link></p>
    </section>
   </article>
  </main>;
