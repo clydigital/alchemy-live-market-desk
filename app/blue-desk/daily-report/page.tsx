@@ -37,7 +37,8 @@ import styles from "./daily-report.module.css";
 export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Daily Market Report | Bluebelly",
-  description: "A complete, readable market desk: new developments, longer-running stories, market impact and what to watch next.",
+  description: "Retired public route; full daily intelligence is available privately through My Desk.",
+  robots: { index: false, follow: false },
 };
 
 export default async function DailyReportPage({ searchParams }: { searchParams?: Promise<{ storiesPage?: string | string[] }> }) {
