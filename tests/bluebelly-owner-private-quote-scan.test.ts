@@ -42,7 +42,8 @@ test("The full private scan stays behind owner RLS and the CP public page remain
  assert.match(owner,/legacy_source_retired===true/);
  assert.match(owner,/<OwnerPowerStackFullScan/);
  assert.match(full,/data-power-stack-full-private-scan/);
- assert.match(full,/data-full-watchlist/);
+ assert.match(full,/data-owner-single-table/);
+ assert.match(full,/<OwnerPortfolioSortableTable/);
  assert.doesNotMatch(publicPage,/OwnerPowerStackFullScan|quoteScan|power_stack_owner_snapshots/);
  assert.match(publicPage,/legibility.compactMarkets/);
  assert.match(css,/\.compactMarkets \.marketHero/);
