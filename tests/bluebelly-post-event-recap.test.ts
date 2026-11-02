@@ -42,7 +42,8 @@ test("homepage and bounded reader wire post-event recap without changing owner a
  const reader=readFileSync(new URL("../app/blue-desk/key-stories/page.tsx",import.meta.url),"utf8");
  assert.match(home,/selectPostEventRecaps\(recentNews,now,8\)/);
  assert.doesNotMatch(hero,/<PostEventRecapFeature/);
- assert.match(readFileSync(new URL("../app/blue-desk/newsroom/page.tsx",import.meta.url),"utf8"),/selectPostEventRecaps\(news,now,8\)/);
+ assert.match(readFileSync(new URL("../app/blue-desk/newsroom/page.tsx",import.meta.url),"utf8"),/publicNewsroomEditorials/);
+ assert.match(readFileSync(new URL("../lib/bluebelly-public-newsroom-feed.ts",import.meta.url),"utf8"),/selectPostEventRecaps\(news,now,8\)/);
  assert.match(reader,/findPostEventRecap\(recapId,\[\],now\)/);
  assert.match(reader,/data-key-story="post-event-source-reviewed"/);
 });
