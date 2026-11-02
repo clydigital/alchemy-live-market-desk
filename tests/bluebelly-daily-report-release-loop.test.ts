@@ -70,7 +70,7 @@ test("Newsroom and Today share already-reviewed releases, with source and consen
   const match=matches[0];
   if(match.id==="macro-release:"+item.id)assert.equal(match.kind,"macro");
  }
- const shared=selectTodayNewsroomItems([],[],editorials,today,5);
+ const shared=selectTodayNewsroomItems([],[],editorials,today,host,5);
  assert.ok(shared.length>0);
  const withExactSource=publicNewsroomEditorials([{contractVersion:"news-brief/1",contentType:"NEWS_BRIEF",
   verification:"SOURCE_VERIFIED",id:"same-press",headline:"Economic release original verified",
