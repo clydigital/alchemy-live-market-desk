@@ -4,6 +4,10 @@
 .hero{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(250px,.8fr);gap:26px;align-items:start;background:var(--bb-card-bg);padding:clamp(23px,4.2vw,52px);border:1px solid var(--bb-card-border);border-radius:15px}
 .hero h1{font-size:clamp(35px,4.4vw,64px);max-width:21ch;line-height:1.08;letter-spacing:-.04em;margin:10px 0 18px}
 .deck{font-size:clamp(17px,2vw,23px);line-height:1.55;max-width:46ch}
+.quickBrief{max-width:72ch;margin:18px 0 21px;border-left:3px solid var(--bb-accent);padding:14px 19px;background:var(--bb-card-quiet)}
+.quickBrief .kicker{margin:0 0 6px}
+.quickBrief>p:last-child{color:var(--bb-text);font-size:clamp(16px,1.55vw,19px);line-height:1.62;margin:0;max-width:64ch}
+
 .metadata{display:flex;gap:9px;flex-direction:column;color:var(--bb-muted);font-size:12px;margin-top:30px}
 .primer{background:var(--bb-card-quiet);border-left:3px solid var(--bb-accent);padding:19px;border-radius:3px}
 .primer p{color:var(--bb-muted);font-size:13px;line-height:1.7}.primer strong{color:var(--bb-text)}

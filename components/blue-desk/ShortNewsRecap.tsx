@@ -10,17 +10,18 @@ import {projectLivingMarketTopics} from "@/lib/blue-desk-living-topics";
 import {decisionTopics} from "@/lib/bluebelly-decision-brief";
 import ui from "./ShortNewsRecap.module.css";
 import type {StoryCoverageStatus} from "@/lib/bluebelly-key-story-depth";
+import {consequenceForSourceOnlyNews,consequenceForEarnings} from "@/lib/bluebelly-market-consequence-read-model";
 
 type Recap={
  title:string;fact:string;stake:string;mechanism:string;nextTest:string;
  sourceUrl:string;sourceName:string;asOf:string;isScheduled:boolean;label:string;
- ticker?:string;earnings?:VerifiedEarningsScorecard|null;
+ ticker?:string;earnings?:VerifiedEarningsScorecard|null;rawNews?:NewsBriefV1;
 };
 function validSource(url:string){try{const u=new URL(url);return u.protocol==="https:"&&!u.username&&!u.password;}catch{return false;}}
 export function recapFromNews(news:NewsBriefV1):Recap{
  const topic=projectLivingMarketTopics([news])[0];
  return {
-  title:news.headline,
+  title:news.headline,rawNews:news,
   fact:news.summary.startsWith("The original publisher issued this dated announcement.")
     ?news.headline:news.summary,
   stake:topic?.humanStake||"Who benefits, who pays, and which assets are exposed depends on the specific reported change.",
@@ -44,18 +45,22 @@ export function recapFromDecision(
 }
 /** Read-only explanation of the existing qualified record, never an on-request AI verdict. */
 export default function ShortNewsRecap({recap,backHref,coverage}:{recap:Recap;backHref:string;coverage?:StoryCoverageStatus}){
+ const sourceOnly=recap.rawNews?consequenceForSourceOnlyNews(recap.rawNews):null;
  if(coverage?.status==="SOURCE_ONLY")return <article className={ui.article} data-bluebelly-news-recap="source-only-depth-incomplete">
   <nav className={ui.back}><Link href={backHref}>← Return to Key Stories</Link></nav>
   <header className={ui.hero}><div className={ui.head}>
     <p className={ui.kicker}>SOURCE-VERIFIED REPORT · RESEARCH DEPTH INCOMPLETE</p>
     <h1>{recap.title}</h1>
-    <p className={ui.deck}>The dated source report was verified. The previous baseline, expectation, financial effect and market response still need evidence before this can be presented as a researched Key Story.</p>
+    <p className={ui.kicker}>QUICK MARKET BRIEF · FACTUAL NOTICE</p>
+    <p className={ui.deck} data-quick-market-brief="source-only">{recap.fact}</p>
+    <p>The dated source report was verified. The previous baseline, expectation, financial effect and market response still need evidence before this can be presented as a researched Key Story.</p>
     <div className={ui.time}><DualTimestamp value={recap.asOf}/></div>
   </div><EditorialStoryArt headline={recap.title} summary={recap.fact}/></header>
   <div className={ui.chapters}>
     <section><p className={ui.kicker}>WHAT WE CAN VERIFY</p><h2>The confirmed development</h2><p>{recap.fact}</p></section>
     <section><p className={ui.kicker}>WHAT IS STILL MISSING</p><h2>What must be researched before calling this the full story?</h2>
       <ul>{coverage.missing.map(item=><li key={item}>{item}</li>)}</ul>
+      {sourceOnly?<p data-market-consequence="source-only-unassessed" className={ui.caution}>Business effect: not yet established. Expectations: {sourceOnly.expectations.status.replace("_"," ").toLowerCase()}. Share-price response: {sourceOnly.price.status.replace("_"," ").toLowerCase()}. No change in uncertainty or price causality is asserted from the headline.</p>:null}
       <p className={ui.caution}>No consensus surprise, specific price reaction or company impact has been inferred from the headline.</p>
     </section>
   </div>
@@ -67,13 +72,15 @@ export default function ShortNewsRecap({recap,backHref,coverage}:{recap:Recap;ba
 
  const hasInstant=/^\d{4}-\d{2}-\d{2}T/.test(recap.asOf);
  const reaction=recap.earnings?getDatedEarningsReaction(recap.earnings.id):null;
+ const consequence=recap.earnings?consequenceForEarnings(recap.earnings,reaction):null;
  return <article className={ui.article} data-bluebelly-news-recap="source-qualified">
   <nav className={ui.back}><Link href={backHref}>← Return to Key Stories</Link></nav>
   <header className={ui.hero}>
    <div className={ui.head}>
     <p className={ui.kicker}>{recap.label}</p>
     <h1>{recap.title}</h1>
-    <p className={ui.deck}>{recap.isScheduled?
+    {consequence?<p className={ui.kicker}>QUICK MARKET BRIEF</p>:null}
+    <p className={ui.deck} data-quick-market-brief={consequence?"source-reviewed-earnings":undefined}>{consequence?recap.earnings?.outlook:recap.isScheduled?
       "The date is known. The decision is not. Here's how to read the outcome when it arrives.":
       "A verified development has arrived. The question is what it changes—and what is still unproved."}</p>
     <div className={ui.time}><DualTimestamp value={hasInstant?recap.asOf:null} sourceDate={recap.asOf}/>
@@ -81,6 +88,16 @@ export default function ShortNewsRecap({recap,backHref,coverage}:{recap:Recap;ba
    </div>
    <EditorialStoryArt headline={recap.title} summary={recap.fact}/>
   </header>
+  {consequence?<div className={ui.chapters} data-market-consequence="separate-business-price-evidence">
+    <section><p className={ui.kicker}>MARKET CONSEQUENCE / ECONOMICS ARE NOT THE SHARE PRICE</p>
+      <h2>What changed for the business, and what did the shares do?</h2>
+      <p><strong>For the business:</strong> {consequence.economic.text}</p>
+      <p><strong>For the shares:</strong> {consequence.price.text}</p>
+      <p><strong>What was expected:</strong> {consequence.expectations.text}</p>
+      <p><strong>What remains uncertain:</strong> {consequence.uncertainty.question}</p>
+      <p className={ui.caution}>A dated share-price reaction cannot by itself establish that the market had priced in peak earnings, rejected guidance, or changed its valuation. Cause not established unless the cited evidence supports a specific explanation.</p>
+    </section>
+   </div>:null}
   <div className={ui.chapters}>
    <section><p className={ui.kicker}>01 / THE SETUP</p>
     <h2>Why anyone was watching</h2>

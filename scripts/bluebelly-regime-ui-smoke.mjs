@@ -181,6 +181,28 @@ try{
   console.log("Public CP page "+path+" "+view.status+" · mobile render saved");
  }
 
+ // Brief-first reader acceptance uses a frozen public issuer snapshot:
+ // it checks rendering, not current financial accuracy or unsourced prices.
+ const investorPath="/markets?view=earnings&ticker=AMZN";
+ const investor=await waitResponse(investorPath);
+ assertHtml(investor.html,'data-bluebelly-financial-article="AMZN"',
+   'data-quick-market-brief="dated-investor-research"',
+   "QUICK MARKET BRIEF","Follow the money, not just the EPS headline",
+   "Original records and the unresolved gaps");
+ await renderChrome("http://127.0.0.1:"+PUBLIC+investorPath,
+   "consequence-investor-desktop.png",1440,1000);
+ await renderChrome("http://127.0.0.1:"+PUBLIC+investorPath,
+   "consequence-investor-mobile.png",390,844);
+ console.log("Investor brief/read-through "+investor.status+" · desktop and mobile renders saved");
+ const fedPath="/key-stories?news=e378d91d-deb9-4148-88c5-ab6bf5ef367f";
+ const fed=await waitResponse(fedPath);
+ assertHtml(fed.html,'data-key-story-depth="source-verified-analysis"',
+   'data-quick-market-brief="source-reviewed"',"QUICK MARKET BRIEF",
+   "The difference","Measurements Bluebelly still lacks");
+ await renderChrome("http://127.0.0.1:"+PUBLIC+fedPath,
+   "consequence-fomc-mobile.png",390,844);
+ console.log("FOMC historical evidence "+fed.status+" · mobile render saved");
+
  // The Learn slide reader shares the visual system but its controls use
  // independent styles; exercise both index and first presentation in Chrome.
  for(const [path,name] of [["/learn","learn-index"],["/learn/decks/d13","learn-deck"]]){

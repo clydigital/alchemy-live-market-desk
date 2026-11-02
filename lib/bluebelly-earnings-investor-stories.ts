@@ -5,7 +5,7 @@
  * a source-admission override or a canonical Story/Regime mutation.
  */
 export type EarningsCase = {
- ticker:string; name:string; heading:string; period:string; centralQuestion:string;
+ ticker:string; name:string; heading:string; period:string; centralQuestion:string; quickBrief:string;
  pitch:string[]; theMoney:string[]; theCatch:string[]; balance:string[];
  metrics:{label:string;value:string;basis:string}[];
  bridges:{label:string;formula:string;interpretation:string}[];
@@ -22,6 +22,7 @@ export const EARNINGS_CASES:readonly EarningsCase[]=[
  ticker:"AMZN",name:"Amazon",heading:"The profit engine and the $169 billion infrastructure bill",
  period:"Q2 2026 ended 30 June; trailing twelve months to June for cash flow",
  centralQuestion:"Is Amazon building an expensive monopoly-like cloud engine—or promising investors a return it has not yet delivered?",
+ quickBrief:"Amazon's cloud business is producing substantial profit, but the AI infrastructure build-out is absorbing more cash than operations generate in this dated snapshot. Whether that spending ultimately rewards shareholders remains unproven.",
  pitch:[
   "Amazon looks like several businesses sharing a balance sheet. Its own online stores sell physical goods, while independent merchants pay fees for access, advertising and fulfilment. Prime provides recurring subscriptions; advertising earns fees without the same warehouse burden. AWS rents computing, storage and AI infrastructure to developers and enterprises.",
   "That mix changes the pitch. In Q2, North American operations generated $116.2bn of sales and roughly $9.1bn of operating income. International operations generated about $42.2bn of sales and $1.7bn of operating income. AWS delivered about $42.2bn of sales but $16.6bn in operating income. The last business provided around 60% of the group's $27.5bn operating profit despite only around one-fifth of sales.",
@@ -79,6 +80,7 @@ export const EARNINGS_CASES:readonly EarningsCase[]=[
  ticker:"INTC",name:"Intel",heading:"The comeback that still needs a foundry customer",
  period:"Q2 2026 ended 27 June; financing event disclosed in August",
  centralQuestion:"Can a stronger CPU business carry a chip-factory operation that still has to prove third-party economics?",
+ quickBrief:"Intel's stronger product sales and fresh financing offer room for a turnaround, but Foundry losses and the cost of funding it remain unresolved. An improved quarter does not establish that the shares are cheap.",
  pitch:[
   "Intel has two competing stories. Its product business sells processors that go into computers and servers. Its Foundry business operates costly factories, serving Intel's own chips and seeking outside customers. A processor recovery helps near-term earnings, but it does not by itself establish a profitable contract-manufacturing business.",
   "In Q2, Intel Products generated around $15.1bn revenue and $4.8bn operating profit. The Foundry unit recorded approximately $5.8bn of segment sales—but $5.5bn of that was intersegment activity. Revenue from outside foundry customers was only $293m. The investor should not count captive wafer production as evidence that third parties are choosing Intel over rivals."
@@ -134,6 +136,7 @@ export const EARNINGS_CASES:readonly EarningsCase[]=[
  ticker:"SNDK",name:"SanDisk",heading:"Record NAND margins: cash earned or cash paid in advance?",
  period:"Fiscal Q4 2026 ended 3 July; FY2028–2030 financial model is management's forecast",
  centralQuestion:"If memory prices stop soaring, how much of today's earnings power remains?",
+ quickBrief:"SanDisk's strong storage margins benefit from rising NAND prices. The question is whether those prices and customer payments can hold up through a full cycle, rather than simply reflecting a temporary peak.",
  pitch:[
   "SanDisk supplies flash memory used in data centres, edge equipment and consumer products. As AI workloads grow, buyers need more storage and faster access to data. Supply constraints have also given manufacturers unusual pricing power.",
   "The revenue mix exposes the nature of the rally. Fiscal Q4 sales reached $8.965bn, up 51% quarter on quarter, while data-centre sales more than doubled sequentially to $2.977bn. Consumer sales actually fell 32% sequentially to $556m. Management says two-thirds of the total revenue increase came from price, not more bits sold."
@@ -192,6 +195,7 @@ export const EARNINGS_CASES:readonly EarningsCase[]=[
  ticker:"AMD",name:"AMD",heading:"What does it cost to win the AI customers?",
  period:"Q2 2026 ended 27 June; no customer warrants vested at reporting date",
  centralQuestion:"A second AI accelerator champion—or growth partly financed with its own equity?",
+ quickBrief:"AMD is gaining traction in data centres and AI hardware, with a substantial cash cushion. Margins and potential future customer-warrant dilution still matter to the return left for shareholders.",
  pitch:[
   "AMD sells server processors and AI accelerators to hyperscalers, along with PC and gaming chips. Data-centre revenue doubled year on year in Q2, helping revenue reach $11.536bn. Its data-centre customers can also be its most sophisticated negotiators.",
   "The company is not financing growth from a weak position: cash and short-term investments totalled $13.111bn against debt of around $3.23bn. AMD reported $1.558bn in quarter free cash flow, but this was down from $2.566bn in Q1 despite expanding revenue."
@@ -247,6 +251,7 @@ export const EARNINGS_CASES:readonly EarningsCase[]=[
  ticker:"AAPL",name:"Apple",heading:"A cash machine facing a higher-cost hardware cycle",
  period:"Fiscal Q3 2026 / first nine months ended 27 June",
  centralQuestion:"How much of Apple's margin is durable if memory and supply costs rise?",
+ quickBrief:"Apple is generating substantial cash, but recurring device and Services demand must justify its valuation. One-off refund benefits and supplier reports are not a reliable substitute for sustained sales.",
  pitch:[
   "Apple sells iPhones, Macs, iPads and accessories, then monetises the installed base through Services. The economics are not equal: in fiscal Q3, Products gross margin was 40.1%, while Services gross margin was 75.6%. A growing Services mix makes the company more than a one-product manufacturer.",
   "Nine-month operating cash reached $116.996bn, while purchases of property and equipment were only $6.799bn. That simple $110.197bn cash-after-capex calculation is a major contrast to the large AI infrastructure builders."
@@ -301,6 +306,7 @@ export const EARNINGS_CASES:readonly EarningsCase[]=[
  ticker:"PFE",name:"Pfizer",heading:"The dividend question behind an investment-grade borrower",
  period:"H1 2026 ended 28 June; cash flows six months, not a full year",
  centralQuestion:"Can Pfizer replace ageing medicine sales, pay investors and reduce debt using the same cash?",
+ quickBrief:"Pfizer's first-half free cash flow was below the dividends it paid. That raises a coverage question, but seasonality and liquidity mean it does not prove a dividend cut is coming.",
  pitch:[
   "Pfizer makes money by developing and commercialising medicines and vaccines. The cash spent discovering drugs today can pay back over years, but exclusivity eventually expires and competitors reduce prices. Pfizer's challenge is replenishing its portfolio while servicing acquisition-era debt.",
   "The income statement is not a reliable standalone shortcut. In Q2 the company reported a small GAAP per-share loss while its adjusted EPS was positive, materially affected by charges linked to purchased intangible assets. Underwriting the dividend requires operating cash, not adjusted EPS.",
@@ -355,6 +361,7 @@ export const EARNINGS_CASES:readonly EarningsCase[]=[
  ticker:"PLTR",name:"Palantir",heading:"A great operating business with an unforgiving price tag",
  period:"Q2 2026 ended 30 June; valuation snapshot dated 28 October",
  centralQuestion:"What growth rate is already embedded in the stock before the next earnings print?",
+ quickBrief:"Palantir's strong software growth and profitability make the business compelling, but the share valuation already assumes considerable future success. Good earnings alone may not settle the entry-price question.",
  pitch:[
   "Palantir sells software platforms that integrate data and operational decisions for government and commercial customers. A contract can cover a long delivery period, but the accounting revenue arrives only when performance conditions are satisfied.",
   "The quarter was extraordinary: $1.935bn sales (+93% year on year), $912m GAAP operating profit (47% margin) and $1.216bn of cash from operations. Management raised full-year revenue guidance to a midpoint around $8.154bn."

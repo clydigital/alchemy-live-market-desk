@@ -5,6 +5,7 @@ import PublishedResearchDispatches from "./PublishedResearchDispatches";
 import type {PublicResearchFocus} from "@/lib/blue-desk-published-research-focus";
 import Link from "next/link";
 import type {NewsBriefV1} from "@/lib/market-brief-news";
+import {consequenceForSourceOnlyNews} from "@/lib/bluebelly-market-consequence-read-model";
 import {publicArchiveSearchIndex,type ArchiveNewsItem} from "@/lib/bluebelly-publication-archive";
 import type {NewsroomHotPicks} from "@/lib/bluebelly-newsroom-hot-picks";
 import type {NewsroomEditorialItem} from "@/lib/bluebelly-newsroom-editorial";
@@ -29,6 +30,22 @@ function archiveTopics(item:ArchiveNewsItem):EditorialTopicId[]{
  if(item.topics.includes("FX")||item.topics.includes("METALS"))categories.add("fx");
  if(editorialNewsTopics({headline:item.headline,summary:""}).includes("crypto"))categories.add("crypto");
  return categories.size?[...categories]:["other"];
+}
+function SourceOnlyConsequence({news}:{news:NewsBriefV1}){
+ const evidence=consequenceForSourceOnlyNews(news);
+ const chart=storyTvInstrument(news.headline);
+ return <details className={styles.readMore} data-market-consequence="source-only-evidence-status">
+   <summary>What is known, and what still needs checking?</summary>
+   <div className={styles.detailBody}>
+     <h3>What the original source confirms</h3><p>{news.summary}</p>
+     <h3>Economic effect</h3><p>{evidence?.economic.text||"Not established from this source notice."}</p>
+     <h3>Uncertainty</h3><p>A specific unresolved outcome has not yet been independently assessed. Do not label this report a broad market-uncertainty shock.</p>
+     <h3>Prior expectations</h3><p>{evidence?.expectations.text||"Not verified."}</p>
+     <h3>Observed share or market response</h3><p>{evidence?.price.text||"Not measured."}</p>
+     <p>Original event {clock(news.occurredAt)} · desk observed {clock(news.observedAt)}. Source-verified does not mean an accepted market cause or a canonical Story update.</p>
+     {chart?<TradingViewChart initial={chart} compact/>:null}
+   </div>
+  </details>;
 }
 type NewsroomCategory=EditorialTopicId|"hot";
 export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailable=true,hotPicks,editorials=[],researchItems=[],initialQuery="",now,readerHref,children}:{
@@ -157,16 +174,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
         <button type="button" onClick={()=>setShortlist(ids=>ids.includes(card.item.id)?ids.filter(i=>i!==card.item.id):[...ids,card.item.id])}
           aria-pressed={shortlist.includes(card.item.id)}>{shortlist.includes(card.item.id)?"✓ Shortlisted":"+ Brief shortlist"}</button>
        </div>
-       <details className={styles.readMore}>
-        <summary>Read the investor test and evidence boundary</summary>
-        <div className={styles.detailBody}>
-         <h3>What happened?</h3><p>{card.item.summary}</p>
-         <h3>Who bears the economics?</h3><p>Identify the companies, borrowers, customers or markets exposed. No balance-sheet effect is assumed without relevant source data.</p>
-         <h3>What could challenge the first interpretation?</h3><p>Check the strongest alternative explanation and a dated comparable market measurement before assigning a cause to price action.</p>
-         <p>Observed by desk: {clock(card.item.observedAt)}. Reporting qualification does not constitute canonical regime evidence or a measured asset reaction.</p>
-         {storyTvInstrument(card.item.headline)?<TradingViewChart initial={storyTvInstrument(card.item.headline)!} compact/>:null}
-        </div>
-       </details>
+       <SourceOnlyConsequence news={card.item}/>
       </div>
     </article>)}
     {visibleCount===0?<p className={styles.empty}>No qualifying reports match. Clear the search or try another category; an empty feed does not mean nothing happened.</p>:null}

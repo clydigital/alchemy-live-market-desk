@@ -25,6 +25,10 @@ export default function EarningsInvestorDeepDive({ticker,backHref}:{ticker:strin
      <div>
        <p className={styles.kicker}>BLUEBELLY INVESTOR TEST / {item.ticker}</p>
        <h1>{item.heading}</h1>
+       <div className={styles.quickBrief} data-quick-market-brief="dated-investor-research">
+         <p className={styles.kicker}>QUICK MARKET BRIEF</p>
+         <p>{item.quickBrief}</p>
+       </div>
        <p className={styles.deck}>{item.centralQuestion}</p>
        <p className={styles.metadata}><strong>{EARNINGS_RESEARCH_CUTOFF}</strong><span> Latest verified base: {item.period}</span></p>
      </div>
