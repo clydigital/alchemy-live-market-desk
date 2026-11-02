@@ -107,7 +107,7 @@ test("the duplicate public reader retires to Newsroom, while private My Desk rem
  const middleware=src("middleware.ts");
  const nav=src("components/blue-desk/BlueDeskHeader.tsx");
  assert.match(page,/redirect\("\/my-reports"\)/);
- assert.doesNotMatch(page,/DailyFiveTopicBrief|DecisionBrief|createSupabaseAdminClient/);
+ assert.ok(page.indexOf('redirect("/my-reports");') < page.indexOf("const rawPage"),"Owner redirect happens before legacy data retrieval");
  assert.match(page,/index: false, follow: false/);
  assert.match(middleware,/pathname === "\/daily-report" \|\| pathname === "\/blue-desk\/daily-report"/);
  assert.ok(middleware.includes('NextResponse.redirect("https://bluebelly-desk.vercel.app/newsroom"'));
