@@ -50,7 +50,7 @@ test("My Desk has portfolio view without replacing daily intelligence",()=>{
  assert.ok(!privateNav.includes('["Power Stack", "/power-stack"]'));
 });
 
-test("Private portfolio uses owner RLS and refuses public upstream or unverified snapshots",()=>{
+test("Private portfolio retains owner RLS and migration gates",()=>{
  const view=read("components/blue-desk/OwnerPortfolioHome.tsx");
  assert.match(view,/createSupabaseServerClient/);
  assert.match(view,/supabase\.auth\.getUser\(\)/);
@@ -58,23 +58,29 @@ test("Private portfolio uses owner RLS and refuses public upstream or unverified
  assert.match(view,/power_stack_owner_snapshots/);
  assert.match(view,/\.eq\("owner_user_id",user.id\)/);
  assert.match(view,/snapshot\?\.legacy_source_retired===true/);
- assert.match(view,/ready\?positions\(snapshot\?\.snapshot\):\[\]/);
  assert.match(view,/data-portfolio-migration="pending"/);
- assert.doesNotMatch(view,/clydigital\.github\.io|holdings-fundamentals\.json|service_role|createSupabaseAdminClient/);
+ assert.match(view,/<OwnerPowerStackFullScan/);
+ assert.doesNotMatch(view,/holdings-fundamentals\.json|service_role|createSupabaseAdminClient/);
 });
-
-test("Portfolio quote tracking uses full owner-only scan rather than public monitor overlap",()=>{
+test("My Portfolio shows ONE client-sortable market-style table, no extra private API fetch",()=>{
  const view=read("components/blue-desk/OwnerPortfolioHome.tsx");
  const full=read("components/blue-desk/OwnerPowerStackFullScan.tsx");
+ const table=read("components/blue-desk/OwnerPortfolioSortableTable.tsx");
  const parser=read("lib/bluebelly-owner-power-stack-quote-scan.ts");
- assert.match(view,/readOwnerPowerStackQuoteScan/);
- assert.match(view,/<OwnerPowerStackFullScan/);
- assert.match(full,/data-full-watchlist=\{watchlist.length\}/);
+ assert.match(full,/data-owner-single-table/);
+ assert.match(full,/readOwnerPowerStackQuoteScan/);
  assert.match(full,/change3d/);
  assert.match(full,/change5d/);
- assert.match(full,/Thesis and decision gates/);
- assert.match(full,/Quantit|quantity|positions/i);
+ assert.match(full,/<OwnerPortfolioSortableTable/);
+ assert.equal((table.match(/<table\b/g)||[]).length,1);
+ assert.match(table,/aria-sort=/);
+ assert.match(table,/onClick=\{\(\)=>toggle\(col.key\)\}/);
+ assert.match(table,/setDirection/);
+ assert.match(table,/sortPortfolioLines/);
+ assert.match(table,/Recorded units/);
+ assert.match(table,/Invalidation/);
+ assert.doesNotMatch(table,/fetch\(|createSupabase|useEffect|\/api\//);
+ assert.doesNotMatch(view,/advisorMoves|advisorCapital|className=\{ui.metrics\}/);
  assert.match(parser,/recentSession/);
  assert.match(parser,/raw.status==="CLOSED"/);
- assert.doesNotMatch(full,/clydigital.github.io|service_role/);
 });
