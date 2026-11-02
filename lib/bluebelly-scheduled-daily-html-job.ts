@@ -54,16 +54,21 @@ export async function runPrivateDailyHtmlFallback(
   if(eligible.length!==1)return {status:"withheld",reportDay:day,reason:"owner_identity_not_unique"};
   const ownerId=eligible[0].id;
   const [work,owner]=await Promise.all([
-   db.from("blue_desk_work_html_editions").select("id,delivery_type")
-    .eq("owner_user_id",ownerId).eq("report_day",day).limit(2),
+   db.from("blue_desk_work_html_editions").select("id,delivery_type,created_at")
+    .eq("owner_user_id",ownerId).eq("report_day",day)
+    .order("created_at",{ascending:false}).limit(40),
    db.from("blue_desk_private_html_editions").select("id")
     .eq("owner_user_id",ownerId).eq("report_day",day).limit(1),
   ]);
   if(work.error||owner.error)return {status:"failed",reportDay:day,reason:"archive_read_unavailable"};
-  // Work-authored complete editions and owner revisions outrank the fallback.
+  // The newest complete Work edition wins, not whichever first two rows a
+  // query happened to return. Never claim an abbreviated scheduled fallback
+  // satisfies the full Daily Report delivery contract.
   const complete=(work.data||[]).find(x=>x.delivery_type==="CHATGPT_WORK");
-  if(complete||owner.data?.length)return {status:"reused",reportDay:day,id:complete?.id||owner.data?.[0]?.id};
-  if(work.data?.length)return {status:"reused",reportDay:day,id:work.data[0].id,mode:"SOURCE_LED_FALLBACK"};
+  if(complete||owner.data?.length)return {status:"reused",reportDay:day,
+   id:complete?.id||owner.data?.[0]?.id,mode:complete?"COMPLETE_WORK":"OWNER_REVISION"};
+  if(work.data?.length)return {status:"withheld",reportDay:day,id:work.data[0].id,
+   mode:"SOURCE_LED_FALLBACK",reason:"full_work_report_pending"};
 
   // Every adapter below already projects verified original-source inputs.
   const [motion,press,observations,economic,earnings,monitor]=await Promise.all([
