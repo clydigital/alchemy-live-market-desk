@@ -4,6 +4,7 @@ import {GoogleGenAI,ThinkingLevel} from "@google/genai";
 import {acceptsResearchAuthorization} from "./research-auth";
 import {createSupabaseAdminClient} from "./supabase/admin";
 import {expectedCompletedUsWeekdaySessionDay} from "./bluebelly-daily-report-session";
+import {selectPrivateDailyArchive} from "./bluebelly-private-report-freshness";
 import {getCurrentVerifiedMarketMotion} from "./market-motion";
 import {selectVerifiedNewsBriefs} from "./market-brief-news";
 import {getOriginalPressNews} from "./blue-desk-original-press-news-server";
@@ -19,7 +20,7 @@ import {assembleAutomaticReportEvidence,buildAutomaticReportModelPrompt,
  type AutomatedReportNarrative} from "./blue-desk-automated-report-contract";
 import {renderScheduledDailyHtml} from "./bluebelly-scheduled-daily-html";
 
-type Result={status:"ready"|"reused"|"withheld"|"locked"|"failed";
+type Result={status:"ready"|"reused"|"stale"|"withheld"|"locked"|"failed";
  reportDay?:string;id?:string;mode?:string;reason?:string;qualified?:number};
 const hash=(s:string)=>createHash("sha256").update(s).digest("hex");
 const timeGate=(d:Date)=>Number.isFinite(d.getTime())&&d.getUTCHours()===3
@@ -54,16 +55,34 @@ export async function runPrivateDailyHtmlFallback(
   if(eligible.length!==1)return {status:"withheld",reportDay:day,reason:"owner_identity_not_unique"};
   const ownerId=eligible[0].id;
   const [work,owner]=await Promise.all([
-   db.from("blue_desk_work_html_editions").select("id,delivery_type")
-    .eq("owner_user_id",ownerId).eq("report_day",day).limit(2),
-   db.from("blue_desk_private_html_editions").select("id")
-    .eq("owner_user_id",ownerId).eq("report_day",day).limit(1),
+   db.from("blue_desk_work_html_editions").select("id,delivery_type,created_at")
+    .eq("owner_user_id",ownerId).eq("report_day",day)
+    .order("created_at",{ascending:false}).limit(20),
+   db.from("blue_desk_private_html_editions").select("id,created_at")
+    .eq("owner_user_id",ownerId).eq("report_day",day)
+    .order("created_at",{ascending:false}).limit(12),
   ]);
   if(work.error||owner.error)return {status:"failed",reportDay:day,reason:"archive_read_unavailable"};
-  // Work-authored complete editions and owner revisions outrank the fallback.
-  const complete=(work.data||[]).find(x=>x.delivery_type==="CHATGPT_WORK");
-  if(complete||owner.data?.length)return {status:"reused",reportDay:day,id:complete?.id||owner.data?.[0]?.id};
-  if(work.data?.length)return {status:"reused",reportDay:day,id:work.data[0].id,mode:"SOURCE_LED_FALLBACK"};
+  // The session date is NOT proof of new evidence. Old Friday HTML must not
+  // satisfy Monday's premarket source check simply because Friday is still
+  // the last completed US equity session.
+  const selection=selectPrivateDailyArchive(work.data||[],owner.data||[],now);
+  if(selection.action==="reuse_complete")return {
+   status:"reused",reportDay:day,id:selection.id,mode:"FRESH_COMPLETE"
+  };
+  if(selection.action==="reuse_fallback")return {
+   status:"reused",reportDay:day,id:selection.id,mode:"SOURCE_LED_FALLBACK",
+   reason:"full_editorial_report_still_pending"
+  };
+  if(selection.action==="stale_fallback"){
+   console.warn(JSON.stringify({event:"private_daily_html_stale",reportDay:day,
+    reason:selection.reason,staleId:selection.id}));
+   return {status:"stale",reportDay:day,id:selection.id,reason:selection.reason};
+  }
+  if(selection.reason==="older_same_session_editions_do_not_satisfy_morning_freshness"){
+   console.warn(JSON.stringify({event:"private_daily_html_refresh_needed",
+    reportDay:day,reason:selection.reason}));
+  }
 
   // Every adapter below already projects verified original-source inputs.
   const [motion,press,observations,economic,earnings,monitor]=await Promise.all([
