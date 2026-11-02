@@ -30,6 +30,7 @@ export default function HormuzMediationFeature({
     >
       <div className={s.eyebrow}>HORMUZ DIPLOMACY / QATAR MEDIATION · REPORTED 1 NOV 2026</div>
       <h2 id="hormuz-mediation-title">Iran offers a two-day Hormuz reopening. What is the catch?</h2>
+      <p data-quick-market-brief="source-reviewed-conditional"><strong>Quick market brief:</strong> Peace talks could reduce concern about oil supply, but a proposed reopening is not a completed agreement. The test is whether ships can actually pass safely again.</p>
       <p className={s.deck}>
         Tehran says it could restore navigation on day two of a proposed deal, but only after
         the US acts on Iranian conditions on day one. A proposal is not an agreement,
