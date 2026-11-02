@@ -13,3 +13,7 @@
 .grid p{font-size:13px;line-height:1.66;color:var(--bb-muted)}
 .grid a{min-height:40px;display:inline-flex;align-items:center}
 @media(max-width:680px){.grid{grid-template-columns:1fr}.head{display:block}.section{overflow-wrap:anywhere}}
+
+.section{background:var(--bb-surface);border-color:var(--bb-line)}
+.head h2,.grid h3,.kicker{color:var(--bb-heading-newsroom)}
+.grid article{background:var(--bb-card-quiet);border-color:var(--bb-line)}
