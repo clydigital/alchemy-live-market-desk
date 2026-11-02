@@ -270,6 +270,7 @@ export default async function DailyReportPage({ searchParams }: { searchParams?:
         <div className={styles.heading}>
           <p className={styles.eyebrow}>04 / WHAT TO WATCH NEXT</p>
           <h2 id="forward">Calendar and earnings catalysts</h2>
+           <p><Link href={blueDeskPublicHref("/blue-desk/earnings-week",host)}>Week of 2 November: full pre-earnings investor test for Apple, Palantir, AI infrastructure, power and Uber →</Link></p>
           <p>Source-listed future events are deciding questions, not predictions.</p>
         </div>
         <div className={styles.twoCols}>

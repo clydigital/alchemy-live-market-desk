@@ -198,6 +198,8 @@ export function buildAutomaticReportModelPrompt(e:AutomaticReportEvidence){
     "Allow one to four genuinely supported story sections, not a forced minimum of two; never fabricate a scene, price reaction, cause or extra market fact to meet a narrative structure; if a reaction is unavailable, say UNKNOWN.",
     "Explain the essential financial mechanism where the reader encounters it, using no more than three short learning moments and a genuine counterforce. Cross-market and future-event arrays may be empty if sources are insufficient.",
     "Preserve confirmed observations separately from AI interpretation, disputes and forward-looking tests; a chronological coincidence does not prove market causation.",
+    "For upcoming earnings in calendar evidence, produce a substantive PRE-EARNINGS WATCH rather than waiting for results: what the business sells, exactly what management must prove, the revenue/margin/cash/capex or demand lever if source-supported, investor objection, sector transmission and bull/bear deciding conditions. Only use numeric guidance, consensus and whisper estimates supplied with matching dated primary evidence; otherwise say unavailable. Never describe an upcoming event as a released earnings beat.",
+    "LY × Shark Tank style: lead with the contradiction, then test business economics and the strongest counterargument before giving an explicitly conditional verdict. Use natural British-English narrative, not TV-dialogue or a rigid labelled checklist.",
     "Finish with the strongest confirming observation, competing evidence and next properly dated test; keep British-English short-paragraph read-aloud prose.",
   ],
   asOf:e.asOf,edition:e.slot,

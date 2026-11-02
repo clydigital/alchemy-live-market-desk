@@ -39,6 +39,7 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   if (pathname === "/learn") return "/blue-desk/learn";
   if (PUBLIC_LEARN_DECK_PATH.test(pathname) && pathname.startsWith("/learn/decks/")) return "/blue-desk" + pathname;
   if (pathname === "/key-stories") return "/blue-desk/key-stories";
+  if (pathname === "/earnings-week") return "/blue-desk/earnings-week";
   if (pathname === "/newsroom") return "/blue-desk/newsroom";
   if (pathname === "/hormuz") return "/blue-desk/hormuz";
   if (pathname === "/regime-watch") return "/blue-desk/regime-watch";
@@ -123,6 +124,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     pathname === "/blue-desk/calendar" ||
     pathname === "/key-stories" ||
     pathname === "/blue-desk/key-stories" ||
+    pathname === "/earnings-week" || pathname === "/blue-desk/earnings-week" ||
     pathname === "/newsroom" || pathname === "/blue-desk/newsroom" ||
     pathname === "/hormuz" || pathname === "/blue-desk/hormuz" ||
     pathname === "/regime-watch" || pathname === "/blue-desk/regime-watch" ||

@@ -196,6 +196,7 @@ export default async function BlueDeskCalendarPage({
         <CatalystCalendar items={catalysts} sourceCoverage={sourceCoverage} nowISO={now.toISOString()} />
 
         <RecentEarningsScorecards records={recentEarningsResults} />
+        <section className={styles.secondaryPanel} aria-label="November earnings preview"><p className={styles.kicker}>PRE-EARNINGS INVESTOR INVESTIGATION · 2–6 NOVEMBER 2026</p><h2>AI, power, cybercabs and the cash-conversion test</h2><p>Issuer-linked guidance, business models, the strongest objections and what each result could mean for the rest of the market.</p><p><Link href={blueDeskPublicHref("/blue-desk/earnings-week",host)} className={styles.textLink}>Read the full weekly earnings preview →</Link></p></section>
 
         <details style={{ marginTop: 22, border: "1px solid #2d5267", borderRadius: 10, padding: "15px 18px", background: "#092637" }}>
           <summary style={{ cursor: "pointer", color: "#bce8f5", fontWeight: 750 }}>
@@ -246,6 +247,7 @@ export default async function BlueDeskCalendarPage({
           aria-labelledby="earnings-hub-title" data-calendar-earnings-hub="source-dated">
           <p className={styles.kicker}>EARNINGS HUB / THIS WEEK + THE NEXT 30 DAYS</p>
           <h2 id="earnings-hub-title">What companies are reporting next?</h2>
+           <p><Link href={blueDeskPublicHref("/blue-desk/earnings-week",host)} className={styles.textLink}>Read the 2–6 November pre-earnings investor investigation: AI, power, robotaxis and healthcare →</Link></p>
           <p className={styles.muted}>Major tracked companies, grouped by the current US trading week.
             Company-announced dates are confirmed; vendor estimates are not. A conference-call
             time is not the results-release time. Times are shown in ET and Malaysia time only
