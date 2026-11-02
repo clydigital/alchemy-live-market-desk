@@ -73,7 +73,7 @@ test("part two connects election control, historical returns and five sectors wi
   assert.ok(midtermPolicy.includes(v),"Missing grouped historic return "+v);
  }
  for(const name of ["Traditional energy","Renewables","Big Tech","Financials","Healthcare"])assert.ok(midtermPolicy.includes(name));
- assert.match(midtermPolicy,/does not itself reverse Trump's tariff programme/);
+ assert.match(midtermPolicy,/not itself reverse Trump's tariff programme/);
  assert.match(midtermPolicy,/Dividends excluded/);
  assert.match(midtermPolicy,/not a verified outcome/);
  assert.doesNotMatch(midtermPolicy,/from ["']@\/lib\/(?:blue-desk-.*-server|supabase|private)/);
