@@ -9,6 +9,8 @@ import {
   filterPublicMarketObservations,
   publicMarketWindowChange,
   sortPublicMarketColumns,
+  sortEtfComparisonRows,
+  type EtfComparisonSortColumn,
   type MarketSortColumn,
   type MarketChangeWindow,
   type MarketChangeDirection,
@@ -45,6 +47,13 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
   const [columnSort, setColumnSort] = useState<MarketSortColumn | null>(null);
   const [ascending, setAscending] = useState(true);
   const [compareSymbols, setCompareSymbols] = useState<string[]>(["RSP", "XLK", "XLF", "XLE"]);
+  const [comparisonSort, setComparisonSort] = useState<EtfComparisonSortColumn | null>(null);
+  const [comparisonAscending, setComparisonAscending] = useState(true);
+
+  function sortComparisonColumn(column: EtfComparisonSortColumn) {
+    setComparisonAscending(comparisonSort === column ? !comparisonAscending : column === "instrument");
+    setComparisonSort(column);
+  }
 
   function sortColumn(column: MarketSortColumn) {
     setAscending(columnSort===column ? !ascending : column==="instrument" || column==="source");
@@ -64,6 +73,17 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
   ), [observations]);
   const comparisonRows = comparisonUniverse.filter(row => compareSymbols.includes(row.symbol));
   const equalWeight = comparisonUniverse.find(row => row.symbol === "RSP");
+  const orderedComparisonRows = comparisonSort
+    ? sortEtfComparisonRows(comparisonRows, comparisonSort, comparisonAscending, equalWeight)
+    : comparisonRows;
+  const comparisonHeader = (column: EtfComparisonSortColumn, label: string) =>
+    <th scope="col" aria-sort={comparisonSort===column
+      ? comparisonAscending ? "ascending" : "descending" : undefined}>
+      <button type="button" className={ui.columnSort} onClick={() => sortComparisonColumn(column)}
+        aria-label={`Sort ETF comparison by ${label}`}>
+        {label} {comparisonSort===column ? comparisonAscending ? "▲" : "▼" : "↕"}
+      </button>
+    </th>;
 
   function toggleComparison(symbol: string, checked: boolean) {
     setCompareSymbols(current => checked
@@ -110,8 +130,19 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
       </details>
       {comparisonRows.length ? <div className={styles.publicMarketTableScroll}>
         <table className={`${styles.publicMarketTable} ${ui.compareTable}`}>
-          <thead><tr><th>Instrument</th><th>Source session</th><th>1D</th><th>3D</th><th>5D</th><th>5D vs RSP</th></tr></thead>
-          <tbody>{comparisonRows.map(row => {
+          <thead><tr>
+            {comparisonHeader("instrument", "Instrument")}
+            {comparisonHeader("sourceSession", "Source session")}
+            {(["1D", "3D", "5D"] as const).map(period =>
+              <th key={period} scope="col" aria-sort={comparisonSort===period
+                ? comparisonAscending ? "ascending" : "descending" : undefined}>
+                <button type="button" className={ui.columnSort} onClick={()=>sortComparisonColumn(period)}>
+                  {period} {comparisonSort===period ? comparisonAscending ? "▲" : "▼" : "↕"}
+                </button>
+              </th>)}
+            {comparisonHeader("relative5D", "5D vs RSP")}
+          </tr></thead>
+          <tbody>{orderedComparisonRows.map(row => {
             const matched = Boolean(equalWeight && row.asOf && row.asOf === equalWeight.asOf
               && row.change5d !== null && equalWeight.change5d !== null);
             const relative = matched ? row.change5d! - equalWeight!.change5d! : null;
