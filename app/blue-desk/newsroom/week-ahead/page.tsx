@@ -75,7 +75,7 @@ export default async function WeekAheadNewsroom(){
      <section><h3>A misleading headline beat</h3><p>Supplier deliveries slow sharply, lifting the headline, while new orders and employment weaken. If prices stay high, companies could face both softer demand and expensive inputs. The headline number alone would conceal the trade-off.</p></section>
     </div>
     <p>Why does the bond market care? Firm prices can make rapid interest-rate relief less likely. Weak orders, meanwhile, can imply lower growth and eventual easing. Those forces may pull Treasury yields in opposite directions. A rising 2-year yield alongside weak orders would deserve a genuine divergence investigation rather than an invented one-line explanation.</p>
-    <p><strong>The next test:</strong> record <em>actual, comparable consensus, previous, revisions, new orders, production, employment, prices and deliveries</em>. Then check 2-year and 10-year Treasury yields, DXY, S&amp;P 500 and semiconductors at matched 5-minute, 30-minute and closing windows, where reliable observations exist. Missing data must remain unknown.</p>
+    <p><strong>The next test:</strong> record <em>actual, comparable consensus, previous, revisions, new orders, production, employment, prices and deliveries</em>. Then check 2-year and 10-year Treasury yields, DXY, S&amp;P 500 and semiconductors using time-matched 5-minute, 30-minute and closing windows, where reliable observations exist. Missing data must remain unknown.</p>
    </section>
    <section className={styles.section} id="labour">
     <p className={styles.kicker}>03 / US JOBS · 3–6 NOVEMBER / FED REPRICING TEST</p>
