@@ -134,7 +134,8 @@ test("Bluebelly My Reports enclave is login-protected and nothing else gains own
  assert.ok(!page.includes("ReportPublisher"));
  assert.ok(page.includes("index:false,follow:false"));
  const publicDaily=readFileSync(new URL("../app/blue-desk/daily-report/page.tsx",import.meta.url),"utf8");
- assert.ok(publicDaily.includes('<Link href="/my-reports">Open my private PDF reports</Link>'));
+ assert.ok(publicDaily.includes('redirect("/my-reports")'),"Legacy public route forwards owners into private My Desk");
+ assert.ok(!publicDaily.includes("DailyFiveTopicBrief"),"Public reader no longer renders duplicate report");
  const header=readFileSync(new URL("../components/blue-desk/BlueDeskHeader.tsx",import.meta.url),"utf8");
  const pubnav=header.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0]||"";
  const privnav=header.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0]||"";
