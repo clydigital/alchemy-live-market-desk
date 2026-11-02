@@ -49,7 +49,7 @@ test("Today never promotes future, stale, unverified or external publication lin
  assert.deepEqual(today.map(x=>x.id),["editorial:current"]);
  assert.deepEqual(selectTodayNewsroomItems([],[],entries,new Date("invalid"),host,5),[]);
  assert.equal(blueDeskHostAccess("/owner/research",host),"blocked");
- assert.equal(blueDeskHostAccess("/my-reports",host),"blocked");
+ assert.equal(blueDeskHostAccess("/my-reports",host),"private"); // Owner authentication is still required.
 });
 test("Front page and Newsroom use the exact same editorial projector and Today is dynamic",()=>{
  const today=file("../app/blue-desk/page.tsx");
