@@ -8,9 +8,9 @@ const sourceTime=(s:string)=>/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(s)
    timeZone:"America/New_York",day:"2-digit",month:"short",year:"numeric",
    hour:"2-digit",minute:"2-digit",timeZoneName:"short",
  }).format(new Date(s));
-export default function NewsroomReleaseRail({news,editorials,now,reportHref}:{
+export default function NewsroomReleaseRail({news,editorials,now}:{
  news:readonly NewsBriefV1[];editorials:readonly NewsroomEditorialItem[];
- now:Date;reportHref:string;
+ now:Date;
 }){
  const t=+now,window=48*3600000;
  const eligible=news.filter(x=>x.verification==="SOURCE_VERIFIED"&&
@@ -28,7 +28,7 @@ export default function NewsroomReleaseRail({news,editorials,now,reportHref}:{
    <div><p className={styles.kicker}>01 / THE RELEASE DESK</p>
     <h2 id="release-rail-heading">New original reports and verified results</h2>
     <p>Original announcements and independently source-reviewed company/economic results, with their real publication dates. No research lead is promoted here.</p></div>
-   <Link href={reportHref}>Today's five-topic market report</Link>
+
   </div>
   <p className={styles.coverage} role="status">
    <strong>{eligible.length} new original-source announcements qualified within 48 hours.</strong>
