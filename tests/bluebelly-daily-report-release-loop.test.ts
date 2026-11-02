@@ -47,10 +47,10 @@ test("recent editorials are not falsely counted as fresh verified releases",()=>
 test("today's reviewed context outranks last week's earnings, but new verified original releases remain first",()=>{
  const inputs=[
   topic("issuer-old","2026-10-29","NEW",["AMZN"]),
-  topic("feature-now","2026-11-02","FEATURE",["SPX"]),
+  {...topic("feature-now","2026-11-02","FEATURE",["SPX"]),href:"?feature=feature-now"},
   {...topic("news-now","2026-11-02T16:30:00Z","NEW"),href:"?news=verified-source"},
-  topic("feature-two","2026-11-02","FEATURE",["DXY"]),
-  topic("feature-three","2026-11-02","FEATURE",["US02Y"]),
+  {...topic("feature-two","2026-11-02","FEATURE",["DXY"]),href:"?feature=feature-two"},
+  {...topic("feature-three","2026-11-02","FEATURE",["US02Y"]),href:"?feature=feature-three"},
  ];
  const result=projectDailyReport(inputs,at);
  assert.equal(result.stories[0].id,"news-now");
