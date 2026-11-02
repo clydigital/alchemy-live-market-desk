@@ -31,8 +31,9 @@ export default function DailyFiveTopicBrief({report,now,reader,calendar}:{report
       <span>{eventLabel(item.at)}</span>
      </div>
      <h2>{item.title}</h2>
-     <p className={styles.brief} data-quick-market-brief="public-source-qualified">{item.fact}</p>
+     <p className={styles.brief} data-quick-market-brief="public-source-qualified">{item.why}</p>
      <div className={styles.effects}>
+      <p><strong>What the source reports:</strong> {item.fact}</p>
       <p><strong>Why it could matter:</strong> {item.mechanism}</p>
       <p><strong>What needs checking:</strong> {item.test}</p>
      </div>
