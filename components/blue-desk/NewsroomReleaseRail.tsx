@@ -15,8 +15,12 @@ export default function NewsroomReleaseRail({news,editorials,now,reportHref}:{
  const t=+now,window=48*3600000;
  const eligible=news.filter(x=>x.verification==="SOURCE_VERIFIED"&&
   Number.isFinite(Date.parse(x.occurredAt))&&t>=Date.parse(x.occurredAt)&&t-Date.parse(x.occurredAt)<=window);
+ // Existing, already-reviewed post-event recaps take precedence over a
+ // duplicate issuer card. Both count as a release-desk item, never a forecast.
  const releases=editorials.filter(e=>e.id.startsWith("earnings-release:")||
-  e.id.startsWith("macro-release:")).filter(e=>Number.isFinite(Date.parse(e.occurredAt))&&Date.parse(e.occurredAt)<=t)
+  e.id.startsWith("macro-release:")||e.id.startsWith("recap:")||
+  e.kind==="bank").filter(e=>Number.isFinite(Date.parse(e.occurredAt))&&
+   Date.parse(e.occurredAt)<=t&&t-Date.parse(e.occurredAt)<=7*86400000)
   .sort((a,b)=>Date.parse(b.occurredAt)-Date.parse(a.occurredAt)).slice(0,4);
  return <section className={styles.section} aria-labelledby="release-rail-heading"
   data-newsroom-release-rail="qualified-originals-and-reviewed-results">
