@@ -30,8 +30,17 @@ export function projectDailyReport(
   t.fact.trim().length>=18&&t.mechanism.trim().length>=15&&
   t.test.trim().length>=8&&validOriginal(t.sourceUrl)&&
   Number.isFinite(eventAt(t.at))&&eventAt(t.at)<=time&&time-eventAt(t.at)<=7*DAY);
+ // Released original facts first, then established official macro/issuer
+ // scorecards, followed by reviewed explanatory features. Older editorial
+ // seasonality cannot crowd out newly released results.
+ const rank=(t:DailyDecisionTopic)=>t.status==="NEW"&&t.href.startsWith("?news=")?110:
+  t.status==="NEW"&&t.href.startsWith("?brief=")?90:
+  t.href.startsWith("?brief=")?85:
+  t.status==="NEW"?80:60;
+ const ordered=[...qualified].sort((a,b)=>rank(b)-rank(a)||
+   eventAt(b.at)-eventAt(a.at)||a.id.localeCompare(b.id));
  const stories:DailyDecisionTopic[]=[];
- for(const t of qualified){
+ for(const t of ordered){
   if(stories.length===limit)break;
   const group=t.href.startsWith("?brief=")&&t.assets.length===1?"issuer":t.id;
   if((groups.get(group)||0)>=2||seen.has(t.sourceUrl))continue;
