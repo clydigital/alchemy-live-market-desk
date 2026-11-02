@@ -3,6 +3,7 @@ import Link from "next/link";
 import {redirect} from "next/navigation";
 import {createSupabaseServerClient} from "@/lib/supabase/server";
 import OwnerPowerStackFullScan from "./OwnerPowerStackFullScan";
+import OwnerMondayInvestmentBrief from "./OwnerMondayInvestmentBrief";
 import type {PortfolioTableQuery} from "@/lib/bluebelly-owner-portfolio-filter";
 import ui from "./OwnerPortfolioHome.module.css";
 
@@ -35,6 +36,7 @@ export default async function OwnerPortfolioHome({filters}:{filters:PortfolioTab
     <p><Link href="/markets">Browse the public Markets table</Link> while access is reviewed.</p>
    </div>:<>
     <p className={ui.vintage}>Private owner snapshot · {snapshot?.snapshot_as_of||"Date unavailable"} · Historic research, not broker-verified cash or P&amp;L. Select any column to sort; select an instrument to see its saved thesis.</p>
+    <OwnerMondayInvestmentBrief/>
     <OwnerPowerStackFullScan snapshot={snapshot?.snapshot} ownerSnapshotAsOf={snapshot?.snapshot_as_of||null} filters={filters}/>
    </>}
  </section>;
