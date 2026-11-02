@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {marketObservationTakeaway} from "../lib/bluebelly-market-observation-takeaway.ts";
+import {takeawayExcerpt} from "../lib/bluebelly-market-takeaway-excerpt.ts";
 import {selectTodayNewsroomItems} from "../lib/bluebelly-public-newsroom-feed.ts";
 import type {PublicMarketObservation} from "../lib/blue-desk-public-markets.ts";
 import type {NewsroomEditorialItem} from "../lib/bluebelly-newsroom-editorial.ts";
@@ -54,6 +55,23 @@ test("reviewed Newsroom explanation reaches Today automatically; source-only sta
  assert.equal(t[0].takeawayTest,editorial.nextTest);
  assert.equal(t[0].readerHref,editorial.readerHref);
 });
+test("long reviewed explanations stay short but preserve complete source text in disclosure",()=>{
+ const long="The company reported rising orders but warned about the pressure on operating margins. "+
+  "Investors should still compare the revenue baseline and guidance. "+
+  "The original source-backed detailed evidence remains below the brief. "+
+  "An additional sentence about freight and pricing is also relevant here.";
+ const cut=takeawayExcerpt(long,190);
+ assert.equal(cut.expanded,true);
+ assert.ok(cut.preview.length<=190);
+ assert.ok(cut.preview.startsWith("The company reported rising orders"));
+ assert.deepEqual(takeawayExcerpt("Small clear note.",190),{preview:"Small clear note.",expanded:false});
+ const component=file("components/blue-desk/MarketTakeaway.tsx");
+ assert.match(component,/Full reviewed reasoning and next test/);
+ assert.match(component,/takeawayExcerpt\(why\|\|""\)/);
+ assert.match(component,/\{reason\.preview\}/);
+ assert.match(component,/\{why\}/);
+});
+
 test("Newsroom, Today and Markets show Market takeaway without creating a public interpretation engine",()=>{
  const brief=file("components/blue-desk/MarketTakeaway.tsx");
  const news=file("components/blue-desk/BluebellyNewsWire.tsx");
