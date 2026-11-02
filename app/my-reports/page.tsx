@@ -3,6 +3,7 @@ import Link from "next/link";
 import {redirect} from "next/navigation";
 import OwnerPrivatePdfInputHealth from "@/components/blue-desk/OwnerPrivatePdfInputHealth";
 import OwnerDailyIntelligenceHome from "@/components/blue-desk/OwnerDailyIntelligenceHome";
+import OwnerDailyReportAttachments from "@/components/blue-desk/OwnerDailyReportAttachments";
 import OwnerDailyTopicIdeas from "@/components/blue-desk/OwnerDailyTopicIdeas";
 import styles from "@/app/blue-desk/blue-desk.module.css";
 import layout from "./my-desk.module.css";
@@ -30,6 +31,7 @@ export default async function MyBluebellyReports({searchParams}:{searchParams:Pr
     </div>
    </header>
    <OwnerDailyIntelligenceHome/>
+   <OwnerDailyReportAttachments/>
    <p className={layout.myDeskRelated}><Link href="/owner/daily-report#macropulse-review">Review incoming MacroPulse dispatches →</Link> (owner-only, publication requires source checks)</p>
    <div data-my-desk-secondary="daily-report-to-ob-cotd"><OwnerDailyTopicIdeas/></div>
    <p className={layout.myDeskRelated}>Explore fresh source-linked developments in
