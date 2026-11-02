@@ -1,5 +1,8 @@
 import DecisionBrief from "@/components/blue-desk/DecisionBrief";
 import PublishedResearchDispatches from "@/components/blue-desk/PublishedResearchDispatches";
+import TodayNewsroomFeed from "@/components/blue-desk/TodayNewsroomFeed";
+import {publicNewsroomEditorials,selectTodayNewsroomItems} from "@/lib/bluebelly-public-newsroom-feed";
+import {getRecentArchivedPublicReaderItems} from "@/lib/bluebelly-publication-archive-server";
 import {projectPublishedResearchFocus} from "@/lib/blue-desk-published-research-focus";
 import Link from "next/link";
 import { headers } from "next/headers";
@@ -63,20 +66,25 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   const now = new Date();
   const host = (await headers()).get("host");
   const publicHost = isBlueDeskPublicReaderHost(host);
-  const [macro, earnings, monitor, verifiedMotions, observations, theses, originalPress, digestBriefs] = await Promise.all([
+  const [macro, earnings, monitor, verifiedMotions, observations, theses, originalPress, digestBriefs, archivedNewsroom] = await Promise.all([
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({ now }).catch(() => ({
       events: [], coverage: "unavailable" as const, warning: "Earnings source unavailable",
     })),
     getMarketMonitor().catch(() => null),
-    getCurrentVerifiedMarketMotion({ limit: 24 }).catch(() => []),
+    getCurrentVerifiedMarketMotion({ limit: 36 }).catch(() => []),
     getPublicSourceObservations(now,12).catch(() => []),
     getPublicThesisLedger(now,24).catch(() => []),
     getOriginalPressNews(now,18,7).catch(() => []),
     getPublishedMacroPulseBriefs(2).catch(() => []),
+    getRecentArchivedPublicReaderItems(now).catch(() => []),
   ]);
-  const motionNews = selectVerifiedNewsBriefs(verifiedMotions, now, 12);
+  const motionNews = selectVerifiedNewsBriefs(verifiedMotions, now, 18);
   const recentNews = combineQualifiedNews(motionNews,originalPress,18);
+  // Today and Newsroom consume the same review-gated editorial reader projection.
+  // Updates appear on the next request without editing Today or creating a task.
+  const newsroomEditorials=publicNewsroomEditorials(recentNews,now,host);
+  const newsroomToday=selectTodayNewsroomItems(recentNews,archivedNewsroom,newsroomEditorials,now,host,5);
   const verifiedNews = recentNews.filter(n=>Date.parse(n.occurredAt)<=+now && +now-Date.parse(n.occurredAt)<=48*3600000);
   // Display reviewed bank and earnings outcomes first, keeping source-only leads clearly labelled.
   const postEventRecaps=selectPostEventRecaps(recentNews,now,8);
@@ -98,6 +106,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
     <main className={styles.page} data-blue-desk-convergence="phase-1">
       <BlueDeskHeader activePath="/blue-desk" />
       <div className={styles.content}>
+        <TodayNewsroomFeed items={newsroomToday} newsroomHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/>
         <DecisionBrief news={verifiedNews} recentNews={recentNews} calendar={calendar} now={now} host={host}
           postEventRecaps={postEventRecaps} storyPage={storyPage}/>
         <PublishedResearchDispatches items={projectPublishedResearchFocus(digestBriefs,now,3)}
