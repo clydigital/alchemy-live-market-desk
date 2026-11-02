@@ -41,6 +41,7 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   if (pathname === "/key-stories") return "/blue-desk/key-stories";
   if (pathname === "/earnings-week") return "/blue-desk/earnings-week";
   if (pathname === "/newsroom") return "/blue-desk/newsroom";
+  if (pathname === "/newsroom/week-ahead") return "/blue-desk/newsroom/week-ahead";
   if (pathname === "/hormuz") return "/blue-desk/hormuz";
   if (pathname === "/regime-watch") return "/blue-desk/regime-watch";
   if (pathname === "/crash-opportunity") return "/blue-desk/crash-opportunity";
@@ -126,6 +127,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     pathname === "/blue-desk/key-stories" ||
     pathname === "/earnings-week" || pathname === "/blue-desk/earnings-week" ||
     pathname === "/newsroom" || pathname === "/blue-desk/newsroom" ||
+    pathname === "/newsroom/week-ahead" || pathname === "/blue-desk/newsroom/week-ahead" ||
     pathname === "/hormuz" || pathname === "/blue-desk/hormuz" ||
     pathname === "/regime-watch" || pathname === "/blue-desk/regime-watch" ||
     pathname === "/crash-opportunity" || pathname === "/blue-desk/crash-opportunity" ||

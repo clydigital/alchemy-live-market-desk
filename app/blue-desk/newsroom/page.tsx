@@ -10,6 +10,7 @@ import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-ser
 import {recentBankDecisions} from "@/lib/bluebelly-bank-decision-snapshots";
 import {recentReportedEditorial} from "@/lib/bluebelly-reported-editorial";
 import {projectNewsroomEditorial} from "@/lib/bluebelly-newsroom-editorial";
+import {weekAheadNewsroomEditorial} from "@/lib/bluebelly-week-ahead-newsroom";
 import {selectPostEventRecaps} from "@/lib/bluebelly-post-event-recap";
 import {getCurrentVerifiedMarketMotion} from "@/lib/market-motion";
 import {selectVerifiedNewsBriefs} from "@/lib/market-brief-news";
@@ -45,6 +46,8 @@ export default async function NewsroomPage({searchParams}:Props){
   recentBankDecisions(now,168),recentReportedEditorial(now,168),
   selectPostEventRecaps(news,now,8),readerHref,now,
  );
+ // Source-qualified, frozen pre-event newsroom articles; do not imply release actuals.
+ editorials.push(...weekAheadNewsroomEditorial(now,blueDeskPublicHref("/blue-desk/newsroom/week-ahead",host)));
  // An already-reviewed public Key Story is searchable; never promote MacroPulse drafts.
  for(const focus of currentReviewedPublicFocus(now))editorials.push({
    id:focus.id,headline:focus.headline,summary:focus.fact,
