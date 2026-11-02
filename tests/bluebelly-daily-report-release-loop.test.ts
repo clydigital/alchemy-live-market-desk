@@ -95,5 +95,11 @@ test("public route is real, legacy live human link maps to it, historical editio
  assert.match(component,/data-quick-market-brief="public-source-qualified"/);
  assert.match(component,/A specific price reaction or a “priced in” explanation requires separately matched evidence/);
  assert.match(component,/rolling public, source-led briefing, not a fixed archival edition/);
+ const release=src("components/blue-desk/NewsroomReleaseRail.tsx");
+ const newsroom=src("app/blue-desk/newsroom/page.tsx");
+ assert.match(release,/data-newsroom-release-rail="qualified-originals-and-reviewed-results"/);
+ assert.match(release,/No newly verified original is currently in the rolling window/);
+ assert.match(newsroom,/<NewsroomReleaseRail news=\{news\} editorials=\{editorials\}/);
+ assert.match(release,/Today's five-topic market report/);
  assert.doesNotMatch(component,/createSupabaseAdminClient|process\.env|generateContent|notion\.fetch/);
 });
