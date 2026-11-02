@@ -123,6 +123,7 @@ export default function EarningsFundamentals({amazonFeatureHref,deepBaseHref}:{a
         <summary><span className={styles.ticker}>{company.ticker}</span><span className={styles.summaryText}><strong>{company.name}</strong><span>{company.question}</span></span><span className={styles.chevron} aria-hidden="true">+</span></summary>
         <div className={styles.body}>
           <p className={styles.period}>LATEST REVIEWED BASE · {company.period}</p>
+          <p data-quick-market-brief="dated-issuer-research"><strong>Quick market brief:</strong> {company.attraction} {company.objection}</p>
           <h3>How it makes money</h3><p>{company.business}</p>
           <h3>What the financial statements reveal</h3><p>{company.money}</p>
           <div className={styles.metricGrid}>{company.metrics.map(([label,value])=><div key={label}><small>{label}</small><strong>{value}</strong></div>)}</div>

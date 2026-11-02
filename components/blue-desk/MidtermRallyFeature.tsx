@@ -27,6 +27,7 @@ export default function MidtermRallyFeature({host}:{host:string|null}){
   <header style={segment}>
    <p style={{...muted,letterSpacing:".1em",fontWeight:800,color:"var(--bb-accent)"}}>BLUEBELLY / KEY STORY · US MIDTERMS · RESEARCH EDITION</p>
    <h1 style={{fontSize:"clamp(30px,4.4vw,49px)",lineHeight:1.12,letterSpacing:"-.035em",margin:"12px 0 18px"}}>Stocks Always Rose After Midterms. What Could Break the Streak?</h1>
+   <p data-quick-market-brief="frozen-source-reviewed" style={{fontSize:17,lineHeight:1.6}}><strong>Quick market brief:</strong> The election could make future policy clearer, but that does not guarantee a stock-market rally. AI profits, borrowing costs and energy prices may matter more than the election result.</p>
    <p style={{fontSize:"clamp(17px,2vw,21px)",lineHeight:1.55}}>
     Nineteen midterm elections, nineteen positive twelve-month returns. It is a striking historical record. But with AI shares under pressure, credit investors questioning the cost of new data centres and oil threatening another inflation shock, the market has more to settle than who wins Congress.
    </p>
