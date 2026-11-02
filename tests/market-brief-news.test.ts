@@ -98,7 +98,7 @@ test("News Brief reader independently searches verified items without Story admi
   assert.match(fs, /\.eq\("verification_state", "VERIFIED"\)/);
   assert.match(fs, /\.neq\("effective_state", "EXPIRED"\)/);
   assert.match(fs, /Math\.min\(24, options\.limit \?\? 12\)/);
-  assert.match(home, /getCurrentVerifiedMarketMotion\(\{ limit: 24 \}\)/);
-  assert.match(home, /selectVerifiedNewsBriefs\(verifiedMotions, now, 12\)/);
+  assert.match(home, /getCurrentVerifiedMarketMotion\(\{ limit: 36 \}\)/);
+  assert.match(home, /selectVerifiedNewsBriefs\(verifiedMotions, now, 18\)/);
   assert.doesNotMatch(home, /getCurrentMarketMotion\(|getLiveDeskHomepageDailyBrief/);
 });
