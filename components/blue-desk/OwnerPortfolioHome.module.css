@@ -39,3 +39,38 @@
 .tableFilters :is(input,select,button,a):focus-visible{outline:2px solid var(--bb-accent,#83d8ee);outline-offset:2px}
 .table .filterEmpty{text-align:center;color:var(--bb-muted,#b4d0da);padding:22px}
 @media(max-width:440px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr));max-width:none}.metrics>div{padding:12px}.metrics small{font-size:11px}.metrics span{font-size:10px}.tableFilters label{max-width:none;min-width:120px}}
+
+
+/* My Portfolio: one compact market-style sortable table; no cards, no additional API requests. */
+.compact{margin-top:12px}
+.compactHead{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin:10px 0 12px}
+.compactHead h3{margin:0;font:800 20px/1.25 var(--bb-display,inherit);color:var(--bb-text,#eef7fa)}
+.compactHead p{margin:4px 0 0;font-size:12px;color:var(--bb-muted,#b9d4de)}
+.tableNote{font:700 11px/1.5 var(--bb-mono,monospace);color:var(--bb-muted,#b9d4de)}
+.compactFilters{display:flex;gap:12px;flex-wrap:wrap;align-items:end;justify-content:space-between;margin:8px 0 12px}
+.compactFilters label{display:grid;gap:4px;max-width:260px;width:100%;font-size:11px;color:var(--bb-muted,#b9d4de)}
+.compactFilters input{width:100%;min-height:34px;background:var(--bb-surface,#082a3a);border:1px solid var(--bb-line,#3b748d);color:var(--bb-text,#eef7fa);padding:7px 10px;border-radius:6px}
+.compactFilters>div{display:flex;gap:5px}
+.compactChip{cursor:pointer;padding:7px 10px;background:var(--bb-surface,#082a3a);border:1px solid var(--bb-line,#3b748d);color:var(--bb-muted,#c0d5de);border-radius:5px;font-size:11px;font-weight:750}
+.compactChip[aria-pressed="true"]{background:var(--bb-accent,#83d8ee);color:var(--bb-surface,#082a3a);border-color:var(--bb-accent,#83d8ee)}
+.compactTable{width:100%;min-width:790px;border-collapse:collapse;font-size:12px;text-align:right;font-variant-numeric:tabular-nums}
+.compactTable th,.compactTable td{padding:10px 9px;border-bottom:1px solid var(--bb-line,#2b5267);vertical-align:middle}
+.compactTable thead th{background:var(--bb-raised,#133648);font-size:10px;font-weight:700;white-space:nowrap;letter-spacing:0}
+.compactTable th:first-child,.compactTable td:first-child{text-align:left}
+.compactTable tbody tr:hover{background:color-mix(in srgb,var(--bb-accent,#83d8ee) 5%,transparent)}
+.compactTable td small{display:block;font-size:10px;font-weight:450;margin-top:2px;color:var(--bb-muted,#adc8d8)}
+.sortButton{cursor:pointer;border:0;background:transparent;color:inherit;font:inherit;font-weight:800;display:inline-flex;gap:6px;align-items:center;padding:3px 0;white-space:nowrap}
+.sortButton span{font-size:10px;opacity:.78}
+.compactTable [aria-sort="ascending"] .sortButton,.compactTable [aria-sort="descending"] .sortButton{color:var(--bb-accent,#83d8ee)}
+.instrumentButton{display:flex;flex-direction:column;align-items:flex-start;cursor:pointer;color:var(--bb-text,#eef7fa);background:transparent;border:0;text-align:left;min-width:90px;padding:1px 0}
+.instrumentButton strong{font-size:13px}
+.instrumentButton span{font-size:10px;font-weight:450;color:var(--bb-muted,#b9d4de);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.compactTable [data-direction="up"]{color:#75dbb9}
+.compactTable [data-direction="down"]{color:#ffb1aa}
+.compactTable [data-direction="unknown"]{color:var(--bb-muted,#b9d4de)}
+.detailsRow td{text-align:left!important;background:var(--bb-card-quiet,#0c3144)}
+.rowDetailGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 15px;white-space:normal}
+.rowDetailGrid p{font-size:12px;margin:3px 0;color:var(--bb-muted,#b9d4de);overflow-wrap:anywhere}
+.rowDetailGrid strong{color:var(--bb-text,#eef7fa);display:block}
+.sortButton:focus-visible,.instrumentButton:focus-visible,.compactChip:focus-visible,.compactFilters input:focus-visible{outline:2px solid var(--bb-accent,#83d8ee);outline-offset:2px}
+@media(max-width:650px){.compactFilters label{max-width:none}.compactHead h3{font-size:18px}.rowDetailGrid{grid-template-columns:1fr}.compactTable th,.compactTable td{padding:8px 7px}}
