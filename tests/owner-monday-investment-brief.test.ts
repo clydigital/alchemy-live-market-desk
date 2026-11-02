@@ -8,14 +8,15 @@ const brief=read("components/blue-desk/OwnerMondayInvestmentBrief.tsx");
 const css=read("components/blue-desk/OwnerPortfolioHome.module.css");
 const portal=read("app/my-reports/page.tsx");
 
-test("Monday decision edition stays inside authenticated owner-only portfolio",()=>{
+test("Archived Monday decision edition remains owner-gated but is not embedded in My Desk",()=>{
  assert.match(owner,/supabase\.auth\.getUser\(\)/);
  assert.match(owner,/app_access_allowlist/);
  assert.match(owner,/\.eq\("owner_user_id",user.id\)/);
  assert.match(owner,/snapshot\?\.legacy_source_retired===true/);
  assert.ok(owner.indexOf("<OwnerMondayInvestmentBrief/>")>owner.indexOf("!ready?"));
  assert.ok(owner.indexOf("<OwnerMondayInvestmentBrief/>")<owner.indexOf("<OwnerPowerStackFullScan"));
- assert.match(portal,/view==="portfolio"\?<OwnerPortfolioHome/);
+ assert.doesNotMatch(portal,/OwnerPortfolioHome|OwnerMondayInvestmentBrief|OwnerPowerStackFullScan/);
+ assert.match(portal,/data-private-desk="daily-report-led-three-ideas"/);
  assert.doesNotMatch(brief,/power_stack_owner_snapshots|createSupabaseAdminClient|service_role/);
 });
 

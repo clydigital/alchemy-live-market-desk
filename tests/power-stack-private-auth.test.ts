@@ -49,15 +49,16 @@ test("No public Power Stack holdings fallback; private RLS and retirement gate r
   assert.match(sql, /legacy_source_retired boolean not null default false/);
 });
 
-test("Power Stack is accessible through My Desk rather than a separate primary navigation entry", () => {
+test("My Desk is no longer a portfolio reader; standalone Power Stack is independent", () => {
   const header = source("components/blue-desk/BlueDeskHeader.tsx");
   const afterPrivate = header.split("const PRIVATE_NAV = ")[1].split("const PUBLIC_NAV = ")[0];
   const afterPublic = header.split("const PUBLIC_NAV = ")[1].split("const NAV_ICONS")[0];
   assert.doesNotMatch(afterPrivate, /\["Power Stack", "\/power-stack"\]/);
   assert.match(afterPrivate, /\["My Desk", "\/my-reports"\]/);
   const desk = source("app/my-reports/page.tsx");
-  assert.match(desk, /<OwnerPortfolioHome\s+filters=\{filters\}\/>/);
-  assert.match(desk, /view="portfolio"|view=== "portfolio"|view==="portfolio"/);
+  assert.doesNotMatch(desk, /OwnerPortfolioHome|OwnerPowerStackFullScan/);
+  assert.doesNotMatch(desk, /href="\/my-reports\?view=portfolio"/);
+  assert.match(desk, /if\(params\.view==="portfolio"\)redirect\("\/my-reports"\)/);
   assert.doesNotMatch(afterPublic, /Power Stack/);
   assert.match(header, /activePath === "\/power-stack"/);
 });
