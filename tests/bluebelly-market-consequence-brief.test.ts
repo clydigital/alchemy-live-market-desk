@@ -33,6 +33,10 @@ test("public Newsroom and three Key Story examples lead with a brief and retain 
  assert.match(wire,/data-quick-market-brief="source-qualified-summary"/);
  assert.match(wire,/SOURCE VERIFIED · LAST 48H/);
  assert.match(wire,/original report/);
+ const issuer=read("components/blue-desk/EarningsFundamentals.tsx");
+ assert.match(issuer,/data-quick-market-brief="dated-issuer-research"/);
+ assert.match(issuer,/company\.metrics\.map/);
+ assert.match(issuer,/not automatically refreshed results/);
  const fed=read("components/blue-desk/KeyStoryDeepArticle.tsx");
  assert.match(fed,/QUICK MARKET BRIEF/);
  assert.match(fed,/data-quick-market-brief="source-reviewed"/);
