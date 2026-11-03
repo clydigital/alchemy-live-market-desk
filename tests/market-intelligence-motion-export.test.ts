@@ -9,7 +9,7 @@ function source(path: string) {
 const route = source("../app/api/market-intelligence-snapshot/route.ts");
 const builder = source("../lib/market-intelligence-snapshot.ts");
 
-test("Power Stack market-intelligence export reads Motion only from the current immutable edition", () => {
+test("Canonical market-intelligence export reads Motion only from the current immutable edition", () => {
   assert.match(route, /getHybridPresenterEditionCandidates/);
   assert.match(route, /buildCanonicalEditionIndex/);
   assert.match(route, /marketMotionFromEditionPayload\(currentEdition\?\.payload\)/);
