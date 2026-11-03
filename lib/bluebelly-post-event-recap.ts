@@ -25,14 +25,15 @@ function fromBank(bank:BankDecisionSnapshot):PostEventRecap{
  const fed=bank.id==="fed-2026-10-28";
  return {
   id:bank.id,kind:"bank",releaseAt:bank.releaseAt,headline:fed?OCTOBER_FED_DEPTH.title:bank.headline,
-  standfirst:fed?OCTOBER_FED_DEPTH.hook:bank.countryCode==="NZ"?"A narrow vote left rates unchanged. The real question is whether the bank can wait while inflation stays elevated.":"The policy rate changed. Whether it changes the currency or bond market depends on what investors had priced in beforehand.",eventName:bank.bank,
+  standfirst:fed?OCTOBER_FED_DEPTH.hook:bank.id==="rba-2026-11-03"?"An expected 25bp rate hike became a 6–3 vote and a debate over whether further tightening is needed. Higher borrowing costs have real household and business consequences.":bank.countryCode==="NZ"?"A narrow vote left rates unchanged. The real question is whether the bank can wait while inflation stays elevated.":"The policy rate changed. Whether it changes the currency or bond market depends on what investors had priced in beforehand.",eventName:bank.bank,
   whatHappened:bank.observedStatement+" "+bank.expectedStatus,
   marketEffects:fed?OCTOBER_FED_DEPTH.marketTape.slice(0,2).join(" "):bank.financialMechanism,
   marketEffectStatus:fed?"DATED_SECONDARY_AND_DAILY_DATA":"MECHANISM_ONLY",
   whatNext:bank.nextTest,countercase:bank.alternative,
   sourceUrls:fed?OCTOBER_FED_DEPTH.sources.map(s=>({label:s.label,url:s.url,role:s.url.includes("treasury.gov")?"market_data" as const:s.url.includes("reuters.com")?"reporting" as const:"official" as const})):
-   [{label:bank.sourceName,url:bank.sourceUrl,role:"official" as const}],
-  evidenceNote:fed?"Treasury observations are daily closes; Reuters reactions are attributed secondary accounts. Neither proves an intraday Fed-caused move.":"No matching pre/post-event market-price window or pre-release rate probability is available; mechanism is not an observed reaction.",
+   [{label:bank.sourceName,url:bank.sourceUrl,role:"official" as const},
+    ...(bank.id==="rba-2026-11-03"?[{label:"InvestingLive · 2 November pre-decision poll attribution (31/32)",url:"https://investinglive.com/central-banks/economic-and-event-calendar-in-asia-03-november-2026-rba-rate-hike-expected/",role:"reporting" as const}]:[])],
+  evidenceNote:fed?"Treasury observations are daily closes; Reuters reactions are attributed secondary accounts. Neither proves an intraday Fed-caused move.":bank.id==="rba-2026-11-03"?"A 2 November secondary report attributed the 31/32 majority +25bp expectation to a Reuters poll; the original Reuters poll and independently measured OIS quote are not attached. No timestamp-matched AUD/AU02Y event-window observations are attached, so an observed price reaction or its cause is not established.":"No matching pre/post-event market-price window or pre-release rate probability is available; mechanism is not an observed reaction.",
   detailsHref:"?postEvent="+encodeURIComponent(bank.id),
   weight:bank.countryCode==="US"?100:bank.countryCode==="CA"?85:80,featuredStatus:"REVIEWED"
  };
