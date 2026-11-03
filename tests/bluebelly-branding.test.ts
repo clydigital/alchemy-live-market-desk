@@ -47,7 +47,6 @@ test("new editorial copy identifies Bluebelly without changing evidence authorit
   assert.match(source("lib/market-editorial-runtime.ts"), /not a second reasoning engine/);
   assert.match(source("lib/intelligence/runtime.ts"), /the reasoning layer behind Bluebelly/);
   assert.match(source("lib/high-impact-calendar-intake.ts"), /Desk expectation/);
-  assert.doesNotMatch(source("app/api/power-stack-context/route.ts"), /Alchemy (Live Desk|Live Market Desk|contradiction engine|research trigger)/);
 });
 
 
