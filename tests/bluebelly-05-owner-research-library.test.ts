@@ -5,24 +5,28 @@ import { blueDeskHostAccess, blueDeskPresentationTarget } from "../lib/blue-desk
 
 const read = (path:string) => readFileSync(new URL("../"+path,import.meta.url),"utf8");
 
-test("Research Library is an exact private Bluebelly enclave, never an anonymous public page",()=>{
+test("Owner Research Library stays private while separately approved editorial Research is public",()=>{
   assert.equal(blueDeskHostAccess("/owner/research","bluebelly-desk.vercel.app"),"private");
   assert.notEqual(blueDeskHostAccess("/owner/research","alchemy-live-market-desk.vercel.app"),"public");
   assert.equal(blueDeskPresentationTarget("/owner/research","bluebelly-desk.vercel.app"),null);
-  for (const path of ["/owner/research/foo","/api/owner/research","/research","/api/notion","/owner/research/"]) {
+  for (const path of ["/owner/research/foo","/api/owner/research","/api/notion","/owner/research/"]) {
     assert.notEqual(blueDeskHostAccess(path,"bluebelly-desk.vercel.app"),"public");
     assert.notEqual(blueDeskHostAccess(path,"bluebelly-desk.vercel.app"),"private");
   }
+  assert.equal(blueDeskHostAccess("/research","bluebelly-desk.vercel.app"),"public");
+  assert.equal(blueDeskHostAccess("/blue-desk/research","bluebelly-desk.vercel.app"),"public");
+  assert.equal(blueDeskPresentationTarget("/research","bluebelly-desk.vercel.app"),"/blue-desk/research");
   const middleware=read("middleware.ts");
   assert.match(middleware,/supabase\.auth\.getClaims\(\)/);
   assert.match(middleware,/app_access_allowlist/);
 });
-test("research link remains in authenticated owner navigation, not the editorial public tabs",()=>{
+test("private and public research have visibly different navigation destinations",()=>{
   const nav=read("components/blue-desk/BlueDeskHeader.tsx");
   assert.match(nav,/\["Research Library", "\/owner\/research"\]/);
   assert.match(nav,/activePath === "\/owner\/research"/);
   const pub=nav.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0] || "";
   assert.doesNotMatch(pub,/\["Research Library", "\/owner\/research"\]/);
+  assert.match(pub,/\["Research", "\/research"\]/);
   const priv=nav.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0] || "";
   assert.match(priv,/\["Research Library", "\/owner\/research"\]/);
   assert.equal(blueDeskHostAccess("/owner/research","bluebelly-desk.vercel.app"),"private");
