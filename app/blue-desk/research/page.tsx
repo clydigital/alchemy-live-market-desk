@@ -1,4 +1,6 @@
 import Link from "next/link";
+import ReaderPagination from "@/components/blue-desk/ReaderPagination";
+import {paginateReaderItems} from "@/lib/bluebelly-reader-pagination";
 import {headers} from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
@@ -12,7 +14,7 @@ export const metadata={
 };
 export const dynamic="force-dynamic";
 
-type SearchParams={q?:string|string[];category?:string|string[]};
+type SearchParams={q?:string|string[];category?:string|string[];page?:string|string[]};
 function selected(value:string|string[]|undefined):string{
   return typeof value==="string"?value.slice(0,100):"";
 }
@@ -26,12 +28,20 @@ export default async function PublicResearchPage({
  const category=selected(params.category);
  const active=PUBLIC_RESEARCH_CATEGORIES.some(x=>x===category)?category:"All";
  const results=selectPublicResearch(q,active);
+ const page=paginateReaderItems(results,typeof params.page==="string"?params.page:undefined,6);
  const href=blueDeskPublicHref("/blue-desk/research",host);
  const categoryHref=(name:string)=>{
    const query=new URLSearchParams();
    if(q.trim())query.set("q",q.trim());
    if(name!=="All")query.set("category",name);
    return href+(query.size?"?"+query.toString():"");
+ };
+ const pageHref=(number:number)=>{
+   const query=new URLSearchParams();
+   if(q.trim())query.set("q",q.trim());
+   if(active!=="All")query.set("category",active);
+   if(number>1)query.set("page",String(number));
+   return href+(query.size?"?"+query.toString():"")+"#research-results";
  };
  return <main className={layout.page} data-bluebelly-research-index="public-approved-dated">
    <BlueDeskHeader activePath="/blue-desk/research"/>
@@ -65,13 +75,13 @@ export default async function PublicResearchPage({
        </nav>
      </section>
 
-     <div className={ui.listHeading}>
+     <div className={ui.listHeading} id="research-results">
        <div><h2>Source-linked investigations</h2>
-       <p>Showing {results.length} public editorial edition{results.length===1?"":"s"} · Most recent research first</p></div>
+       <p>{results.length?`Showing ${page.firstItem}–${page.lastItem} of ${page.totalItems}`:"No matching editions"} · Most recent research first</p></div>
        {q||active!=="All"?<Link href={href}>Clear filters</Link>:null}
      </div>
      {results.length?<div className={ui.grid}>
-       {results.map(item=><article className={ui.card} key={item.id} data-research-edition={item.id}>
+       {page.items.map(item=><article className={ui.card} key={item.id} data-research-edition={item.id}>
           <p className={ui.cardTop}>{item.category}<span>{item.type}</span></p>
           <h3><Link href={blueDeskPublicHref("/blue-desk"+item.href,host)}>{item.title}</Link></h3>
           <p className={ui.summary}>{item.summary}</p>
@@ -86,6 +96,9 @@ export default async function PublicResearchPage({
        <p>Private drafts and research leads are not displayed here. Change the search or browse all investigations.</p>
        <Link href={href}>View all research</Link>
      </div>}
+     <ReaderPagination label="Research Library" page={page.page} totalPages={page.totalPages}
+       totalItems={page.totalItems} firstItem={page.firstItem} lastItem={page.lastItem}
+       getHref={pageHref}/>
      <footer className={ui.bottom}>
        <div>
          <h2>Keeping the record straight</h2>
