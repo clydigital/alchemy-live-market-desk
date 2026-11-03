@@ -7,7 +7,7 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import { ScopeStrip } from "@/components/blue-desk/EntityIdentity";
 import InvestorTest from "@/components/blue-desk/InvestorTest";
 import RbnzDecisionFeature from "@/components/blue-desk/RbnzDecisionFeature";
-import AmazonFomcFeatures, {EDITORIAL_FEATURES} from "@/components/blue-desk/AmazonFomcFeatures";
+import AmazonFomcFeatures from "@/components/blue-desk/AmazonFomcFeatures";
 import EarningsInvestorDeepDive from "@/components/blue-desk/EarningsInvestorDeepDive";
 import {getEarningsCase} from "@/lib/bluebelly-earnings-investor-stories";
 import NewsroomLensExplorer from "@/components/blue-desk/NewsroomLensExplorer";
@@ -363,10 +363,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
           <a href="#persistent-theses">Browse by topic</a>
           <a href="#upcoming-decisions">What's next</a>
           <Link href={blueDeskPublicHref("/blue-desk/markets",host)+"#earnings-fundamentals"}>Earnings &amp; fundamentals</Link>
-          <Link href={blueDeskPublicHref("/blue-desk/earnings-week",host)}>This week’s earnings preview</Link>
-          <Link href={indexHref+"?feature=midterms-seasonality-2026"}>Midterm rally: verified or vulnerable?</Link>
-          <Link href={indexHref+"?feature=hormuz-mediation-november-2026"}>Hormuz mediation</Link>
-          <Link href={indexHref+"?feature=rbnz-october-2026"}>RBNZ explainer</Link>
+          <Link href={blueDeskPublicHref("/blue-desk/research",host)}>Dated research &amp; investigations</Link>
         </nav>
       </header>
 
@@ -379,8 +376,19 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
           <DualTimestamp value={now.toISOString()} className={ui.summaryTime} />
         </div>
       </div>
-      <section className={ui.section} aria-label="Dated editorial features"><h2>The decision and the money</h2><p><Link href={blueDeskPublicHref("/blue-desk/markets",host)+"#earnings-fundamentals"}>Investor fundamentals: Amazon, Intel, SanDisk, AMD, Apple, Pfizer and Palantir →</Link></p><div className={ui.cards}><article className={ui.card} data-feature="midterms-seasonality-2026"><p className={ui.kicker}>ELECTION / HISTORICAL FACT-CHECK · 2 NOVEMBER 2026</p><h3><Link href={indexHref+"?feature=midterms-seasonality-2026"}>Stocks always rose after midterms. What could break the streak?</Link></h3><p>A 19/19 record, different six- versus twelve-month averages, and the contradiction between bullish election history and bearish AI, credit and energy signals.</p></article><article className={ui.card} data-feature="earnings-week-20261102"><p className={ui.kicker}>PRE-EARNINGS / 2–6 NOVEMBER 2026</p><h3><Link href={blueDeskPublicHref("/blue-desk/earnings-week",host)}>Who actually keeps the cash from the AI boom?</Link></h3><p>Apple, Palantir, AMD, Eaton, Super Micro, Navitas, Uber and 9 other earnings tests. What management must deliver, the financial catch and the wider market consequence.</p></article>{EDITORIAL_FEATURES.map(feature=><article className={ui.card} key={feature.id}><p className={ui.kicker}>DATED EDITORIAL · 29 OCTOBER 2026</p><h3><Link href={indexHref+"?feature="+feature.id}>{feature.title}</Link></h3><p>{feature.summary}</p></article>)}</div></section>
-      <section className={ui.section} id="current-developments" aria-label="Current event readers"><h2>Current developments</h2><div className={ui.cards}><article className={ui.card} data-feature="hormuz-mediation-november-2026"><p className={ui.kicker}>DATED DIPLOMACY / MARITIME SECURITY · 1 NOVEMBER 2026</p><h3><Link href={indexHref+"?feature=hormuz-mediation-november-2026"}>Iran offers a two-day Hormuz reopening. What is the catch?</Link></h3><p>Qatar-mediated conditions, an attack on a Qatari LNG carrier and the physical evidence needed before calling the strait open.</p><p><Link href={blueDeskPublicHref("/blue-desk/hormuz",host)}>Inspect ship crossings and diesel evidence →</Link></p></article>{topics.map(topic=><article className={ui.card} key={topic.id}><p className={ui.kicker}>VERIFIED NEWS · <DualTimestamp value={topic.latestObservedAt}/></p><h3><Link href={indexHref+"?catalyst="+topic.id}>{topic.updates[0].headline}</Link></h3><p>{topic.guidingQuestion}</p></article>)}<article className={ui.card}><p className={ui.kicker}>DATED FEATURE · 28 OCTOBER 2026</p><h3><Link href={indexHref+"?feature=rbnz-october-2026"}>New Zealand’s surprise pause</Link></h3><p>Why a hold can surprise: follow expectations, the decision and the reported currency response.</p></article></div></section>
+      <section className={ui.section} aria-label="Research archive handoff" data-key-stories-research-handoff="dated-not-live">
+        <p className={ui.kicker}>MANUAL INVESTIGATIONS / SOURCE-DATED</p>
+        <p>Older FOMC, AI earnings, midterm, energy and cross-market investigations are collected in the Research Library, not pinned as fresh developments.</p>
+        <Link href={blueDeskPublicHref("/blue-desk/research",host)}>Browse the Research Library →</Link>
+      </section>
+      <section className={ui.section} id="current-developments" aria-label="Current event readers">
+        <h2>Current developments</h2>
+        {topics.length?<div className={ui.cards}>{topics.map(topic=><article className={ui.card} key={topic.id}>
+          <p className={ui.kicker}>SOURCE-VERIFIED NEWS · <DualTimestamp value={topic.latestObservedAt}/></p>
+          <h3><Link href={indexHref+"?catalyst="+topic.id}>{topic.updates[0].headline}</Link></h3>
+          <p>{topic.guidingQuestion}</p>
+        </article>)}</div>:<p className={ui.empty}>No currently source-verified event qualifies. The calendar, ongoing theses and dated Research Library remain available.</p>}
+      </section>
       {earlierNews.length?<section className={ui.section} id="recent-reports" aria-label="More verified reports from this week">
         <p className={ui.kicker}>SOURCE-VERIFIED / DATED PREVIOUS DAYS</p>
         <h2>More news from the past seven days</h2>
@@ -440,31 +448,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
         <p className={ui.coverageNote}>No recent source-verified headline passed the Live News gate.
           The scheduled decisions above remain visible, while unverified X speculation is excluded.</p>}
       <NewsroomLensExplorer news={news} asOf={now.toISOString()} />
-      <section className={ui.section} aria-labelledby="manual-feature-stories" data-independent-research-features="source-linked-archive">
-        <p className={ui.kicker}>EXPLORE THE BIGGER PICTURE</p>
-        <h2 id="manual-feature-stories">Deep research and historical comparisons</h2>
-        <p>The market does not begin and end with today’s headlines. Read the wider investigations and their unresolved questions.</p>
-        <div className={ui.cards}>
-          <article className={ui.card}><p className={ui.kicker}>PRE-EARNINGS · 2–6 NOVEMBER 2026</p><h3>Who keeps the cash from the AI boom?</h3><p>Apple, Palantir, Eaton, AMD, Super Micro, Navitas, Uber, Qualcomm and the power chain. Earnings expectations, objections and the exact tests that matter.</p><Link href={blueDeskPublicHref("/blue-desk/earnings-week",host)}>Read this week’s investor preview →</Link></article>
-           <article className={ui.card}><h3>New Zealand’s surprise pause</h3><p>Expectations, the rate decision and the currency response — a dated October 2026 feature.</p><Link href={indexHref+"?feature=rbnz-october-2026"}>Read the RBNZ story →</Link></article>
-          <article className={ui.card}>
-            <p className={ui.kicker}>ASIA EQUITIES · 27 OCTOBER 2026</p>
-            <div style={{maxWidth:370,marginBottom:12}}><EditorialStoryArt motif="china" headline="Asia AI equities"/></div>
-            <h3>China's AI crash vs Korea, Taiwan, Hong Kong and Japan</h3>
-            <p>What fell, why the chip markets disagree and what would confirm a broader contagion.</p>
-            <Link href={blueDeskPublicHref("/blue-desk/features/asia-equities",host)}>Read Asia story and manual research →</Link>
-          </article>
-          <article className={ui.card}>
-            <p className={ui.kicker}>GLOBAL BONDS · FRANCE VS GREECE</p>
-            <div style={{maxWidth:370,marginBottom:12}}><EditorialStoryArt motif="bonds" headline="Sovereign bond stress"/></div>
-            <h3>Greece's 2010 crisis versus France's bond scare</h3>
-            <p>What 178 basis points signalled, why the spread retreated and how to test sovereign contagion.</p>
-            <Link href={blueDeskPublicHref("/blue-desk/features/global-bonds",host)}>Read global bonds story and manual research →</Link>
-          </article>
-        </div>
-      </section>
-
-
+      <p data-key-stories-older-research="archive-link">For completed manual investigations and historical comparisons, <Link href={blueDeskPublicHref("/blue-desk/research",host)}>open the Research Library</Link>. Earlier editions retain their original dates and evidence.</p>
       <section className={ui.section} aria-labelledby="recent-originals">
         <h2 id="recent-originals">Latest original-source market observations</h2>
         <p>Exact dated measurements or official releases only. A market close does not explain its own cause,

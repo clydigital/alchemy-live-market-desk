@@ -26,6 +26,7 @@ const PRIVATE_NAV = [
 const PUBLIC_NAV = [
   ["Today", "/"],
   ["Newsroom", "/newsroom"],
+  ["Research", "/research"],
   ["Hormuz Watch", "/hormuz"],
   ["Regime Watch", "/regime-watch"],
   ["Markets", "/markets"],

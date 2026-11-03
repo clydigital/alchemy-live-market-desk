@@ -34,6 +34,7 @@ test("Bluebelly middleware owns precise clean-root rewrites without touching API
   assert.equal(blueDeskPresentationTarget("/calendar", "bluebelly-desk.vercel.app"), "/blue-desk/calendar");
   assert.equal(blueDeskPresentationTarget("/markets", "bluebelly-desk.vercel.app"), "/blue-desk/markets");
   assert.equal(blueDeskPresentationTarget("/learn", "bluebelly-desk.vercel.app"), "/blue-desk/learn");
+  assert.equal(blueDeskPresentationTarget("/research", "bluebelly-desk.vercel.app"), "/blue-desk/research");
   assert.equal(
     blueDeskPresentationTarget("/stories/article%3Aedition%3Astory", "bluebelly-desk.vercel.app"),
     "/blue-desk/stories/article%3Aedition%3Astory",
@@ -78,6 +79,7 @@ test("Bluebelly exposes only explicitly approved public reading routes", () => {
   for (const path of [
     "/", "/calendar", "/blue-desk", "/blue-desk/calendar", "/markets", "/blue-desk/markets",
     "/key-stories", "/blue-desk/key-stories", "/learn", "/blue-desk/learn",
+    "/research", "/blue-desk/research",
     "/stories/article%3Afcea17ef-f575-4283-a363-7d5fa9c918c7%3A6e2c8a8c-fdc7-45eb-bec6-b685b0311f3e",
   ]) {
     assert.equal(blueDeskHostAccess(path, host), "public", path);

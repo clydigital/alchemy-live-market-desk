@@ -45,16 +45,22 @@ test("Feature routes are specifically public without widening owner or API acces
  assert.equal(blueDeskHostAccess("/api/owner/daily-research",BLUEBELLY_PRESENTATION_HOST),"private");
  assert.equal(blueDeskHostAccess("/owner/research",BLUEBELLY_PRESENTATION_HOST),"private");
 });
-test("Research is discoverable on both home and Key Stories and separate from canonical Story projections",()=>{
+test("Dated manual features move to Research while remaining readable from Key Stories",()=>{
  const home=source("app/blue-desk/page.tsx");
+ const index=source("lib/bluebelly-public-research-library.ts");
+ const research=source("app/blue-desk/research/page.tsx");
  const keys=source("app/blue-desk/key-stories/page.tsx");
  const feature=source("app/blue-desk/features/[slug]/page.tsx");
  const owner=source("app/my-reports/page.tsx");
  for(const slug of ["asia-equities","global-bonds"]){
-  assert.match(home,new RegExp("/blue-desk/features/"+slug));
-  assert.match(keys,new RegExp("/blue-desk/features/"+slug));
+  assert.match(index,new RegExp("/features/"+slug));
+  assert.doesNotMatch(keys,new RegExp("/blue-desk/features/"+slug));
   assert.doesNotMatch(owner,new RegExp("/features/"+slug)); // Historical manual research moved out of My Desk.
  }
+ assert.match(home,/data-home-research-archive-link="dated-not-live"/);
+ assert.doesNotMatch(home,/data-featured-manual-research="two-independent-stories"/);
+ assert.match(research,/data-bluebelly-research-index="public-approved-dated"/);
+ assert.match(keys,/data-key-stories-research-handoff="dated-not-live"/);
  assert.match(feature,/data-evidence-status="independent-editorial-not-canonical"/);
  assert.match(feature,/data-manual-research=/);
  assert.match(feature,/feature\.sources\.map/);
