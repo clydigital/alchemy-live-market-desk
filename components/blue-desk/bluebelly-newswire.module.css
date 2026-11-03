@@ -148,3 +148,9 @@
 .item:hover,.item:focus-within{border-color:var(--bb-heading-newsroom);background:var(--bb-card-bg-hover)}
 .item .readMore{border-top:1px solid var(--bb-line);margin-top:10px}
 .item .readMore summary{color:var(--bb-heading-newsroom)}
+
+/* The results count and compact pager occupy the single strip above the feed,
+ * rather than leaving readers to scroll past eight articles to change pages. */
+.resultsBar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;column-gap:18px;row-gap:8px;margin:0 0 16px}
+.resultsBar .results{margin:0;min-width:0;flex:1 1 260px;line-height:1.5}
+@media(max-width:600px){.resultsBar{align-items:stretch;gap:10px}.resultsBar .results{flex-basis:100%}}
