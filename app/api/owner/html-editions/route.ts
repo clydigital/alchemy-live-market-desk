@@ -8,7 +8,7 @@ import {
 } from "@/lib/bluebelly-private-html-archive-contract";
 import {saveHtmlArchive} from "@/lib/bluebelly-private-html-archive";
 import {importExistingHtmlEdition} from "@/lib/bluebelly-private-html-import";
-import {parseExistingHtmlEdition} from "@/lib/bluebelly-html-archive-import-contract";
+import {validateDeliveredWorkHtmlEdition} from "@/lib/bluebelly-html-archive-import-contract";
 
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -49,18 +49,21 @@ export async function GET(req:NextRequest){
    // Work-generated complete HTML is deposited by the authorised Supabase
    // connector: read only after the same owner session/allowlist gate.
    const {data:work,error:workError}=await db.from("blue_desk_work_html_editions")
-    .select("id,report_day,html_content,html_sha256")
+    .select("id,report_day,title,html_content,html_sha256")
     .eq("owner_user_id",identity.userId).eq("id",id).maybeSingle();
    if(workError||!work)return error(404,"Edition not found");
    try{
-    const checked=parseExistingHtmlEdition({
-     filename:"Bluebelly_"+work.report_day+".html",html:work.html_content,
+    // Validate immutable Work bytes without applying the manual-import
+    // "Bluebelly" title branding rule. The owner receipt supplies report_day.
+    // Never strip or rewrite Work HTML: original bytes must match storage SHA.
+    const checked=validateDeliveredWorkHtmlEdition({
+     reportDay:work.report_day,title:work.title,html:work.html_content,
     });
     const workBytes=new TextEncoder().encode(work.html_content);
     if(workBytes.length>950000||workBytes.length<1000||
-       checked.edition.reportDay!==work.report_day||
+       checked.reportDay!==work.report_day||
        digest(workBytes)!==work.html_sha256||
-       checked.edition.htmlSha256!==work.html_sha256)
+       checked.htmlSha256!==work.html_sha256)
       return error(502,"Delivered Work HTML failed integrity verification");
     const disposition=req.nextUrl.searchParams.get("download")==="1"?"attachment":"inline";
     return new NextResponse(workBytes,{status:200,headers:{
