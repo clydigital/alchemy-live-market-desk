@@ -4,11 +4,13 @@ import {readFileSync} from "node:fs";
 
 const page = readFileSync(new URL("../app/blue-desk/key-stories/page.tsx", import.meta.url), "utf8");
 const feature = readFileSync(new URL("../components/blue-desk/RbnzDecisionFeature.tsx", import.meta.url), "utf8");
+const research = readFileSync(new URL("../lib/bluebelly-public-research-library.ts", import.meta.url), "utf8");
 
 test("the RBNZ feature has a selectable reader and preserves the source-qualified feed", () => {
   assert.match(page, /<RbnzDecisionFeature \/>/);
   assert.match(page, /params\?\.feature === "rbnz-october-2026"/);
-  assert.match(page, /\?feature=rbnz-october-2026/);
+  assert.match(research, /\?feature=rbnz-october-2026/);
+  assert.match(page, /data-key-stories-research-handoff="dated-not-live"/);
   assert.match(feature, /id="rbnz-october-2026"/);
   for (const anchor of ["rbnz-analysis", "rbnz-why", "rbnz-market", "rbnz-next", "rbnz-sources"]) {
     assert.match(feature, new RegExp('id="' + anchor + '"'));
