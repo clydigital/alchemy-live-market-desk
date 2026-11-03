@@ -21,7 +21,9 @@ test("already reviewed 3 November RBA original bypasses repetitive source-only c
  assert.equal(item?.featuredStatus,"REVIEWED");
  assert.equal(item?.marketEffectStatus,"MECHANISM_ONLY");
  assert.match(item!.whatHappened,/4\.85%/);
- assert.match(item!.evidenceNote,/No matching pre\/post-event market-price/);
+ assert.match(item!.evidenceNote,/No timestamp-matched AUD\/AU02Y event-window/);
+ assert.ok(item!.sourceUrls.some(s=>s.role==="reporting"&&s.url.includes("2026-rba-rate-hike-expected")));
+ assert.match(item!.whatHappened,/31 of 32 economists expected a 25bp rise/);
  const route=readFileSync(new URL("../app/blue-desk/key-stories/page.tsx",import.meta.url),"utf8");
  assert.ok(route.indexOf("reviewedPostEventForNews(event,now)")<route.indexOf("storyDepthForNews(event)"));
  assert.match(route,/data-bluebelly-news="matched-reviewed-post-event"/);
