@@ -1,4 +1,5 @@
 import Link from "next/link";
+import StorySummaryBoxes from "./StorySummaryBoxes";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { storyMarketTransmission, type PublicThesis } from "@/lib/blue-desk-thesis-ledger";
 import { classifyPublicStory } from "@/lib/blue-desk-story-categories";
@@ -27,6 +28,13 @@ export default function StoryEditorialArticle({story,backHref}:Props){
      </div>
      <p className={ui.disclosure}>This is a dated analysis of an ongoing market question, not a verified report of new events, current prices or an automatically accepted Story revision.</p>
    </header>
+   <StorySummaryBoxes items={[
+     {label:"The question",text:story.question},
+     {label:"The current argument",text:story.thesis},
+     {label:"How it could spread",text:storyMarketTransmission(story)},
+     {label:"What would change it",text:story.nextTest||"No source-defined next test was recorded for this thesis."},
+   ]} sourceNote="This is a dated research thesis, not an independently verified announcement or a live market-price update. Full reasoning follows."/>
+   <h2 className={ui.fullStoryTitle}>The full story</h2>
    <div className={ui.layout}>
      <div className={ui.body}>
        <section aria-labelledby="story-setup" className={ui.chapter}>
