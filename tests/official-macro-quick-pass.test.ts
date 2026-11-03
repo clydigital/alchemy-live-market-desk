@@ -86,7 +86,7 @@ test("three existing Vercel first-party US macro windows, no new ChatGPT automat
   "12 14 * * *", // 10:12 ET summer / 09:12 ET winter
   "12 15 * * *", // 10:12 ET winter
  ]);
- assert.ok(vercel.crons.some((x:{path:string})=>x.path==="/api/cron/research/evening"&&x.schedule==="30 13 * * *"),
+ assert.ok(vercel.crons.some((x:{path:string;schedule:string})=>x.path==="/api/cron/research/evening"&&x.schedule==="30 13 * * *"),
  "Existing winter 08:30 ET official-macro collector run is retained");
  const handler=readFileSync(new URL("../app/api/cron/research/official-actuals/route.ts",import.meta.url),"utf8");
  assert.match(handler,/officialActualQuickPass\(request\)/);
