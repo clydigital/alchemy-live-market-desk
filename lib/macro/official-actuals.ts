@@ -4,6 +4,7 @@ import {getOriginalBeaPceSchedule} from "./official-bea-pce-schedule.ts";
 import { getEconomicCalendar, type EconomicCalendarEvent } from "../calendar.ts";
 import { createSupabaseAdminClient } from "../supabase/admin.ts";
 import { parseOfficialCpiMetricRows, type CpiPreviousValues } from "./official-cpi-metrics.ts";
+import {isRbaDecision,sourceForRbaDecision,resolveOfficialRbaDecision,rbaScheduledReleaseTimestamp} from "./official-rba-rate-decision.ts";
 
 export type OfficialMacroRelease = {
   id: string;
@@ -20,6 +21,8 @@ export type OfficialActualResolution = {
   actual: string;
   sourceUrl: string;
   previousCpiMetrics?: CpiPreviousValues;
+  previous?:string|null;
+  releasedAt?:string;
 };
 
 export type OfficialActualIngestionResult = {
@@ -286,6 +289,8 @@ async function resolveBlsApiActual(release: OfficialMacroRelease, fetcher: typeo
 }
 
 export function officialActualSourceUrl(release: OfficialMacroRelease) {
+  const rba=sourceForRbaDecision(release);
+  if(rba)return rba;
   const bea = beaPceReleaseUrl(release.release_name,release.reference_period,release.release_date);
   if(bea && release.agency==="U.S. Bureau of Economic Analysis") return bea;
   const archive = archiveDate(release.release_date);
@@ -469,6 +474,7 @@ export async function resolveOfficialActual(
   release: OfficialMacroRelease,
   fetcher: typeof fetch = fetch,
 ): Promise<OfficialActualResolution> {
+  if(isRbaDecision(release))return resolveOfficialRbaDecision(release,fetcher);
   if(beaPceReleaseUrl(release.release_name,release.reference_period,release.release_date)) return resolveBeaPceActual(release,fetcher);
   if (isBlsRelease(release)) return resolveBlsApiActual(release, fetcher);
   if (/ism manufacturing|ism services/i.test(release.release_name)) return resolveIsmActual(release, fetcher);
@@ -483,8 +489,8 @@ type OfficialMacroReleaseSeed = {
   category: string;
   release_date: string;
   release_time_label: string;
-  reference_period: string;
-  frequency: "Monthly";
+  reference_period: string | null;
+  frequency: "Monthly" | "Decision";
   status: "scheduled" | "released_pending_ingestion";
   watch_question: string;
   source_url: string;
@@ -492,7 +498,7 @@ type OfficialMacroReleaseSeed = {
   affected_assets: string[];
   country: string;
   impact: "High";
-  local_timezone: "America/New_York";
+  local_timezone: "America/New_York" | "Australia/Sydney";
 };
 
 function blsSeriesKey(eventName: string) {
@@ -547,32 +553,39 @@ export function buildOfficialMacroReleaseSeedRows(
       && Boolean(beaPceReleaseUrl(event.event,event.referencePeriod))
       && ["https://www.bea.gov/news/schedule","https://www.bea.gov/news/schedule/next-year"].includes(event.sourceUrl.replace(/\/$/,""));
     const isBls=event.sourceName==="U.S. Bureau of Labor Statistics";
-    if(!isBls&&!isBeaPce)return [];
-    const seriesKey = isBeaPce?"bea-pce":blsSeriesKey(event.event);
-    const reference = parseReferenceMonth(event.referencePeriod);
-    const releaseDate = easternReleaseTimestamp(event.date, event.timeLabel);
-    if (!seriesKey || !reference || !releaseDate) return [];
-    const releaseMs = Date.parse(releaseDate);
-    if (releaseMs < lowerBound || releaseMs > upperBound) return [];
+    const rbaDate=event.category==="Central bank"&&event.country==="Australia"
+      &&event.sourceName.startsWith("Reserve Bank of Australia")
+      ?rbaScheduledReleaseTimestamp(event.date,event.timeLabel):null;
+    const isRba=Boolean(rbaDate&&isRbaDecision({
+      id:event.id,agency:"Reserve Bank of Australia",release_name:event.event,
+      release_date:rbaDate!,source_url:event.sourceUrl,
+    }));
+    if(!isBls&&!isBeaPce&&!isRba)return [];
+    const seriesKey=isRba?"rba-cash-rate-target":isBeaPce?"bea-pce":blsSeriesKey(event.event);
+    const reference=isRba?null:parseReferenceMonth(event.referencePeriod);
+    const releaseDate=isRba?rbaDate:easternReleaseTimestamp(event.date,event.timeLabel);
+    if(!seriesKey||(!isRba&&!reference)||!releaseDate)return [];
+    const releaseMs=Date.parse(releaseDate);
+    if(releaseMs<lowerBound||releaseMs>upperBound)return [];
 
     return [{
-      id: event.id,
-      series_key: seriesKey,
-      release_name: event.event,
-      agency: event.sourceName,
-      category: event.category,
-      release_date: releaseDate,
-      release_time_label: event.timeLabel,
-      reference_period: event.referencePeriod!,
-      frequency: "Monthly",
-      status: releaseMs <= now.getTime() ? "released_pending_ingestion" : "scheduled",
-      watch_question: event.decidingQuestion,
-      source_url: event.sourceUrl,
-      source_classification: "official_government",
-      affected_assets: event.affectedAssets,
-      country: event.country,
-      impact: "High",
-      local_timezone: "America/New_York",
+      id:event.id,
+      series_key:seriesKey,
+      release_name:event.event,
+      agency:isRba?"Reserve Bank of Australia":event.sourceName,
+      category:event.category,
+      release_date:releaseDate,
+      release_time_label:event.timeLabel,
+      reference_period:isRba?null:event.referencePeriod!,
+      frequency:isRba?"Decision":"Monthly",
+      status:releaseMs<=now.getTime()?"released_pending_ingestion":"scheduled",
+      watch_question:event.decidingQuestion,
+      source_url:event.sourceUrl,
+      source_classification:"official_government",
+      affected_assets:event.affectedAssets,
+      country:event.country,
+      impact:"High",
+      local_timezone:isRba?"Australia/Sydney":"America/New_York",
     }];
   });
 }
@@ -804,8 +817,9 @@ export async function ingestOfficialMacroActuals(options: {
         actual: resolved.actual,
         status: "completed",
         source_url: resolved.sourceUrl,
+        ...(resolved.previous ? {previous:resolved.previous} : {}),
         actual_retrieved_at: attemptedAt,
-        released_at: release.release_date,
+        released_at: resolved.releasedAt || release.release_date,
         last_ingestion_attempt_at: attemptedAt,
         ingestion_attempt_status: "completed",
         ingestion_retry_exhausted: false,
@@ -814,6 +828,19 @@ export async function ingestOfficialMacroActuals(options: {
         updated_at: attemptedAt,
       }).eq("id", release.id).is("actual", null);
       if (updateError) throw new Error(updateError.message);
+      // Never claim a verified RBA ingestion on an update that matched zero rows
+      // or lost the original-source race; require an exact current row readback.
+      if(isRbaDecision(release)){
+        const {data:readback,error:readbackError}=await client.from("macro_releases")
+          .select("status,actual,previous,source_url,source_classification,released_at,ingestion_attempt_status")
+          .eq("id",release.id).maybeSingle();
+        if(readbackError||!readback||readback.status!=="completed"
+          ||readback.actual!==resolved.actual||readback.source_url!==resolved.sourceUrl
+          ||readback.source_classification!=="official_government"
+          ||readback.ingestion_attempt_status!=="completed"
+          ||Date.parse(readback.released_at??"")!==Date.parse(resolved.releasedAt??""))
+          throw new Error("RBA_CANONICAL_ORIGINAL_READBACK_FAILED");
+      }
       completed += 1;
       completedReleaseIds.push(release.id);
       try {

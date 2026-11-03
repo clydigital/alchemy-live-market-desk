@@ -785,6 +785,7 @@ type DeskMacroRelease = {
   agency: string;
   category: string;
   release_date: string;
+  released_at: string | null;
   release_time_label: string | null;
   reference_period: string | null;
   status: string;
@@ -863,7 +864,7 @@ async function fetchDeskCalendar(): Promise<EconomicCalendarEvent[]> {
   try {
     const headers = { apikey: apiKey, Authorization: `Bearer ${apiKey}` };
     const [releaseResponse, metricResponse] = await Promise.all([
-      fetch(`${baseUrl}/rest/v1/macro_releases?select=id,release_name,agency,category,release_date,release_time_label,reference_period,status,actual,consensus,consensus_captured_at,previous,revised_previous,watch_question,source_url,affected_assets&order=release_date.asc&limit=160`, {
+      fetch(`${baseUrl}/rest/v1/macro_releases?select=id,release_name,agency,category,release_date,released_at,release_time_label,reference_period,status,actual,consensus,consensus_captured_at,previous,revised_previous,watch_question,source_url,affected_assets&order=release_date.asc&limit=160`, {
         headers,
         cache: "no-store",
         signal: AbortSignal.timeout(5_000),
@@ -918,6 +919,13 @@ async function fetchDeskCalendar(): Promise<EconomicCalendarEvent[]> {
         sourceName: release.agency,
         sourceUrl: release.source_url,
         sourceKind: "desk-record",
+        // Only original, date-matched RBA source receipts qualify as verified
+        // publication instants; other scheduled times are never promoted here.
+        releasedAt: release.agency==="Reserve Bank of Australia"
+          && release.status==="completed"
+          && /^https:\/\/www\.rba\.gov\.au\/media-releases\/\d{4}\/mr-\d{2}-\d{2}\.html$/.test(release.source_url)
+          && release.released_at && Number.isFinite(Date.parse(release.released_at))
+          ? release.released_at : null,
       };
     });
   } catch {
