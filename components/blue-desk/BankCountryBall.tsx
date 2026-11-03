@@ -3,8 +3,8 @@
 import {useId} from "react";
 
 /** First-party vector countryball. No platform-dependent flag emoji or remote asset. */
-type CountryCode="US"|"CA"|"NZ";
-const NAMES:Record<CountryCode,string>={US:"United States",CA:"Canada",NZ:"New Zealand"};
+type CountryCode="US"|"CA"|"NZ"|"AU";
+const NAMES:Record<CountryCode,string>={US:"United States",CA:"Canada",NZ:"New Zealand",AU:"Australia"};
 export default function BankCountryBall({code,size="md",className=""}:{
  code:CountryCode;size?:"sm"|"md"|"lg";className?:string
 }){
@@ -37,6 +37,17 @@ export default function BankCountryBall({code,size="md",className=""}:{
      <rect x="108" width="52" height="160" fill="#d3303a"/>
      <path fill="#d3303a" d="M80 36L88 56L101 50L98 63L113 70L98 78L104 90L88 88L84 106L76 106L72 88L56 90L63 78L47 70L62 63L59 50L72 56Z"/>
      <path d="M80 100V129" stroke="#d3303a" strokeWidth="5"/>
+    </>:code==="AU"?<>
+     <rect width="160" height="160" fill="#164275"/>
+     <path d="M0 0L80 80M80 0L0 80" stroke="#f4f4ee" strokeWidth="16"/>
+     <path d="M0 0L80 80M80 0L0 80" stroke="#c73549" strokeWidth="6"/>
+     <path d="M39 0V80M0 40H80" stroke="#f4f4ee" strokeWidth="19"/>
+     <path d="M39 0V80M0 40H80" stroke="#c73549" strokeWidth="9"/>
+     {[[112,30],[133,67],[111,116],[81,92],[129,133]].map(([x,y],i)=><g key={i}>
+      <circle cx={x} cy={y} r="8" fill="#f4eee4"/>
+      <path d={`M${x} ${y-7}l2.1 4.7 5 .6-3.8 3.3 1.2 5-4.5-2.5-4.5 2.5 1.2-5-3.8-3.3 5-.6Z`}
+       fill="#f4eee4"/>
+     </g>)}
     </>:<>
      <rect width="160" height="160" fill="#164275"/>
      <path d="M0 5L80 83M78 5L0 83" stroke="#e7edf6" strokeWidth="16"/>
