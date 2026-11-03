@@ -37,6 +37,26 @@ test("Future timestamps, malformed dates and off-window readback do not masquera
  assert.equal(isFreshPrivateMorningReceipt("2026-11-02T03:36:30Z",now),true,
   "small clock skew allowed");
 });
+test("a fresh-looking future-session Work upload is not reusable after that session ends",()=>{
+ const readAt=new Date("2026-11-03T23:00:00Z"); // 18:00 EST Tuesday
+ const premature={...W("incorrect","2026-11-03T19:30:00Z","CHATGPT_WORK"),
+  report_day:"2026-11-03"}; // 14:30 EST: Tuesday US close not complete
+ const valid={...W("correct","2026-11-03T21:10:00Z","CHATGPT_WORK"),
+  report_day:"2026-11-03"};
+ assert.equal(selectPrivateDailyArchive([premature],[],readAt).action,"generate");
+ assert.deepEqual(selectPrivateDailyArchive([premature,valid],[],readAt),
+  {action:"reuse_complete",id:"correct",reason:"fresh_work_edition"});
+ assert.equal(selectPrivateDailyArchive([],[{id:"incorrect-owner",
+  created_at:"2026-11-03T19:30:00Z",report_day:"2026-11-03"}],readAt).action,"generate");
+});
+test("production fallback actually selects immutable report_day alongside write time",()=>{
+ const s=readFileSync(new URL("../lib/bluebelly-scheduled-daily-html-job.ts",import.meta.url),"utf8");
+ assert.match(s,/select\("id,delivery_type,created_at,report_day"\)/);
+ assert.match(s,/select\("id,created_at,report_day"\)/);
+ const selector=readFileSync(new URL("../lib/bluebelly-private-report-freshness.ts",import.meta.url),"utf8");
+ assert.match(selector,/savedSessionWasComplete\(r,now\)/);
+});
+
 test("Production fallback routes keep auth, original source gate and session correctness",()=>{
  const s=readFileSync(new URL("../lib/bluebelly-scheduled-daily-html-job.ts",import.meta.url),"utf8");
  assert.match(s,/selectPrivateDailyArchive\(work\.data\|\|\[\],owner\.data\|\|\[\],now\)/);
