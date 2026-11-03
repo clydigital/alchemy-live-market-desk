@@ -54,12 +54,13 @@ test("Dated manual features move to Research while remaining readable from Key S
  const owner=source("app/my-reports/page.tsx");
  for(const slug of ["asia-equities","global-bonds"]){
   assert.match(index,new RegExp("/features/"+slug));
-  assert.match(keys,new RegExp("/blue-desk/features/"+slug));
+  assert.doesNotMatch(keys,new RegExp("/blue-desk/features/"+slug));
   assert.doesNotMatch(owner,new RegExp("/features/"+slug)); // Historical manual research moved out of My Desk.
  }
  assert.match(home,/data-home-research-archive-link="dated-not-live"/);
  assert.doesNotMatch(home,/data-featured-manual-research="two-independent-stories"/);
  assert.match(research,/data-bluebelly-research-index="public-approved-dated"/);
+ assert.match(keys,/data-key-stories-research-handoff="dated-not-live"/);
  assert.match(feature,/data-evidence-status="independent-editorial-not-canonical"/);
  assert.match(feature,/data-manual-research=/);
  assert.match(feature,/feature\.sources\.map/);
