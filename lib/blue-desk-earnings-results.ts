@@ -35,6 +35,54 @@ export type VerifiedEarningsScorecard = {
 };
 
 const PRIMARY_RESULTS: readonly VerifiedEarningsScorecard[] = [
+  // 2 Nov 2026 US after-close original issuer results. Pre-release
+  // analyst consensus and same-basis surprise remain unverified in this desk.
+  {
+    id:"apple-fy2026q4",ticker:"AAPL",company:"Apple",fiscalPeriod:"FY2026 Q4",
+    releaseDay:"2026-11-02",availableNotBefore:"2026-11-03T00:00:00Z",
+    sourceName:"Apple Newsroom · FY2026 Q4 issuer release",
+    sourceUrl:"https://www.apple.com/newsroom/2026/11/apple-reports-fourth-quarter-results/",
+    additionalSourceUrl:"https://www.sec.gov/Archives/edgar/data/320193/000032019326000024/aapl-20261102.htm",
+    basis:"US GAAP quarter ended 26 September 2026; rounded issuer cash-flow commentary is not audited quarterly FCF",
+    headline:"Apple's record quarter brings cash, but the AI payoff is still unmeasured.",
+    beatMiss:"No preserved, same-basis pre-release analyst consensus verified here. Revenue and EPS growth are year-on-year changes, not a consensus beat.",
+    beatSource:"unavailable",
+    metrics:[
+      {name:"Revenue",value:"$114.477bn",comparison:"+12% YoY · September-quarter record",state:"measured"},
+      {name:"Operating profit / margin",value:"$35.631bn · 31.1% GAAP margin",comparison:"Quarterly operating income divided by reported revenue",state:"measured"},
+      {name:"Free cash flow",value:null,comparison:null,state:"not_verified",
+       note:"Issuer reported roughly $28bn Q4 operating cash flow, not quarterly free cash flow. Match quarterly cash PP&E before calculating FCF."},
+      {name:"Capital expenditure",value:null,comparison:null,state:"not_verified",
+       note:"Matched Q4 cash capex has not been independently reconciled in this scorecard; do not substitute annual PP&E spending."},
+    ],
+    outlook:"Quarterly revenue, iPhone revenue and services set records; the $2.10 GAAP EPS includes a $0.05 tariff-refund contribution. AI feature announcements alone do not quantify incremental customer willingness to pay.",
+    conclusion:"Sales and operating profit are strong and management cited about $28bn of quarterly operating cash, but that cannot be confused with verified quarterly free cash flow or returns specifically earned on AI investment.",
+    nextTest:"Separate organic device upgrades, recurring services margin and tariff-refund effects; reconcile full-quarter PP&E cash spending with operating cash before assigning AI ROI.",
+    preliminary:false,
+  },
+  {
+    id:"palantir-2026q3",ticker:"PLTR",company:"Palantir",fiscalPeriod:"Q3 2026",
+    releaseDay:"2026-11-02",availableNotBefore:"2026-11-03T00:00:00Z",
+    sourceName:"Palantir · SEC-filed Q3 2026 issuer results",
+    sourceUrl:"https://www.sec.gov/Archives/edgar/data/1321655/000132165526000045/a2026q3ex991pressrelease.htm",
+    additionalSourceUrl:"https://www.sec.gov/Archives/edgar/data/1321655/000132165526000048/pltr-20260930.htm",
+    basis:"US GAAP quarter ended 30 September 2026; quarterly CFO, PP&E and resulting FCF derived from 9M less first-half 10-Q amounts; distinct from adjusted FCF",
+    headline:"Palantir's AI software sales soar; cash conversion is the tougher test.",
+    beatMiss:"No source-matched, frozen pre-release analyst consensus verified in this scorecard. Company-reported 96% revenue growth is year-on-year, not an analyst beat.",
+    beatSource:"unavailable",
+    metrics:[
+      {name:"Revenue",value:"$2.313411bn",comparison:"+96% YoY · US commercial +148% YoY",state:"measured"},
+      {name:"Operating profit / margin",value:"$1.084845bn · 46.9% GAAP margin",comparison:"As reported in the Q3 financial statements",state:"measured"},
+      {name:"Free cash flow",value:"~$1.197bn · Q3 derived",comparison:"Q3 CFO ~$1.20457bn less net cash PP&E ~$0.008014bn",state:"measured",
+       note:"Derived from nine-month cumulative amounts minus first-half cash flow in SEC 10-Q, not the issuer's separately presented adjusted FCF of $1.22bn."},
+      {name:"Capital expenditure",value:"$8.014m · Q3 derived",comparison:"Cash PP&E for Q3 from 9M less 6M, not annual spending",state:"measured",
+       note:"A reported issuer filing amount reconciled by period subtraction, not a forecast; cloud capacity spending borne by customers or suppliers is not Palantir's own cash capex."},
+    ],
+    outlook:"US commercial sales climbed 148% YoY as enterprise AI deployment expanded. Contract value and customer spending durability, rather than revenue growth alone, need follow-through.",
+    conclusion:"Revenue and reported operating income are accelerating alongside positive derived quarter free cash flow. The risk is paying too much for future growth, particularly if contracting, retention or deployment economics weaken.",
+    nextTest:"Reconcile recurring paid usage, remaining performance obligations, large contract conversion and cash collections with Q4 guidance; track the share-price response separately from reported financials.",
+    preliminary:false,
+  },
   // Individually verified issuer releases, dated 29 Oct 2026 after the US close.
   // These are editorial source-reviewed receipts, not automatically admitted
   // canonical Evidence UUIDs or same-basis consensus surprises.
