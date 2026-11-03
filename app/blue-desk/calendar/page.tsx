@@ -74,7 +74,8 @@ function Events({ records, statusLabel }: { records: PresenterCalendarEvent[]; s
         </div>
         <DualTimestamp value={event.scheduledAt} sourceDate={event.localDate} className={styles.eventTime} />
         {statusLabel === "released" ? (
-          <p className={styles.muted}>Scheduled time, not verified publication time.</p>
+          event.releasedAt ? <p className={styles.muted}>Original source published: <DualTimestamp value={event.releasedAt} /></p>
+            : <p className={styles.muted}>Scheduled time, not verified publication time.</p>
         ) : null}
         {event.decidingQuestion ? <p><strong>Why it matters:</strong> {event.decidingQuestion}</p> : null}
         <p className={styles.eventFacts}>

@@ -90,8 +90,10 @@ function displayTime(timestamp: number): string {
 
 function economicRow(row: EconomicCalendarEvent): PresenterCalendarEvent | null {
   const day = sourceDay(row.date);
+  const verifiedPublication = row.status === "Released" ? safeTimestamp(row.releasedAt) : null;
   const exact = safeTimestamp(row.date)
-    ?? (day ? macroEtUtcTimestamp(day, row.timeLabel) : null);
+    ?? (day ? macroEtUtcTimestamp(day, row.timeLabel) : null)
+    ?? verifiedPublication;
   if (!day || !validSource(row.sourceUrl)) return null;
   const status = row.status === "Released" ? "released" : "scheduled";
   return {
@@ -107,9 +109,9 @@ function economicRow(row: EconomicCalendarEvent): PresenterCalendarEvent | null 
     consensus: nonempty(row.consensus),
     previous: nonempty(row.previous),
     revisedPrevious: nonempty(row.revisedPrevious ?? null),
-    // This adapter does not supply a source-verified published-at clock.
-    // Source date/time is a scheduled instant, NOT a release timestamp.
-    releasedAt: null,
+    // A scheduled instant is NOT itself a publication timestamp. Only a
+    // source-reviewed exact original release (RBA Nov 3) supplies this field.
+    releasedAt: verifiedPublication !== null ? new Date(verifiedPublication).toISOString() : null,
     sourceName: row.sourceName,
     sourceUrl: row.sourceUrl,
     sourceRecordRefs: [row.id],

@@ -26,6 +26,8 @@ export type EconomicCalendarEvent = {
   sourceName: string;
   sourceUrl: string;
   sourceKind: "official-live" | "official-schedule" | "desk-record";
+  /** Exact original-source publication clock, only when independently verified. */
+  releasedAt?: string | null;
 };
 
 const FED_CALENDAR = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm";
@@ -953,7 +955,34 @@ export function keepUncoveredBlsBackstops(
   });
 }
 
-export async function getEconomicCalendar() {
+/** Reviewed 3 Nov RBA original, repairing a scheduled-only fallback without a new collector.
+ * Do not pre-publish; a later genuine completed macro row with an actual wins.
+ * A verified outcome must not become a fabricated consensus or market reaction.
+ */
+export function applySourceReviewedRbaDecision(
+  events: EconomicCalendarEvent[], now = new Date(),
+): EconomicCalendarEvent[] {
+  const releaseAt = "2026-11-03T03:30:00.000Z"; // 14:30 AEDT / 11:30 MYT
+  if (!Number.isFinite(now.getTime()) || now.getTime() < Date.parse(releaseAt)) return events;
+  return events.map(event => {
+    if (event.id !== "au-rba-2026-11-03" || (event.status === "Released" && event.actual)) return event;
+    return {
+      ...event,
+      status: "Released" as const,
+      actual: "4.85% cash-rate target (+25bp)",
+      previous: "4.60%",
+      consensus: null, // no source-dated matched pre-decision estimate
+      timeLabel: "14:30 AEDT",
+      sourceName: "Reserve Bank of Australia · 3 Nov 2026 policy decision",
+      sourceUrl: "https://www.rba.gov.au/media-releases/2026/mr-26-30.html",
+      sourceKind: "official-live" as const,
+      releasedAt: releaseAt,
+      decidingQuestion: "The RBA raised rates despite slower spending and housing prices. Does persistent inflation justify further tightening, and what was already priced into AUD and Australian yields?",
+    };
+  });
+}
+
+export async function getEconomicCalendar(now = new Date()) {
   const [blsIcsEvents, officialBlsTables, deskEvents, ism] = await Promise.all([
     fetchBlsCalendar(), getOfficialBlsReleaseTables(), fetchDeskCalendar(), getIsmSchedule(),
   ]);
@@ -971,6 +1000,7 @@ export async function getEconomicCalendar() {
   const backstops = keepUncoveredBlsBackstops([...officialScheduleFallbacks, ...verifiedNovember2026BlsSchedules], blsEvents, deskEvents);
   // No provider forecast, surprise or System 2 inference is manufactured by these dates.
   const allEvents = [...scheduledEvents, ...verifiedBeaPceSchedule, ...backstops, ...ism.events, ...blsEvents, ...deskEvents];
-  return [...new Map(allEvents.map((event) => [event.id, event])).values()]
+  const deduped = [...new Map(allEvents.map((event) => [event.id, event])).values()];
+  return applySourceReviewedRbaDecision(deduped, now)
     .sort((a, b) => a.date.localeCompare(b.date));
 }
