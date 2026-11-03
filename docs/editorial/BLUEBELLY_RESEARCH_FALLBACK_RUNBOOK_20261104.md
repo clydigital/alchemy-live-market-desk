@@ -30,8 +30,46 @@
 ## Known live evidence as of 4 November 2026 (not guarantees)
 
 - MacroPulse 4 Nov 00:00 MYT: exact Notion Post and Log were verified; overall `PARTIAL_COVERAGE`; a prior 3 Nov 22:00 Post/Log inconsistency remains in backlog.
-- Production X GET returned HTTP 200, 12 shortlisted social leads, `coverage.monitored=11` and `healthy=7`; DB has a registered `@macropaperr` row but `health=unconfigured`. The 12th-roster code change is isolated in the referenced PR and is not deployed until actual production readback proves it.
+- Production X GET initially reported `coverage.monitored=11`, but PR #1308 was subsequently deployed and the same live endpoint independently read back `coverage.monitored=12`, `healthy=7`, `complete=false`; `@macropaperr` was still `unconfigured` and requires a real existing collector scan before claiming success.
 - Supabase original macro releases for RBA 3 Nov, BLS JOLTS 3 Nov and BEA September PCE were `completed`; BEA four numerical actual metrics read back.
 - Private 2 Nov ET full Work report exists. A 3 Nov source-update edition was mislabelled around an older 30 Oct ET session: detect and correct at delivery-selection, never overwrite it in place.
 - Bluebelly Calendar, Newsroom, Key Stories 4 Nov 00:06 MYT returned HTTP 200 and showed corrected RBA/Apple/Palantir/JOLTS material; old AI Hub notes predating public fixes are not current production proof.
 - Research Investigation last observed 74 provisional unread high-priority Posts and 109 total deferred. Creator last observed 8 complete reviews, a Tier-1 transcript missing, and 5 included vidIQ credits remaining. Credit availability changes over time.
+
+## 4 November — strengthened operating controls
+
+### 1. Progressive P0 backlog drain, without inventing closures
+
+- `74 provisional unread P0 / 109 deferred` is a dated **snapshot**, not a current fixed workload. The 08:40/20:40 Research Investigation must recompute actual open/closed/duplicate/revised status from existing Registry IDs and priority metadata.
+- Preserve `first_seen`, last attempted, original dated source/claim, review state, number of failed attempts, retry_after and next owner in existing Registry/Run; never silently delete or advance a cursor past unread P0.
+- Normally max **four** full changed Posts per run: up to two genuinely new high-impact P0, one highest outstanding risk, and at least one *oldest material unresolved* P0. When fewer than two new urgent source changes exist, spend spare capacity on further oldest P0 cases up to four total. Only a real overload of new urgent P0 suspends old-backlog drain; record the exact deferred IDs.
+- After review, classify `CONFIRMED_NEW`, `REVIEWED_STILL_OPEN`, `NEEDS_OFFICIAL_SOURCE`, `SUPERSEDED`, `DUPLICATE`, `RESOLVED` with exact evidence. Only a genuine reviewed closure reduces the unread count. Age buckets 0–2, 3–7, >7 days and repeat-failure health expose queue starvation. No 74-post full replay.
+- Review queue already containing at least 12 distinct unadjudicated rows: at most **two** genuinely new consequential verified P0 private briefs this slot; other material cases remain saved as Registry IDs for later. Unadjudicated review is **not a technical-publication failure**.
+
+### 2. X and creator partial-health recovery
+
+- The exact public read-only X endpoint has a measured 4 Nov state of 12 monitored, 7 healthy and 0 verified market claims. **12 rostered ≠ 12 observed; HTTP 200 ≠ health PASS**. Collector-only `last_completed_at` plus actual acquired original IDs is needed to close `@macropaperr` and other account health.
+- Two consecutive *optional* provider route failures without changed status impose a **six-hour per-route Work cooldown**; this does NOT suppress official P0 checks. Use public read model → Vercel reader → bounded existing ledger → targeted original URL/FxEmbed; do not poll all 12 X accounts from every 2-hour MacroPulse.
+- Creator transcripts require original video ID and authentic ordered transcript. vidIQ current balance on 4 Nov was **5 renewable credits remaining out of 150**, renewing **1 Dec 2026 UTC**. Reserve the last one-call allocation for a genuinely novel Tier-1 candidate only after checking current remaining quota. Tier-2 uses native YouTube transcripts or authentic free routes. Failed captions/metadata ≠ review completed. No credit purchase or forced daily output quota.
+- Firecrawl current provider balance was **131/1,000**, billing period ending **14 Nov 2026**. Firecrawl remains ZERO default, not a compulsory X/transcript fallback.
+
+### 3. Explicit run spend *proxies*, not fictitious Work billing
+
+Record these in each existing task receipt: `TASK_ID`, `RUN_ASOF`, `ORIGINAL_SOURCE_IDS_NEW`, `REUSED_IDS`, `CONNECTOR_CALLS_BY_PROVIDER`, `FAILED_FETCHES`, `FALLBACK_ATTEMPTS`, `VIDEO_IDS_COMPLETED` (creator), `CREDITS_BEFORE/AFTER` only if provider returns them, `QUEUE_AGE_BUCKETS` (Investigation), `POST_LOG_READBACK`, `LAST_COMPLETED_US_SESSION_ET`, `REVIEW/PUBLIC_STATUS`, `NEXT_OWNER`.
+
+The provider ledger is a **usage proxy**. A ChatGPT Work weekly allowance/real dollar charge cannot be obtained from task prompt length, counts or elapsed run duration alone; report `WORK_ALLOWANCE=UNKNOWN` absent an official authoritative meter. Never trigger more Work runs solely to measure costs.
+
+### 4. NYSE calendar contract for private Daily Intelligence
+
+`lib/bluebelly-us-equity-trading-calendar.ts` holds an *offline versioned official schedule* from [NYSE Holidays & Trading Hours](https://www.nyse.com/trade/hours-calendars) for **2026–2028**, cross-checked for 2026 with [Nasdaq Trader Calendar](https://www.nasdaqtrader.com/trader.aspx?id=Calendar). Full closures including Good Friday, observed holidays, Thanksgiving and Christmas are excluded. Official 13:00 Eastern early closes are recognised for 2026 Nov 27 and Dec 24, 2027 Nov 26, 2028 Jul 3 and Nov 24. `America/New_York` determines UTC/DST boundaries.
+
+Outside this verified range, the existing weekday calculation remains a **WEEKDAY_ESTIMATE**, not authoritative proof. Unplanned exchange closures must still be checked against official alerts. Calendar day and trading session are not evidence of a specific measured price/market reaction. Existing private title/report_day/session coherence and source-admission approval gates remain enforced.
+
+### Acceptance for the next normal runs
+
+1. One material original macro release keeps an exact Post+Log and a bounded Research Investigation handoff; missing X transport does not rewrite the upstream work.
+2. The Research Investigation receipt separates fresh urgent P0 count from oldest unresolved work, ageing buckets and exact retry IDs; drain without cutting off newer urgent news.
+3. Creator reports true missing-Tier1 availability and credit usage, rather than 15 invented reviews. No extra charge on blocked sources.
+4. Work metrics list actual provider calls/balances where available, and explicitly `WORK_ALLOWANCE=UNKNOWN`.
+5. A 2026 Thanksgiving or Christmas closure yields **no phantom weekday market-session report**, and the 13:00 Eastern half-day is treated as completed at its real close.
+6. No sixth automation, new external paid provider, new canonical engine, owner approval bypass, or private-to-public data leak.
