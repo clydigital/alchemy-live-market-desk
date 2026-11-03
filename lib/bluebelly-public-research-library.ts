@@ -35,6 +35,15 @@ const INDEX: readonly PublicResearchEdition[] = [
     keywords:["midterms","congress","sectors","elections","breadth","spy","qqq"],
   },
   {
+    id:"earnings-week-nov2",
+    title:"Who Keeps the Cash from the AI Boom?",
+    summary:"The 2–6 November earnings week examined issuer margins, spending, guidance and the cash conversion tests facing the AI and power supply chains.",
+    href:"/earnings-week",
+    category:"AI & Earnings",asOf:"2026-11-02",type:"Dated editorial analysis",
+    context:"Pre-earnings week research; subsequent results require separate verification",
+    keywords:["amd","palantir","apple","eaton","super micro","navitas","qualcomm","ai","earnings","capex"],
+  },
+  {
     id:"hormuz-mediation",
     title:"Hormuz: Would Two Days of Reopening Change Oil?",
     summary:"A dated investigation into a reported mediation proposal, actual shipping recovery and what diesel prices may say differently from Brent.",
