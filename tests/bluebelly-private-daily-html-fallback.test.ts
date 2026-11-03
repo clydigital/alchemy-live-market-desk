@@ -50,7 +50,13 @@ test("existing cron calls authorised private generator without new schedules or 
  const job=read("lib/bluebelly-scheduled-daily-html-job.ts");
  const migration=read("supabase/migrations/20261101095000_scheduled_private_daily_html_fallback.sql");
  const vercel=JSON.parse(read("vercel.json")) as {crons:{path:string;schedule:string}[]};
- assert.equal(vercel.crons.length,43);
+ // Preserve all 43 pre-existing Vercel slots (including every private
+ // report trigger). Only the source-only government Actual collector adds
+ // three independent release-window checks.
+ const original=vercel.crons.filter(item=>item.path!=="/api/cron/research/official-actuals");
+ const actuals=vercel.crons.filter(item=>item.path==="/api/cron/research/official-actuals");
+ assert.equal(original.length,43);
+ assert.deepEqual(actuals.map(item=>item.schedule),["42 12 * * *","12 14 * * *","12 15 * * *"]);
  assert.match(route,/runPrivateDailyHtmlFallback\(request,now\)/);
  assert.match(route,/handleScheduledResearchGapHandoff\(request\)/);
  assert.match(job,/acceptsResearchAuthorization/);
