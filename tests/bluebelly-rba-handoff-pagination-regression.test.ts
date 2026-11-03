@@ -4,7 +4,7 @@ import {readFileSync} from "node:fs";
 const src=(p:string)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 test("Key Stories preserves reviewed public RBA handoff after pagination and other reader edits",()=>{
  const page=src("app/blue-desk/key-stories/page.tsx");
- assert.match(page,/reconcileReviewedBankReaders\(recentNews,now\)/);
+ assert.match(page,/reconcileReviewedBankReaders\(originalPress,now\)/);
  assert.match(page,/REVIEWED_READER_NO_FEED_RECEIPT/);
  assert.match(page,/data-reviewed-bank-handoff=\{row\.status\}/);
  assert.match(page,/indexHref\+"\?postEvent="\+encodeURIComponent\(row\.bank\.id\)/);
