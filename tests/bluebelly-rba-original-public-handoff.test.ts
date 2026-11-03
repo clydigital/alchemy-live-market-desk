@@ -98,3 +98,12 @@ test("approved public bank article remains indexed even when automatic source ad
  assert.equal(reconcileReviewedBankReaders([{...news,verification:"UNVERIFIED" as never}],at)[0].status,"REVIEWED_READER_NO_FEED_RECEIPT");
  assert.equal(reconcileReviewedBankReaders([],new Date("2026-11-06T09:00:00Z")).length,0);
 });
+
+test("completed macro actual does not falsely close a missing official RSS source receipt",()=>{
+ const page=readFileSync(new URL("../app/blue-desk/key-stories/page.tsx",import.meta.url),"utf8");
+ assert.match(page,/reconcileReviewedBankReaders\(originalPress,now\)/);
+ assert.doesNotMatch(page,/reconcileReviewedBankReaders\(recentNews,now\)/);
+ assert.match(page,/combineQualifiedNews\(motionNews,\[\.\.\.originalPress,\.\.\.completedMacro\],18\)/);
+ assert.match(page,/data-public-handoff-gap="official-press-receipt-pending"/);
+ assert.match(page,/n\.sourceUrl===row\.bank\.sourceUrl/);
+});
