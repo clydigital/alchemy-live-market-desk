@@ -17,9 +17,27 @@ export type VerifiedRbaActual = {
 function releaseDay(value:string) {
   const instant=new Date(value);
   if (!Number.isFinite(instant.getTime())) return null;
-  return new Intl.DateTimeFormat("en-CA",{
+  const parts=new Intl.DateTimeFormat("en-GB",{
     timeZone:"Australia/Sydney",year:"numeric",month:"2-digit",day:"2-digit",
-  }).format(instant).replaceAll("/","-");
+  }).formatToParts(instant);
+  const find=(type:string)=>parts.find(part=>part.type===type)?.value;
+  const year=find("year"),month=find("month"),day=find("day");
+  return year&&month&&day ? year+"-"+month+"-"+day : null;
+}
+export function rbaScheduledReleaseTimestamp(date:string,timeLabel:string) {
+  const match=timeLabel.match(/^(\d{1,2}):(\d{2})\s+(AEDT|AEST)$/i);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!match)return null;
+  const [year,month,day]=date.split("-").map(Number);
+  const hour=Number(match[1]),minute=Number(match[2]);
+  if(![year,month,day,hour,minute].every(Number.isFinite)||hour>23||minute>59)return null;
+  const offset=match[3].toUpperCase()==="AEDT"?11:10;
+  const instant=new Date(Date.UTC(year,month-1,day,hour-offset,minute));
+  if(!Number.isFinite(instant.getTime())||releaseDay(instant.toISOString())!==date)return null;
+  const local=new Intl.DateTimeFormat("en-GB",{
+    timeZone:"Australia/Sydney",hour:"2-digit",minute:"2-digit",hour12:false,
+  }).format(instant);
+  if(local!==String(hour).padStart(2,"0")+":"+String(minute).padStart(2,"0"))return null;
+  return instant.toISOString();
 }
 function dayText(day:string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
