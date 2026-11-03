@@ -63,7 +63,7 @@ test("official RBA generic RSS title requires direct body plus exact original so
  assert.equal(projection.length,1);
  assert.equal(projection[0].sourceKind,"official");
  assert.equal(projection[0].sourceUrl,release);
- assert.match(projection[0].summary,/4\\.85%/);
+ assert.match(projection[0].summary,/4\.85%/);
  assert.doesNotMatch(projection[0].summary,/original publisher issued this dated announcement/i);
  assert.equal(reconcileReviewedBankReaders(projection,at)[0].status,"ORIGINAL_RECEIPT_VISIBLE");
 });
