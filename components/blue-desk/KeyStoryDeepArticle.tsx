@@ -12,17 +12,25 @@ export default function KeyStoryDeepArticle({
   receipt?:NewsBriefV1; depth:PublicStoryDepth; backHref:string; relatedHref:string;
 }){
  return <article className={styles.article} data-key-story-depth="source-verified-analysis" data-version="key-story-evidence-v1">
-   <nav className={styles.back}><Link href={backHref}>← Return to Key Stories</Link></nav>
    <header className={styles.hero}>
-     <div>
-       <p className={styles.kicker}>KEY STORY / {depth.topic.toUpperCase()}</p>
-       <p className={styles.edition}>Original event <DualTimestamp value={receipt?.occurredAt||depth.eventAt}/> · Editorial {depth.edition}</p>
+     <div className={styles.heroCopy}>
        <h1>{depth.title}</h1>
        <p className={styles.kicker}>QUICK MARKET BRIEF</p>
        <p className={styles.lead} data-quick-market-brief="source-reviewed">{depth.hook}</p>
        <p>{depth.lead}</p>
      </div>
-     <div className={styles.art}><EditorialStoryArt headline={receipt?.headline||depth.title} summary={depth.hook}/></div>
+     <aside className={styles.art} aria-label="Story details and navigation">
+       <EditorialStoryArt headline={receipt?.headline||depth.title} summary={depth.hook}/>
+       <div className={styles.storyMeta} data-key-story-meta="under-illustration">
+         <p className={styles.kicker}>KEY STORY / {depth.topic.toUpperCase()}</p>
+         <div className={styles.eventDetails}>
+           <span className={styles.eventLabel}>Original event</span>
+           <DualTimestamp className={styles.eventTime} value={receipt?.occurredAt||depth.eventAt}/>
+           <p className={styles.edition}>Editorial {depth.edition}</p>
+         </div>
+         <Link className={styles.backButton} href={backHref}>← Return to Key Stories</Link>
+       </div>
+     </aside>
    </header>
    <StorySummaryBoxes items={[
     {label:"What changed",text:depth.whatChanged[0]||depth.hook},

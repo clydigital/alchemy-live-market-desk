@@ -46,3 +46,22 @@ test("FOMC explanation compares dated official readings without fake event-windo
  assert.match(article,/Measurements Bluebelly still lacks/);
  assert.match(article,/depth\.sources\.map/);
 });
+
+test("FOMC hero places original-event clock and Key Stories return beneath illustration, keeping headline first",()=>{
+ const article=read("components/blue-desk/KeyStoryDeepArticle.tsx");
+ const heroStart=article.indexOf('<header className={styles.hero}>');
+ const headline=article.indexOf("<h1>{depth.title}</h1>",heroStart);
+ const image=article.indexOf("<EditorialStoryArt",heroStart);
+ const meta=article.indexOf('data-key-story-meta="under-illustration"',heroStart);
+ const clock=article.indexOf("<DualTimestamp className={styles.eventTime}",meta);
+ const back=article.indexOf('className={styles.backButton} href={backHref}',meta);
+ const heroEnd=article.indexOf("</header>",heroStart);
+ assert.ok(heroStart>=0&&heroStart<headline&&headline<image&&image<meta&&meta<clock&&clock<back&&back<heroEnd);
+ assert.doesNotMatch(article.slice(0,heroStart),/Return to Key Stories/);
+ assert.match(article.slice(headline,image),/QUICK MARKET BRIEF/);
+ const css=read("components/blue-desk/KeyStoryDeepArticle.module.css");
+ assert.match(css,/\.storyMeta\{/);
+ assert.match(css,/\.backButton\{/);
+ assert.match(css,/@media\(max-width:600px\)\{\.art\{display:flex/);
+ assert.doesNotMatch(css,/@media\(max-width:600px\)\{\.art\{display:none/);
+});
