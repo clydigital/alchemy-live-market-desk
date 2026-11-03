@@ -57,3 +57,38 @@ export function parseExistingHtmlEdition(raw:unknown):{input:ExistingHtmlInput;e
   title,reportDay:date,html,htmlSha256,contentSha256,
  }};
 }
+
+/** Work uploads arrive through an owner-scoped, service-only immutable inbox.
+ * Unlike manual browser imports they need not include "Bluebelly" in the HTML
+ * <title>, and their reporting day comes from the separately recorded session
+ * metadata, never from the first (possibly historical) date in the article.
+ *
+ * Work HTML must already be STATIC: no script stripping, no byte mutation and
+ * no networked/active elements are allowed. Preserve the exact stored SHA.
+ */
+export function validateDeliveredWorkHtmlEdition(raw:unknown):{
+ reportDay:string;htmlSha256:string;
+}{
+ if(!raw||typeof raw!=="object"||Array.isArray(raw))throw Error("INVALID_WORK_HTML");
+ const row=raw as Record<string,unknown>;
+ const html=typeof row.html==="string"?row.html:"";
+ const reportDay=typeof row.reportDay==="string"?row.reportDay:"";
+ const receiptTitle=typeof row.title==="string"?row.title.trim():"";
+ if(!realDay(reportDay)||receiptTitle.length<8||receiptTitle.length>110||
+    html.length<1000||Buffer.byteLength(html,"utf8")>950000||
+    !/^\s*<!doctype\s+html\s*>/i.test(html)||
+    !/<html\b/i.test(html)||!/<head\b/i.test(html)||
+    !/<body\b/i.test(html)||!/<\/html\s*>/i.test(html))
+  throw Error("INVALID_WORK_HTML");
+ const documentTitle=plainTitle(
+  html.match(/<title\b[^>]*>([\s\S]*?)<\/title\s*>/i)?.[1]||"");
+ const heading=plainTitle(
+  html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1\s*>/i)?.[1]||"");
+ if(documentTitle.length<8||heading.length<8)
+  throw Error("INVALID_WORK_HTML");
+ // The same hostile-content denylist as manual HTML import; unlike that
+ // browser-import path, even removable scripts invalidate a Work artifact.
+ if(/<script\b|<\/script\b/i.test(html)||forbidden.test(html))
+  throw Error("ACTIVE_WORK_HTML_NOT_ALLOWED");
+ return {reportDay,htmlSha256:digest(html)};
+}
