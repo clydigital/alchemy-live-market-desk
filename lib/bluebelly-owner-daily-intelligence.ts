@@ -2,11 +2,13 @@ import "server-only";
 import {createSupabaseServerClient} from "@/lib/supabase/server";
 import {createSupabaseAdminClient} from "@/lib/supabase/admin";
 import {uniquePrivateDailyIntelligence,type PrivateDailyIntelligenceEdition} from "./bluebelly-private-edition-dedupe";
+import {classifyPrivateDailyIntelligenceSessions} from "./bluebelly-private-daily-session-selection";
 
 export type PrivateDailyIntelligenceIndex={
  editions:PrivateDailyIntelligenceEdition[];
  state:"available"|"empty"|"partial"|"unavailable"|"unauthorised";
  duplicatesHidden:number;
+ sessionConflicts:PrivateDailyIntelligenceEdition[];
 };
 type RawRow={
  id:string;report_day:string;title:string;created_at:string;
@@ -26,12 +28,12 @@ function record(row:RawRow,delivery:"WORK"|"MY_DESK"):PrivateDailyIntelligenceEd
  * stored identical static reader bytes. Never collapse distinct revisions. */
 export async function getOwnerDailyIntelligenceIndex(limit=30):Promise<PrivateDailyIntelligenceIndex>{
  const session=await createSupabaseServerClient().catch(()=>null);
- if(!session)return {editions:[],state:"unavailable",duplicatesHidden:0};
+ if(!session)return {editions:[],state:"unavailable",duplicatesHidden:0,sessionConflicts:[]};
  const {data:{user},error}=await session.auth.getUser();
- if(error||!user?.id||!user.email)return {editions:[],state:"unauthorised",duplicatesHidden:0};
+ if(error||!user?.id||!user.email)return {editions:[],state:"unauthorised",duplicatesHidden:0,sessionConflicts:[]};
  const {data:allow,error:allowError}=await session.from("app_access_allowlist")
   .select("email").eq("email",user.email.toLowerCase().trim()).eq("active",true).maybeSingle();
- if(allowError||!allow)return {editions:[],state:"unauthorised",duplicatesHidden:0};
+ if(allowError||!allow)return {editions:[],state:"unauthorised",duplicatesHidden:0,sessionConflicts:[]};
  const admin=createSupabaseAdminClient();
  const size=Math.max(1,Math.min(40,limit));
  const [work,owner]=await Promise.all([
@@ -47,6 +49,11 @@ export async function getOwnerDailyIntelligenceIndex(limit=30):Promise<PrivateDa
   ...(owner.error?[]:((owner.data||[]) as RawRow[]).flatMap(r=>record(r,"MY_DESK")||[])),
  ];
  const unique=uniquePrivateDailyIntelligence(rows);
- return {...unique,state:work.error&&owner.error?"unavailable":
-  work.error||owner.error?"partial":unique.editions.length?"available":"empty"};
+ // Trust the true ET session at the instant the edition was saved, not
+ // the Work upload's arbitrary report_day or the filename's newer source date.
+ const checked=classifyPrivateDailyIntelligenceSessions(unique.editions,new Date());
+ return {editions:checked.eligible,sessionConflicts:checked.sessionConflicts,
+  duplicatesHidden:unique.duplicatesHidden,
+  state:work.error&&owner.error?"unavailable":
+   work.error||owner.error?"partial":checked.eligible.length?"available":"empty"};
 }
