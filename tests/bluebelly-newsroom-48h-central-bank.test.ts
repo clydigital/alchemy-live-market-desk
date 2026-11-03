@@ -35,7 +35,7 @@ test("November 3 RBA source-reviewed hike appears only after the official clock 
  assert.equal(item.rateLabel,"4.85%");
  assert.match(item.observedStatement,/Six members voted.*three preferred/);
  assert.match(item.expectedStatus,/surprise is unknown/);
- assert.match(item.sourceUrl,/rba\\.gov\\.au\\/media-releases\\/2026\\/mr-26-30\\.html/);
+ assert.equal(item.sourceUrl,"https://www.rba.gov.au/media-releases/2026/mr-26-30.html");
  assert.equal(bankDecisionById("rba-2026-11-03",after)?.id,item.id);
  assert.ok(!recentBankDecisions(new Date("2026-11-05T03:30:01Z"),48).some(x=>x.id===item.id));
  assert.equal(bankDecisionById("rba-2026-11-03",new Date("2026-11-11T03:30:00Z")),null);
