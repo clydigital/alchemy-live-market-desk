@@ -411,6 +411,19 @@ async function resolveIsmActual(release: OfficialMacroRelease, fetcher: typeof f
   throw new Error(`Official ISM source could not be resolved for ${release.reference_period || "reference period"} (${directDetail}; ${readerDetail}).`);
 }
 
+/** Only a same-publisher, same-article canonical trailing-slash redirect is
+ * acceptable. BEA can canonicalise a URL with a slash; never follow an old
+ * month, alternative year, query-selector or cross-publisher redirect. */
+export function sameBeaPcePublisherArticle(requested:string,actual:string):boolean{
+ try{
+  const a=new URL(actual),b=new URL(requested);
+  return a.protocol==="https:"&&a.hostname==="www.bea.gov"&&
+   b.protocol==="https:"&&b.hostname==="www.bea.gov"&&
+   a.pathname.replace(/\\/$/,"")===b.pathname.replace(/\\/$/,"")&&
+   !a.search&&!a.hash&&!b.search&&!b.hash;
+ }catch{return false;}
+}
+
 async function resolveBeaPceActual(release:OfficialMacroRelease,fetcher:typeof fetch):Promise<OfficialActualResolution>{
  const sourceUrl=beaPceReleaseUrl(release.release_name,release.reference_period,release.release_date);
  if(!sourceUrl||release.agency!=="U.S. Bureau of Economic Analysis")
@@ -418,17 +431,25 @@ async function resolveBeaPceActual(release:OfficialMacroRelease,fetcher:typeof f
  // Do not accept a publisher redirect to a different article or an older
  // release. The strict reference-period parser also rejects preview pages.
  let responseStatus:number|null=null;
+ let directEvidenceState="not_read";
  try{
   const response=await fetcher(sourceUrl,{
    headers:{accept:"text/html,application/xhtml+xml", "user-agent":"Alchemy Live Desk BEA original release"},
    cache:"no-store",signal:AbortSignal.timeout(10_000),
   });
   responseStatus=response.status;
-  if(response.ok && (!response.url||new URL(response.url).toString()===sourceUrl)){
+  if(!response.ok)directEvidenceState="http_failed";
+  else if(response.url&&!sameBeaPcePublisherArticle(sourceUrl,response.url))
+   directEvidenceState="article_url_mismatch";
+  else{
+   // Preserve a strict September-2026 title and the four period-matched rate
+   // checks; only transport-format markup and canonical slash may vary.
    const parsed=parseBeaPceActual(release.release_name,release.reference_period,await response.text());
    if(parsed)return {actual:parsed.actual,sourceUrl};
+   directEvidenceState="source_text_unmatched";
   }
  }catch{
+  directEvidenceState="transport_failed";
   // Recovery never relaxes the exact publisher URL or reference-month gate.
  }
  const reader=await fetchJinaReader({
@@ -440,7 +461,8 @@ async function resolveBeaPceActual(release:OfficialMacroRelease,fetcher:typeof f
  }
  throw new Error("BEA_PCE_SOURCE_UNVERIFIED:"+
   (responseStatus===null?"direct_unavailable":"direct_"+responseStatus)+
-  ":"+(reader.ok?"reference_mismatch":reader.errorCode||"recovery_unavailable"));
+  ":"+directEvidenceState+
+  ":"+(reader.ok?"reader_reference_or_metric_unmatched":reader.errorCode||"recovery_unavailable"));
 }
 
 export async function resolveOfficialActual(
