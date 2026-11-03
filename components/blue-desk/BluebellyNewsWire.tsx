@@ -169,7 +169,12 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
       Top released stories for {hotPicks.etDay} (US Eastern). Re-ranked daily by materiality, recency and topic diversity.
       {hotPicks.keys.length<3?" Fewer than three source-qualified stories currently available; no upcoming events are used to pad the list.":""}
     </p>:null}
-    <p className={styles.results}>{visibleCount?`Showing ${paginated.firstItem}–${paginated.lastItem} of ${visibleCount}`:"No"} source-qualified report{visibleCount===1?"":"s"} matching your selection. Pagination covers the available published reader set.</p>
+    <div className={styles.resultsBar} data-newsroom-pagination-position="above-feed">
+      <p className={styles.results}>{visibleCount?`Showing ${paginated.firstItem}–${paginated.lastItem} of ${visibleCount}`:"No"} source-qualified report{visibleCount===1?"":"s"} matching your selection.</p>
+      <ReaderPagination compact label="Newsroom" page={paginated.page} totalPages={paginated.totalPages}
+        totalItems={paginated.totalItems} firstItem={paginated.firstItem} lastItem={paginated.lastItem}
+        onPageChange={changePage}/>
+    </div>
     {!archiveAvailable?<p className={styles.empty} data-newsroom-archive-unavailable>Previously reviewed archive temporarily unavailable; current source-verified wire remains accessible.</p>:null}
     {paginated.items.map(card=>card.kind==="archive"?<article key={"archive:"+card.item.id} className={styles.item} data-newsroom-archived-reader={card.item.id}>
       <div className={styles.art}><EditorialStoryArt headline={card.item.headline} compact/></div>
