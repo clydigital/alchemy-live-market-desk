@@ -408,11 +408,19 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
             <p className={ui.coverageNote}>The dated original decision has an independently reviewed public reader. Its automated official-press acceptance/readback remains unconfirmed; it is not counted in the source-verified news tally.</p>
             <a href={row.bank.sourceUrl} target="_blank" rel="noreferrer">Reserve Bank of Australia · original statement</a>
           </article>)}
-          {topics.map(topic=><article className={ui.card} key={topic.id}>
-          <p className={ui.kicker}>SOURCE-VERIFIED NEWS · <DualTimestamp value={topic.latestObservedAt}/></p>
-          <h3><Link href={indexHref+"?catalyst="+topic.id}>{topic.updates[0].headline}</Link></h3>
-          <p>{topic.guidingQuestion}</p>
-        </article>)}</div>:<p className={ui.empty}>No currently source-verified event qualifies. The calendar, ongoing theses and dated Research Library remain available.</p>}
+          {topics.map(topic=>{
+          // An exactly matched, ALREADY approved review is more informative
+          // than the bank's repeated generic RSS heading. It remains a
+          // separate reviewed article, never an inferred source receipt.
+          const reviewed=reviewedPostEventForNews(topic.updates[0],now);
+          return <article className={ui.card} key={topic.id}>
+            <p className={ui.kicker}>SOURCE-VERIFIED NEWS · <DualTimestamp value={topic.latestObservedAt}/></p>
+            <h3><Link href={reviewed?indexHref+reviewed.detailsHref:indexHref+"?catalyst="+topic.id}>
+              {reviewed?.headline||topic.updates[0].headline}
+            </Link></h3>
+            <p>{reviewed?.standfirst||topic.guidingQuestion}</p>
+          </article>;
+        })}</div>:<p className={ui.empty}>No currently source-verified event qualifies. The calendar, ongoing theses and dated Research Library remain available.</p>}
       </section>
       {earlierNews.length?<section className={ui.section} id="recent-reports" aria-label="More verified reports from this week">
         <p className={ui.kicker}>SOURCE-VERIFIED / DATED PREVIOUS DAYS</p>
