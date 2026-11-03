@@ -1,6 +1,6 @@
 import {decisionRecapSourceLabel} from "@/lib/bluebelly-recap-provenance";
 import Link from "next/link";
-import EditorialStoryArt from "./EditorialStoryArt";
+import StoryHeroAside from "./StoryHeroAside";
 import EarningsEvidenceGraphic from "./EarningsEvidenceGraphic";
 import DualTimestamp from "./DualTimestamp";
 import type {NewsBriefV1} from "@/lib/market-brief-news";
@@ -47,15 +47,16 @@ export function recapFromDecision(
 export default function ShortNewsRecap({recap,backHref,coverage}:{recap:Recap;backHref:string;coverage?:StoryCoverageStatus}){
  const sourceOnly=recap.rawNews?consequenceForSourceOnlyNews(recap.rawNews):null;
  if(coverage?.status==="SOURCE_ONLY")return <article className={ui.article} data-bluebelly-news-recap="source-only-depth-incomplete">
-  <nav className={ui.back}><Link href={backHref}>← Return to Key Stories</Link></nav>
   <header className={ui.hero}><div className={ui.head}>
-    <p className={ui.kicker}>SOURCE-VERIFIED REPORT · RESEARCH DEPTH INCOMPLETE</p>
     <h1>{recap.title}</h1>
     <p className={ui.kicker}>QUICK MARKET BRIEF · FACTUAL NOTICE</p>
     <p className={ui.deck} data-quick-market-brief="source-only">{recap.fact}</p>
     <p>The dated source report was verified. The previous baseline, expectation, financial effect and market response still need evidence before this can be presented as a researched Key Story.</p>
-    <div className={ui.time}><DualTimestamp value={recap.asOf}/></div>
-  </div><EditorialStoryArt headline={recap.title} summary={recap.fact}/></header>
+  </div><StoryHeroAside headline={recap.title} summary={recap.fact}
+    category="SOURCE-VERIFIED REPORT · RESEARCH DEPTH INCOMPLETE"
+    sourceName={recap.sourceName} eventAt={recap.asOf}
+    backHref={backHref} backLabel="Key Stories"/>
+  </header>
   <div className={ui.chapters}>
     <section><p className={ui.kicker}>WHAT WE CAN VERIFY</p><h2>The confirmed development</h2><p>{recap.fact}</p></section>
     <section><p className={ui.kicker}>WHAT IS STILL MISSING</p><h2>What must be researched before calling this the full story?</h2>
@@ -74,19 +75,19 @@ export default function ShortNewsRecap({recap,backHref,coverage}:{recap:Recap;ba
  const reaction=recap.earnings?getDatedEarningsReaction(recap.earnings.id):null;
  const consequence=recap.earnings?consequenceForEarnings(recap.earnings,reaction):null;
  return <article className={ui.article} data-bluebelly-news-recap="source-qualified">
-  <nav className={ui.back}><Link href={backHref}>← Return to Key Stories</Link></nav>
   <header className={ui.hero}>
    <div className={ui.head}>
-    <p className={ui.kicker}>{recap.label}</p>
     <h1>{recap.title}</h1>
     {consequence?<p className={ui.kicker}>QUICK MARKET BRIEF</p>:null}
     <p className={ui.deck} data-quick-market-brief={consequence?"source-reviewed-earnings":undefined}>{consequence?recap.earnings?.outlook:recap.isScheduled?
       "The date is known. The decision is not. Here's how to read the outcome when it arrives.":
       "A verified development has arrived. The question is what it changes—and what is still unproved."}</p>
-    <div className={ui.time}><DualTimestamp value={hasInstant?recap.asOf:null} sourceDate={recap.asOf}/>
-     {recap.ticker?<span>{recap.ticker}</span>:null}</div>
    </div>
-   <EditorialStoryArt headline={recap.title} summary={recap.fact}/>
+   <StoryHeroAside headline={recap.title} summary={recap.fact}
+    category={recap.label} sourceName={recap.sourceName}
+    eventAt={hasInstant?recap.asOf:null} sourceDate={recap.asOf}
+    secondary={recap.ticker||null}
+    backHref={backHref} backLabel="Key Stories"/>
   </header>
   {consequence?<div className={ui.chapters} data-market-consequence="separate-business-price-evidence">
     <section><p className={ui.kicker}>MARKET CONSEQUENCE / ECONOMICS ARE NOT THE SHARE PRICE</p>
