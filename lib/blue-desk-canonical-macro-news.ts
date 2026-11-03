@@ -48,7 +48,11 @@ export function projectCompletedOfficialMacroNews(
   const release=typeof row.release_date==="string"?row.release_date:"";
   const retrieved=typeof row.actual_retrieved_at==="string"?row.actual_retrieved_at:"";
   const released=typeof row.released_at==="string"?row.released_at:"";
+  const [periodMonth,periodYear]=period.toLowerCase().split(" ");
+  const identityMatchesPeriod=id.endsWith("-"+periodMonth+"-"+periodYear)||
+   id.endsWith("-"+periodMonth.slice(0,3)+"-"+periodYear);
   if(!/^[a-z0-9-]{12,130}$/.test(id)||!/^\w+ 20\d{2}$/.test(period)||
+    !identityMatchesPeriod||
     !agencyNames.has(agency)||row.status!=="completed"||
     row.ingestion_attempt_status!=="completed"||
     row.source_classification!=="official_government"||!validActual(name,actual))continue;
