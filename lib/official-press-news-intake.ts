@@ -9,6 +9,7 @@ import type { ResearchRunInput, IntakeItemInput } from "./research-update.ts";
 import { normaliseDirectFeedText } from "./direct-news-evidence-triage.ts";
 import { extractOfficialPressFacts } from "./official-press-facts.ts";
 import { recoverOfficialPublisherSource } from "./official-publisher-source-recovery.ts";
+import {parseOfficialRbaDecision} from "./macro/official-rba-rate-decision.ts";
 
 export const OFFICIAL_PRESS_FEEDS = [
   {
@@ -74,6 +75,15 @@ export const OFFICIAL_PRESS_FEEDS = [
     publisher: "Reserve Bank of New Zealand",
   },
   {
+    // Official RBA RSS includes generic repeated policy-decision headings.
+    // Read the linked original release, never infer the cash rate from RSS.
+    name:"Reserve Bank of Australia media releases",
+    feed:"https://www.rba.gov.au/rss/rss-cb-media-releases.xml",
+    host:"www.rba.gov.au",
+    path:/^\/media-releases\/20[0-9]{2}\/mr-[0-9]{2}-[0-9]{2}\.html$/i,
+    publisher:"Reserve Bank of Australia",
+  },
+  {
     name:"Meta investor press releases",
     feed:"https://investor.atmeta.com/rss/pressrelease.aspx",
     host:"investor.atmeta.com",
@@ -113,6 +123,10 @@ const POLICY_RELEASE_CLOCKS: Readonly<Record<string,{releaseAt:string;scheduleSo
   "https://www.rbnz.govt.nz/news-and-events/news/2026/10/ocr-held-at-2-75-percent": {
     releaseAt:"2026-10-28T01:00:00.000Z",
     scheduleSource:"https://www.rbnz.govt.nz/news-and-events/how-we-release-information/ocr-decision-dates-and-financial-stability-report-dates-to-feb-2028",
+  },
+  "https://www.rba.gov.au/media-releases/2026/mr-26-30.html": {
+    releaseAt:"2026-11-03T03:30:00.000Z",
+    scheduleSource:"https://www.rba.gov.au/schedules-events/board-meeting-schedules.html",
   },
 };
 type Feed = typeof OFFICIAL_PRESS_FEEDS[number];
@@ -180,6 +194,11 @@ function recent(iso: string, now: Date) {
 
 /** Claim-shaped titles are necessary; meetings and general website updates are not. */
 export function materiallyActionableOfficialHeadline(feed: Feed, headline: string) {
+  // RBA repeats this heading for policy decisions. Only a separately
+  // attested release URL/clock AND original-page policy outcome may pass.
+  if(feed.host==="www.rba.gov.au")
+    return /^statement by the monetary policy board:\s*monetary policy decision$/i.test(headline.trim())
+      || /^statement on monetary policy decision$/i.test(headline.trim());
   if (feed.host === "www.ecb.europa.eu")
     return /^monetary policy decisions$/i.test(headline.trim()) ||
       (/\b(?:ECB|governing council|monetary policy|key interest rates?|deposit facility)\b/i.test(headline)
@@ -282,7 +301,7 @@ async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch, 
     const candidates = entries.flatMap(item => {
       const url = fixedUrl(item.url, feed);
       if (!url){diagnostics.rejectedUrl++;return [];}
-      const specialPolicyClock = feed.host === "www.bankofcanada.ca" || feed.host === "www.rbnz.govt.nz";
+      const specialPolicyClock = feed.host === "www.bankofcanada.ca" || feed.host === "www.rbnz.govt.nz" || feed.host === "www.rba.gov.au";
       const scheduled = specialPolicyClock ? POLICY_RELEASE_CLOCKS[url] : null;
       // Bank calendar day or local-time RSS fields do not establish the
       // release minute. Only the separately attested official event clock may
@@ -328,8 +347,18 @@ async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch, 
         }
         if(!html){diagnostics.unreadablePage++;return null;}
         if (!materialTitleFound(html, entry.title)){diagnostics.titleMismatch++;return null;}
+        // An RBA RSS heading alone never proves a policy decision or rate.
+        // Require the institution's already-tested original decision parser,
+        // matching the independently attested exact source and release clock.
+        const rbaOutcome=feed.host==="www.rba.gov.au"
+          ?parseOfficialRbaDecision(html,entry.url,entry.publishedAt):null;
+        if(feed.host==="www.rba.gov.au"&&!rbaOutcome){
+          diagnostics.unreadablePage++;return null;
+        }
         const title = entry.title.slice(0, 500);
         const sourceFacts=extractOfficialPressFacts(html,title);
+        if(rbaOutcome)sourceFacts.unshift(rbaOutcome.actual+
+          (rbaOutcome.previous?" (previous "+rbaOutcome.previous+").":"."));
         return {
           itemKey: "official-press:" + createHash("sha256").update(entry.url).digest("hex").slice(0, 24),
           itemType: "news" as const,
