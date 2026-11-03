@@ -17,6 +17,7 @@ import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { getOriginalPressNews } from "@/lib/blue-desk-original-press-news-server";
+import {reconcileReviewedBankReaders} from "@/lib/bluebelly-reviewed-bank-handoff";
 import {getCompletedOfficialMacroNews} from "@/lib/blue-desk-canonical-macro-news-server";
 import { combineQualifiedNews } from "@/lib/blue-desk-qualified-news";
 import { datedNewsSourceExcerpt } from "@/lib/bluebelly-dated-news-excerpt";
@@ -169,6 +170,11 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
   const news = recentNews.filter(n=>Date.parse(n.occurredAt)<=+now && +now-Date.parse(n.occurredAt)<=48*3600000);
   const earlierNews=recentNews.filter(n=>!news.some(current=>current.id===n.id));
   const topics = projectLivingMarketTopics(news);
+  // This is a public-READER reconciliation, not an automatic source admission.
+  // A source-reviewed article must remain discoverable even if the canonical
+  // RSS-to-accepted-intake receipt has not reached the public news projection.
+  const bankHandoff=reconcileReviewedBankReaders(recentNews,now);
+  const missingReviewed=bankHandoff.filter(row=>row.status==="REVIEWED_READER_NO_FEED_RECEIPT");
   const calendar=buildPresenterCalendar(macro,earnings,now);
   // The same bounded public page serves read-only, source-qualified short explainers.
   // A query never admits an arbitrary URL, record, unpublished research item, or owner document.
@@ -366,7 +372,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
         <h1>Key stories, explained.</h1>
         <p>Start with what surprised the market. Follow the decision, the money, the contradiction and the next test—with original sources close at hand.</p>
         <nav className={ui.indexNav} aria-label="Key Stories sections">
-          {topics.length ? <a href="#current-developments">Latest developments</a> : null}
+          {topics.length||missingReviewed.length ? <a href="#current-developments">Latest developments</a> : null}
           {earlierNews.length?<a href="#recent-reports">Earlier this week</a>:null}
           <a href="#persistent-theses">Browse by topic</a>
           <a href="#upcoming-decisions">What's next</a>
@@ -391,7 +397,18 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
       </section>
       <section className={ui.section} id="current-developments" aria-label="Current event readers">
         <h2>Current developments</h2>
-        {topics.length?<div className={ui.cards}>{topics.map(topic=><article className={ui.card} key={topic.id}>
+        {topics.length||missingReviewed.length?<div className={ui.cards}>
+          {missingReviewed.map(row=><article className={ui.card}
+            key={row.bank.id} data-reviewed-bank-handoff={row.status}>
+            <p className={ui.kicker}>REVIEWED PUBLIC POLICY ARTICLE · NOT A CANONICAL NEWS RECEIPT</p>
+            <h3><Link href={indexHref+"?postEvent="+encodeURIComponent(row.bank.id)}>{row.bank.headline}</Link></h3>
+            <p>{row.bank.observedStatement}</p>
+            <p><strong>Market consequence:</strong> {row.bank.financialMechanism}</p>
+            <p><strong>Next test:</strong> {row.bank.nextTest}</p>
+            <p className={ui.coverageNote}>The dated original decision has an independently reviewed public reader. Its automated official-press acceptance/readback remains unconfirmed; it is not counted in the source-verified news tally.</p>
+            <a href={row.bank.sourceUrl} target="_blank" rel="noreferrer">Reserve Bank of Australia · original statement</a>
+          </article>)}
+          {topics.map(topic=><article className={ui.card} key={topic.id}>
           <p className={ui.kicker}>SOURCE-VERIFIED NEWS · <DualTimestamp value={topic.latestObservedAt}/></p>
           <h3><Link href={indexHref+"?catalyst="+topic.id}>{topic.updates[0].headline}</Link></h3>
           <p>{topic.guidingQuestion}</p>
