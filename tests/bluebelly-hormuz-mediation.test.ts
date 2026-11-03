@@ -5,6 +5,7 @@ import test from "node:test";
 const hormuz=readFileSync(new URL("../app/blue-desk/hormuz/page.tsx",import.meta.url),"utf8");
 const keyStories=readFileSync(new URL("../app/blue-desk/key-stories/page.tsx",import.meta.url),"utf8");
 const feature=readFileSync(new URL("../components/blue-desk/HormuzMediationFeature.tsx",import.meta.url),"utf8");
+const research=readFileSync(new URL("../lib/bluebelly-public-research-library.ts",import.meta.url),"utf8");
 
 test("Hormuz mediation is dated editorial above retained physical source monitors",()=>{
  assert.match(hormuz,/data-bluebelly-hormuz="public-source-dated-physical-first"/);
@@ -16,7 +17,8 @@ test("Hormuz mediation is dated editorial above retained physical source monitor
 test("Key Story link is a bounded public editorial feature, not canonical thesis mutation",()=>{
  assert.match(keyStories,/feature==="hormuz-mediation-november-2026"/);
  assert.match(keyStories,/data-key-story="hormuz-mediation-source-reviewed"/);
- assert.match(keyStories,/data-feature="hormuz-mediation-november-2026"/);
+ assert.match(research,/hormuz-mediation-november-2026/);
+ assert.match(keyStories,/data-key-stories-research-handoff="dated-not-live"/);
  assert.doesNotMatch(feature,/createSupabaseAdminClient|insert\(|upsert\(/);
 });
 test("Mediation distinguishes proposal, incident and acceptance from verified reopening",()=>{
