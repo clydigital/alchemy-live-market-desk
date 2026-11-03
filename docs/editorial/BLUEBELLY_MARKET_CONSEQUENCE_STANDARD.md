@@ -88,6 +88,16 @@ For a contradiction, System 2 may test **at most three initially relevant explan
 
 **US midterms 2026:** Historical election patterns explain a potential uncertainty-release hypothesis, not a guaranteed return. Without confirmed 2026 election outcome, do not assign winners, policy law, reliable election probability or automatic SPX/DXY/yield reaction.
 
+## Exact-event evidence reuse and repeated-gap guard (4 November 2026)
+
+**Reuse before requesting research.** The full public article reader must check whether its exact verified original event (document URL, event/release clock, source tier, issuer/policy/period) already has a separately source-reviewed public post-event packet. The approved bank decision and issuer earnings scorecards are existing reusable packets. Only a matching packet may replace the generic source-only reader; matching a ticker, keyword, approximate topic or arbitrary user query is not sufficient. The source-only fallback must not imply that no upstream investigation has occurred: say an approved full packet is not **linked**, and put the five detailed open checks in an accessible expandable control rather than repeating a wall of boilerplate on every article.
+
+**Reconcile archived pre-release evidence.** Research Investigation first reconciles the original and source vintage with already retained MacroPulse pre-event snapshots and the frozen expectation before fetching again. Preserve the real quality level: an attributed secondary economist poll may establish that expectations were *reported* before the outcome but cannot become a directly verified OIS quote or original poll. The 2 November RBA 31/32 reported poll is one historical reconciliation candidate, distinct from the 3 November RBA 4.60%→4.85% completed original. Without matching provider/metric/period and dated post-release asset bars, do not label a numerical surprise or causal price reaction.
+
+**Completed release is not a researched Story.** An admitted `macro_releases` Actual is only a verified event until its expected/previous/actual metric comparison, source vintage, financial mechanism, uncertainty, timed market response and reviewer status have been reconciled. Keep source-only and REVIEW_PENDING records visible, but do not auto-promote the private MacroPulse review queue, private My Desk HTML, or canonical Dossier/System 2 verdicts to public. Track exact event and review packet ID / original URL / publication status and one next-owner action so each cycle resumes the missing dimension rather than restarting all five checks.
+
+**Regression acceptance:** a source- and clock-matched 3 November RBA notice or 2 November Apple original must open its existing reviewed public packet. A changed URL, unrelated source or unavailable pre-release issuer snapshot must remain source-only. Preserve unknown analyst-consensus/OIS and reaction limitations in both paths. Unchanged research should not create duplicate review digest, Story version, full report, scheduler, or public edition. Confirm production deployment SHA and anonymous readback after merge; CI alone is not release proof.
+
 ## Minimum editorial / engineering release gates
 
 - [ ] Quick brief is understandable on its own and located above numerical detail.
