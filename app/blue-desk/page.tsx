@@ -26,6 +26,7 @@ import {selectPostEventRecaps} from "@/lib/bluebelly-post-event-recap";
 
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { getOriginalPressNews } from "@/lib/blue-desk-original-press-news-server";
+import {getCompletedOfficialMacroNews} from "@/lib/blue-desk-canonical-macro-news-server";
 import { combineQualifiedNews } from "@/lib/blue-desk-qualified-news";
 import { projectLivingMarketTopics } from "@/lib/blue-desk-living-topics";
 import catalyst from "./catalyst-note.module.css";
@@ -75,7 +76,12 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
     getCurrentVerifiedMarketMotion({ limit: 36 }).catch(() => []),
     getPublicSourceObservations(now,12).catch(() => []),
     getPublicThesisLedger(now,24).catch(() => []),
-    getOriginalPressNews(now,18,7).catch(() => []),
+    // Both sources are already original-source qualified; the new second
+    // arm is READ-ONLY completed macro actuals, not research drafts.
+    Promise.all([
+      getOriginalPressNews(now,18,7).catch(()=>[]),
+      getCompletedOfficialMacroNews(now,18,7).catch(()=>[]),
+    ]).then(([press,macroActuals])=>[...press,...macroActuals]),
     getPublishedMacroPulseBriefs(2).catch(() => []),
     getRecentArchivedPublicReaderItems(now).catch(() => []),
   ]);
