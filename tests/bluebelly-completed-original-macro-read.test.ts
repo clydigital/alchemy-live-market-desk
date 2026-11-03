@@ -67,7 +67,7 @@ test("official BEA PCE must reconcile all four distinct actuals with matched ori
  };
  assert.equal(projectCompletedOfficialMacroNews([pce],now).length,1);
  assert.deepEqual(projectCompletedOfficialMacroNews([{...pce,actual:"Headline PCE +0.5% m/m; Core PCE +0.3% m/m"}],now),[]);
- assert.deepEqual(projectCompletedOfficialMacroNews([{...pce,source_url:pce.source_url!.toString().replace("september","october")}],now),[]);
+ assert.deepEqual(projectCompletedOfficialMacroNews([{...pce,source_url:String(pce.source_url).replace("september","october")}],now),[]);
 });
 test("the exact same publicly qualified source projection is reused by Today, Newsroom and Key Stories",()=>{
  for(const path of ["../app/blue-desk/page.tsx","../app/blue-desk/newsroom/page.tsx","../app/blue-desk/key-stories/page.tsx"]){
