@@ -51,15 +51,18 @@ test("Today never promotes future, stale, unverified or external publication lin
  assert.equal(blueDeskHostAccess("/owner/research",host),"private"); // Owner access is authenticated.
  assert.equal(blueDeskHostAccess("/my-reports",host),"private"); // Owner authentication is still required.
 });
-test("Front page and Newsroom use the exact same editorial projector and Today is dynamic",()=>{
+test("Latest from the Newsroom is not rendered or fetched on Today; Newsroom keeps its own reader",()=>{
  const today=file("../app/blue-desk/page.tsx");
  const newsroom=file("../app/blue-desk/newsroom/page.tsx");
  const component=file("../components/blue-desk/TodayNewsroomFeed.tsx");
- assert.match(today,/publicNewsroomEditorials\(recentNews,now,host\)/);
- assert.match(newsroom,/publicNewsroomEditorials\(news,now,host\)/);
- assert.match(today,/selectTodayNewsroomItems\(/);
- assert.match(today,/TodayNewsroomFeed items=\{newsroomToday\}/);
+ assert.doesNotMatch(today,/TodayNewsroomFeed|selectTodayNewsroomItems|publicNewsroomEditorials/);
+ assert.doesNotMatch(today,/getRecentArchivedPublicReaderItems|archivedNewsroom|newsroomToday/);
+ assert.match(today,/<DecisionBrief news=\{verifiedNews\}/);
+ assert.match(today,/data-home-research-archive-link="dated-not-live"/);
+ assert.match(today,/\/blue-desk\/research/);
  assert.match(today,/export const dynamic = "force-dynamic"/);
+ assert.match(newsroom,/publicNewsroomEditorials\(news,now,host\)/);
+ assert.match(newsroom,/<BluebellyNewsWire news=\{news\}/);
  assert.match(component,/data-today-newsroom-sync="shared-public-newsroom-feed"/);
  assert.match(component,/source date/);
  assert.doesNotMatch(component,/REVIEWED AS VERIFIED/);
