@@ -41,7 +41,7 @@ test("Key Stories drilldown reuses exact approved public path, with expired them
  assert.match(page,/encodeURIComponent\(topic\.id\)/);
  assert.match(page,/projectLivingMarketTopics\(news\)/);
  assert.match(page,/selectVerifiedNewsBriefs\(raw, now, 18\)/);
- assert.match(page,/combineQualifiedNews\(motionNews,originalPress,18\)/);
+ assert.match(page,/combineQualifiedNews\(motionNews,\[\.\.\.originalPress,\.\.\.completedMacro\],18\)/);
  assert.equal(blueDeskHostAccess("/key-stories","bluebelly-desk.vercel.app"),"public");
  assert.equal(blueDeskPresentationTarget("/key-stories","bluebelly-desk.vercel.app"),"/blue-desk/key-stories");
  assert.equal(blueDeskHostAccess("/catalyst/internal","bluebelly-desk.vercel.app"),"blocked");
