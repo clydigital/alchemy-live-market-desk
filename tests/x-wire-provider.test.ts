@@ -28,7 +28,7 @@ function ok(rows: unknown[], cursor: unknown = { bottom: null }) {
   return new Response(JSON.stringify({ code: 200, results: rows, cursor }),
     { status: 200, headers: { "content-type": "application/json" } });
 }
-test("retrieves 11 registered accounts including ZeroHedge and TGLetter, from a fixed provider host and preserves attributed original URLs", async () => {
+test("retrieves 12 registered accounts including ZeroHedge and TGLetter, from a fixed provider host and preserves attributed original URLs", async () => {
   let n = 0;
   const fetchImpl = mockFetch(handle => {
     n += 1;
