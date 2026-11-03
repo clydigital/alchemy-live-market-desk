@@ -19,6 +19,7 @@ import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { getOriginalPressNews } from "@/lib/blue-desk-original-press-news-server";
+import {reconcileReviewedBankReaders} from "@/lib/bluebelly-reviewed-bank-handoff";
 import {getCompletedOfficialMacroNews} from "@/lib/blue-desk-canonical-macro-news-server";
 import { combineQualifiedNews } from "@/lib/blue-desk-qualified-news";
 import { datedNewsSourceExcerpt } from "@/lib/bluebelly-dated-news-excerpt";
@@ -171,6 +172,10 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
   const news = recentNews.filter(n=>Date.parse(n.occurredAt)<=+now && +now-Date.parse(n.occurredAt)<=48*3600000);
   const earlierNews=recentNews.filter(n=>!news.some(current=>current.id===n.id));
   const topics = projectLivingMarketTopics(news);
+  // Reconcile exact verified public receipt identity against already reviewed
+  // bank decision readers. Never count a reviewed article as a new NewsBrief.
+  const bankHandoff=reconcileReviewedBankReaders(recentNews,now);
+  const missingReviewed=bankHandoff.filter(x=>x.status==="REVIEWED_READER_NO_FEED_RECEIPT");
   const calendar=buildPresenterCalendar(macro,earnings,now);
   // The same bounded public page serves read-only, source-qualified short explainers.
   // A query never admits an arbitrary URL, record, unpublished research item, or owner document.
@@ -368,7 +373,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
         <h1>Key stories, explained.</h1>
         <p>Start with what surprised the market. Follow the decision, the money, the contradiction and the next test—with original sources close at hand.</p>
         <nav className={ui.indexNav} aria-label="Key Stories sections">
-          {topics.length ? <a href="#current-developments">Latest developments</a> : null}
+          {topics.length||missingReviewed.length ? <a href="#current-developments">Latest developments</a> : null}
           {earlierNews.length?<a href="#recent-reports">Earlier this week</a>:null}
           <a href="#persistent-theses">Browse by topic</a>
           <a href="#upcoming-decisions">What's next</a>
@@ -393,11 +398,27 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
       </section>
       <section className={ui.section} id="current-developments" aria-label="Current event readers">
         <h2>Current developments</h2>
-        {topics.length?<div className={ui.cards}>{topics.map(topic=><article className={ui.card} key={topic.id}>
-          <p className={ui.kicker}>SOURCE-VERIFIED NEWS · <DualTimestamp value={topic.latestObservedAt}/></p>
-          <h3><Link href={indexHref+"?catalyst="+topic.id}>{topic.updates[0].headline}</Link></h3>
-          <p>{topic.guidingQuestion}</p>
-        </article>)}</div>:<p className={ui.empty}>No currently source-verified event qualifies. The calendar, ongoing theses and dated Research Library remain available.</p>}
+        {topics.length||missingReviewed.length?<div className={ui.cards}>
+          {missingReviewed.map(row=><article className={ui.card}
+            key={row.bank.id} data-reviewed-bank-handoff={row.status}>
+            <p className={ui.kicker}>REVIEWED PUBLIC POLICY ARTICLE · INTAKE RECEIPT NOT VERIFIED</p>
+            <h3><Link href={indexHref+"?postEvent="+encodeURIComponent(row.bank.id)}>{row.bank.headline}</Link></h3>
+            <p>{row.bank.observedStatement}</p>
+            <p className={ui.coverageNote}>Original decision reviewed and the full article is publicly readable. A separate source-qualified news receipt is not established, so this review is not included in the verified-news count.</p>
+            <a href={row.bank.sourceUrl} target="_blank" rel="noreferrer">{row.bank.bank} · original release</a>
+          </article>)}
+          {topics.map(topic=>{
+            // Prefer the event-first headline of an already approved public
+            // article where exact source/time match; never generate a claim.
+            const reviewed=reviewedPostEventForNews(topic.updates[0],now);
+            return <article className={ui.card} key={topic.id}>
+              <p className={ui.kicker}>SOURCE-VERIFIED NEWS · <DualTimestamp value={topic.latestObservedAt}/></p>
+              <h3><Link href={reviewed?indexHref+reviewed.detailsHref:indexHref+"?catalyst="+topic.id}>
+                {reviewed?.headline||topic.updates[0].headline}
+              </Link></h3>
+              <p>{reviewed?.standfirst||topic.guidingQuestion}</p>
+            </article>;
+          })}</div>:<p className={ui.empty}>No currently source-verified event qualifies. The calendar, ongoing theses and dated Research Library remain available.</p>}
       </section>
       {earlierNews.length?<section className={ui.section} id="recent-reports" aria-label="More verified reports from this week">
         <p className={ui.kicker}>SOURCE-VERIFIED / DATED PREVIOUS DAYS</p>
