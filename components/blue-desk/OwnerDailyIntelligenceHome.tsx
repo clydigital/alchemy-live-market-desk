@@ -44,7 +44,7 @@ export default async function OwnerDailyIntelligenceHome(){
   {latest?<div className={styles.dailyIssue}>
    <div className={styles.dailyIssueTop}>
     <div>
-     <p className={styles.dailyStamp}>Latest saved report · {dateDay(latest.reportDay)}
+     <p className={styles.dailyStamp}>Latest saved report for completed ET session · {dateDay(latest.reportDay)}
       {coverage==="current"?" · Expected session covered":""}</p>
      <h3>{latest.title}</h3>
      <p>Saved {savedTime(latest.createdAt)} · {latest.delivery==="WORK"?"Delivered from Work":latest.delivery==="AUTOMATED"?"Scheduled source-led fallback · full editorial review pending":"Generated in My Desk"}
@@ -84,6 +84,19 @@ export default async function OwnerDailyIntelligenceHome(){
   <p className={styles.dailyArchivePolicy}>The new archive starts with editions saved after
    {" "}{savedTime(MY_DESK_ARCHIVE_CUTOVER)}. Pre-cutover versions are excluded from this list,
    not erased from secure research storage. COTD/OB suggestions are never archived here.</p>
+  {result.sessionConflicts.length>0?<details className={styles.dailyHistory}
+   data-my-desk-session-conflicts="preserved-not-current">
+   <summary>Session-date conflicts ({result.sessionConflicts.length}) — excluded from current report</summary>
+   <p className={styles.dailyNote} role="status">These private editions were saved before their labelled US equity session had finished, or otherwise fail the completed-session date check. They remain immutable and readable for review but cannot replace the latest completed-session Daily Intelligence or drive COTD/OB ideas.</p>
+   <div className={styles.dailyHistoryItems}>
+     {result.sessionConflicts.slice(0,15).map(e=><article key={e.id}>
+       <span>Saved {savedTime(e.createdAt)} · Labelled session {dateDay(e.reportDay)} · NEEDS DATE REVIEW</span>
+       <strong>{e.title}</strong>
+       <a href={"/api/owner/html-editions?edition="+e.id} target="_blank"
+         rel="noopener noreferrer">Inspect original private edition</a>
+     </article>)}
+   </div>
+  </details>:null}
   {result.duplicatesHidden>0?<p className={styles.dailyArchivePolicy}>
    {result.duplicatesHidden} duplicate storage {result.duplicatesHidden===1?"receipt":"receipts"} excluded from this view.</p>:null}
  </section>;
