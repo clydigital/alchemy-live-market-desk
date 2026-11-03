@@ -5,12 +5,26 @@
  * recent tape when their verified release instant ages out.
  */
 export type BankDecisionSnapshot={
- id:string;headline:string;bank:string;countryCode:"US"|"CA"|"NZ";sourceUrl:string;sourceName:string;
+ id:string;headline:string;bank:string;countryCode:"US"|"CA"|"NZ"|"AU";sourceUrl:string;sourceName:string;
  releaseAt:string;observedStatement:string;expectedStatus:string;
  financialMechanism:string;alternative:string;nextTest:string;
  affectedAssets:readonly string[];rateLabel:string;decision:string;
 };
 const SNAPSHOTS:readonly BankDecisionSnapshot[]=[
+ {
+ id:"rba-2026-11-03",bank:"Reserve Bank of Australia",countryCode:"AU",
+ headline:"RBA raises cash rate 25bp to 4.85% in a 6–3 vote",
+ releaseAt:"2026-11-03T03:30:00.000Z",
+ sourceUrl:"https://www.rba.gov.au/media-releases/2026/mr-26-30.html",
+ sourceName:"Reserve Bank of Australia · 3 November Monetary Policy Board statement",
+ decision:"HIKE +25bp",rateLabel:"4.85%",
+ observedStatement:"The Monetary Policy Board raised the cash rate target by 25bp from 4.60% to 4.85%. Six members voted for the increase; three preferred to leave it at 4.60%. The Bank raised its inflation forecasts, expecting inflation to remain elevated through much of 2027, while acknowledging slower demand, falling housing prices and rising unemployment.",
+ expectedStatus:"The decision and 6–3 vote are confirmed by the RBA. A dated, source-matched pre-decision OIS probability is not attached, so the size of the market surprise is unknown.",
+ financialMechanism:"The higher cash rate increases Australia's short-rate anchor and raises borrowing costs. Whether that supports AUD depends on what was already priced and whether investors focus more on persistent inflation or weaker activity.",
+ alternative:"A rate increase need not produce a lasting AUD rally if traders already expected it or if the Bank's forecasts increase concerns about growth and household demand.",
+ nextTest:"Compare AUD/USD, Australian 2-year yields and interbank-rate pricing before and after the official 14:30 AEDT release, using matching timestamps. Then compare the November inflation forecasts with August; do not assert a price reaction without observations.",
+ affectedAssets:["AUDUSD","AU02Y","ASX"],
+ },
  {
  id:"fed-2026-10-28",bank:"Federal Reserve",countryCode:"US",headline:"Fed holds at 3.75–4.00%; two officials wanted a hike",
  releaseAt:"2026-10-28T18:00:00.000Z",

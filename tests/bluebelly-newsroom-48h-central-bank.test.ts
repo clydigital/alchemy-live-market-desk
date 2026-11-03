@@ -25,6 +25,21 @@ test("original October 28 bank outcomes appear as a 48h bank-first tape, newest 
    assert.ok(Date.parse(row.releaseAt)<=+instant);
  }
 });
+test("November 3 RBA source-reviewed hike appears only after the official clock and remains non-canonical",()=>{
+ const before=new Date("2026-11-03T03:29:59Z");
+ const after=new Date("2026-11-03T04:00:00Z");
+ assert.ok(!recentBankDecisions(before,48).some(x=>x.id==="rba-2026-11-03"));
+ const item=recentBankDecisions(after,48).find(x=>x.id==="rba-2026-11-03");
+ assert.ok(item);
+ assert.equal(item.countryCode,"AU");
+ assert.equal(item.rateLabel,"4.85%");
+ assert.match(item.observedStatement,/Six members voted.*three preferred/);
+ assert.match(item.expectedStatus,/surprise is unknown/);
+ assert.equal(item.sourceUrl,"https://www.rba.gov.au/media-releases/2026/mr-26-30.html");
+ assert.equal(bankDecisionById("rba-2026-11-03",after)?.id,item.id);
+ assert.ok(!recentBankDecisions(new Date("2026-11-05T03:30:01Z"),48).some(x=>x.id===item.id));
+ assert.equal(bankDecisionById("rba-2026-11-03",new Date("2026-11-11T03:30:00Z")),null);
+});
 test("confirmed decision cards expire from the 48h lane and cannot be published before the source clock",()=>{
  assert.equal(recentBankDecisions(new Date("2026-10-27T23:00:00Z")).length,0);
  assert.deepEqual(recentBankDecisions(new Date("2026-10-30T01:01:00Z")).map(x=>x.id),
