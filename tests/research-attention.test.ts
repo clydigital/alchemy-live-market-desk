@@ -43,7 +43,7 @@ test("reservation-style attention capacity for eight slots is 2/2/1/3", () => {
 test("discovery-only watch inputs stay visible but cannot consume a research slot", () => {
   const packet = buildResearchAttentionPacket([
     item("power", "Uranium supply watch marker", {
-      publisher: "Power Stack",
+      publisher: "External research watch",
       recommendedAction: "ignore",
       sourceQuality: 35,
       relevance: 35,
