@@ -8,3 +8,12 @@
 .ellipsis{min-width:16px;text-align:center;color:var(--bb-muted)}
 .control:focus-visible,.number:focus-visible{outline:3px solid var(--bb-card-focus);outline-offset:2px}
 @media(max-width:600px){.nav{align-items:stretch;gap:10px}.summary{width:100%}.actions{justify-content:space-between;gap:3px}.pages{justify-content:center;gap:3px}.control,.number,.current,.disabled{min-width:38px;min-height:44px;padding:7px}.ellipsis{min-width:10px}}
+
+/* Compact control sits beside the Newsroom result count above the first card. */
+.compact{display:flex;align-items:center;justify-content:flex-end;gap:0;margin:0;padding:0;border:0;flex:0 0 auto;min-width:0}
+.compact .actions{gap:4px;flex-wrap:nowrap}
+.compact .pages{gap:4px;flex-wrap:nowrap}
+.compact .number,.compact .current,.compact .control,.compact .disabled{min-width:38px;min-height:42px;padding:6px 9px}
+.compact .control,.compact .disabled{font-size:22px;line-height:1}
+.compactSummary{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:600px){.compact{width:100%;justify-content:flex-start}.compact .number,.compact .current,.compact .control,.compact .disabled{min-width:40px;min-height:44px;padding:6px 10px}.compact .actions{max-width:100%;overflow-x:auto;padding-bottom:2px}}

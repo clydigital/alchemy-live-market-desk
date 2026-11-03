@@ -52,6 +52,20 @@ test("Newsroom filters + browser history are retained while pages bound visible 
  assert.match(ui,/syncUrl\(topic,query,next,"push"\)/);
  assert.match(ui,/window\.addEventListener\("popstate",restore\)/);
  assert.match(ui,/onPageChange=\{changePage\}/);
+ assert.match(ui,/data-newsroom-pagination-position="above-feed"/);
+ assert.equal((ui.match(/<ReaderPagination /g)||[]).length,2,
+  "Newsroom has a compact pager above the first card and a full pager below the list");
+ assert.ok(ui.indexOf('data-newsroom-pagination-position="above-feed"')<
+  ui.indexOf("paginated.items.map(card=>"),"Top controls must precede article cards");
+ const css=src("components/blue-desk/bluebelly-newswire.module.css");
+ const pager=src("components/blue-desk/ReaderPagination.tsx");
+ const pagerCss=src("components/blue-desk/ReaderPagination.module.css");
+ assert.match(css,/\.resultsBar\{display:flex/);
+ assert.match(css,/@media\(max-width:600px\)\{\.resultsBar/);
+ assert.match(pager,/compact\?:boolean/);
+ assert.match(pager,/className=\{compact\?styles.compact:styles.nav\}/);
+ assert.match(pagerCss,/\.compact\{display:flex/);
+
  assert.match(page,/initialCategory=\{typeof params\.category/);
  assert.match(page,/initialPage=\{typeof params\.page/);
  assert.match(page,/getRecentArchivedPublicReaderItems\(now\)/);
