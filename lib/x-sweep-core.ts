@@ -40,8 +40,10 @@ export const X_CORE_ROSTER = Object.freeze([
   { handle: "FirstSquawk", focus: "breaking" },
   { handle: "zerohedge", focus: "global-news" },
   { handle: "TGLetter", focus: "civil-resilience" },
+  { handle: "macropaperr", focus: "cross-asset" },
 ] as const);
-// 30 Oct owner override restores ZeroHedge and adds TGLetter; GordianKnotDev remains excluded.
+// 4 Nov approved roster includes The Macro Paper as a 12th attributed discovery account.
+// GordianKnotDev remains excluded. A roster member is not verified market evidence.
 export const X_WIRE_EXCLUDED_HANDLES = Object.freeze(["gordianknotdev"] as const);
 export function isExcludedXWireHandle(handle: string): boolean {
   return X_WIRE_EXCLUDED_HANDLES.some(blocked =>
