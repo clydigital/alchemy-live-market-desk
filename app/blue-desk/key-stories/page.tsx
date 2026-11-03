@@ -31,7 +31,7 @@ import KeyStoryDeepArticle from "@/components/blue-desk/KeyStoryDeepArticle";
 import {OCTOBER_FED_DEPTH,storyCoverageForNews,storyDepthForNews} from "@/lib/bluebelly-key-story-depth";
 import NewsroomEventReader from "@/components/blue-desk/NewsroomEventReader";
 import {PostEventRecapArticle} from "@/components/blue-desk/PostEventRecap";
-import {findPostEventRecap} from "@/lib/bluebelly-post-event-recap";
+import {findPostEventRecap,reviewedPostEventForNews} from "@/lib/bluebelly-post-event-recap";
 import {getEventSocialContext} from "@/lib/bluebelly-event-social-server";
 import {bankDecisionById} from "@/lib/bluebelly-bank-decision-snapshots";
 import {reportedEditorialById} from "@/lib/bluebelly-reported-editorial";
@@ -175,6 +175,14 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
   const newsId=typeof params?.news==="string"&&/^[a-z0-9_-]{1,150}$/i.test(params.news)?params.news:null;
   if(newsId){
     const event=recentNews.find(n=>n.id===newsId);
+    // An exact, original-source-matched public policy/earnings investigation
+    // takes precedence over the generic five-gap source-only notice.
+    const reviewed=event?reviewedPostEventForNews(event,now):null;
+    if(reviewed)return <main className={desk.page} data-bluebelly-news="matched-reviewed-post-event">
+      <BlueDeskHeader activePath="/blue-desk/key-stories"/>
+      <div className={desk.content}><PostEventRecapArticle recap={reviewed}
+        backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}/></div>
+    </main>;
     // Reuse a reviewed packet for any matching original, clock-qualified
     // public news receipt. No on-page research or trust in arbitrary IDs.
     const researched=event?storyDepthForNews(event):null;

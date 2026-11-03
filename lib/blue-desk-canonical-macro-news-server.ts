@@ -1,6 +1,6 @@
 import "server-only";
 import {createSupabaseAdminClient} from "@/lib/supabase/admin";
-import {projectCompletedOfficialMacroNews,type CompletedMacroRow} from "./blue-desk-canonical-macro-news";
+import {projectCompletedOfficialMacroNews,projectCompletedReviewedBankNews,type CompletedMacroRow} from "./blue-desk-canonical-macro-news";
 import {getRecentOfficialMacroResults} from "./blue-desk-official-macro-results";
 import type {NewsBriefV1} from "./market-brief-news";
 
@@ -24,6 +24,11 @@ export async function getCompletedOfficialMacroNews(
   .order("release_date",{ascending:false}).limit(30);
  if(error)throw new Error("Original official macro release receipt read failed");
  const reviewed=new Set(getRecentOfficialMacroResults(now).map(x=>x.sourceUrl));
- return projectCompletedOfficialMacroNews((data||[]) as CompletedMacroRow[],now,limit,lookbackDays)
-  .filter(item=>!reviewed.has(item.sourceUrl));
+ const rows=(data||[]) as CompletedMacroRow[];
+ // Keep the US original-source gate unchanged; additionally reuse an already
+ // reviewed RBA policy snapshot only when the completed DB receipt is identical.
+ return [...projectCompletedOfficialMacroNews(rows,now,limit,lookbackDays),
+   ...projectCompletedReviewedBankNews(rows,now,limit,lookbackDays)]
+  .filter(item=>!reviewed.has(item.sourceUrl))
+  .sort((a,b)=>Date.parse(b.occurredAt)-Date.parse(a.occurredAt)).slice(0,limit);
 }

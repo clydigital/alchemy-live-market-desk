@@ -25,14 +25,15 @@ function fromBank(bank:BankDecisionSnapshot):PostEventRecap{
  const fed=bank.id==="fed-2026-10-28";
  return {
   id:bank.id,kind:"bank",releaseAt:bank.releaseAt,headline:fed?OCTOBER_FED_DEPTH.title:bank.headline,
-  standfirst:fed?OCTOBER_FED_DEPTH.hook:bank.countryCode==="NZ"?"A narrow vote left rates unchanged. The real question is whether the bank can wait while inflation stays elevated.":"The policy rate changed. Whether it changes the currency or bond market depends on what investors had priced in beforehand.",eventName:bank.bank,
+  standfirst:fed?OCTOBER_FED_DEPTH.hook:bank.id==="rba-2026-11-03"?"An expected 25bp rate hike became a 6–3 vote and a debate over whether further tightening is needed. Higher borrowing costs have real household and business consequences.":bank.countryCode==="NZ"?"A narrow vote left rates unchanged. The real question is whether the bank can wait while inflation stays elevated.":"The policy rate changed. Whether it changes the currency or bond market depends on what investors had priced in beforehand.",eventName:bank.bank,
   whatHappened:bank.observedStatement+" "+bank.expectedStatus,
   marketEffects:fed?OCTOBER_FED_DEPTH.marketTape.slice(0,2).join(" "):bank.financialMechanism,
   marketEffectStatus:fed?"DATED_SECONDARY_AND_DAILY_DATA":"MECHANISM_ONLY",
   whatNext:bank.nextTest,countercase:bank.alternative,
   sourceUrls:fed?OCTOBER_FED_DEPTH.sources.map(s=>({label:s.label,url:s.url,role:s.url.includes("treasury.gov")?"market_data" as const:s.url.includes("reuters.com")?"reporting" as const:"official" as const})):
-   [{label:bank.sourceName,url:bank.sourceUrl,role:"official" as const}],
-  evidenceNote:fed?"Treasury observations are daily closes; Reuters reactions are attributed secondary accounts. Neither proves an intraday Fed-caused move.":"No matching pre/post-event market-price window or pre-release rate probability is available; mechanism is not an observed reaction.",
+   [{label:bank.sourceName,url:bank.sourceUrl,role:"official" as const},
+    ...(bank.id==="rba-2026-11-03"?[{label:"InvestingLive · 2 November pre-decision poll attribution (31/32)",url:"https://investinglive.com/central-banks/economic-and-event-calendar-in-asia-03-november-2026-rba-rate-hike-expected/",role:"reporting" as const}]:[])],
+  evidenceNote:fed?"Treasury observations are daily closes; Reuters reactions are attributed secondary accounts. Neither proves an intraday Fed-caused move.":bank.id==="rba-2026-11-03"?"A 2 November secondary report attributed the 31/32 majority +25bp expectation to a Reuters poll; the original Reuters poll and independently measured OIS quote are not attached. No timestamp-matched AUD/AU02Y event-window observations are attached, so an observed price reaction or its cause is not established.":"No matching pre/post-event market-price window or pre-release rate probability is available; mechanism is not an observed reaction.",
   detailsHref:"?postEvent="+encodeURIComponent(bank.id),
   weight:bank.countryCode==="US"?100:bank.countryCode==="CA"?85:80,featuredStatus:"REVIEWED"
  };
@@ -62,6 +63,43 @@ function fromEarnings(r:VerifiedEarningsScorecard,now:Date):PostEventRecap{
   detailsHref:"?postEvent="+encodeURIComponent(r.id),weight:75,featuredStatus:"REVIEWED"
  };
 }
+/**
+ * Reuse ALREADY public, source-reviewed policy/earnings packets for independently
+ * verified original NewsBriefs. Exact document, source tier and release clock
+ * prevent keyword-based or private research upgrades.
+ */
+export function reviewedPostEventForNews(news:NewsBriefV1,now=new Date()):PostEventRecap|null{
+ if(news.verification!=="SOURCE_VERIFIED"||
+   !["official","primary","filing"].includes(news.sourceKind.toLowerCase()))return null;
+ const eventAt=Date.parse(news.occurredAt),observedAt=Date.parse(news.observedAt);
+ if(!Number.isFinite(+now)||!Number.isFinite(eventAt)||!Number.isFinite(observedAt)||
+   eventAt>+now||observedAt<eventAt||observedAt>+now||!ageOk(news.occurredAt,now))return null;
+ const original=(url:string):string|null=>{
+  try{
+   const u=new URL(url);
+   if(u.protocol!=="https:"||u.username||u.password||u.pathname==="/"||u.href.length>2048)return null;
+   u.hash="";
+   if(u.pathname.endsWith("/"))u.pathname=u.pathname.slice(0,-1);
+   return u.href;
+  }catch{return null;}
+ };
+ const source=original(news.sourceUrl);
+ if(!source)return null;
+ const sameOriginal=(url:string)=>source===original(url);
+ const bank=recentBankDecisions(now,168).find(x=>sameOriginal(x.sourceUrl)&&
+   eventAt>=Date.parse(x.releaseAt)-15*60_000&&
+   eventAt<=Date.parse(x.releaseAt)+36*3600_000);
+ if(bank)return fromBank(bank);
+ const earnings=getRecentVerifiedEarningsScorecards(now,7).find(x=>{
+  if(!sameOriginal(x.sourceUrl))return false;
+  const day=Date.parse(x.releaseDay+"T00:00:00Z");
+  const available=Date.parse(x.availableNotBefore||x.releaseDay+"T00:00:00Z");
+  return Number.isFinite(day)&&Number.isFinite(available)&&+now>=available&&
+   eventAt>=day&&eventAt<day+72*3600_000;
+ });
+ return earnings?fromEarnings(earnings,now):null;
+}
+
 const EVENT=/\b(?:FOMC|federal reserve|fed (?:rates?|decision)|bank of canada|RBNZ|reserve bank of new zealand|bank of england|ECB|central bank|monetary policy|quarterly (?:earnings|results)|(?:Q[1-4]|fourth|third|second|first)[ -]?quarter (?:earnings|results)|earnings release|reports? (?:Q[1-4]|quarterly) (?:earnings|results))\b/i;
 const ORIGINAL=/\b(?:reports?|announces?|announced|releases?|released|raises?|raised|cuts?|cut|holds?|held|maintains?|maintained|earnings|results|decision|statement)\b/i;
 function fromNews(n:NewsBriefV1):PostEventRecap|null {
