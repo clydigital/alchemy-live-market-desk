@@ -126,16 +126,14 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
       socialPosts={socialPosts}
       backHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/></div>
   </main>;
-  const [raw, theses, observations, originalPress, macro, earnings] = await Promise.all([
+  const [raw, theses, observations, originalPress, completedMacro, macro, earnings] = await Promise.all([
     getCurrentVerifiedMarketMotion({ limit: 36 }).catch(() => []),
     getPublicThesisLedger(now,24).catch(() => []),
     getPublicSourceObservations(now,8).catch(() => []),
-    // Preserve source-reviewed press receipts and completed government actuals.
-    // An incomplete or unverified macro row cannot enter the reader.
-    Promise.all([
-      getOriginalPressNews(now,18,7).catch(()=>[]),
-      getCompletedOfficialMacroNews(now,18,7).catch(()=>[]),
-    ]).then(([press,macroActuals])=>[...press,...macroActuals]),
+    // These are distinct receipts: the completed official economic-release
+    // database is NOT an accepted official-RSS + original HTML intake proof.
+    getOriginalPressNews(now,18,7).catch(()=>[]),
+    getCompletedOfficialMacroNews(now,18,7).catch(()=>[]),
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({now}).catch(() => ({events:[],coverage:"unavailable" as const,warning:"Earnings coverage unavailable"})),
   ]);
@@ -168,14 +166,20 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
   const indexHref=blueDeskPublicHref("/blue-desk/key-stories",host);
   const investorTest=selectFlagshipInvestorTest(orderedTheses);
   const motionNews = selectVerifiedNewsBriefs(raw, now, 18);
-  const recentNews = combineQualifiedNews(motionNews,originalPress,18);
+  const recentNews = combineQualifiedNews(motionNews,[...originalPress,...completedMacro],18);
   const news = recentNews.filter(n=>Date.parse(n.occurredAt)<=+now && +now-Date.parse(n.occurredAt)<=48*3600000);
   const earlierNews=recentNews.filter(n=>!news.some(current=>current.id===n.id));
   const topics = projectLivingMarketTopics(news);
-  // Reconcile exact verified public receipt identity against already reviewed
-  // bank decision readers. Never count a reviewed article as a new NewsBrief.
-  const bankHandoff=reconcileReviewedBankReaders(recentNews,now);
-  const missingReviewed=bankHandoff.filter(x=>x.status==="REVIEWED_READER_NO_FEED_RECEIPT");
+  // Check the actual accepted original-press projection, never generic
+  // SOURCE_VERIFIED macro-actual or Motion. Those may read correctly but do
+  // not prove the RSS-to-research_intake_items handoff happened.
+  const bankHandoff=reconcileReviewedBankReaders(originalPress,now);
+  const missingFeedReceipt=bankHandoff.filter(x=>x.status==="REVIEWED_READER_NO_FEED_RECEIPT");
+  // Avoid a duplicate policy card when canonical macro actual already puts
+  // the SAME original release in Current developments.
+  const missingReviewed=missingFeedReceipt.filter(row=>!news.some(n=>
+    n.verification==="SOURCE_VERIFIED" && n.sourceUrl===row.bank.sourceUrl &&
+    Math.abs(Date.parse(n.occurredAt)-Date.parse(row.bank.releaseAt))<=15*60_000));
   const calendar=buildPresenterCalendar(macro,earnings,now);
   // The same bounded public page serves read-only, source-qualified short explainers.
   // A query never admits an arbitrary URL, record, unpublished research item, or owner document.
@@ -398,6 +402,11 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
       </section>
       <section className={ui.section} id="current-developments" aria-label="Current event readers">
         <h2>Current developments</h2>
+        {missingFeedReceipt.length?<p className={ui.coverageNote} data-public-handoff-gap="official-press-receipt-pending">
+          {missingFeedReceipt.length} reviewed central-bank policy article{missingFeedReceipt.length===1?"":"s"} available.
+          An accepted original-press RSS receipt has not yet been read back for {missingFeedReceipt.length===1?"this decision":"these decisions"}.
+          Existing verified macro-release facts remain valid, but do not close that separate ingestion check.
+        </p>:null}
         {topics.length||missingReviewed.length?<div className={ui.cards}>
           {missingReviewed.map(row=><article className={ui.card}
             key={row.bank.id} data-reviewed-bank-handoff={row.status}>
