@@ -1,31 +1,20 @@
 import assert from "node:assert/strict";
-import {readFileSync} from "node:fs";
+import {existsSync,readFileSync} from "node:fs";
 import test from "node:test";
 import {blueDeskHostAccess} from "../lib/blue-desk-host.ts";
-
 const read=(p:string)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
-const publicPage=read("app/blue-desk/markets/page.tsx");
-const privatePage=read("app/power-stack/page.tsx");
-const desk=read("app/my-reports/page.tsx");
 const host="bluebelly-desk.vercel.app";
-
-test("Public Markets remains open, My Desk is editorial-only and legacy Power Stack remains private",()=>{
+test("Power Stack has no Bluebelly route, private view or public navigation",()=>{
  assert.equal(blueDeskHostAccess("/markets",host),"public");
- assert.equal(blueDeskHostAccess("/my-reports",host),"private");
- assert.equal(blueDeskHostAccess("/power-stack",host),"private");
- assert.doesNotMatch(publicPage, /<Link href="\/power-stack"|data-market-private-link|My Power Stack/);
- assert.doesNotMatch(desk,/href="\/my-reports\?view=portfolio"/);
- assert.doesNotMatch(desk,/OwnerPortfolioHome|OwnerPowerStackFullScan/);
- assert.match(desk,/if\(params\.view==="portfolio"\)redirect\("\/my-reports"\)/);
- assert.match(privatePage,/createSupabaseServerClient/);
- assert.match(privatePage,/app_access_allowlist/);
- assert.match(privatePage,/legacy_source_retired === true/);
+ assert.equal(blueDeskHostAccess("/power-stack",host),"blocked");
+ assert.equal(existsSync(new URL("../app/power-stack/page.tsx",import.meta.url)),false);
+ assert.equal(existsSync(new URL("../app/api/power-stack-context/route.ts",import.meta.url)),false);
+ assert.doesNotMatch(read("components/blue-desk/BlueDeskHeader.tsx"),/Power Stack/);
+ assert.doesNotMatch(read("app/blue-desk/markets/page.tsx"),/power.?stack|portfolio/i);
 });
-
-test("No owner-linked holdings are serialized to anonymous Markets",()=>{
- assert.doesNotMatch(publicPage,/getPowerStackResearchAssets|mergePowerStackMarketSearch|powerStack\.items/);
- assert.match(publicPage,/const observations=\[\.\.\.monitoredRows,\.\.\.breadthObservations\]/);
- const portfolio=read("components/blue-desk/OwnerPortfolioHome.tsx");
- assert.match(portfolio,/power_stack_owner_snapshots/);
- assert.match(portfolio,/snapshot\?\.legacy_source_retired===true/);
+test("Canonical Bluebelly intake and daily brief do not import Power Stack research",()=>{
+ assert.doesNotMatch(read("lib/scheduled-research-input.ts"),/powerStack|PowerStack|power-stack/i);
+ assert.doesNotMatch(read("lib/intelligence/supabase.ts"),/powerStack|PowerStack|power-stack/i);
+ assert.equal(existsSync(new URL("../lib/power-stack-ratings.ts",import.meta.url)),false);
+ assert.equal(existsSync(new URL("../lib/power-stack-themes.ts",import.meta.url)),false);
 });
