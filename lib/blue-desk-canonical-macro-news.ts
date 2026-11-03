@@ -1,6 +1,7 @@
 import type {NewsBriefV1} from "./market-brief-news.ts";
 import {officialActualSourceUrl,type OfficialMacroRelease} from "./macro/official-actuals.ts";
 import {parseOfficialBeaPceMetricRows} from "./macro/bea-pce-actual.ts";
+import {recentBankDecisions} from "./bluebelly-bank-decision-snapshots.ts";
 
 /** Existing official macro_releases completed actuals are one ORIGINAL-source
  * factual news tier, not a new publisher, Newsroom approval or market verdict.
@@ -79,4 +80,48 @@ export function projectCompletedOfficialMacroNews(
  }
  return accepted.sort((a,b)=>Date.parse(b.occurredAt)-Date.parse(a.occurredAt))
   .slice(0,limit);
+}
+
+/**
+ * Narrow, read-only reuse of an independently source-reviewed public central-bank
+ * decision and a completed original government actual. The US macro projector
+ * above remains unchanged; unreviewed government rows still fail closed.
+ */
+export function projectCompletedReviewedBankNews(
+ rows:readonly CompletedMacroRow[],now:Date,limit=12,lookbackDays=7,
+):NewsBriefV1[]{
+ const t=+now;
+ if(!Number.isFinite(t)||!Number.isInteger(limit)||limit<1||limit>18||
+   !Number.isInteger(lookbackDays)||lookbackDays<1||lookbackDays>7)return [];
+ const reviewed=recentBankDecisions(now,168).filter(x=>x.countryCode==="AU");
+ const out:NewsBriefV1[]=[];
+ for(const bank of reviewed){
+  const match=rows.find(row=>{
+   const released=typeof row.released_at==="string"?Date.parse(row.released_at):NaN;
+   const scheduled=typeof row.release_date==="string"?Date.parse(row.release_date):NaN;
+   const retrieved=typeof row.actual_retrieved_at==="string"?Date.parse(row.actual_retrieved_at):NaN;
+   const actual=typeof row.actual==="string"?row.actual:"";
+   return row.id===bank.id.replace(/^rba-/,"au-rba-")&&
+    row.agency===bank.bank&&row.status==="completed"&&
+    row.ingestion_attempt_status==="completed"&&
+    row.source_classification==="official_government"&&row.source_url===bank.sourceUrl&&
+    released===Date.parse(bank.releaseAt)&&scheduled===released&&
+    Number.isFinite(retrieved)&&retrieved>=released&&retrieved<=t&&
+    released<=t&&t-released<=lookbackDays*86400000&&
+    actual.startsWith("RBA cash rate target ")&&actual.includes(bank.rateLabel)&&
+    actual.includes("+25bp")&&actual.length<=180;
+  });
+  if(!match)continue;
+  out.push({
+   contractVersion:"news-brief/1",contentType:"NEWS_BRIEF",
+   id:"official-reviewed-bank-"+String(match.id),
+   headline:bank.headline,
+   summary:bank.observedStatement+" "+bank.expectedStatus,
+   sourceName:bank.sourceName,sourceUrl:bank.sourceUrl,sourceKind:"official",
+   occurredAt:bank.releaseAt,
+   observedAt:new Date(Date.parse(String(match.actual_retrieved_at))).toISOString(),
+   verification:"SOURCE_VERIFIED",
+  });
+ }
+ return out.sort((a,b)=>Date.parse(b.occurredAt)-Date.parse(a.occurredAt)).slice(0,limit);
 }
