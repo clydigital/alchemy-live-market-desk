@@ -30,7 +30,8 @@ test("all other news retains provenance but is clearly marked as incomplete rese
  assert.equal(storyCoverageForNews(v).status,"SOURCE_ONLY");
  const generic=read("components/blue-desk/ShortNewsRecap.tsx");
  assert.match(generic,/data-bluebelly-news-recap="source-only-depth-incomplete"/);
- assert.match(generic,/No consensus surprise, specific price reaction or company impact/);
+ assert.match(generic,/Show the checks required for a full investigation/);
+ assert.match(generic,/data-bluebelly-coverage="review-handoff-pending"/);
  assert.match(generic,/Research depth incomplete|RESEARCH DEPTH INCOMPLETE/);
  assert.match(generic,/validSource\(recap\.sourceUrl\)/);
 });
