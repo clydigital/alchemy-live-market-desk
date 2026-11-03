@@ -419,7 +419,7 @@ export function sameBeaPcePublisherArticle(requested:string,actual:string):boole
   const a=new URL(actual),b=new URL(requested);
   return a.protocol==="https:"&&a.hostname==="www.bea.gov"&&
    b.protocol==="https:"&&b.hostname==="www.bea.gov"&&
-   a.pathname.replace(/\\/$/,"")===b.pathname.replace(/\\/$/,"")&&
+   a.pathname.replace(/[/]$/,"")===b.pathname.replace(/[/]$/,"")&&
    !a.search&&!a.hash&&!b.search&&!b.hash;
  }catch{return false;}
 }
