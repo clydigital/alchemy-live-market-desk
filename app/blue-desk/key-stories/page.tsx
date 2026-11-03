@@ -2,6 +2,8 @@ import Oct30TechSelloffFeature from "@/components/blue-desk/Oct30TechSelloffFeat
 import MidtermRallyFeature from "@/components/blue-desk/MidtermRallyFeature";
 import HormuzMediationFeature from "@/components/blue-desk/HormuzMediationFeature";
 import Link from "next/link";
+import ReaderPagination from "@/components/blue-desk/ReaderPagination";
+import {paginateReaderItems} from "@/lib/bluebelly-reader-pagination";
 import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import { ScopeStrip } from "@/components/blue-desk/EntityIdentity";
@@ -160,8 +162,8 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
   const activeCategory=PUBLIC_STORY_CATEGORIES.some(c=>c===requestedCategory)?requestedCategory:"All";
   const visibleTheses=activeCategory==="All"?orderedTheses:
     orderedTheses.filter(story=>classifyPublicStory(story)===activeCategory);
-  const pageNumber=Math.max(1,Math.min(Math.ceil(visibleTheses.length/6)||1,Number.parseInt(params?.page||"1",10)||1));
-  const pageTheses=visibleTheses.slice((pageNumber-1)*6,pageNumber*6);
+  const storyPage=paginateReaderItems(visibleTheses,params?.page,6);
+  const pageTheses=storyPage.items;
   const indexHref=blueDeskPublicHref("/blue-desk/key-stories",host);
   const investorTest=selectFlagshipInvestorTest(orderedTheses);
   const motionNews = selectVerifiedNewsBriefs(raw, now, 18);
@@ -422,6 +424,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
         <h2 id="persistent-theses">Key Stories by market theme</h2>
         <p>Read the enduring market questions as articles, with recorded evidence limits and deciding tests.
            Fresh source-verified developments appear separately below.</p>
+        <p data-stories-page-range>Showing {storyPage.firstItem}–{storyPage.lastItem} of {storyPage.totalItems} available market themes.</p>
         <nav className={ui.categoryFilters} aria-label="Filter Key Stories by market category">
           <Link href={indexHref} aria-current={activeCategory==="All"?"page":undefined}
             className={activeCategory==="All"?ui.categorySelected:ui.categoryLink}>All Stories</Link>
@@ -448,7 +451,9 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
           </article>)}</div>:
           <p className={ui.empty}>No Stories are currently available in this category. Try All Stories; this does not imply an inactive market.</p>}
       </section>
-      <nav className={ui.categoryFilters} aria-label="Research pages">{Array.from({length:Math.ceil(visibleTheses.length/6)},(_,i)=><Link key={i} aria-current={pageNumber===i+1?"page":undefined} href={indexHref+"?category="+encodeURIComponent(activeCategory)+"&page="+(i+1)}>Page {i+1}</Link>)}</nav>
+      <ReaderPagination label="Key Stories" page={storyPage.page} totalPages={storyPage.totalPages}
+        totalItems={storyPage.totalItems} firstItem={storyPage.firstItem} lastItem={storyPage.lastItem}
+        getHref={number=>indexHref+(activeCategory!=="All"?"?category="+encodeURIComponent(activeCategory)+(number>1?"&page="+number:""):(number>1?"?page="+number:""))+"#persistent-theses"}/>
       {upcomingDecisionSection}
       <details><summary>Research tools, source observations and further reading</summary>
       {investorTest ? <InvestorTest view={investorTest}/> : null}
