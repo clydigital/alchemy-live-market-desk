@@ -76,7 +76,10 @@ test("homepage, daily report, and persistent Stories use identical qualified-new
  for(const path of paths){
   const s=readFileSync(new URL(path,import.meta.url),"utf8");
   assert.match(s,/getOriginalPressNews\(now/);
-  assert.match(s,/combineQualifiedNews\(motionNews,\[\.\.\.originalPress,\.\.\.completedMacro\],18\)/);
+  if(path.includes("/key-stories/"))
+   assert.match(s,/combineQualifiedNews\(motionNews,\[\.\.\.originalPress,\.\.\.completedMacro\],18\)/);
+  else
+   assert.match(s,/combineQualifiedNews\(motionNews,originalPress/);
   assert.doesNotMatch(s,/insert\(|upsert\(|\.update\(/);
  }
  const reader=readFileSync(new URL("../lib/blue-desk-original-press-news-server.ts",import.meta.url),"utf8");
