@@ -25,7 +25,7 @@ import desk from "../blue-desk.module.css";
 import ui from "./newsroom.module.css";
 export const dynamic="force-dynamic";
 export const metadata={title:"Newsroom | Bluebelly",description:"Source-verified markets, central-bank, AI, energy and corporate developments."};
-type Props={searchParams:Promise<{q?:string|string[]}>};
+type Props={searchParams:Promise<{q?:string|string[];category?:string|string[];page?:string|string[]}>};
 export default async function NewsroomPage({searchParams}:Props){
  const now=new Date();
  const host=(await headers()).get("host");
@@ -63,7 +63,9 @@ export default async function NewsroomPage({searchParams}:Props){
       </article>:null}
     <NewsroomReleaseRail news={news} editorials={editorials} now={now}/>
     <BluebellyNewsWire news={news} researchItems={projectPublishedResearchFocus(researchDigests,now,6)} archiveEntries={archiveResult.items} archiveAvailable={archiveResult.available} hotPicks={hotPicks} editorials={editorials}
-      initialQuery={query} now={now.toISOString()} readerHref={readerHref}>
+      initialQuery={query} initialCategory={typeof params.category==="string"?params.category:"all"}
+      initialPage={typeof params.page==="string"?params.page:"1"}
+      now={now.toISOString()} readerHref={readerHref}>
       <div className={ui.contextBridge}>
        <strong >HORMUZ / OIL & REFINED FUELS</strong> · Track maritime disruption against Brent, diesel/gasoil crack proxies, refinery runs and US distillate inventories.
        {" "}<Link href={blueDeskPublicHref("/blue-desk/hormuz",host)}>Open the physical-versus-market watch →</Link>
