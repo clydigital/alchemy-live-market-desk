@@ -55,10 +55,10 @@ export async function runPrivateDailyHtmlFallback(
   if(eligible.length!==1)return {status:"withheld",reportDay:day,reason:"owner_identity_not_unique"};
   const ownerId=eligible[0].id;
   const [work,owner]=await Promise.all([
-   db.from("blue_desk_work_html_editions").select("id,delivery_type,created_at")
+   db.from("blue_desk_work_html_editions").select("id,delivery_type,created_at,report_day")
     .eq("owner_user_id",ownerId).eq("report_day",day)
     .order("created_at",{ascending:false}).limit(20),
-   db.from("blue_desk_private_html_editions").select("id,created_at")
+   db.from("blue_desk_private_html_editions").select("id,created_at,report_day")
     .eq("owner_user_id",ownerId).eq("report_day",day)
     .order("created_at",{ascending:false}).limit(12),
   ]);
