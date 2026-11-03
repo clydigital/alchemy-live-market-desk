@@ -13,6 +13,15 @@ Every significant source-qualified story SHOULD open under the headline with a *
 
 Below the brief, preserve the **Full Story**: original releases, previous/baseline, comparably measured pre-event expectations, actual and guidance, cash/economic route, matched market reactions if available, competing explanations, valuation where justified, remaining gaps and next tests. Never trade detail for readability: **the brief is a door into the evidence, not a replacement for it**. Render details directly below or in an accessible disclosure; keep mobile readability and provenance.
 
+## Box-first summary followed by full narrative (3 Nov owner directive)
+
+A significant approved article has **two visibly separate layers**:
+
+1. **At a glance:** directly below the headline, show **three or four compact bordered boxes** containing the simplest supported account of **What changed**, **How it spreads**, **Market check** (observed price reaction versus unverified cause), and **What comes next**. Each box is normally one or two short sentences. Use a two-column grid on desktop and one column on mobile. Boxes must be scannable, neutral in colour, source-bounded and non-speculative. Excerpts are permissible only when the complete wording appears in the full story directly underneath. Avoid internal framework jargon.
+2. **The full story:** underneath the boxes, present the substantive LY/Shark Tank analysis as normal continuous paragraphs with selective helpful headings, **not** another grid of boxes. Preserve previous versus actual versus expected figures, release and observation times, original links, economic/financial transmission, competing explanations, missing evidence, charts and conditional next tests. The boxes can never replace the full narrative.
+
+This structure applies to owner-private My Desk Work HTML and approved public Key Stories/post-event readers. A previously recorded research thesis must not be described as new breaking news. The compact two-line Market takeaway still belongs on the short Home/Newsroom/Markets *card*; the four-box summary belongs in the *full article*. No separate task, model, source authority or publication bypass.
+
 ## Automated reader: Market takeaway (3 Nov owner update)
 
 The public label is **Market takeaway**, never “transmission framework”. A source-reviewed editorial supplies two existing fields to the public reader: (1) **Why markets care**: plain-English, named economics or financing channel, conditional if not observed; (2) **What would clarify this**: the specific follow-up data/decision that would test that channel. The audience sees this **on the card**, not hidden behind an expansion. The long-form Key Story retains actual/expected/prior figures, vintage and sourced market observations.

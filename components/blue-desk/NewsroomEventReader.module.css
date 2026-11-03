@@ -17,9 +17,10 @@
 .art{min-width:0}.art svg{width:100%;height:auto;max-height:320px;border-radius:10px;display:block}
 .art p{font-size:10px;letter-spacing:.03em;text-align:right;color:#88a9b7;margin:8px 2px 0}
 .assetLine{padding:12px 4px 7px}
+.fullStoryTitle{font-size:clamp(23px,2.7vw,32px);line-height:1.24;letter-spacing:-.025em;margin:32px 0 6px;color:var(--bb-text)}
 .layout{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(295px,.9fr);gap:17px;margin:12px 0 20px;align-items:start}
 .story{min-width:0;display:flex;flex-direction:column;gap:10px}
-.story section{min-width:0;position:relative;background:linear-gradient(120deg,var(--bb-surface),var(--bb-surface));border:1px solid var(--line);border-radius:12px;padding:19px 23px 20px;box-shadow:0 6px 19px #0001}
+.story section{min-width:0;position:relative;background:transparent;border:0;border-bottom:1px solid var(--bb-line);border-radius:0;padding:21px 0 27px;box-shadow:none}
 .story section span{font-size:10px;font-weight:850;letter-spacing:.11em;color:#e3bd87}.story h2{font-size:clamp(19px,2vw,25px);line-height:1.26;letter-spacing:-.015em;margin:9px 0 10px;color:#f9fcff}
 .story p{font-size:14px;line-height:1.76;color:#d0e3ed;margin:9px 0}.story .boundary{color:#f0ce9a;background:#473d2c46;border-left:3px solid #ccac7d;padding:11px 13px;border-radius:3px}
 .source a{color:#a1e9fd;text-decoration:underline;text-underline-offset:3px}

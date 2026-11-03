@@ -1,4 +1,5 @@
 import Link from "next/link";
+import StorySummaryBoxes from "./StorySummaryBoxes";
 import EditorialStoryArt from "./EditorialStoryArt";
 import DualTimestamp from "./DualTimestamp";
 import type {NewsBriefV1} from "@/lib/market-brief-news";
@@ -23,6 +24,13 @@ export default function KeyStoryDeepArticle({
      </div>
      <div className={styles.art}><EditorialStoryArt headline={receipt?.headline||depth.title} summary={depth.hook}/></div>
    </header>
+   <StorySummaryBoxes items={[
+    {label:"What changed",text:depth.whatChanged[0]||depth.hook},
+    {label:"How it spreads",text:depth.explanation[0]||depth.lead},
+    {label:"Market check",text:depth.marketTape[0]||"No matched event-window price reaction is available in this edition."},
+    {label:"What comes next",text:depth.nextTests[0]||depth.theQuestion},
+   ]} sourceNote="A source-reviewed snapshot, not a newly inferred market verdict. Full chronology, comparisons and original documents are below."/>
+   <h2 className={styles.fullStoryTitle}>The full story</h2>
    <nav className={styles.toc} aria-label="Article chapters">
      <a href="#context">The setup</a>
      <a href="#receipts">Numbers</a>

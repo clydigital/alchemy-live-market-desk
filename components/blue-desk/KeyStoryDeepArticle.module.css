@@ -4,7 +4,8 @@
 .hero h1{font-size:clamp(36px,4.9vw,67px);line-height:1.1;letter-spacing:-.04em;max-width:19ch;margin:13px 0 19px;color:var(--bb-text)}
 .hero .lead{font-size:clamp(19px,2.2vw,25px);line-height:1.53;color:var(--bb-text);max-width:47ch}
 .hero p{font-size:16px;line-height:1.75;color:var(--bb-muted);max-width:70ch}
-.art{min-width:0}.art>div{max-width:100%}.toc{display:flex;gap:8px;flex-wrap:wrap;padding:19px 0;border-bottom:1px solid var(--bb-card-border)}
+.art{min-width:0}.art>div{max-width:100%}.fullStoryTitle{font-size:clamp(23px,2.8vw,34px);line-height:1.25;letter-spacing:-.025em;color:var(--bb-text);margin:30px 0 4px}
+.toc{display:flex;gap:8px;flex-wrap:wrap;padding:19px 0;border-bottom:1px solid var(--bb-card-border)}
 .toc a{padding:9px 11px;border:1px solid var(--bb-card-border);background:var(--bb-card-quiet);border-radius:6px;text-decoration:none;font-size:12px;font-weight:750}
 .columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(190px,260px);gap:clamp(18px,3vw,54px);align-items:start}
 .reader{min-width:0}.section{padding:25px 0 38px;border-bottom:1px solid var(--bb-card-border);scroll-margin-top:90px}

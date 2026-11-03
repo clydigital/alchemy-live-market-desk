@@ -1,4 +1,5 @@
 import Link from "next/link";
+import StorySummaryBoxes from "./StorySummaryBoxes";
 import DualTimestamp from "./DualTimestamp";
 import EditorialStoryArt from "./EditorialStoryArt";
 import {ScopeStrip} from "./EntityIdentity";
@@ -51,6 +52,16 @@ export default function NewsroomEventReader({event,backHref,socialPosts=[]}:{
    </div>
   </header>
   {bank||incident?<div className={s.assetLine}><ScopeStrip assets={bank?bank.affectedAssets:story?.assetNames||[]} label="Markets to monitor"/></div>:null}
+  <StorySummaryBoxes items={[
+   {label:"What changed",text:bank?.observedStatement||story?.reporting||""},
+   {label:"How it spreads",text:bank?.financialMechanism||story?.why||""},
+   {label:"Market check",text:bank?
+    "The official policy outcome is confirmed. This source alone does not establish a price reaction or its cause.":
+    incident?"Market quotes are dated observations, not a controlled price-causality test.":
+    "The reported discussions are not an agreement, and their market effect has not been independently established."},
+   {label:"What comes next",text:bank?.nextTest||story?.nextTest||""},
+  ]} sourceNote="Original-source facts and conditional interpretations are distinct. The full account and direct evidence links follow."/>
+  <h2 className={s.fullStoryTitle}>The full story</h2>
   <div className={s.layout}>
    <div className={s.story}>
     <section><span>01 / THE SCENE</span><h2>What was the question?</h2>

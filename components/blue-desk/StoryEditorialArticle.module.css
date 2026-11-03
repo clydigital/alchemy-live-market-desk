@@ -7,6 +7,7 @@
 .deck{font-size:clamp(17px,1.8vw,22px);line-height:1.55;color:#c7dce8;max-width:68ch}
 .meta{display:flex;flex-wrap:wrap;gap:18px;font-size:12px;color:#9dc0d2;margin:20px 0}
 .disclosure,.note{font-size:13px!important;line-height:1.65!important;color:#bbd0db!important;background:#073049;border-left:3px solid #4e9fc4;padding:12px 16px;max-width:75ch}
+.fullStoryTitle{font-size:clamp(23px,2.8vw,34px);line-height:1.25;letter-spacing:-.025em;color:var(--bb-text);margin:30px 0 6px}
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:clamp(25px,4vw,60px);align-items:start}
 .body{min-width:0;max-width:780px}
 .chapter{padding:34px 0 39px;border-bottom:1px solid #244d61}

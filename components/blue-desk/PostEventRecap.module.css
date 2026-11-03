@@ -25,6 +25,7 @@
 .readerHead{background:var(--bb-surface);border-top:5px solid var(--bb-accent);padding:clamp(22px,4vw,44px)}
 .readerHead .eyebrow{color:var(--bb-accent)}.readerHead h1{font:900 clamp(32px,4vw,58px)/1.1 var(--bb-display,sans-serif);margin:10px 0 16px;letter-spacing:-.04em}
 .readerHead>p:last-child{color:var(--bb-muted)}
+.fullStoryTitle{font-size:clamp(22px,2.7vw,32px);line-height:1.25;letter-spacing:-.025em;color:var(--bb-text);margin:35px 0 0;font-weight:800}
 .readerBody{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(250px,.8fr);gap:24px;margin-top:20px}
 .chapters{min-width:0}.chapters section{padding:23px 0;border-bottom:1px solid var(--bb-line)}
 .chapters h2{font-size:clamp(21px,2.4vw,29px);line-height:1.25;margin:7px 0 14px}
