@@ -17,6 +17,7 @@ import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { getOriginalPressNews } from "@/lib/blue-desk-original-press-news-server";
+import {getCompletedOfficialMacroNews} from "@/lib/blue-desk-canonical-macro-news-server";
 import { combineQualifiedNews } from "@/lib/blue-desk-qualified-news";
 import { datedNewsSourceExcerpt } from "@/lib/bluebelly-dated-news-excerpt";
 import { projectLivingMarketTopics } from "@/lib/blue-desk-living-topics";
@@ -126,7 +127,12 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     getCurrentVerifiedMarketMotion({ limit: 36 }).catch(() => []),
     getPublicThesisLedger(now,24).catch(() => []),
     getPublicSourceObservations(now,8).catch(() => []),
-    getOriginalPressNews(now,18,7).catch(() => []),
+    // Preserve source-reviewed press receipts and completed government actuals.
+    // An incomplete or unverified macro row cannot enter the reader.
+    Promise.all([
+      getOriginalPressNews(now,18,7).catch(()=>[]),
+      getCompletedOfficialMacroNews(now,18,7).catch(()=>[]),
+    ]).then(([press,macroActuals])=>[...press,...macroActuals]),
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({now}).catch(() => ({events:[],coverage:"unavailable" as const,warning:"Earnings coverage unavailable"})),
   ]);
