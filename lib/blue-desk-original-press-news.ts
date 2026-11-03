@@ -86,7 +86,7 @@ export function projectOriginalPressNews(
     summary:qualified && exactSummary===qualified ? qualified :
       "The original publisher issued this dated announcement. Its market-price reaction and wider causal effects have not been established.",
     sourceName:feed.publisher,sourceUrl:url,
-    sourceKind:["www.federalreserve.gov","www.eia.gov","www.ecb.europa.eu","www.bankofcanada.ca","www.rbnz.govt.nz"].includes(feed.host)?"official":
+    sourceKind:["www.federalreserve.gov","www.eia.gov","www.ecb.europa.eu","www.bankofcanada.ca","www.rbnz.govt.nz","www.rba.gov.au"].includes(feed.host)?"official":
       feed.host==="www.sec.gov"?"filing":"primary",
     occurredAt:new Date(published).toISOString(),
     observedAt:new Date(checked).toISOString(),
