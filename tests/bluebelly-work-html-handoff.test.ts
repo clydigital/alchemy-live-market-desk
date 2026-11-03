@@ -22,7 +22,8 @@ test("auto-delivered editions use the existing authenticated owner archive, with
  assert.match(route,/blueDeskHostAccess\("\/api\/owner\/html-editions",host\)/);
  assert.match(route,/db\.from\("blue_desk_work_html_editions"\)/);
  assert.match(route,/\.eq\("owner_user_id",identity\.userId\)/);
- assert.match(route,/parseExistingHtmlEdition\(\{/);
+ assert.match(route,/validateDeliveredWorkHtmlEdition\(\{/);
+ assert.match(route,/title,html_content,html_sha256/);
  assert.match(route,/digest\(workBytes\)!==work\.html_sha256/);
  assert.match(route,/Content-Security-Policy/);
  assert.match(route,/sandbox allow-popups; default-src 'none'/);
