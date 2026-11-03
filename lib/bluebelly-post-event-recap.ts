@@ -62,6 +62,43 @@ function fromEarnings(r:VerifiedEarningsScorecard,now:Date):PostEventRecap{
   detailsHref:"?postEvent="+encodeURIComponent(r.id),weight:75,featuredStatus:"REVIEWED"
  };
 }
+/**
+ * Reuse ALREADY public, source-reviewed policy/earnings packets for independently
+ * verified original NewsBriefs. Exact document, source tier and release clock
+ * prevent keyword-based or private research upgrades.
+ */
+export function reviewedPostEventForNews(news:NewsBriefV1,now=new Date()):PostEventRecap|null{
+ if(news.verification!=="SOURCE_VERIFIED"||
+   !["official","primary","filing"].includes(news.sourceKind.toLowerCase()))return null;
+ const eventAt=Date.parse(news.occurredAt),observedAt=Date.parse(news.observedAt);
+ if(!Number.isFinite(+now)||!Number.isFinite(eventAt)||!Number.isFinite(observedAt)||
+   eventAt>+now||observedAt<eventAt||observedAt>+now||!ageOk(news.occurredAt,now))return null;
+ const original=(url:string):string|null=>{
+  try{
+   const u=new URL(url);
+   if(u.protocol!=="https:"||u.username||u.password||u.pathname==="/"||u.href.length>2048)return null;
+   u.hash="";
+   if(u.pathname.endsWith("/"))u.pathname=u.pathname.slice(0,-1);
+   return u.href;
+  }catch{return null;}
+ };
+ const source=original(news.sourceUrl);
+ if(!source)return null;
+ const sameOriginal=(url:string)=>source===original(url);
+ const bank=recentBankDecisions(now,168).find(x=>sameOriginal(x.sourceUrl)&&
+   eventAt>=Date.parse(x.releaseAt)-15*60_000&&
+   eventAt<=Date.parse(x.releaseAt)+36*3600_000);
+ if(bank)return fromBank(bank);
+ const earnings=getRecentVerifiedEarningsScorecards(now,7).find(x=>{
+  if(!sameOriginal(x.sourceUrl))return false;
+  const day=Date.parse(x.releaseDay+"T00:00:00Z");
+  const available=Date.parse(x.availableNotBefore||x.releaseDay+"T00:00:00Z");
+  return Number.isFinite(day)&&Number.isFinite(available)&&+now>=available&&
+   eventAt>=day&&eventAt<day+72*3600_000;
+ });
+ return earnings?fromEarnings(earnings,now):null;
+}
+
 const EVENT=/\b(?:FOMC|federal reserve|fed (?:rates?|decision)|bank of canada|RBNZ|reserve bank of new zealand|bank of england|ECB|central bank|monetary policy|quarterly (?:earnings|results)|(?:Q[1-4]|fourth|third|second|first)[ -]?quarter (?:earnings|results)|earnings release|reports? (?:Q[1-4]|quarterly) (?:earnings|results))\b/i;
 const ORIGINAL=/\b(?:reports?|announces?|announced|releases?|released|raises?|raised|cuts?|cut|holds?|held|maintains?|maintained|earnings|results|decision|statement)\b/i;
 function fromNews(n:NewsBriefV1):PostEventRecap|null {
