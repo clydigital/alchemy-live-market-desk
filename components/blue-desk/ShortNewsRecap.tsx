@@ -51,7 +51,7 @@ export default function ShortNewsRecap({recap,backHref,coverage}:{recap:Recap;ba
     <h1>{recap.title}</h1>
     <p className={ui.kicker}>QUICK MARKET BRIEF · FACTUAL NOTICE</p>
     <p className={ui.deck} data-quick-market-brief="source-only">{recap.fact}</p>
-    <p>The dated source report was verified. The previous baseline, expectation, financial effect and market response still need evidence before this can be presented as a researched Key Story.</p>
+    <p>This original-source report is verified. No separately reviewed analysis packet is linked to this exact event yet; that is a publication status, not proof that upstream research is absent.</p>
   </div><StoryHeroAside headline={recap.title} summary={recap.fact}
     category="SOURCE-VERIFIED REPORT · RESEARCH DEPTH INCOMPLETE"
     sourceName={recap.sourceName} eventAt={recap.asOf}
@@ -59,10 +59,14 @@ export default function ShortNewsRecap({recap,backHref,coverage}:{recap:Recap;ba
   </header>
   <div className={ui.chapters}>
     <section><p className={ui.kicker}>WHAT WE CAN VERIFY</p><h2>The confirmed development</h2><p>{recap.fact}</p></section>
-    <section><p className={ui.kicker}>WHAT IS STILL MISSING</p><h2>What must be researched before calling this the full story?</h2>
-      <ul>{coverage.missing.map(item=><li key={item}>{item}</li>)}</ul>
-      {sourceOnly?<p data-market-consequence="source-only-unassessed" className={ui.caution}>Business effect: not yet established. Expectations: {sourceOnly.expectations.status.replace("_"," ").toLowerCase()}. Share-price response: {sourceOnly.price.status.replace("_"," ").toLowerCase()}. No change in uncertainty or price causality is asserted from the headline.</p>:null}
-      <p className={ui.caution}>No consensus surprise, specific price reaction or company impact has been inferred from the headline.</p>
+    <section data-bluebelly-coverage="review-handoff-pending">
+      <p className={ui.kicker}>RESEARCH / EDITORIAL STATUS</p><h2>Further analysis not yet linked</h2>
+      <p>The existing public record confirms the announcement. A reviewed same-event comparison, business assessment and independent market observation have not been attached to this reader.</p>
+      <details>
+       <summary>Show the checks required for a full investigation</summary>
+       <ul>{coverage.missing.map(item=><li key={item}>{item}</li>)}</ul>
+      </details>
+      {sourceOnly?<p data-market-consequence="source-only-unassessed" className={ui.caution}>No reviewed economic effect or event-window share-price response is attached. Expectations have not been independently matched; no causal market conclusion is asserted.</p>:null}
     </section>
   </div>
   <footer className={ui.source}><strong>Dated source evidence</strong>
