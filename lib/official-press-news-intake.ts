@@ -357,8 +357,18 @@ async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch, 
         }
         const title = entry.title.slice(0, 500);
         const sourceFacts=extractOfficialPressFacts(html,title);
-        if(rbaOutcome)sourceFacts.unshift(rbaOutcome.actual+
-          (rbaOutcome.previous?" (previous "+rbaOutcome.previous+").":"."));
+        if(rbaOutcome){
+          // The public original-source projection verifies at most TWO
+          // evidence facts and refuses a longer unmatched summary. Retain
+          // the confirmed decision and the independently quoted vote if it
+          // appears in the original paragraph, without fabricating a vote.
+          const voteFact=sourceFacts.find(f=>/\b(?:vote|voted)\b/i.test(f));
+          const decisionFact=rbaOutcome.actual+
+            (rbaOutcome.previous?" (previous "+rbaOutcome.previous+").":".");
+          const nextFact=voteFact||sourceFacts[0];
+          sourceFacts.splice(0,sourceFacts.length,decisionFact,
+            ...(nextFact?[nextFact]:[]));
+        }
         return {
           itemKey: "official-press:" + createHash("sha256").update(entry.url).digest("hex").slice(0, 24),
           itemType: "news" as const,
