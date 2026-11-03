@@ -62,8 +62,22 @@ From the same month one year ago, the **PCE price index** for September increase
 Next release: November 25, 2026, at 8:30 a.m. EST
 Personal Income and Outlays, October 2026`;
 
+// The live BEA HTML flattens as `0.5 percent .` around inline markup.
+// This should never make a correctly sourced release fail verification.
+const publisherInlinePunctuation=livePublisherHtml.replaceAll("percent.","percent .");
+
+test("publisher HTML punctuation spacing preserves four exact rates",()=>{
+ assert.ok(publisherInlinePunctuation.includes("0.5 percent ."));
+ assert.deepEqual(parseBeaPceActual(bea.release_name,bea.reference_period,publisherInlinePunctuation),{
+  headlineMom:0.5,headlineYoy:3.6,coreMom:0.3,coreYoy:3.1,
+  actual:"Headline PCE +0.5% m/m; +3.6% y/y; Core PCE +0.3% m/m; +3.1% y/y",
+ });
+ assert.equal(parseBeaPceActual(bea.release_name,"October 2026",publisherInlinePunctuation),null);
+ assert.equal(parseBeaPceActual(bea.release_name,bea.reference_period,publisherInlinePunctuation.replace("3.1 percent","")),null);
+});
+
 test("real first-party HTML and Markdown reader preserve the four September rates, not November preview",()=>{
- for(const body of [livePublisherHtml,liveReaderMarkdown]){
+ for(const body of [livePublisherHtml,liveReaderMarkdown,publisherInlinePunctuation]){
   const r=parseBeaPceActual(bea.release_name,bea.reference_period,body);
   assert.deepEqual(r,{headlineMom:0.5,headlineYoy:3.6,coreMom:0.3,coreYoy:3.1,
    actual:"Headline PCE +0.5% m/m; +3.6% y/y; Core PCE +0.3% m/m; +3.1% y/y"});
