@@ -23,7 +23,7 @@ export type PublicMarketObservation = {
   id: string;
   label: string;
   symbol: string;
-  type: MarketMonitorType | "Power Stack" | "Breadth";
+  type: MarketMonitorType | "Breadth";
   /** Generic public market research grouping, never private portfolio membership. */
   researchRole?: "research";
   researchAsOf?: string | null;
