@@ -1,4 +1,5 @@
 import Link from "next/link";
+import StorySummaryBoxes from "./StorySummaryBoxes";
 import DualTimestamp from "./DualTimestamp";
 import EditorialStoryArt from "./EditorialStoryArt";
 import SourceTweetEmbeds from "./SourceTweetEmbeds";
@@ -60,6 +61,15 @@ export function PostEventRecapArticle({recap,backHref,socialPosts=[]}:{
    <h1>{recap.headline}</h1>
    <p>{recap.eventName} · <DualTimestamp value={recap.releaseAt.includes("T")?recap.releaseAt:null} sourceDate={recap.releaseAt}/></p>
   </header>
+  <StorySummaryBoxes items={[
+   {label:"What changed",text:recap.whatHappened},
+   {label:"How it spreads",text:recap.marketEffects},
+   {label:"Market check",text:recap.marketEffectStatus==="MECHANISM_ONLY"?
+    "The economic channel is conditional. A timestamp-matched asset-price reaction has not been established.":
+    "Reported market readings are dated observations, not proof that the announcement caused the move."},
+   {label:"What comes next",text:recap.whatNext},
+  ]} sourceNote="The short version draws only on the reviewed record. Source links, alternatives and missing observations remain in the full story below."/>
+  <h2 className={s.fullStoryTitle}>The full story</h2>
   <div className={s.readerBody}>
    <div className={s.chapters}>
     <section><span className={s.beat}>01 / THE RECAP</span><h2>What actually happened?</h2><p>{recap.whatHappened}</p></section>
