@@ -37,8 +37,8 @@ test("authorised quick pass reuses the same first-party collector and emits exac
  let calls=0,logs:string[]=[];
  const response=await officialActualQuickPass(request("test-cron-secret"),{
   now:()=>clock,cronSecret:"test-cron-secret",scheduleEnabled:true,
-  ingest:(async({now})=>{
-   calls++;assert.equal(now?.toISOString(),clock.toISOString());
+  ingest:(async(options={})=>{
+   calls++;assert.equal(options.now?.toISOString(),clock.toISOString());
    return outcome();
   }) as typeof import("../lib/macro/official-actuals.ts").ingestOfficialMacroActuals,
   logger:entry=>logs.push(entry),
@@ -81,7 +81,7 @@ test("upstream failures return a non-success status, sanitized diagnostic and no
 test("three existing Vercel first-party US macro windows, no new ChatGPT automation",()=>{
  const vercel=JSON.parse(readFileSync(new URL("../vercel.json",import.meta.url),"utf8"));
  const path="/api/cron/research/official-actuals";
- assert.deepEqual(vercel.crons.filter((row:{path:string})=>row.path===path).map((r:{schedule:string})=>r.schedule),[
+ assert.deepEqual(vercel.crons.filter((row:{path:string;schedule:string})=>row.path===path).map((r:{path:string;schedule:string})=>r.schedule),[
   "42 12 * * *", // 08:42 ET summer: 08:30 release plus ~12m source lag
   "12 14 * * *", // 10:12 ET summer / 09:12 ET winter
   "12 15 * * *", // 10:12 ET winter
