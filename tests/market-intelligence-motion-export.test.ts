@@ -19,5 +19,5 @@ test("Canonical market-intelligence export reads Motion only from the current im
 test("market-intelligence snapshot exposes promoted Motion as context, not a scoring channel", () => {
   assert.match(builder, /marketMotion: \(MarketMotionEditionAttachment & \{ editionId: string \}\) \| null/);
   assert.match(builder, /marketMotion: marketMotion \? structuredClone\(marketMotion\) : null/);
-  assert.match(builder, /may raise portfolio research priority but cannot change company fundamentals or conviction by itself/);
+  assert.match(builder, /may raise issuer research priority but cannot change company fundamentals or conviction by itself/);
 });
