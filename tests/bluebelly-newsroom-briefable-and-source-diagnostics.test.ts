@@ -21,10 +21,10 @@ test("Newsroom delegates future decisions to Calendar and mounts Hot Picks insid
  assert.doesNotMatch(page,/NextBankCatalysts|NewsroomBriefableEvents|decisionTopics|selectBlueDeskUpcoming|buildPresenterCalendar|getForwardEarningsEvents|getEconomicCalendar/);
  assert.match(wire,/\{children\}/);
  assert.match(wire,/data-newsroom-hot-picks-button="orange"/);
- assert.match(wire,/setTopic\("hot"\)/);
+ assert.match(wire,/selectTopic\("hot",true\)/);
  assert.match(wire,/hotPicks\.keys/);
  assert.match(wire,/data-hot-picks-day/);
- assert.match(wire,/visibleCards\.map\(card=>card\.kind==="archive"/);
+ assert.match(wire,/paginated\.items\.map\(card=>card\.kind==="archive"/);
  assert.match(wire,/source-qualified report/);
  assert.match(wire,/item\.verificationLabel|card\.item\.verificationLabel/);
  assert.match(css,/\.hotButton,\.hotSelected\{background:#f49b24/);
