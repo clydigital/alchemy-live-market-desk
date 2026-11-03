@@ -838,7 +838,7 @@ export async function ingestOfficialMacroActuals(options: {
           ||readback.actual!==resolved.actual||readback.source_url!==resolved.sourceUrl
           ||readback.source_classification!=="official_government"
           ||readback.ingestion_attempt_status!=="completed"
-          ||readback.released_at!==resolved.releasedAt)
+          ||Date.parse(readback.released_at??"")!==Date.parse(resolved.releasedAt??""))
           throw new Error("RBA_CANONICAL_ORIGINAL_READBACK_FAILED");
       }
       completed += 1;
