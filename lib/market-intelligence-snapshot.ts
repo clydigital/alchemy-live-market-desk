@@ -514,10 +514,10 @@ export function buildMarketIntelligenceSnapshot({
     researchGaps: [...new Set(gaps.filter(Boolean))],
     guardrails: [
       "This snapshot is a read-only Live canonical market-intelligence view for downstream consumers.",
-      "Power Stack may map these signals to portfolio exposures but must not recompute or send Live-derived macro confirmation back to Live.",
+      "No downstream consumer may treat this contextual snapshot as a substitute for verified market or issuer evidence.",
       "UNRESOLVED is a valid state. Missing, stale or ambiguous data must not be coerced into a directional signal.",
-      "Company fundamentals, valuation, portfolio construction and entry discipline remain Power Stack-owned.",
-      "Promoted Market Motion is short-horizon context only: it may raise portfolio research priority but cannot change company fundamentals or conviction by itself.",
+      "Company fundamentals, valuation and trading decisions must be verified separately; this market feed does not score securities.",
+      "Promoted Market Motion is short-horizon context only: it may raise issuer research priority but cannot change company fundamentals or conviction by itself.",
     ],
   };
 }
