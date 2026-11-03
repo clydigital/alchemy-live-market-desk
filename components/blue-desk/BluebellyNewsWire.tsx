@@ -101,7 +101,8 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
  const [shortlist,setShortlist]=useState<string[]>([]);
  const [feedback,setFeedback]=useState("");
  const researched=researchItems.filter(item=>{
-   if(topic==="hot"||topic==="chart-watch")return false; // Neither research nor unreviewed leads qualify as a published series.
+   if(topic==="hot")return false; // Never relabel research as verified Hot Picks.
+    if(topic==="chart-watch")return false; // Never relabel private research as public Chart Watch.
    const topicMatch=topic==="all"||
      ((topic==="energy")&&item.navigationTags.includes("energy"))||
      ((topic==="policy"||topic==="bonds")&&item.navigationTags.includes("rates"))||
