@@ -14,7 +14,7 @@ const TOPICS:readonly {theme:XMarketTheme;regex:RegExp}[]=[
  {theme:"resilience_preparedness",regex:/\b(?:stockpiling|stockpile|stock up|emergency kit|emergency supplies|red cross|civil preparedness|disaster preparedness|civil defence|civil defense|power grid|blackout|emergency preparedness|self.preparedness|crisis supplies|drinking water|shelter in place|strategic reserve)\b/i},
  {theme:"corporate",regex:/\b(?:merger|merging|ipo|initial public offering|prospectus|takeover|buyout|capital raise|debt financing|stock offering|profit warning|special committee|s.1 filing|bankruptcy|acquisition)\b/i},
 ];
-const SOURCE_PRIORITY=new Set(["hormuzreport","kobeissiletter","zerohedge","tgletter"]);
+const SOURCE_PRIORITY=new Set(["hormuzreport","kobeissiletter","zerohedge","tgletter","macropaperr"]);
 const HANDLES=new Set(X_CORE_ROSTER.map(x=>x.handle.toLowerCase()));
 
 export function rankXWireMarketCandidates(posts:readonly WirePost[],now=new Date(),max=12):XMarketCandidate[]{
