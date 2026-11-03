@@ -1,7 +1,5 @@
-import Link from "next/link";
 import StorySummaryBoxes from "./StorySummaryBoxes";
-import DualTimestamp from "./DualTimestamp";
-import EditorialStoryArt from "./EditorialStoryArt";
+import StoryHeroAside from "./StoryHeroAside";
 import {ScopeStrip} from "./EntityIdentity";
 import BankCountryBall from "./BankCountryBall";
 import SourceTweetEmbeds from "./SourceTweetEmbeds";
@@ -23,22 +21,9 @@ export default function NewsroomEventReader({event,backHref,socialPosts=[]}:{
  const source=bank?.sourceName||story?.publisher||"";
  const date=bank?.releaseAt||story?.publishedAt||"";
  return <article className={s.page} data-source-gated-reader={bank?"editorial-official-bank":incident?"official-exchange-incident":"attributed-unconfirmed-report"}>
-  <nav className={s.crumb} aria-label="Article location">
-   <Link href={backHref} className={s.back}>← Newsroom</Link>
-   <span aria-hidden="true">/</span><span>{bank?"Central banks":incident?"Crypto incident":"Developing reports"}</span>
-  </nav>
   <header className={s.hero}>
    <div className={s.heroCopy}>
-    <div className={s.topicLine}>
-     {bank?<BankCountryBall code={bank.countryCode} size="lg" className={s.countryBall}/>
-       :<span className={s.reportIcon} aria-label={incident?"Verified exchange incident":"Unconfirmed cross-border deal"} role="img">?</span>}
-     <div className={s.topicInfo}>
-      <p className={bank?s.verified:s.reported}>{bank?"ORIGINAL CENTRAL-BANK STATEMENT · OFFICIAL OUTCOME":incident?"BINANCE ORIGINAL STATEMENT · REUTERS PRICE REPORT":"SECONDARY REPORTING · NOT INDEPENDENTLY CONFIRMED"}</p>
-      <strong>{bank?.bank||(incident?"Bitcoin / Binance security":"Reported transaction talks")}</strong>
-     </div>
-    </div>
     <h1>{title}</h1>
-    <div className={s.heroClock}><DualTimestamp value={date}/></div>
     <p className={s.lead}>{bank?.observedStatement||story?.reporting}</p>
     {bank?<div className={s.rateStrip} role="group" aria-label="Policy decision">
       <div><span>POLICY ACTION</span><strong>{bank.decision}</strong></div>
@@ -46,10 +31,15 @@ export default function NewsroomEventReader({event,backHref,socialPosts=[]}:{
       <div><span>SOURCE STATUS</span><strong>Official statement</strong></div>
      </div>:<div className={s.reportStrip}>{incident?"Exchange incident confirmed · $6.3bn estimated impact · final net loss unresolved":"Talks reported · Agreement not confirmed · Valuation indicative"}</div>}
    </div>
-   <div className={s.art}>
-    <EditorialStoryArt headline={title} summary={bank?.observedStatement||story?.reporting||""}/>
-    <p>Bluebelly vector illustration · not a price chart</p>
-   </div>
+   <StoryHeroAside
+    headline={title} summary={bank?.observedStatement||story?.reporting||""}
+    category={bank?"ORIGINAL CENTRAL-BANK STATEMENT · OFFICIAL OUTCOME":incident?"BINANCE ORIGINAL STATEMENT · REUTERS PRICE REPORT":"SECONDARY REPORTING · NOT INDEPENDENTLY CONFIRMED"}
+    sourceName={bank?.bank||(incident?"Bitcoin / Binance security":"Reported transaction talks")}
+    icon={bank?<BankCountryBall code={bank.countryCode} size="lg" className={s.countryBall}/>:null}
+    eventAt={date}
+    secondary={bank?"Official statement · price response requires separate evidence":incident?"Initial company statement; final net loss unresolved":"Reporting only; agreement not confirmed"}
+    backHref={backHref} backLabel="Newsroom"
+   />
   </header>
   {bank||incident?<div className={s.assetLine}><ScopeStrip assets={bank?bank.affectedAssets:story?.assetNames||[]} label="Markets to monitor"/></div>:null}
   <StorySummaryBoxes items={[
