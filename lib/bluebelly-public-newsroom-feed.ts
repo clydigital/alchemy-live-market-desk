@@ -1,4 +1,5 @@
 import {blueDeskPublicHref} from "./blue-desk-host.ts";
+import {applyChartWatchApprovals} from "./bluebelly-chart-watch.ts";
 import type {NewsBriefV1} from "./market-brief-news.ts";
 import type {ArchiveNewsItem} from "./bluebelly-publication-archive.ts";
 import type {NewsroomEditorialItem} from "./bluebelly-newsroom-editorial.ts";
@@ -71,7 +72,8 @@ export function publicNewsroomEditorials(
   verificationLabel:"DATED EDITORIAL · REPORTED INTRADAY",
   why:OCT30_SELL_OFF.mechanism,nextTest:OCT30_SELL_OFF.test,kind:"reported",
  });
- return result;
+ // Membership requires an independent source-exact, rights-cleared editorial approval.
+ return applyChartWatchApprovals(result);
 }
 
 export type TodayNewsroomItem={
