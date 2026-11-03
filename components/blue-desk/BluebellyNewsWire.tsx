@@ -1,5 +1,7 @@
 "use client";
-import {useState} from "react";
+import {useEffect,useState} from "react";
+import ReaderPagination from "./ReaderPagination";
+import {normaliseReaderPage,paginateReaderItems} from "@/lib/bluebelly-reader-pagination";
 import type {ReactNode} from "react";
 import PublishedResearchDispatches from "./PublishedResearchDispatches";
 import MarketTakeaway from "./MarketTakeaway";
@@ -49,14 +51,52 @@ function SourceOnlyConsequence({news}:{news:NewsBriefV1}){
   </details>;
 }
 type NewsroomCategory=EditorialTopicId|"hot";
-export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailable=true,hotPicks,editorials=[],researchItems=[],initialQuery="",now,readerHref,children}:{
+export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailable=true,hotPicks,editorials=[],researchItems=[],initialQuery="",initialCategory="all",initialPage="1",now,readerHref,children}:{
  news:readonly NewsBriefV1[];archiveEntries?:readonly ArchiveNewsItem[];archiveAvailable?:boolean;
  hotPicks:NewsroomHotPicks;editorials?:readonly NewsroomEditorialItem[];
  researchItems?:readonly PublicResearchFocus[];
- initialQuery?:string;now:string;readerHref:string;children?:ReactNode;
+ initialQuery?:string;initialCategory?:string;initialPage?:string;
+ now:string;readerHref:string;children?:ReactNode;
 }){
- const [topic,setTopic]=useState<NewsroomCategory>("all");
+ const [topic,setTopic]=useState<NewsroomCategory>(()=>
+  initialCategory==="hot"||EDITORIAL_TOPICS.some(t=>t.id===initialCategory)?
+    initialCategory as NewsroomCategory:"all");
  const [query,setQuery]=useState(initialQuery.slice(0,100));
+ const [currentPage,setCurrentPage]=useState(normaliseReaderPage(initialPage,10000));
+ // The URL is shareable for topic/search/page and browser Back/Forward restores
+ // the reader selection without requesting new data or bypassing source gates.
+ function syncUrl(nextTopic:NewsroomCategory,nextQuery:string,nextPage:number,kind:"push"|"replace"="replace"){
+  if(typeof window==="undefined")return;
+  const url=new URL(window.location.href);
+  if(nextTopic==="all")url.searchParams.delete("category");else url.searchParams.set("category",nextTopic);
+  if(nextQuery.trim())url.searchParams.set("q",nextQuery.trim());else url.searchParams.delete("q");
+  if(nextPage>1)url.searchParams.set("page",String(nextPage));else url.searchParams.delete("page");
+  if(kind==="push")window.history.pushState(null,"",url);else window.history.replaceState(null,"",url);
+ }
+ function selectTopic(next:NewsroomCategory,clearQuery=false){
+  const nextQuery=clearQuery?"":query;
+  setTopic(next);setQuery(nextQuery);setCurrentPage(1);
+  syncUrl(next,nextQuery,1);
+ }
+ function changeQuery(next:string){
+  const value=next.slice(0,100);
+  setQuery(value);setCurrentPage(1);syncUrl(topic,value,1);
+ }
+ function changePage(next:number){
+  setCurrentPage(next);syncUrl(topic,query,next,"push");
+  document.getElementById("newsroom-results")?.scrollIntoView({block:"start",behavior:"smooth"});
+ }
+ useEffect(()=>{
+  function restore(){
+   const url=new URL(window.location.href);
+   const requested=url.searchParams.get("category");
+   setTopic(requested==="hot"||EDITORIAL_TOPICS.some(t=>t.id===requested)?requested as NewsroomCategory:"all");
+   setQuery((url.searchParams.get("q")||"").slice(0,100));
+   setCurrentPage(normaliseReaderPage(url.searchParams.get("page"),10000));
+  }
+  window.addEventListener("popstate",restore);
+  return ()=>window.removeEventListener("popstate",restore);
+ },[]);
  const [shortlist,setShortlist]=useState<string[]>([]);
  const [feedback,setFeedback]=useState("");
  const researched=researchItems.filter(item=>{
@@ -90,6 +130,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
   const bAt=Date.parse(b.kind==="archive"?(b.item.eventAt||(b.item.eventDay?b.item.eventDay+"T00:00:00Z":"")):b.item.occurredAt);
   return (bAt||0)-(aAt||0)||a.kind.localeCompare(b.kind);
  });
+ const paginated=paginateReaderItems(visibleCards,currentPage,8);
  const selected=shortlist.flatMap(id=>newsOnly.find(n=>n.id===id)||[]);
  const visibleCount=visible.length+archiveVisible.length+editorialVisible.length;
  function copy(){
@@ -110,27 +151,27 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
     <PublishedResearchDispatches items={researched} mode="newsroom"/>
   </div>
   <div className={styles.sectionTitle}><div><h2>Browse by category</h2><p>Publication time, provider and original link stay attached to each report.</p></div>
-   <label className={styles.search}>Find a report <input type="search" value={query} onChange={e=>setQuery(e.target.value.slice(0,100))} placeholder="Search issuers, stories, themes" /></label>
+   <label className={styles.search}>Find a report <input type="search" value={query} onChange={e=>changeQuery(e.target.value)} placeholder="Search issuers, stories, themes" /></label>
   </div>
   <div className={styles.topics} role="group" aria-label="Newsroom categories">
    <button type="button" data-newsroom-hot-picks-button="orange" aria-pressed={topic==="hot"}
     className={topic==="hot"?styles.hotSelected:styles.hotButton}
-    onClick={()=>{setTopic("hot");setQuery("");}}>Hot Picks <small>{hotPicks.keys.length}</small></button>
+    onClick={()=>selectTopic("hot",true)}>Hot Picks <small>{hotPicks.keys.length}</small></button>
    {EDITORIAL_TOPICS.map(t=>{const count=t.id==="all"?newsOnly.length+archiveOnly.length+editorials.length:
      newsOnly.filter(n=>editorialNewsTopics(n).includes(t.id)).length+
      archiveOnly.filter(a=>archiveTopics(a).includes(t.id)).length+
      editorials.filter(a=>a.topics.includes(t.id)).length;
     return <button key={t.id} type="button" aria-pressed={topic===t.id} className={topic===t.id?styles.selected:styles.filter}
-     onClick={()=>setTopic(t.id)}>{t.label} <small>{count}</small></button>})}
+     onClick={()=>selectTopic(t.id)}>{t.label} <small>{count}</small></button>})}
   </div>
-  <div className={styles.columns}><section className={styles.feed} aria-live="polite">
+  <div className={styles.columns}><section className={styles.feed} aria-live="polite" id="newsroom-results">
     {topic==="hot"?<p className={styles.hotIntro} data-hot-picks-day={hotPicks.etDay}>
       Top released stories for {hotPicks.etDay} (US Eastern). Re-ranked daily by materiality, recency and topic diversity.
       {hotPicks.keys.length<3?" Fewer than three source-qualified stories currently available; no upcoming events are used to pad the list.":""}
     </p>:null}
-    <p className={styles.results}>{visibleCount} source-qualified report{visibleCount===1?"":"s"} matching your selection.</p>
+    <p className={styles.results}>{visibleCount?`Showing ${paginated.firstItem}–${paginated.lastItem} of ${visibleCount}`:"No"} source-qualified report{visibleCount===1?"":"s"} matching your selection. Pagination covers the available published reader set.</p>
     {!archiveAvailable?<p className={styles.empty} data-newsroom-archive-unavailable>Previously reviewed archive temporarily unavailable; current source-verified wire remains accessible.</p>:null}
-    {visibleCards.map(card=>card.kind==="archive"?<article key={"archive:"+card.item.id} className={styles.item} data-newsroom-archived-reader={card.item.id}>
+    {paginated.items.map(card=>card.kind==="archive"?<article key={"archive:"+card.item.id} className={styles.item} data-newsroom-archived-reader={card.item.id}>
       <div className={styles.art}><EditorialStoryArt headline={card.item.headline} compact/></div>
       <div className={styles.content}>
        <span className={styles.chip}>{card.item.verificationLabel}</span>
@@ -182,6 +223,9 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
       </div>
     </article>)}
     {visibleCount===0?<p className={styles.empty}>No qualifying reports match. Clear the search or try another category; an empty feed does not mean nothing happened.</p>:null}
+    <ReaderPagination label="Newsroom" page={paginated.page} totalPages={paginated.totalPages}
+      totalItems={paginated.totalItems} firstItem={paginated.firstItem} lastItem={paginated.lastItem}
+      onPageChange={changePage}/>
    </section>
    <aside className={styles.rail}><div className={styles.panel}><h2>Evidence status</h2>
      <p>Source-verified wire reports and previously reviewed public-reader snapshots have different provenance labels. Neither represents automatic canonical regime evidence.</p>

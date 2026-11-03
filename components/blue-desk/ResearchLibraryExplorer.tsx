@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import ReaderPagination from "./ReaderPagination";
+import {paginateReaderItems} from "@/lib/bluebelly-reader-pagination";
 import type { NotionResearchBundle } from "@/lib/notion-market-research";
 import { EntityMark } from "./EntityIdentity";
 import type { EntityIdentity } from "@/lib/bluebelly-entity-identity";
@@ -78,6 +80,7 @@ export default function ResearchLibraryExplorer({intake}:{intake:NotionResearchB
   const [term,setTerm]=useState("");
   const [section,setSection]=useState<Section>("All");
   const [sort,setSort]=useState<"curated"|"title">("curated");
+  const [page,setPage]=useState(1);
   const connection=researchIntakeDisplay(intake);
   // The most recent actual post is only known when the server read succeeds.
   // When it cannot, take the owner to the persistent archive, not a dated
@@ -107,6 +110,7 @@ export default function ResearchLibraryExplorer({intake}:{intake:NotionResearchB
     return entries.sort((a,b)=>rank[a.section]-rank[b.section]);
   },[term,section,sort,recent]);
 
+  const pageItems=paginateReaderItems(results,page,8);
   return <div className={styles.shell}>
     <header className={styles.hero}>
       <div>
@@ -139,27 +143,27 @@ export default function ResearchLibraryExplorer({intake}:{intake:NotionResearchB
 
     <section className={styles.toolbar} aria-label="Find research">
       <label className={styles.searchLabel} htmlFor="research-search">Search research
-        <input id="research-search" type="search" value={term} onChange={e=>setTerm(e.target.value)}
+        <input id="research-search" type="search" value={term} onChange={e=>{setTerm(e.target.value);setPage(1);}}
           placeholder="Try Brent, yields, AI, credit, research gaps…" />
       </label>
       <label className={styles.sortLabel} htmlFor="research-sort">Sort
-        <select id="research-sort" value={sort} onChange={e=>setSort(e.target.value as "curated"|"title")}>
+        <select id="research-sort" value={sort} onChange={e=>{setSort(e.target.value as "curated"|"title");setPage(1);}}>
           <option value="curated">Recommended</option><option value="title">Title A–Z</option>
         </select>
       </label>
       <div className={styles.filters} role="group" aria-label="Research collection">
         {SECTIONS.map(item=><button key={item} type="button" aria-pressed={section===item}
-          className={section===item?styles.active:""} onClick={()=>setSection(item)}>{item}</button>)}
+          className={section===item?styles.active:""} onClick={()=>{setSection(item);setPage(1);}}>{item}</button>)}
       </div>
     </section>
 
-    <div className={styles.resultsHead}>
+    <div className={styles.resultsHead} id="owner-research-results">
       <div><p className={styles.eyebrow}>RESEARCH INDEX</p>
       <h2>{section==="All"?"Explore the library":section}</h2></div>
-      <span role="status">{results.length} matching entries</span>
+      <span role="status">{results.length?`Showing ${pageItems.firstItem}–${pageItems.lastItem} of ${results.length}`:"0 matching"} entries</span>
     </div>
     {results.length ? <div className={styles.results}>
-      {results.map(entry=><article key={entry.id} className={styles.item}>
+      {pageItems.items.map(entry=><article key={entry.id} className={styles.item}>
         <div className={styles.itemTop}><span className={styles.category}>{entry.discipline}</span>
           <span className={styles.quality}>{entry.quality}</span></div>
         <h3>{CURATED_MARKS[entry.id]?<EntityMark kind={CURATED_MARKS[entry.id].kind} code={CURATED_MARKS[entry.id].code} size="sm"/>:null}{" "}<a href={entry.href} target="_blank" rel="noopener noreferrer">{entry.title}</a></h3>
@@ -170,8 +174,11 @@ export default function ResearchLibraryExplorer({intake}:{intake:NotionResearchB
     </div> : <div className={styles.noResults}>
       <h3>{section==="Latest"&&!connection.connected?"Live source previews unavailable":"No matching items in this index"}</h3>
       <p>Searches do not index all historical Notion content. When the server reader is unavailable, use the direct Notion archive links above.</p>
-      <button type="button" onClick={()=>{setTerm("");setSection("All");}}>Clear filters</button>
+      <button type="button" onClick={()=>{setTerm("");setSection("All");setPage(1);}}>Clear filters</button>
     </div>}
+    <ReaderPagination label="Owner Research" page={pageItems.page} totalPages={pageItems.totalPages}
+      totalItems={pageItems.totalItems} firstItem={pageItems.firstItem} lastItem={pageItems.lastItem}
+      onPageChange={number=>{setPage(number);document.getElementById("owner-research-results")?.scrollIntoView({behavior:"smooth",block:"start"});}}/>
     <footer className={styles.footer}>
       <strong>Research is not a Dossier decision.</strong> Original-source observations, research explanations,
       unresolved questions and canonical System 2 thesis updates have separate authority. Historical records
