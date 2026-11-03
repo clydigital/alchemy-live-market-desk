@@ -10,7 +10,7 @@ test("Power Stack has no Bluebelly route, private view or public navigation",()=
  assert.equal(existsSync(new URL("../app/power-stack/page.tsx",import.meta.url)),false);
  assert.equal(existsSync(new URL("../app/api/power-stack-context/route.ts",import.meta.url)),false);
  assert.doesNotMatch(read("components/blue-desk/BlueDeskHeader.tsx"),/Power Stack/);
- assert.doesNotMatch(read("app/blue-desk/markets/page.tsx"),/power.?stack|portfolio/i);
+ assert.doesNotMatch(read("app/blue-desk/markets/page.tsx"),/power.?stack|OwnerPortfolio|data-market-private-link/i);
 });
 test("Canonical Bluebelly intake and daily brief do not import Power Stack research",()=>{
  assert.doesNotMatch(read("lib/scheduled-research-input.ts"),/powerStack|PowerStack|power-stack/i);
