@@ -14,6 +14,7 @@ import {selectPostEventRecaps} from "@/lib/bluebelly-post-event-recap";
 import {getCurrentVerifiedMarketMotion} from "@/lib/market-motion";
 import {selectVerifiedNewsBriefs} from "@/lib/market-brief-news";
 import {getOriginalPressNews} from "@/lib/blue-desk-original-press-news-server";
+import {getCompletedOfficialMacroNews} from "@/lib/blue-desk-canonical-macro-news-server";
 import {combineQualifiedNews} from "@/lib/blue-desk-qualified-news";
 import {getRecentArchivedPublicReaderItems} from "@/lib/bluebelly-publication-archive-server";
 import {selectNewsroomHotPicks} from "@/lib/bluebelly-newsroom-hot-picks";
@@ -30,7 +31,12 @@ export default async function NewsroomPage({searchParams}:Props){
  const host=(await headers()).get("host");
  const [raw,official,params,archiveResult,researchDigests]=await Promise.all([
   getCurrentVerifiedMarketMotion({limit:36}).catch(()=>[]),
-  getOriginalPressNews(now,18,7).catch(()=>[]),
+  // Preserve source-reviewed press receipts and completed government actuals.
+    // An incomplete or unverified macro row cannot enter the reader.
+    Promise.all([
+      getOriginalPressNews(now,18,7).catch(()=>[]),
+      getCompletedOfficialMacroNews(now,18,7).catch(()=>[]),
+    ]).then(([press,macroActuals])=>[...press,...macroActuals]),
   searchParams,
   getRecentArchivedPublicReaderItems(now).then(items=>({items,available:true})).catch(()=>({items:[],available:false})),
   getPublishedMacroPulseBriefs(4).catch(()=>[]),
