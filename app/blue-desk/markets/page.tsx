@@ -70,7 +70,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
     getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
     getPublishedMacroPulseBriefs(6).catch(()=>[]),
   ]);
-  // No personal Power Stack registry may be fetched in anonymous Markets.
+  // Public markets are independent of private investment portfolios.
   const monitoredRows=publicMarketObservations(monitor?.rows || [],group);
   const breadthObservations = group==="all" || group==="breadth"
     ? BREADTH_WATCHES.map(item=>calculateBreadthRow(
