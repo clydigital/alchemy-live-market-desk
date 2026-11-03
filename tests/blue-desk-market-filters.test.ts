@@ -98,7 +98,7 @@ test("clickable columns sort both directions, keep missing observations last and
 
 test("search can find breadth tickers and neutral research instruments even with null prices", () => {
   const breadth = { ...row("breadth", null), type: "Breadth" as const, label: "S&P 500 above 50D", symbol: "S5FI", last: null };
-  const research = { ...row("research", null), type: "Power Stack" as const, symbol: "DAYANG", label: "Dayang Enterprise", last: null, researchRole: "research" as const };
+  const research = { ...row("research", null), type: "Major Index" as const, symbol: "DAYANG", label: "Dayang Enterprise", last: null, researchRole: "research" as const };
   assert.deepEqual(filterPublicMarketObservations([breadth, research], {...defaults, query:"S5FI"}).map(x=>x.symbol), ["S5FI"]);
   assert.deepEqual(filterPublicMarketObservations([breadth, research], {...defaults, query:"DAYANG"}).map(x=>x.symbol), ["DAYANG"]);
   assert.equal(filterPublicMarketObservations([breadth, research], {...defaults, unit:"%", minMove:1}).length, 0);

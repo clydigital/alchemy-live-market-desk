@@ -5,7 +5,6 @@ import test from "node:test";
 test("live-provider API routes stay request-time only and cannot execute fan-out during static export", () => {
   const routes = [
     "../app/api/accuracy-check/route.ts",
-    "../app/api/power-stack-context/route.ts",
   ];
 
   for (const path of routes) {

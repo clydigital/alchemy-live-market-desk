@@ -14,7 +14,7 @@ export const metadata={title:"My Desk | Bluebelly",robots:{index:false,follow:fa
 
 /** My Desk is the owner editorial workspace: Daily Intelligence, report-led
  * OB/COTD directions and technical input health. Portfolio ownership and its
- * independent research live at the login-first Power Stack GitHub Pages site.
+ * external investment records are handled outside this research application.
  * Older bookmarked ?view=portfolio links must not resurrect a parallel table. */
 export default async function MyBluebellyReports({searchParams}:{searchParams:Promise<Record<string,string|string[]|undefined>>}){
  const params=await searchParams;

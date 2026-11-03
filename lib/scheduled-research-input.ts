@@ -3,7 +3,6 @@ import { createHash } from "node:crypto";
 
 import { getFreshAlchemyArticles } from "@/lib/alchemy";
 import { parseFxStreetNewsFeedPage } from "@/lib/fxstreet-feed";
-import { acquirePowerStackThemes } from "@/lib/power-stack-themes";
 import { buildResearchAttentionPacket, safeResearchAttentionLog } from "@/lib/research-attention";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
 import { scheduledForMalaysiaSlot, scheduledRunKey } from "@/lib/scheduled-research-identity";
@@ -357,14 +356,13 @@ export async function buildScheduledResearchInput(
   const scheduledFor = scheduledForMalaysiaSlot(slot, now);
   const windowEnd = now.getTime();
   const windowStart = windowEnd - SOURCE_WINDOW_MS;
-  const [videoChecks, zerohedge, axios, investing, fxstreet, alchemy, powerStack] = await Promise.all([
+  const [videoChecks, zerohedge, axios, investing, fxstreet, alchemy] = await Promise.all([
     loadDedicatedVideoSourceChecks(slot, new Date(scheduledFor)),
     acquireDirectFeed(DIRECT_FEEDS[0], windowStart, windowEnd),
     acquireDirectFeed(DIRECT_FEEDS[1], windowStart, windowEnd),
     acquireDirectFeed(DIRECT_FEEDS[2], windowStart, windowEnd),
     acquireDirectFeed(DIRECT_FEEDS[3], windowStart, windowEnd),
     acquireAlchemy(windowStart, windowEnd),
-    acquirePowerStackThemes(now),
   ]);
   const sourceChecks: SourceCheckInput[] = [
     ...videoChecks,
@@ -380,7 +378,6 @@ export async function buildScheduledResearchInput(
     ...investing.items,
     ...fxstreet.items,
     ...alchemy.items,
-    ...powerStack.items,
   ];
 
   // Phase A only: compose a deterministic attention packet after acquisition,
@@ -435,7 +432,7 @@ export async function buildScheduledResearchInput(
     sourceChecks,
     items,
     recalibrations: [],
-    summary: `${coverageSummary}${videoSummary} ${powerStack.note}`,
+    summary: `${coverageSummary}${videoSummary}`,
     dryRun: false,
   };
 }

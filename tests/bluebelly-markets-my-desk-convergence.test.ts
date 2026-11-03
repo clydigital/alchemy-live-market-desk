@@ -10,7 +10,7 @@ const host="bluebelly-desk.vercel.app";
 test("Public Markets is anonymous and contains no private portfolio category or link",()=>{
  assert.equal(blueDeskHostAccess("/markets",host),"public");
  assert.equal(blueDeskHostAccess("/my-reports",host),"private");
- assert.equal(publicMarketGroup("powerstack"),"all");
+ assert.equal(publicMarketGroup("legacy-portfolio"),"all");
  assert.ok(!PUBLIC_MARKET_GROUPS.map(g=>String(g.id)).includes("powerstack"));
  const page=read("app/blue-desk/markets/page.tsx");
  assert.doesNotMatch(page,/getPowerStackResearchAssets|mergePowerStackMarketSearch|powerStack\.items|href="\/power-stack"|data-market-private-link/);
@@ -51,37 +51,3 @@ test("My Desk retains daily intelligence without an embedded portfolio",()=>{
  assert.ok(!privateNav.includes('["Power Stack", "/power-stack"]'));
 });
 
-test("Private portfolio retains owner RLS and migration gates",()=>{
- const view=read("components/blue-desk/OwnerPortfolioHome.tsx");
- assert.match(view,/createSupabaseServerClient/);
- assert.match(view,/supabase\.auth\.getUser\(\)/);
- assert.match(view,/app_access_allowlist/);
- assert.match(view,/power_stack_owner_snapshots/);
- assert.match(view,/\.eq\("owner_user_id",user.id\)/);
- assert.match(view,/snapshot\?\.legacy_source_retired===true/);
- assert.match(view,/data-portfolio-migration="pending"/);
- assert.match(view,/<OwnerPowerStackFullScan/);
- assert.doesNotMatch(view,/holdings-fundamentals\.json|service_role|createSupabaseAdminClient/);
-});
-test("My Portfolio shows ONE client-sortable market-style table, no extra private API fetch",()=>{
- const view=read("components/blue-desk/OwnerPortfolioHome.tsx");
- const full=read("components/blue-desk/OwnerPowerStackFullScan.tsx");
- const table=read("components/blue-desk/OwnerPortfolioSortableTable.tsx");
- const parser=read("lib/bluebelly-owner-power-stack-quote-scan.ts");
- assert.match(full,/data-owner-single-table/);
- assert.match(full,/readOwnerPowerStackQuoteScan/);
- assert.match(full,/change3d/);
- assert.match(full,/change5d/);
- assert.match(full,/<OwnerPortfolioSortableTable/);
- assert.equal((table.match(/<table\b/g)||[]).length,1);
- assert.match(table,/aria-sort=/);
- assert.match(table,/onClick=\{\(\)=>toggle\(col.key\)\}/);
- assert.match(table,/setDirection/);
- assert.match(table,/sortPortfolioLines/);
- assert.match(table,/Recorded units/);
- assert.match(table,/Invalidation/);
- assert.doesNotMatch(table,/fetch\(|createSupabase|useEffect|\/api\//);
- assert.doesNotMatch(view,/advisorMoves|advisorCapital|className=\{ui.metrics\}/);
- assert.match(parser,/recentSession/);
- assert.match(parser,/raw.status==="CLOSED"/);
-});

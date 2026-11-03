@@ -1,6 +1,5 @@
 import "server-only";
 
-import { enrichDailyBriefSnapshotWrite } from "@/lib/power-stack-ratings";
 import { IntelligenceDatabaseError } from "./database-error.ts";
 import {
   currentIntelligenceInvocation,
@@ -159,14 +158,7 @@ export async function intelligenceRest<T>(path: string, init: RequestInit = {}):
   }
 
   const timestampedInit = withFrozenAnalysisTimestamp(path, init);
-  // Daily-brief publication is the immutable boundary for Power Stack context.
-  // Import the already-calculated research/macro ratings once here so historical
-  // editions never recalculate from current Power Stack state. A source failure
-  // leaves the edition publishable and simply omits the optional rating block.
-  const effectiveInit = method === "POST"
-    ? await enrichDailyBriefSnapshotWrite(path, timestampedInit)
-    : timestampedInit;
-  const result = await rawIntelligenceRest<T>(path, effectiveInit);
+  const result = await rawIntelligenceRest<T>(path, timestampedInit);
 
   if (readKind && Array.isArray(result)) {
     const state = currentIntelligenceInvocation();
