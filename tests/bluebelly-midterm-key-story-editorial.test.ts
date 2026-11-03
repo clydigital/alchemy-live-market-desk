@@ -13,7 +13,9 @@ test("midterm feature is an explicit, finite public Key Stories article",()=>{
  assert.match(key,/feature==="midterms-seasonality-2026"/);
  assert.match(key,/data-key-story="midterms-2026-frozen-editorial"/);
  assert.match(key,/MidtermRallyFeature host=\{host\}/);
- assert.match(key,/data-feature="midterms-seasonality-2026"/);
+ const library=read("../lib/bluebelly-public-research-library.ts");
+ assert.match(library,/midterms-seasonality-2026/);
+ assert.match(key,/data-key-stories-research-handoff="dated-not-live"/);
  assert.match(key,/Midterm rally: verified or vulnerable/);
  assert.match(news,/id="midterm-asset-views"/);
  assert.match(news,/key-stories"\)\+"\?feature=midterms-seasonality-2026"/);
