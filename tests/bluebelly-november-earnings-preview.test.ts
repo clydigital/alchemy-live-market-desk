@@ -42,10 +42,11 @@ test("Earnings research has source links and remains a single grouped feature",(
  assert.ok(sourceCount>=16);
  assert.match(page,/https:\/\/www\.earningswhispers\.com\/calweek\/20261102/);
  assert.match(page,/Supermicro-Provides-First-Quarter-of-Fiscal-Year-2027-Preliminary-Business-Update/);
- for(const path of ["../app/blue-desk/calendar/page.tsx","../app/blue-desk/key-stories/page.tsx",
+ for(const path of ["../app/blue-desk/calendar/page.tsx",
    "../app/blue-desk/daily-report/page.tsx"]){
   assert.match(read(path),/blue-desk\/earnings-week/);
  }
+ assert.match(read("../lib/bluebelly-public-research-library.ts"),/earnings-week-nov2/);
 });
 
 test("Six November company IR notices feed live earnings Calendar and Daily Report input",()=>{
