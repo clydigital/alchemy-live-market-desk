@@ -25,17 +25,17 @@ function post(id: number, handle = "Bluekurtic", patch: Partial<XCandidate> = {}
   };
 }
 
-test("preserves the X sweep settings with 11 monitored accounts", () => {
+test("preserves the X sweep settings with 12 monitored accounts", () => {
   assert.deepEqual(X_SWEEP_DEFAULTS, {
     sweep: "x", preset: "normal", lookbackHours: 2.5, overlapMinutes: 30,
     maxCandidatesPerRun: 250, softLimitPerAccount: 40, recoveryLookbackHours: 72,
     deepInvestigationsCap: 12, schedule: "existing MacroPulse only",
     newScheduledTask: false,
   });
-  assert.equal(X_CORE_ROSTER.length, 11);
+  assert.equal(X_CORE_ROSTER.length, 12);
   assert.deepEqual(X_CORE_ROSTER.map(item => item.handle), [
     "Bluekurtic", "HFI_Research", "OilandEnergy", "HormuzReport", "TheStudyofWar",
-    "Currentreport1", "arena", "KobeissiLetter", "FirstSquawk", "zerohedge", "TGLetter",
+    "Currentreport1", "arena", "KobeissiLetter", "FirstSquawk", "zerohedge", "TGLetter", "macropaperr",
   ]);
 });
 
@@ -126,13 +126,14 @@ test("source-health does not call inaccessible accounts quiet", () => {
   }]);
   assert.equal(result.inaccessible, 1);
   assert.equal(result.complete, false);
-  assert.equal(result.monitored, 11);
+  assert.equal(result.monitored, 12);
 });
 
 test("restores ZeroHedge, adds TGLetter and continues to exclude GordianKnotDev", () => {
   assert.equal(isExcludedXWireHandle("@ZeroHedge"), false);
   assert.equal(isExcludedXWireHandle("zerohedge"), false);
   assert.equal(isExcludedXWireHandle("@TGLetter"), false);
+  assert.equal(isExcludedXWireHandle("@macropaperr"), false);
   assert.equal(isExcludedXWireHandle("zerohedge2"), false);
   assert.equal(isExcludedXWireHandle("@GordianKnotDev"), true);
   assert.equal(isExcludedXWireHandle("gordianknotdev"), true);
