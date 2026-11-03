@@ -1,7 +1,11 @@
-/** A display-only expectation for private Daily Intelligence coverage.
- * This models a normal US weekday close at 16:00 America/New_York.
- * Exchange holidays and early closes are deliberately NOT inferred.
- * It must not become a source-admission or edition-generation gate. */
+import {scheduledUsEquityCloseHourET,usEquitySessionCalendarBasis} from "./bluebelly-us-equity-trading-calendar.ts";
+
+/** Last *scheduled completed* US cash-equity session, not the newest MYT date.
+ * Uses the NYSE published 2026–2028 holiday/early-close calendar and real
+ * America/New_York DST. Out-of-range years use a labelled weekday estimate.
+ * This is display/selection logic only: never proof of market data or source
+ * admission; unexpected exchange closures require separate official checks.
+ */
 export function expectedCompletedUsWeekdaySessionDay(now:Date):string|null{
  if(!Number.isFinite(now.getTime()))return null;
  const parts=new Intl.DateTimeFormat("en-US",{
@@ -12,15 +16,23 @@ export function expectedCompletedUsWeekdaySessionDay(now:Date):string|null{
  const year=Number(part("year")),month=Number(part("month")),day=Number(part("day"));
  const hour=Number(part("hour")),minute=Number(part("minute"));
  if(!Number.isInteger(year)||!Number.isInteger(month)||!Number.isInteger(day)
-   ||!Number.isInteger(hour)||!Number.isInteger(minute))return null;
- const session=new Date(Date.UTC(year,month-1,day));
- if(session.getUTCDay()===0||session.getUTCDay()===6||hour<16){
-  session.setUTCDate(session.getUTCDate()-1);
+  ||!Number.isInteger(hour)||!Number.isInteger(minute))return null;
+ const base=new Date(Date.UTC(year,month-1,day));
+ if(base.getUTCFullYear()!==year||base.getUTCMonth()!==month-1||base.getUTCDate()!==day)return null;
+ for(let offset=0;offset<16;offset++){
+  const candidate=new Date(base.getTime()-offset*86_400_000);
+  const candidateDay=candidate.toISOString().slice(0,10);
+  const closeHour=scheduledUsEquityCloseHourET(candidateDay);
+  if(closeHour===null)continue;
+  if(offset===0&&hour<closeHour)continue;
+  return candidateDay;
  }
- while(session.getUTCDay()===0||session.getUTCDay()===6){
-  session.setUTCDate(session.getUTCDate()-1);
- }
- return session.toISOString().slice(0,10);
+ return null;
+}
+/** Label calendar evidence separately from a verified observed market close. */
+export function completedUsSessionCalendarBasis(now:Date):ReturnType<typeof usEquitySessionCalendarBasis>|null{
+ const day=expectedCompletedUsWeekdaySessionDay(now);
+ return day?usEquitySessionCalendarBasis(day):null;
 }
 
 export function privateDailySessionCoverage(
