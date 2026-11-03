@@ -38,8 +38,13 @@ export function parseBeaPceActual(
   .replace(/<script\b[\s\S]*?<\/script>/gi," ")
   .replace(/<style\b[\s\S]*?<\/style>/gi," ")
   .replace(/<[^>]+>/g," ")
-  .replace(/&nbsp;|&#160;/gi," ")
+  .replace(/&nbsp;|&#160;|&#xA0;/gi," ")
+  .replace(/\u00a0|\u202f/g," ")
   .replace(/&amp;/gi,"&")
+  // The original BEA HTML highlights “PCE price index” in <strong>.
+  // The existing Jina reader instead returns **PCE price index**. Both
+  // are formatting, not a change in the reference-period or metric evidence.
+  .replace(/\*\*|__/g,"")
   .replace(/\s+/g," ").trim();
  const title=new RegExp("Personal Income and Outlays,?\\s+"+month+"\\s+"+year+"\\b","i");
  if(!title.test(text))return null;
