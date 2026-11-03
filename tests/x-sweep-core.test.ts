@@ -25,17 +25,17 @@ function post(id: number, handle = "Bluekurtic", patch: Partial<XCandidate> = {}
   };
 }
 
-test("preserves the X sweep settings with 11 monitored accounts", () => {
+test("preserves the X sweep settings with 12 monitored accounts", () => {
   assert.deepEqual(X_SWEEP_DEFAULTS, {
     sweep: "x", preset: "normal", lookbackHours: 2.5, overlapMinutes: 30,
     maxCandidatesPerRun: 250, softLimitPerAccount: 40, recoveryLookbackHours: 72,
     deepInvestigationsCap: 12, schedule: "existing MacroPulse only",
     newScheduledTask: false,
   });
-  assert.equal(X_CORE_ROSTER.length, 11);
+  assert.equal(X_CORE_ROSTER.length, 12);
   assert.deepEqual(X_CORE_ROSTER.map(item => item.handle), [
     "Bluekurtic", "HFI_Research", "OilandEnergy", "HormuzReport", "TheStudyofWar",
-    "Currentreport1", "arena", "KobeissiLetter", "FirstSquawk", "zerohedge", "TGLetter",
+    "Currentreport1", "arena", "KobeissiLetter", "FirstSquawk", "zerohedge", "TGLetter", "macropaperr",
   ]);
 });
 
@@ -126,7 +126,7 @@ test("source-health does not call inaccessible accounts quiet", () => {
   }]);
   assert.equal(result.inaccessible, 1);
   assert.equal(result.complete, false);
-  assert.equal(result.monitored, 11);
+  assert.equal(result.monitored, 12);
 });
 
 test("restores ZeroHedge, adds TGLetter and continues to exclude GordianKnotDev", () => {
@@ -144,4 +144,11 @@ test("restores ZeroHedge, adds TGLetter and continues to exclude GordianKnotDev"
   assert.deepEqual(new Set(selected.selected.map(x=>x.accountHandle)),new Set(["ZeroHedge","zerohedge","TGLetter","Bluekurtic"]));
   assert.equal(selected.withheld.filter(x=>x.reason==="excluded_x_wire_source").length,2);
   assert.ok(!X_CORE_ROSTER.some(x=>isExcludedXWireHandle(x.handle)));
+});
+
+
+test("The Macro Paper X post URL is recorded without inferring factual truth", () => {
+  const ref=normaliseXPostUrl("https://x.com/macropaperr/status/2116114383520845885?a=-C2QOIQiGT73eTj5wm8&s=19");
+  assert.deepEqual(ref,{handle:"macropaperr",postId:"2116114383520845885",url:"https://x.com/macropaperr/status/2116114383520845885"});
+  assert.equal(X_CORE_ROSTER.filter(x=>x.handle.toLowerCase()==="macropaperr").length,1);
 });

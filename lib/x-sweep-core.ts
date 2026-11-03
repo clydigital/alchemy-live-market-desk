@@ -40,6 +40,7 @@ export const X_CORE_ROSTER = Object.freeze([
   { handle: "FirstSquawk", focus: "breaking" },
   { handle: "zerohedge", focus: "global-news" },
   { handle: "TGLetter", focus: "civil-resilience" },
+  { handle: "macropaperr", focus: "cross-asset" },
 ] as const);
 // 30 Oct owner override restores ZeroHedge and adds TGLetter; GordianKnotDev remains excluded.
 export const X_WIRE_EXCLUDED_HANDLES = Object.freeze(["gordianknotdev"] as const);

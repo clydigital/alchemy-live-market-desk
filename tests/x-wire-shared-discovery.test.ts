@@ -17,11 +17,12 @@ const source=(handle:string,id:number,text:string,time="2026-10-27T23:05:00Z",
 const run:ResearchRunInput={runKey:"xwire-market",scheduleSlot:"morning",
  scheduledFor:now.toISOString(),items:[],sourceChecks:[],summary:"other sources"};
 test("existing sources stay unique, new owners join and excluded handle stays blocked",()=>{
- assert.equal(X_CORE_ROSTER.length,11);
+ assert.equal(X_CORE_ROSTER.length,12);
  assert.equal(X_CORE_ROSTER.filter(x=>x.handle==="KobeissiLetter").length,1);
  assert.equal(X_CORE_ROSTER.filter(x=>x.handle==="HormuzReport").length,1);
  assert.ok(X_CORE_ROSTER.some(x=>x.handle.toLowerCase()==="zerohedge"));
  assert.ok(X_CORE_ROSTER.some(x=>x.handle==="TGLetter"));
+ assert.equal(X_CORE_ROSTER.filter(x=>x.handle==="macropaperr").length,1);
  assert.ok(!X_CORE_ROSTER.some(x=>x.handle.toLowerCase()==="gordianknotdev"));
 });
 test("market-catalyst ranking covers Hormuz and yields, with social claims never promoted",()=>{
@@ -34,6 +35,7 @@ test("market-catalyst ranking covers Hormuz and yields, with social claims never
   source("zerohedge",6,"Brent oil tanker market report."),
   source("GordianKnotDev",9,"BREAKING: Brent oil tanker market report."),
   source("TGLetter",10,"Australian Red Cross emergency preparedness advises an emergency kit with bottled water; investigate original date."),
+  source("macropaperr",11,"Gold and silver and Asian stock markets wiped out trillions; Binance crypto shock and US stock futures collapse. Claimed amounts require primary verification."),
   source("HormuzReport",7,"Strait of Hormuz tanker shipping report.","2026-10-22T20:00:00Z"),
   source("HormuzReport",8,"Hormuz tanker shipping details.","2026-10-27T23:05:00Z","deferred"),
  ];
@@ -43,9 +45,10 @@ test("market-catalyst ranking covers Hormuz and yields, with social claims never
  assert.ok(ranked.some(x=>x.theme==="equities_ai"));
  assert.ok(ranked.some(x=>x.post.handle==="zerohedge"));
  assert.ok(ranked.some(x=>x.post.handle==="TGLetter"&&x.theme==="resilience_preparedness"));
+ assert.ok(ranked.some(x=>x.post.handle==="macropaperr"&&x.theme==="cross_asset"));
  assert.ok(!ranked.some(x=>x.post.handle==="GordianKnotDev"));
- assert.ok(!ranked.some(x=>x.post.id===posts[8].id));
  assert.ok(!ranked.some(x=>x.post.id===posts[9].id));
+ assert.ok(!ranked.some(x=>x.post.id===posts[10].id));
  const out=attachXWireResearchLeads(run,{
   posts:posts as never,storageHealthy:true,
   accounts:X_CORE_ROSTER.map(x=>({handle:x.handle,status:"healthy"})) as never
