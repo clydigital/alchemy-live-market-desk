@@ -1,10 +1,21 @@
 .article{width:min(1300px,100%);margin:20px auto 90px;color:var(--bb-text)}.article a{color:var(--bb-accent);text-underline-offset:3px}
-.back{padding:6px 0 24px;font-size:13px}.kicker{font-size:11px!important;letter-spacing:.1em;font-weight:800;color:var(--bb-accent)!important}
-.edition{font-size:12px;color:var(--bb-muted);line-height:1.6}.hero{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(200px,.7fr);gap:30px;border-bottom:1px solid var(--bb-card-border);padding:20px 0 32px}
-.hero h1{font-size:clamp(36px,4.9vw,67px);line-height:1.1;letter-spacing:-.04em;max-width:19ch;margin:13px 0 19px;color:var(--bb-text)}
+.kicker{font-size:11px!important;letter-spacing:.1em;font-weight:800;color:var(--bb-accent)!important}
+.edition{font-size:12px;color:var(--bb-muted);line-height:1.6}
+.hero{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(255px,.7fr);gap:30px;align-items:start;border-bottom:1px solid var(--bb-card-border);padding:12px 0 32px}
+.hero h1{font-size:clamp(36px,4.9vw,67px);line-height:1.1;letter-spacing:-.04em;max-width:19ch;margin:0 0 22px;color:var(--bb-text)}
 .hero .lead{font-size:clamp(19px,2.2vw,25px);line-height:1.53;color:var(--bb-text);max-width:47ch}
-.hero p{font-size:16px;line-height:1.75;color:var(--bb-muted);max-width:70ch}
-.art{min-width:0}.art>div{max-width:100%}.fullStoryTitle{font-size:clamp(23px,2.8vw,34px);line-height:1.25;letter-spacing:-.025em;color:var(--bb-text);margin:30px 0 4px}
+.heroCopy>p{font-size:16px;line-height:1.75;color:var(--bb-muted);max-width:70ch}
+.art{min-width:0;display:flex;flex-direction:column;gap:0}
+.art>div{max-width:100%}
+.storyMeta{padding:17px 18px 18px;border:1px solid var(--bb-card-border);border-top:0;border-radius:0 0 8px 8px;background:var(--bb-card-quiet);min-width:0}
+.storyMeta .kicker{font-size:11px!important;line-height:1.45!important;letter-spacing:.06em;margin:0 0 13px;overflow-wrap:anywhere}
+.eventDetails{padding:0 0 13px;border-bottom:1px solid var(--bb-card-border);margin-bottom:13px}
+.eventLabel{display:block;font-size:11px;line-height:1.4;color:var(--bb-muted);margin:0 0 5px;font-weight:700}
+.eventTime{display:block;font-size:13px;line-height:1.55;color:var(--bb-text)}
+.storyMeta .edition{font-size:11px;line-height:1.6;color:var(--bb-muted);margin:10px 0 0}
+.backButton{display:flex;align-items:center;justify-content:center;min-height:38px;padding:8px 12px;border:1px solid var(--bb-accent);border-radius:5px;font-size:12px;font-weight:750;text-align:center;text-decoration:none!important;background:transparent;color:var(--bb-accent)}
+.backButton:hover,.backButton:focus-visible{background:var(--bb-card-bg);text-decoration:underline!important}
+.backButton:focus-visible{outline:2px solid var(--bb-accent);outline-offset:3px}.fullStoryTitle{font-size:clamp(23px,2.8vw,34px);line-height:1.25;letter-spacing:-.025em;color:var(--bb-text);margin:30px 0 4px}
 .toc{display:flex;gap:8px;flex-wrap:wrap;padding:19px 0;border-bottom:1px solid var(--bb-card-border)}
 .toc a{padding:9px 11px;border:1px solid var(--bb-card-border);background:var(--bb-card-quiet);border-radius:6px;text-decoration:none;font-size:12px;font-weight:750}
 .columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(190px,260px);gap:clamp(18px,3vw,54px);align-items:start}
@@ -23,4 +34,4 @@
 .rail{position:sticky;top:22px;display:grid;gap:12px;padding-top:25px}.railBox{padding:19px;border:1px solid var(--bb-card-border);border-radius:8px;background:var(--bb-card-bg)}
 .rail h3{font-size:23px;margin:7px 0}.rail p,.rail small{font-size:13px;line-height:1.65;color:var(--bb-muted)}.rail strong{color:var(--bb-text)}
 @media(max-width:900px){.columns,.hero{grid-template-columns:1fr}.rail{position:static;grid-template-columns:repeat(2,minmax(0,1fr))}.art{max-width:400px}.hero h1{max-width:none}}
-@media(max-width:600px){.art{display:none}.rail{grid-template-columns:1fr}.section>p{font-size:15px}.hero h1{font-size:36px}.section{padding:17px 0 29px}.toc a{font-size:11px;padding:8px}}
+@media(max-width:600px){.art{display:flex;max-width:100%}.storyMeta{padding:13px 15px}.rail{grid-template-columns:1fr}.section>p{font-size:15px}.hero h1{font-size:36px}.section{padding:17px 0 29px}.toc a{font-size:11px;padding:8px}}
