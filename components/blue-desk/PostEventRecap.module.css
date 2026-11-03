@@ -22,9 +22,9 @@
 .feature a:focus-visible,.reader a:focus-visible,.feature summary:focus-visible{outline:2px solid var(--bb-accent);outline-offset:4px}
 .reader{max-width:1180px;margin:22px auto 55px;color:var(--bb-text);overflow-wrap:anywhere}
 .reader nav{margin:10px 0 22px}.reader nav a{color:var(--bb-text)}
-.readerHead{background:var(--bb-surface);border-top:5px solid var(--bb-accent);padding:clamp(22px,4vw,44px)}
+.readerHead{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(255px,.8fr);gap:clamp(18px,3vw,36px);align-items:start;background:var(--bb-surface);border-top:5px solid var(--bb-accent);padding:clamp(20px,3vw,34px)}
 .readerHead .eyebrow{color:var(--bb-accent)}.readerHead h1{font:900 clamp(32px,4vw,58px)/1.1 var(--bb-display,sans-serif);margin:10px 0 16px;letter-spacing:-.04em}
-.readerHead>p:last-child{color:var(--bb-muted)}
+.readerIntro{min-width:0}.readerIntro .introText{font-size:clamp(17px,1.8vw,21px);line-height:1.65;color:var(--bb-text);max-width:60ch;margin:0}
 .fullStoryTitle{font-size:clamp(22px,2.7vw,32px);line-height:1.25;letter-spacing:-.025em;color:var(--bb-text);margin:35px 0 0;font-weight:800}
 .readerBody{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(250px,.8fr);gap:24px;margin-top:20px}
 .chapters{min-width:0}.chapters section{padding:23px 0;border-bottom:1px solid var(--bb-line)}
@@ -36,7 +36,7 @@
 .reference{padding:12px 0;border-bottom:1px solid var(--bb-line)}
 .reference small{display:block;font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--bb-accent);margin-bottom:6px}
 .reference a{color:var(--bb-text);line-height:1.6;overflow-wrap:anywhere}
-@media(max-width:760px){.featureBody,.readerBody{grid-template-columns:1fr}.intro{border-right:0;border-bottom:1px solid var(--bb-line)}.intro h2{font-size:clamp(29px,8vw,42px)}.featureHead{padding:12px 16px}.storyBeats{padding:10px 20px}.socialStrip,.more{align-items:flex-start;flex-direction:column}.readerHead{padding:22px}.chapters p{font-size:16px}}
+@media(max-width:760px){.featureBody,.readerBody{grid-template-columns:1fr}.intro{border-right:0;border-bottom:1px solid var(--bb-line)}.intro h2{font-size:clamp(29px,8vw,42px)}.featureHead{padding:12px 16px}.storyBeats{padding:10px 20px}.socialStrip,.more{align-items:flex-start;flex-direction:column}.readerHead{grid-template-columns:1fr;padding:20px}.chapters p{font-size:16px}}
 
 /* Deep research is intentionally below the short editorial answer; never let the
  * evidence table break the mobile reading column or the parent grid. */

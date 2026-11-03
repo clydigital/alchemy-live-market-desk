@@ -33,7 +33,10 @@ test("short narrative contains conditional learning, visible SVG and original-so
  assert.match(recap,/02 \/ THE NEW INFORMATION/);
  assert.match(recap,/03 \/ THE LEARNING MOMENT/);
  assert.match(recap,/04 \/ THE CATCH/);
- assert.match(recap,/EditorialStoryArt headline=\{recap\.title\}/);
+ assert.match(recap,/<StoryHeroAside headline=\{recap\.title\}/);
+ const heroAside=file("components/blue-desk/StoryHeroAside.tsx");
+ assert.match(heroAside,/<EditorialStoryArt headline=\{headline\} summary=\{summary\}\/>/);
+ assert.match(heroAside,/data-story-hero-meta="under-illustration"/);
  assert.match(recap,/validSource\(recap\.sourceUrl\)/);
  assert.match(recap,/market response is inferred before the verified release/);
  assert.match(recap,/pre-release vintage match/);
