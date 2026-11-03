@@ -1,5 +1,6 @@
 import Link from "next/link";
 import StorySummaryBoxes from "./StorySummaryBoxes";
+import StoryHeroAside from "./StoryHeroAside";
 import DualTimestamp from "./DualTimestamp";
 import EditorialStoryArt from "./EditorialStoryArt";
 import SourceTweetEmbeds from "./SourceTweetEmbeds";
@@ -55,11 +56,18 @@ export function PostEventRecapArticle({recap,backHref,socialPosts=[]}:{
  const depth=recap.id==="fed-2026-10-28"?OCTOBER_FED_DEPTH:null;
  const scorecard=recap.kind==="earnings"?getRecentVerifiedEarningsScorecards(new Date(),7).find(r=>r.id===recap.id):null;
  return <article className={s.reader} data-post-event-reader={recap.featuredStatus==="REVIEWED"?"reviewed":"source-only"}>
-  <nav><Link href={backHref}>← Key Stories</Link></nav>
   <header className={s.readerHead}>
-   <p className={s.eyebrow}>{recap.featuredStatus==="REVIEWED"?"POST-EVENT STORY / RESEARCHED RECAP":"OFFICIAL EVENT / DEEP ANALYSIS PENDING"}</p>
-   <h1>{recap.headline}</h1>
-   <p>{recap.eventName} · <DualTimestamp value={recap.releaseAt.includes("T")?recap.releaseAt:null} sourceDate={recap.releaseAt}/></p>
+   <div className={s.readerIntro}>
+    <h1>{recap.headline}</h1>
+    <p className={s.introText}>{recap.standfirst}</p>
+   </div>
+   <StoryHeroAside headline={recap.headline} summary={recap.whatHappened}
+    category={recap.featuredStatus==="REVIEWED"?"POST-EVENT STORY / RESEARCHED RECAP":"OFFICIAL EVENT / DEEP ANALYSIS PENDING"}
+    sourceName={recap.eventName}
+    eventAt={recap.releaseAt.includes("T")?recap.releaseAt:null}
+    sourceDate={recap.releaseAt}
+    backHref={backHref} backLabel="Key Stories"
+   />
   </header>
   <StorySummaryBoxes items={[
    {label:"What changed",text:recap.whatHappened},
