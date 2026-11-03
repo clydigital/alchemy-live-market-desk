@@ -27,6 +27,28 @@ test("3 Nov source update of Friday edition cannot displace completed 2 Nov repo
  assert.deepEqual(result.sessionConflicts.map(e=>e.title),[mislabelled.title]);
 });
 
+test("explicit old ET session title cannot masquerade as a newer report_day",()=>{
+ const falseCurrent=edition("2026-11-02",
+  "Daily Intelligence — 30 Oct ET session, 3 Nov source update",
+  "2026-11-03T01:35:46.689Z");
+ const correct=edition("2026-11-02",
+  "Source-qualified Monday 2 Nov daily intelligence",
+  "2026-11-03T00:49:51.077Z");
+ const picked=classifyPrivateDailyIntelligenceSessions(
+  [falseCurrent,correct],new Date("2026-11-03T16:00:00Z"));
+ assert.deepEqual(picked.eligible,[correct]);
+ assert.deepEqual(picked.sessionConflicts,[falseCurrent]);
+});
+
+test("explicit matching US session accepted and unrelated event dates not over-interpreted",()=>{
+ const valid=edition("2026-11-02",
+  "2 Nov 2026 US session — RBA 3 Nov preview",
+  "2026-11-03T00:49:51.077Z");
+ const result=classifyPrivateDailyIntelligenceSessions(
+  [valid],new Date("2026-11-03T16:00:00Z"));
+ assert.deepEqual(result.eligible,[valid]);
+});
+
 test("mislabelled upload remains excluded even after the labelled session later finishes",()=>{
  const wrong=edition("2026-11-03","30 Oct session with 3 Nov additions",
   "2026-11-03T01:35:46.689Z");
