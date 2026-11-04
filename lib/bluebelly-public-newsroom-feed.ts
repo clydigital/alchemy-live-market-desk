@@ -1,4 +1,5 @@
 import {blueDeskPublicHref} from "./blue-desk-host.ts";
+import {applyChartWatchApprovals} from "./bluebelly-chart-watch.ts";
 import type {NewsBriefV1} from "./market-brief-news.ts";
 import type {ArchiveNewsItem} from "./bluebelly-publication-archive.ts";
 import type {NewsroomEditorialItem} from "./bluebelly-newsroom-editorial.ts";
@@ -9,7 +10,7 @@ import {selectPostEventRecaps} from "./bluebelly-post-event-recap.ts";
 import {weekAheadNewsroomEditorial} from "./bluebelly-week-ahead-newsroom.ts";
 import {currentReviewedPublicFocus} from "./bluebelly-reviewed-public-focus.ts";
 import {OCT30_SELL_OFF,oct30SelloffIsLead} from "./bluebelly-oct30-tech-selloff.ts";
-import {getRecentVerifiedEarningsScorecards} from "./blue-desk-earnings-results.ts";
+import {getRecentVerifiedEarningsScorecards,getImmutableChartWatchEarningsEdition} from "./blue-desk-earnings-results.ts";
 import {getRecentOfficialMacroResults} from "./blue-desk-official-macro-results.ts";
 
 /** The *same* read-only Newsroom editorial admission on Today and Newsroom.
@@ -39,8 +40,24 @@ export function publicNewsroomEditorials(
    topics:["policy","bonds"],verificationLabel:"REVIEWED ORIGINAL ECONOMIC RELEASE",
    why:release.mechanism,nextTest:release.test,kind:"macro"});
  }
- for(const release of getRecentVerifiedEarningsScorecards(now,7)){
-  if(existing.has(release.sourceUrl))continue;
+ const recentEarnings=getRecentVerifiedEarningsScorecards(now,7);
+ // Preserve the one explicitly reviewed Chart Watch edition as a dated archive
+ // beyond the rolling news window; other older earnings do not become news.
+ const historicalChartWatch=getImmutableChartWatchEarningsEdition(now);
+ const earningsEntries=historicalChartWatch && !recentEarnings.some(x=>x.id===historicalChartWatch.id)
+  ?[...recentEarnings,historicalChartWatch]:recentEarnings;
+ for(const release of earningsEntries){
+  // Explicitly approved Chart Watch is the deeper *same-original* editorial,
+  // not a duplicate wire alert. If the issuer press release already entered
+  // the source-only news feed or a short recap, prefer the reviewed full reader
+  // instead of accidentally suppressing the approved series entirely.
+  const chartWatchEdition=release.id==="amd-2026q3";
+  if(existing.has(release.sourceUrl)&&!chartWatchEdition)continue;
+  if(chartWatchEdition){
+   for(let i=result.length-1;i>=0;i--){
+    if(result[i].sourceUrl===release.sourceUrl)result.splice(i,1);
+   }
+  }
   existing.add(release.sourceUrl);
   result.push({id:"earnings-release:"+release.id,headline:release.headline,
    summary:release.conclusion,occurredAt:release.releaseDay,sourceName:release.sourceName,
@@ -71,7 +88,8 @@ export function publicNewsroomEditorials(
   verificationLabel:"DATED EDITORIAL · REPORTED INTRADAY",
   why:OCT30_SELL_OFF.mechanism,nextTest:OCT30_SELL_OFF.test,kind:"reported",
  });
- return result;
+ // Membership requires an independent source-exact, rights-cleared editorial approval.
+ return applyChartWatchApprovals(result);
 }
 
 export type TodayNewsroomItem={

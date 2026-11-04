@@ -14,6 +14,7 @@ import type {NewsroomHotPicks} from "@/lib/bluebelly-newsroom-hot-picks";
 import type {NewsroomEditorialItem} from "@/lib/bluebelly-newsroom-editorial";
 import {EDITORIAL_TOPICS,editorialNewsTopics,type EditorialTopicId} from "@/lib/bluebelly-editorial-architecture";
 import {storyTvInstrument} from "@/lib/bluebelly-editorial-visuals";
+import {isPublishedChartWatch,publishedChartWatchCount} from "@/lib/bluebelly-chart-watch";
 import EditorialStoryArt from "./EditorialStoryArt";
 import TradingViewChart from "./TradingViewChart";
 import styles from "./bluebelly-newswire.module.css";
@@ -50,7 +51,7 @@ function SourceOnlyConsequence({news}:{news:NewsBriefV1}){
    </div>
   </details>;
 }
-type NewsroomCategory=EditorialTopicId|"hot";
+type NewsroomCategory=EditorialTopicId|"hot"|"chart-watch";
 export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailable=true,hotPicks,editorials=[],researchItems=[],initialQuery="",initialCategory="all",initialPage="1",now,readerHref,children}:{
  news:readonly NewsBriefV1[];archiveEntries?:readonly ArchiveNewsItem[];archiveAvailable?:boolean;
  hotPicks:NewsroomHotPicks;editorials?:readonly NewsroomEditorialItem[];
@@ -59,7 +60,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
  now:string;readerHref:string;children?:ReactNode;
 }){
  const [topic,setTopic]=useState<NewsroomCategory>(()=>
-  initialCategory==="hot"||EDITORIAL_TOPICS.some(t=>t.id===initialCategory)?
+  initialCategory==="hot"||initialCategory==="chart-watch"||EDITORIAL_TOPICS.some(t=>t.id===initialCategory)?
     initialCategory as NewsroomCategory:"all");
  const [query,setQuery]=useState(initialQuery.slice(0,100));
  const [currentPage,setCurrentPage]=useState(normaliseReaderPage(initialPage,10000));
@@ -90,7 +91,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
   function restore(){
    const url=new URL(window.location.href);
    const requested=url.searchParams.get("category");
-   setTopic(requested==="hot"||EDITORIAL_TOPICS.some(t=>t.id===requested)?requested as NewsroomCategory:"all");
+   setTopic(requested==="hot"||requested==="chart-watch"||EDITORIAL_TOPICS.some(t=>t.id===requested)?requested as NewsroomCategory:"all");
    setQuery((url.searchParams.get("q")||"").slice(0,100));
    setCurrentPage(normaliseReaderPage(url.searchParams.get("page"),10000));
   }
@@ -101,6 +102,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
  const [feedback,setFeedback]=useState("");
  const researched=researchItems.filter(item=>{
    if(topic==="hot")return false; // Never relabel research as verified Hot Picks.
+    if(topic==="chart-watch")return false; // Never relabel private research as public Chart Watch.
    const topicMatch=topic==="all"||
      ((topic==="energy")&&item.navigationTags.includes("energy"))||
      ((topic==="policy"||topic==="bonds")&&item.navigationTags.includes("rates"))||
@@ -111,13 +113,16 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
  const editorialSources=new Set(editorials.map(item=>item.sourceUrl));
  const archiveOnly=archiveEntries.filter(a=>!editorialSources.has(a.sourceUrl));
  const newsOnly=news.filter(n=>!archiveEntries.some(a=>a.sourceUrl===n.sourceUrl)&&!editorialSources.has(n.sourceUrl));
- const editorialVisible=editorials.filter(item=>(topic==="hot"?hotPicks.keys.includes("editorial:"+item.id):
+ const editorialVisible=editorials.filter(item=>(topic==="chart-watch"?isPublishedChartWatch(item):
+     topic==="hot"?hotPicks.keys.includes("editorial:"+item.id):
     topic==="all"||item.topics.includes(topic))&&
   (item.headline+" "+item.summary+" "+item.sourceName+" "+item.why).toLowerCase().includes(query.trim().toLowerCase()));
- const visible=newsOnly.filter(item=>(topic==="hot"?hotPicks.keys.includes("news:"+item.id):
+ const visible=newsOnly.filter(item=>(topic==="chart-watch"?false:
+     topic==="hot"?hotPicks.keys.includes("news:"+item.id):
     topic==="all"||editorialNewsTopics(item).includes(topic))&&
   (item.headline+" "+item.summary+" "+item.sourceName).toLowerCase().includes(query.trim().toLowerCase()));
- const archiveVisible=archiveOnly.filter(item=>(topic==="hot"?hotPicks.keys.includes("archive:"+item.id):
+ const archiveVisible=archiveOnly.filter(item=>(topic==="chart-watch"?false:
+     topic==="hot"?hotPicks.keys.includes("archive:"+item.id):
     topic==="all"||archiveTopics(item).includes(topic))&&
   publicArchiveSearchIndex(item).includes(query.trim().toLowerCase()));
  const visibleCards=[
@@ -157,6 +162,9 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
    <button type="button" data-newsroom-hot-picks-button="orange" aria-pressed={topic==="hot"}
     className={topic==="hot"?styles.hotSelected:styles.hotButton}
     onClick={()=>selectTopic("hot",true)}>Hot Picks <small>{hotPicks.keys.length}</small></button>
+    <button type="button" data-newsroom-chart-watch-filter="approved-only" aria-pressed={topic==="chart-watch"}
+     className={topic==="chart-watch"?styles.selected:styles.filter}
+     onClick={()=>selectTopic("chart-watch",true)}>Chart Watch <small>{publishedChartWatchCount(editorials)}</small></button>
    {EDITORIAL_TOPICS.map(t=>{const count=t.id==="all"?newsOnly.length+archiveOnly.length+editorials.length:
      newsOnly.filter(n=>editorialNewsTopics(n).includes(t.id)).length+
      archiveOnly.filter(a=>archiveTopics(a).includes(t.id)).length+
@@ -165,7 +173,11 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
      onClick={()=>selectTopic(t.id)}>{t.label} <small>{count}</small></button>})}
   </div>
   <div className={styles.columns}><section className={styles.feed} aria-live="polite" id="newsroom-results">
-    {topic==="hot"?<p className={styles.hotIntro} data-hot-picks-day={hotPicks.etDay}>
+    {topic==="chart-watch"?<p className={styles.hotIntro} data-chart-watch-series="published-only">
+       Chart-led market analysis, admitted only after an original-source review, a dated quantitative chart and public-use clearance.
+       {publishedChartWatchCount(editorials)===0?" No reviewed Chart Watch articles are published yet; private research candidates are not shown.":""}
+     </p>:null}
+     {topic==="hot"?<p className={styles.hotIntro} data-hot-picks-day={hotPicks.etDay}>
       Top released stories for {hotPicks.etDay} (US Eastern). Re-ranked daily by materiality, recency and topic diversity.
       {hotPicks.keys.length<3?" Fewer than three source-qualified stories currently available; no upcoming events are used to pad the list.":""}
     </p>:null}
@@ -175,7 +187,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
         totalItems={paginated.totalItems} firstItem={paginated.firstItem} lastItem={paginated.lastItem}
         onPageChange={changePage}/>
     </div>
-    {!archiveAvailable?<p className={styles.empty} data-newsroom-archive-unavailable>Previously reviewed archive temporarily unavailable; current source-verified wire remains accessible.</p>:null}
+    {topic!=="chart-watch"&&!archiveAvailable?<p className={styles.empty} data-newsroom-archive-unavailable>Previously reviewed archive temporarily unavailable; current source-verified wire remains accessible.</p>:null}
     {paginated.items.map(card=>card.kind==="archive"?<article key={"archive:"+card.item.id} className={styles.item} data-newsroom-archived-reader={card.item.id}>
       <div className={styles.art}><EditorialStoryArt headline={card.item.headline} compact/></div>
       <div className={styles.content}>
@@ -192,11 +204,27 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
     card.kind==="editorial"?<article key={card.item.id} className={styles.item} data-newsroom-editorial-article={card.item.id}>
       <div className={styles.art}><EditorialStoryArt headline={card.item.headline} summary={card.item.summary} compact/></div>
       <div className={styles.content}>
-       <span className={styles.chip}>{card.item.verificationLabel}</span>
+       <span className={styles.chip}>{isPublishedChartWatch(card.item)?"CHART WATCH · VERIFIED VISUAL":card.item.verificationLabel}</span>
        <small className={styles.metadata}>{card.item.topics.join(" · ").toUpperCase()} · {clock(card.item.occurredAt)}</small>
        <h2><Link href={card.item.readerHref}>{card.item.headline}</Link></h2>
        <p data-quick-market-brief="source-qualified-summary">{card.item.summary}</p>
        <MarketTakeaway why={card.item.why} nextTest={card.item.nextTest} compact/>
+        {isPublishedChartWatch(card.item)&&card.item.chartWatch?<details className={styles.readMore} data-chart-watch-source-ledger={card.item.id}>
+         <summary>Chart evidence, dates and original source</summary>
+         <div className={styles.detailBody}>
+          <h3>{card.item.chartWatch.visual.title}</h3>
+          <p>{card.item.chartWatch.visual.description}</p>
+          <p>Period: {card.item.chartWatch.visual.period_basis} · Unit: {card.item.chartWatch.visual.unit} · As of: {clock(card.item.chartWatch.visual.as_of_et)}</p>
+          <p>This is a source-dated research comparison, not a live price feed or proof of market causality.</p>
+          <ul>{card.item.chartWatch.visual.sources.map(source=><li key={source.url}>
+           <a href={source.url} target="_blank" rel="noopener noreferrer">{source.publisher} · original quantitative source</a>
+          </li>)}</ul>
+          {card.item.chartWatch.visual.rows.length>0?<div style={{overflowX:"auto"}}><table>
+           <thead><tr>{card.item.chartWatch.visual.columns.map((col,i)=><th key={i} scope="col">{col}</th>)}</tr></thead>
+           <tbody>{card.item.chartWatch.visual.rows.map((row,i)=><tr key={i}>{row.map((cell,j)=><td key={j}>{cell===null?"Not reported":cell}</td>)}</tr>)}</tbody>
+          </table></div>:null}
+         </div>
+        </details>:null}
        <div className={styles.actions}>
         <Link href={card.item.readerHref}>Read the source-reviewed analysis →</Link>
         <a href={card.item.sourceUrl} rel="noopener noreferrer" target="_blank">{card.item.sourceName} · original source ↗</a>

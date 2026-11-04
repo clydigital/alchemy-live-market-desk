@@ -35,6 +35,32 @@ export type VerifiedEarningsScorecard = {
 };
 
 const PRIMARY_RESULTS: readonly VerifiedEarningsScorecard[] = [
+  // Original AMD 3 Nov after-close issuer release and SEC 8-K; editor-reviewed
+  // Chart Watch context is kept outside this canonical scorecard source list.
+  {
+    id:"amd-2026q3",ticker:"AMD",company:"Advanced Micro Devices",
+    fiscalPeriod:"Q3 2026",releaseDay:"2026-11-03",
+    availableNotBefore:"2026-11-04T00:00:00Z",
+    sourceName:"AMD Investor Relations · Q3 2026 original",
+    sourceUrl:"https://newsroom.amd.com/news/amd-reports-third-quarter-2026-earnings/",
+    additionalSourceUrl:"https://www.sec.gov/Archives/edgar/data/2488/000000248826000188/amdq32026earningsslidesf.htm",
+    basis:"US GAAP quarter ended 26 September 2026; issuer-reported continuing-operations free cash flow; issuer original 3 Nov 2026 after US close",
+    headline:"AMD's AI sales soar 97%. Why did cash flow fall 64%?",
+    beatMiss:"No frozen same-basis pre-release analyst consensus independently verified. Growth percentages are issuer year-on-year comparisons, not an earnings beat.",
+    beatSource:"unavailable",
+    metrics:[
+      {name:"Revenue",value:"$13.377bn",comparison:"+45% YoY; Data Centre $8.546bn (+97%)",state:"measured"},
+      {name:"Operating profit / margin",value:"$2.832bn · 21.2% GAAP margin",comparison:"vs $1.270bn · 13.7% a year earlier",state:"measured"},
+      {name:"Free cash flow",value:"$0.554bn · Q3",comparison:"vs $1.530bn Q3 2025 · approximately −64%",state:"measured",
+       note:"Company continuing-operations definition: Q3 2025 continuing CFO $1.788bn less PP&E $0.258bn = $1.530bn; total CFO includes discontinued operations. Q3 2026 CFO $1.202bn less PP&E $0.648bn = $0.554bn."},
+      {name:"Capital expenditure",value:"$0.648bn · Q3",comparison:"vs $0.258bn Q3 2025 · +151%",state:"measured",
+       note:"Cash purchases of property and equipment as reported by AMD; inventory and contract payments are distinct."},
+    ],
+    outlook:"Data Centre revenue nearly doubled. Management guided Q4 revenue to ~$17bn ±3%, with ~55% non-GAAP gross margin versus 56% in Q3; this is company guidance, not consensus.",
+    conclusion:"Data Centre supplied $4.205bn of the group's $4.131bn year-on-year revenue growth (~102%), while free cash flow declined. A strong AI order book is not yet equivalent to steady cash conversion.",
+    nextTest:"Compare Q4 Data Centre revenue and actual shipments with operating cash flow, capex, inventory changes and non-GAAP margin. Do not infer a completed next-day share-price response.",
+    preliminary:false,
+  },
   // 2 Nov 2026 US after-close original issuer results. Pre-release
   // analyst consensus and same-basis surprise remain unverified in this desk.
   {
@@ -211,4 +237,15 @@ export function getRecentVerifiedEarningsScorecards(now=new Date(),lookbackDays=
     const notBefore=record.availableNotBefore ? Date.parse(record.availableNotBefore) : releasedAt;
     return Number.isFinite(releasedAt)&&Number.isFinite(notBefore)&&nowMs>=notBefore&&age>=0&&age<=lookbackDays*86400000;
   }).sort((a,b)=>b.releaseDay.localeCompare(a.releaseDay));
+}
+
+/** Exact pre-reviewed Chart Watch edition preserved after the rolling seven-
+ * day Newsroom window, with its original issuer source and period unchanged.
+ * This is not a live results feed or generic historical publication bypass.
+ */
+export function getImmutableChartWatchEarningsEdition(now=new Date()):VerifiedEarningsScorecard|null{
+ const record=PRIMARY_RESULTS.find(item=>item.id==="amd-2026q3")||null;
+ if(!record||!Number.isFinite(now.getTime()))return null;
+ const notBefore=Date.parse(record.availableNotBefore||record.releaseDay+"T00:00:00Z");
+ return Number.isFinite(notBefore)&&now.getTime()>=notBefore?record:null;
 }

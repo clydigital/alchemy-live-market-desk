@@ -1,4 +1,5 @@
 import type {EditorialTopicId} from "./bluebelly-editorial-architecture.ts";
+import type {VisualPayload} from "./bluebelly-visual-evidence.ts";
 import type {BankDecisionSnapshot} from "./bluebelly-bank-decision-snapshots.ts";
 import type {ReportedEditorial} from "./bluebelly-reported-editorial.ts";
 import type {PostEventRecap} from "./bluebelly-post-event-recap.ts";
@@ -11,6 +12,8 @@ export type NewsroomEditorialItem={
  sourceName:string;sourceUrl:string;readerHref:string;
  topics:readonly EditorialTopicId[];verificationLabel:string;
  why:string;nextTest:string;kind:"incident"|"reported"|"bank"|"macro"|"earnings";
+ /** Explicit post-review series marker; never infer from headlines, tags or assets. */
+ chartWatch?:{reviewReceiptId:string;publicChartRights:true;visual:VisualPayload};
 };
 export function projectNewsroomEditorial(
  banks:readonly BankDecisionSnapshot[],reports:readonly ReportedEditorial[],

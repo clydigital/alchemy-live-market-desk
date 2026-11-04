@@ -8,7 +8,8 @@ test("reported SK hynix and TSMC results are date-qualified and do not appear ah
  assert.deepEqual(mid.map(x=>x.id),["tsmc-2026q3"]);
  const now=getRecentVerifiedEarningsScorecards(new Date("2026-10-28T13:00:00Z"));
  assert.deepEqual(now.map(x=>x.id),["sk-hynix-2026q3","tsmc-2026q3"]);
- assert.deepEqual(getRecentVerifiedEarningsScorecards(new Date("2026-12-02T11:00:00Z")),[]);
+ assert.deepEqual(getRecentVerifiedEarningsScorecards(new Date("2026-12-02T11:00:00Z")).map(x=>x.id),["amd-2026q3"]);
+ assert.deepEqual(getRecentVerifiedEarningsScorecards(new Date("2027-01-05T11:00:00Z")),[]);
 });
 
 test("beat/miss comparison never relabels company guidance as analyst consensus",()=>{
