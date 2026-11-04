@@ -27,7 +27,7 @@ export const DESK_EDITORIAL_UPDATES:readonly DeskEditorialUpdate[]=[
   why:"Energy supply shocks and resilient local activity can keep some central banks restrictive even when US Treasury yields fall on political-growth worries. The Swedish decision cannot be called a market surprise without a frozen consensus.",
   nextTest:"Check Sweden's next CPIF and jobs data, krona and Swedish 2-year yield reaction, plus the 5 November BoE decision. Consensus surprise and matched currency reaction are unverified here.",
   sourceName:"Sveriges Riksbank · 4 Nov decision",sourceUrl:"https://www.riksbank.se/en-gb/press-and-published/notices-and-press-releases/press-releases/2026/policy-rate-raised-to-2-per-cent/",
-  sourceDay:"2026-11-04",readerHref:"/key-stories?feature=market-desk-4-nov-2026#riksbank",
+  sourceDay:"2026-11-04",readerHref:"/key-stories?postEvent=riksbank-2026-11-04",
   initialPublishedOn:"2026-11-04",topics:["policy","bonds","fx"],
  },
  {
