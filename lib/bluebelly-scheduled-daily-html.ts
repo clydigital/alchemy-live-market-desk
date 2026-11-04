@@ -2,7 +2,8 @@ import type {AutomatedReportNarrative,AutomaticReportEvidence,ReportSource}
  from "./blue-desk-automated-report-contract.ts";
 import {parseExistingHtmlEdition} from "./bluebelly-html-archive-import-contract.ts";
 import {renderPrivateMarketTable,renderPrivateScenarioTable,
- renderPrivateUpcomingTable,renderPrivateEvidenceTable} from "./bluebelly-daily-intelligence-tables.ts";
+ renderPrivateUpcomingTable,renderPrivateEvidenceTable,
+ renderPrivateExpectationsTable} from "./bluebelly-daily-intelligence-tables.ts";
 
 const esc=(value:string)=>value.replace(/&/g,"&amp;").replace(/</g,"&lt;")
  .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
@@ -100,7 +101,10 @@ export function renderScheduledDailyHtml(input:{
     +"<p class=\"sources\">"+originalLink(s)+" · As-of "+date(s.eventAt)+"</p>");
   }
  }
- if(future.length)body+=renderPrivateUpcomingTable(evidence,report);
+ if(future.length){
+  body+=renderPrivateExpectationsTable(evidence);
+  body+=renderPrivateUpcomingTable(evidence,report);
+ }
  body+=section("Original-source ledger",
   "<p>These links were admitted by existing source-qualified research adapters. Their presence is not independent rechecking by this renderer; quotations, forecasts and explanatory mechanisms need their own review.</p><ol>"+
   evidence.sources.slice(0,20).map(sourceRow).join("")+"</ol>");
