@@ -67,14 +67,7 @@ export function publicReadingHeadline(
     if(deposit)return `ECB holds deposit rate at ${deposit[1]}`;
   }
 
-  // Safe structural fallback for multi-sentence notices: preserve an intact
-  // source sentence rather than slicing a clause or introducing a new claim.
-  // Never discard a qualification in a single-sentence headline.
-  if(original.length>145){
-    const first=original.match(/^(.{35,130}?[.!?])\s+[A-Z]/);
-    if(first && !/^released |^scheduled |^according to /i.test(first[1]) &&
-      !/\b(?:not verified|unavailable|not yet established)\b/i.test(first[1]))
-      return first[1];
-  }
+  // Unknown or contradictory source text stays verbatim. A generic
+  // first-sentence or character-limit cutoff could drop a later qualification.
   return original;
 }
