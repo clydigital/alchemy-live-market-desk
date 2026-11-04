@@ -18,7 +18,8 @@ export type PublicResearchEdition = {
   summary: string;
   href: string;
   category: PublicResearchCategory;
-  asOf: string; // Fixed research date, never derived from request or deploy time
+  asOf: string; // Fixed original research date, never derived from request or deploy time
+  editorialUpdatedAt?:string; // Distinct authenticated/editorial release receipt, not source retrieval
   type: "Manual investigation" | "Dated editorial analysis";
   context: string;
   keywords: readonly string[];
@@ -26,12 +27,20 @@ export type PublicResearchEdition = {
 
 const INDEX: readonly PublicResearchEdition[] = [
   {
+    id:"market-desk-4-nov",title:"The Midterm Shock Faded. Why Are Bonds, AI and Central Banks Disagreeing?",
+    summary:"4 November source-led post-election reversal, AMD cash conversion, the Riksbank hike and tomorrow’s BoE/BNM policy tests.",
+    href:"/key-stories?feature=market-desk-4-nov-2026",category:"Markets & Policy",
+    asOf:"2026-11-04",type:"Dated editorial analysis",
+    context:"4 November market observations and primary releases; not a live price tape",
+    keywords:["democrats","midterms","blue wave","riksbank","sweden","amd","earnings","dollar","bonds","treasury","ai","bnm","boe"],
+  },
+  {
     id:"midterm-seasonality",
     title:"Stocks Always Rose After Midterms. What Could Break the Streak?",
-    summary:"Historical market performance, conditional congressional-control scenarios, and the risks facing AI, energy and credit.",
+    summary:"Historical midterm performance with a separately dated 4 November post-election update on AI regulation fears, dollar weakness and the market rebound.",
     href:"/key-stories?feature=midterms-seasonality-2026",
     category:"Markets & Policy",asOf:"2026-11-02",type:"Dated editorial analysis",
-    context:"Pre-election research; not a 2026 election result",
+    context:"Original analysis frozen 2 November; new results and reaction added in a separate 4 November section",editorialUpdatedAt:"2026-11-04T09:58:00Z",
     keywords:["midterms","congress","sectors","elections","breadth","spy","qqq"],
   },
   {
