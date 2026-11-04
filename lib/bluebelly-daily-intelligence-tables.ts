@@ -89,3 +89,18 @@ export function renderPrivateEvidenceTable(evidence:AutomaticReportEvidence):str
   "Source attribution is not proof of an event-caused price move. Research gaps and missing consensus remain open.",
   ["Evidence state","What was reported","Event or observation time","Original source"],rows);
 }
+
+/** Calendar comparison is research preparation, not a verified actual or a
+ * genuinely frozen analyst survey. Never convert this into a surprise score. */
+export function renderPrivateExpectationsTable(evidence:AutomaticReportEvidence):string{
+ const rows=evidence.sources.filter(s=>s.type==="CALENDAR").slice(0,6).map(s=>{
+  const c=s.calendarComparison;
+  return [escape(s.title,170),escape(c?.previous||"Not verified",90),
+   escape(c?.consensus||"Not verified",90),"Pending",
+   escape(c?.snapshotAt?time(c.snapshotAt):"Snapshot time unavailable"),
+   link(s)];
+ });
+ return table("economic-expectations","Previous, expected, actual — what is known",
+  "Previous and consensus are calendar-supplied figures only; the pre-release poll provider and freeze time are not independently established here. The linked event schedule does not verify consensus. Actuals remain pending for upcoming releases.",
+  ["Upcoming event","Previous (calendar)","Consensus (calendar)","Actual","Packet snapshot","Event source"],rows);
+}
