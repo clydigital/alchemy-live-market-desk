@@ -200,6 +200,7 @@ export default async function BlueDeskCalendarPage({
         <IssuerEarningsBoard now={now} host={host}/>
 
         <CatalystCalendar items={catalysts} sourceCoverage={sourceCoverage} nowISO={now.toISOString()} />
+        <RecentEarningsScorecards records={recentEarningsResults} />
 
 
         <section className={styles.secondaryPanel} aria-label="Original pre-earnings research edition"><p className={styles.kicker}>HISTORICAL PRE-RESULTS RESEARCH · FROZEN 2 NOVEMBER 2026</p><h2>Original 2–6 November earnings investigation</h2><p>Read the earlier issuer guidance, business models and investor objections in their original pre-results context. Use the source-reviewed board above for subsequent released results and changed reporting schedules.</p><p><Link href={blueDeskPublicHref("/blue-desk/earnings-week",host)} className={styles.textLink}>Read the full weekly earnings preview →</Link></p></section>
@@ -208,7 +209,7 @@ export default async function BlueDeskCalendarPage({
           <summary style={{ cursor: "pointer", color: "#bce8f5", fontWeight: 750 }}>
             Detailed legacy economic and earnings source listings · open for full records
           </summary>
-        <RecentEarningsScorecards records={recentEarningsResults} />
+
         <nav className={styles.calendarTabs} aria-label="Calendar window">
           {WINDOWS.map(view => (
             <Link
