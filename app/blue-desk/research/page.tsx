@@ -1,3 +1,4 @@
+import CurrentMarketUpdates from "@/components/blue-desk/CurrentMarketUpdates";
 import Link from "next/link";
 import ReaderPagination from "@/components/blue-desk/ReaderPagination";
 import {paginateReaderItems} from "@/lib/bluebelly-reader-pagination";
@@ -58,6 +59,7 @@ export default async function PublicResearchPage({
        </div>
      </header>
 
+     <CurrentMarketUpdates host={host} mode="compact"/>
      <section className={ui.controls} aria-label="Find research">
        <form className={ui.search} action={href} method="get" role="search">
          <label htmlFor="public-research-search">Search investigations</label>
