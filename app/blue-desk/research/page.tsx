@@ -1,6 +1,7 @@
 import CurrentMarketUpdates from "@/components/blue-desk/CurrentMarketUpdates";
 import Link from "next/link";
 import ReaderPagination from "@/components/blue-desk/ReaderPagination";
+import {EditorialUpdatedToday} from "@/components/blue-desk/CurrentMarketUpdates";
 import {paginateReaderItems} from "@/lib/bluebelly-reader-pagination";
 import {headers} from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
@@ -84,7 +85,7 @@ export default async function PublicResearchPage({
      </div>
      {results.length?<div className={ui.grid}>
        {page.items.map(item=><article className={ui.card} key={item.id} data-research-edition={item.id}>
-          <p className={ui.cardTop}>{item.category}<span>{item.type}</span></p>
+          <p className={ui.cardTop}>{item.category}<span>{item.type}</span><EditorialUpdatedToday initialPublishedOn={item.asOf} editorialUpdatedAt={item.editorialUpdatedAt} now={new Date()}/></p>
           <h3><Link href={blueDeskPublicHref("/blue-desk"+item.href,host)}>{item.title}</Link></h3>
           <p className={ui.summary}>{item.summary}</p>
           <p className={ui.context}>{item.context}</p>
