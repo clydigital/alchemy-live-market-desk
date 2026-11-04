@@ -50,11 +50,18 @@ export default function BlueDeskLearnExplorer({concepts}:{concepts:LearnConcept[
   const [visibleCount,setVisibleCount] = useState(18);
 
   useEffect(()=>{
-    const key=decodeURIComponent(window.location.hash.slice(1));
-    if(!key || !concepts.some((item)=>item.key===key)) return;
-    setSelectedKey(key);
-    const position=concepts.findIndex((item)=>item.key===key);
-    if(position>=18) setVisibleCount(Math.max(18,position+1));
+    const selectFromHash=()=>{
+      const key=decodeURIComponent(window.location.hash.slice(1));
+      const position=concepts.findIndex((item)=>item.key===key);
+      if(position<0) return;
+      setQuery("");
+      setCategory("all");
+      setSelectedKey(key);
+      setVisibleCount(Math.max(18,position+1));
+    };
+    selectFromHash();
+    window.addEventListener("hashchange",selectFromHash);
+    return ()=>window.removeEventListener("hashchange",selectFromHash);
   },[concepts]);
 
   const filtered=useMemo(()=>{
@@ -144,6 +151,12 @@ export default function BlueDeskLearnExplorer({concepts}:{concepts:LearnConcept[
               <span className={ui.focusLabel}>WHAT TO CHECK ON THE MARKET</span>
               <p>{formatWatch(selected)}</p>
             </div>
+            {selected.source && <div className={ui.focusBlock}>
+              <span className={ui.focusLabel}>SOURCE / READ THE ORIGINAL</span>
+              <a className={ui.termSourceLink} href={selected.source.url} target="_blank" rel="noopener noreferrer">
+                {selected.source.label} <span aria-hidden="true">↗</span>
+              </a>
+            </div>}
             {selected.regimes.length>0 && <div className={ui.relatedLabels}>
               {selected.regimes.map((r)=><span key={r.slug}>{r.label}</span>)}
             </div>}
