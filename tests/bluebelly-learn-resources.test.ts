@@ -24,9 +24,9 @@ test("public Learn links 13 publisher resources across all three tracks",()=>{
 
 test("new financial and behavioural concepts are original, grounded and linked",()=>{
   const sourced=LEARN_GLOSSARY_ADDITIONS.filter((term)=>term.source);
-  assert.equal(sourced.length,26);
+  assert.equal(sourced.length,28);
   const all=assembleLearnGlossary(listConcepts());
-  assert.equal(all.length,132);
+  assert.equal(all.length,134);
   for(const term of sourced){
     assert.ok(term.example && term.whyItMatters && term.watch.length);
     assert.match(term.source?.url||"",/^https:\/\//);
