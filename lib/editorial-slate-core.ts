@@ -5,6 +5,10 @@
 export type SlateIdea = {
   rank:1|2|3;
   ideaId?:string;
+  /** Exact private Daily Intelligence receipt supplied by Writing Brain. */
+  parentReportId?:string;
+  parentReportSha256?:string;
+  reportSessionET?:string;
   title:string;
   format:"COTD"|"OB"|"BOTH";
   hook:string;
@@ -47,6 +51,9 @@ export function parseEditorialSlate(row:Row|null,nowIso:string):EditorialSlate|n
     return {
       rank:(i+1) as 1|2|3,
       ideaId:bounded(r.ideaId,180)||undefined,
+      parentReportId:bounded(r.parentReportId,90)||undefined,
+      parentReportSha256:bounded(r.parentReportSha256,64)||undefined,
+      reportSessionET:bounded(r.reportSessionET,10)||undefined,
       title:bounded(r.title,180),format,hook:bounded(r.hook),
       catalystTimeline:bounded(r.catalystTimeline,3500),
       expectation:bounded(r.expectation,1500),
