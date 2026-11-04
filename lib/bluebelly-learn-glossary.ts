@@ -1,4 +1,5 @@
 import type { CanonicalConcept } from "./concepts.ts";
+import { BLUEBELLY_LEARN_RESOURCES } from "./bluebelly-learn-resources.ts";
 
 // Editorially curated public educational definitions, separate from the 28
 // research-governed Regime concepts. No publication or Dossier authority.
@@ -7,6 +8,7 @@ export type LearnConcept = Pick<CanonicalConcept,"key"|"label"|"definition"|"why
   topic: LearnTopic | "regime";
   example?: string;
   explanation?: string;
+  source?: { label: string; url: string };
 };
 
 type LessonRow = readonly [string,string,LearnTopic,string,string,string,string[]];
@@ -1029,6 +1031,349 @@ const FINANCIAL_LITERACY_LESSONS: LessonRow[] = [
   ]
 ];
 
+// Source-derived terminology from MIT lecture PDFs, CFA research PDFs and the
+// linked investor/trading education. Short definitions are original paraphrases.
+const SOURCE_DERIVED_LESSONS: LessonRow[] = [
+  [
+    "current-ratio",
+    "Current ratio",
+    "companies",
+    "Current assets divided by current liabilities.",
+    "A quick screen for whether near-term assets cover payments due within a year; it does not prove cash is readily available.",
+    "$6m in current assets against $3m of current liabilities produces a 2.0× current ratio.",
+    [
+      "cash balance",
+      "inventory quality",
+      "short-term liabilities"
+    ]
+  ],
+  [
+    "quick-ratio",
+    "Quick ratio",
+    "companies",
+    "A liquidity ratio that removes inventory from current assets before dividing by current liabilities.",
+    "Inventory may take time to sell, so the quick ratio is a stricter check than the current ratio.",
+    "($6m current assets − $2m inventory) / $3m current liabilities = 1.33×.",
+    [
+      "cash and receivables",
+      "inventory",
+      "near-term debt"
+    ]
+  ],
+  [
+    "days-sales-outstanding",
+    "Days sales outstanding (DSO)",
+    "companies",
+    "An estimate of how long customers take to pay for sales recorded as revenue.",
+    "Fast revenue growth can still leave a company short of cash when collections slow.",
+    "$30m receivables divided by $1m average daily credit sales gives about 30 days.",
+    [
+      "receivables",
+      "credit sales",
+      "prior-period DSO"
+    ]
+  ],
+  [
+    "inventory-turnover",
+    "Inventory turnover",
+    "companies",
+    "Cost of goods sold divided by average inventory held during the period.",
+    "Weak turnover may signal unsold products or cash tied up on shelves.",
+    "$40m cost of goods sold divided by $10m average inventory gives 4× annual turnover.",
+    [
+      "inventory trend",
+      "gross margin",
+      "industry peers"
+    ]
+  ],
+  [
+    "gross-margin",
+    "Gross margin",
+    "companies",
+    "Revenue less cost of goods sold, divided by revenue; shown as a percentage.",
+    "A company can grow sales quickly but generate little money to pay its operating expenses if gross margin is thin.",
+    "$100m revenue less $65m direct costs leaves a 35% gross margin.",
+    [
+      "cost of revenue",
+      "pricing",
+      "peer gross margin"
+    ]
+  ],
+  [
+    "return-on-assets",
+    "Return on assets (ROA)",
+    "companies",
+    "A profitability measure comparing net income with the assets used, preferably average assets over the period.",
+    "It checks how effectively an asset-heavy business converts its resources into profit.",
+    "$8m annual net income divided by $200m average total assets gives 4% ROA.",
+    [
+      "asset intensity",
+      "peer ROA",
+      "one-off income"
+    ]
+  ],
+  [
+    "return-on-equity",
+    "Return on equity (ROE)",
+    "companies",
+    "Net income attributable to common owners divided by average common shareholders' equity.",
+    "A high ROE can signal good economics, but heavy leverage can also inflate it.",
+    "$12m annual profit on $100m average common equity gives 12% ROE.",
+    [
+      "debt-to-equity",
+      "share buybacks",
+      "return on assets"
+    ]
+  ],
+  [
+    "interest-coverage",
+    "Interest coverage (times interest earned)",
+    "companies",
+    "Operating earnings before interest and taxes (EBIT) divided by interest expense.",
+    "A company may be profitable but financially vulnerable if its operating profit barely covers borrowing costs.",
+    "$20m EBIT divided by $5m interest expense gives 4× interest coverage.",
+    [
+      "EBIT quality",
+      "floating-rate debt",
+      "interest expense"
+    ]
+  ],
+  [
+    "debt-service-coverage",
+    "Debt service coverage ratio (DSCR)",
+    "companies",
+    "Cash flow available for scheduled debt payments divided by required principal plus interest payments, using clearly matched periods.",
+    "Lenders use it to judge whether a borrower can meet its actual payment schedule rather than merely report accounting profit.",
+    "$13m cash available for debt service against $10m required payments gives a 1.3× DSCR.",
+    [
+      "cash flow definition",
+      "principal maturities",
+      "loan covenant"
+    ]
+  ],
+  [
+    "debt-to-equity",
+    "Debt-to-equity ratio",
+    "companies",
+    "A leverage ratio comparing debt with shareholders' equity; some definitions include all liabilities, so check the calculation.",
+    "Two businesses with similar profits can face very different refinancing risk.",
+    "$60m interest-bearing debt divided by $40m equity gives 1.5× on a debt-only basis.",
+    [
+      "definition used",
+      "debt maturities",
+      "equity book value"
+    ]
+  ],
+  [
+    "common-size-financial-statement",
+    "Common-size financial statement",
+    "companies",
+    "An income statement expressed as percentages of revenue or a balance sheet expressed as percentages of total assets.",
+    "It makes trends and companies of different sizes easier to compare.",
+    "A $15m operating profit on $100m revenue shows 15% of sales on a common-size income statement.",
+    [
+      "margin changes",
+      "peer mix",
+      "accounting consistency"
+    ]
+  ],
+  [
+    "sensitivity-analysis",
+    "Sensitivity analysis",
+    "companies",
+    "Recalculating an outcome while changing one or more key assumptions.",
+    "A valuation or debt plan can look attractive only because one optimistic forecast was chosen.",
+    "Test cash flow if sales grow 2%, 5% or 8% rather than assuming 8% is certain.",
+    [
+      "growth assumptions",
+      "margins",
+      "financing costs"
+    ]
+  ],
+  [
+    "dividend-discount-model",
+    "Dividend discount model (DDM)",
+    "companies",
+    "A way to estimate a share's value from the present value of its expected future dividends.",
+    "It connects the price paid for a stock to actual shareholder distributions, but struggles with firms that do not pay dividends.",
+    "A stock expected to pay $4 annually may be worth different amounts depending on growth and the required return.",
+    [
+      "dividend durability",
+      "growth rate",
+      "required return"
+    ]
+  ],
+  [
+    "gordon-growth-model",
+    "Gordon growth model",
+    "companies",
+    "A dividend valuation model assuming dividends grow at a constant long-run rate below the required return.",
+    "A small change in the assumed growth rate can radically change the value.",
+    "If next year's dividend is $3, required return 9% and growth 3%, estimated value is $3 / (9% − 3%) = $50.",
+    [
+      "dividend estimate",
+      "required return",
+      "long-run growth"
+    ]
+  ],
+  [
+    "discounted-cash-flow",
+    "Discounted cash flow (DCF)",
+    "companies",
+    "Valuation based on estimated future cash flows translated into today's money using a discount rate.",
+    "It asks how much a business is worth based on future economics instead of peer popularity.",
+    "$110 expected next year has a present value of $100 at a 10% discount rate for one year.",
+    [
+      "cash flow assumptions",
+      "discount rate",
+      "terminal value"
+    ]
+  ],
+  [
+    "terminal-value",
+    "Terminal value",
+    "companies",
+    "The estimated value of cash flows beyond the explicit forecast window in a DCF model.",
+    "Long-range assumptions may account for much of an equity valuation, so they need stress tests.",
+    "A five-year DCF still needs an assumption for cash generation after year five.",
+    [
+      "perpetual growth",
+      "exit multiple",
+      "DCF share of value"
+    ]
+  ],
+  [
+    "anchoring-bias",
+    "Anchoring bias",
+    "trading",
+    "Relying too heavily on an initial price or reference point and adjusting insufficiently when new evidence arrives.",
+    "Traders can stay attached to a prior high or entry price instead of revisiting the thesis.",
+    "A stock fell from $100 to $55; calling $55 'cheap' solely because $100 was the old high is anchoring.",
+    [
+      "current fundamentals",
+      "entry-price fixation",
+      "fresh valuation"
+    ]
+  ],
+  [
+    "loss-aversion",
+    "Loss aversion",
+    "trading",
+    "A tendency to experience a potential loss as more painful than a comparable gain feels rewarding; strength varies by person and context.",
+    "It can encourage traders to hold losers too long or cut winners before their rules say so.",
+    "A trader declines a well-sized trade because the possibility of losing $100 overwhelms the attraction of earning $200.",
+    [
+      "rule compliance",
+      "risk budget",
+      "loss distribution"
+    ]
+  ],
+  [
+    "confirmation-bias",
+    "Confirmation bias",
+    "trading",
+    "Looking for evidence that supports an existing view while discounting disconfirming facts.",
+    "It makes bad positions feel safer because only friendly charts or headlines are considered.",
+    "A bullish trader reads positive earnings tweets but ignores weakening cash flow.",
+    [
+      "contrary evidence",
+      "invalidation criteria",
+      "source balance"
+    ]
+  ],
+  [
+    "recency-bias",
+    "Recency bias",
+    "trading",
+    "Putting disproportionate weight on the latest few outcomes rather than the full evidence sample.",
+    "A winning streak may tempt prop traders to increase size beyond the plan; a losing streak may cause arbitrary strategy changes.",
+    "Four winning trades do not establish a strategy's long-run win rate.",
+    [
+      "sample size",
+      "strategy expectancy",
+      "size changes"
+    ]
+  ],
+  [
+    "overconfidence-bias",
+    "Overconfidence bias",
+    "trading",
+    "Believing forecasts or trading skill are more accurate than the evidence warrants.",
+    "It can lead to larger positions, more trades and weaker respect for stops.",
+    "After a few good sessions, a trader doubles risk without a rule-based reason.",
+    [
+      "position risk",
+      "execution log",
+      "forecast errors"
+    ]
+  ],
+  [
+    "framing-effect",
+    "Framing effect",
+    "trading",
+    "Changing a judgement because the same outcome is described in a different way.",
+    "A '90% success' label can conceal what happens in the remaining 10% or how severe losses are.",
+    "A trading challenge sold as a '$100k account' sounds different from its much smaller permitted loss budget.",
+    [
+      "maximum loss",
+      "rule wording",
+      "actual downside"
+    ]
+  ],
+  [
+    "regret-aversion",
+    "Regret aversion",
+    "trading",
+    "Avoiding a decision or changing behaviour primarily to escape anticipated regret.",
+    "Fear of missing the next rally can produce impulsive entries that violate a trading plan.",
+    "Buying after the setup has passed solely because a previous rally was missed is a regret-driven action.",
+    [
+      "entry checklist",
+      "FOMO triggers",
+      "missed-trade journal"
+    ]
+  ],
+  [
+    "risk-capacity",
+    "Risk capacity",
+    "trading",
+    "The financial ability to absorb a loss without jeopardising essential obligations.",
+    "Someone may be emotionally willing to gamble more than they can afford to lose.",
+    "A challenge fee or daily loss budget that crowds out bills exceeds practical risk capacity.",
+    [
+      "available risk capital",
+      "loss headroom",
+      "fixed commitments"
+    ]
+  ],
+  [
+    "risk-tolerance",
+    "Risk tolerance",
+    "trading",
+    "How much uncertainty and potential loss a person is willing to accept emotionally.",
+    "Willingness to take risk is not the same as having enough capital or permission under a prop firm's rules.",
+    "A trader comfortable with a 5% drawdown still cannot ignore a programme's 3% daily loss cap.",
+    [
+      "stress response",
+      "risk capacity",
+      "firm drawdown rules"
+    ]
+  ],
+  [
+    "trading-plan",
+    "Trading plan",
+    "trading",
+    "Written rules for setup selection, entries, exits, position size and behaviour after wins or losses.",
+    "It turns emotional choices into decisions that can be checked against a process.",
+    "A trader stops after two rule breaches and reviews the session rather than increasing size to recover losses.",
+    [
+      "setup checklist",
+      "trade journal",
+      "risk limits"
+    ]
+  ]
+];
+
 // Longer reader explanations are educational only, not current issuer observations.
 const FINANCIAL_EXPLANATIONS: Record<string,string> = {
   "trailing-twelve-months": "Think of TTM as a moving one-year window. After each new quarter, drop the oldest quarter and add the newest. A single Q3 result covers about three months; TTM covers four quarters. Do not combine quarterly operating cash with TTM investment spending.",
@@ -1067,9 +1412,14 @@ const LEARN_ALIASES: Record<string,string[]> = {
   "free-cash-flow-yield":["fcf yield"],"ev-to-fcf":["ev/fcf"],
 };
 
-export const LEARN_GLOSSARY_ADDITIONS: LearnConcept[] = [...LESSONS,...FINANCIAL_LITERACY_LESSONS].map(
+const SOURCE_DERIVED_KEYS = new Set(SOURCE_DERIVED_LESSONS.map(([key]) => key));
+export const LEARN_GLOSSARY_ADDITIONS: LearnConcept[] = [...LESSONS,...FINANCIAL_LITERACY_LESSONS,...SOURCE_DERIVED_LESSONS].map(
   ([key,label,topic,definition,whyItMatters,example,watch]) => ({
-    key,label,topic,definition,whyItMatters,example,explanation:FINANCIAL_EXPLANATIONS[key],watch,aliases:LEARN_ALIASES[key] || [],regimes:[]
+    key,label,topic,definition,whyItMatters,example,explanation:FINANCIAL_EXPLANATIONS[key],watch,aliases:LEARN_ALIASES[key] || [],regimes:[],
+    source: SOURCE_DERIVED_KEYS.has(key) ? (() => {
+      const resource = BLUEBELLY_LEARN_RESOURCES.find((item) => item.concepts.includes(key));
+      return resource ? { label: resource.publisher + " — " + resource.title, url: resource.url } : undefined;
+    })() : undefined
   })
 );
 
