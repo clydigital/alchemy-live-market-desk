@@ -93,3 +93,23 @@ This draft synthesises an issuer-event lead and a forward-looking analytical fra
 - Independent earnings comparison: https://www.zacks.com/stock/news/3022192/arista-networks-anet-q3-earnings-and-revenues-beat-estimates
 - Call transcript (third-party): https://www.marketbeat.com/earnings/reports/2026-11-3-arista-networks-inc-stock/
 - Timestamped provisional after-hours observation: https://stockanalysis.com/stocks/anet/transcripts/723971-q3-2026/
+
+
+## Verification pass 2 — 5 November 2026: new thesis-moving information
+
+**Official primary source verified again:** Arista's November 3 release reports Q3 revenue $3.6576bn (+58.5% YoY), adjusted EPS $1.20, GAAP EPS $1.22, non-GAAP operating margin 49.1%, Q4 revenue outlook $3.9–4.0bn. https://www.arista.com/en/company/news/press-release/25025-pr-20261103
+
+**New important evidence absent from the initial pilot:** The earnings-call transcript and contemporaneous earnings summaries report management's **2027 revenue outlook of approximately $18.5bn (38–40% growth)**, approximately **$7bn in AI fabrics in 2027**, and more than **100 Etherlink customers**. These are management expectations, not realised results. Source: https://www.marketbeat.com/earnings/reports/2026-11-3-arista-networks-inc-stock/ ; transcript: https://www.fool.com/earnings/call-transcripts/2026/11/04/arista-anet-q3-2026-earnings-call-transcript/ . Editorially this is a more consequential thesis test than the Q3 beat alone: it makes 2027 AI network growth and customer adoption directly measurable.
+
+**Expectations:** Earnings Whispers lists Q3 consensus EPS $1.08 and revenue $3.31bn, versus MarketBeat $3.33bn revenue consensus; the discrepancy shows different vendor estimates and/or snapshots. **Never present a single revenue consensus as universal.** Earnings Whispers also lists a distinct $1.15 whisper EPS and $3.60bn Q4 revenue consensus. https://www.earningswhispers.com/epsdetails/ANET/202609 ; https://www.marketbeat.com/earnings/reports/2026-11-3-arista-networks-inc-stock/ . Historical capture time and universe not established.
+
+**Price observation discrepancy:** MarketBeat lists $169.58 at 3:59pm ET November 3; StockAnalysis lists $169.91 at 4:00pm ET and $191.25 at 5:55pm ET after-hours; Investing.com reports $190.46 in after-hours at its publication. These are **not identical observations**, so use provider/time-specific quotes, not a synthetic single 'ANET rose X%' claim. https://www.marketbeat.com/earnings/reports/2026-11-3-arista-networks-inc-stock/ ; https://stockanalysis.com/stocks/anet/transcripts/723971-q3-2026/ ; https://www.investing.com/news/transcripts/earnings-call-transcript-arista-networks-tops-q3-2026-estimates-shares-jump-93CH-4996815 . A later article reports >7% early regular-session trading November 4; confirm official close separately before final copy.
+
+**Revised headline candidate:** **Arista Sees $7bn in AI Fabrics. Who Pays for the Next Leg?** The $7bn is a reported management forecast for 2027, not a 2026 result. This better expresses the discrepancy between infrastructure suppliers' growth expectations and buyers' cash-flow returns.
+
+**Scenario refinement:**
+- AI-NET-01 strengthening *as a supplier demand hypothesis* based on issuer Q3 actuals and management's 2027 outlook, but **not confirmed** for realised 2027 orders, hyperscaler ROI or equity returns.
+- AI-NET-02 remains WATCHING, not invalidated: supplier optimism does not establish customers' capex/FCF trajectory.
+- AI-BREADTH-01 unchanged: no new matched SPXXAI/SPX/RSP series verified in this pass.
+
+**Publication gate:** Draft is still not canonical evidence ingestion and not a published Bluebelly Story. Confirm transcript against issuer webcast, source any hyperscaler comparison from official filings, validate the November 4 regular-session closing price, run Challenger and editorial approval. Do not conflate a merge of this documentation PR with publication.
