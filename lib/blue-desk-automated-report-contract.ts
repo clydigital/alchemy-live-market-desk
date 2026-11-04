@@ -128,8 +128,11 @@ export function assembleAutomaticReportEvidence(input:{
   const scheduled=Date.parse(row.when);
   if(!Number.isFinite(scheduled)||scheduled<t-12*3600_000||scheduled>t+14*86400_000)continue;
   // Dates for future events can exceed report asOf but must be clearly labelled.
-  if(seen.has(row.sourceUrl))continue;
-  seen.add(row.sourceUrl);
+  // Official calendars often reuse one source URL for several distinct releases.
+  // Deduplicate an EVENT identity, not the shared official schedule page.
+  const calendarKey="calendar:"+row.title.toLowerCase().trim()+"|"+row.when+"|"+row.sourceUrl;
+  if(seen.has(calendarKey))continue;
+  seen.add(calendarKey);
   sources.push({id:"C"+(sources.length+1),type:"CALENDAR",title:row.title,
    detail:row.question,sourceName:row.sourceName,url:row.sourceUrl,eventAt:row.when,
    calendarComparison:{previous:typeof row.previous==="string"&&row.previous.trim()?row.previous.trim():null,
