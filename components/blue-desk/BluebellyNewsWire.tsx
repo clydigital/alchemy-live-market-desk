@@ -6,6 +6,7 @@ import {normaliseReaderPage,paginateReaderItems} from "@/lib/bluebelly-reader-pa
 import type {ReactNode} from "react";
 import PublishedResearchDispatches from "./PublishedResearchDispatches";
 import MarketTakeaway from "./MarketTakeaway";
+import {publicReadingHeadline} from "@/lib/bluebelly-public-headline";
 import type {PublicResearchFocus} from "@/lib/blue-desk-published-research-focus";
 import Link from "next/link";
 import type {NewsBriefV1} from "@/lib/market-brief-news";
@@ -195,7 +196,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
       <div className={styles.content}>
        <span className={styles.chip}>{card.item.verificationLabel}</span>
        <small className={styles.metadata}>{archiveTopics(card.item).join(" · ").toUpperCase()} · {card.item.eventAt?clock(card.item.eventAt):card.item.eventDay+" · date only"}</small>
-       <h2><Link href={card.item.readerHref}>{card.item.headline}</Link></h2>
+       <h2><Link href={card.item.readerHref}>{publicReadingHeadline(card.item.headline,"",card.item.sourceName)}</Link></h2>
        <details className={styles.readMore}><summary>Archive status and context</summary><MarketTakeaway mode="archived" compact/></details>
        <div className={styles.actions}>
         <Link href={card.item.readerHref}>Read Bluebelly's source-reviewed report →</Link>
@@ -209,7 +210,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
        <span className={styles.chip}>{isPublishedChartWatch(card.item)?"CHART WATCH · VERIFIED VISUAL":card.item.verificationLabel}</span>
        {isEditorialUpdatedToday(card.item.initialPublishedOn||"",card.item.editorialUpdatedAt,new Date(now))?<span data-editorial-updated-today="MYT" className={styles.chip}>Updated today · MYT</span>:null}
        <small className={styles.metadata}>{card.item.topics.join(" · ").toUpperCase()} · {clock(card.item.occurredAt)}</small>
-       <h2><Link href={card.item.readerHref}>{card.item.headline}</Link></h2>
+       <h2><Link href={card.item.readerHref}>{publicReadingHeadline(card.item.headline,card.item.summary,card.item.sourceName)}</Link></h2>
        <p data-quick-market-brief="source-qualified-summary">{card.item.summary}</p>
 
         {isPublishedChartWatch(card.item)&&card.item.chartWatch?<details className={styles.readMore} data-chart-watch-source-ledger={card.item.id}>
@@ -247,7 +248,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
       <div className={styles.content}>
        <span className={styles.chip}>{Date.parse(now)-Date.parse(card.item.occurredAt)>48*3600000?"VERIFIED · EARLIER THIS WEEK":"SOURCE VERIFIED · LAST 48H"}</span>
        <small className={styles.metadata}>{editorialNewsTopics(card.item).join(" · ").toUpperCase()} · {clock(card.item.occurredAt)}</small>
-       <h2><Link href={readerHref+"?news="+encodeURIComponent(card.item.id)}>{card.item.headline}</Link></h2>
+       <h2><Link href={readerHref+"?news="+encodeURIComponent(card.item.id)}>{publicReadingHeadline(card.item.headline,card.item.summary,card.item.sourceName)}</Link></h2>
        <p data-quick-market-brief="source-qualified-summary">{card.item.summary}</p>
 
        <div className={styles.actions}>
