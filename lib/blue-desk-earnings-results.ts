@@ -238,3 +238,14 @@ export function getRecentVerifiedEarningsScorecards(now=new Date(),lookbackDays=
     return Number.isFinite(releasedAt)&&Number.isFinite(notBefore)&&nowMs>=notBefore&&age>=0&&age<=lookbackDays*86400000;
   }).sort((a,b)=>b.releaseDay.localeCompare(a.releaseDay));
 }
+
+/** Exact pre-reviewed Chart Watch edition preserved after the rolling seven-
+ * day Newsroom window, with its original issuer source and period unchanged.
+ * This is not a live results feed or generic historical publication bypass.
+ */
+export function getImmutableChartWatchEarningsEdition(now=new Date()):VerifiedEarningsScorecard|null{
+ const record=PRIMARY_RESULTS.find(item=>item.id==="amd-2026q3")||null;
+ if(!record||!Number.isFinite(now.getTime()))return null;
+ const notBefore=Date.parse(record.availableNotBefore||record.releaseDay+"T00:00:00Z");
+ return Number.isFinite(notBefore)&&now.getTime()>=notBefore?record:null;
+}
