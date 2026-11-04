@@ -9,6 +9,7 @@ import type {PostEventRecap} from "./bluebelly-post-event-recap.ts";
  */
 export type NewsroomEditorialItem={
  id:string;headline:string;summary:string;occurredAt:string;
+ initialPublishedOn?:string;editorialUpdatedAt?:string;
  sourceName:string;sourceUrl:string;readerHref:string;
  topics:readonly EditorialTopicId[];verificationLabel:string;
  why:string;nextTest:string;kind:"incident"|"reported"|"bank"|"macro"|"earnings";
