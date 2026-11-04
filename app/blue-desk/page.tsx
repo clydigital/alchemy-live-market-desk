@@ -1,3 +1,4 @@
+import CurrentMarketUpdates from "@/components/blue-desk/CurrentMarketUpdates";
 import DecisionBrief from "@/components/blue-desk/DecisionBrief";
 import PublishedResearchDispatches from "@/components/blue-desk/PublishedResearchDispatches";
 import {projectPublishedResearchFocus} from "@/lib/blue-desk-published-research-focus";
@@ -103,6 +104,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   return (
     <main className={styles.page} data-blue-desk-convergence="phase-1">
       <BlueDeskHeader activePath="/blue-desk" />
+        <CurrentMarketUpdates host={host} mode="full" now={now}/>
       <div className={styles.content}>
         <DecisionBrief news={verifiedNews} recentNews={recentNews} calendar={calendar} now={now} host={host}
           postEventRecaps={postEventRecaps} storyPage={storyPage}/>
