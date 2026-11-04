@@ -66,7 +66,8 @@ async function renderChrome(url,filename,width,height,{disableJavascript=false}=
   "--disable-extensions","--disable-background-networking",
   "--user-data-dir="+profile,
   "--hide-scrollbars","--no-first-run","--no-default-browser-check",
-  "--window-size="+width+","+height,"--virtual-time-budget=4500",
+  "--window-size="+width+","+height,
+  ...(disableJavascript?[]:["--virtual-time-budget=4500"]),
   // Server-rendered public reading can include large external embeds. Capture
   // static layout without executing third-party scripts where appropriate.
   ...(disableJavascript?["--disable-javascript"]:[]),
