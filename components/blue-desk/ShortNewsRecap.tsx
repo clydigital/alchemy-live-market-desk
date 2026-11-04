@@ -8,6 +8,7 @@ import type {VerifiedEarningsScorecard} from "@/lib/blue-desk-earnings-results";
 import {getDatedEarningsReaction} from "@/lib/bluebelly-earnings-reaction";
 import {projectLivingMarketTopics} from "@/lib/blue-desk-living-topics";
 import {decisionTopics} from "@/lib/bluebelly-decision-brief";
+import {publicReadingHeadline} from "@/lib/bluebelly-public-headline";
 import ui from "./ShortNewsRecap.module.css";
 import type {StoryCoverageStatus} from "@/lib/bluebelly-key-story-depth";
 import {consequenceForSourceOnlyNews,consequenceForEarnings} from "@/lib/bluebelly-market-consequence-read-model";
@@ -21,7 +22,7 @@ function validSource(url:string){try{const u=new URL(url);return u.protocol==="h
 export function recapFromNews(news:NewsBriefV1):Recap{
  const topic=projectLivingMarketTopics([news])[0];
  return {
-  title:news.headline,rawNews:news,
+  title:publicReadingHeadline(news.headline,news.summary,news.sourceName),rawNews:news,
   fact:news.summary.startsWith("The original publisher issued this dated announcement.")
     ?news.headline:news.summary,
   stake:topic?.humanStake||"Who benefits, who pays, and which assets are exposed depends on the specific reported change.",
@@ -36,7 +37,7 @@ export function recapFromDecision(
  earnings:VerifiedEarningsScorecard|null,
 ):Recap{
  return {
-  title:topic.title,fact:topic.fact,stake:topic.why,mechanism:topic.mechanism,
+  title:publicReadingHeadline(topic.title,topic.fact,topic.sourceName),fact:topic.fact,stake:topic.why,mechanism:topic.mechanism,
   nextTest:topic.test,sourceUrl:topic.sourceUrl,sourceName:topic.sourceName,
   asOf:topic.at,isScheduled:topic.status==="UPCOMING",
   label:decisionRecapSourceLabel(topic.status,Boolean(earnings),topic.id),
