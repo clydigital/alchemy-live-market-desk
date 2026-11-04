@@ -47,7 +47,17 @@ export function publicNewsroomEditorials(
  const earningsEntries=historicalChartWatch && !recentEarnings.some(x=>x.id===historicalChartWatch.id)
   ?[...recentEarnings,historicalChartWatch]:recentEarnings;
  for(const release of earningsEntries){
-  if(existing.has(release.sourceUrl))continue;
+  // Explicitly approved Chart Watch is the deeper *same-original* editorial,
+  // not a duplicate wire alert. If the issuer press release already entered
+  // the source-only news feed or a short recap, prefer the reviewed full reader
+  // instead of accidentally suppressing the approved series entirely.
+  const chartWatchEdition=release.id==="amd-2026q3";
+  if(existing.has(release.sourceUrl)&&!chartWatchEdition)continue;
+  if(chartWatchEdition){
+   for(let i=result.length-1;i>=0;i--){
+    if(result[i].sourceUrl===release.sourceUrl)result.splice(i,1);
+   }
+  }
   existing.add(release.sourceUrl);
   result.push({id:"earnings-release:"+release.id,headline:release.headline,
    summary:release.conclusion,occurredAt:release.releaseDay,sourceName:release.sourceName,
