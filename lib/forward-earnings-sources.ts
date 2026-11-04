@@ -1,3 +1,4 @@
+import {recentOriginalIssuerReleases} from "./bluebelly-issuer-release-receipts.ts";
 import { fetchFinnhubEarnings } from "./finnhub-earnings.ts";
 import { normaliseMarketEvent, type MarketEventV1 } from "./market-events.ts";
 
@@ -5,9 +6,12 @@ export const EARNINGS_PARSE_URL = "https://api.parse.bot/scraper/2f15267d-2491-4
 export type ForwardEarningsCoverage = "official_and_provider" | "official_only" | "provider_only" | "unavailable";
 export type ForwardEarningsResult = { events: MarketEventV1[]; coverage: ForwardEarningsCoverage; warning: string | null };
 
-type OfficialEarning = {
+export type OfficialEarning = {
   ticker: string; company: string; quarter: string; at: string; label: string; stage: string;
   source: string; decisive: string; transmission: string;
+  releaseSession?: "BMO" | "AMC" | "DATE_ONLY";
+  /** Date from which this editorial source review was first admitted: not the original issuer publication time. */
+  admittedFromDay?: string;
 };
 // Dated company-IR announcements, not predicted reporting dates. Automatically expire.
 const OFFICIAL: OfficialEarning[] = [
@@ -37,6 +41,22 @@ const OFFICIAL: OfficialEarning[] = [
   { ticker: "QCOM", company: "Qualcomm", quarter: "FY2026 Q4", at: "2026-11-04T16:45:00-05:00", label: "16:45 ET conference call; results after close", stage: "Issuer-confirmed after-close release and call", source: "https://investor.qualcomm.com/news-events/press-releases/news-details/2026/Qualcomm-Schedules-Fourth-Quarter-and-Fiscal-2026-Earnings-Release-and-Conference-Call/default.aspx", decisive: "Handsets, licensing margins, automotive wins, and edge AI revenue versus guidance", transmission: "AI must move beyond cloud spending into paying on-device consumers and automotive platforms." },
   { ticker: "MRNA", company: "Moderna", quarter: "Q3 2026", at: "2026-11-06T08:00:00-05:00", label: "08:00 ET results conference call", stage: "Issuer confirms webcast; release minute not asserted", source: "https://investors.modernatx.com/events-presentations", decisive: "Seasonal vaccine revenue, operating cash burn, cash runway and the timing of non-COVID pipeline economics", transmission: "A promising biopharma pipeline must be financed through clinical approvals and repeat sales." },
   { ticker: "AMZN", company: "Amazon", quarter: "Q3 2026", at: "2026-10-29T17:00:00-04:00", label: "17:00 ET results conference call", stage: "Call time confirmed; results-release minute not established", source: "https://www.aboutamazon.com/news/company-news/amazon-earnings-q3-2026-report", decisive: "AWS growth, AI infrastructure spending, operating margin and free cash flow", transmission: "The investor test is whether rising AI infrastructure commitments convert into durable AWS cash profits." },
+  { ticker: "ARM", company: "Arm Holdings", quarter: "FY2027 Q2", at: "2026-11-04T17:00:00-05:00", label: "17:00 ET management webcast; release minute not stated", stage: "Issuer confirms 4 Nov Q2 FY27 results webcast; source does not separately establish a results-release session", source: "https://investors.arm.com/financials/quarterly-annual-results", decisive: "Datacentre and edge CPU royalties, licence revenue, AI power efficiency and management outlook", transmission: "Arm designs may benefit from AI server builds without a matching increase in the installed-base royalty run-rate.", releaseSession: "DATE_ONLY", admittedFromDay: "2026-11-04" },
+  { ticker: "APP", company: "AppLovin", quarter: "Q3 2026", at: "2026-11-04T17:00:00-05:00", label: "17:00 ET earnings webinar; results after US close", stage: "Issuer confirms 4 Nov after-close release; webinar call follows", source: "https://investors.applovin.com/news/news-details/2026/AppLovin-to-Announce-Third-Quarter-2026-Results/default.aspx", decisive: "Ad software revenue, AXON monetisation, operating margin, cash generation and marketing demand", transmission: "Is the AI advertising return generating durable cash rather than valuation-only excitement?", releaseSession: "AMC", admittedFromDay: "2026-11-04" },
+  { ticker: "FIG", company: "Figma", quarter: "Q3 2026", at: "2026-11-04T17:00:00-05:00", label: "17:00 ET conference call; results after US close", stage: "Issuer confirms 4 Nov after-close financial release; call time is separate", source: "https://investor.figma.com/news-events/news/news-details/2026/Figma-to-Announce-Third-Quarter-2026-Financial-Results-on-November-4-2026/default.aspx", decisive: "Subscription retention, enterprise expansion, paid AI features, margins and cash generation", transmission: "Can AI-powered software features drive incremental recurring revenue without compressing cash margins?", releaseSession: "AMC", admittedFromDay: "2026-11-04" },
+  { ticker: "NVO", company: "Novo Nordisk", quarter: "9M 2026 / Q3", at: "2026-11-04T07:00:00-05:00", label: "07:00 ET call; results from 07:30 CET", stage: "Issuer confirms results 4 Nov 07:30 CET and earnings call at 13:00 CET; do not confuse the two", source: "https://www.novonordisk.com/investors/financial-calendar.html", decisive: "Obesity therapy demand, manufacturing capacity, price mix, new guidance and cash returns", transmission: "GLP-1 volume growth may be offset by rebates, competition and supply investments.", releaseSession: "BMO", admittedFromDay: "2026-11-04" },
+  { ticker: "CVS", company: "CVS Health", quarter: "Q3 2026", at: "2026-11-04T08:00:00-05:00", label: "08:00 ET results conference call", stage: "Issuer-confirmed 4 Nov discussion; exact original results-release minute not stated", source: "https://investors.cvshealth.com/news/news-details/2026/CVS-Health-to-hold-third-quarter-2026-earnings-conference-call/", decisive: "Insurance medical cost ratio, pharmacy margins, Aetna membership and cash generation", transmission: "Healthcare utilisation and pharmacy benefits affect margins even when headline revenue grows.", releaseSession: "DATE_ONLY", admittedFromDay: "2026-11-04" },
+  { ticker: "NET", company: "Cloudflare", quarter: "Q3 2026", at: "2026-11-05T17:00:00-05:00", label: "17:00 ET call; release after US close", stage: "Issuer confirms 5 Nov after-close financial release", source: "https://www.cloudflare.net/news/news-details/2026/Cloudflare-Announces-Date-of-Third-Quarter-2026-Financial-Results/default.aspx", decisive: "Developer and AI inference demand, large customer growth, gross margin and operating cash", transmission: "AI edge workloads need to monetise as sustained enterprise contracts.", releaseSession: "AMC", admittedFromDay: "2026-11-04" },
+  { ticker: "ABNB", company: "Airbnb", quarter: "Q3 2026", at: "2026-11-05T17:00:00-05:00", label: "17:00 ET webcast; results after US close", stage: "Company announces 5 Nov after-close release; 17:00 ET is the webcast", source: "https://www.nasdaq.com/press-release/airbnb-announce-third-quarter-2026-results-2026-10-01", decisive: "Nights booked, take rate, international demand, marketing intensity and cash flow", transmission: "A stronger bookings tally is not automatically stronger cash conversion.", releaseSession: "AMC", admittedFromDay: "2026-11-04" },
+  { ticker: "IONQ", company: "IonQ", quarter: "Q3 2026", at: "2026-11-05T16:30:00-05:00", label: "16:30 ET call; results after US close", stage: "Issuer announces 5 Nov after-close quarter results and 16:30 ET call", source: "https://investors.ionq.com/news/news-details/2026/IonQ-to-Report-Third-Quarter-2026-Financial-Results-on-November-5-2026/default.aspx", decisive: "Quantum computing revenue, organic growth versus SkyWater acquisition, losses and cash runway", transmission: "Separate manufacturing-acquisition revenue from repeatable quantum workloads and funding needs.", releaseSession: "AMC", admittedFromDay: "2026-11-04" },
+  { ticker: "SOUN", company: "SoundHound AI", quarter: "Q3 2026", at: "2026-11-05T17:00:00-05:00", label: "17:00 ET call; results after US close", stage: "Issuer confirms 5 Nov after-close release and 17:00 ET call", source: "https://investors.soundhound.com/news-releases/news-release-details/soundhound-ai-announce-third-quarter-2026-financial-results", decisive: "Revenue quality, voice-agent deployments, gross margin, dilution and cash burn", transmission: "AI deployment growth must generate recurring paid revenue and finance expansion.", releaseSession: "AMC", admittedFromDay: "2026-11-04" },
+  { ticker: "SMR", company: "NuScale Power", quarter: "Q3 2026", at: "2026-11-05T17:00:00-05:00", label: "17:00 ET results review call", stage: "Issuer confirms Nov 5 quarterly results call; release minute not stated", source: "https://www.nuscalepower.com/press-releases/2026/nuscale-power-to-hold-third-quarter-2026-earnings-conference-call", decisive: "Project milestones, binding contracts, licensing, funding runway and customer deposits", transmission: "Nuclear pipeline milestones matter more than non-binding energy demand narratives.", releaseSession: "DATE_ONLY", admittedFromDay: "2026-11-04" },
+  { ticker: "COP", company: "ConocoPhillips", quarter: "Q3 2026", at: "2026-11-05T12:00:00-05:00", label: "12:00 ET call; results before US open", stage: "Issuer confirms 5 Nov pre-open results and noon analyst call", source: "https://www.conocophillips.com/news-media/story/conocophillips-to-hold-third-quarter-earnings-conference-call-on-thursday-nov-5/", decisive: "Production, realised commodity prices, operating cash, capex and shareholder returns", transmission: "Higher oil prices only help cash if realised pricing and upstream costs cooperate.", releaseSession: "BMO", admittedFromDay: "2026-11-04" },
+  { ticker: "GPN", company: "Global Payments", quarter: "Q3 2026", at: "2026-11-05T08:00:00-05:00", label: "08:00 ET call; results before US open", stage: "Issuer confirms 5 Nov pre-open release and 08:00 ET call", source: "https://investors.globalpayments.com/news-events/press-releases/detail/517/global-payments-to-report-third-quarter-results-on-november", decisive: "Merchant volumes, net revenue, cash margins, debt and integration expenses", transmission: "Payment volumes and take rate need to hold up against consumer spending softness.", releaseSession: "BMO", admittedFromDay: "2026-11-04" },
+  { ticker: "OKLO", company: "Oklo", quarter: "Q3 2026", at: "2026-11-06T08:30:00-05:00", label: "08:30 ET call; results before US open", stage: "Issuer confirms 6 Nov pre-open results and 08:30 ET business-update call", source: "https://oklo.com/newsroom/oklo-announces-date-for-third-quarter-2026-financial-results-and-business-update-call", decisive: "Permitting, contracted capacity, funding runway and commercial milestones", transmission: "AI power forecasts cannot replace signed construction/utility milestones.", releaseSession: "BMO", admittedFromDay: "2026-11-04" },
+  { ticker: "VST", company: "Vistra", quarter: "Q3 2026", at: "2026-11-06T10:00:00-05:00", label: "10:00 ET financial results call", stage: "Issuer confirms 6 Nov results call; exact original release minute is unspecified", source: "https://investor.vistracorp.com/2026-09-29-Vistra-to-Report-Third-Quarter-Results-on-Nov-6%2C-2026", decisive: "Power prices, hedge book, nuclear/gas capacity, capex and cash returns", transmission: "Data-centre power demand is worth monitoring only alongside contracted supply and realised margins.", releaseSession: "DATE_ONLY", admittedFromDay: "2026-11-04" },
+  { ticker: "ENB", company: "Enbridge", quarter: "Q3 2026", at: "2026-11-06T09:00:00-05:00", label: "09:00 ET call; results before US open", stage: "Issuer confirms 6 Nov pre-open results and 09:00 ET review call", source: "https://enbridge.mediaroom.com/2026-10-05-Enbridge-Inc-to-Host-Webcast-to-Discuss-2026-Third-Quarter-Results-on-November-6", decisive: "Pipeline throughput, regulated earnings, LNG capital projects, debt financing and dividend coverage", transmission: "Fee-based asset cash flow differs from short-lived crude price moves.", releaseSession: "BMO", admittedFromDay: "2026-11-04" },
+  { ticker: "NVDA", company: "NVIDIA", quarter: "FY2027 Q3", at: "2026-11-17T17:00:00-05:00", label: "17:00 ET results call; release around 16:20 ET", stage: "Issuer confirms 17 Nov, not 18 Nov; results expected approximately 13:20 PT before 14:00 PT call", source: "https://investor.nvidia.com/news/press-release-details/2026/NVIDIA-Sets-Conference-Call-for-Third-Quarter-Financial-Results/default.aspx", decisive: "FY27 Q3 sales versus own $108bn guidance, 74% gross-margin guide, FCF, new chip shipments and China exposure", transmission: "A large AI GPU sales beat needs to convert to cash while accounting for competition and export restrictions.", releaseSession: "AMC", admittedFromDay: "2026-11-04" },
   { ticker: "JPM", company: "JPMorganChase", quarter: "Q4 2026", at: "2027-01-14T08:30:00-05:00", label: "08:30 ET earnings call", stage: "Earnings call; results release time not asserted", source: "https://www.jpmorganchase.com/ir/events", decisive: "Credit costs, deposit rates, lending and management outlook", transmission: "Bank earnings test funding, credit and rates regime assumptions." },
   { ticker: "C", company: "Citigroup", quarter: "Q4 2026", at: "2027-01-14", label: "Time unconfirmed", stage: "Earnings call date only", source: "https://www.citigroup.com/global/investors/events-and-presentations", decisive: "Net interest income, credit quality and deposits", transmission: "Bank earnings test funding and credit conditions." },
 ];
@@ -51,7 +71,9 @@ const OFFICIAL: OfficialEarning[] = [
 export function getDueOfficialEarningsCandidates(now=new Date(),lookbackHours=96){
  const at=now.getTime();
  if(!Number.isFinite(at)||!Number.isInteger(lookbackHours)||lookbackHours<1||lookbackHours>168)return [];
+ const publishedOriginals=recentOriginalIssuerReleases(now,8);
  return OFFICIAL.flatMap(row=>{
+   if(publishedOriginals.some(result=>result.ticker===row.ticker&&result.sourceDay===row.at.slice(0,10)))return [];
    const dateOnly=/^\d{4}-\d{2}-\d{2}$/.test(row.at);
    const due=dateOnly?Date.parse(row.at+"T23:59:59Z"):Date.parse(row.at)+2*3600000;
    if(!Number.isFinite(due)||at<due||at-due>lookbackHours*3600000)return [];
@@ -61,14 +83,29 @@ export function getDueOfficialEarningsCandidates(now=new Date(),lookbackHours=96
  });
 }
 
-const WATCHED = new Set(["JPM", "C", "WFC", "BAC", "GS", "MS", "BLK", "TSM", "NVDA", "AMD", "MU", "AVGO", "AMZN", "GOOGL", "MSFT", "META", "ORCL", "CRWV", "AAPL", "INTC", "SNDK", "PLTR", "PFE", "ETN", "SMCI", "NVTS", "UBER", "QCOM", "MRNA", "NFLX", "TSLA", "UNH", "JNJ", "XOM", "CVX", "DAL"]);
+/** An original-source schedule, including recent elapsed calls for newsroom reconciliation.
+ * Dates are issuer-listed. Past appointments do not themselves confirm results;
+ * the separate verified financial-release index decides that status.
+ */
+export function getIssuerEarningsSchedule(now=new Date(),lookbackDays=3,forwardDays=30):OfficialEarning[]{
+ if(!Number.isFinite(+now)||lookbackDays<0||lookbackDays>30||forwardDays<1||forwardDays>90)return [];
+ const etParts=new Intl.DateTimeFormat("en-GB",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(now);
+ const date=(type:string)=>etParts.find(x=>x.type===type)?.value||"";
+ const etDay=date("year")+"-"+date("month")+"-"+date("day");
+ const start=new Date(Date.parse(etDay+"T00:00:00Z")-lookbackDays*86400000).toISOString().slice(0,10);
+ const end=new Date(Date.parse(etDay+"T00:00:00Z")+forwardDays*86400000).toISOString().slice(0,10);
+ return OFFICIAL.filter(x=>x.at.slice(0,10)>=start&&x.at.slice(0,10)<=end&&(!x.admittedFromDay||etDay>=x.admittedFromDay))
+   .sort((a,b)=>a.at.localeCompare(b.at)||a.ticker.localeCompare(b.ticker));
+}
+
+const WATCHED = new Set(["JPM", "C", "WFC", "BAC", "GS", "MS", "BLK", "TSM", "NVDA", "AMD", "MU", "AVGO", "AMZN", "GOOGL", "MSFT", "META", "ORCL", "CRWV", "AAPL", "INTC", "SNDK", "PLTR", "PFE", "ETN", "SMCI", "NVTS", "UBER", "QCOM", "MRNA", "NFLX", "TSLA", "UNH", "JNJ", "XOM", "CVX", "DAL", "ARM", "APP", "FIG", "NVO", "CVS", "NET", "ABNB", "IONQ", "SOUN", "SMR", "COP", "GPN", "OKLO", "VST", "ENB", "NVDA"]);
 const clean = (value: unknown) => typeof value === "string" ? value.trim() : "";
 const validDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value));
 const eventDay = (event: MarketEventV1) => event.startAt?.slice(0, 10) ?? "";
 
 export function officialEarningsEvents(now = new Date()): MarketEventV1[] {
   const today = now.toISOString().slice(0, 10);
-  return OFFICIAL.filter(row => row.at.slice(0, 10) >= today).flatMap(row => {
+  return OFFICIAL.filter(row => row.at.slice(0, 10) >= today && (!row.admittedFromDay || today >= row.admittedFromDay)).flatMap(row => {
     const event = normaliseMarketEvent({
       id: "issuer-ir:" + row.ticker + ":" + row.quarter,
       occurrenceKey: "issuer-ir:" + row.ticker + ":" + row.quarter,
@@ -146,7 +183,12 @@ export async function getForwardEarningsEvents({
   apiKey?: string; licensed?: boolean;
   finnhubKey?: string; finnhubCommercialApproved?: boolean;
 } = {}): Promise<ForwardEarningsResult> {
-  const official = officialEarningsEvents(now);
+  // An original issuer result supersedes its still-pending calendar
+  // appointment, even if the scheduled conference call has not begun.
+  // This is a source-exact, bounded exclusion, never an inferred beat/miss.
+  const releasedOriginals=recentOriginalIssuerReleases(now,8);
+  const official = officialEarningsEvents(now).filter(row=>!releasedOriginals.some(release=>
+    release.ticker===row.affectedAssets[0] && release.sourceDay===row.startAt?.slice(0,10)));
   if (finnhubKey && !finnhubCommercialApproved) return {
     events: official, coverage: official.length ? "official_only" : "unavailable",
     warning: "Finnhub key is present but business use is not authorised. Issuer-confirmed earnings only.",
