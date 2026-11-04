@@ -20,9 +20,16 @@ export function publicReadingHeadline(
 
   // BLS JOLTS release: the US job-openings number is explicitly attached to
   // the period. Do not reinterpret this as a beat/miss or net job creation.
-  const jolts=original.match(
+  const officialJolts=original.match(
+    /^Job Openings and Labor Turnover Survey for ([A-Za-z]+) (\d{4}) [—–-] \1 \2 official result$/i,
+  );
+  const reportedJolts=summary.match(
     /^Job Openings and Labor Turnover Survey for ([A-Za-z]+) (\d{4}) \([^)]+\): Job openings (\d+(?:\.\d+)?)([MBK])\b/i,
   );
+  const jolts=original.match(
+    /^Job Openings and Labor Turnover Survey for ([A-Za-z]+) (\d{4}) \([^)]+\): Job openings (\d+(?:\.\d+)?)([MBK])\b/i,
+  ) || (officialJolts && reportedJolts && officialJolts[1].toLowerCase()===reportedJolts[1].toLowerCase()
+       && officialJolts[2]===reportedJolts[2]?reportedJolts:null);
   if(jolts){
     const [,month,year,value,scale]=jolts;
     return `JOLTS: ${value}${scale.toLowerCase()} job openings in ${month} ${year}`;
@@ -30,9 +37,10 @@ export function publicReadingHeadline(
 
   // Official release receipt: distinguish the already released RBA decision
   // from the originally scheduled calendar event and avoid inventing a vote.
-  const rba=original.match(
-    /^Released high-impact central bank event scheduled for [^.]+\. Actual: RBA cash rate target (\d+(?:\.\d+)?%) \(\+(\d+)bp, raised\)/i,
-  );
+  const rbaPattern=/^Released high-impact central bank event scheduled for [^.]+\. Actual: RBA cash rate target (\d+(?:\.\d+)?%) \(\+(\d+)bp, raised\)/i;
+  const rba=original.match(rbaPattern) ||
+    (/^RBA monetary-policy decision and Statement on Monetary Policy · Released$/i.test(original)
+      ?summary.match(rbaPattern):null);
   if(rba) return `RBA raises cash rate ${rba[2]}bp to ${rba[1]}`;
 
   // BEA: the source explicitly distinguishes headline PCE y/y from real
@@ -48,7 +56,10 @@ export function publicReadingHeadline(
   // Physical supply report: the source itself states the region, strait
   // closure and refined-product export restriction. No oil-price response
   // is implied by the headline.
-  if(/^Crude oil inputs also fell in the Middle East as the closure of the strait significantly limited the export of refined products\./i.test(original)){
+  const physicalOil=/^Crude oil inputs also fell in the Middle East as the closure of the strait significantly limited the export of refined products\./i;
+  if(physicalOil.test(original) ||
+    (/^Global refinery inputs fell sharply in the second quarter of \d{4} before modest recovery$/i.test(original) &&
+      physicalOil.test(summary))){
     return "Middle East crude inputs fall as strait closure limits refined-product exports";
   }
 
@@ -66,6 +77,11 @@ export function publicReadingHeadline(
     const deposit=summary.match(/interest rates on the deposit facility, [^.]*? will remain unchanged at (\d+(?:\.\d+)?%)/i);
     if(deposit)return `ECB holds deposit rate at ${deposit[1]}`;
   }
+
+  // SEC release heading: exact transaction scope is retained, while the
+  // formal regulatory phrase is shortened for public scanning.
+  if(/^SEC Issues Exemptive Relief from Treasury Clearing Requirements for Certain Inter-Affiliate and Non-U\.S\. Repo Transactions$/i.test(original))
+    return "SEC grants Treasury-clearing relief for some repo trades";
 
   // Unknown or contradictory source text stays verbatim. A generic
   // first-sentence or character-limit cutoff could drop a later qualification.

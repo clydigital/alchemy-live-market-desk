@@ -17,6 +17,7 @@ on:
       - 'components/blue-desk/EarningsInvestorDeepDive.tsx'
       - 'components/blue-desk/EarningsInvestorDeepDive.module.css'
       - 'lib/bluebelly-market-consequence-read-model.ts'
+      - 'lib/bluebelly-public-headline.ts'
       - 'lib/bluebelly-earnings-investor-stories.ts'
       - 'components/blue-desk/bluebelly-newswire.module.css'
       - 'app/bluebelly-tokens.css'
