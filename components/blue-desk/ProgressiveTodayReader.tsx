@@ -92,9 +92,9 @@ export default function ProgressiveTodayReader({news,calendar,now,host}:{
       <section className={styles.questionPanel} aria-labelledby="today-themes-title">
         <div className={styles.panelHead}><h2 id="today-themes-title">Big questions behind the news</h2><Link href={stories}>Key Stories →</Link></div>
         <p className={styles.panelIntro}>Keep the continuing market thesis separate from today's headline.</p>
-        <Link href={stories+"?category=ai"}><strong>Does AI growth turn into free cash flow?</strong><span>AI &amp; earnings <b>→</b></span></Link>
-        <Link href={stories+"?category=other"}><strong>Is the rally broadening beyond a few leaders?</strong><span>Market breadth <b>→</b></span></Link>
-        <Link href={stories+"?category=rates"}><strong>What are bond yields actually pricing?</strong><span>Rates &amp; Fed <b>→</b></span></Link>
+        <Link href={stories+"?category="+encodeURIComponent("AI & Technology")}><strong>Does AI growth turn into free cash flow?</strong><span>AI &amp; earnings <b>→</b></span></Link>
+        <Link href={stories+"?category="+encodeURIComponent("Other Markets")}><strong>Is the rally broadening beyond a few leaders?</strong><span>Market breadth <b>→</b></span></Link>
+        <Link href={stories+"?category="+encodeURIComponent("Rates & Fed")}><strong>What are bond yields actually pricing?</strong><span>Rates &amp; Fed <b>→</b></span></Link>
       </section>
       <section className={styles.calendarPanel} id="today-calendar" aria-labelledby="today-calendar-title">
         <div className={styles.panelHead}><h2 id="today-calendar-title">On the calendar</h2><Link href={calendarHref}>Full calendar →</Link></div>
