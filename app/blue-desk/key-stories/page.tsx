@@ -409,6 +409,8 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
         </nav>
       </header>
 
+      <details className={ui.coverageDisclosure} data-progressive-stories="coverage-on-demand">
+        <summary>Source coverage and previous investigations</summary>
       <div className={ui.summary} aria-label="Desk coverage" data-coverage-hud="public-source-counts">
         <div className={ui.summaryMetric}><strong>{news.length}</strong><span>Source-verified news updates</span></div>
         <div className={ui.summaryMetric}><strong>{topics.length}</strong><span>Active news themes</span></div>
@@ -423,6 +425,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
         <p>Older FOMC, AI earnings, midterm, energy and cross-market investigations are collected in the Research Library, not pinned as fresh developments.</p>
         <Link href={blueDeskPublicHref("/blue-desk/research",host)}>Browse the Research Library →</Link>
       </section>
+      </details>
       <section className={ui.section} id="current-developments" aria-label="Current event readers">
         <h2>Current developments</h2>
         {missingFeedReceipt.length?<p className={ui.coverageNote} data-public-handoff-gap="official-press-receipt-pending">
@@ -448,7 +451,14 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
               <h3><Link href={reviewed?indexHref+reviewed.detailsHref:indexHref+"?catalyst="+topic.id}>
                 {reviewed?.headline||topic.updates[0].headline}
               </Link></h3>
-              <p>{reviewed?.standfirst||topic.guidingQuestion}</p>
+              <p>{reviewed?.standfirst||topic.updates[0].summary}</p>
+              <details className={ui.progressiveEvidence}>
+                <summary>Why it matters and what to watch</summary>
+                <p>{topic.humanStake}</p>
+                <p><strong>How markets could respond:</strong> {topic.marketMechanism}</p>
+                <p><strong>Next question:</strong> {topic.guidingQuestion}</p>
+                <Link href={reviewed?indexHref+reviewed.detailsHref:indexHref+"?catalyst="+topic.id}>Read the full explanation →</Link>
+              </details>
             </article>;
           })}</div>:<p className={ui.empty}>No currently source-verified event qualifies. The calendar, ongoing theses and dated Research Library remain available.</p>}
       </section>
@@ -493,8 +503,12 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
             <p className={ui.kicker}>{classifyPublicStory(thesis)} · ONGOING RESEARCH <EditorialUpdatedToday initialPublishedOn={thesis.createdAt||""} editorialUpdatedAt={thesis.updatedAt} now={now}/></p>
             <h3><Link href={indexHref+"?story="+encodeURIComponent(thesis.slug)}>{thesis.title}</Link></h3>
             <p className={ui.storyIntro}>{thesis.question}</p>
-            <p><strong>Next test:</strong> {thesis.nextTest || "No dated test recorded."}</p>
-            <details><summary>Supporting and contradicting signals</summary><p>{thesis.support || "Supporting evidence unavailable in this snapshot."}</p><p>{thesis.contradiction || "Counter-evidence unavailable in this snapshot."}</p></details>
+            <details className={ui.progressiveEvidence}>
+              <summary>Evidence, counterargument and next test</summary>
+              <p><strong>Supports the thesis:</strong> {thesis.support || "Supporting evidence unavailable in this snapshot."}</p>
+              <p><strong>What does not fit:</strong> {thesis.contradiction || "Counter-evidence unavailable in this snapshot."}</p>
+              <p><strong>Next test:</strong> {thesis.nextTest || "No dated test recorded."}</p>
+            </details>
             <p className={ui.timeNote}>{thesis.latestMotionAt?
               <>LINKED CONTEXT · {thesis.latestMotionVerification==="VERIFIED"?"SOURCE-VERIFIED EVENT":"UNVERIFIED RESEARCH LEAD"} · <DualTimestamp value={thesis.latestMotionAt}/> · </>:null}
               Last researched <DualTimestamp value={thesis.updatedAt}/>. Historical thesis, not a confirmed live market reaction.</p>
