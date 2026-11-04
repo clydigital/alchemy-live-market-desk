@@ -1,3 +1,4 @@
+import CurrentMarketUpdates from "@/components/blue-desk/CurrentMarketUpdates";
 import EarningsFundamentals from "@/components/blue-desk/EarningsFundamentals";
 import EarningsInvestorDeepDive from "@/components/blue-desk/EarningsInvestorDeepDive";
 import {getEarningsCase} from "@/lib/bluebelly-earnings-investor-stories";
@@ -97,7 +98,8 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   return (
     <main className={`${styles.page} ${legibility.publicMarketsLegibility} ${legibility.compactMarkets}`} data-blue-desk-markets="public-observations">
       <BlueDeskHeader activePath="/blue-desk/markets" />
-      <div className={styles.content}>
+      
+        <CurrentMarketUpdates host={host} mode="compact"/><div className={styles.content}>
         <header className={`${styles.calendarHero} ${legibility.marketHero}`}>
           <div>
             <p className={styles.kicker}>CROSS-ASSET OBSERVATIONS</p>
