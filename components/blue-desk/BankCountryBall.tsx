@@ -3,8 +3,8 @@
 import {useId} from "react";
 
 /** First-party vector countryball. No platform-dependent flag emoji or remote asset. */
-type CountryCode="US"|"CA"|"NZ"|"AU";
-const NAMES:Record<CountryCode,string>={US:"United States",CA:"Canada",NZ:"New Zealand",AU:"Australia"};
+type CountryCode="US"|"CA"|"NZ"|"AU"|"SE";
+const NAMES:Record<CountryCode,string>={US:"United States",CA:"Canada",NZ:"New Zealand",AU:"Australia",SE:"Sweden"};
 export default function BankCountryBall({code,size="md",className=""}:{
  code:CountryCode;size?:"sm"|"md"|"lg";className?:string
 }){
@@ -37,6 +37,10 @@ export default function BankCountryBall({code,size="md",className=""}:{
      <rect x="108" width="52" height="160" fill="#d3303a"/>
      <path fill="#d3303a" d="M80 36L88 56L101 50L98 63L113 70L98 78L104 90L88 88L84 106L76 106L72 88L56 90L63 78L47 70L62 63L59 50L72 56Z"/>
      <path d="M80 100V129" stroke="#d3303a" strokeWidth="5"/>
+    </>:code==="SE"?<>
+     <rect width="160" height="160" fill="#1666a7"/>
+     <rect x="49" width="18" height="160" fill="#f6c73e"/>
+     <rect y="71" width="160" height="18" fill="#f6c73e"/>
     </>:code==="AU"?<>
      <rect width="160" height="160" fill="#164275"/>
      <path d="M0 0L80 80M80 0L0 80" stroke="#f4f4ee" strokeWidth="16"/>
