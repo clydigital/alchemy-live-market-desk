@@ -1,6 +1,7 @@
 import "server-only";
 import {createSupabaseServerClient} from "@/lib/supabase/server";
 import {getLatestEditorialSlate} from "@/lib/editorial-slate-server";
+import {inspectWritingBrainHandoff} from "@/lib/editorial-slate-core";
 import {getOwnerDeliveredResearchBriefs} from "@/lib/blue-desk-delivered-research-server";
 import styles from "@/app/blue-desk/blue-desk.module.css";
 
@@ -22,15 +23,31 @@ export default async function OwnerPrivatePdfInputHealth(){
   getLatestEditorialSlate().catch(()=>({slate:null,status:"storage_unavailable" as const})),
   getOwnerDeliveredResearchBriefs(6).catch(()=>[]),
  ]);
- const today=dayInMyt(new Date());
+ const now=new Date();
+ const today=dayInMyt(now);
  const lastSlate=slate.slate;
  const current=!!lastSlate&&lastSlate.dayMyt===today;
+ const handoff=inspectWritingBrainHandoff(lastSlate,now);
+ const handoffState={
+  CURRENT_PERSISTED:"CURRENT PRIVATE HANDOFF",
+  CURRENT_PARTIAL:"CURRENT — EVIDENCE GAPS",
+  MANUAL_RECOVERY:"MANUALLY RECOVERED — NOT A SCHEDULED PASS",
+  NOT_DUE:"AWAITING 09:30 MYT RUN",
+  MISSING:"MISSED — NO SLATE AFTER 10:00 MYT",
+  NOT_SCHEDULED:"NOT SCHEDULED ON SUNDAY",
+  UNKNOWN:"HANDOFF CLOCK UNAVAILABLE",
+ }[handoff.state];
+ const slateDetail= current&&lastSlate
+  ?`Saved ${lastSlate.dayMyt} MYT at ${lastSlate.producedAt}. Three private ideas; ${handoff.linkedIdeaCount}/3 carry source URLs; distinct IDs: ${handoff.hasThreeDistinctIds?"3/3":"NOT VERIFIED"}. Verification: ${lastSlate.verificationStatus}. This is database readback only, NOT proof the scheduled task ran or that all sources were checked.`
+  :handoff.state==="NOT_DUE"
+   ?"The 09:30 MYT Monday–Saturday scheduled slate has not reached its 10:00 MYT delivery check. Do not report a missed run yet."
+   :handoff.state==="NOT_SCHEDULED"
+    ?"Writing Brain is scheduled Monday–Saturday; an earlier saved slate remains historical."
+    :`No current-day three-idea slate in the private store (${slate.status}). Last persisted day: ${lastSlate?.dayMyt||"none"}. This is an observable handoff gap, NOT proof why the automation failed.`;
  const latestMacro=briefs[0];
  const lastMacro=isoSafe(latestMacro?.source_retrieved_at);
  const entries=[
-  {name:"OB / COTD Writing Brain",state:current?"CURRENT HANDOFF":"NOT CURRENT",
-   detail:lastSlate?(`Last persisted: ${lastSlate.dayMyt} MYT at ${lastSlate.producedAt}. Three ideas; upstream verification: ${lastSlate.verificationStatus}. ${current?"Eligible for PDF source checks.":"An old slate cannot be used for today's PDF."}`)
-    :`No valid persisted slate readback (${slate.status}).`},
+  {name:"OB / COTD Writing Brain",state:handoffState,detail:slateDetail},
   {name:"MacroPulse research",state:briefs.length?"RESEARCH DELIVERED":"NO BRIEF READBACK",
    detail:briefs.length?
     `${briefs.length} source-attributed private briefs available. Latest retrieval: ${lastMacro}. These are non-canonical editorial inputs, not evidence that the PDF generator consumed them or that plugins ran.`
