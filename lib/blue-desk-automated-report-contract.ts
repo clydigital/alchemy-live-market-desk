@@ -7,6 +7,8 @@ export type ReportSource={
  detail:string;sourceName:string;url:string;eventAt:string;
  /** Provider daily level, never an event-window reaction; no inferred unit. */
  marketSnapshot?:{label:string;level:number;previousClose:number|null;asOf:string};
+ /** Calendar-supplied comparison; retrieval time is NOT a frozen pre-event forecast vintage. */
+ calendarComparison?:{previous:string|null;consensus:string|null;snapshotAt:string};
 };
 export type ReportStory={
  headline:string;setup:string;reveal:string;humanStake:string;
@@ -81,7 +83,8 @@ function qualified(url:string){
 export function assembleAutomaticReportEvidence(input:{
  now:Date;slot:AutomaticReportSlot;news:readonly NewsBriefV1[];
  observations:readonly PublicSourceObservation[];
- calendar:readonly {title:string;when:string|null;sourceName:string;sourceUrl:string|null;question:string}[];
+ calendar:readonly {title:string;when:string|null;sourceName:string;sourceUrl:string|null;
+  question:string;previous?:string|null;consensus?:string|null}[];
  market?:readonly {label:string;level:number|null;previousClose:number|null;asOf:string|null;sourceName:string;sourceUrl:string;frequency:string}[];
 }):AutomaticReportEvidence{
  const t=input.now.getTime();const sources:ReportSource[]=[];
@@ -128,7 +131,10 @@ export function assembleAutomaticReportEvidence(input:{
   if(seen.has(row.sourceUrl))continue;
   seen.add(row.sourceUrl);
   sources.push({id:"C"+(sources.length+1),type:"CALENDAR",title:row.title,
-   detail:row.question,sourceName:row.sourceName,url:row.sourceUrl,eventAt:row.when});
+   detail:row.question,sourceName:row.sourceName,url:row.sourceUrl,eventAt:row.when,
+   calendarComparison:{previous:typeof row.previous==="string"&&row.previous.trim()?row.previous.trim():null,
+    consensus:typeof row.consensus==="string"&&row.consensus.trim()?row.consensus.trim():null,
+    snapshotAt:input.now.toISOString()}});
  }
  const actual=sources.filter(s=>s.type!=="CALENDAR").length;
  const qualifiedNews=sources.some(s=>s.type==="NEWS");
