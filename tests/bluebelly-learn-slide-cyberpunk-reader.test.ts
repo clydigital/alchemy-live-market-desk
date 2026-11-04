@@ -7,7 +7,7 @@ const lesson = readFileSync("app/blue-desk/learn/decks/[id]/page.tsx","utf8");
 const reader = readFileSync("components/blue-desk/LearnOriginalPptxViewer.tsx","utf8");
 const home = readFileSync("app/blue-desk/learn/page.tsx","utf8");
 
-test("all nine Learn routes render the actual original PPTX rather than re-created slide HTML",()=>{
+test("archived lesson routes preserve original slides while public Learn index excludes the nine decks",()=>{
   assert.match(lesson,/LearnOriginalPptxViewer/);
   assert.doesNotMatch(lesson,/<LearnSlideReader/);
   assert.match(reader,/view.officeapps.live.com|viewerUrl/);
@@ -15,7 +15,9 @@ test("all nine Learn routes render the actual original PPTX rather than re-creat
   assert.match(reader,/fullScreenUrl/);
   assert.match(reader,/sourceUrl/);
   assert.doesNotMatch(reader,/slide\.lines\.map|slides\.map|dangerouslySetInnerHTML/);
-  assert.match(home,/ORIGINAL PPTX SLIDES/);
+  assert.doesNotMatch(home,/ORIGINAL PPTX SLIDES|ORIGINAL LESSON FILES|09 MODULES|OPEN FILE/);
+  assert.doesNotMatch(home,/BLUEBELLY_LEARN_DECKS|deck\.slideCount/);
+  assert.match(home,/BlueDeskLearnExplorer/);
   for(const id of Object.keys(BLUEBELLY_ORIGINAL_PPTX)){
     const deck=getOriginalLearnPptx(id);
     assert.ok(deck && deck.filename.endsWith(".pptx"));
