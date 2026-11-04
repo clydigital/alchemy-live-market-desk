@@ -1034,6 +1034,16 @@ const FINANCIAL_LITERACY_LESSONS: LessonRow[] = [
 // Source-derived terminology from MIT lecture PDFs, CFA research PDFs and the
 // linked investor/trading education. Short definitions are original paraphrases.
 const SOURCE_DERIVED_LESSONS: LessonRow[] = [
+  ["margin-of-safety","Margin of safety","companies",
+    "The gap between an investor's estimated intrinsic value and the price actually paid.",
+    "It provides a buffer for mistakes in valuation estimates, but cannot replace analysis of risk.",
+    "If estimated value is $100 and the price is $70, the apparent margin of safety is 30%.",
+    ["valuation uncertainty","bear case","price versus value"]],
+  ["earnings-yield","Earnings yield","companies",
+    "Earnings per share divided by share price, the inverse of a positive P/E ratio.",
+    "It makes an earnings multiple easier to compare with bond yields, but earnings are not free cash.",
+    "A stock on 20× P/E has a 5% earnings yield using the same earnings period.",
+    ["EPS quality","risk-free yield","growth expectations"]],
   [
     "current-ratio",
     "Current ratio",
