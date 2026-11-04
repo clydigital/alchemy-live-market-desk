@@ -42,6 +42,7 @@ function SourceOnlyConsequence({news}:{news:NewsBriefV1}){
  return <details className={styles.readMore} data-market-consequence="source-only-evidence-status">
    <summary>What is known, and what still needs checking?</summary>
    <div className={styles.detailBody}>
+     <MarketTakeaway mode="source-only" compact/>
      <h3>What the original source confirms</h3><p>{news.summary}</p>
      <h3>Economic effect</h3><p>{evidence?.economic.text||"Not established from this source notice."}</p>
      <h3>Uncertainty</h3><p>A specific unresolved outcome has not yet been independently assessed. Do not label this report a broad market-uncertainty shock.</p>
