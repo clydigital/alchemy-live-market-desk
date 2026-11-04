@@ -1,3 +1,4 @@
+import CurrentMarketUpdates from "@/components/blue-desk/CurrentMarketUpdates";
 import Link from "next/link";
 import {headers} from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
@@ -103,7 +104,8 @@ export default async function RegimeWatchPage(){
      href={blueDeskPublicHref("/blue-desk/regime-watch/"+lens.id,host)}
      aria-label={"Explore "+lens.name+" research"}>
       <div className={styles.art}><EditorialStoryArt headline={lens.name} motif={lens.motif as EditorialMotif} compact/><span className={styles.artSerial} aria-hidden="true">{String(index+1).padStart(2,"0")}</span></div>
-      <div className={styles.content}>
+      
+        <CurrentMarketUpdates host={host} mode="compact"/><div className={styles.content}>
        <div className={styles.cardHeading}><span className={styles.kicker}>{lens.code} / RESEARCH LENS</span><span className={styles.cardSerial}>FILE {String(index+1).padStart(2,"0")} / 09</span></div>
        <h3>{lens.name}</h3>
        <RegimeOutlookMeter assessment={getLensOutlook(lens.id)}/>
