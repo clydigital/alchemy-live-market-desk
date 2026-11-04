@@ -18,7 +18,8 @@ const evidence:AutomaticReportEvidence={asOf:now.toISOString(),slot:"morning",co
    detail:"An official decision was announced without proof of a directly attributable market-price change.",
    sourceName:"Central Bank",url:"https://example.com/official/monetary/20261030",eventAt:"2026-10-30T18:00:00Z"},
   {id:"C3",type:"CALENDAR",title:"Future policy decision",detail:"Does the next decision change rate expectations?",
-   sourceName:"Central Bank",url:"https://example.com/official/calendar",eventAt:"2026-11-03T18:00:00Z"},
+   sourceName:"Central Bank",url:"https://example.com/official/calendar",eventAt:"2026-11-03T18:00:00Z",
+   calendarComparison:{previous:"54.9",consensus:"54.8",snapshotAt:"2026-10-31T03:45:00Z"}},
   {id:"M4",type:"OBSERVATION",title:"DXY — source-dated daily level",
    detail:"Daily level 99.5, previous close 100.2; no release-window causality established.",
    sourceName:"Example market provider",url:"https://example.com/market/dxy",eventAt:"2026-10-31T00:00:00Z",
@@ -81,6 +82,12 @@ test("private daily tables derive only from exact source evidence and scheduled 
  assert.match(result.html,/data-private-table="market-snapshots"/);
  assert.match(result.html,/data-private-table="evidence-receipts"/);
  assert.match(result.html,/data-private-table="upcoming-catalysts"/);
+ assert.match(result.html,/data-private-table="economic-expectations"/);
+ assert.match(result.html,/54\.9/);
+ assert.match(result.html,/54\.8/);
+ assert.match(result.html,/Actual<\/th>/);
+ assert.match(result.html,/Pending<\/td>/);
+ assert.match(result.html,/freeze time are not independently established here/);
  assert.match(result.html,/>DXY<\/td>/);
  assert.match(result.html,/>99\.5<\/td>/);
  assert.match(result.html,/>100\.2<\/td>/);
