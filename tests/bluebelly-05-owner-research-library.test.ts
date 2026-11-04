@@ -26,7 +26,9 @@ test("private and public research have visibly different navigation destinations
   assert.match(nav,/activePath === "\/owner\/research"/);
   const pub=nav.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0] || "";
   assert.doesNotMatch(pub,/\["Research Library", "\/owner\/research"\]/);
-  assert.match(pub,/\["Research", "\/research"\]/);
+  const more=nav.split("const PUBLIC_MORE = [")[1]?.split("] as const;")[0] || "";
+  assert.match(more,/\["Research Library", "\/research"\]/);
+  assert.doesNotMatch(more,/\["Research Library", "\/owner\/research"\]/);
   const priv=nav.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0] || "";
   assert.match(priv,/\["Research Library", "\/owner\/research"\]/);
   assert.equal(blueDeskHostAccess("/owner/research","bluebelly-desk.vercel.app"),"private");
