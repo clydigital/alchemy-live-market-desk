@@ -4,6 +4,7 @@
  */
 export type SlateIdea = {
   rank:1|2|3;
+  ideaId?:string;
   title:string;
   format:"COTD"|"OB"|"BOTH";
   hook:string;
@@ -45,6 +46,7 @@ export function parseEditorialSlate(row:Row|null,nowIso:string):EditorialSlate|n
     const r=object(raw), format=r.format==="OB"||r.format==="COTD"||r.format==="BOTH"?r.format:"BOTH";
     return {
       rank:(i+1) as 1|2|3,
+      ideaId:bounded(r.ideaId,180)||undefined,
       title:bounded(r.title,180),format,hook:bounded(r.hook),
       catalystTimeline:bounded(r.catalystTimeline,3500),
       expectation:bounded(r.expectation,1500),
@@ -54,7 +56,11 @@ export function parseEditorialSlate(row:Row|null,nowIso:string):EditorialSlate|n
       nextTrigger:bounded(r.nextTrigger,1500),
       chartGuidance:array(r.chartGuidance).slice(0,3).map(v=>bounded(v,650)).filter(Boolean),
       sourceUrls:array(r.sourceUrls).slice(0,12).map(https).filter((v):v is string=>!!v),
-      missingProof:bounded(r.missingProof,1500),
+      // Prior Writing Brain rows sometimes store missingProof as string[].
+      // Keep those exact source limitations visible in the owner reader/PDF.
+      missingProof:Array.isArray(r.missingProof)
+       ?r.missingProof.slice(0,8).map(v=>bounded(v,350)).filter(Boolean).join("; ").slice(0,1500)
+       :bounded(r.missingProof,1500),
     };
   });
   // Incomplete placeholders may be retained as PARTIAL, not called actionable drafts.
@@ -68,4 +74,49 @@ export function parseEditorialSlate(row:Row|null,nowIso:string):EditorialSlate|n
     sources:array(row.sources).slice(0,30).map(https).filter((x):x is string=>!!x),
     ageLabel:day===latestDay?"TODAY":"PREVIOUS SLATE — "+day,
   };
+}
+
+/** Data readback, not a scheduler execution proof. A missing slate before the
+ * 09:30 MYT Mon-Sat run is NOT a failed run; allow through 10:00 for completion.
+ * An honest partial/recovered row must not be presented as a verified pass. */
+export type WritingBrainHandoffState=
+ |"CURRENT_PERSISTED"|"CURRENT_PARTIAL"|"MANUAL_RECOVERY"
+ |"NOT_DUE"|"MISSING"|"NOT_SCHEDULED"|"UNKNOWN";
+export type WritingBrainHandoffHealth={
+ state:WritingBrainHandoffState;dayMyt:string|null;
+ linkedIdeaCount:number;hasThreeDistinctIds:boolean;
+};
+export function inspectWritingBrainHandoff(
+ slate:EditorialSlate|null,now:Date,
+):WritingBrainHandoffHealth{
+ const blank:WritingBrainHandoffHealth={
+  state:"UNKNOWN",dayMyt:null,linkedIdeaCount:0,hasThreeDistinctIds:false,
+ };
+ if(!Number.isFinite(now.getTime()))return blank;
+ const parts=new Intl.DateTimeFormat("en-GB",{
+  timeZone:"Asia/Kuala_Lumpur",year:"numeric",month:"2-digit",day:"2-digit",
+  weekday:"short",hour:"2-digit",minute:"2-digit",hourCycle:"h23",
+ }).formatToParts(now);
+ const value=(type:string)=>parts.find(p=>p.type===type)?.value||"";
+ const dayMyt=value("year")+"-"+value("month")+"-"+value("day");
+ const weekday=value("weekday"),hour=Number(value("hour")),minute=Number(value("minute"));
+ if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(dayMyt)||!Number.isInteger(hour)
+  ||!Number.isInteger(minute)||!weekday)return blank;
+ const linkedIdeaCount=slate?.ideas.filter(i=>i.sourceUrls.length>0).length||0;
+ const ids=slate?.ideas.map(i=>i.ideaId).filter((v):v is string=>!!v)||[];
+ const hasThreeDistinctIds=ids.length===3&&new Set(ids).size===3;
+ const result=(state:WritingBrainHandoffState):WritingBrainHandoffHealth=>
+  ({state,dayMyt,linkedIdeaCount,hasThreeDistinctIds});
+ if(slate?.dayMyt===dayMyt){
+  if(slate.notes.includes("RECOVERY_BACKFILL")||
+     slate.ideas.some(i=>i.ideaId?.includes("manual-backfill")))
+   return result("MANUAL_RECOVERY");
+  return result(slate.verificationStatus==="source_checked"&&
+   linkedIdeaCount===3&&hasThreeDistinctIds&&
+   slate.ideas.every(i=>i.hook&&i.mechanism&&i.countercase&&i.nextTrigger)
+    ?"CURRENT_PERSISTED":"CURRENT_PARTIAL");
+ }
+ if(weekday==="Sun")return result("NOT_SCHEDULED");
+ if(hour*60+minute<10*60)return result("NOT_DUE");
+ return result("MISSING");
 }
