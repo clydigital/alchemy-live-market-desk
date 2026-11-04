@@ -50,3 +50,18 @@ test("headline rewriting is read-only and integrated consistently into the publi
  assert.match(source,/return original;/);
  assert.doesNotMatch(source,/fetch\(|createSupabaseAdminClient|generateContent\(|callLLM\(|insert\(|upsert\(|update\(/);
 });
+
+test("actual live headings pair only with their own verified source detail",()=>{
+ const joltsTitle="Job Openings and Labor Turnover Survey for September 2026 — September 2026 official result";
+ const oilTitle="Global refinery inputs fell sharply in the second quarter of 2026 before modest recovery";
+ const rbaTitle="RBA monetary-policy decision and Statement on Monetary Policy · Released";
+ const secTitle="SEC Issues Exemptive Relief from Treasury Clearing Requirements for Certain Inter-Affiliate and Non-U.S. Repo Transactions";
+ assert.equal(publicReadingHeadline(joltsTitle,jolts),"JOLTS: 7.5m job openings in September 2026");
+ assert.equal(publicReadingHeadline(oilTitle,oil),"Middle East crude inputs fall as strait closure limits refined-product exports");
+ assert.equal(publicReadingHeadline(rbaTitle,rba),"RBA raises cash rate 25bp to 4.85%");
+ assert.equal(publicReadingHeadline(secTitle),"SEC grants Treasury-clearing relief for some repo trades");
+ assert.equal(publicReadingHeadline(joltsTitle,"Job openings 8M in October 2026"),joltsTitle);
+ assert.equal(publicReadingHeadline(oilTitle,"Unclear refinery trend"),oilTitle);
+ assert.equal(publicReadingHeadline(rbaTitle,"RBA rate decision expected, not released"),rbaTitle);
+ assert.equal(publicReadingHeadline("US PCE inflation reaches 3.6% as real spending stalls",pce),"US PCE inflation reaches 3.6% as real spending stalls");
+});
