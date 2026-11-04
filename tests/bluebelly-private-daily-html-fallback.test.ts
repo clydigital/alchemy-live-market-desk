@@ -19,6 +19,10 @@ const evidence:AutomaticReportEvidence={asOf:now.toISOString(),slot:"morning",co
    sourceName:"Central Bank",url:"https://example.com/official/monetary/20261030",eventAt:"2026-10-30T18:00:00Z"},
   {id:"C3",type:"CALENDAR",title:"Future policy decision",detail:"Does the next decision change rate expectations?",
    sourceName:"Central Bank",url:"https://example.com/official/calendar",eventAt:"2026-11-03T18:00:00Z"},
+  {id:"M4",type:"OBSERVATION",title:"DXY — source-dated daily level",
+   detail:"Daily level 99.5, previous close 100.2; no release-window causality established.",
+   sourceName:"Example market provider",url:"https://example.com/market/dxy",eventAt:"2026-10-31T00:00:00Z",
+   marketSnapshot:{label:"DXY",level:99.5,previousClose:100.2,asOf:"2026-10-31T00:00:00Z"}},
  ]};
 test("private fallback is a complete static and date-valid HTML document, not a fake model success",()=>{
  assert.equal(reportEvidenceReady(evidence),true);
@@ -70,4 +74,26 @@ test("existing cron calls authorised private generator without new schedules or 
  assert.doesNotMatch(job,/story_thesis_versions|market_regime_current|status:"published"/);
  assert.match(migration,/blue_desk_work_html_one_scheduled_session/);
  assert.doesNotMatch(migration,/grant .* authenticated|grant .* anon/i);
+});
+
+test("private daily tables derive only from exact source evidence and scheduled calendar",()=>{
+ const result=renderScheduledDailyHtml({day,now,evidence});
+ assert.match(result.html,/data-private-table="market-snapshots"/);
+ assert.match(result.html,/data-private-table="evidence-receipts"/);
+ assert.match(result.html,/data-private-table="upcoming-catalysts"/);
+ assert.match(result.html,/>DXY<\/td>/);
+ assert.match(result.html,/>99\.5<\/td>/);
+ assert.match(result.html,/>100\.2<\/td>/);
+ assert.match(result.html,/ET \/ .* MYT/);
+ assert.match(result.html,/Constructive scenario not verified/);
+ assert.match(result.html,/no return, yield change or causal link is inferred/i);
+ assert.doesNotMatch(result.html,/<iframe|<script|onerror=|javascript:/i);
+ const parsed=parseExistingHtmlEdition({filename:"Bluebelly_"+day+".html",html:result.html});
+ assert.equal(parsed.edition.reportDay,day);
+});
+test("private dated visual tables omit missing market data without inventing levels",()=>{
+ const onlyOriginals={...evidence,sources:evidence.sources.filter(s=>!s.marketSnapshot)};
+ const result=renderScheduledDailyHtml({day,now,evidence:onlyOriginals});
+ assert.doesNotMatch(result.html,/data-private-table="market-snapshots"/);
+ assert.match(result.html,/data-private-table="upcoming-catalysts"/);
 });
