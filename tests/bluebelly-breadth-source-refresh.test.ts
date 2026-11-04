@@ -23,7 +23,7 @@ test("rejects stale, future, impossible and unscoped source observations",()=>{
   assert.equal(parsePublishedSp500Breadth(fixture("Nov 09, 2026"),now),null);
   assert.equal(parsePublishedSp500Breadth(fixture("Nov 03, 2026","101.0% +5.5 / 5d"),now),null);
   assert.equal(parsePublishedSp500Breadth(fixture("Nov 03, 2026","65.9% +90.0 / 5d"),now),null);
-  assert.equal(parsePublishedSp500Breadth(fixture().replace("S&amp;P 500 Members:","All Stocks:")),now),null);
+  assert.equal(parsePublishedSp500Breadth(fixture().replace("S&amp;P 500 Members:","All Stocks:"),now),null);
   assert.equal(parsePublishedSp500Breadth(fixture("Nov 03, 2026","65.9% +5.5 / 5d","61.5%"),now),null);
 });
 test("uses bounded 2-hour refresh with explicit unavailable fallback",()=>{
