@@ -81,3 +81,18 @@ test("part two connects election control, historical returns and five sectors wi
  assert.doesNotMatch(midtermPolicy,/from ["']@\/lib\/(?:blue-desk-.*-server|supabase|private)/);
  assert.doesNotMatch(midtermPolicy,/fetch\(|process\.env|cookies\(/);
 });
+
+
+test("post-election 4 November reporting is dated separately from the frozen election preview",()=>{
+ assert.match(feature,/data-bluebelly-midterm-followup="post-election-2026-11-04"/);
+ assert.match(feature,/2 November 2026, before the US midterm vote/);
+ assert.match(feature,/Democrats won control of both the House and Senate/);
+ assert.match(feature,/4\.915%/);
+ assert.match(feature,/101\.27/);
+ assert.match(feature,/Reuters reported/);
+ assert.match(feature,/AP reports/);
+ assert.match(feature,/No nationwide AI construction ban follows automatically/);
+ assert.match(feature,/historical intraday snapshots, not live quotes/);
+ assert.match(feature,/returns over six to twelve months/);
+ assert.doesNotMatch(feature,/app\.notion\.com\/p\//);
+});
