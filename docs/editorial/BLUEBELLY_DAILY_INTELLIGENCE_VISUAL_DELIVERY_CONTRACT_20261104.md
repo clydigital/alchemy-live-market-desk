@@ -40,3 +40,12 @@ No sixth ChatGPT task, extra cron, public publisher, fresh paid data collector, 
 - [ ] Real completed session has an immutable owner-private report ID/SHA, authenticated inline My Desk readback, and separately tested anonymous denial. Production deployment SHA is documented.
 
 **Current unfinished dependencies:** independently frozen consensus-series vintages, event-window market quotes and comprehensive issuer metric join for every candidate; a code-only renderer cannot manufacture these. Preserve missing-source flags and hand off exact gaps to the existing Research Investigation owner.
+
+
+## Daily Watch & Question Radar — editorial handoff requirement (4 November 2026)
+
+Apply the six-lens selection rule in [Daily Intelligence Editorial Reader v4](./BLUEBELLY_DAILY_INTELLIGENCE_EDITORIAL_READER_V4.md#addendum--4-november-2026--daily-watchlists-divergences-and-forward-clues): **key stocks; key cross-assets; material news; sectors and divergences; labelled speculation/unresolved questions; and forward-looking clues**. It belongs in the *same* complete owner-private edition and the existing up-to-five-question editorial hierarchy, not in a new task or competing dashboard.
+
+The opening should expose a short, ranked watch radar; the narrative should supply the evidence, competing readings and specific next tests. Reuse current market/breadth, issuer, mechanism/countercase and catalyst tables where the frozen packet supports them. Every selected item needs a concrete **why now**, exact source/as-of, **what would confirm or falsify it**, and **new/changed/open/resolved** status against the previous edition. Hypotheses and creator opinions remain attributed; missing release-window, consensus or technical data remains visibly unavailable. A report containing generic tickers and headlines without forward clues fails editorial acceptance.
+
+Existing MacroPulse → Research Investigation → private HTML/PDF delivery responsibilities remain unchanged. This documentation change does not establish an automation or live deployment.
