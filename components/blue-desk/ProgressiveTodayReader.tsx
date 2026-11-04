@@ -5,6 +5,7 @@ import {decisionTopics, decisionSourceFreshness} from "@/lib/bluebelly-decision-
 import {selectBlueDeskUpcoming} from "@/lib/blue-desk-calendar";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import DualTimestamp from "./DualTimestamp";
+import {publicReadingHeadline} from "@/lib/bluebelly-public-headline";
 import styles from "./ProgressiveTodayReader.module.css";
 
 /**
@@ -34,7 +35,7 @@ export default function ProgressiveTodayReader({news,calendar,now,host}:{
     <header className={styles.hero} aria-label="Market in 30 seconds">
       <div className={styles.heroMain}>
         <p className={styles.eyebrow}>THE MARKET IN 30 SECONDS</p>
-        <h1>{lead?.title||"What can we verify today?"}</h1>
+        <h1>{lead?publicReadingHeadline(lead.title,lead.fact,lead.sourceName):"What can we verify today?"}</h1>
         <p className={styles.summary}>{lead?(lead.status==="UPCOMING"?"Upcoming, not yet released. "+lead.why:lead.fact):"Current source-qualified coverage is unavailable. The calendar and research archive remain accessible."}</p>
         <nav className={styles.heroActions} aria-label="Read more">
           <a className={styles.primaryAction} href="#today-headlines">Get the quick news <span aria-hidden="true">→</span></a>
@@ -45,7 +46,7 @@ export default function ProgressiveTodayReader({news,calendar,now,host}:{
         <h2>THREE DEVELOPMENTS TO KNOW</h2>
         {allTopics.slice(0,3).map((item,index)=><Link key={item.id} className={styles.topLine} href={stories+item.href}>
           <span aria-hidden="true">{String(index+1).padStart(2,"0")}</span>
-          <div><strong>{item.title}</strong><small>{item.status==="UPCOMING"?"Upcoming · outcome pending":item.status==="FEATURE"?"Dated feature":"Source-qualified update"}</small></div>
+          <div><strong>{publicReadingHeadline(item.title,item.fact,item.sourceName)}</strong><small>{item.status==="UPCOMING"?"Upcoming · outcome pending":item.status==="FEATURE"?"Dated feature":"Source-qualified update"}</small></div>
         </Link>)}
         {!allTopics.length?<p>No qualified developments currently available.</p>:null}
         <p className={styles.heroNote}>Original releases, interpretations and dated market reactions retain separate evidence status.</p>
@@ -66,12 +67,13 @@ export default function ProgressiveTodayReader({news,calendar,now,host}:{
               <span>{decisionSourceFreshness(item.at,item.status,now)}</span>
               <DualTimestamp value={item.at.includes("T")?item.at:null} sourceDate={item.at}/>
             </div>
-            <h3><Link href={stories+item.href}>{item.title}</Link></h3>
+            <h3><Link href={stories+item.href}>{publicReadingHeadline(item.title,item.fact,item.sourceName)}</Link></h3>
             <p>{item.fact}</p>
             <p className={styles.point}><b>THE POINT</b> {item.why}</p>
             <details className={styles.expansion}>
               <summary>Expand explanation <span aria-hidden="true">⌄</span></summary>
               <div className={styles.expandedBody}>
+                {publicReadingHeadline(item.title,item.fact,item.sourceName)!==item.title?<p><strong>Original source wording:</strong> {item.title}</p>:null}
                 <h4>How it could affect markets</h4>
                 <p>{item.mechanism}</p>
                 <h4>What would change the reading?</h4>
