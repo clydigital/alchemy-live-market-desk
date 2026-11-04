@@ -7,9 +7,9 @@ import { assembleLearnGlossary, LEARN_GLOSSARY_ADDITIONS } from "../lib/bluebell
 test("Learn expands 28 governed concepts without changing research glossary authority", () => {
   const governed=listConcepts();
   assert.equal(governed.length,28);
-  assert.equal(LEARN_GLOSSARY_ADDITIONS.length,78);
+  assert.equal(LEARN_GLOSSARY_ADDITIONS.length,104);
   const combined=assembleLearnGlossary(governed);
-  assert.equal(combined.length,106);
+  assert.equal(combined.length,132);
   assert.equal(new Set(combined.map((entry)=>entry.key)).size,combined.length);
   assert.ok(combined.every((entry)=>entry.definition && entry.whyItMatters && entry.watch.length>0));
   assert.ok(LEARN_GLOSSARY_ADDITIONS.every((entry)=>entry.example && entry.topic!=="regime"));
@@ -47,6 +47,7 @@ test("cyberpunk Learn page remains theme-derived, public and educational",()=>{
   assert.match(page,/data-bluebelly-learn="public-governed-glossary"/);
   assert.doesNotMatch(page,/id="courses"|BLUEBELLY_LEARN_DECKS|09 MODULES/);
   assert.match(page,/id="glossary"/);
+  assert.match(page,/id="resources"/);
   assert.match(client,/type="search"/);
   assert.match(client,/aria-pressed/);
   assert.match(client,/aria-live/);
