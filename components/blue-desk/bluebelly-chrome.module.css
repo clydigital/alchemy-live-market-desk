@@ -45,3 +45,16 @@
 .mobileNav{display:none}.masthead a:focus-visible,.navbar a:focus-visible,.preferences summary:focus-visible{outline:2px solid var(--bb-accent);outline-offset:3px}
 @media(max-width:1000px){.navInner{display:flex;padding:0 14px;align-items:center;gap:12px}.links{display:none}.mobileNav{display:block;position:relative}.mobileNav summary{cursor:pointer;padding:12px 5px;color:var(--bb-accent);font-size:13px}.mobileNav nav{position:absolute;z-index:80;top:100%;left:0;width:230px;background:#14181c;border:1px solid var(--bb-line);padding:8px;box-shadow:0 12px 24px #0008}.mobileNav a{display:block;padding:11px;color:var(--bb-text)}.search{display:flex;margin-left:auto;max-width:310px;min-width:0}.search input{font-size:13px}.brandText{display:none}}
 @media(max-width:680px){.mastInner{min-height:65px;padding:10px 14px}.mastRight .micro{display:none!important}.mastRight{gap:0}.logoSymbol{width:30px;height:32px;font-size:22px}.logoText{font-size:24px}.brand{gap:7px}.preferences summary{padding:7px;font-size:12px}.navInner{gap:15px}.search{max-width:240px}.search input{width:100%;padding:9px 5px}.search button{padding:8px}.utility{display:none}}
+
+/* Progressive reader: keep the approved public sections visible, put research
+   utilities in one keyboard-operable disclosure rather than clipping the nav. */
+@media(min-width:1001px){.links{overflow:visible}}
+.moreNav{position:relative;display:flex;align-items:stretch;z-index:90}
+.moreNav>summary{display:inline-flex;align-items:center;gap:9px;min-height:44px;padding:12px 14px;cursor:pointer;list-style:none;color:var(--bb-text);font:700 12px var(--bb-mono);border-right:1px solid var(--bb-line)}
+.moreNav>summary::-webkit-details-marker{display:none}
+.moreNav[open]>summary,.moreNav>summary:hover{color:var(--bb-accent);background:var(--bb-raised)}
+.morePanel{position:absolute;right:0;top:100%;z-index:90;min-width:210px;display:grid;padding:8px;background:var(--bb-surface);border:1px solid var(--bb-line);box-shadow:0 20px 45px #000b}
+.morePanel a{display:block;padding:12px 10px;color:var(--bb-text);font-size:13px;text-decoration:none}
+.morePanel a:hover,.morePanel a:focus-visible{background:var(--bb-raised);color:var(--bb-accent)}
+.moreNav>summary:focus-visible{outline:2px solid var(--bb-accent);outline-offset:3px}
+@media(max-width:1000px){.moreNav{display:none}}
