@@ -25,6 +25,8 @@ const SERIES = [
 export type BreadthPoint = {date: string; value: number};
 export type BreadthSeries = {
   symbol: string; sourceUrl: string; sourceName: string; points: BreadthPoint[];
+  /** Source-reported 5-session pp change; never treated as 1D or 3D. */
+  reportedChange5d?:number;
 };
 
 export const REVIEWED_BREADTH_SEED: BreadthSeries[] = SERIES.map(item => ({
@@ -32,6 +34,47 @@ export const REVIEWED_BREADTH_SEED: BreadthSeries[] = SERIES.map(item => ({
   sourceName:"Investing.com historical index levels · secondary provider",
   points:item.points.map(([date,value])=>({date,value})),
 }));
+
+
+/** A separate provider's computed current-member S&P 500 breadth proxies.
+ * These values are NOT the identically named Investing.com S5FI/S5TH index
+ * closes. The provider reports 5D changes but not matching 1D/3D history. */
+export function parsePublishedSp500Breadth(html:string,now=new Date()):BreadthSeries[]|null {
+  if(!html || html.length>6000000)return null;
+  const clean=html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi," ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi," ")
+    .replace(/<[^>]*>/g," ").replace(/&nbsp;|&#160;/gi," ")
+    .replace(/&amp;/gi,"&").replace(/\s+/g," ");
+  const start=clean.indexOf("S&P 500 Members: % Above the 50 & 200-Day Averages vs SPY");
+  if(start<0)return null;
+  const end=clean.indexOf("Nasdaq-100 Members:",start+60);
+  if(end<0 || end-start>2500)return null;
+  const section=clean.slice(start,end);
+  const stamp=section.match(/Latest\s*[·|]\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),\s*(20\d{2})\s*[·|]\s*SPY/i);
+  if(!stamp)return null;
+  const month=["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"].indexOf(stamp[1].toLowerCase())+1;
+  const date=stamp[3]+"-"+String(month).padStart(2,"0")+"-"+String(Number(stamp[2])).padStart(2,"0");
+  const epoch=Date.parse(date+"T00:00:00Z");
+  if(!Number.isFinite(epoch) || new Date(epoch).toISOString().slice(0,10)!==date
+    || !sourceDateFresh(date,now))return null;
+  const read=(horizon:"50"|"200",kind:"Swing"|"Regime")=>{
+    const rx=new RegExp("\\b"+horizon+"d\\s*[·|-]\\s*"+kind+"\\s*(\\d{1,3}(?:\\.\\d+)?)\\s*%\\s*([+-]\\d{1,3}(?:\\.\\d+)?)\\s*\\/\\s*5d","i");
+    const found=section.match(rx);
+    if(!found)return null;
+    const level=Number(found[1]),delta=Number(found[2]);
+    if(level<0||level>100||!Number.isFinite(level)||Math.abs(delta)>100
+      ||!Number.isFinite(delta)||level-delta<0||level-delta>100)return null;
+    return {level,delta};
+  };
+  const short=read("50","Swing"),long=read("200","Regime");
+  if(!short||!long)return null;
+  const sourceUrl="https://www.thetrading.tools/stocks-above-moving-average";
+  const sourceName="thetrading.tools · computed current-member S&P 500 breadth proxy";
+  return [
+    {symbol:"S5FI",sourceUrl,sourceName,points:[{date,value:short.level}],reportedChange5d:short.delta},
+    {symbol:"S5TH",sourceUrl,sourceName,points:[{date,value:long.level}],reportedChange5d:long.delta},
+  ];
+}
 
 export function sourceDateFresh(date: string, now = new Date()): boolean {
   if (!/^20\d{2}-\d{2}-\d{2}$/.test(date)) return false;
@@ -66,7 +109,9 @@ export function calculateBreadthRow(
   return {
     id:"breadth:"+symbol, symbol, label, type:"Breadth",
     last:sourceEligible ? last!.value : null,
-    change:change(1), change3d:change(3), change5d:change(5),
+    change:change(1), change3d:change(3),
+    change5d:change(5) ?? (sourceEligible && source?.reportedChange5d!==undefined
+      && Number.isFinite(source.reportedChange5d) ? source.reportedChange5d : null),
     changeUnit:"pp", frequency:"daily",
     asOf:last?.date ?? null,
     sourceName:source?.sourceName || "Breadth provider unavailable",
