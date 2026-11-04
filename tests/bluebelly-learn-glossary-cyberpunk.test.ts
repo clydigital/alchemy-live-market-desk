@@ -45,7 +45,7 @@ test("cyberpunk Learn page remains theme-derived, public and educational",()=>{
   const styles=readFileSync("app/blue-desk/learn/learn.module.css","utf8");
   assert.match(page,/assembleLearnGlossary\(listConcepts\(\)/);
   assert.match(page,/data-bluebelly-learn="public-governed-glossary"/);
-  assert.match(page,/id="courses"/);
+  assert.doesNotMatch(page,/id="courses"|BLUEBELLY_LEARN_DECKS|09 MODULES/);
   assert.match(page,/id="glossary"/);
   assert.match(client,/type="search"/);
   assert.match(client,/aria-pressed/);
