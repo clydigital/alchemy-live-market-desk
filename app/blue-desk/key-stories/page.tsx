@@ -42,6 +42,7 @@ import {getEventSocialContext} from "@/lib/bluebelly-event-social-server";
 import {bankDecisionById} from "@/lib/bluebelly-bank-decision-snapshots";
 import {reportedEditorialById} from "@/lib/bluebelly-reported-editorial";
 import {decisionTopics} from "@/lib/bluebelly-decision-brief";
+import {publicReadingHeadline} from "@/lib/bluebelly-public-headline";
 import {getRecentVerifiedEarningsScorecards,getImmutableChartWatchEarningsEdition} from "@/lib/blue-desk-earnings-results";
 import {selectFlagshipInvestorTest} from "@/lib/blue-desk-investor-test";
 import {getStoryMotionRecency} from "@/lib/blue-desk-story-motion-recency-server";
@@ -341,7 +342,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
             const lead=topic.updates[0];
             return <article className={ui.catalystCard} key={topic.id} id={topic.id}>
               <p className={ui.kicker}>REPORTED CATALYST · {topic.title.toUpperCase()}</p>
-              <h3><Link href={indexHref+"?catalyst="+encodeURIComponent(topic.id)}>{lead.headline}</Link></h3>
+              <h3><Link href={indexHref+"?catalyst="+encodeURIComponent(topic.id)}>{publicReadingHeadline(lead.headline,lead.summary,lead.sourceName)}</Link></h3>
               <p className={ui.catalystFact}>{lead.summary}</p>
               <p className={ui.catalystClock}>Event <DualTimestamp value={lead.occurredAt}/></p>
               <div className={ui.humanStakes}>
@@ -449,7 +450,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
             return <article className={ui.card} key={topic.id}>
               <p className={ui.kicker}>SOURCE-VERIFIED NEWS · <DualTimestamp value={topic.latestObservedAt}/></p>
               <h3><Link href={reviewed?indexHref+reviewed.detailsHref:indexHref+"?catalyst="+topic.id}>
-                {reviewed?.headline||topic.updates[0].headline}
+                {reviewed?.headline||publicReadingHeadline(topic.updates[0].headline,topic.updates[0].summary,topic.updates[0].sourceName)}
               </Link></h3>
               <p>{reviewed?.standfirst||topic.updates[0].summary}</p>
               <details className={ui.progressiveEvidence}>
@@ -469,7 +470,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
         <div className={ui.cards}>{earlierNews.map(n=><article className={ui.card} key={n.id}>
           <div style={{maxWidth:240,marginBottom:12}}><EditorialStoryArt headline={n.headline} summary={n.summary} compact/></div>
           <p className={ui.kicker}>EARLIER REPORT · <DualTimestamp value={n.occurredAt}/></p>
-          <h3><Link href={indexHref+"?news="+encodeURIComponent(n.id)}>{n.headline}</Link></h3>
+          <h3><Link href={indexHref+"?news="+encodeURIComponent(n.id)}>{publicReadingHeadline(n.headline,n.summary,n.sourceName)}</Link></h3>
           {datedNewsSourceExcerpt(n)
             ? <p data-source-confirmed-excerpt="true"><strong>What the source reports:</strong> {datedNewsSourceExcerpt(n)}</p>
             : <p data-source-confirmed-excerpt="unavailable">Original announcement verified. A substantive numerical or policy detail has not yet been extracted from the source.</p>}
