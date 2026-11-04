@@ -154,3 +154,22 @@
 .resultsBar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;column-gap:18px;row-gap:8px;margin:0 0 16px}
 .resultsBar .results{margin:0;min-width:0;flex:1 1 260px;line-height:1.5}
 @media(max-width:600px){.resultsBar{align-items:stretch;gap:10px}.resultsBar .results{flex-basis:100%}}
+
+/* Approved progressive-reading direction: news is scan-first; full analysis
+   and evidence are opt-in. Keep source/verification badges visible. */
+.intro{min-height:0;padding:20px 24px;clip-path:none;background:var(--bb-card-quiet)}
+.intro:before,.intro:after{display:none}
+.intro h1{font-size:clamp(26px,2.8vw,38px);margin:8px 0 6px}
+.intro p{font-size:13px;line-height:1.55;margin:0}
+.sectionTitle{margin-top:19px;padding-bottom:8px}
+.sectionTitle h2{font-size:25px}
+.topics{margin:12px 0 14px}
+.item{grid-template-columns:110px minmax(0,1fr);gap:14px;padding:13px 15px;margin-bottom:8px;border-left-width:2px}
+.item h2{font-size:clamp(18px,1.65vw,23px);margin:7px 0}
+.item p{font-size:13px;line-height:1.55;margin-bottom:8px}
+.art,.art>div{height:92px}
+.item .readMore{margin-top:9px;padding-top:5px}
+.item .readMore>summary{display:inline-block;border:1px solid var(--bb-line);padding:8px 11px;min-height:36px;cursor:pointer}
+.item .readMore[open]>summary{border-color:var(--bb-accent)}
+.item .readMore .detailBody p{display:block;overflow:visible}
+@media(max-width:620px){.intro{padding:16px}.intro h1{font-size:27px}.item{grid-template-columns:1fr;padding:13px}.item .art{display:none}.item h2{font-size:21px}.item p{display:block;line-height:1.6}.metadata{font-size:11px}}

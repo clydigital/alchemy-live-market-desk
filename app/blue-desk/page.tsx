@@ -1,5 +1,6 @@
 import CurrentMarketUpdates from "@/components/blue-desk/CurrentMarketUpdates";
 import DecisionBrief from "@/components/blue-desk/DecisionBrief";
+import ProgressiveTodayReader from "@/components/blue-desk/ProgressiveTodayReader";
 import PublishedResearchDispatches from "@/components/blue-desk/PublishedResearchDispatches";
 import {projectPublishedResearchFocus} from "@/lib/blue-desk-published-research-focus";
 import Link from "next/link";
@@ -104,16 +105,28 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   return (
     <main className={styles.page} data-blue-desk-convergence="phase-1">
       <BlueDeskHeader activePath="/blue-desk" />
-        <CurrentMarketUpdates host={host} mode="full" now={now}/>
+        {!publicHost?<CurrentMarketUpdates host={host} mode="full" now={now}/>:null}
       <div className={styles.content}>
-        <DecisionBrief news={verifiedNews} recentNews={recentNews} calendar={calendar} now={now} host={host}
-          postEventRecaps={postEventRecaps} storyPage={storyPage}/>
-        <PublishedResearchDispatches items={projectPublishedResearchFocus(digestBriefs,now,3)}
-          mode="today" readerHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/>
-        <p data-home-research-archive-link="dated-not-live" style={{margin:"12px 0 6px",fontSize:13,color:"var(--bb-muted)"}}>
-          Older investigations are preserved separately.{" "}
-          <Link href={blueDeskPublicHref("/blue-desk/research",host)}>Browse the dated Research Library →</Link>
-        </p>
+        {publicHost?<ProgressiveTodayReader news={verifiedNews} calendar={calendar} now={now} host={host}/>:
+          <DecisionBrief news={verifiedNews} recentNews={recentNews} calendar={calendar} now={now} host={host}
+            postEventRecaps={postEventRecaps} storyPage={storyPage}/>}
+        {publicHost?<details data-home-detailed-brief="on-demand" style={{margin:"18px 0",border:"1px solid var(--bb-line)",padding:"14px",background:"var(--bb-surface)"}}>
+          <summary style={{cursor:"pointer",color:"var(--bb-accent)",fontWeight:700}}>Explore detailed news, earnings and event analysis</summary>
+          <nav aria-label="Detailed market analysis" style={{display:"flex",flexWrap:"wrap",gap:"14px",padding:"16px 0 4px"}}>
+            <Link href={blueDeskPublicHref("/blue-desk/newsroom",host)}>Full news explanations →</Link>
+            <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>Ongoing stories and evidence →</Link>
+            <Link href={blueDeskPublicHref("/blue-desk/calendar",host)}>Earnings and economic calendar →</Link>
+          </nav>
+        </details>:null}
+        <details data-home-archive="on-demand" style={{margin:"18px 0",border:"1px solid var(--bb-line)",padding:"14px",background:"var(--bb-surface)"}}>
+          <summary style={{cursor:"pointer",color:"var(--bb-accent)",fontWeight:700}}>Browse more dated investigations and previous research</summary>
+          <PublishedResearchDispatches items={projectPublishedResearchFocus(digestBriefs,now,3)}
+            mode="today" readerHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/>
+          <p data-home-research-archive-link="dated-not-live" style={{margin:"12px 0 6px",fontSize:13,color:"var(--bb-muted)"}}>
+            Older investigations are preserved separately.{" "}
+            <Link href={blueDeskPublicHref("/blue-desk/research",host)}>Browse the dated Research Library →</Link>
+          </p>
+        </details>
         {/* Legacy research archive remains accessible on the old desk only; Bluebelly readers use dedicated Markets and Key Stories pages. */}
         {!publicHost ? <>
         {/* Historical, source-dated price SVGs stay visible before the long archive. */}

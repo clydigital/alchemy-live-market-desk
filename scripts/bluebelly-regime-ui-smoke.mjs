@@ -51,7 +51,7 @@ async function waitResponse(path,accepted=(code)=>code===200){
 function assertHtml(html,...needles){
  for(const needle of needles)if(!html.includes(needle))throw Error("Missing rendered marker "+needle);
 }
-async function renderChrome(url,filename,width,height){
+async function renderChrome(url,filename,width,height,{disableJavascript=false}={}){
  const bins=[process.env.CHROME_BIN,"google-chrome","chromium","chromium-browser"].filter(Boolean);
  let found=null;
  for(const bin of bins){
@@ -66,7 +66,11 @@ async function renderChrome(url,filename,width,height){
   "--disable-extensions","--disable-background-networking",
   "--user-data-dir="+profile,
   "--hide-scrollbars","--no-first-run","--no-default-browser-check",
-  "--window-size="+width+","+height,"--virtual-time-budget=4500",
+  "--window-size="+width+","+height,
+  ...(disableJavascript?[]:["--virtual-time-budget=4500"]),
+  // Server-rendered public reading can include large external embeds. Capture
+  // static layout without executing third-party scripts where appropriate.
+  ...(disableJavascript?["--disable-javascript"]:[]),
   "--screenshot="+target,url,
  ];
  // Chrome requests must be served by the proxy running on this event loop;
@@ -155,6 +159,7 @@ try{
  // Visual acceptance for the CP public-page convergence. Deliberately use
  // public routes and a source-agnostic data state; never invent market prices.
  const publicPages=[
+  ["/","today",'data-progressive-reading="today-v1"'],
   ["/newsroom","newsroom",'data-public-newsroom="original-source-only"'],
   ["/key-stories","key-stories",'data-bluebelly-stories="catalyst-led"'],
   ["/hormuz","hormuz",'data-bluebelly-hormuz="public-source-dated-physical-first"'],
@@ -174,6 +179,9 @@ try{
  for(const [path,id,marker] of publicPages){
   const view=await waitResponse(path);
   assertHtml(view.html,marker);
+  if(id==="today"){
+   assertHtml(view.html,'id="today-headlines"','data-home-detailed-brief="on-demand"');
+  }
   if(id==="newsroom"){
    assertHtml(view.html,'data-editorial-newsroom="verified-only"');
    if(view.html.includes('data-newsroom-release-rail='))throw Error("Duplicate release rail still rendered in public Newsroom");
@@ -181,9 +189,9 @@ try{
   // TradingView embeds can keep headless Chrome alive indefinitely; Markets is
   // covered by the route/HTML assertions, not a brittle third-party screenshot.
   if(id!=="markets")
-   await renderChrome("http://127.0.0.1:"+PUBLIC+path,id+"-mobile.png",390,844);
-  if(id==="newsroom"||id==="key-stories")
-   await renderChrome("http://127.0.0.1:"+PUBLIC+path,id+"-desktop.png",1440,1000);
+   await renderChrome("http://127.0.0.1:"+PUBLIC+path,id+"-mobile.png",390,844,{disableJavascript:id==="key-stories"||id==="today"});
+  if(id==="newsroom"||id==="key-stories"||id==="today")
+   await renderChrome("http://127.0.0.1:"+PUBLIC+path,id+"-desktop.png",1440,1000,{disableJavascript:id==="key-stories"||id==="today"});
   console.log("Public CP page "+path+" "+view.status+" · mobile render saved");
  }
 

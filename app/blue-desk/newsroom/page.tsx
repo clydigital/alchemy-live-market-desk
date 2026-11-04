@@ -3,7 +3,7 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import {projectPublishedResearchFocus} from "@/lib/blue-desk-published-research-focus";
 import Link from "next/link";
 import {headers} from "next/headers";
-import {blueDeskPublicHref} from "@/lib/blue-desk-host";
+import {blueDeskPublicHref,isBlueDeskPublicReaderHost} from "@/lib/blue-desk-host";
 import BluebellyNewsWire from "@/components/blue-desk/BluebellyNewsWire";
 import Newsroom48hTimeline from "@/components/blue-desk/Newsroom48hTimeline";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
@@ -52,7 +52,7 @@ export default async function NewsroomPage({searchParams}:Props){
  const hotPicks=selectNewsroomHotPicks(news,archiveResult.items,now,5,editorials);
  return <main className={desk.page} data-public-newsroom="original-source-only">
   <BlueDeskHeader activePath="/blue-desk/newsroom"/>
-    <CurrentMarketUpdates host={host} mode="full" now={now}/>
+    {!isBlueDeskPublicReaderHost(host)?<CurrentMarketUpdates host={host} mode="full" now={now}/>:null}
   <div className={desk.content}>
       {oct30SelloffIsLead(now)&&+now-Date.parse(OCT30_SELL_OFF.occurredAt)<48*3600000&&currentReviewedPublicFocus(now).length===0?<article data-newsroom-lead="oct30-ai-selloff" className={ui.featureLead}>
         <p className={ui.featureKicker}>NEWSROOM LEAD · 30 OCTOBER 2026 · SOURCE-REPORTED INTRADAY REACTION</p>

@@ -10,8 +10,12 @@ test("all visible public header links target approved host paths and real anchor
   const match = header.match(/const PUBLIC_NAV = \[([\s\S]*?)\] as const;/);
   assert.ok(match, "public navigation must be explicitly enumerated");
   const hrefs = [...match[1].matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m => m[1]);
-  assert.deepEqual(hrefs, ["/", "/newsroom", "/research", "/hormuz", "/regime-watch", "/markets", "/calendar",
-    "/learn", "/my-reports"]);
+  assert.deepEqual(hrefs, ["/", "/newsroom", "/blue-desk/key-stories", "/markets", "/calendar", "/my-reports"]);
+  const more = header.match(/const PUBLIC_MORE = \[([\s\S]*?)\] as const;/);
+  assert.ok(more, "secondary public research destinations must be explicit");
+  const additional = [...more[1].matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m=>m[1]);
+  assert.deepEqual(additional, ["/research", "/regime-watch", "/hormuz", "/learn"]);
+  for (const href of additional) assert.equal(blueDeskHostAccess(href, "bluebelly-desk.vercel.app"), "public", href);
   for (const href of hrefs) {
     const url = new URL(href, "https://bluebelly-desk.vercel.app");
     const access = href === "/my-reports"

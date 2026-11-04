@@ -27,13 +27,18 @@ const PRIVATE_NAV = [
 const PUBLIC_NAV = [
   ["Today", "/"],
   ["Newsroom", "/newsroom"],
-  ["Research", "/research"],
-  ["Hormuz Watch", "/hormuz"],
-  ["Regime Watch", "/regime-watch"],
+  ["Key Stories", "/blue-desk/key-stories"],
   ["Markets", "/markets"],
   ["Calendar", "/calendar"],
-  ["Learn", "/learn"],
   ["My Desk", "/my-reports"],
+] as const;
+
+// Secondary destinations remain available without nine competing header links.
+const PUBLIC_MORE = [
+  ["Research Library", "/research"],
+  ["Regime Watch", "/regime-watch"],
+  ["Hormuz Watch", "/hormuz"],
+  ["Learn", "/learn"],
 ] as const;
 
 const NAV_ICONS: Record<string, MarketIconName> = {
@@ -73,6 +78,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
   // even when opened on the canonical hostname that also serves public readers.
   const ownerWorkspace = activePath === "/my-reports" || activePath === "/owner/editorial" || activePath === "/owner/presenter" || activePath === "/owner/research" || activePath === "/owner/publications" || activePath === "/owner/daily-report" || activePath === "/owner/daily-articles" || activePath === "/owner/x-wire" || activePath === "/market-tools";
   const nav = publicHost && !ownerWorkspace ? PUBLIC_NAV : PRIVATE_NAV;
+  const more = publicHost && !ownerWorkspace ? PUBLIC_MORE : [];
   const current=blueDeskPublicHref(activePath,host);
   return (
     <header data-bluebelly-chrome="mockup-editorial">
@@ -91,7 +97,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
         </div>
       </div></div>
       <div className={chrome.navbar}><div className={chrome.navInner}>
-        <details className={chrome.mobileNav}><summary>Sections</summary><nav aria-label="Bluebelly mobile">{nav.map(([label,path])=><Link key={path} href={blueDeskPublicHref(path,host)}>{label}</Link>)}</nav></details>
+        <details className={chrome.mobileNav}><summary>Sections</summary><nav aria-label="Bluebelly mobile">{nav.map(([label,path])=><Link key={path} href={blueDeskPublicHref(path,host)}>{label}</Link>)}{more.map(([label,path])=><Link key={path} href={blueDeskPublicHref(path,host)}>{label}</Link>)}</nav></details>
         <nav className={chrome.links} aria-label="Bluebelly primary">
           {nav.map(([label,path])=>{
             const href=blueDeskPublicHref(path,host);
@@ -101,6 +107,12 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
               <MarketIcon name={NAV_ICONS[label]||"market"} size={15}/><span>{label}</span>
             </Link>;
           })}
+          {more.length?<details className={chrome.moreNav}>
+            <summary aria-label="More Bluebelly sections">More <span aria-hidden="true">⌄</span></summary>
+            <div className={chrome.morePanel}>
+              {more.map(([label,path])=><Link key={path} href={blueDeskPublicHref(path,host)}>{label}</Link>)}
+            </div>
+          </details>:null}
         </nav>
         <form action={publicHost?"/newsroom":"/blue-desk/newsroom"} method="get" className={chrome.search} role="search">
           <input name="q" type="search" maxLength={100} aria-label="Search public Newsroom" placeholder="Search stories, issuers, themes"/>
