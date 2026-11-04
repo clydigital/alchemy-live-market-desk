@@ -195,7 +195,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
        <span className={styles.chip}>{card.item.verificationLabel}</span>
        <small className={styles.metadata}>{archiveTopics(card.item).join(" · ").toUpperCase()} · {card.item.eventAt?clock(card.item.eventAt):card.item.eventDay+" · date only"}</small>
        <h2><Link href={card.item.readerHref}>{card.item.headline}</Link></h2>
-       <MarketTakeaway mode="archived" compact/>
+       <details className={styles.readMore}><summary>Archive status and context</summary><MarketTakeaway mode="archived" compact/></details>
        <div className={styles.actions}>
         <Link href={card.item.readerHref}>Read Bluebelly's source-reviewed report →</Link>
         <a href={card.item.sourceUrl} rel="noopener noreferrer" target="_blank">{card.item.sourceName} · original source ↗</a>
@@ -210,7 +210,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
        <small className={styles.metadata}>{card.item.topics.join(" · ").toUpperCase()} · {clock(card.item.occurredAt)}</small>
        <h2><Link href={card.item.readerHref}>{card.item.headline}</Link></h2>
        <p data-quick-market-brief="source-qualified-summary">{card.item.summary}</p>
-       <MarketTakeaway why={card.item.why} nextTest={card.item.nextTest} compact/>
+
         {isPublishedChartWatch(card.item)&&card.item.chartWatch?<details className={styles.readMore} data-chart-watch-source-ledger={card.item.id}>
          <summary>Chart evidence, dates and original source</summary>
          <div className={styles.detailBody}>
@@ -231,8 +231,9 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
         <Link href={card.item.readerHref}>Read the source-reviewed analysis →</Link>
         <a href={card.item.sourceUrl} rel="noopener noreferrer" target="_blank">{card.item.sourceName} · original source ↗</a>
        </div>
-       <details className={styles.readMore}><summary>Market mechanism and next test</summary>
+       <details className={styles.readMore}><summary>Explain the market implications and next test</summary>
         <div className={styles.detailBody}>
+         <MarketTakeaway why={card.item.why} nextTest={card.item.nextTest} compact/>
          <h3>What could move markets?</h3><p>{card.item.why}</p>
          <h3>What should be checked next?</h3><p>{card.item.nextTest}</p>
          <p>The original statement and attributed price observations have separate evidence status. This article is not a canonical Regime or an intraday attribution study.</p>
@@ -240,14 +241,14 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
        </details>
       </div>
     </article>:
-    <article key={card.item.id} className={styles.item}>
+    <article key={card.item.id} className={styles.item} data-progressive-news="source-only">
       <div className={styles.art}><EditorialStoryArt headline={card.item.headline} summary={card.item.summary} compact/></div>
       <div className={styles.content}>
        <span className={styles.chip}>{Date.parse(now)-Date.parse(card.item.occurredAt)>48*3600000?"VERIFIED · EARLIER THIS WEEK":"SOURCE VERIFIED · LAST 48H"}</span>
        <small className={styles.metadata}>{editorialNewsTopics(card.item).join(" · ").toUpperCase()} · {clock(card.item.occurredAt)}</small>
        <h2><Link href={readerHref+"?news="+encodeURIComponent(card.item.id)}>{card.item.headline}</Link></h2>
        <p data-quick-market-brief="source-qualified-summary">{card.item.summary}</p>
-       <MarketTakeaway mode="source-only" compact/>
+
        <div className={styles.actions}>
         <Link href={readerHref+"?news="+encodeURIComponent(card.item.id)}>Read short Bluebelly recap →</Link>
         <a href={card.item.sourceUrl} rel="noopener noreferrer" target="_blank">{card.item.sourceName} · original report ↗</a>
