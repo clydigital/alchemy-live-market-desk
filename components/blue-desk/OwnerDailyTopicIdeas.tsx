@@ -2,10 +2,16 @@ import Link from "next/link";
 import {getOwnerReportLedIdeas} from "@/lib/bluebelly-owner-report-led-ideas";
 import s from "@/app/my-reports/my-desk.module.css";
 
-/** No PDF, download, independent slate, article archive or model retry.
- * Exactly the latest saved Daily Intelligence edition drives the cards. */
+/** Owner-only research directions from the exact Daily Intelligence report.
+ * Writing Brain's three persisted ideas lead only after matching its immutable
+ * parent receipt; otherwise disclose the report-derived fallback. */
 export default async function OwnerDailyTopicIdeas(){
  const read=await getOwnerReportLedIdeas();
+ const older=read.handoff?.freshness==="OLDER_US_SESSION";
+ const scheduled=read.handoff?.source==="WRITING_BRAIN";
+ const provenanceLabel=scheduled?"SAVED WRITING BRAIN SLATE":"REPORT-DERIVED FALLBACK";
+ const freshnessLabel=older?"OLDER US SESSION":
+  read.handoff?.freshness==="CURRENT_US_SESSION"?"CURRENT US SESSION":"SESSION UNKNOWN";
  return <section className={s.htmlSlate} data-my-desk-current-three-ideas="daily-report-linked"
   aria-label="Three COTD and Opening Bell topic suggestions">
   <div className={s.htmlSlateHeader}>
@@ -13,14 +19,26 @@ export default async function OwnerDailyTopicIdeas(){
     <small className={s.editionType}>02 / DAILY REPORT → ARTICLE RESEARCH</small>
     <h2>Three COTD / Opening Bell suggestions</h2>
    </div>
-   <span className={s.htmlSlateState}>{read.state==="available"?"LIVE REPORT-LED IDEAS":
-    read.state==="no_report"?"AWAITING DAILY REPORT":
+   <span className={s.htmlSlateState}>{read.state==="available"
+    ?provenanceLabel+" · "+freshnessLabel
+    :read.state==="no_report"?"AWAITING DAILY REPORT":
     read.state==="unauthorised"?"OWNER ACCESS REQUIRED":"REPORT READ UNAVAILABLE"}</span>
   </div>
-  <p className={s.htmlSlateIntro}>These are research directions, not commissioned articles.
-   They refresh from the latest saved Daily Intelligence, not an independent dated Writing Brain slate.
-   When the report lacks breadth, only source-verified <Link href="/blue-desk/newsroom">Newsroom</Link> updates
-   may supplement it; gaps stay visible.</p>
+  <p className={s.htmlSlateIntro}>These are private research directions, not commissioned articles.
+   A saved Writing Brain slate leads only when its three source-linked ideas match the exact parent
+   Daily Intelligence ID, SHA and completed US session. Otherwise, directions are explicitly derived
+   from the saved report and source-verified <Link href="/blue-desk/newsroom">Newsroom</Link> material,
+   with research gaps left visible.</p>
+  {read.handoff?<p className={s.htmlSlateNote} role="status"
+   data-my-desk-idea-receipt={read.handoff.state}>
+   <strong>{read.handoff.freshness==="CURRENT_US_SESSION"?"CURRENT REPORT SESSION":
+    read.handoff.freshness==="OLDER_US_SESSION"?"REPORT HANDOFF BEHIND":
+    "REPORT SESSION UNCONFIRMED"}</strong>
+   {" · "}Parent session {read.handoff.reportSessionET} ET.
+   {read.handoff.expectedSessionET
+    ?" Expected latest completed US session: "+read.handoff.expectedSessionET+" ET.":""}
+   {" "}{read.handoff.reason}
+  </p>:null}
   {read.editionId?<p className={s.htmlSlateNote}>
    Parent report: <strong>{read.editionTitle}</strong> · {read.reportDay} ·
    {" "}<a href={"/api/owner/html-editions?edition="+read.editionId} target="_blank"
@@ -34,12 +52,16 @@ export default async function OwnerDailyTopicIdeas(){
    {read.ideas.map(idea=><article key={idea.rank} className={s.htmlSlateIdea}>
     <small>#{idea.rank} · {idea.format} · {idea.theme}</small>
     <h3>{idea.title}</h3>
-    <p className={s.ideaOrigin}>{idea.provenance==="DAILY_REPORT"?"FROM CURRENT DAILY REPORT":
+    <p className={s.ideaOrigin}>{idea.provenance==="WRITING_BRAIN"
+     ?"FROM EXACT SAVED WRITING BRAIN SLATE":
+     idea.provenance==="DAILY_REPORT"?"FROM SAVED DAILY REPORT":
      idea.provenance==="NEWSROOM_SUPPLEMENT"?"SOURCE-VERIFIED NEWSROOM SUPPLEMENT":
      "RESEARCH GAP — NOT AN APPROVED IDEA"}</p>
+    {idea.ideaId?<p>Idea receipt: <code>{idea.ideaId}</code></p>:null}
     <p><strong>Thesis / evidence:</strong> {idea.thesis}</p>
     <p><strong>Antithesis:</strong> {idea.antithesis}</p>
     <p><strong>What to look for:</strong> {idea.nextCheck}</p>
+    {idea.evidenceGap?<p><strong>Missing proof:</strong> {idea.evidenceGap}</p>:null}
     <details><summary>Technical checks and original sources</summary>
      <p><strong>Chart / market test:</strong> {idea.technicalCheck}</p>
      <div className={s.htmlSlateSources} aria-label="Topic evidence links">
@@ -55,8 +77,9 @@ export default async function OwnerDailyTopicIdeas(){
     </details>
    </article>)}
   </div>}
-  <p className={s.htmlSlateNote}>The report changes the suggestions as soon as a new saved edition
-   becomes the lead. There is no separate COTD/OB archive or claim of automatic publication.
-   Historical source records remain intact for provenance.</p>
+  <p className={s.htmlSlateNote}>The latest eligible saved report remains the parent. Persisted
+   slate ideas are reused only with an exact parent receipt; fallback ideas are identified above.
+   Neither database readback nor upstream source status proves scheduled execution, independent
+   provider verification or public publication. Historical records remain intact.</p>
  </section>;
 }
