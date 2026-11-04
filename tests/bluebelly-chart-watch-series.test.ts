@@ -8,6 +8,8 @@ import {
 } from "../lib/bluebelly-chart-watch.ts";
 import type {NewsroomEditorialItem} from "../lib/bluebelly-newsroom-editorial.ts";
 import type {VisualPayload} from "../lib/bluebelly-visual-evidence.ts";
+import {isPublicVisualEligible} from "../lib/bluebelly-visual-evidence.ts";
+import {getImmutableChartWatchEarningsEdition} from "../lib/blue-desk-earnings-results.ts";
 
 const source="https://www.sec.gov/Archives/edgar/data/1045810/000104581026000075/";
 const path="/key-stories?brief=reviewed-earnings-example";
@@ -41,8 +43,12 @@ const approval:ChartWatchApproval={
   publicChartRights:true,visual,
 };
 
-test("Chart Watch starts with no automatically published private research",()=>{
-  assert.equal(CHART_WATCH_PUBLIC_APPROVALS.length,0);
+test("Chart Watch publishes only the one owner-approved AMD edition, not private research",()=>{
+  assert.equal(CHART_WATCH_PUBLIC_APPROVALS.length,1);
+  assert.equal(CHART_WATCH_PUBLIC_APPROVALS[0]?.editorialId,"earnings-release:amd-2026q3");
+  assert.equal(CHART_WATCH_PUBLIC_APPROVALS[0]?.reviewReceiptId,"40e519b6-7a94-8132-9f7c-f29dee2178bf");
+  assert.equal(CHART_WATCH_PUBLIC_APPROVALS[0]?.publicChartRights,true);
+  assert.equal(isPublicVisualEligible(CHART_WATCH_PUBLIC_APPROVALS[0]?.visual),true);
   assert.equal(publishedChartWatchCount([editorial]),0);
   assert.equal(isPublishedChartWatch(editorial),false);
   assert.equal(applyChartWatchApprovals([], [approval]).length,0);
@@ -89,4 +95,23 @@ test("Newsroom user interaction only filters reviewed items, not every source-on
   assert.match(newswire,/topic==="chart-watch"\?false/);
   assert.match(feed,/applyChartWatchApprovals\(result\)/);
   assert.match(oldPublisher,/status:410/);
+});
+
+test("the source-exact AMD article is public on both clean and /blue-desk preview paths",()=>{
+ const a=CHART_WATCH_PUBLIC_APPROVALS[0];
+ const record=getImmutableChartWatchEarningsEdition(new Date("2026-11-04T00:10:00Z"));
+ assert.ok(record);
+ assert.equal(record.id,"amd-2026q3");
+ assert.equal(record.sourceUrl,a.sourceUrl);
+ assert.equal(getImmutableChartWatchEarningsEdition(new Date("2026-11-03T22:00:00Z")),null);
+ assert.equal(getImmutableChartWatchEarningsEdition(new Date("2027-04-04T12:00:00Z"))?.id,"amd-2026q3");
+ for(const readerHref of ["/key-stories?brief=amd-2026q3","/blue-desk/key-stories?brief=amd-2026q3"]){
+  const item:NewsroomEditorialItem={
+   ...editorial,id:a.editorialId,sourceUrl:record.sourceUrl,
+   readerHref,headline:record.headline,
+  };
+  const projected=applyChartWatchApprovals([item]);
+  assert.equal(publishedChartWatchCount(projected),1);
+  assert.equal(projected[0].chartWatch?.reviewReceiptId,a.reviewReceiptId);
+ }
 });
