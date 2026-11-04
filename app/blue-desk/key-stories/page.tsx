@@ -11,6 +11,7 @@ import InvestorTest from "@/components/blue-desk/InvestorTest";
 import RbnzDecisionFeature from "@/components/blue-desk/RbnzDecisionFeature";
 import AmazonFomcFeatures from "@/components/blue-desk/AmazonFomcFeatures";
 import EarningsInvestorDeepDive from "@/components/blue-desk/EarningsInvestorDeepDive";
+import ChartWatchArticle from "@/components/blue-desk/ChartWatchArticle";
 import {getEarningsCase} from "@/lib/bluebelly-earnings-investor-stories";
 import NewsroomLensExplorer from "@/components/blue-desk/NewsroomLensExplorer";
 import EditorialStoryArt from "@/components/blue-desk/EditorialStoryArt";
@@ -230,6 +231,17 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     const issuerEvent=calendar.events.find(e=>
       e.id===briefId && e.kind==="earnings" && e.status==="scheduled" && e.verificationState==="official");
     const earningsReceipt=getRecentVerifiedEarningsScorecards(now,7).find(e=>e.id===briefId)||null;
+    // One explicitly authorised Chart Watch issue inside the existing source-
+    // reviewed issuer reader. Never dispatch a private Notion URL or arbitrary id.
+    if(briefId==="amd-2026q3"&&earningsReceipt?.id==="amd-2026q3"&&
+      earningsReceipt.sourceUrl==="https://newsroom.amd.com/news/amd-reports-third-quarter-2026-earnings/"){
+      return <main className={desk.page} data-bluebelly-chart-watch="amd-2026q3-source-reviewed">
+       <BlueDeskHeader activePath="/blue-desk/key-stories"/>
+       <div className={desk.content}>
+        <ChartWatchArticle scorecard={earningsReceipt} backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}/>
+       </div>
+      </main>;
+    }
     const selected=decisionTopics(news,calendar,now).find(t=>t.id===briefId) ||
       (earningsReceipt ? {
         id:earningsReceipt.id,title:earningsReceipt.headline,
