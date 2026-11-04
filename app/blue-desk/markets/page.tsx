@@ -174,7 +174,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
                "Secondary daily observation":"Stale or unverified"}</small>
             </article>)}
           </div>
-          <p className={styles.subtle}>When available, readings are calculated using today\u0027s S&amp;P 500 members and are proxies, not official S5FI/S5TH closes. Only provider-reported 5D change is displayed; 1D/3D require verified daily histories. <a href="https://www.thetrading.tools/stocks-above-moving-average" target="_blank" rel="noreferrer">Source and methodology ↗</a></p>
+          <p className={styles.subtle}>When available, readings are calculated using today's S&amp;P 500 members and are proxies, not official S5FI/S5TH closes. Only provider-reported 5D change is displayed; 1D/3D require verified daily histories. <a href="https://www.thetrading.tools/stocks-above-moving-average" target="_blank" rel="noreferrer">Source and methodology ↗</a></p>
           <div className={styles.secondaryPanel} data-breadth-research-diagnostic={participation.status}>
             <h3>{participation.headline}</h3>
             <MarketTakeaway why={participation.interpretation} nextTest={participation.nextTest} compact/>
