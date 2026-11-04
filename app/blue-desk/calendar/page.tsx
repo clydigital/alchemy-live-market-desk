@@ -5,6 +5,7 @@ import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import EarningsWeekGrid from "@/components/blue-desk/EarningsWeekGrid";
+import IssuerEarningsBoard from "@/components/blue-desk/IssuerEarningsBoard";
 import RecentEarningsScorecards from "@/components/blue-desk/RecentEarningsScorecards";
 import { getRecentVerifiedEarningsScorecards } from "@/lib/blue-desk-earnings-results";
 import CatalystCalendar from "@/components/blue-desk/CatalystCalendar";
@@ -196,15 +197,18 @@ export default async function BlueDeskCalendarPage({
           </div>
         </section>
 
+        <IssuerEarningsBoard now={now} host={host}/>
+
         <CatalystCalendar items={catalysts} sourceCoverage={sourceCoverage} nowISO={now.toISOString()} />
 
-        <RecentEarningsScorecards records={recentEarningsResults} />
-        <section className={styles.secondaryPanel} aria-label="November earnings preview"><p className={styles.kicker}>PRE-EARNINGS INVESTOR INVESTIGATION · 2–6 NOVEMBER 2026</p><h2>AI, power, cybercabs and the cash-conversion test</h2><p>Issuer-linked guidance, business models, the strongest objections and what each result could mean for the rest of the market.</p><p><Link href={blueDeskPublicHref("/blue-desk/earnings-week",host)} className={styles.textLink}>Read the full weekly earnings preview →</Link></p></section>
+
+        <section className={styles.secondaryPanel} aria-label="Original pre-earnings research edition"><p className={styles.kicker}>HISTORICAL PRE-RESULTS RESEARCH · FROZEN 2 NOVEMBER 2026</p><h2>Original 2–6 November earnings investigation</h2><p>Read the earlier issuer guidance, business models and investor objections in their original pre-results context. Use the source-reviewed board above for subsequent released results and changed reporting schedules.</p><p><Link href={blueDeskPublicHref("/blue-desk/earnings-week",host)} className={styles.textLink}>Read the full weekly earnings preview →</Link></p></section>
 
         <details style={{ marginTop: 22, border: "1px solid #2d5267", borderRadius: 10, padding: "15px 18px", background: "#092637" }}>
           <summary style={{ cursor: "pointer", color: "#bce8f5", fontWeight: 750 }}>
             Detailed legacy economic and earnings source listings · open for full records
           </summary>
+        <RecentEarningsScorecards records={recentEarningsResults} />
         <nav className={styles.calendarTabs} aria-label="Calendar window">
           {WINDOWS.map(view => (
             <Link
