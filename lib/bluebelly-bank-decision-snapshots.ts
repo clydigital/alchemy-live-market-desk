@@ -5,12 +5,27 @@
  * recent tape when their verified release instant ages out.
  */
 export type BankDecisionSnapshot={
- id:string;headline:string;bank:string;countryCode:"US"|"CA"|"NZ"|"AU";sourceUrl:string;sourceName:string;
+ id:string;headline:string;bank:string;countryCode:"US"|"CA"|"NZ"|"AU"|"SE";sourceUrl:string;sourceName:string;
  releaseAt:string;observedStatement:string;expectedStatus:string;
  financialMechanism:string;alternative:string;nextTest:string;
  affectedAssets:readonly string[];rateLabel:string;decision:string;
 };
 const SNAPSHOTS:readonly BankDecisionSnapshot[]=[
+ {
+ id:"riksbank-2026-11-04",bank:"Sveriges Riksbank",countryCode:"SE",
+ headline:"Riksbank raises policy rate 25bp to 2% as energy pressures build",
+ releaseAt:"2026-11-04T08:30:00.000Z",
+ sourceUrl:"https://www.riksbank.se/en-gb/press-and-published/notices-and-press-releases/press-releases/2026/policy-rate-raised-to-2-per-cent/",
+ sourceName:"Sveriges Riksbank · 4 Nov policy statement",
+ decision:"HIKE +25bp",rateLabel:"2.00%",
+ observedStatement:"The bank raised its policy rate by 25bp from 1.75% to 2%, effective 11 November. Stronger domestic activity, Middle East energy costs and persistent inflation pressure support further possible hikes, conditional on the forecast. This Monetary Policy Update contains no new full forecast.",
+ expectedStatus:"No original-source-matched frozen pre-decision consensus/OIS price has been validated. Do not assert a surprise from a hike alone.",
+ financialMechanism:"Swedish borrowing costs and the SEK rate differential can change even as US yields fall; energy-related supply costs differ from the US political-growth shock.",
+ alternative:"An anticipated hike and uncertainty around growth or imported inflation can offset the mechanical SEK rate differential.",
+ nextTest:"Check dated SEK and Sweden 2-year yield before and after the original 09:30 CET release, consensus basis, CPIF and the 5 November BoE decision.",
+ affectedAssets:["SEK","SE02Y","EURSEK"],
+ },
+
  {
  id:"rba-2026-11-03",bank:"Reserve Bank of Australia",countryCode:"AU",
  headline:"RBA raises cash rate 25bp to 4.85% in a 6–3 vote",

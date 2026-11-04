@@ -32,7 +32,7 @@ export default function Newsroom48hTimeline({
    {items.map((item,i)=><article className={s.card} key={item.id}>
     <div className={s.image}><EditorialStoryArt headline={item.title} summary={item.detail} compact/>
      {item.countryCode?<span className={s.countryBadge} data-news-countryball={item.countryCode}>
-       <BankCountryBall code={item.countryCode as "US"|"CA"|"NZ"} size="sm"/>
+       <BankCountryBall code={item.countryCode as "US"|"CA"|"NZ"|"AU"|"SE"} size="sm"/>
      </span>:null}</div>
     <div className={s.content}>
      <div className={s.labels}><strong className={item.verified?s.verified:s.unconfirmed}>{item.label}</strong><small>{item.topic}</small></div>

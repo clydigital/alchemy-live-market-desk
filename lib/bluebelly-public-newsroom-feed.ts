@@ -1,3 +1,4 @@
+import {DESK_EDITORIAL_UPDATES} from "./bluebelly-current-editorial.ts";
 import {blueDeskPublicHref} from "./blue-desk-host.ts";
 import {applyChartWatchApprovals} from "./bluebelly-chart-watch.ts";
 import type {NewsBriefV1} from "./market-brief-news.ts";
@@ -88,6 +89,22 @@ export function publicNewsroomEditorials(
   verificationLabel:"DATED EDITORIAL · REPORTED INTRADAY",
   why:OCT30_SELL_OFF.mechanism,nextTest:OCT30_SELL_OFF.test,kind:"reported",
  });
+ // Owner-authorised, independently source-checked dated editorial follow-up.
+ // This is NOT a source-verified RSS item or canonical Motion and does not
+ // override older election editions or create a new publication authority.
+ const midterm=DESK_EDITORIAL_UPDATES[0];
+ const midtermAt=Date.parse(midterm.editorialUpdatedAt||"");
+ if(Number.isFinite(midtermAt)&&+now>=midtermAt&&
+    !result.some(item=>item.sourceUrl===midterm.sourceUrl)){
+  result.push({
+   id:"dated:"+midterm.id,headline:midterm.headline,summary:midterm.summary,
+   occurredAt:midterm.sourceDay,sourceName:midterm.sourceName,sourceUrl:midterm.sourceUrl,
+   readerHref:blueDeskPublicHref("/blue-desk"+midterm.readerHref,host),
+   topics:["policy","ai","bonds","fx"],verificationLabel:"REUTERS-REPORTED TAPE · DATED EDITORIAL",
+   why:midterm.why,nextTest:midterm.nextTest,kind:"reported",
+   initialPublishedOn:midterm.initialPublishedOn,editorialUpdatedAt:midterm.editorialUpdatedAt,
+  });
+ }
  // Membership requires an independent source-exact, rights-cleared editorial approval.
  return applyChartWatchApprovals(result);
 }

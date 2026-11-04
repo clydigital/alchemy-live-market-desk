@@ -1,4 +1,5 @@
 "use client";
+import {isEditorialUpdatedToday} from "@/lib/bluebelly-editorial-freshness";
 import {useEffect,useState} from "react";
 import ReaderPagination from "./ReaderPagination";
 import {normaliseReaderPage,paginateReaderItems} from "@/lib/bluebelly-reader-pagination";
@@ -205,6 +206,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
       <div className={styles.art}><EditorialStoryArt headline={card.item.headline} summary={card.item.summary} compact/></div>
       <div className={styles.content}>
        <span className={styles.chip}>{isPublishedChartWatch(card.item)?"CHART WATCH · VERIFIED VISUAL":card.item.verificationLabel}</span>
+       {isEditorialUpdatedToday(card.item.initialPublishedOn||"",card.item.editorialUpdatedAt,new Date(now))?<span data-editorial-updated-today="MYT" className={styles.chip}>Updated today · MYT</span>:null}
        <small className={styles.metadata}>{card.item.topics.join(" · ").toUpperCase()} · {clock(card.item.occurredAt)}</small>
        <h2><Link href={card.item.readerHref}>{card.item.headline}</Link></h2>
        <p data-quick-market-brief="source-qualified-summary">{card.item.summary}</p>
