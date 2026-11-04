@@ -109,6 +109,7 @@ export async function runPrivateDailyHtmlFallback(
     title:e.title,when:e.scheduledAt||e.localDate||null,
     sourceName:e.sourceName,sourceUrl:e.sourceUrl||null,
     question:e.decidingQuestion||"What would change expectations?",
+    previous:e.previous,consensus:e.consensus,
    })),market});
   // Only admitted original facts qualify; no unsupported weekend holiday reports.
   if(!reportEvidenceReady(evidence)){

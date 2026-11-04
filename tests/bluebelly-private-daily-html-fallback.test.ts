@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {renderScheduledDailyHtml} from "../lib/bluebelly-scheduled-daily-html.ts";
 import {parseExistingHtmlEdition} from "../lib/bluebelly-html-archive-import-contract.ts";
-import {reportEvidenceReady,type AutomaticReportEvidence}
+import {assembleAutomaticReportEvidence,reportEvidenceReady,type AutomaticReportEvidence}
  from "../lib/blue-desk-automated-report-contract.ts";
 const read=(p:string)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 const day="2026-10-30";
@@ -18,7 +18,12 @@ const evidence:AutomaticReportEvidence={asOf:now.toISOString(),slot:"morning",co
    detail:"An official decision was announced without proof of a directly attributable market-price change.",
    sourceName:"Central Bank",url:"https://example.com/official/monetary/20261030",eventAt:"2026-10-30T18:00:00Z"},
   {id:"C3",type:"CALENDAR",title:"Future policy decision",detail:"Does the next decision change rate expectations?",
-   sourceName:"Central Bank",url:"https://example.com/official/calendar",eventAt:"2026-11-03T18:00:00Z"},
+   sourceName:"Central Bank",url:"https://example.com/official/calendar",eventAt:"2026-11-03T18:00:00Z",
+   calendarComparison:{previous:"54.9",consensus:"54.8",snapshotAt:"2026-10-31T03:45:00Z"}},
+  {id:"M4",type:"OBSERVATION",title:"DXY — source-dated daily level",
+   detail:"Daily level 99.5, previous close 100.2; no release-window causality established.",
+   sourceName:"Example market provider",url:"https://example.com/market/dxy",eventAt:"2026-10-31T00:00:00Z",
+   marketSnapshot:{label:"DXY",level:99.5,previousClose:100.2,asOf:"2026-10-31T00:00:00Z"}},
  ]};
 test("private fallback is a complete static and date-valid HTML document, not a fake model success",()=>{
  assert.equal(reportEvidenceReady(evidence),true);
@@ -70,4 +75,49 @@ test("existing cron calls authorised private generator without new schedules or 
  assert.doesNotMatch(job,/story_thesis_versions|market_regime_current|status:"published"/);
  assert.match(migration,/blue_desk_work_html_one_scheduled_session/);
  assert.doesNotMatch(migration,/grant .* authenticated|grant .* anon/i);
+});
+
+test("private daily tables derive only from exact source evidence and scheduled calendar",()=>{
+ const result=renderScheduledDailyHtml({day,now,evidence});
+ assert.match(result.html,/data-private-table="market-snapshots"/);
+ assert.match(result.html,/data-private-table="evidence-receipts"/);
+ assert.match(result.html,/data-private-table="upcoming-catalysts"/);
+ assert.match(result.html,/data-private-table="economic-expectations"/);
+ assert.match(result.html,/54\.9/);
+ assert.match(result.html,/54\.8/);
+ assert.match(result.html,/Actual<\/th>/);
+ assert.match(result.html,/Pending<\/td>/);
+ assert.match(result.html,/freeze time are not independently established here/);
+ assert.match(result.html,/>DXY<\/td>/);
+ assert.match(result.html,/>99\.5<\/td>/);
+ assert.match(result.html,/>100\.2<\/td>/);
+ assert.match(result.html,/ET \/ .* MYT/);
+ assert.match(result.html,/Constructive scenario not verified/);
+ assert.match(result.html,/no return, yield change or causal link is inferred/i);
+ assert.doesNotMatch(result.html,/<iframe|<script|onerror=|javascript:/i);
+ const parsed=parseExistingHtmlEdition({filename:"Bluebelly_"+day+".html",html:result.html});
+ assert.equal(parsed.edition.reportDay,day);
+});
+test("private dated visual tables omit missing market data without inventing levels",()=>{
+ const onlyOriginals={...evidence,sources:evidence.sources.filter(s=>!s.marketSnapshot)};
+ const result=renderScheduledDailyHtml({day,now,evidence:onlyOriginals});
+ assert.doesNotMatch(result.html,/data-private-table="market-snapshots"/);
+ assert.match(result.html,/data-private-table="upcoming-catalysts"/);
+});
+
+test("two distinct releases sharing one official calendar URL remain in the private handoff",()=>{
+ const prepared=assembleAutomaticReportEvidence({now,slot:"morning",news:[],observations:[],
+  calendar:[
+   {title:"ISM Manufacturing PMI",when:"2026-11-03T15:00:00Z",sourceName:"ISM",
+    sourceUrl:"https://example.com/official/calendar",question:"Are orders accelerating?"},
+   {title:"ISM Services PMI",when:"2026-11-04T15:00:00Z",sourceName:"ISM",
+    sourceUrl:"https://example.com/official/calendar",question:"Are services prices accelerating?",
+    previous:"54.9",consensus:"54.8"},
+  ]});
+ const upcoming=prepared.sources.filter(s=>s.type==="CALENDAR");
+ assert.equal(upcoming.length,2);
+ assert.equal(upcoming[1].calendarComparison?.consensus,"54.8");
+ assert.equal(upcoming[1].calendarComparison?.previous,"54.9");
+ assert.match(renderScheduledDailyHtml({day,now,evidence:{...evidence,
+  sources:[...evidence.sources,...upcoming]}}).html,/ISM Services PMI/);
 });

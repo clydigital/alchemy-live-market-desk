@@ -5,6 +5,10 @@ export type AutomaticReportSlot="morning"|"evening";
 export type ReportSource={
  id:string;type:"NEWS"|"OBSERVATION"|"CALENDAR";title:string;
  detail:string;sourceName:string;url:string;eventAt:string;
+ /** Provider daily level, never an event-window reaction; no inferred unit. */
+ marketSnapshot?:{label:string;level:number;previousClose:number|null;asOf:string};
+ /** Calendar-supplied comparison; retrieval time is NOT a frozen pre-event forecast vintage. */
+ calendarComparison?:{previous:string|null;consensus:string|null;snapshotAt:string};
 };
 export type ReportStory={
  headline:string;setup:string;reveal:string;humanStake:string;
@@ -79,7 +83,8 @@ function qualified(url:string){
 export function assembleAutomaticReportEvidence(input:{
  now:Date;slot:AutomaticReportSlot;news:readonly NewsBriefV1[];
  observations:readonly PublicSourceObservation[];
- calendar:readonly {title:string;when:string|null;sourceName:string;sourceUrl:string|null;question:string}[];
+ calendar:readonly {title:string;when:string|null;sourceName:string;sourceUrl:string|null;
+  question:string;previous?:string|null;consensus?:string|null}[];
  market?:readonly {label:string;level:number|null;previousClose:number|null;asOf:string|null;sourceName:string;sourceUrl:string;frequency:string}[];
 }):AutomaticReportEvidence{
  const t=input.now.getTime();const sources:ReportSource[]=[];
@@ -112,7 +117,10 @@ export function assembleAutomaticReportEvidence(input:{
   add({id:"M"+(sources.length+1),type:"OBSERVATION",
    title:row.label+" - dated market level "+row.level,
    detail:`Provider-reported latest level: ${row.level} at ${row.asOf}.${prior} No event cause is established.`,
-   sourceName:row.sourceName,url:row.sourceUrl,eventAt:row.asOf!});
+   sourceName:row.sourceName,url:row.sourceUrl,eventAt:row.asOf!,
+   marketSnapshot:{label:row.label,level:row.level,
+    previousClose:typeof row.previousClose==="number"&&Number.isFinite(row.previousClose)
+     ?row.previousClose:null,asOf:row.asOf!}});
  }
  // Calendar does not count towards the minimum independent factual event coverage.
  for(const row of input.calendar.slice(0,12)){
@@ -120,10 +128,16 @@ export function assembleAutomaticReportEvidence(input:{
   const scheduled=Date.parse(row.when);
   if(!Number.isFinite(scheduled)||scheduled<t-12*3600_000||scheduled>t+14*86400_000)continue;
   // Dates for future events can exceed report asOf but must be clearly labelled.
-  if(seen.has(row.sourceUrl))continue;
-  seen.add(row.sourceUrl);
+  // Official calendars often reuse one source URL for several distinct releases.
+  // Deduplicate an EVENT identity, not the shared official schedule page.
+  const calendarKey="calendar:"+row.title.toLowerCase().trim()+"|"+row.when+"|"+row.sourceUrl;
+  if(seen.has(calendarKey))continue;
+  seen.add(calendarKey);
   sources.push({id:"C"+(sources.length+1),type:"CALENDAR",title:row.title,
-   detail:row.question,sourceName:row.sourceName,url:row.sourceUrl,eventAt:row.when});
+   detail:row.question,sourceName:row.sourceName,url:row.sourceUrl,eventAt:row.when,
+   calendarComparison:{previous:typeof row.previous==="string"&&row.previous.trim()?row.previous.trim():null,
+    consensus:typeof row.consensus==="string"&&row.consensus.trim()?row.consensus.trim():null,
+    snapshotAt:input.now.toISOString()}});
  }
  const actual=sources.filter(s=>s.type!=="CALENDAR").length;
  const qualifiedNews=sources.some(s=>s.type==="NEWS");

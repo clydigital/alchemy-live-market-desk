@@ -1,6 +1,9 @@
 import type {AutomatedReportNarrative,AutomaticReportEvidence,ReportSource}
  from "./blue-desk-automated-report-contract.ts";
 import {parseExistingHtmlEdition} from "./bluebelly-html-archive-import-contract.ts";
+import {renderPrivateMarketTable,renderPrivateScenarioTable,
+ renderPrivateUpcomingTable,renderPrivateEvidenceTable,
+ renderPrivateExpectationsTable} from "./bluebelly-daily-intelligence-tables.ts";
 
 const esc=(value:string)=>value.replace(/&/g,"&amp;").replace(/</g,"&lt;")
  .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
@@ -65,6 +68,7 @@ export function renderScheduledDailyHtml(input:{
  if(report){
   body+=section("The decision in brief",p("What matters",report.executiveSummary)
    +p("Big picture",report.bigPicture));
+  body+=renderPrivateMarketTable(evidence);
   for(const [i,story] of report.stories.slice(0,4).entries()){
    const cites=story.sourceIds.flatMap(id=>evidence.sources.filter(s=>s.id===id))
     .map(originalLink).filter(Boolean).join(" · ");
@@ -74,6 +78,7 @@ export function renderScheduledDailyHtml(input:{
     +p("What challenges it",story.countercase)+p("What to check next",story.nextTest)
     +"<p class=\"sources\">Source attribution: "+cites+"</p>");
   }
+  body+=renderPrivateScenarioTable(evidence,report);
   if(report.crossMarket.length)body+=section("Cross-market implications",
    "<ul>"+report.crossMarket.slice(0,7).map(s=>"<li>"+plain(s,1200)+"</li>").join("")+"</ul>");
   if(report.watchlist.length)body+=section("What could change next",
@@ -85,6 +90,8 @@ export function renderScheduledDailyHtml(input:{
  }else{
   body+=section("The story behind the latest sourced developments",
    "<p>This is an abbreviated, automatically compiled source-led edition. The full editorial narrative was unavailable, so the report preserves original facts and decision tests rather than generating unsupported explanations. It does not substitute for a separately completed long-form Work report.</p>");
+  body+=renderPrivateMarketTable(evidence);
+  body+=renderPrivateEvidenceTable(evidence);
   for(const [i,s] of factual.slice(0,5).entries()){
    const reason=rationale(s);
    body+=section((i+1)+". "+s.title,p("What happened or was observed",s.detail)
@@ -94,9 +101,10 @@ export function renderScheduledDailyHtml(input:{
     +"<p class=\"sources\">"+originalLink(s)+" · As-of "+date(s.eventAt)+"</p>");
   }
  }
- if(future.length)body+=section("Upcoming source-dated catalysts",
-  "<ul>"+future.map(s=>"<li><strong>"+plain(s.title,180)+"</strong> · "+
-   date(s.eventAt)+" · "+plain(s.detail,550)+" · "+originalLink(s)+"</li>").join("")+"</ul>");
+ if(future.length){
+  body+=renderPrivateExpectationsTable(evidence);
+  body+=renderPrivateUpcomingTable(evidence,report);
+ }
  body+=section("Original-source ledger",
   "<p>These links were admitted by existing source-qualified research adapters. Their presence is not independent rechecking by this renderer; quotations, forecasts and explanatory mechanisms need their own review.</p><ol>"+
   evidence.sources.slice(0,20).map(sourceRow).join("")+"</ol>");
@@ -105,12 +113,17 @@ export function renderScheduledDailyHtml(input:{
  const html=`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Bluebelly Daily Intelligence | ${esc(day)}</title>
-<style>body{font:16px/1.63 system-ui,-apple-system,Segoe UI,sans-serif;max-width:790px;margin:auto;padding:28px;color:#e6edf1;background:#0c141d}
-h1{font-size:2.15rem;line-height:1.2}h2{font-size:1.35rem;line-height:1.3;margin:0 0 18px}
-section{border-top:1px solid #314652;padding:25px 0}p,li{margin:0 0 14px}a{color:#82e1c7;overflow-wrap:anywhere}
-.kicker{color:#8ad6ba;text-transform:uppercase;letter-spacing:.1em;font-size:12px;font-weight:700}
-.limits{background:#152833;padding:14px;border-left:3px solid #f0c56b}
-time,.small{color:#b0c4ca;font-size:14px}.sources{font-size:14px;color:#bdd6df}ul,ol{padding-left:25px}
+<style>body{font:18px/1.75 system-ui,-apple-system,Segoe UI,sans-serif;max-width:790px;margin:auto;padding:28px;color:#182b32;background:#f8f9f7}
+h1{font-size:2.15rem;line-height:1.2}h2{font-size:1.6rem;line-height:1.25;margin:0 0 18px}
+section{border-top:1px solid #d4ddda;padding:25px 0}p,li{margin:0 0 14px}a{color:#126b65;overflow-wrap:anywhere}
+.kicker{color:#117566;text-transform:uppercase;letter-spacing:.1em;font-size:12px;font-weight:700}
+.limits{background:#fff4df;padding:14px;border-left:3px solid #c18d24}
+time,.small{color:#526a72;font-size:14px}.sources{font-size:14px;color:#45646c}ul,ol{padding-left:25px}
+.evidence-block{margin:24px 0;border-top:2px solid #b5c9c3}.table-note{font-size:14px;color:#45646c;line-height:1.55}
+.table-scroll{max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain;border:1px solid #cedbd5;border-radius:8px;background:white}
+table{border-collapse:collapse;width:100%;min-width:610px;font-size:14px;line-height:1.5}th,td{text-align:left;vertical-align:top;padding:11px 13px;border-bottom:1px solid #e2e9e5;overflow-wrap:anywhere}th{background:#eaf2ef;color:#174c4b;font-weight:700}tr:last-child td{border-bottom:0}
+@media(max-width:600px){body{padding:17px;font-size:17px}h1{font-size:1.85rem}h2{font-size:1.42rem}.table-scroll{margin:0 -2px}}
+@media print{body{max-width:none;background:white;color:#182b32;font-size:15px;line-height:1.6}.table-scroll{overflow:visible}table{min-width:0;font-size:11px}tr{break-inside:avoid}a{color:#126b65}}
 </style></head><body>
 <p class="kicker">Bluebelly · Private Daily Intelligence · ${mode==="MODEL_ASSISTED"?"Model-assisted draft":"Source-led fallback"}</p>
 <h1>${plain(title,110)}</h1>
