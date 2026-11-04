@@ -69,7 +69,9 @@ const OFFICIAL: OfficialEarning[] = [
 export function getDueOfficialEarningsCandidates(now=new Date(),lookbackHours=96){
  const at=now.getTime();
  if(!Number.isFinite(at)||!Number.isInteger(lookbackHours)||lookbackHours<1||lookbackHours>168)return [];
+ const publishedOriginals=recentOriginalIssuerReleases(now,8);
  return OFFICIAL.flatMap(row=>{
+   if(publishedOriginals.some(result=>result.ticker===row.ticker&&result.sourceDay===row.at.slice(0,10)))return [];
    const dateOnly=/^\d{4}-\d{2}-\d{2}$/.test(row.at);
    const due=dateOnly?Date.parse(row.at+"T23:59:59Z"):Date.parse(row.at)+2*3600000;
    if(!Number.isFinite(due)||at<due||at-due>lookbackHours*3600000)return [];
