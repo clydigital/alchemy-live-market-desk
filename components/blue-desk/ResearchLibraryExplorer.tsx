@@ -23,6 +23,9 @@ type ResearchEntry = {
 };
 
 const COLLECTIONS: ResearchEntry[] = [
+  {id:"housing-20261104",title:"4 November — Housing stocks rally, builders still cut prices",section:"Themes",discipline:"Housing / US equities",
+   description:"Source-linked ITB versus XLRE and Dow comparison, 1D/3D/5D stock leadership, and earnings checks on Lennar, D.R. Horton, PulteGroup, Rocket, building suppliers and REITs. Intraday 4 November snapshot; market reaction hypotheses remain provisional.",
+   href:"https://app.notion.com/p/40e519b67a94817e9c61c030e7ca5849",provenance:"Notion · issuer releases, Longbridge and housing data",quality:"Private editorial research · not canonical",updated:"2026-11-04"},
   {id:"pulse-26",title:"26 October — historical MacroPulse archive",section:"Archives",discipline:"Daily research",
    description:"Every source-qualified two-hour post from 26 October. Read individual original posts and their source timestamps.",href:"https://app.notion.com/p/404519b67a94815197cbcf21b9a19a8a",
    provenance:"Notion · dated full posts",quality:"Research archive",updated:"2026-10-26"},
@@ -144,7 +147,7 @@ export default function ResearchLibraryExplorer({intake}:{intake:NotionResearchB
     <section className={styles.toolbar} aria-label="Find research">
       <label className={styles.searchLabel} htmlFor="research-search">Search research
         <input id="research-search" type="search" value={term} onChange={e=>{setTerm(e.target.value);setPage(1);}}
-          placeholder="Try Brent, yields, AI, credit, research gaps…" />
+          placeholder="Try housing, Brent, yields, AI, credit…" />
       </label>
       <label className={styles.sortLabel} htmlFor="research-sort">Sort
         <select id="research-sort" value={sort} onChange={e=>{setSort(e.target.value as "curated"|"title");setPage(1);}}>
