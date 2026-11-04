@@ -1,4 +1,5 @@
 import type {NewsBriefV1} from "./market-brief-news.ts";
+import type {EditorialSlate} from "./editorial-slate-core.ts";
 
 /** Pure, owner-only My Desk projection. The saved report is the parent.
  * Suggestions are ephemeral views, not new slates, evidence or article archives. */
@@ -12,7 +13,9 @@ export type DailyTopicIdea={
  nextCheck:string;
  technicalCheck:string;
  sourceUrls:string[];
- provenance:"DAILY_REPORT"|"NEWSROOM_SUPPLEMENT"|"RESEARCH_GAP";
+ provenance:"WRITING_BRAIN"|"DAILY_REPORT"|"NEWSROOM_SUPPLEMENT"|"RESEARCH_GAP";
+ ideaId?:string;
+ evidenceGap?:string;
  reportSection:string|null;
 };
 const DIMISS=/\b(appendix|provenance|pilot proves|research process|original sources|source ledger|what the creators|reader instructions|chronology|five.minute read|three paths|cause.chain)\b/i;
@@ -146,4 +149,23 @@ export function postCutoverDailyArchive<T extends {createdAt:string}>(
  editions:readonly T[],cutover=MY_DESK_ARCHIVE_CUTOVER
 ):T[]{
  return editions.filter(e=>Number.isFinite(Date.parse(e.createdAt))&&Date.parse(e.createdAt)>=Date.parse(cutover));
+}
+
+/** Exact private Writing Brain slate projection. Only call after the parent
+ * report SHA, session, unique idea IDs and three original URLs have matched.
+ * Preserves the original research and does not infer a chart signal. */
+export function projectPersistedWritingBrainIdeas(slate:EditorialSlate):DailyTopicIdea[]{
+ return slate.ideas.map((idea,i)=>{
+  const topic=themeFor(idea.title);
+  return {
+   rank:(i+1) as 1|2|3,title:idea.title,format:idea.format,
+   theme:topic.theme,ideaId:idea.ideaId,
+   thesis:[idea.hook,idea.mechanism].filter(Boolean).join(" "),
+   antithesis:idea.countercase,
+   nextCheck:idea.nextTrigger,
+   technicalCheck:idea.chartGuidance.length?idea.chartGuidance.join(" "):topic.technical,
+   sourceUrls:idea.sourceUrls,provenance:"WRITING_BRAIN" as const,
+   reportSection:null,evidenceGap:idea.missingProof||"Evidence limitations not specified; verify before commissioning.",
+  };
+ });
 }

@@ -2,6 +2,8 @@ import "server-only";
 import {createSupabaseServerClient} from "@/lib/supabase/server";
 import {getLatestEditorialSlate} from "@/lib/editorial-slate-server";
 import {inspectWritingBrainHandoff} from "@/lib/editorial-slate-core";
+import {reconcileOwnerIdeaHandoff} from "@/lib/bluebelly-my-desk-handoff";
+import {getOwnerDailyIntelligenceIndex} from "@/lib/bluebelly-owner-daily-intelligence";
 import {getOwnerDeliveredResearchBriefs} from "@/lib/blue-desk-delivered-research-server";
 import styles from "@/app/blue-desk/blue-desk.module.css";
 
@@ -19,16 +21,23 @@ export default async function OwnerPrivatePdfInputHealth(){
  const {data:access,error:accessError}=await session.from("app_access_allowlist")
   .select("email").eq("email",user.email.toLowerCase().trim()).eq("active",true).maybeSingle();
  if(accessError||!access)return null;
- const [slate,briefs]=await Promise.all([
+ const [slate,briefs,reportIndex]=await Promise.all([
   getLatestEditorialSlate().catch(()=>({slate:null,status:"storage_unavailable" as const})),
   getOwnerDeliveredResearchBriefs(6).catch(()=>[]),
+  getOwnerDailyIntelligenceIndex().catch(()=>null),
  ]);
  const now=new Date();
  const today=dayInMyt(now);
  const lastSlate=slate.slate;
  const current=!!lastSlate&&lastSlate.dayMyt===today;
  const handoff=inspectWritingBrainHandoff(lastSlate,now);
- const handoffState={
+ const activeParent=reportIndex?.editions[0]||null;
+ const linked=activeParent?reconcileOwnerIdeaHandoff(activeParent,lastSlate,now):null;
+ const handoffState=slate.status==="storage_unavailable"?"SLATE STORAGE UNAVAILABLE":
+  current&&!activeParent?"SLATE SAVED — NO ELIGIBLE PARENT REPORT":
+  current&&linked?.source!=="WRITING_BRAIN"?
+   "SLATE SAVED — NOT LINKED TO ACTIVE REPORT":{
+
   CURRENT_PERSISTED:"CURRENT PRIVATE HANDOFF",
   CURRENT_PARTIAL:"CURRENT — EVIDENCE GAPS",
   MANUAL_RECOVERY:"MANUALLY RECOVERED — NOT A SCHEDULED PASS",
@@ -38,7 +47,7 @@ export default async function OwnerPrivatePdfInputHealth(){
   UNKNOWN:"HANDOFF CLOCK UNAVAILABLE",
  }[handoff.state];
  const slateDetail= current&&lastSlate
-  ?`Saved ${lastSlate.dayMyt} MYT at ${lastSlate.producedAt}. Three private ideas; ${handoff.linkedIdeaCount}/3 carry source URLs; distinct IDs: ${handoff.hasThreeDistinctIds?"3/3":"NOT VERIFIED"}. Verification: ${lastSlate.verificationStatus}. This is database readback only, NOT proof the scheduled task ran or that all sources were checked.`
+  ?`Saved ${lastSlate.dayMyt} MYT at ${lastSlate.producedAt}. Three private ideas; ${handoff.linkedIdeaCount}/3 carry source URLs; distinct IDs: ${handoff.hasThreeDistinctIds?"3/3":"NOT VERIFIED"}. Verification: ${lastSlate.verificationStatus}. Exact parent handoff: ${linked?.state||"NO ELIGIBLE PARENT"}; parent session: ${activeParent?.reportDay||"UNKNOWN"} ET. ${linked?.reason||"No eligible report to reconcile."} This is database readback only, NOT proof the scheduled task ran or that all sources were independently checked.`
   :handoff.state==="NOT_DUE"
    ?"The 09:30 MYT Monday–Saturday scheduled slate has not reached its 10:00 MYT delivery check. Do not report a missed run yet."
    :handoff.state==="NOT_SCHEDULED"
@@ -46,11 +55,16 @@ export default async function OwnerPrivatePdfInputHealth(){
     :`No current-day three-idea slate in the private store (${slate.status}). Last persisted day: ${lastSlate?.dayMyt||"none"}. This is an observable handoff gap, NOT proof why the automation failed.`;
  const latestMacro=briefs[0];
  const lastMacro=isoSafe(latestMacro?.source_retrieved_at);
+ const macroTime=Date.parse(lastMacro);
+ const macroRecent=briefs.length>0&&Number.isFinite(macroTime)
+  &&macroTime<=now.getTime()+120_000&&now.getTime()-macroTime<24*3600_000;
  const entries=[
   {name:"OB / COTD Writing Brain",state:handoffState,detail:slateDetail},
-  {name:"MacroPulse research",state:briefs.length?"RESEARCH DELIVERED":"NO BRIEF READBACK",
+  {name:"MacroPulse research",state:briefs.length
+   ?macroRecent?"RECENT SOURCE-ATTRIBUTED BRIEF":"OLDER PRIVATE BRIEFS ONLY"
+   :"NO BRIEF READBACK",
    detail:briefs.length?
-    `${briefs.length} source-attributed private briefs available. Latest retrieval: ${lastMacro}. These are non-canonical editorial inputs, not evidence that the PDF generator consumed them or that plugins ran.`
+    `${briefs.length} source-attributed private briefs available. Latest retrieval: ${lastMacro}. Recency is not proof of the expected two-hour MacroPulse Post and Log, PDF consumption or successful plugin execution; check original Notion Post and Log receipts separately.`
     :"No privately delivered MacroPulse briefs were found in the seven-day lookback."},
   {name:"Research Gap / AI Bubble / Creator",state:"NO AUTOMATIC PDF HANDOFF",
    detail:"Their scheduled research and Notion outputs are not yet accepted inputs to an automated specialist PDF compiler. Do not infer ingestion from task availability."},

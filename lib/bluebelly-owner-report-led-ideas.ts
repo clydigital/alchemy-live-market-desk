@@ -3,17 +3,20 @@ import {createSupabaseServerClient} from "./supabase/server";
 import {createSupabaseAdminClient} from "./supabase/admin";
 import {HTML_BUCKET,HTML_TABLE,archivePath,digest} from "./bluebelly-private-html-archive-contract";
 import {getOwnerDailyIntelligenceIndex} from "./bluebelly-owner-daily-intelligence";
+import {getLatestEditorialSlate} from "./editorial-slate-server";
+import {reconcileOwnerIdeaHandoff,type OwnerIdeaHandoff} from "./bluebelly-my-desk-handoff";
 import {getCurrentVerifiedMarketMotion} from "./market-motion";
 import {selectVerifiedNewsBriefs} from "./market-brief-news";
-import {projectReportLedTopicIdeas,type DailyTopicIdea} from "./bluebelly-my-desk-suggestions";
+import {projectReportLedTopicIdeas,projectPersistedWritingBrainIdeas,type DailyTopicIdea} from "./bluebelly-my-desk-suggestions";
 
 export type ReportLedIdeaRead={
  editionId:string|null;reportDay:string|null;editionTitle:string|null;
  state:"available"|"no_report"|"report_unavailable"|"unauthorised";
  ideas:DailyTopicIdea[];
+ handoff:OwnerIdeaHandoff|null;
 };
 const missing=(state:ReportLedIdeaRead["state"]):ReportLedIdeaRead=>({
- editionId:null,reportDay:null,editionTitle:null,state,ideas:[],
+ editionId:null,reportDay:null,editionTitle:null,state,ideas:[],handoff:null,
 });
 /** Never return private HTML to a public API or expose it as JSX.
  * Re-check owner identity, row ownership and exact SHA before extracting text. */
@@ -57,15 +60,30 @@ export async function getOwnerReportLedIdeas():Promise<ReportLedIdeaRead>{
   }
   if(!html||html.length<1000||!/<html\b/i.test(html))return {
    editionId:latest.id,reportDay:latest.reportDay,editionTitle:latest.title,
-   state:"report_unavailable",ideas:[],
+   state:"report_unavailable",ideas:[],handoff:null,
   };
-  const motion=await getCurrentVerifiedMarketMotion({limit:30}).catch(()=>[]);
-  const verified=selectVerifiedNewsBriefs(motion,new Date(),12);
-  const ideas=projectReportLedTopicIdeas(html,verified,3);
+  // The saved Writing Brain slate is the first choice ONLY when its three
+  // original source-linked ideas attest to this same immutable parent ID,
+  // SHA and US session. Otherwise the fallback is disclosed, never silent.
+  const saved=await getLatestEditorialSlate();
+  const now=new Date();
+  const candidate=reconcileOwnerIdeaHandoff(latest,saved.slate,now);
+  const handoff:OwnerIdeaHandoff=saved.status==="storage_unavailable"
+   ?{...candidate,source:"REPORT_DERIVED",state:"UNAVAILABLE",
+      reason:"Private slate storage could not be read. Showing report-derived ideas; no scheduled-delivery claim."}
+   :candidate;
+  let ideas:DailyTopicIdea[];
+  if(handoff.source==="WRITING_BRAIN"&&saved.slate)
+   ideas=projectPersistedWritingBrainIdeas(saved.slate);
+  else{
+   const motion=await getCurrentVerifiedMarketMotion({limit:30}).catch(()=>[]);
+   const verified=selectVerifiedNewsBriefs(motion,now,12);
+   ideas=projectReportLedTopicIdeas(html,verified,3);
+  }
   return {editionId:latest.id,reportDay:latest.reportDay,editionTitle:latest.title,
-   state:"available",ideas};
+   state:"available",ideas,handoff};
  }catch{
   return {editionId:latest.id,reportDay:latest.reportDay,editionTitle:latest.title,
-   state:"report_unavailable",ideas:[]};
+   state:"report_unavailable",ideas:[],handoff:null};
  }
 }
