@@ -41,7 +41,7 @@ export function reconcileOwnerIdeaHandoff(
  const base={freshness,expectedSessionET,reportSessionET:parent.reportDay,
   slateDayMyt:slate?.dayMyt||null};
  const fallback=(state:OwnerIdeaHandoffState,reason:string):OwnerIdeaHandoff=>
-  {...base,source:"REPORT_DERIVED",state,reason};
+  ({...base,source:"REPORT_DERIVED",state,reason});
  const today=dayMyt(now);
  const receipt=inspectWritingBrainHandoff(slate,now);
  if(!slate||slate.dayMyt!==today){
