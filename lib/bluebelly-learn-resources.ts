@@ -30,7 +30,7 @@ export const BLUEBELLY_LEARN_RESOURCES: BluebellyLearnResource[] = [
     summary: "19-page lecture PDF on liquidity, profit ratios, debt-service capacity and financial projections, with business examples.",
     format: "PDF slides", level: "Beginner",
     url: "https://ocw.mit.edu/courses/11-437-financing-economic-development-fall-2016/c73890cc6673869311d8c1f233a5f4e6_MIT11_437F16_Lec5.pdf",
-    concepts: ["current-ratio", "quick-ratio", "debt-service-coverage", "common-size-financial-statement"],
+    concepts: ["current-ratio", "quick-ratio", "days-sales-outstanding", "inventory-turnover", "gross-margin", "return-on-assets", "return-on-equity", "interest-coverage", "debt-service-coverage", "common-size-financial-statement", "sensitivity-analysis"],
   },
   {
     id: "sec-financial-guide", track: "financials",
@@ -86,7 +86,7 @@ export const BLUEBELLY_LEARN_RESOURCES: BluebellyLearnResource[] = [
     summary: "Research monograph on cognitive shortcuts, anchoring, loss aversion and how investors actually behave.",
     format: "PDF", level: "Intermediate",
     url: "https://www.cfainstitute.org/sites/default/files/-/media/documents/book/rf-publication/2019/behavioral-finance-the-second-generation.pdf",
-    concepts: ["anchoring-bias", "loss-aversion", "confirmation-bias"],
+    concepts: ["anchoring-bias", "loss-aversion", "confirmation-bias", "framing-effect", "regret-aversion", "overconfidence-bias"],
   },
   {
     id: "cfa-risk-profile", track: "psychology",
