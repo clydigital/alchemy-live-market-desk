@@ -1,3 +1,4 @@
+import CurrentMarketUpdates from "@/components/blue-desk/CurrentMarketUpdates";
 import Link from "next/link";
 import ThemePreferences from "./ThemePreferences";
 import { MarketIcon, type MarketIconName } from "./MarketIcon";
@@ -106,6 +107,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
           <button type="submit" aria-label="Search Newsroom">⌕</button>
         </form>
       </div></div>
+      {publicHost&&!ownerWorkspace?<CurrentMarketUpdates host={host} mode="mast"/>:null}
     </header>
   );
 }
