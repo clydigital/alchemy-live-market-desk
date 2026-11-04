@@ -18,7 +18,7 @@ import {getEarningsCase} from "@/lib/bluebelly-earnings-investor-stories";
 import NewsroomLensExplorer from "@/components/blue-desk/NewsroomLensExplorer";
 import EditorialStoryArt from "@/components/blue-desk/EditorialStoryArt";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
-import { blueDeskPublicHref } from "@/lib/blue-desk-host";
+import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { getOriginalPressNews } from "@/lib/blue-desk-original-press-news-server";
@@ -395,7 +395,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     <BlueDeskHeader activePath="/blue-desk/key-stories" />
     <div className={desk.content}>
 
-     <CurrentMarketUpdates host={host} mode="compact" now={now}/>      <header className={ui.intro}>
+     {!isBlueDeskPublicReaderHost(host)?<CurrentMarketUpdates host={host} mode="compact" now={now}/>:null}      <header className={ui.intro}>
         <p className={desk.kicker}>BLUEBELLY / THE STORY DESK</p>
         <h1>Key stories, explained.</h1>
         <p>Start with what surprised the market. Follow the decision, the money, the contradiction and the next test—with original sources close at hand.</p>
