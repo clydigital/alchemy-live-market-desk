@@ -10,17 +10,18 @@ import {blueDeskHostAccess,blueDeskPresentationTarget} from "../lib/blue-desk-ho
 const read=(p:string)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 
 test("Public Research only indexes finite, previously available dated editorial readers",()=>{
- assert.equal(PUBLIC_RESEARCH_INDEX.length,9);
+ assert.equal(PUBLIC_RESEARCH_INDEX.length,10);
  const ids=new Set<string>();
  for(const entry of PUBLIC_RESEARCH_INDEX){
    assert.ok(!ids.has(entry.id),"duplicate edition "+entry.id);
    ids.add(entry.id);
-   assert.match(entry.asOf,/^2026-10-(?:27|28|29|30)$|^2026-11-0[12]$/);
+   assert.match(entry.asOf,/^2026-10-(?:27|28|29|30)$|^2026-11-0[124]$/);
    assert.ok(entry.href.startsWith("/features/")||entry.href.startsWith("/key-stories?feature=")||entry.href==="/earnings-week");
    assert.ok(!/owner|api|notion|pdf|draft|reports\/|https?:/i.test(entry.href));
    assert.ok(entry.summary.length>35);
  }
- assert.equal(PUBLIC_RESEARCH_INDEX[0].id,"earnings-week-nov2");
+ assert.equal(PUBLIC_RESEARCH_INDEX[0].id,"market-desk-4-nov");
+ assert.ok(PUBLIC_RESEARCH_INDEX.some(x=>x.id==="midterm-seasonality"&&x.asOf==="2026-11-02"&&x.editorialUpdatedAt));
  assert.equal(PUBLIC_RESEARCH_INDEX.at(-1)?.asOf,"2026-10-27");
  assert.equal(MANUAL_RESEARCH_AUTOPROMOTION_ENABLED,false);
 });
