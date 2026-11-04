@@ -41,6 +41,9 @@ test("past published originals have their source days and release gates, without
 });
 test("existing presenter and official source contracts remain intact; results are not inferred from the call",async()=>{
  const parsed=officialEarningsEvents(at);
+ const live=await getForwardEarningsEvents({now:at});
+ assert.ok(!live.events.some(x=>x.affectedAssets.includes("NVO")),
+  "Original first-nine-month results must retire NVO's still-upcoming call from the live earnings tape");
  assert.ok(parsed.some(e=>e.affectedAssets.includes("ARM")&&e.verificationState==="official"));
  assert.ok(parsed.some(e=>e.affectedAssets.includes("NVDA")&&e.timePrecision==="exact"));
  const source=read("lib/forward-earnings-sources.ts");
