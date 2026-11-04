@@ -111,9 +111,12 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
           <DecisionBrief news={verifiedNews} recentNews={recentNews} calendar={calendar} now={now} host={host}
             postEventRecaps={postEventRecaps} storyPage={storyPage}/>}
         {publicHost?<details data-home-detailed-brief="on-demand" style={{margin:"18px 0",border:"1px solid var(--bb-line)",padding:"14px",background:"var(--bb-surface)"}}>
-          <summary style={{cursor:"pointer",color:"var(--bb-accent)",fontWeight:700}}>Open the full dated briefing, earnings and event analysis</summary>
-          <DecisionBrief news={verifiedNews} recentNews={recentNews} calendar={calendar} now={now} host={host}
-            postEventRecaps={postEventRecaps} storyPage={storyPage}/>
+          <summary style={{cursor:"pointer",color:"var(--bb-accent)",fontWeight:700}}>Explore detailed news, earnings and event analysis</summary>
+          <nav aria-label="Detailed market analysis" style={{display:"flex",flexWrap:"wrap",gap:"14px",padding:"16px 0 4px"}}>
+            <Link href={blueDeskPublicHref("/blue-desk/newsroom",host)}>Full news explanations →</Link>
+            <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>Ongoing stories and evidence →</Link>
+            <Link href={blueDeskPublicHref("/blue-desk/calendar",host)}>Earnings and economic calendar →</Link>
+          </nav>
         </details>:null}
         <details data-home-archive="on-demand" style={{margin:"18px 0",border:"1px solid var(--bb-line)",padding:"14px",background:"var(--bb-surface)"}}>
           <summary style={{cursor:"pointer",color:"var(--bb-accent)",fontWeight:700}}>Browse more dated investigations and previous research</summary>
