@@ -294,3 +294,17 @@
  .summaryMetric,.summaryTimestamp{min-height:95px;padding:14px}
  .storyIntro,.storyExplanation{font-size:15px!important}
 }
+
+/* Keep the story library prominent while moving source audit metadata and
+   competing explanations behind keyboard-accessible disclosures. */
+.coverageDisclosure{border:1px solid var(--bb-line);background:var(--bb-card-quiet);padding:12px 15px;margin:13px 0 20px}
+.coverageDisclosure>summary{cursor:pointer;color:var(--bb-accent);font:700 12px/1.6 var(--bb-mono)}
+.coverageDisclosure .summary{margin:12px 0}
+.coverageDisclosure .section{margin-top:15px}
+.progressiveEvidence{padding:8px 0;margin:10px 0;border-top:1px solid var(--bb-line)}
+.progressiveEvidence>summary{cursor:pointer;color:var(--bb-accent);font:700 12px/1.6 var(--bb-mono);min-height:40px;display:flex;align-items:center}
+.progressiveEvidence[open]{padding-bottom:8px}
+.progressiveEvidence p{margin:8px 0;color:var(--bb-text);font-size:14px;line-height:1.6}
+.progressiveEvidence a{color:var(--bb-accent)}
+.coverageDisclosure>summary:focus-visible,.progressiveEvidence>summary:focus-visible{outline:2px solid var(--bb-accent);outline-offset:2px}
+@media(max-width:760px){.coverageDisclosure{padding:11px 12px}.progressiveEvidence p{font-size:14px}}
