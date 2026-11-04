@@ -1,3 +1,4 @@
+import {recentOriginalIssuerReleases} from "./bluebelly-issuer-release-receipts.ts";
 import { fetchFinnhubEarnings } from "./finnhub-earnings.ts";
 import { normaliseMarketEvent, type MarketEventV1 } from "./market-events.ts";
 
@@ -178,7 +179,12 @@ export async function getForwardEarningsEvents({
   apiKey?: string; licensed?: boolean;
   finnhubKey?: string; finnhubCommercialApproved?: boolean;
 } = {}): Promise<ForwardEarningsResult> {
-  const official = officialEarningsEvents(now);
+  // An original issuer result supersedes its still-pending calendar
+  // appointment, even if the scheduled conference call has not begun.
+  // This is a source-exact, bounded exclusion, never an inferred beat/miss.
+  const releasedOriginals=recentOriginalIssuerReleases(now,8);
+  const official = officialEarningsEvents(now).filter(row=>!releasedOriginals.some(release=>
+    release.ticker===row.affectedAssets[0] && release.sourceDay===row.startAt?.slice(0,10)));
   if (finnhubKey && !finnhubCommercialApproved) return {
     events: official, coverage: official.length ? "official_only" : "unavailable",
     warning: "Finnhub key is present but business use is not authorised. Issuer-confirmed earnings only.",
