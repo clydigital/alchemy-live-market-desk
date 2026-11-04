@@ -100,7 +100,7 @@ export function inspectWritingBrainHandoff(
  const value=(type:string)=>parts.find(p=>p.type===type)?.value||"";
  const dayMyt=value("year")+"-"+value("month")+"-"+value("day");
  const weekday=value("weekday"),hour=Number(value("hour")),minute=Number(value("minute"));
- if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(dayMyt)||!Number.isInteger(hour)
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(dayMyt)||!Number.isInteger(hour)
   ||!Number.isInteger(minute)||!weekday)return blank;
  const linkedIdeaCount=slate?.ideas.filter(i=>i.sourceUrls.length>0).length||0;
  const ids=slate?.ideas.map(i=>i.ideaId).filter((v):v is string=>!!v)||[];
