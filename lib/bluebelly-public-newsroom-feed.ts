@@ -10,7 +10,7 @@ import {selectPostEventRecaps} from "./bluebelly-post-event-recap.ts";
 import {weekAheadNewsroomEditorial} from "./bluebelly-week-ahead-newsroom.ts";
 import {currentReviewedPublicFocus} from "./bluebelly-reviewed-public-focus.ts";
 import {OCT30_SELL_OFF,oct30SelloffIsLead} from "./bluebelly-oct30-tech-selloff.ts";
-import {getRecentVerifiedEarningsScorecards} from "./blue-desk-earnings-results.ts";
+import {getRecentVerifiedEarningsScorecards,getImmutableChartWatchEarningsEdition} from "./blue-desk-earnings-results.ts";
 import {getRecentOfficialMacroResults} from "./blue-desk-official-macro-results.ts";
 
 /** The *same* read-only Newsroom editorial admission on Today and Newsroom.
@@ -40,7 +40,13 @@ export function publicNewsroomEditorials(
    topics:["policy","bonds"],verificationLabel:"REVIEWED ORIGINAL ECONOMIC RELEASE",
    why:release.mechanism,nextTest:release.test,kind:"macro"});
  }
- for(const release of getRecentVerifiedEarningsScorecards(now,7)){
+ const recentEarnings=getRecentVerifiedEarningsScorecards(now,7);
+ // Preserve the one explicitly reviewed Chart Watch edition as a dated archive
+ // beyond the rolling news window; other older earnings do not become news.
+ const historicalChartWatch=getImmutableChartWatchEarningsEdition(now);
+ const earningsEntries=historicalChartWatch && !recentEarnings.some(x=>x.id===historicalChartWatch.id)
+  ?[...recentEarnings,historicalChartWatch]:recentEarnings;
+ for(const release of earningsEntries){
   if(existing.has(release.sourceUrl))continue;
   existing.add(release.sourceUrl);
   result.push({id:"earnings-release:"+release.id,headline:release.headline,
