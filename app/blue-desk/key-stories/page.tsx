@@ -1,3 +1,5 @@
+import CurrentMarketUpdates, {EditorialUpdatedToday} from "@/components/blue-desk/CurrentMarketUpdates";
+import NovemberDeskStory from "@/components/blue-desk/NovemberDeskStory";
 import Oct30TechSelloffFeature from "@/components/blue-desk/Oct30TechSelloffFeature";
 import MidtermRallyFeature from "@/components/blue-desk/MidtermRallyFeature";
 import HormuzMediationFeature from "@/components/blue-desk/HormuzMediationFeature";
@@ -94,6 +96,13 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
       <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link>
       <MidtermRallyFeature host={host}/>
     </div>
+  </main>;
+  if(params?.feature==="market-desk-4-nov-2026")return <main className={desk.page} data-key-story="4nov2026-cross-market-edition">
+   <BlueDeskHeader activePath="/blue-desk/key-stories"/>
+   <div className={desk.content}>
+    <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link>
+    <NovemberDeskStory host={host}/>
+   </div>
   </main>;
   if(params?.feature==="hormuz-mediation-november-2026")return <main className={desk.page} data-key-story="hormuz-mediation-source-reviewed">
     <BlueDeskHeader activePath="/blue-desk/key-stories"/>
@@ -385,7 +394,8 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     data-living-topics="dossier-independent">
     <BlueDeskHeader activePath="/blue-desk/key-stories" />
     <div className={desk.content}>
-      <header className={ui.intro}>
+
+     <CurrentMarketUpdates host={host} mode="compact" now={now}/>      <header className={ui.intro}>
         <p className={desk.kicker}>BLUEBELLY / THE STORY DESK</p>
         <h1>Key stories, explained.</h1>
         <p>Start with what surprised the market. Follow the decision, the money, the contradiction and the next test—with original sources close at hand.</p>
@@ -480,7 +490,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
         </nav>
         {visibleTheses.length?<div className={ui.cards}>{pageTheses.map(thesis=>
           <article className={ui.card} id={"thesis-"+thesis.slug} key={thesis.id} data-stored-story={thesis.status}>
-            <p className={ui.kicker}>{classifyPublicStory(thesis)} · ONGOING RESEARCH</p>
+            <p className={ui.kicker}>{classifyPublicStory(thesis)} · ONGOING RESEARCH <EditorialUpdatedToday initialPublishedOn={thesis.createdAt||""} editorialUpdatedAt={thesis.updatedAt} now={now}/></p>
             <h3><Link href={indexHref+"?story="+encodeURIComponent(thesis.slug)}>{thesis.title}</Link></h3>
             <p className={ui.storyIntro}>{thesis.question}</p>
             <p><strong>Next test:</strong> {thesis.nextTest || "No dated test recorded."}</p>
