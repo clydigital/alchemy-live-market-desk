@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {renderScheduledDailyHtml} from "../lib/bluebelly-scheduled-daily-html.ts";
 import {parseExistingHtmlEdition} from "../lib/bluebelly-html-archive-import-contract.ts";
-import {reportEvidenceReady,type AutomaticReportEvidence}
+import {assembleAutomaticReportEvidence,reportEvidenceReady,type AutomaticReportEvidence}
  from "../lib/blue-desk-automated-report-contract.ts";
 const read=(p:string)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 const day="2026-10-30";
@@ -103,4 +103,21 @@ test("private dated visual tables omit missing market data without inventing lev
  const result=renderScheduledDailyHtml({day,now,evidence:onlyOriginals});
  assert.doesNotMatch(result.html,/data-private-table="market-snapshots"/);
  assert.match(result.html,/data-private-table="upcoming-catalysts"/);
+});
+
+test("two distinct releases sharing one official calendar URL remain in the private handoff",()=>{
+ const prepared=assembleAutomaticReportEvidence({now,slot:"morning",news:[],observations:[],
+  calendar:[
+   {title:"ISM Manufacturing PMI",when:"2026-11-03T15:00:00Z",sourceName:"ISM",
+    sourceUrl:"https://example.com/official/calendar",question:"Are orders accelerating?"},
+   {title:"ISM Services PMI",when:"2026-11-04T15:00:00Z",sourceName:"ISM",
+    sourceUrl:"https://example.com/official/calendar",question:"Are services prices accelerating?",
+    previous:"54.9",consensus:"54.8"},
+  ]});
+ const upcoming=prepared.sources.filter(s=>s.type==="CALENDAR");
+ assert.equal(upcoming.length,2);
+ assert.equal(upcoming[1].calendarComparison?.consensus,"54.8");
+ assert.equal(upcoming[1].calendarComparison?.previous,"54.9");
+ assert.match(renderScheduledDailyHtml({day,now,evidence:{...evidence,
+  sources:[...evidence.sources,...upcoming]}}).html,/ISM Services PMI/);
 });
