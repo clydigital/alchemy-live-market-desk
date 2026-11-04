@@ -5,6 +5,8 @@ export type AutomaticReportSlot="morning"|"evening";
 export type ReportSource={
  id:string;type:"NEWS"|"OBSERVATION"|"CALENDAR";title:string;
  detail:string;sourceName:string;url:string;eventAt:string;
+ /** Provider daily level, never an event-window reaction; no inferred unit. */
+ marketSnapshot?:{label:string;level:number;previousClose:number|null;asOf:string};
 };
 export type ReportStory={
  headline:string;setup:string;reveal:string;humanStake:string;
@@ -112,7 +114,10 @@ export function assembleAutomaticReportEvidence(input:{
   add({id:"M"+(sources.length+1),type:"OBSERVATION",
    title:row.label+" - dated market level "+row.level,
    detail:`Provider-reported latest level: ${row.level} at ${row.asOf}.${prior} No event cause is established.`,
-   sourceName:row.sourceName,url:row.sourceUrl,eventAt:row.asOf!});
+   sourceName:row.sourceName,url:row.sourceUrl,eventAt:row.asOf!,
+   marketSnapshot:{label:row.label,level:row.level,
+    previousClose:typeof row.previousClose==="number"&&Number.isFinite(row.previousClose)
+     ?row.previousClose:null,asOf:row.asOf!}});
  }
  // Calendar does not count towards the minimum independent factual event coverage.
  for(const row of input.calendar.slice(0,12)){
