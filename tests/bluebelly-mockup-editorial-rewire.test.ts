@@ -41,9 +41,11 @@ test("nine research lenses only index public historical Story snapshots",()=>{
 });
 test("Newsroom keeps the original verified public admission contract",()=>{
  const page=file("app/blue-desk/newsroom/page.tsx");
- assert.match(page,/selectVerifiedNewsBriefs/);
- assert.match(page,/getOriginalPressNews/);
- assert.match(page,/combineQualifiedNews/);
+ const shared=file("lib/bluebelly-verified-event-server.ts");
+ assert.match(page,/readBluebellyQualifiedNews/);
+ assert.match(shared,/selectVerifiedNewsBriefs/);
+ assert.match(shared,/getOriginalPressNews/);
+ assert.match(shared,/combineQualifiedNews/);
  const wire=file("components/blue-desk/BluebellyNewsWire.tsx");
  assert.match(wire,/SOURCE VERIFIED/);
  assert.match(wire,/item\.sourceUrl/);
