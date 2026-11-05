@@ -1,7 +1,7 @@
 /* Source-derived, publicly authored dated editorial editions, 5 Nov 2026.
  * Frozen observations, not canonical Stories or live quotes. No private Notion
- * fetch at public render time. Corrected Solarvest FY2026 revenue to RM757.1m
- * against its issuer statement.
+ * fetch at public render time. Solarvest FY2026 uses the July audited annual report RM758.9m;
+ * the May preliminary issuer release reported RM757.1m.
  */
 export type DatedEquityArticle = {
   id: string; title: string; ticker: string; category: string; summary: string;
@@ -350,7 +350,7 @@ export const DATED_EQUITY_ARTICLES: readonly DatedEquityArticle[] = [
       {
         "heading": "",
         "paragraphs": [
-          "Solarvest Holdings has turned Malaysia's renewable-energy construction boom into something shareholders can measure. Its revenue rose 41% to RM757.1 million in the financial year to March 2026, while net profit grew 54% to RM80 million.",
+          "Solarvest Holdings has turned Malaysia's renewable-energy construction boom into something shareholders can measure. Its audited revenue rose about 41% to RM758.9 million in the financial year to March 2026, while net profit grew 54% to RM80 million. The earlier 20 May preliminary release gave revenue of RM757.1 million; the July annual report is the later audited basis.",
           "The shares have rewarded that progress. At RM4.02 on 5 November, Solarvest is more than twice its 52-week low of RM1.82, although it is already around 12% below the 52-week high.",
           "But the interesting question is not whether clean energy is popular. It is why investors are willing to pay so much for some companies while others with improving earnings remain less celebrated."
         ]
@@ -392,6 +392,10 @@ export const DATED_EQUITY_ARTICLES: readonly DatedEquityArticle[] = [
       }
     ],
     "sources": [
+      {
+        "label": "Solarvest FY2026 audited annual report (July 2026)",
+        "url": "https://solarvest.com/investor-relations/investor-centre/"
+      },
       {
         "label": "Solarvest 1QFY27 issuer report",
         "url": "https://solarvest.com/solarvest-delivers-stronger-1qfy27-performance-with-20-yoy-growth-in-net-profit/"
