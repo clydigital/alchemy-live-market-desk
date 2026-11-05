@@ -29,6 +29,8 @@ export type WhatsNewDelta = {
   hybridHref: string | null;
   interpretationState: "interpreted" | "observed_pending" | null;
   breakdown: StoryBreakdown | null;
+  /** Current Dossier caveat attached to a historical Story event. */
+  evidenceCaveat?: string | null;
   motion?: {
     whatHappened: string;
     marketReaction: string | null;
@@ -282,6 +284,13 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
                   {delta.verification ? <span data-tone={tone(delta.verification)}>{delta.verification}</span> : null}
                 </div>
               </header>
+              {delta.evidenceCaveat ? (
+                <div className={styles.evidenceCaveat} role="note">
+                  <strong>Current evidence · unresolved</strong>
+                  <p>{delta.evidenceCaveat}</p>
+                  <a href="/dossier">Review current Dossier</a>
+                </div>
+              ) : null}
               {delta.motionBundle ? (
                 <div className={styles.bundleSummary}>
                   <div className={styles.bundleMeta}>
@@ -295,7 +304,7 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
                   </ol>
                 </div>
               ) : (
-                <p><TraderText text={delta.detail} /></p>
+                <p>{delta.evidenceCaveat ? <strong>Historical Story record: </strong> : null}<TraderText text={delta.detail} /></p>
               )}
               {delta.motion ? (
                 <div className={styles.motionBreakdown}>
