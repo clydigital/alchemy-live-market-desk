@@ -94,3 +94,25 @@ test("JOLTS recovery is exact-identity and original-source gated; similar or unv
   assert.equal(storyCoverageForNews(item).status,"SOURCE_ONLY");
  }
 });
+
+test("shared deep-story reader never inserts Fed-only prose in JOLTS", () => {
+ const article=source("components/blue-desk/KeyStoryDeepArticle.tsx");
+ const forbidden=[
+  "What was the market expecting before the Fed spoke?",
+  "Six measurements tell a different story from",
+  "The vote reveals more than the unchanged rate",
+  "Why might the yield curve steepen after a hold?",
+  "Hold ≠ no change",
+  "The rate was unchanged. The dissent",
+  "Read the related full-length FOMC narrative",
+  "Previous, expected and actual FOMC evidence",
+ ];
+ for(const phrase of forbidden) assert.ok(!article.includes(phrase),phrase);
+ assert.ok(article.includes("depth.numbers.slice(0,3)"));
+ assert.ok(article.includes("depth.theQuestion"));
+ assert.ok(article.includes("depth.whatChanged[0]"));
+ assert.ok(article.includes("receipt?.sourceName"));
+ assert.ok(article.includes("depth.missing[0]"));
+ assert.match(article,/What else could explain/);
+ assert.match(article,/Measurements Bluebelly still lacks/);
+});
