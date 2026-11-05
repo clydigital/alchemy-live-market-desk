@@ -72,6 +72,15 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   if (hostname === "alchemy-blue-desk.vercel.app") return "blocked";
   if (hostname !== BLUEBELLY_PRESENTATION_HOST && hostname !== LIVE_DESK_PRESENTATION_HOST) return "private";
 
+  // R2 PRIVATE MCP bootstrap: only exact discovery and transport paths can
+  // reach the handlers. They return 404 when not configured. /api/mcp checks
+  // issuer, audience, active owner, signed client ID and scopes on EVERY POST.
+  // "public" here bypasses browser-cookie middleware only, never MCP auth.
+  if(hostname===BLUEBELLY_PRESENTATION_HOST && (
+    pathname==="/api/mcp" ||
+    pathname==="/.well-known/oauth-protected-resource"
+  ))return "public";
+
   // One strictly bounded public X discovery handoff for the existing ChatGPT
   // MacroPulse reader. It is a READ-ONLY redacted view of public original X
   // posts; never expose owner pages, raw operational data, tokens or write APIs.
