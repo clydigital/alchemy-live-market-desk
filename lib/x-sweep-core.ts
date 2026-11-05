@@ -42,8 +42,9 @@ export const X_CORE_ROSTER = Object.freeze([
   { handle: "TGLetter", focus: "civil-resilience" },
   { handle: "macropaperr", focus: "cross-asset" },
   { handle: "BeginnerTrades", focus: "trading" },
+  { handle: "OddStats", focus: "statistics" },
 ] as const);
-// The 5 Nov addition of BeginnerTrades makes 13 attributed discovery accounts.
+// The 6 Nov addition of OddStats makes 14 attributed discovery accounts.
 // GordianKnotDev remains excluded. A roster member is not verified market evidence.
 export const X_WIRE_EXCLUDED_HANDLES = Object.freeze(["gordianknotdev"] as const);
 export function isExcludedXWireHandle(handle: string): boolean {
