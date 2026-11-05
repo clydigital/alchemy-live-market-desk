@@ -11,14 +11,10 @@ import {getDatedEquityArticle} from "@/lib/bluebelly-dated-equity-articles";
 import Newsroom48hTimeline from "@/components/blue-desk/Newsroom48hTimeline";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
+import {readBluebellyQualifiedNews} from "@/lib/bluebelly-verified-event-server";
 import {recentBankDecisions} from "@/lib/bluebelly-bank-decision-snapshots";
 import {recentReportedEditorial} from "@/lib/bluebelly-reported-editorial";
 import {selectPostEventRecaps} from "@/lib/bluebelly-post-event-recap";
-import {getCurrentVerifiedMarketMotion} from "@/lib/market-motion";
-import {selectVerifiedNewsBriefs} from "@/lib/market-brief-news";
-import {getOriginalPressNews} from "@/lib/blue-desk-original-press-news-server";
-import {getCompletedOfficialMacroNews} from "@/lib/blue-desk-canonical-macro-news-server";
-import {combineQualifiedNews} from "@/lib/blue-desk-qualified-news";
 import {getRecentArchivedPublicReaderItems} from "@/lib/bluebelly-publication-archive-server";
 import {selectNewsroomHotPicks} from "@/lib/bluebelly-newsroom-hot-picks";
 import {publicNewsroomEditorials} from "@/lib/bluebelly-public-newsroom-feed";
@@ -37,19 +33,13 @@ export default async function NewsroomPage({searchParams}:Props){
  const requested=await searchParams;
  const article=getDatedEquityArticle(typeof requested.divergence==="string"?requested.divergence:undefined);
  if(article)return <DatedEquityArticleReader article={article} host={host}/>;
- const [raw,official,params,archiveResult,researchDigests]=await Promise.all([
-  getCurrentVerifiedMarketMotion({limit:36}).catch(()=>[]),
-  // Preserve source-reviewed press receipts and completed government actuals.
-    // An incomplete or unverified macro row cannot enter the reader.
-    Promise.all([
-      getOriginalPressNews(now,18,7).catch(()=>[]),
-      getCompletedOfficialMacroNews(now,18,7).catch(()=>[]),
-    ]).then(([press,macroActuals])=>[...press,...macroActuals]),
+ const [sourceFeed,params,archiveResult,researchDigests]=await Promise.all([
+  readBluebellyQualifiedNews(now,18),
   searchParams,
   getRecentArchivedPublicReaderItems(now).then(items=>({items,available:true})).catch(()=>({items:[],available:false})),
   getPublishedMacroPulseBriefs(4).catch(()=>[]),
  ]);
- const news=combineQualifiedNews(selectVerifiedNewsBriefs(raw,now,18),official,18);
+ const news=sourceFeed.news;
  const query=typeof params.q==="string"?params.q:"";
  const readerHref=blueDeskPublicHref("/blue-desk/key-stories",host);
  const bankDecisions=recentBankDecisions(now,48);
@@ -62,6 +52,9 @@ export default async function NewsroomPage({searchParams}:Props){
   <BlueDeskHeader activePath="/blue-desk/newsroom"/>
     {!isBlueDeskPublicReaderHost(host)?<CurrentMarketUpdates host={host} mode="full" now={now}/>:null}
   <div className={desk.content}>
+    {Object.values(sourceFeed.sourceReads).includes("UNAVAILABLE")?
+      <p role="status">Verified-news coverage is degraded: at least one original-source reader is unavailable. This is not a confirmed quiet market.</p>:
+      !news.length?<p role="status">No source-qualified news events in this reader window. This does not establish that markets are quiet.</p>:null}
       {oct30SelloffIsLead(now)&&+now-Date.parse(OCT30_SELL_OFF.occurredAt)<48*3600000&&currentReviewedPublicFocus(now).length===0?<article data-newsroom-lead="oct30-ai-selloff" className={ui.featureLead}>
         <p className={ui.featureKicker}>NEWSROOM LEAD · 30 OCTOBER 2026 · SOURCE-REPORTED INTRADAY REACTION</p>
         <h2 >{OCT30_SELL_OFF.headline}</h2>
