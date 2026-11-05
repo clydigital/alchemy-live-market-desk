@@ -58,7 +58,8 @@ test("existing presenter and official source contracts remain intact; results ar
  assert.ok(page.indexOf("<IssuerEarningsBoard")<page.indexOf("<details style="),
    "issuer results must remain outside collapsed legacy details");
  assert.match(page,/HISTORICAL PRE-RESULTS RESEARCH/);
- assert.match(board,/RESULT PUBLISHED/);
+ assert.match(read("components/blue-desk/EarningsResultRail.tsx"),/RESULT PUBLISHED/);
+ assert.match(board,/<EarningsResultRail items=/);
  assert.match(board,/Call \/ webcast:/);
  assert.match(board,/data-issuer-elapsed-unverified/);
  assert.doesNotMatch(board,/process\.env|createSupabaseAdminClient|service_role|app\.notion\.com/);
