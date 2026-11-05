@@ -4,7 +4,7 @@
 .filters button[aria-pressed="true"]{border-color:var(--bb-accent,#86d9e5);background:var(--bb-raised,#173a48)}
 .filters button span{font-variant-numeric:tabular-nums;opacity:.65;padding-left:3px}
 .filters button:focus-visible,.navigation button:focus-visible,.sliderLabel input:focus-visible,.rail:focus-visible,.source:focus-visible{outline:2px solid var(--bb-accent,#8edcf7);outline-offset:2px}
-.rail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(260px, min(330px,85vw));gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding:2px;padding:1px 2px 10px;scrollbar-width:thin;overscroll-behavior-x:contain}
+.rail{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(260px, min(330px,85vw));gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding:2px;padding:1px 2px 10px;scrollbar-width:thin;overscroll-behavior-x:contain}
 .card{scroll-snap-align:start;display:flex;flex-direction:column;border:1px solid var(--bb-line,#32556a);background:var(--bb-canvas,#061b27);padding:14px;min-width:0}
 .cardTop{display:flex;justify-content:space-between;gap:8px;align-items:baseline;line-height:1.35}
 .cardTop strong{font-size:14px;color:var(--bb-text,#eefaff)}
