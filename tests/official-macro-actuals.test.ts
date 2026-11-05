@@ -1,3 +1,4 @@
+import {readFileSync} from "node:fs";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -129,6 +130,18 @@ test("BLS Public Data API resolves CPI, PPI and JOLTS without scraping blocked B
     blsFetcher([{ seriesID: "JTS000000000000000JOL", data: [{ year: "2026", period: "M06", value: "7359" }] }]),
   );
   assert.equal(jolts.actual, "Job openings 7.4M");
+  assert.equal(jolts.previous, null,"a missing prior source does not become an invented value");
+  const september = await resolveOfficialActual(
+    release({ release_name: "Job Openings and Labor Turnover Survey for September 2026",
+      release_date: "2026-11-03T15:00:00.000Z", reference_period: "September 2026" }),
+    blsFetcher([{ seriesID: "JTS000000000000000JOL", data: [
+      { year: "2026", period: "M09", value: "7523" },
+      { year: "2026", period: "M08", value: "7190" },
+    ] }]),
+  );
+  assert.equal(september.actual,"Job openings 7.5M");
+  assert.equal(september.previous,"7.190M","same-series prior is retained, not mislabelled as consensus");
+  assert.equal(september.sourceUrl,"https://www.bls.gov/news.release/archives/jolts_11032026.htm");
 });
 
 test("BLS Employment Situation adapter derives payroll change and headline labour metrics", async () => {
@@ -251,4 +264,14 @@ test("ISM acquisition falls back to a reader transport for the same first-party 
   assert.equal(result.actual, "Manufacturing PMI 55.6");
   assert.equal(calls, 2);
   assert.equal(result.sourceUrl, "https://www.ismworld.org/supply-management-news-and-reports/reports/ism-pmi-reports/pmi/july/");
+});
+
+test("completed JOLTS prior recovery is narrowly scoped and preserves consensus/actual provenance",()=>{
+ const code=readFileSync(new URL("../lib/macro/official-actuals.ts",import.meta.url),"utf8");
+ assert.match(code,/async function recoverCompletedJoltsPrevious/);
+ assert.match(code,/\.is\("previous",null\)/);
+ assert.match(code,/resolved\.actual!==row\.actual/);
+ assert.match(code,/row\.source_url!==officialActualSourceUrl\(row\)/);
+ assert.match(code,/joltsRecovery\.restored/);
+ assert.doesNotMatch(code,/consensus:resolved\.previous|consensus_captured_at:.*now/);
 });
