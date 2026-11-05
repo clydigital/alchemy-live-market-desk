@@ -2,6 +2,8 @@ import "server-only";
 import {NextResponse,type NextRequest} from "next/server";
 import {getMarketMonitor} from "@/lib/market-monitor-public";
 import {publicMarketGroup,publicMarketObservations} from "@/lib/blue-desk-public-markets";
+import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
+import {calculateBreadthRow} from "@/lib/bluebelly-breadth-dated";
 import {readBluebellyQualifiedNews,getBluebellyVerifiedEvents} from "@/lib/bluebelly-verified-event-server";
 import {
  handleBluebellyMcpMessage,BLUEBELLY_MCP_RESOURCE,type McpInvocation,
@@ -43,12 +45,28 @@ export async function POST(req:NextRequest){
  const operations:McpInvocation={
   getMarketSnapshot:async ({group,limit})=>{
    const now=new Date();
-   const monitor=await getMarketMonitor();
-   const rows=publicMarketObservations(monitor.rows,publicMarketGroup(group)).slice(0,limit);
+   const includesBreadth=group==="all"||group==="breadth";
+   const [monitor,breadth]=await Promise.all([
+    group==="breadth"?Promise.resolve(null):getMarketMonitor().catch(()=>null),
+    includesBreadth?getSourceDatedBreadth().catch(()=>null):Promise.resolve(null),
+   ]);
+   const markets=monitor?publicMarketObservations(monitor.rows,publicMarketGroup(group)):[];
+   const breadthRows=includesBreadth?[
+    {symbol:"S5FI",label:"S&P 500 · above 50D"},
+    {symbol:"S5TH",label:"S&P 500 · above 200D"},
+   ].map(item=>calculateBreadthRow(
+     item.symbol,item.label,breadth?.series.find(x=>x.symbol===item.symbol),now,
+   )):[];
+   const rows=[...markets,...breadthRows].slice(0,limit);
    return {contractVersion:"bluebelly/market-observations/1",
     generatedAt:now.toISOString(),group,count:rows.length,observations:rows,
+    status:group==="breadth"
+      ?breadth?.retrievalStatus==="refreshed"?"SOURCE_DATED":"STALE_OR_UNAVAILABLE"
+      :monitor?"SOURCE_DATED":"DEGRADED",
+    breadthRetrievalStatus:includesBreadth?breadth?.retrievalStatus||"unavailable":null,
     limitations:["Missing session changes are null, not zero.",
      "Changes for daily nominal yields are basis points; other market changes are percentages.",
+     "S5FI/S5TH breadth changes are percentage points and source-dated secondary observations; stale seeds return null levels.",
      "Monthly observations have no 1/3/5-session change.",
      "Research interpretations and private portfolio state are not included."]};
   },
