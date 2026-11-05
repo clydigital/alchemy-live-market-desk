@@ -11,7 +11,7 @@ test("earnings readings use date-pinned original releases and fail closed on unk
   const now = new Date("2026-11-05T06:00:00.000Z");
   const reviewed = [
     ...recentOriginalIssuerReleases(now, 8).map(item => [item.ticker, item.sourceDay]),
-    ...getRecentVerifiedEarningsScorecards(now, 7).map(item => [item.ticker, item.releaseDay]),
+    ...getRecentVerifiedEarningsScorecards(now, 14).map(item => [item.ticker, item.releaseDay]),
   ];
   assert.ok(reviewed.length >= 8);
   for (const [ticker, day] of reviewed) {
