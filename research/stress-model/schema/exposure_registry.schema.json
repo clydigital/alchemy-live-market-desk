@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Dossier exposure registry row",
+  "type": "object",
+  "required": [
+    "exposure_id",
+    "research_block",
+    "institution",
+    "instrument",
+    "as_of_date",
+    "evidence_type",
+    "scenario_eligible",
+    "review_status"
+  ],
+  "properties": {
+    "exposure_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "research_block": {
+      "type": "string",
+      "minLength": 1
+    },
+    "institution": {
+      "type": "string",
+      "minLength": 1
+    },
+    "counterparty": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "instrument": {
+      "type": "string",
+      "minLength": 1
+    },
+    "amount": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "amount_currency": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "as_of_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "maturity_date": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "coupon_pct": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "spread_bps": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "seniority": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "recourse": {
+      "enum": [
+        "NON_RECOURSE",
+        "LIMITED_RECOURSE",
+        "PARENT_GUARANTEE",
+        "DIRECT_PARENT",
+        "CONTINGENT_SUPPORT",
+        "UNKNOWN",
+        null
+      ]
+    },
+    "collateral_type": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "liquidity_risk": {
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "UNKNOWN",
+        null
+      ]
+    },
+    "maturity_mismatch": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "evidence_type": {
+      "enum": [
+        "DISCLOSED",
+        "REPORTED",
+        "INFERRED",
+        "MODELLED"
+      ]
+    },
+    "source_url": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uri"
+    },
+    "source_date": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "source_locator": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "scenario_eligible": {
+      "type": "boolean"
+    },
+    "double_count_group": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "do_not_double_count_with": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "review_status": {
+      "enum": [
+        "EVIDENCE_PENDING",
+        "VERIFIED",
+        "MODEL_READY",
+        "CALCULATED",
+        "REVIEW_FLAGGED",
+        "PUBLICATION_READY",
+        "PUBLISHED"
+      ]
+    },
+    "calculation_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

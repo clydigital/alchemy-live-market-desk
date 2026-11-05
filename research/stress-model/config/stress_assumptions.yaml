@@ -1,0 +1,59 @@
+version: dossier-stress-v1
+as_of: "2026-10-05"
+
+yield_shocks_bps:
+  - 50
+  - 100
+
+collateral_value_shocks_pct:
+  - -15
+  - -25
+
+utilisation_cases:
+  - 0.90
+  - 0.70
+  - 0.50
+
+refinancing_spread_shocks_bps:
+  - 0
+  - 100
+  - 200
+
+coverage_thresholds:
+  acceleration: 1.50
+  severe_warning: 1.00
+
+duration:
+  default_proxy_years: 5.0
+  require_duration_type: true
+  allowed_duration_types:
+    - DISCLOSED
+    - PROXY
+  formula: "price_change_fraction ~= -modified_duration * yield_change"
+  note: "Proxy duration is a comparability assumption, never a sourced institutional duration."
+
+refinancing:
+  immediate_reprice_fixed_debt: false
+  mode: "refinancing_equivalent"
+  note: "Do not reprice all fixed-rate debt immediately. Apply spread shocks as explicit refinancing-equivalent sensitivities."
+
+collateral:
+  formula: "stressed_ltv = debt / (collateral_value * (1 + collateral_shock_fraction))"
+  require_collateral_value: true
+
+loss_waterfall:
+  require_contractual_seniority: true
+  require_recourse_classification: true
+  missing_contract_rule: "STOP"
+  generic_fallback_waterfall_allowed: false
+
+aggregation:
+  enforce_unique_exposure_id: true
+  enforce_double_count_groups: true
+  sum_contingent_guarantees_with_funded_debt: false
+
+eligible_evidence_types:
+  - DISCLOSED
+  - REPORTED
+
+required_review_status: MODEL_READY
