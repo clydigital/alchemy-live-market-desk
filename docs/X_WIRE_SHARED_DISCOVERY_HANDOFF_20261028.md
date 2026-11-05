@@ -28,3 +28,8 @@
 ## 4 November 2026 roster reconciliation
 
 The Macro Paper (@macropaperr) is an authorised twelfth **discovery** source. Its production Supabase account was registered earlier but remained `unconfigured` because production code scanned the previous eleven-source roster. The source must be checked by the existing scheduled X collector after deployment, with true `last_completed_at`/checkpoint; inclusion in `X_CORE_ROSTER` alone does **not** prove ingestion. The public read-only endpoint `/api/x-wire/discovery` supports up to twelve ranked leads and separately reports `coverage.monitored` and `coverage.healthy`; a successful HTTP 200 does not make the feed complete or verify an underlying market claim. The existing user exclusion of @GordianKnotDev persists.
+
+
+## 5 November 2026 roster addition
+
+The user requested **@BeginnerTrades** (https://x.com/BeginnerTrades/) as a 13th attributed X Wire discovery account. Include it through the existing `X_CORE_ROSTER`, owner-only durable collector, and read-only shared discovery handoff; register its state idempotently as `unconfigured` in `x_wire_accounts` and preserve all account checkpoints. No new cron, scheduling, canonical writer, or automatic evidence admission. The ordinary source priority applies until independently justified; social chart/trading claims remain unverified leads. Treat the first provider retrieval, original post IDs, and due-source account checkpoint as separate production acceptance tests. Historical 12-source coverage results above describe earlier observations, not the new state.
