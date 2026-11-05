@@ -1,5 +1,5 @@
 # Bluebelly V6 — editorial, visualisation and browser QA workflow
-**Adopted 20 October 2026.** This is an implementation and acceptance runbook, **not** authorisation for public V6 cutover or a new canonical writer. Read alongside `docs/BLUE_DESK_P_MINUS_1_P1B_ACCEPTANCE_20261020.md`, `docs/BLUE_DESK_CONTENT_PRODUCTION_READINESS_20261020.md` and `docs/BLUE_DESK_PUBLIC_API_FIELD_REVIEW_20261020.md`. Re-check current production/PR state rather than treating their 20 October snapshots as perpetually current.
+**Adopted 20 October 2026; updated for the owner's public-first ChatGPT repair decision.** Read the priority override in [PUBLIC_FIRST_CHATGPT_REPAIR_DECISION_20261020.md](./BLUE_DESK_PUBLIC_FIRST_CHATGPT_REPAIR_DECISION_20261020.md). This is an implementation and acceptance runbook, **not** authority to expose credentials, mutate canonical evidence or invent research. Read alongside `docs/BLUE_DESK_P_MINUS_1_P1B_ACCEPTANCE_20261020.md`, `docs/BLUE_DESK_CONTENT_PRODUCTION_READINESS_20261020.md` and `docs/BLUE_DESK_PUBLIC_API_FIELD_REVIEW_20261020.md`. Re-check current production/PR state rather than treating their 20 October snapshots as perpetually current.
 
 ## Architecture and ownership (unchanged)
 1. **MacroPulse** (existing even-hour MYT task) owns broad research, source manifests and Notion Pulse/Log publication. Specialists are selected by question; original source/measurement provenance is mandatory.
@@ -36,7 +36,7 @@ For one eligible, immutable `editionId + storyId + thesisVersionId?` (with a nul
 2. Render one existing edition-pinned AI public Story with an accurate status, one issuer fact/source block and empty-state mechanism/market reaction where necessary. Current reported TSMC/CoreWeave numbers are *issuer facts*; absent tape evidence is not licence to claim a price reaction.
 3. Add one evidence-linked chart **only if** a comparable, as-of bounded series actually exists (e.g. capex vs operating cash flow with same period, unit and definition). If absent, include a tested `DATA UNAVAILABLE` component rather than synthetic points.
 4. Build with the **existing** Next.js component structure (Build Web Apps); implement visualisation in a bounded dynamically loaded client component (Web Data Visualization). Keep React responsible for shell/controls and the renderer for chart geometry.
-5. Preserve current public Bluebelly and old exact-edition Story pages; work behind PR/preview until P−1 security GO and approved public field contract. A READY Vercel build is not cutover sign-off.
+5. Preserve current public Bluebelly and old exact-edition Story pages. Build and preview public reader improvements **now**, without waiting for owner Google OAuth tests; avoid opening mutable owner tools or unreviewed raw database payloads. A READY build is not proof of factual article quality or source provenance.
 
 ## UI/visualisation acceptance
 - Insight-led chart title, clearly visible units, named series, original links and *observed* data-as-of near each chart.
@@ -55,17 +55,17 @@ Use Webcmd's installed browser skill and prerequisites for actual pages; if unav
 5. Every major section has substantive supported paragraphs *or* explicit honest absence; charts label unavailable/stale states, annotations and source vintage.
 6. Compare mobile/desktop screenshots, keyboard/source navigation, loading/error states; inspect runtime network and console errors. Failing required checks block merge/cutover.
 
-**Stop condition:** P−1 security/public field classification remains HOLD until independently documented GO (see #834, #849). Public V6 Story cutover and recurring auto-publishing remain blocked by that gate.
+**Revised prioritisation:** The user has approved **public-first read-only viewing to facilitate ChatGPT-side fixes**. P−1 technical findings (#834, #849) stay unresolved in a separate risk/remediation track but no longer block safe public-reader UX, narrative depth, data-chart components or preview work. Exposing privileged credentials, unapproved confidential payloads or anonymous write operations remains prohibited. Automatic publication still requires a verified authorised writer, exact-source contract and content QA.
 
 ## Publishing cadence decision
 - Prefer **on-demand / event-driven, idempotent compilation** after an accepted canonical edition and approved read projection: key by `editionId + storyId + projectionVersion`; skip empty/identical/unsupported material.
-- A possible **09:15 and 21:15 MYT** fallback writing/retry schedule is **NOT CREATED OR ACTIVATED** by this runbook. It must follow actual Gate completion (existing 08:40/20:40), available canonical version and P−1 approval. ChatGPT task scheduling alone cannot invoke a protected Vercel publisher without a verified machine bridge.
+- A possible **09:15 and 21:15 MYT** fallback writing/retry schedule is **NOT CREATED OR ACTIVATED** by this runbook. It must follow actual Gate completion (existing 08:40/20:40), an implemented edition-pinned content compiler and a verified authorised writer/publish bridge. A public reader does not require public writer privileges.
 - Do not write new MacroPulse posts from the publishing lane, or edit the 16-company Notion hub on the web-editorial cadence.
 
 ## Release partitions
-- **P−1** owner/machine positive access, field-level public API and licensing sign-off, public/private negative tests.
+- **Parallel access/security track**: classify owner data and sensitive fields, verify protected writer/machine actions, source licensing and update #834/#849; do not treat this as a dependency for public reader layout, research explanation or chart QA.
 - **P0/P1a/P1b** frozen fixtures, first-tier citation admission and honest quiet-session fact/News Brief selection.
-- **P2-AI** one complete but evidence-limited edition-pinned AI Story vertical slice, source-linked visual component, responsive layout, Webcmd QA.
+- **P2-AI (immediate work)** one complete but evidence-limited edition-pinned AI Story vertical slice, source-linked visual component, responsive layout, anonymous-read Webcmd QA.
 - **P3** rates and US02Y–US30Y/gold, then oil and larger AI monitor panels **only after** evidence and performance proof.
 - **P4** repeatable editorial compiler/publisher acceptance and optional retry cadence (separate reviewed PR), never a second canonical reasoning engine.
 
