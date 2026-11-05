@@ -33,7 +33,7 @@ export default function RatesPolicyMonitor({observations,trends}:{observations:P
   const [other,setOther]=useState("10Y");
   const canonical=useMemo(()=>TENORS.map(t=>{
     const trend=trends.find(r=>r.symbol===FRED_IDS[t])??trends.find(r=>r.id===`us${t.toLowerCase()}`);
-    const observation=observations.find(r=>r.id===trend?.id);
+    const observation=observations.find(r=>r.symbol===FRED_IDS[t] || r.id===`us${t.toLowerCase()}`);
     return {tenor:t,trend,observation};
   }),[trends,observations]);
   const first=canonical.find(r=>r.tenor===tenor);
@@ -60,7 +60,7 @@ export default function RatesPolicyMonitor({observations,trends}:{observations:P
       {mode==="single"?<div style={{overflowX:"auto"}}><table style={{width:"100%",textAlign:"left",borderCollapse:"collapse"}}>
         <thead><tr><th>Tenor</th><th>Yield</th><th>1D</th><th>3D</th><th>5D</th><th>As of</th></tr></thead>
         <tbody>{canonical.map(({tenor:t,trend,observation})=><tr key={t} style={{borderTop:"1px solid #455b61"}}>
-          <th>{t}</th><td>{trend?.points.at(-1)?.close.toFixed(2)??observation?.last?.toFixed(2)??"—"}%</td>
+          <th>{t}</th><td>{trend?.points.at(-1)?.close!=null?`${trend.points.at(-1)!.close.toFixed(2)}%`:observation?.last!=null?`${observation.last.toFixed(2)}%`:"—"}</td>
           {(["1D","3D","5D"] as const).map(w=><td key={w}>{trend?change(sessionMove(trend.points,w)):"—"}</td>)}
           <td>{trend?.asOf??observation?.asOf??"Unavailable"}</td>
         </tr>)}</tbody>
