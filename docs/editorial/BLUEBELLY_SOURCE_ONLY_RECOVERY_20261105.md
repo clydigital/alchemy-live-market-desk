@@ -1,0 +1,31 @@
+# Bluebelly SOURCE_ONLY escape-hatch recovery · 5 November 2026
+
+## Why this exists
+A public original-source news receipt can pass ingestion and still open as **QUICK MARKET BRIEF · FACTUAL NOTICE**, with no comparable previous value, expectation, business implications or market tape. This is a coverage debt, not a completed editorial article and not proof that those values do not exist. The 3 November September JOLTS case demonstrated the defect: the original BLS actual was in `macro_releases`, but the row had null `previous`, `consensus`, `consensus_source` and `consensus_captured_at`; `macro_release_metrics` had no same-event rows. Independent research recovered BLS revisions and a 2 November Econoday survey without weakening the original source gate.
+
+## Existing owners — no new scheduler or publisher
+- **MacroPulse** continues original discovery and source clocks.
+- **Research Investigation** (08:40/20:40 MYT): after its critical MacroPulse / private HTML / Writing Brain handoffs, audit up to **two** recent public SOURCE_ONLY material events. Select exact event IDs (not keyword matches), oldest material unresolved first unless a major fresh release needs priority. This is the *last-resort research* pass after normal enrichment fails.
+- **Writing Brain** (09:30 MYT): slate readback first. Cross-check whether the top publicly displayed event is still a shallow factual notice; if Research Investigation has not read-back a matching recovery, one bounded independent alternative-source attempt is permitted. Reuse the existing Research Gap Run/Registry and private editorial review bridge — no second store or task.
+- No public GET should call an LLM, scrape vendors, modify canonical evidence, or publish an unreviewed model opinion.
+
+## Source-by-source recovery procedure
+1. **Identify exact missing fields**: event ID + source URL + original occurrence time + reference month and transformation. The five standard gaps are (a) comparable *prior* and revisions, (b) *pre-release survey forecast*, (c) measured *market tape*, (d) transmission/countercase, (e) next test. First reuse source-exact `macro_releases`, `macro_release_metrics`, private report, evidence, Research Gap Registry and existing approved public reader; avoid rereading a 100-item backlog.
+2. **Search for a missing fact, not an entire story**: first official original tables/archived release for prior/revisions; then one pre-event published consensus page (Econoday/CME, issuer IR, Reuters poll, licensed calendar) and one independent corroborator. If a prior survey source cannot be dated as published *before* release, label it **POST_EVENT_REPORTED_CONSENSUS**, not point-in-time/frozen. Distinguish survey consensus from modelling forecasts.
+3. **Find the tape separately**: try approved existing market-data/quote archives at the correct instrument and 5-/30-minute release window, then reputable dated contemporaneous market reporting. A session-level 2Y/10Y, index, DXY or futures move is only **DATED_SESSION_OBSERVATION**, never an event-caused move. If no matched window, explicitly keep `REACTION_WINDOW_MISSING`.
+4. **Make the story useful with partial evidence**: write event → actual vs comparable pre-release expectation (or named gap) → prior/revision → why it matters financially/policy-wise → strongest plausible rival → one next dated check. Do not publish a claim of proven pricing causality, an invented surprise, or an asset move that has no source.
+5. **Persist a durable, idempotent receipt** keyed `event_id + original_url + reference_period + missing_field` to the EXISTING Research Gap Registry and Run; include original URL, secondary URLs, each source publication clock, time discovered, unit/basis, status, next owner and next retry. Recheck existing entries before searching. Use bounded attempts: <=2 independent alternatives per field per sweep, <=2 events/Research Investigation slot; keep oldest unresolved cursor. **RESEARCH_ESCAPED_RECOVERED**, **PARTIAL_FOLLOWUP**, or **NO_SOURCE_FOUND** must be explicit. A search returning nothing is not a success and does not advance field completeness.
+6. **Editorial handoff**: attach retrieved source evidence and a date-stamped qualified draft to the existing private review queue. Only an independently reviewed, exact-event-qualified public editorial packet may replace the factual notice. If editorial review is unavailable, leave source-only public text accurate and link the review debt privately; do not expose private draft or silently promote `RESEARCH_DERIVED_UNADJUDICATED` entries.
+
+## Regression case · September 2026 JOLTS
+- Exact primary: BLS `https://www.bls.gov/news.release/archives/jolts_11032026.htm`; 3 Nov 2026 at 10:00 EST; actual **7.523M**, August revised **7.190M** (previously **7.079M**), quits **3.365M**, layoffs **1.641M**.
+- Independent pre-event published preview: Econoday 2 Nov 2026 `https://bofa-equities.econoday.com/byshoweventarticle?cust=bofa-equities&fid=708820&lid=0&year=2026`, forecast **7.134M**, therefore actual **+0.389M**. This was retrospectively recovered on 5 Nov, not frozen in our database before 3 Nov.
+- Reuters 3 Nov report attributed a different survey mean **7.100M**; a different source is not an interchangeable consensus.
+- MarketWatch/FactSet reported 3 Nov session 10Y yield **4.961%, +6bp**. This is a reported session-level observation, not the 10:00–10:30 EST JOLTS event window. A 5-/30-minute DXY/yield/equity-futures reaction remains missing.
+- User-facing JOLTS reader now uses an exact-source-gated dated research packet, with pre-event retrospective status and measured-versus-conditional distinctions. No new canonical Motion or automatic published-article privilege.
+
+## Acceptance
+- Reopen the exact JOLTS URL: public reader leads with *what was surprising* and a concise mechanism, not the old four-field factual notice.
+- Unknown/different source ID, timestamp, primary URL or figure remains SOURCE_ONLY; older editions remain immutable.
+- The next two existing Work runs record a real bounded SOURCE_ONLY audit result and Registry readback, even when there are zero qualifying sources; no duplicate search cycle and no more than two public cases.
+- Unverified price observations and retroactively retrieved forecasts cannot be labelled event-window causality or pre-frozen desk consensus.
