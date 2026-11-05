@@ -5,6 +5,7 @@ import Link from "next/link";
 import {headers} from "next/headers";
 import {blueDeskPublicHref,isBlueDeskPublicReaderHost} from "@/lib/blue-desk-host";
 import BluebellyNewsWire from "@/components/blue-desk/BluebellyNewsWire";
+import SectorDivergenceFeature from "@/components/blue-desk/SectorDivergenceFeature";
 import Newsroom48hTimeline from "@/components/blue-desk/Newsroom48hTimeline";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
@@ -62,6 +63,8 @@ export default async function NewsroomPage({searchParams}:Props){
         <p><Link href={readerHref+OCT30_SELL_OFF.href}>Read the complete source-led Key Story →</Link>{" · "}<Link href={blueDeskPublicHref("/blue-desk/crash-opportunity",host)}>Crash vs Opportunity watch →</Link></p>
         <a href={OCT30_SELL_OFF.sourceUrl} target="_blank" rel="noopener noreferrer" className={ui.featureSource}>{OCT30_SELL_OFF.sourceName} ↗</a>
       </article>:null}
+    <SectorDivergenceFeature mode="newsroom"
+      crossLinkHref={blueDeskPublicHref("/blue-desk/markets",host)+"#sector-divergences"}/>
     <BluebellyNewsWire news={news} researchItems={projectPublishedResearchFocus(researchDigests,now,6)} archiveEntries={archiveResult.items} archiveAvailable={archiveResult.available} hotPicks={hotPicks} editorials={editorials}
       initialQuery={query} initialCategory={typeof params.category==="string"?params.category:"all"}
       initialPage={typeof params.page==="string"?params.page:"1"}
