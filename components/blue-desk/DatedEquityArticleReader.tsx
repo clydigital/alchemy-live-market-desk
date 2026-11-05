@@ -33,9 +33,9 @@ export default function DatedEquityArticleReader({ article, host }: Props) {
         <p><b>Names to compare:</b> {sector.leaders} · {sector.laggards}.</p>
       </aside> : <aside className={styles.tape} aria-label="Solarvest dated issuer reading">
         <div><span>Bursa Malaysia</span><strong>SLVEST <small>0215</small></strong></div>
-        <div><span>FY2026 revenue</span><strong>RM757.1m</strong></div>
+        <div><span>FY2026 audited revenue</span><strong>RM758.9m</strong></div>
         <div><span>Unbilled orders</span><strong>RM2.37bn</strong></div>
-        <p>Malaysian equities and US solar-company share changes refer to different local market sessions. US SLV is a silver ETF, not Solarvest.</p>
+        <p>July 2026 audited annual report: RM758.9m revenue; May preliminary release: RM757.1m. Malaysian equities and US solar share changes refer to different sessions. US SLV is a silver ETF, not Solarvest.</p>
       </aside>}
       <div className={styles.prose}>
         {article.sections.map((section, i) => <section key={i} className={styles.section}>
