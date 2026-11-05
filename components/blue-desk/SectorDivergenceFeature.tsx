@@ -109,12 +109,13 @@ export default function SectorDivergenceFeature({ mode, crossLinkHref, articleHr
             </p>
             <p><Link className={styles.readerLink} href={articleHrefBase+"?divergence=solarvest-peers"}>Read the full Solarvest company comparison</Link></p>
             <div className={styles.sources}>
-              <a href={SOLARVEST_RESEARCH.fullYearUrl} target="_blank" rel="noopener noreferrer">Solarvest FY2026 results</a>
+              <a href={SOLARVEST_RESEARCH.auditedReportUrl} target="_blank" rel="noopener noreferrer">Solarvest FY2026 audited report</a>
+              <a href={SOLARVEST_RESEARCH.fullYearUrl} target="_blank" rel="noopener noreferrer">May preliminary results</a>
               <a href={SOLARVEST_RESEARCH.q1ReportUrl} target="_blank" rel="noopener noreferrer">Solarvest Q1FY2027</a>
               <a href="https://www.isaham.my/sector/renewable-energy" target="_blank" rel="noopener noreferrer">Dated peer valuation snapshot</a>
               <a href="https://investor.firstsolar.com/financials/quarterly-results/" target="_blank" rel="noopener noreferrer">First Solar financials</a>
             </div>
-            <p className={styles.smallprint}>Malaysia peer valuations: snapshot at 10:50 MYT on 5 Nov 2026; US stock returns: {DIVERGENCE_US_SESSION}. Not simultaneous market sessions.</p>
+            <p className={styles.smallprint}>FY2026 audited revenue was RM758.9m in the July annual report versus RM757.1m in the May preliminary release. Malaysia peer valuations: snapshot at 10:50 MYT on 5 Nov 2026; US stock returns: {DIVERGENCE_US_SESSION}. Not simultaneous market sessions.</p>
           </article>
 
           <div className={styles.storyGrid}>
