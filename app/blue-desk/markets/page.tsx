@@ -13,6 +13,9 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import TradingViewChart from "@/components/blue-desk/TradingViewChart";
 import PublicMarketScreener from "@/components/blue-desk/PublicMarketScreener";
 import RatesPolicyMonitor from "@/components/blue-desk/RatesPolicyMonitor";
+import {fetchJapanMofJgbYields} from "@/lib/providers/japan-mof-jgb-yields";
+import {fetchBundesbankBund10} from "@/lib/providers/bundesbank-bund10";
+import {fetchBoeGilt10} from "@/lib/providers/boe-gilt10";
 import SectorDivergenceFeature from "@/components/blue-desk/SectorDivergenceFeature";
 import {TV_MARKET_GROUP_DEFAULTS} from "@/lib/bluebelly-editorial-visuals";
 import { MarketIcon, type MarketIconName } from "@/components/blue-desk/MarketIcon";
@@ -68,10 +71,13 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
       <EarningsInvestorDeepDive ticker={detail.ticker} backHref={blueDeskPublicHref("/blue-desk/markets",host)} />
     </div>
   </main>;
-  const [monitor,breadthHistory,researchDigests] = await Promise.all([
+  const [monitor,breadthHistory,researchDigests,japan,bund,gilt] = await Promise.all([
     getMarketMonitor().catch(() => null),
     getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
     getPublishedMacroPulseBriefs(6).catch(()=>[]),
+    fetchJapanMofJgbYields().catch(()=>null),
+    fetchBundesbankBund10().catch(()=>null),
+    fetchBoeGilt10().catch(()=>null),
   ]);
   // Public markets are independent of private investment portfolios.
   const monitoredRows=publicMarketObservations(monitor?.rows || [],group);
@@ -205,7 +211,11 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           </details>
         </section>
 
-        <div id="rates-policy-heading"><RatesPolicyMonitor observations={publicMarketObservations(monitor?.rows||[],"rates")} trends={publicGovernmentRateTrends(monitor?.rows||[])} /></div>
+        <div id="rates-policy-heading"><RatesPolicyMonitor observations={publicMarketObservations(monitor?.rows||[],"rates")} trends={publicGovernmentRateTrends(monitor?.rows||[])} sovereigns={[
+          {country:"Germany",tenor:"10Y",yieldPct:bund?.status==="OK"||bund?.status==="PARTIAL"?bund.latest?.yieldPct??null:null,asOf:bund?.latest?.date??null,change5dBp:bund?.status==="OK"?bund.change5dBp:null,sourceUrl:bund?.sourceUrl??null,status:bund?.status??"UNAVAILABLE"},
+          {country:"United Kingdom",tenor:"10Y",yieldPct:gilt?.status==="OK"||gilt?.status==="PARTIAL"?gilt.latest?.yieldPct??null:null,asOf:gilt?.latest?.date??null,change5dBp:gilt?.status==="OK"?gilt.change5dBp:null,sourceUrl:gilt?.sourceUrl??null,status:gilt?.status??"UNAVAILABLE"},
+          ...(["2Y","10Y","30Y"] as const).map(tenor=>({country:"Japan",tenor,yieldPct:japan?.status==="OK"||japan?.status==="PARTIAL"?japan.latest?.[tenor==="2Y"?"y2":tenor==="10Y"?"y10":"y30"]??null:null,asOf:japan?.asOf??null,change5dBp:japan?.status==="OK"?japan.changes5dBp[tenor==="2Y"?"y2":tenor==="10Y"?"y10":"y30"]:null,sourceUrl:japan?.sourceUrls[0]??null,status:japan?.status??"UNAVAILABLE"})),
+        ]} /></div>
         <section aria-labelledby="market-group-heading" className={`${styles.section} ${legibility.marketSection}`}>
           <div className={styles.sectionHead}>
             <div>
