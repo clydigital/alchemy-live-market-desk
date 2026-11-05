@@ -50,11 +50,13 @@ export const SECTOR_DIVERGENCES = [
 ] as const;
 export const SOLARVEST_RESEARCH = {
   ticker: "SLVEST", exchange: "Bursa Malaysia", code: "0215", currency: "MYR",
-  fy26RevenueRmMillion: 757.1,
+  fy26RevenueRmMillion: 758.9,
+  preliminaryFy26RevenueRmMillion: 757.1,
   fy26NetProfitRmMillion: 79.8,
   q1fy27RevenueRmMillion: 155.9,
   q1fy27NetProfitRmMillion: 19.0,
   unbilledOrderBookRmMillion: 2371,
   q1ReportUrl: "https://solarvest.com/solarvest-delivers-stronger-1qfy27-performance-with-20-yoy-growth-in-net-profit/",
   fullYearUrl: "https://solarvest.com/solarvest-marks-fourth-consecutive-record-breaking-year-with-54-yoy-net-profit-growth-to-rm80-million/",
+  auditedReportUrl: "https://solarvest.com/investor-relations/investor-centre/",
 } as const;

@@ -6,6 +6,8 @@ import {headers} from "next/headers";
 import {blueDeskPublicHref,isBlueDeskPublicReaderHost} from "@/lib/blue-desk-host";
 import BluebellyNewsWire from "@/components/blue-desk/BluebellyNewsWire";
 import SectorDivergenceFeature from "@/components/blue-desk/SectorDivergenceFeature";
+import DatedEquityArticleReader from "@/components/blue-desk/DatedEquityArticleReader";
+import {getDatedEquityArticle} from "@/lib/bluebelly-dated-equity-articles";
 import Newsroom48hTimeline from "@/components/blue-desk/Newsroom48hTimeline";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
@@ -26,10 +28,15 @@ import desk from "../blue-desk.module.css";
 import ui from "./newsroom.module.css";
 export const dynamic="force-dynamic";
 export const metadata={title:"Newsroom | Bluebelly",description:"Source-verified markets, central-bank, AI, energy and corporate developments."};
-type Props={searchParams:Promise<{q?:string|string[];category?:string|string[];page?:string|string[]}>};
+type Props={searchParams:Promise<{q?:string|string[];category?:string|string[];page?:string|string[];divergence?:string|string[]}>};
 export default async function NewsroomPage({searchParams}:Props){
  const now=new Date();
  const host=(await headers()).get("host");
+ // Exact allowlisted reader identity stays on the existing public Newsroom path.
+ // An unknown query cannot expose a private Notion page or arbitrary article.
+ const requested=await searchParams;
+ const article=getDatedEquityArticle(typeof requested.divergence==="string"?requested.divergence:undefined);
+ if(article)return <DatedEquityArticleReader article={article} host={host}/>;
  const [raw,official,params,archiveResult,researchDigests]=await Promise.all([
   getCurrentVerifiedMarketMotion({limit:36}).catch(()=>[]),
   // Preserve source-reviewed press receipts and completed government actuals.
@@ -64,6 +71,7 @@ export default async function NewsroomPage({searchParams}:Props){
         <a href={OCT30_SELL_OFF.sourceUrl} target="_blank" rel="noopener noreferrer" className={ui.featureSource}>{OCT30_SELL_OFF.sourceName} ↗</a>
       </article>:null}
     <SectorDivergenceFeature mode="newsroom"
+      articleHrefBase={blueDeskPublicHref("/blue-desk/newsroom",host)}
       crossLinkHref={blueDeskPublicHref("/blue-desk/markets",host)+"#sector-divergences"}/>
     <BluebellyNewsWire news={news} researchItems={projectPublishedResearchFocus(researchDigests,now,6)} archiveEntries={archiveResult.items} archiveAvailable={archiveResult.available} hotPicks={hotPicks} editorials={editorials}
       initialQuery={query} initialCategory={typeof params.category==="string"?params.category:"all"}

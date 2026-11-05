@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { DIVERGENCE_US_SESSION, DIVERGENCE_BURSA_SESSION, SECTOR_DIVERGENCES, SOLARVEST_RESEARCH } from "@/lib/bluebelly-sector-divergences";
 import styles from "./SectorDivergenceFeature.module.css";
+import {DATED_EQUITY_ARTICLES} from "@/lib/bluebelly-dated-equity-articles";
 
 type Props = {
   mode: "markets" | "newsroom";
   crossLinkHref: string;
+  articleHrefBase: string;
 };
 
 /**
@@ -12,7 +14,7 @@ type Props = {
  * returns are live quotes or that public market data admitted a canonical story.
  * The existing Newsroom feed, historical readers and private access stay intact.
  */
-export default function SectorDivergenceFeature({ mode, crossLinkHref }: Props) {
+export default function SectorDivergenceFeature({ mode, crossLinkHref, articleHrefBase }: Props) {
   return (
     <section
       id="sector-divergences"
@@ -54,7 +56,7 @@ export default function SectorDivergenceFeature({ mode, crossLinkHref }: Props) 
               <tbody>
                 {SECTOR_DIVERGENCES.map(item => (
                   <tr key={item.etf}>
-                    <th scope="row"><strong>{item.etf}</strong><span className={styles.sectorName}>{item.name}</span></th>
+                    <th scope="row"><strong>{item.etf}</strong><span className={styles.sectorName}>{item.name}</span>{DATED_EQUITY_ARTICLES.find(a=>a.ticker===item.etf)?<Link href={articleHrefBase+"?divergence="+DATED_EQUITY_ARTICLES.find(a=>a.ticker===item.etf)!.id} className={styles.readerLink}>Read story</Link>:null}</th>
                     <td className={styles.returnCell} data-direction={item.oneDay.startsWith("−") ? "down" : "up"}>{item.oneDay}</td>
                     <td className={styles.returnCell} data-direction={item.fiveDay.startsWith("−") ? "down" : "up"}>{item.fiveDay}</td>
                     <td className={styles.returnCell} data-direction={item.twentyDay.startsWith("−") ? "down" : "up"}>{item.twentyDay}</td>
@@ -105,13 +107,15 @@ export default function SectorDivergenceFeature({ mode, crossLinkHref }: Props) 
               order conversion and operating cash in US equipment companies. Share-price strength
               alone does not verify delivery. Bursa solar shares may not be offered by a given CFD broker.
             </p>
+            <p><Link className={styles.readerLink} href={articleHrefBase+"?divergence=solarvest-peers"}>Read the full Solarvest company comparison</Link></p>
             <div className={styles.sources}>
-              <a href={SOLARVEST_RESEARCH.fullYearUrl} target="_blank" rel="noopener noreferrer">Solarvest FY2026 results</a>
+              <a href={SOLARVEST_RESEARCH.auditedReportUrl} target="_blank" rel="noopener noreferrer">Solarvest FY2026 audited report</a>
+              <a href={SOLARVEST_RESEARCH.fullYearUrl} target="_blank" rel="noopener noreferrer">May preliminary results</a>
               <a href={SOLARVEST_RESEARCH.q1ReportUrl} target="_blank" rel="noopener noreferrer">Solarvest Q1FY2027</a>
               <a href="https://www.isaham.my/sector/renewable-energy" target="_blank" rel="noopener noreferrer">Dated peer valuation snapshot</a>
               <a href="https://investor.firstsolar.com/financials/quarterly-results/" target="_blank" rel="noopener noreferrer">First Solar financials</a>
             </div>
-            <p className={styles.smallprint}>Malaysia peer valuations: snapshot at 10:50 MYT on 5 Nov 2026; US stock returns: {DIVERGENCE_US_SESSION}. Not simultaneous market sessions.</p>
+            <p className={styles.smallprint}>FY2026 audited revenue was RM758.9m in the July annual report versus RM757.1m in the May preliminary release. Malaysia peer valuations: snapshot at 10:50 MYT on 5 Nov 2026; US stock returns: {DIVERGENCE_US_SESSION}. Not simultaneous market sessions.</p>
           </article>
 
           <div className={styles.storyGrid}>
@@ -126,6 +130,7 @@ export default function SectorDivergenceFeature({ mode, crossLinkHref }: Props) 
                 <div className={styles.storyBody}>
                   <p>{item.context}</p>
                   <p><strong>What would confirm it:</strong> {item.nextTest}</p>
+                  {DATED_EQUITY_ARTICLES.find(a=>a.ticker===item.etf)?<p><Link className={styles.readerLink} href={articleHrefBase+"?divergence="+DATED_EQUITY_ARTICLES.find(a=>a.ticker===item.etf)!.id}>Read full company-level analysis</Link></p>:null}
                   <p className={styles.smallprint}>Price returns over 5D: {item.fiveDay}; 20D: {item.twentyDay}. Selected names, not a full ETF holdings ranking. <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">{item.sourceName}</a>.</p>
                 </div>
               </details>

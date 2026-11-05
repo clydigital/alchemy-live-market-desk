@@ -54,3 +54,6 @@
   .story{padding:12px}
   .storyTop{flex-wrap:wrap}
 }
+
+.readerLink{display:inline-block;margin-top:5px;color:inherit;text-underline-offset:2px;font-size:.8rem;font-weight:760;line-height:1.35}
+.readerLink:hover{text-decoration:underline}

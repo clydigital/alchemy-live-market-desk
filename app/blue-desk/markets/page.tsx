@@ -126,6 +126,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
         </nav>
         {(group==="all"||group==="equities"||group==="ai"||group==="energy")?
           <SectorDivergenceFeature mode="markets"
+            articleHrefBase={blueDeskPublicHref("/blue-desk/newsroom",host)}
             crossLinkHref={blueDeskPublicHref("/blue-desk/newsroom",host)+"#sector-divergences"}/>:null}
         <PublishedResearchDispatches items={editorialResearch} mode="market"
           readerHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/>

@@ -47,9 +47,9 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
   const [sort, setSort] = useState<MarketChangeSort>("source");
   const [columnSort, setColumnSort] = useState<MarketSortColumn | null>(null);
   const [ascending, setAscending] = useState(true);
-  const [compareSymbols, setCompareSymbols] = useState<string[]>(["RSP", "XLK", "XLF", "XLE"]);
-  const [comparisonSort, setComparisonSort] = useState<EtfComparisonSortColumn | null>(null);
-  const [comparisonAscending, setComparisonAscending] = useState(true);
+  const [compareSymbols, setCompareSymbols] = useState<string[]>(() => observations.filter(row => row.type === "Sector").map(row => row.symbol));
+  const [comparisonSort, setComparisonSort] = useState<EtfComparisonSortColumn | null>("1D");
+  const [comparisonAscending, setComparisonAscending] = useState(false);
 
   function sortComparisonColumn(column: EtfComparisonSortColumn) {
     setComparisonAscending(comparisonSort === column ? !comparisonAscending : column === "instrument");
@@ -72,6 +72,25 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
   const comparisonUniverse = useMemo(() => observations.filter(row =>
     row.type === "Sector" || ["RSP", "SMH", "SOXX", "QQQ", "SPY"].includes(row.symbol)
   ), [observations]);
+  // Only compare sectors whose original observations belong to the same
+  // completed source session. Insufficient coverage fails closed.
+  const sectorSnapshot = useMemo(() => {
+    const rows = observations.filter(row => row.type === "Sector"
+      && row.changeUnit === "%" && row.asOf
+      && row.change !== null && Number.isFinite(row.change));
+    const dates = [...new Set(rows.map(row => row.asOf!))].sort().reverse();
+    const matching = dates.map(date => rows.filter(row => row.asOf === date))
+      .find(group => group.length >= 8);
+    if (!matching) return null;
+    const ranked = [...matching].sort((a,b) => b.change! - a.change!);
+    return {
+      asOf: ranked[0].asOf!,
+      leader: ranked[0], laggard: ranked[ranked.length - 1],
+      advancing: ranked.filter(row => row.change! > 0).length,
+      coverage: ranked.length,
+      spread: ranked[0].change! - ranked[ranked.length - 1].change!,
+    };
+  }, [observations]);
   const comparisonRows = comparisonUniverse.filter(row => compareSymbols.includes(row.symbol));
   const equalWeight = comparisonUniverse.find(row => row.symbol === "RSP");
   const orderedComparisonRows = comparisonSort
@@ -129,6 +148,13 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
         </label>)}
       </div>
       </details>
+      {sectorSnapshot ? <div className={ui.rotationSummary} aria-label="Source-dated XL sector rotation">
+        <div><span>1D LEADER</span><strong data-direction="up">{sectorSnapshot.leader.symbol} {change(sectorSnapshot.leader.change, "%")}</strong></div>
+        <div><span>1D LAGGARD</span><strong data-direction="down">{sectorSnapshot.laggard.symbol} {change(sectorSnapshot.laggard.change, "%")}</strong></div>
+        <div><span>SECTOR PARTICIPATION</span><strong>{sectorSnapshot.advancing} / {sectorSnapshot.coverage} advancing</strong></div>
+        <p>Leader–laggard gap: {sectorSnapshot.spread.toFixed(2)} percentage points · source session {sectorSnapshot.asOf}.
+          Source-matched ETF price rotation, not confirmed investment flows or a canonical regime verdict.</p>
+      </div> : <p className={ui.rotationUnavailable}>Sector rotation summary unavailable: fewer than eight same-session, source-dated sector readings. Individual ETF rows remain accessible.</p>}
       {comparisonRows.length ? <div className={styles.publicMarketTableScroll}>
         <table className={`${styles.publicMarketTable} ${ui.compareTable}`}>
           <thead><tr>
@@ -149,7 +175,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
             const relative = matched ? row.change5d! - equalWeight!.change5d! : null;
             return <tr key={row.id}><th scope="row">{row.symbol} · {row.label}</th>
               <td>{row.asOf || "Unavailable"}</td>
-              {(["1D","3D","5D"] as const).map(period => <td key={period} data-direction={(publicMarketWindowChange(row,period) ?? 0) > 0 ? "up" : "flat"}>{change(publicMarketWindowChange(row,period), "%")}</td>)}
+              {(["1D","3D","5D"] as const).map(period => <td key={period} data-direction={publicMarketWindowChange(row,period) === null ? "unknown" : publicMarketWindowChange(row,period)! > 0 ? "up" : publicMarketWindowChange(row,period)! < 0 ? "down" : "flat"}>{change(publicMarketWindowChange(row,period), "%")}</td>)}
               <td>{relative === null ? "—" : `${relative > 0 ? "+" : ""}${relative.toFixed(2)} pp`}</td>
             </tr>;
           })}</tbody>
