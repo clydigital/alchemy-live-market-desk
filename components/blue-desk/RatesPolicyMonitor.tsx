@@ -39,7 +39,9 @@ export default function RatesPolicyMonitor({observations,trends}:{observations:P
   const first=canonical.find(r=>r.tenor===tenor);
   const second=canonical.find(r=>r.tenor===other);
   const pair=first?.trend&&second?.trend?pairedMove(first.trend,second.trend,window):null;
-  const dateMatch=first?.trend&&second?.trend&&date(first.trend.points.at(-1)!.time)===date(second.trend.points.at(-1)!.time);
+  const latestFirst=first?.trend?.points.at(-1);
+  const latestSecond=second?.trend?.points.at(-1);
+  const dateMatch=!!latestFirst&&!!latestSecond&&date(latestFirst.time)===date(latestSecond.time);
   const spread=mode==="spread"&&tenor!==other&&dateMatch?pair:null;
   return <section aria-label="Rates and policy monitor" data-rates-policy-monitor="source-dated" style={{border:"1px solid #455b61",borderRadius:12,padding:18,margin:"16px 0",background:"rgba(12,26,31,.65)"}}>
     <header style={{display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap",alignItems:"center"}}>
@@ -62,7 +64,7 @@ export default function RatesPolicyMonitor({observations,trends}:{observations:P
         <tbody>{canonical.map(({tenor:t,trend,observation})=><tr key={t} style={{borderTop:"1px solid #455b61"}}>
           <th>{t}</th><td>{trend?.points.at(-1)?.close!=null?`${trend.points.at(-1)!.close.toFixed(2)}%`:observation?.last!=null?`${observation.last.toFixed(2)}%`:"—"}</td>
           {(["1D","3D","5D"] as const).map(w=><td key={w}>{trend?change(sessionMove(trend.points,w)):"—"}</td>)}
-          <td>{trend?.asOf??observation?.asOf??"Unavailable"}</td>
+          <td>{trend?.asOf??observation?.asOf??"Unavailable"}{trend?.sourceUrl?<><br/><a href={trend.sourceUrl} target="_blank" rel="noreferrer">Source</a></>:observation?.sourceUrl?<><br/><a href={observation.sourceUrl} target="_blank" rel="noreferrer">Source</a></>:null}</td>
         </tr>)}</tbody>
       </table></div>:<div style={{padding:"12px 0"}}>
         <strong>US {tenor} − US {other}</strong>
