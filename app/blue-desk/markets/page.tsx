@@ -12,6 +12,7 @@ import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import TradingViewChart from "@/components/blue-desk/TradingViewChart";
 import PublicMarketScreener from "@/components/blue-desk/PublicMarketScreener";
+import SectorDivergenceFeature from "@/components/blue-desk/SectorDivergenceFeature";
 import {TV_MARKET_GROUP_DEFAULTS} from "@/lib/bluebelly-editorial-visuals";
 import { MarketIcon, type MarketIconName } from "@/components/blue-desk/MarketIcon";
 import {
@@ -123,6 +124,9 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <a href="#market-group-heading">ETF comparisons</a>
           <a href="#advanced-market-charts">Open charts</a>
         </nav>
+        {(group==="all"||group==="equities"||group==="ai"||group==="energy")?
+          <SectorDivergenceFeature mode="markets"
+            crossLinkHref={blueDeskPublicHref("/blue-desk/newsroom",host)+"#sector-divergences"}/>:null}
         <PublishedResearchDispatches items={editorialResearch} mode="market"
           readerHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/>
         {reviewedFocus.map(focus=><section key={focus.id} data-markets-reviewed-catalyst={focus.id}
