@@ -6,11 +6,10 @@
 .headLink{font-size:12px;font-weight:750;color:var(--bb-accent,#9bddeb)!important;text-decoration:underline!important;text-underline-offset:3px}
 .summary{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0 20px}
 .summary span{border:1px solid var(--bb-line,#31536c);padding:7px 11px;color:var(--bb-text,#e0f6ff);font-size:12px}
-.lanes{display:grid;grid-template-columns:minmax(270px,.9fr) minmax(0,1.5fr);gap:18px;align-items:start}
+.lanes{display:grid;grid-template-columns:minmax(0,1fr);gap:23px;align-items:start}
 .section{min-width:0}
 .sectionTitle{font-size:16px;margin:0 0 5px}
 .hint{font-size:12px;line-height:1.55;color:var(--bb-muted,#b4cbd8);margin:0 0 13px}
-.results{display:grid;gap:8px}
 .result{border:1px solid var(--bb-line,#31536c);background:var(--bb-canvas,#031923);padding:13px 14px}
 .mini{display:flex;align-items:center;flex-wrap:wrap;gap:8px;justify-content:space-between;margin-bottom:6px}
 .ticker{font:850 13px var(--bluebelly-font);color:var(--bb-text,#e8f8ff)}
