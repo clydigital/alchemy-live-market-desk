@@ -20,6 +20,7 @@ import { getForwardEarningsEvents } from "@/lib/forward-earnings-sources";
 
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import {selectPostEventRecaps} from "@/lib/bluebelly-post-event-recap";
+import {publicNewsroomEditorials,selectTodayNewsroomItems} from "@/lib/bluebelly-public-newsroom-feed";
 
 
 
@@ -86,6 +87,11 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   const motionNews = selectVerifiedNewsBriefs(verifiedMotions, now, 18);
   const recentNews = combineQualifiedNews(motionNews,originalPress,18);
   const verifiedNews = recentNews.filter(n=>Date.parse(n.occurredAt)<=+now && +now-Date.parse(n.occurredAt)<=48*3600000);
+  // Public Today must follow the same already-approved Newsroom editorial reader.
+  // Research leads, private editions and unreviewed Motions never enter this list.
+  const newsroomUpdates = publicHost
+    ? selectTodayNewsroomItems(recentNews,[],publicNewsroomEditorials(recentNews,now,host),now,host,5)
+    : [];
   // Display reviewed bank and earnings outcomes first, keeping source-only leads clearly labelled.
   const postEventRecaps=selectPostEventRecaps(recentNews,now,8);
   const newsFeature = verifiedNews[0] || null;
@@ -107,7 +113,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
       <BlueDeskHeader activePath="/blue-desk" />
         {!publicHost?<CurrentMarketUpdates host={host} mode="full" now={now}/>:null}
       <div className={styles.content}>
-        {publicHost?<ProgressiveTodayReader news={verifiedNews} calendar={calendar} now={now} host={host}/>:
+        {publicHost?<ProgressiveTodayReader news={verifiedNews} newsroomUpdates={newsroomUpdates} calendar={calendar} now={now} host={host}/>:
           <DecisionBrief news={verifiedNews} recentNews={recentNews} calendar={calendar} now={now} host={host}
             postEventRecaps={postEventRecaps} storyPage={storyPage}/>}
         {publicHost?<details data-home-detailed-brief="on-demand" style={{margin:"18px 0",border:"1px solid var(--bb-line)",padding:"14px",background:"var(--bb-surface)"}}>
