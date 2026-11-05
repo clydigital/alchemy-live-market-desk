@@ -31,7 +31,7 @@ export default function IssuerEarningsBoard({now,host}:{now:Date;host:string|nul
   ...originals.map(item=>({ticker:item.ticker,name:item.company,period:item.fiscalPeriod,
    day:item.sourceDay,fact:item.confirmed,test:item.nextTest,sourceUrl:item.sourceUrl,
    sourceName:item.sourceName,kind:"original" as const})),
-  ...getRecentVerifiedEarningsScorecards(now,7).filter(item=>!resultTickers.has(item.ticker))
+  ...getRecentVerifiedEarningsScorecards(now,14).filter(item=>!resultTickers.has(item.ticker))
    .map(item=>({ticker:item.ticker,name:item.company,period:item.fiscalPeriod,day:item.releaseDay,
     fact:item.headline+" "+item.conclusion,test:item.nextTest,sourceUrl:item.sourceUrl,
     sourceName:item.sourceName,kind:"scorecard" as const})),
