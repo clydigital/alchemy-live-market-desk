@@ -13,6 +13,12 @@ Three bounded read-only tools:
 2. `get_verified_events` — existing source-qualified event projection shared with Newsroom, current 48h or ISO UTC cursor within seven days, at most 18 events. Preserves exact original URL, source record ID, occurred/observed clocks and unverified reaction nulls.
 3. `get_source_health` — checks visibility of existing Motion, press and official macro readers; report DEGRADED rather than pretend a quiet market.
 
+## Supabase OAuth resource-indicator compatibility — release blocker
+
+Supabase Auth issue [supabase/auth#2610](https://github.com/supabase/auth/issues/2610) (open when checked 6 Nov 2026) reports that the OAuth server can ignore RFC 8707 `resource` and issue `aud=authenticated`. OpenAI's MCP authorization contract requires tokens issued for the actual MCP resource. The Bluebelly gateway **does not** fall back to accepting ordinary dashboard tokens or treating a `client_id` alone as equivalent to resource audience binding.
+
+First test a **client-specific** Supabase Custom Access Token Hook for the exact approved ChatGPT client that produces `aud=https://bluebelly-desk.vercel.app/api/mcp` only for that client, with normal Supabase session audiences unchanged, while retaining PostgREST RLS and `auth.getUser` functionality. The hook must not accept `aud` from a request header, cookie or unsigned form. If a standards-compatible audience-bound token cannot be demonstrated, do **not** enable MCP: evaluate a compatible hosted OAuth 2.1 issuer or a reviewed authorization proxy as a separate design change. Do not weaken the gateway checks merely to make OAuth sign-in succeed.
+
 ## Authentication and privacy requirements (ALL required before enablement)
 - [ ] Confirm Supabase OAuth 2.1 Server is enabled and its `/.well-known/oauth-authorization-server/auth/v1` issuer discovery works.
 - [ ] Enable/configure OAuth client registration for ChatGPT; set Supabase Auth Site URL to the authorised Bluebelly hostname and Authorization Path to `/oauth/consent`. This PR supplies a disabled-by-default owner-only consent page and decision route, with exact approved client ID, scope, redirect, origin and RLS checks. **Verify this against the live Supabase OAuth server before activation.** Register the exact ChatGPT callback URI, or use documented dynamic client registration; do **not** auto-approve unknown clients.
