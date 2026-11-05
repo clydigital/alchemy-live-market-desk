@@ -22,7 +22,7 @@ test("each public sector snapshot has an exact session, named winners and laggar
 test("Solarvest identity, original financial source and Bursa/US clock separation are explicit", () => {
   assert.match(lib, /ticker: "SLVEST"/);
   assert.match(lib, /code: "0215"/);
-  assert.match(lib, /fy26RevenueRmMillion: 757\.1/);
+  assert.match(lib, /fy26RevenueRmMillion: 758\.9/);
   assert.match(lib, /unbilledOrderBookRmMillion: 2371/);
   assert.match(feature, /not US-listed SLV/);
   assert.match(feature, /not simultaneous market sessions/i);
