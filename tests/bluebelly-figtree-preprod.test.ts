@@ -52,7 +52,9 @@ test("plugin handoff destinations are real and visibility is not inferred from t
  assert.equal(blueDeskPresentationTarget("/newsroom","bluebelly-desk.vercel.app"),"/blue-desk/newsroom");
  assert.equal(blueDeskPresentationTarget("/regime-watch","bluebelly-desk.vercel.app"),"/blue-desk/regime-watch");
  const newsroom=readFileSync(join(base,"app/blue-desk/newsroom/page.tsx"),"utf8");
- assert.match(newsroom,/selectVerifiedNewsBriefs/);
- assert.match(newsroom,/combineQualifiedNews/);
+ const shared=readFileSync(join(base,"lib/bluebelly-verified-event-server.ts"),"utf8");
+ assert.match(newsroom,/readBluebellyQualifiedNews/);
+ assert.match(shared,/selectVerifiedNewsBriefs/);
+ assert.match(shared,/combineQualifiedNews/);
  assert.doesNotMatch(newsroom,/x_wire_posts|market_motion_items|creator_transcript|service_role/);
 });
