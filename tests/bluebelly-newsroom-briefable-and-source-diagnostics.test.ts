@@ -11,8 +11,10 @@ test("Newsroom delegates future decisions to Calendar and mounts Hot Picks insid
  const wire=file("components/blue-desk/BluebellyNewsWire.tsx");
  const chrome=file("components/blue-desk/bluebelly-chrome.module.css");
  const css=file("components/blue-desk/bluebelly-newswire.module.css");
- assert.match(page,/getOriginalPressNews\(now,18,7\)/);
- assert.match(page,/selectVerifiedNewsBriefs/);
+ const shared=file("lib/bluebelly-verified-event-server.ts");
+ assert.match(page,/readBluebellyQualifiedNews\(now,18\)/);
+ assert.match(shared,/getOriginalPressNews\(now,18,7\)/);
+ assert.match(shared,/selectVerifiedNewsBriefs/);
  assert.match(page,/getRecentArchivedPublicReaderItems\(now\)/);
  assert.match(page,/selectNewsroomHotPicks\(news,archiveResult\.items,now,5,editorials\)/);
  assert.match(page,/hotPicks=\{hotPicks\}/);

@@ -25,8 +25,10 @@ test("Newsroom stays source-gated but no longer has a link into collapsed conten
   assert.equal(blueDeskHostAccess("/key-stories", "bluebelly-desk.vercel.app"), "public");
   assert.equal(blueDeskHostAccess("/newsroom", "bluebelly-desk.vercel.app"), "public");
   const newPage=readFileSync(new URL("../app/blue-desk/newsroom/page.tsx",import.meta.url),"utf8");
-  assert.match(newPage,/getOriginalPressNews/);
-  assert.match(newPage,/selectVerifiedNewsBriefs/);
+  const shared=readFileSync(new URL("../lib/bluebelly-verified-event-server.ts",import.meta.url),"utf8");
+  assert.match(newPage,/readBluebellyQualifiedNews/);
+  assert.match(shared,/getOriginalPressNews/);
+  assert.match(shared,/selectVerifiedNewsBriefs/);
 });
 
 test("Lens preserves publisher provenance, explicit empty coverage, and avoids Story writes", () => {

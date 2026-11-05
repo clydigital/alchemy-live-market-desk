@@ -120,8 +120,10 @@ test("the duplicate public reader retires to Newsroom, while private My Desk rem
  assert.doesNotMatch(newsroom,/NewsroomReleaseRail|data-newsroom-release-rail/);
  assert.match(newsroom,/<BluebellyNewsWire news=\{news\}/);
  assert.match(newsroom,/editorials=\{editorials\}/);
- assert.match(newsroom,/getOriginalPressNews\(now,18,7\)/);
- assert.match(newsroom,/getCompletedOfficialMacroNews\(now,18,7\)/);
+ const shared=src("lib/bluebelly-verified-event-server.ts");
+ assert.match(newsroom,/readBluebellyQualifiedNews\(now,18\)/);
+ assert.match(shared,/getOriginalPressNews\(now,18,7\)/);
+ assert.match(shared,/getCompletedOfficialMacroNews\(now,18,7\)/);
  assert.match(wire,/data-editorial-newsroom="verified-only"/);
  assert.match(wire,/data-newsroom-editorial-article/);
  assert.match(wire,/card\.item\.sourceUrl/);
