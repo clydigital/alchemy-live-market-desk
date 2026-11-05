@@ -72,6 +72,18 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   if (hostname === "alchemy-blue-desk.vercel.app") return "blocked";
   if (hostname !== BLUEBELLY_PRESENTATION_HOST && hostname !== LIVE_DESK_PRESENTATION_HOST) return "private";
 
+  // R2 PRIVATE MCP bootstrap: only exact discovery and transport paths can
+  // reach the handlers. They return 404 when not configured. /api/mcp checks
+  // issuer, audience, active owner, signed client ID and scopes on EVERY POST.
+  // "public" here bypasses browser-cookie middleware only, never MCP auth.
+  if(hostname===BLUEBELLY_PRESENTATION_HOST && (
+    pathname==="/api/mcp" ||
+    pathname==="/.well-known/oauth-protected-resource"
+  ))return "public";
+  if(hostname===BLUEBELLY_PRESENTATION_HOST &&
+     (pathname==="/oauth/consent"||pathname==="/api/oauth/decision") &&
+     process.env.BLUEBELLY_MCP_ENABLED!=="true")return "blocked";
+
   // One strictly bounded public X discovery handoff for the existing ChatGPT
   // MacroPulse reader. It is a READ-ONLY redacted view of public original X
   // posts; never expose owner pages, raw operational data, tokens or write APIs.
@@ -84,6 +96,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   // unrelated APIs remain blocked on the public presentation hostname.
   if(hostname === BLUEBELLY_PRESENTATION_HOST && [
     "/my-reports", "/login", "/auth/google", "/auth/callback",
+    "/oauth/consent", "/api/oauth/decision",
     "/auth/signout", "/api/owner/automated-report-pdf",
     // Native Bluebelly owner tools only; every path still requires a
     // valid Supabase session and the active user allowlist in middleware.
