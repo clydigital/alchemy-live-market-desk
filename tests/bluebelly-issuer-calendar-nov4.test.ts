@@ -53,8 +53,10 @@ test("existing presenter and official source contracts remain intact; results ar
  const page=read("app/blue-desk/calendar/page.tsx");
  const board=read("components/blue-desk/IssuerEarningsBoard.tsx");
  assert.match(page,/<IssuerEarningsBoard now=\{now\} host=\{host\}\/>/);
- assert.ok(page.indexOf("<IssuerEarningsBoard")<page.indexOf("<CatalystCalendar"),
-   "new issuer reader must not be inside collapsed legacy details");
+ assert.ok(page.indexOf("<CatalystCalendar")<page.indexOf("<IssuerEarningsBoard"),
+   "the interactive calendar must lead the earnings board");
+ assert.ok(page.indexOf("<IssuerEarningsBoard")<page.indexOf("<details style="),
+   "issuer results must remain outside collapsed legacy details");
  assert.match(page,/HISTORICAL PRE-RESULTS RESEARCH/);
  assert.match(board,/RESULT PUBLISHED/);
  assert.match(board,/Call \/ webcast:/);
