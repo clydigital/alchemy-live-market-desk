@@ -16,7 +16,7 @@ type IdentityResult={
 type AllowedResult={data?:{email?:string|null}|null;error?:unknown};
 export async function authorizeVerifiedEventOwner(input:{
   getUser:()=>Promise<IdentityResult>;
-  readActiveAllowlist:(normalizedEmail:string)=>Promise<AllowedResult>;
+  readActiveAllowlist:(normalizedEmail:string)=>PromiseLike<AllowedResult>;
 }):Promise<VerifiedEventOwnerGate>{
   let identity:IdentityResult;
   try{identity=await input.getUser();}
