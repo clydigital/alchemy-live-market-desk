@@ -94,7 +94,9 @@ test("Newsroom uses two evidence categories and never calls unconfirmed events c
  assert.match(newsroom,/recentBankDecisions\(now,48\)/);
  assert.match(newsroom,/recentReportedEditorial\(now,48\)/);
  assert.match(newsroom,/<Newsroom48hTimeline banks=\{bankDecisions\} reports=\{reported\}/);
- assert.match(newsroom,/getOriginalPressNews\(now,18,7\)/);
+ const shared=content("lib/bluebelly-verified-event-server.ts");
+ assert.match(newsroom,/readBluebellyQualifiedNews\(now,18\)/);
+ assert.match(shared,/getOriginalPressNews\(now,18,7\)/);
  assert.match(timeline,/BANK DECISION · OFFICIAL STATEMENT/);
  assert.match(timeline,/REPORTED TALKS · NOT CONFIRMED/);
  assert.match(timeline,/data-newsroom-window="48h"/);
