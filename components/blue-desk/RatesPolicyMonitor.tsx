@@ -3,6 +3,7 @@
 import {useMemo,useState} from "react";
 import type {PublicMarketObservation,PublicGovernmentRateTrend} from "@/lib/blue-desk-public-markets";
 
+type SovereignRow={country:string;tenor:string;yieldPct:number|null;asOf:string|null;change5dBp:number|null;sourceUrl:string|null;status:string};
 type Window="1D"|"3D"|"5D";
 type Mode="single"|"spread";
 const TENORS=["2Y","5Y","10Y","20Y","30Y"] as const;
@@ -25,7 +26,7 @@ function pairedMove(a:PublicGovernmentRateTrend,b:PublicGovernmentRateTrend,wind
   return {asOf:date(end.time),spread:(end.close-map.get(date(end.time))!)*100,
     delta:((end.close-map.get(date(end.time))!)-(start.close-map.get(date(start.time))!))*100};
 }
-export default function RatesPolicyMonitor({observations,trends}:{observations:PublicMarketObservation[];trends:PublicGovernmentRateTrend[]}){
+export default function RatesPolicyMonitor({observations,trends,sovereigns}:{observations:PublicMarketObservation[];trends:PublicGovernmentRateTrend[];sovereigns:SovereignRow[]}){
   const [tab,setTab]=useState<"yields"|"fedwatch">("yields");
   const [mode,setMode]=useState<Mode>("single");
   const [window,setWindow]=useState<Window>("1D");
@@ -72,6 +73,20 @@ export default function RatesPolicyMonitor({observations,trends}:{observations:P
         <p>{window} spread change: {spread?change(spread.delta):"—"}</p>
         <small>{spread?`Matched source session ${spread.asOf}`:"Missing matched daily observations, mismatched latest dates, or identical tenors; no inferred spread."}</small>
       </div>}
+      <div style={{marginTop:20}}>
+        <h3>International sovereign yields · official sources</h3>
+        <p style={{fontSize:13}}>Daily observations only. Missing or stale values are withheld. International 1D/3D and cross-country spread changes remain unavailable until aligned daily histories are approved.</p>
+        <div style={{overflowX:"auto"}}><table style={{width:"100%",textAlign:"left",borderCollapse:"collapse"}}>
+          <thead><tr><th>Country</th><th>Tenor</th><th>Yield</th><th>5D</th><th>As of</th><th>Source</th></tr></thead>
+          <tbody>{sovereigns.map((r,i)=><tr key={r.country+r.tenor+i} style={{borderTop:"1px solid #455b61"}}>
+            <th>{r.country}</th><td>{r.tenor}</td>
+            <td>{r.yieldPct===null?"—":r.yieldPct.toFixed(2)+"%"}</td>
+            <td>{change(r.change5dBp)}</td>
+            <td>{r.asOf??"Unavailable"}{r.status==="STALE"?" · stale":""}</td>
+            <td>{r.sourceUrl?<a href={r.sourceUrl} target="_blank" rel="noreferrer">Official source</a>:"—"}</td>
+          </tr>)}</tbody>
+        </table></div>
+      </div>
       <small>Daily source sessions, not calendar days. The historical calculations use the existing public, allowlisted Treasury curve. No private provider histories or research signals are exposed.</small>
     </>:<div style={{padding:"16px 0"}}>
       <h3>Next FOMC meetings · probabilities not connected</h3>
