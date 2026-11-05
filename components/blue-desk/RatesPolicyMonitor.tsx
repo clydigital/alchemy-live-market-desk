@@ -46,6 +46,19 @@ export default function RatesPolicyMonitor({observations,trends,sovereigns}:{obs
   const latestSecond=second?.trend?.points.at(-1);
   const dateMatch=!!latestFirst&&!!latestSecond&&date(latestFirst.time)===date(latestSecond.time)&&isCurrent(date(latestFirst.time));
   const spread=mode==="spread"&&tenor!==other&&dateMatch&&pair?.asOf===latestSourceDate?pair:null;
+  const [globalTenor,setGlobalTenor]=useState("10Y");
+  const [globalBase,setGlobalBase]=useState("United States");
+  const [globalAgainst,setGlobalAgainst]=useState("Japan");
+  const international=[...canonical.map(r=>({
+    country:"United States",tenor:r.tenor as string,
+    yieldPct:isCurrent(r.trend?.asOf)?r.trend?.points.at(-1)?.close??null:null,
+    asOf:r.trend?.asOf??null,status:"SOURCE_DATED",
+  })),...sovereigns];
+  const globalFirst=international.find(r=>r.country===globalBase&&r.tenor===globalTenor);
+  const globalSecond=international.find(r=>r.country===globalAgainst&&r.tenor===globalTenor);
+  const matchedGlobal=globalBase!==globalAgainst&&globalFirst?.yieldPct!=null&&globalSecond?.yieldPct!=null&&!!globalFirst.asOf&&globalFirst.asOf===globalSecond.asOf;
+  const globalSpread=matchedGlobal?Number(((globalFirst!.yieldPct!-globalSecond!.yieldPct!)*100).toFixed(1)):null;
+
   return <section aria-label="Rates and policy monitor" data-rates-policy-monitor="source-dated" style={{border:"1px solid #455b61",borderRadius:12,padding:18,margin:"16px 0",background:"rgba(12,26,31,.65)"}}>
     <header style={{display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap",alignItems:"center"}}>
       <div><small>RATES / POLICY</small><h2 style={{margin:"4px 0"}}>Yield monitor & FedWatch</h2><p style={{margin:0}}>Source-dated yields; changes in basis points, not percentage returns.</p></div>
@@ -88,6 +101,17 @@ export default function RatesPolicyMonitor({observations,trends,sovereigns}:{obs
             <td>{r.sourceUrl?<a href={r.sourceUrl} target="_blank" rel="noreferrer">Official source</a>:"—"}</td>
           </tr>)}</tbody>
         </table></div>
+      </div>
+      <div style={{marginTop:20,borderTop:"1px solid #455b61",paddingTop:14}}>
+        <h3>Cross-country yield spread</h3>
+        <p style={{fontSize:13}}>Matched-date spread level only. A historical 1D/3D/5D spread change requires paired daily histories and is not yet available.</p>
+        <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+          <label>Tenor <select aria-label="Cross-country tenor" value={globalTenor} onChange={e=>setGlobalTenor(e.target.value)}>{TENORS.map(t=><option key={t}>{t}</option>)}</select></label>
+          <label>First country <select aria-label="First country" value={globalBase} onChange={e=>setGlobalBase(e.target.value)}>{["United States","Germany","United Kingdom","Japan"].map(c=><option key={c}>{c}</option>)}</select></label>
+          <label>Against <select aria-label="Second country" value={globalAgainst} onChange={e=>setGlobalAgainst(e.target.value)}>{["United States","Germany","United Kingdom","Japan"].map(c=><option key={c}>{c}</option>)}</select></label>
+        </div>
+        <p style={{fontSize:24,margin:"10px 0"}}>{globalSpread===null?"—":change(globalSpread)}</p>
+        <small>{matchedGlobal?"Matched observation date "+globalFirst!.asOf:"Matching dated observations unavailable for this pair and tenor. No inferred spread."}</small>
       </div>
       <small>Daily source sessions, not calendar days. The historical calculations use the existing public, allowlisted Treasury curve. No private provider histories or research signals are exposed.</small>
     </>:<div style={{padding:"16px 0"}}>
