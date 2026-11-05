@@ -1,8 +1,7 @@
-/* Authored public dated editorial editions from source-linked Notion drafts.
- * Snapshot frozen on 5 Nov 2026 and corrected for Solarvest FY2026 revenue
- * using the issuer's original report (RM757.1m, not the draft's RM759m).
- * Never read private Notion inside public routes. This is not a canonical
- * Story, a live price feed, or unrestricted markdown/HTML rendering.
+/* Source-derived, publicly authored dated editorial editions, 5 Nov 2026.
+ * Frozen observations, not canonical Stories or live quotes. No private Notion
+ * fetch at public render time. Corrected Solarvest FY2026 revenue to RM757.1m
+ * against its issuer statement.
  */
 export type DatedEquityArticle = {
   id: string; title: string; ticker: string; category: string; summary: string;
@@ -20,6 +19,14 @@ export const DATED_EQUITY_ARTICLES: readonly DatedEquityArticle[] = [
     "priceSession": "4 Nov 2026, US regular close",
     "edition": "5 November 2026",
     "sections": [
+      {
+        "heading": "",
+        "paragraphs": [
+          "The consumer-discretionary sector just had one of the strongest days on Wall Street. On Wednesday, 4 November, XLY rose 4.26% as stocks rebounded after the US midterm elections and crude prices plunged.",
+          "That sounds like investors have suddenly rediscovered their confidence in American shoppers. There is a catch: the fund's biggest two investments are Amazon and Tesla, and they moved in opposite directions.",
+          "Amazon jumped 6.12%. Tesla fell 3.34%. Both are consumer-discretionary companies by index classification, yet neither trades purely on whether households can afford another holiday or restaurant meal."
+        ]
+      },
       {
         "heading": "The Amazon problem with reading XLY",
         "paragraphs": [
@@ -92,6 +99,14 @@ export const DATED_EQUITY_ARTICLES: readonly DatedEquityArticle[] = [
     "edition": "5 November 2026",
     "sections": [
       {
+        "heading": "",
+        "paragraphs": [
+          "Wall Street's real-estate sector rose 3.32% on Wednesday, 4 November, as Treasury yields eased and investors returned to interest-rate-sensitive shares. But the XLRE rally should not be mistaken for a recovery in home sales.",
+          "The fund's biggest holdings are not companies building new houses. They include Welltower, a senior-housing landlord; Prologis, a warehouse owner; and Equinix, a data-centre operator.",
+          "The market is effectively paying more for several very different kinds of rent."
+        ]
+      },
+      {
         "heading": "Three property businesses, three explanations",
         "paragraphs": [
           "Welltower is the biggest XLRE holding, at approximately 11.5% in the close-of-day holdings snapshot. Its third-quarter results explain why it is not simply a mortgage-rate trade. Normalised funds from operations — a common measure of REIT earnings — rose 24.6% per share to $1.67. Operating income from comparable senior-housing properties increased 21%.",
@@ -162,6 +177,14 @@ export const DATED_EQUITY_ARTICLES: readonly DatedEquityArticle[] = [
     "edition": "5 November 2026",
     "sections": [
       {
+        "heading": "",
+        "paragraphs": [
+          "Oil prices suffered an extraordinary reversal on Wednesday, 4 November. Brent crude settled 8.7% lower at $94.62 a barrel, while US West Texas Intermediate fell 8.3% to $88.12.",
+          "Energy shares moved with them. The XLE sector ETF lost 4.74% even as the S&P 500 rallied. ExxonMobil fell around 4.62%, Chevron 3.69%, and ConocoPhillips 5.17%.",
+          "That is the other side of a market celebrating cheaper fuel."
+        ]
+      },
+      {
         "heading": "Why an election could move oil",
         "paragraphs": [
           "Following the US midterm result, investors began pricing a greater possibility of diplomacy around the Iran conflict and less prolonged disruption to Middle Eastern oil supplies.",
@@ -230,6 +253,14 @@ export const DATED_EQUITY_ARTICLES: readonly DatedEquityArticle[] = [
     "priceSession": "4 Nov 2026, US regular close",
     "edition": "5 November 2026",
     "sections": [
+      {
+        "heading": "",
+        "paragraphs": [
+          "Amazon rose 6.12% on Wednesday. Microsoft gained around 6.68%. Yet CoreWeave, a specialist AI cloud provider, fell 9.90%.",
+          "It looked contradictory. Investors bought some of the companies spending most heavily on artificial intelligence while selling others that make money by building and renting out computing capacity.",
+          "The split says something important about the current AI trade: owning an existing profitable computing business is not the same financial proposition as financing a new one."
+        ]
+      },
       {
         "heading": "Why the election changed the debate",
         "paragraphs": [
@@ -317,6 +348,14 @@ export const DATED_EQUITY_ARTICLES: readonly DatedEquityArticle[] = [
     "edition": "5 November 2026",
     "sections": [
       {
+        "heading": "",
+        "paragraphs": [
+          "Solarvest Holdings has turned Malaysia's renewable-energy construction boom into something shareholders can measure. Its revenue rose 41% to RM757.1 million in the financial year to March 2026, while net profit grew 54% to RM80 million.",
+          "The shares have rewarded that progress. At RM4.02 on 5 November, Solarvest is more than twice its 52-week low of RM1.82, although it is already around 12% below the 52-week high.",
+          "But the interesting question is not whether clean energy is popular. It is why investors are willing to pay so much for some companies while others with improving earnings remain less celebrated."
+        ]
+      },
+      {
         "heading": "The contracts have substance",
         "paragraphs": [
           "Solarvest has an RM2.37 billion unbilled engineering-and-construction order book — more than three times its last full-year revenue, although these are future contracts, not cash already received. The company expects much of that work to be recognised across FY2027 and FY2028.",
@@ -397,8 +436,8 @@ export const DATED_EQUITY_ARTICLES: readonly DatedEquityArticle[] = [
     "rank": 0
   }
 ];
-const DATED_EQUITY_ARTICLE_IDS = new Set(DATED_EQUITY_ARTICLES.map(a=>a.id));
+const DATED_EQUITY_ARTICLE_IDS = new Set(DATED_EQUITY_ARTICLES.map(a => a.id));
 export function getDatedEquityArticle(id: string | undefined): DatedEquityArticle | null {
   if (!id || !DATED_EQUITY_ARTICLE_IDS.has(id)) return null;
-  return DATED_EQUITY_ARTICLES.find(a=>a.id===id) ?? null;
+  return DATED_EQUITY_ARTICLES.find(a => a.id === id) ?? null;
 }
