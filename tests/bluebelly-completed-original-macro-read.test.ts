@@ -71,7 +71,12 @@ test("official BEA PCE must reconcile all four distinct actuals with matched ori
 });
 test("the exact same publicly qualified source projection is reused by Today, Newsroom and Key Stories",()=>{
  for(const path of ["../app/blue-desk/page.tsx","../app/blue-desk/newsroom/page.tsx","../app/blue-desk/key-stories/page.tsx"]){
-  const source=readFileSync(new URL(path,import.meta.url),"utf8");
+  const page=readFileSync(new URL(path,import.meta.url),"utf8");
+  const isNewsroom=path.includes("newsroom/page.tsx");
+  const source=isNewsroom
+    ?readFileSync(new URL("../lib/bluebelly-verified-event-server.ts",import.meta.url),"utf8")
+    :page;
+  if(isNewsroom)assert.match(page,/readBluebellyQualifiedNews\(now,18\)/);
   assert.match(source,/getCompletedOfficialMacroNews\(now,18,7\)/);
   assert.match(source,/getOriginalPressNews\(now,18,7\)/);
   assert.match(source,/combineQualifiedNews/);
