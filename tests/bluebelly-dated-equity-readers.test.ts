@@ -27,12 +27,13 @@ test("the five full editorial readers are source-derived, dated and only accessi
   assert.equal(getDatedEquityArticle("../owner/research"), null);
 });
 
-test("Solarvest follows issuer-reported FY2026 757.1m revenue, not rounded draft 759m", () => {
+test("Solarvest prioritises July audited FY2026 758.9m and distinguishes preliminary 757.1m", () => {
   const a = getDatedEquityArticle("solarvest-peers");
   assert.ok(a);
   assert.equal(a?.ticker, "SLVEST");
   const text = a?.sections.flatMap(x=>x.paragraphs).join(" ") || "";
-  assert.match(text, /RM757\.1 million/);
+  assert.match(text, /RM758\.9 million/);
+  assert.match(text, /preliminary release gave revenue of RM757\.1 million/);
   assert.doesNotMatch(text,/RM759 million/);
   assert.match(text,/Samaiden/);
   assert.match(text,/Pekat/);
