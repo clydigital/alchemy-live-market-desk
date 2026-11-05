@@ -3,6 +3,7 @@ import {NextResponse,type NextRequest} from "next/server";
 import {createSupabaseServerClient} from "@/lib/supabase/server";
 import {blueDeskHostAccess} from "@/lib/blue-desk-host";
 import {getBluebellyVerifiedEvents} from "@/lib/bluebelly-verified-event-server";
+import {authorizeVerifiedEventOwner} from "@/lib/bluebelly-verified-event-owner-auth";
 
 export const dynamic="force-dynamic";
 export const runtime="nodejs";
@@ -22,12 +23,12 @@ export async function GET(req:NextRequest){
     return failure(404,"Not found");
   const session=await createSupabaseServerClient().catch(()=>null);
   if(!session)return failure(503,"Owner authentication unavailable");
-  const {data:{user},error:identityError}=await session.auth.getUser();
-  if(identityError||!user?.email)return failure(401,"Owner sign-in required");
-  const {data:allow,error:allowError}=await session.from("app_access_allowlist")
-    .select("email").eq("email",user.email.toLowerCase().trim())
-    .eq("active",true).maybeSingle();
-  if(allowError||!allow)return failure(403,"Owner account not authorised");
+  const owner=await authorizeVerifiedEventOwner({
+    getUser:()=>session.auth.getUser(),
+    readActiveAllowlist:(email)=>session.from("app_access_allowlist")
+      .select("email").eq("email",email).eq("active",true).maybeSingle(),
+  });
+  if(!owner.ok)return failure(owner.status,owner.error);
 
   const rawLimit=req.nextUrl.searchParams.get("limit");
   if(rawLimit!==null&&!/^(?:[1-9]|1[0-8])$/.test(rawLimit))
