@@ -15,6 +15,8 @@ export type MarketBriefParagraphV1 = {
   canonicalEvidenceIds: string[];
   /** Claim = exact upstream reasoning claim; lesson = source pool, not sentence-level proof. */
   evidenceScope?: "claim" | "lesson";
+  /** Upstream immutable canonical claim type; absent for broader lesson paraphrases. */
+  claimType?: "fact" | "interpretation" | "thesis" | "speculation";
 };
 
 export type MarketBriefSourceLinkV1 = {
@@ -193,6 +195,7 @@ export function readerFacingMarketText(value: string): string {
 }
 
 type ClaimInfo = {
+  type: "fact" | "interpretation" | "thesis" | "speculation";
   text: string;
   evidenceIds: string[];
   sourceRefs: string[];
@@ -281,6 +284,7 @@ export function projectMarketBriefArticles(
     system2Adjudicated: boolean;
     explicitStatus: "SUPPORTED" | "MIXED" | "UNRESOLVED" | null;
     itemisedClaimMatches: { opening: boolean; explanation: boolean; reaction: boolean };
+    itemisedClaims: ClaimInfo[];
     causalLinks: MarketBriefCausalLinkV1[];
   };
 
@@ -334,8 +338,11 @@ export function projectMarketBriefArticles(
       for (const claim of reasoning.claims) {
         if (isObject(claim)) {
           const t = cleanText(claim.text);
-          if (t) {
+          const type = cleanText(claim.type);
+          if (t && (type === "fact" || type === "interpretation"
+            || type === "thesis" || type === "speculation")) {
             claims.push({
+              type,
               text: t,
               evidenceIds: cleanStringArray(claim.evidenceIds),
               sourceRefs: cleanStringArray(claim.sourceRefs),
@@ -426,6 +433,7 @@ export function projectMarketBriefArticles(
       system2Adjudicated: Boolean(dossierId && explicitStatus),
       explicitStatus,
       causalLinks,
+      itemisedClaims: claims,
       itemisedClaimMatches: {
         opening: Boolean(whatChangedClaim?.evidenceIds.length && whatChangedClaim.text.trim().toLowerCase() === whatChanged?.trim().toLowerCase()),
         explanation: Boolean(explanationClaim?.evidenceIds.length && explanationClaim.text.trim().toLowerCase() === explanation?.trim().toLowerCase()),
@@ -517,6 +525,7 @@ export function projectMarketBriefArticles(
         system2Adjudicated: Boolean(dossierId && (lesson as JsonRecord).interpretationStatus),
         explicitStatus: cleanText((lesson as JsonRecord).interpretationStatus) as "SUPPORTED" | "MIXED" | "UNRESOLVED" | null,
         itemisedClaimMatches: { opening: false, explanation: false, reaction: false },
+        itemisedClaims: [],
         causalLinks: lessonCausalLinks,
       });
     }
@@ -567,6 +576,7 @@ export function projectMarketBriefArticles(
         system2Adjudicated: false,
         explicitStatus: null,
         itemisedClaimMatches: { opening: false, explanation: false, reaction: false },
+        itemisedClaims: [],
         causalLinks: [],
       });
     }
@@ -645,12 +655,20 @@ export function projectMarketBriefArticles(
       if (sourceRefs.length === 0 && canonicalEvidenceIds.length === 0) {
         return;
       }
+      // A story-wide source pool can contextualise a paragraph, but only a
+      // text-identical immutable canonical claim carries a claim type.
+      const exact = evidenceScope === "claim"
+        ? candidate.itemisedClaims.find(claim =>
+          claim.text.trim().toLocaleLowerCase("en-GB") === text.trim().toLocaleLowerCase("en-GB")
+          && claim.evidenceIds.some(id => canonicalEvidenceIds.includes(id)))
+        : null;
       paragraphs.push({
         role,
         text,
         sourceRefs,
         canonicalEvidenceIds,
         evidenceScope,
+        ...(exact ? { claimType: exact.type } : {}),
       });
     };
 
@@ -760,6 +778,23 @@ export function projectMarketBriefArticles(
           candidate.allEvidenceIds
         );
       }
+    }
+
+    // Preserve additional explicitly authored canonical claims from this frozen
+    // edition. Never generate extra prose or promote a thesis/speculation into a
+    // measured reporting paragraph. A matching direct original source must still
+    // pass the separate editorial admission pass.
+    for (const claim of candidate.itemisedClaims) {
+      if (claim.type !== "fact" && claim.type !== "interpretation") continue;
+      const ids = claim.evidenceIds.filter(id => isValidDossierUuid(id) !== null);
+      if (!ids.length) continue;
+      const normalised = claim.text.trim().toLocaleLowerCase("en-GB").replace(/\s+/g, " ");
+      if (paragraphs.some(paragraph => paragraph.text.trim()
+        .toLocaleLowerCase("en-GB").replace(/\s+/g, " ") === normalised)) continue;
+      pushSourcedParagraph(
+        claim.type === "fact" ? "context" : "mechanism",
+        claim.text, claim.sourceRefs, ids, "claim",
+      );
     }
 
     const conditionalOutlook = deriveConditionalOutlook(candidate.confirmation, candidate.invalidation);
