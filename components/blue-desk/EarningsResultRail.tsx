@@ -49,7 +49,7 @@ export default function EarningsResultRail({ items }: { items: EarningsRailCard[
     const target = Math.max(0, Math.min(index, visible.length - 1));
     const rail = railRef.current;
     const card = rail?.children.item(target) as HTMLElement | null | undefined;
-    if (rail && card) rail.scrollTo({ left: card.offsetLeft - rail.offsetLeft, behavior: "smooth" });
+    if (rail && card) rail.scrollTo({ left: card.offsetLeft, behavior: "smooth" });
     setActive(target);
   }
 
