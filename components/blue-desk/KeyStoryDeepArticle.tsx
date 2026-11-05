@@ -51,14 +51,14 @@ export default function KeyStoryDeepArticle({
      <div className={styles.reader}>
        <section id="context" className={styles.section}>
          <p className={styles.kicker}>THE SETUP / REWIND BEFORE THE HEADLINE</p>
-         <h2>What was the market expecting before the Fed spoke?</h2>
+         <h2>What was known before the announcement?</h2>
          {depth.chronology.map((line,i)=><p key={i}>{line}</p>)}
        </section>
        <section id="receipts" className={styles.section}>
          <p className={styles.kicker}>THE RECEIPTS / BEFORE · EXPECTED · ACTUAL</p>
-         <h2>Six measurements tell a different story from “the Fed held”.</h2>
-         <p>Comparison bases are not interchangeable. The policy expectation is a reported probability; the yield figures are dated end-of-day observations, not an isolated reaction to the statement.</p>
-         <div className={styles.tableScroll} role="region" tabIndex={0} aria-label="Previous, expected and actual FOMC evidence">
+         <h2>What changed between the baseline, expectations and actual result?</h2>
+         <p>The comparison must keep matching metric, reference period and measurement basis. An externally published forecast recovered retrospectively is not a forecast captured by this desk before release; a reported daily yield move is not a source-isolated intraday reaction.</p>
+         <div className={styles.tableScroll} role="region" tabIndex={0} aria-label="Previous, expected and actual source evidence">
           <table className={styles.table}><thead><tr>
             <th scope="col">Metric</th><th scope="col">Previous</th>
             <th scope="col">Expectation / baseline</th><th scope="col">Actual</th><th scope="col">The difference</th>
@@ -73,13 +73,13 @@ export default function KeyStoryDeepArticle({
        </section>
        <section id="change" className={styles.section}>
          <p className={styles.kicker}>WHAT REALLY HAPPENED</p>
-         <h2>The vote reveals more than the unchanged rate.</h2>
+         <h2>What changed beyond the headline?</h2>
          {depth.whatChanged.map((p,i)=><p key={i}>{p}</p>)}
-         <p className={styles.primary}><strong>Original release:</strong> <a target="_blank" rel="noopener noreferrer" href={receipt?.sourceUrl||depth.sources[0].url}>{receipt?.sourceName||depth.sources[0].label} · original statement ↗</a></p>
+         <p className={styles.primary}><strong>Original release:</strong> <a target="_blank" rel="noopener noreferrer" href={receipt?.sourceUrl||depth.sources[0].url}>{receipt?.sourceName||depth.sources[0].label} · original release ↗</a></p>
        </section>
        <section id="transmission" className={styles.section}>
          <p className={styles.kicker}>FOLLOW THE MONEY / MARKET TRANSMISSION</p>
-         <h2>Why might the yield curve steepen after a hold?</h2>
+         <h2>How could this development affect markets?</h2>
          {depth.explanation.map((p,i)=><p key={i}>{p}</p>)}
          <h3>What the market tape actually shows</h3>
          {depth.marketTape.map((p,i)=><p key={i}>{p}</p>)}
@@ -97,7 +97,7 @@ export default function KeyStoryDeepArticle({
           <h3>Measurements Bluebelly still lacks</h3>
           {depth.missing.map((p,i)=><p key={i}>{p}</p>)}
          </div>
-         <p><Link href={relatedHref}>Read the related full-length FOMC narrative →</Link></p>
+         <p><Link href={relatedHref}>Explore related source-qualified Key Stories →</Link></p>
        </section>
        <footer className={styles.sources}>
          <h2>Evidence and source provenance</h2>
@@ -107,16 +107,16 @@ export default function KeyStoryDeepArticle({
      </div>
      <aside className={styles.rail} aria-label="Presenter's evidence guide">
        <div className={styles.railBox}><p className={styles.kicker}>SAY THIS FIRST</p>
-         <h3>Hold ≠ no change</h3><p>The rate was unchanged. The dissent and growth wording made the implications different.</p></div>
-       <div className={styles.railBox}><p className={styles.kicker}>THE THREE NUMBERS</p>
-         <p><strong>3.75–4.00%</strong> Federal funds range</p>
-         <p><strong>10–2</strong> FOMC vote</p>
-         <p><strong>+6bp</strong> 10Y daily Treasury move</p>
-         <small>Different data types and observation windows; none alone measures the surprise.</small>
+         <h3>{depth.theQuestion}</h3><p>{depth.whatChanged[0]||depth.hook}</p></div>
+       <div className={styles.railBox}><p className={styles.kicker}>THREE USEFUL MEASUREMENTS</p>
+         {depth.numbers.slice(0,3).map(m=><p key={m.label}><strong>{m.observed}</strong> {m.label}</p>)}
+         <small>{depth.numbers[0]?.basis||"Check each measurement's reference period and source vintage."}</small>
        </div>
        <div className={styles.railBox}><p className={styles.kicker}>EVIDENCE STATUS</p>
-         <p>Official Fed action: source confirmed</p><p>Pre-release pricing: Reuters-reported</p>
-         <p>Daily yields: original Treasury</p><p>Event-window causality: unverified</p></div>
+         <p>Original event: {receipt?.sourceName||depth.sources[0]?.label||"Source reviewed"}</p>
+         <p>Expectations and market observations: see separately attributed sources</p>
+         {depth.missing[0]?<p>Still unresolved: {depth.missing[0]}</p>:null}
+       </div>
      </aside>
    </div>
  </article>;
