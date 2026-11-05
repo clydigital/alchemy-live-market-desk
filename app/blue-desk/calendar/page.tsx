@@ -1,4 +1,3 @@
-import CurrentMarketUpdates from "@/components/blue-desk/CurrentMarketUpdates";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
@@ -185,7 +184,7 @@ export default async function BlueDeskCalendarPage({
     <main className={styles.page} data-blue-desk-calendar="ET-primary">
       <BlueDeskHeader activePath="/blue-desk/calendar" />
       
-        <CurrentMarketUpdates host={host} mode="compact"/><div className={styles.content}>
+        <div className={styles.content}>
 
         <section className={styles.calendarHero}>
           <div>
@@ -197,9 +196,9 @@ export default async function BlueDeskCalendarPage({
           </div>
         </section>
 
-        <IssuerEarningsBoard now={now} host={host}/>
-
         <CatalystCalendar items={catalysts} sourceCoverage={sourceCoverage} nowISO={now.toISOString()} />
+
+        <IssuerEarningsBoard now={now} host={host}/>
         <RecentEarningsScorecards records={recentEarningsResults} />
 
 
