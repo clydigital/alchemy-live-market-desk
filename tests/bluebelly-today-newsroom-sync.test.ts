@@ -51,19 +51,21 @@ test("Today never promotes future, stale, unverified or external publication lin
  assert.equal(blueDeskHostAccess("/owner/research",host),"private"); // Owner access is authenticated.
  assert.equal(blueDeskHostAccess("/my-reports",host),"private"); // Owner authentication is still required.
 });
-test("Latest from the Newsroom is not rendered or fetched on Today; Newsroom keeps its own reader",()=>{
+test("Today features the same approved source-dated Newsroom updates without promoting research drafts",()=>{
  const today=file("../app/blue-desk/page.tsx");
  const newsroom=file("../app/blue-desk/newsroom/page.tsx");
- const component=file("../components/blue-desk/TodayNewsroomFeed.tsx");
- assert.doesNotMatch(today,/TodayNewsroomFeed|selectTodayNewsroomItems|publicNewsroomEditorials/);
- assert.doesNotMatch(today,/getRecentArchivedPublicReaderItems|archivedNewsroom|newsroomToday/);
+ const reader=file("../components/blue-desk/ProgressiveTodayReader.tsx");
+ assert.match(today,/selectTodayNewsroomItems\(recentNews,\[\],publicNewsroomEditorials\(recentNews,now,host\),now,host,5\)/);
+ assert.match(today,/<ProgressiveTodayReader news=\{verifiedNews\} newsroomUpdates=\{newsroomUpdates\}/);
  assert.match(today,/<DecisionBrief news=\{verifiedNews\}/);
+ assert.match(reader,/latestApproved\.readerHref/);
+ assert.match(reader,/latestApproved\.label/);
+ assert.match(reader,/Source dated <DualTimestamp/);
+ assert.doesNotMatch(reader,/research_intake_items|blue_desk_work_html_editions|RESEARCH_DERIVED_UNADJUDICATED/);
  assert.match(today,/data-home-research-archive-link="dated-not-live"/);
  assert.match(today,/\/blue-desk\/research/);
  assert.match(today,/export const dynamic = "force-dynamic"/);
  assert.match(newsroom,/publicNewsroomEditorials\(news,now,host\)/);
  assert.match(newsroom,/<BluebellyNewsWire news=\{news\}/);
- assert.match(component,/data-today-newsroom-sync="shared-public-newsroom-feed"/);
- assert.match(component,/source date/);
- assert.doesNotMatch(component,/REVIEWED AS VERIFIED/);
+ assert.doesNotMatch(reader,/REVIEWED AS VERIFIED/);
 });

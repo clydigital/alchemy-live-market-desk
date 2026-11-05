@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type {NewsBriefV1} from "@/lib/market-brief-news";
+import type {TodayNewsroomItem} from "@/lib/bluebelly-public-newsroom-feed";
 import type {PresenterCalendar} from "@/lib/presenter-calendar";
 import {decisionTopics, decisionSourceFreshness} from "@/lib/bluebelly-decision-brief";
 import {selectBlueDeskUpcoming} from "@/lib/blue-desk-calendar";
@@ -13,8 +14,9 @@ import styles from "./ProgressiveTodayReader.module.css";
  * Detail is progressively disclosed; this component never upgrades a story's
  * evidence status or introduces a new publication/research path.
  */
-export default function ProgressiveTodayReader({news,calendar,now,host}:{
+export default function ProgressiveTodayReader({news,newsroomUpdates,calendar,now,host}:{
   news:readonly NewsBriefV1[];
+  newsroomUpdates:readonly TodayNewsroomItem[];
   calendar:PresenterCalendar;
   now:Date;
   host:string|null;
@@ -22,6 +24,7 @@ export default function ProgressiveTodayReader({news,calendar,now,host}:{
   const allTopics=decisionTopics(news,calendar,now);
   const current=allTopics.filter(item=>item.status!=="UPCOMING");
   const lead=current[0]||allTopics[0];
+  const latestApproved=newsroomUpdates[0]||null;
   const headlines=current.slice(0,4);
   const events=selectBlueDeskUpcoming(calendar,now,7).slice(0,3);
   const stories=blueDeskPublicHref("/blue-desk/key-stories",host);
@@ -35,20 +38,24 @@ export default function ProgressiveTodayReader({news,calendar,now,host}:{
     <header className={styles.hero} aria-label="Market in 30 seconds">
       <div className={styles.heroMain}>
         <p className={styles.eyebrow}>THE MARKET IN 30 SECONDS</p>
-        <h1>{lead?publicReadingHeadline(lead.title,lead.fact,lead.sourceName):"What can we verify today?"}</h1>
-        <p className={styles.summary}>{lead?(lead.status==="UPCOMING"?"Upcoming, not yet released. "+lead.why:lead.fact):"Current source-qualified coverage is unavailable. The calendar and research archive remain accessible."}</p>
+        <h1>{latestApproved?publicReadingHeadline(latestApproved.headline,latestApproved.summary,latestApproved.sourceName):lead?publicReadingHeadline(lead.title,lead.fact,lead.sourceName):"What can we verify today?"}</h1>
+        <p className={styles.summary}>{latestApproved?(latestApproved.summary||"Publicly reviewed source-dated update; open the Newsroom story for details."):lead?(lead.status==="UPCOMING"?"Upcoming, not yet released. "+lead.why:lead.fact):"Current source-qualified coverage is unavailable. The calendar and research archive remain accessible."}</p>
+        {latestApproved?<p className={styles.heroNote}><strong>{latestApproved.label}</strong> · Source dated <DualTimestamp value={latestApproved.sourceAt.includes("T")?latestApproved.sourceAt:null} sourceDate={latestApproved.sourceAt}/></p>:null}
         <nav className={styles.heroActions} aria-label="Read more">
-          <a className={styles.primaryAction} href="#today-headlines">Get the quick news <span aria-hidden="true">→</span></a>
+          {latestApproved?<Link className={styles.primaryAction} href={latestApproved.readerHref}>Read the latest Newsroom update <span aria-hidden="true">→</span></Link>:<a className={styles.primaryAction} href="#today-headlines">Get the quick news <span aria-hidden="true">→</span></a>}
           <Link className={styles.secondaryAction} href={stories}>Explore Key Stories</Link>
         </nav>
       </div>
       <aside className={styles.heroAside} aria-label="Three developments to know">
         <h2>THREE DEVELOPMENTS TO KNOW</h2>
-        {allTopics.slice(0,3).map((item,index)=><Link key={item.id} className={styles.topLine} href={stories+item.href}>
+        {newsroomUpdates.length?newsroomUpdates.slice(0,3).map((item,index)=><Link key={item.id} className={styles.topLine} href={item.readerHref}>
+          <span aria-hidden="true">{String(index+1).padStart(2,"0")}</span>
+          <div><strong>{publicReadingHeadline(item.headline,item.summary,item.sourceName)}</strong><small>{item.label} · Source dated <DualTimestamp value={item.sourceAt.includes("T")?item.sourceAt:null} sourceDate={item.sourceAt}/></small></div>
+        </Link>):allTopics.slice(0,3).map((item,index)=><Link key={item.id} className={styles.topLine} href={stories+item.href}>
           <span aria-hidden="true">{String(index+1).padStart(2,"0")}</span>
           <div><strong>{publicReadingHeadline(item.title,item.fact,item.sourceName)}</strong><small>{item.status==="UPCOMING"?"Upcoming · outcome pending":item.status==="FEATURE"?"Dated feature":"Source-qualified update"}</small></div>
         </Link>)}
-        {!allTopics.length?<p>No qualified developments currently available.</p>:null}
+        {!newsroomUpdates.length&&!allTopics.length?<p>No qualified developments currently available.</p>:null}
         <p className={styles.heroNote}>Original releases, interpretations and dated market reactions retain separate evidence status.</p>
       </aside>
     </header>
