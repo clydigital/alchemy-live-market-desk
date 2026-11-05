@@ -80,6 +80,9 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     pathname==="/api/mcp" ||
     pathname==="/.well-known/oauth-protected-resource"
   ))return "public";
+  if(hostname===BLUEBELLY_PRESENTATION_HOST &&
+     (pathname==="/oauth/consent"||pathname==="/api/oauth/decision") &&
+     process.env.BLUEBELLY_MCP_ENABLED!=="true")return "blocked";
 
   // One strictly bounded public X discovery handoff for the existing ChatGPT
   // MacroPulse reader. It is a READ-ONLY redacted view of public original X
@@ -93,6 +96,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   // unrelated APIs remain blocked on the public presentation hostname.
   if(hostname === BLUEBELLY_PRESENTATION_HOST && [
     "/my-reports", "/login", "/auth/google", "/auth/callback",
+    "/oauth/consent", "/api/oauth/decision",
     "/auth/signout", "/api/owner/automated-report-pdf",
     // Native Bluebelly owner tools only; every path still requires a
     // valid Supabase session and the active user allowlist in middleware.
