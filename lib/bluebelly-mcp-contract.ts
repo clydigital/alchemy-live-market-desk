@@ -103,7 +103,7 @@ export async function handleBluebellyMcpMessage(
    const limit=boundedInteger(args.limit,12,18);
    if(limit===null||!exactKeys(args,["since","limit"])||
      (args.since!==undefined&&(typeof args.since!=="string"||args.since.length>32||
-      !/^20\\d{2}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?Z$/.test(args.since))))
+      !/^20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(args.since))))
       return mcpError(id,-32602,"Invalid event selector");
    result=await invoke.getVerifiedEvents({since:args.since as string|undefined,limit});
   }else if(params.name==="get_source_health"){
