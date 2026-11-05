@@ -53,7 +53,7 @@ test("market-catalyst ranking covers Hormuz and yields, with social claims never
  assert.ok(ranked.some(x=>x.post.handle==="OddStats"));
  assert.ok(ranked.some(x=>x.post.handle==="TGLetter"&&x.theme==="resilience_preparedness"));
  assert.ok(!ranked.some(x=>x.post.handle==="GordianKnotDev"));
- assert.ok(!ranked.some(x=>x.post.id===posts[10].id));
+ assert.ok(!ranked.some(x=>x.post.id===posts[12].id));
  assert.ok(!ranked.some(x=>x.post.id===posts[11].id));
  const out=attachXWireResearchLeads(run,{
   posts:posts as never,storageHealthy:true,
