@@ -57,12 +57,12 @@ export async function POST(req:NextRequest){
    ].map(item=>calculateBreadthRow(
      item.symbol,item.label,breadth?.series.find(x=>x.symbol===item.symbol),now,
    )):[];
-   const rows=[...markets,...breadthRows].slice(0,limit);
+   const rows=[...breadthRows,...markets].slice(0,limit);
    return {contractVersion:"bluebelly/market-observations/1",
     generatedAt:now.toISOString(),group,count:rows.length,observations:rows,
     status:group==="breadth"
       ?breadth?.retrievalStatus==="refreshed"?"SOURCE_DATED":"STALE_OR_UNAVAILABLE"
-      :monitor?"SOURCE_DATED":"DEGRADED",
+      :monitor&&(!includesBreadth||breadth?.retrievalStatus==="refreshed")?"SOURCE_DATED":"DEGRADED",
     breadthRetrievalStatus:includesBreadth?breadth?.retrievalStatus||"unavailable":null,
     limitations:["Missing session changes are null, not zero.",
      "Changes for daily nominal yields are basis points; other market changes are percentages.",
