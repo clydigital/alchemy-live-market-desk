@@ -37,13 +37,15 @@ export default function RatesPolicyMonitor({observations,trends,sovereigns}:{obs
     const observation=observations.find(r=>r.symbol===FRED_IDS[t] || r.id===`us${t.toLowerCase()}`);
     return {tenor:t,trend,observation};
   }),[trends,observations]);
+  const latestSourceDate=canonical.map(r=>r.trend?.asOf).filter((d):d is string=>!!d).sort().at(-1)??null;
+  const isCurrent=(d:string|null|undefined)=>!!d&&!!latestSourceDate&&d===latestSourceDate;
   const first=canonical.find(r=>r.tenor===tenor);
   const second=canonical.find(r=>r.tenor===other);
   const pair=first?.trend&&second?.trend?pairedMove(first.trend,second.trend,window):null;
   const latestFirst=first?.trend?.points.at(-1);
   const latestSecond=second?.trend?.points.at(-1);
-  const dateMatch=!!latestFirst&&!!latestSecond&&date(latestFirst.time)===date(latestSecond.time);
-  const spread=mode==="spread"&&tenor!==other&&dateMatch?pair:null;
+  const dateMatch=!!latestFirst&&!!latestSecond&&date(latestFirst.time)===date(latestSecond.time)&&isCurrent(date(latestFirst.time));
+  const spread=mode==="spread"&&tenor!==other&&dateMatch&&pair?.asOf===latestSourceDate?pair:null;
   return <section aria-label="Rates and policy monitor" data-rates-policy-monitor="source-dated" style={{border:"1px solid #455b61",borderRadius:12,padding:18,margin:"16px 0",background:"rgba(12,26,31,.65)"}}>
     <header style={{display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap",alignItems:"center"}}>
       <div><small>RATES / POLICY</small><h2 style={{margin:"4px 0"}}>Yield monitor & FedWatch</h2><p style={{margin:0}}>Source-dated yields; changes in basis points, not percentage returns.</p></div>
@@ -59,13 +61,13 @@ export default function RatesPolicyMonitor({observations,trends,sovereigns}:{obs
         {mode==="spread"?<label>Against <select aria-label="Comparison tenor" value={other} onChange={e=>setOther(e.target.value)}>{TENORS.map(t=><option key={t}>{t}</option>)}</select></label>:null}
         <label>Change <select aria-label="Yield change window" value={window} onChange={e=>setWindow(e.target.value as Window)}>{(["1D","3D","5D"] as const).map(w=><option key={w}>{w}</option>)}</select></label>
       </div>
-      <p style={{fontSize:13}}>US Treasury nominal yields · Germany, UK, Australia, New Zealand, Canada and Japan require verified comparable daily curves before activation.</p>
+      <p style={{fontSize:13}}>US Treasury nominal yields · Germany, UK and Japan have selected official-source observations below; Australia, New Zealand and Canada remain pending. Cross-country daily history alignment is not yet enabled.</p>
       {mode==="single"?<div style={{overflowX:"auto"}}><table style={{width:"100%",textAlign:"left",borderCollapse:"collapse"}}>
         <thead><tr><th>Tenor</th><th>Yield</th><th>1D</th><th>3D</th><th>5D</th><th>As of</th></tr></thead>
         <tbody>{canonical.map(({tenor:t,trend,observation})=><tr key={t} style={{borderTop:"1px solid #455b61"}}>
-          <th>{t}</th><td>{trend?.points.at(-1)?.close!=null?`${trend.points.at(-1)!.close.toFixed(2)}%`:observation?.last!=null?`${observation.last.toFixed(2)}%`:"—"}</td>
-          {(["1D","3D","5D"] as const).map(w=><td key={w}>{trend?change(sessionMove(trend.points,w)):"—"}</td>)}
-          <td>{trend?.asOf??observation?.asOf??"Unavailable"}{trend?.sourceUrl?<><br/><a href={trend.sourceUrl} target="_blank" rel="noreferrer">Source</a></>:observation?.sourceUrl?<><br/><a href={observation.sourceUrl} target="_blank" rel="noreferrer">Source</a></>:null}</td>
+          <th>{t}</th><td>{isCurrent(trend?.asOf)&&trend?.points.at(-1)?.close!=null?`${trend.points.at(-1)!.close.toFixed(2)}%`:isCurrent(observation?.asOf)&&observation?.last!=null?`${observation.last.toFixed(2)}%`:"—"}</td>
+          {(["1D","3D","5D"] as const).map(w=><td key={w}>{trend&&isCurrent(trend.asOf)?change(sessionMove(trend.points,w)):"—"}</td>)}
+          <td>{trend?.asOf??observation?.asOf??"Unavailable"}{trend&&!isCurrent(trend.asOf)?" · not latest source session":""}{trend?.sourceUrl?<><br/><a href={trend.sourceUrl} target="_blank" rel="noreferrer">Source</a></>:observation?.sourceUrl?<><br/><a href={observation.sourceUrl} target="_blank" rel="noreferrer">Source</a></>:null}</td>
         </tr>)}</tbody>
       </table></div>:<div style={{padding:"12px 0"}}>
         <strong>US {tenor} − US {other}</strong>
