@@ -41,8 +41,9 @@ export const X_CORE_ROSTER = Object.freeze([
   { handle: "zerohedge", focus: "global-news" },
   { handle: "TGLetter", focus: "civil-resilience" },
   { handle: "macropaperr", focus: "cross-asset" },
+  { handle: "BeginnerTrades", focus: "trading" },
 ] as const);
-// 4 Nov approved roster includes The Macro Paper as a 12th attributed discovery account.
+// The 5 Nov addition of BeginnerTrades makes 13 attributed discovery accounts.
 // GordianKnotDev remains excluded. A roster member is not verified market evidence.
 export const X_WIRE_EXCLUDED_HANDLES = Object.freeze(["gordianknotdev"] as const);
 export function isExcludedXWireHandle(handle: string): boolean {
