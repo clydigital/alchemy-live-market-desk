@@ -284,8 +284,12 @@ async function resolveBlsApiActual(release: OfficialMacroRelease, fetcher: typeo
 
   const openings = pointValue(series.get(JOLTS_SERIES[0]), reference.year, reference.month);
   if (openings === null) throw new Error(`BLS Public Data API did not return JOLTS job openings for ${release.reference_period}.`);
+  const prior = pointValue(series.get(JOLTS_SERIES[0]), priorMonth.year, priorMonth.month);
   const millions = (openings / 1_000).toFixed(1).replace(/\.0$/, "");
-  return { actual: `Job openings ${millions}M`, sourceUrl };
+  // Preserve an explicit same-series prior observation at the acquisition vintage;
+  // do not confuse this with a pre-release forecast or infer earlier revisions.
+  return { actual: `Job openings ${millions}M`, sourceUrl,
+    previous: prior === null ? null : (prior / 1_000).toFixed(3) + "M" };
 }
 
 export function officialActualSourceUrl(release: OfficialMacroRelease) {
@@ -763,6 +767,49 @@ async function recoverCompletedCpiMetrics(
   return { restored, warnings };
 }
 
+
+/**
+ * Late evidence backfill: a completed official JOLTS release might have only
+ * its headline actual because the old adapter did not write the previous
+ * month. Recheck the exact BLS series and original, then write ONLY the missing
+ * prior field. Never turn a post-event observation into a frozen consensus.
+ */
+async function recoverCompletedJoltsPrevious(
+ client:ReturnType<typeof createSupabaseAdminClient>,
+ now:Date, fetcher:typeof fetch,
+){
+ const cutoff=new Date(now.getTime()-7*86_400_000).toISOString();
+ const {data,error}=await client.from("macro_releases")
+  .select("id,release_name,agency,release_date,reference_period,actual,status,source_url,previous")
+  .gte("release_date",cutoff).lte("release_date",now.toISOString())
+  .eq("status","completed").is("previous",null)
+  .not("actual","is",null)
+  .ilike("release_name","%job openings%")
+  .order("release_date",{ascending:false}).limit(8);
+ if(error)throw new Error("JOLTS prior recovery lookup failed: "+error.message);
+ let restored=0;
+ const warnings:string[]=[];
+ for(const row of (data||[]) as (OfficialMacroRelease & {previous:string|null})[]){
+  if(row.agency!=="U.S. Bureau of Labor Statistics"||!/jolts|job openings/i.test(row.release_name)||
+    row.source_url!==officialActualSourceUrl(row))continue;
+  try{
+   const resolved=await resolveBlsApiActual(row,fetcher);
+   if(!resolved.previous||resolved.actual!==row.actual||resolved.sourceUrl!==row.source_url){
+    warnings.push(row.id+": ORIGINAL_ACTUAL_OR_PRIOR_NOT_MATCHED");continue;
+   }
+   const {data:written,error:writeError}=await client.from("macro_releases")
+    .update({previous:resolved.previous})
+    .eq("id",row.id).eq("status","completed").eq("actual",row.actual)
+    .is("previous",null).select("previous").maybeSingle();
+   if(writeError)throw new Error(writeError.message);
+   if(written?.previous===resolved.previous)restored++;
+  }catch(cause){
+   warnings.push(row.id+":"+(cause instanceof Error?cause.message:"BLS prior lookup failed"));
+  }
+ }
+ return {restored,warnings};
+}
+
 export async function ingestOfficialMacroActuals(options: {
   now?: Date;
   fetcher?: typeof fetch;
@@ -873,6 +920,8 @@ export async function ingestOfficialMacroActuals(options: {
   const beaRecovery = await recoverCompletedBeaPceMetrics(client, now);
   metricCount += beaRecovery.restored;
   metricWarnings.push(...beaRecovery.warnings);
+  const joltsRecovery = await recoverCompletedJoltsPrevious(client, now, options.fetcher ?? fetch);
+  metricWarnings.push(...joltsRecovery.warnings);
 
   return {
     attempted,
@@ -884,7 +933,7 @@ export async function ingestOfficialMacroActuals(options: {
     note: (attempted
       ? `${completed}/${attempted} supported overdue official Actuals ingested; ${failed} remain retryable; ${seeded} missing official schedule row(s) seeded.`
       : `No supported overdue official Actuals required ingestion; ${seeded} missing official schedule row(s) seeded.`)
-      + ` CPI component metrics written: ${metricCount}.`
+      + ` CPI/BEA component metrics written: ${metricCount}; JOLTS prior fields recovered: ${joltsRecovery.restored}.`
       + (officialBea.attempted?` BEA original schedule pages readable: ${officialBea.read}/${officialBea.attempted}; verified PCE dates: ${officialBea.events.length}.`:"")
       + (metricWarnings.length ? ` Metric coverage warnings: ${metricWarnings.join(" | ").slice(0,800)}` : ""),
   };
