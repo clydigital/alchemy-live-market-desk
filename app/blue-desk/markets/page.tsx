@@ -12,11 +12,12 @@ import { headers } from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import TradingViewChart from "@/components/blue-desk/TradingViewChart";
 import PublicMarketScreener from "@/components/blue-desk/PublicMarketScreener";
+import RatesPolicyMonitor from "@/components/blue-desk/RatesPolicyMonitor";
 import SectorDivergenceFeature from "@/components/blue-desk/SectorDivergenceFeature";
 import {TV_MARKET_GROUP_DEFAULTS} from "@/lib/bluebelly-editorial-visuals";
 import { MarketIcon, type MarketIconName } from "@/components/blue-desk/MarketIcon";
 import {
-  PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations,
+  PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations, publicGovernmentRateTrends,
 } from "@/lib/blue-desk-public-markets";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
@@ -121,6 +122,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
         <nav aria-label="Markets page sections" className={legibility.focusNavigation}
           data-markets-primary="breadth-and-comparison">
           <a href="#breadth-watch-heading">Market breadth</a>
+          <a href="#rates-policy-heading">Rates &amp; policy</a>
           <a href="#market-group-heading">ETF comparisons</a>
           <a href="#advanced-market-charts">Open charts</a>
         </nav>
@@ -203,6 +205,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           </details>
         </section>
 
+        <div id="rates-policy-heading"><RatesPolicyMonitor observations={publicMarketObservations(monitor?.rows||[],"rates")} trends={publicGovernmentRateTrends(monitor?.rows||[])} /></div>
         <section aria-labelledby="market-group-heading" className={`${styles.section} ${legibility.marketSection}`}>
           <div className={styles.sectionHead}>
             <div>
