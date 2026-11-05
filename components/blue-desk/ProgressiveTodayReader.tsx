@@ -40,7 +40,7 @@ export default function ProgressiveTodayReader({news,newsroomUpdates,calendar,no
         <p className={styles.eyebrow}>THE MARKET IN 30 SECONDS</p>
         <h1>{latestApproved?publicReadingHeadline(latestApproved.headline,latestApproved.summary,latestApproved.sourceName):lead?publicReadingHeadline(lead.title,lead.fact,lead.sourceName):"What can we verify today?"}</h1>
         <p className={styles.summary}>{latestApproved?(latestApproved.summary||"Publicly reviewed source-dated update; open the Newsroom story for details."):lead?(lead.status==="UPCOMING"?"Upcoming, not yet released. "+lead.why:lead.fact):"Current source-qualified coverage is unavailable. The calendar and research archive remain accessible."}</p>
-        {latestApproved?<p className={styles.heroNote}><strong>{latestApproved.label}</strong> · Source dated <DualTimestamp value={latestApproved.sourceAt.includes("T")?latestApproved.sourceAt:null} sourceDate={latestApproved.sourceAt}/></p>:null>
+        {latestApproved?<p className={styles.heroNote}><strong>{latestApproved.label}</strong> · Source dated <DualTimestamp value={latestApproved.sourceAt.includes("T")?latestApproved.sourceAt:null} sourceDate={latestApproved.sourceAt}/></p>:null}
         <nav className={styles.heroActions} aria-label="Read more">
           {latestApproved?<Link className={styles.primaryAction} href={latestApproved.readerHref}>Read the latest Newsroom update <span aria-hidden="true">→</span></Link>:<a className={styles.primaryAction} href="#today-headlines">Get the quick news <span aria-hidden="true">→</span></a>}
           <Link className={styles.secondaryAction} href={stories}>Explore Key Stories</Link>
