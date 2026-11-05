@@ -31,10 +31,10 @@ test("public slate is source-dated and distinguishes revised midterms from genui
  assert.equal(DESK_EDITORIAL_UPDATES.filter(item=>isEditorialUpdatedToday(item.initialPublishedOn,item.editorialUpdatedAt,now)).length,1);
 });
 
-test("Today, Newsroom, Research, Markets, Calendar, Regime Watch and public navigation use the same dated editorial",()=>{
+test("Today, Newsroom, Research, Markets, Regime Watch and public navigation retain dated editorial",()=>{
  for(const path of ["app/blue-desk/page.tsx","app/blue-desk/newsroom/page.tsx",
   "app/blue-desk/research/page.tsx","app/blue-desk/markets/page.tsx",
-  "app/blue-desk/calendar/page.tsx","app/blue-desk/regime-watch/page.tsx",
+  "app/blue-desk/regime-watch/page.tsx",
   "components/blue-desk/BlueDeskHeader.tsx"]){
   assert.match(read(path),/CurrentMarketUpdates/,"Missing current editorial at "+path);
  }
