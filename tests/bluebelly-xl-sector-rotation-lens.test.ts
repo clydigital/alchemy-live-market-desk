@@ -23,7 +23,7 @@ test("rotation is calculated only from matching observed sessions and enough sec
 test("direction, provenance, accessibility and existing user controls remain", () => {
   assert.match(component, /Source-matched ETF price rotation, not confirmed investment flows/);
   assert.match(component, /data-direction="down"/);
-  assert.match(component, /data-direction="unknown"/);
+  assert.match(component, /publicMarketWindowChange\(row,period\) === null \? "unknown"/);
   assert.match(component, /aria-label="Source-dated XL sector rotation"/);
   assert.match(component, /All XL sectors/);
   assert.match(component, /RSP vs XL sectors/);
