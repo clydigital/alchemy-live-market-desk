@@ -28,17 +28,17 @@ function ok(rows: unknown[], cursor: unknown = { bottom: null }) {
   return new Response(JSON.stringify({ code: 200, results: rows, cursor }),
     { status: 200, headers: { "content-type": "application/json" } });
 }
-test("retrieves 12 registered accounts including ZeroHedge and TGLetter, from a fixed provider host and preserves attributed original URLs", async () => {
+test("retrieves 13 registered accounts including ZeroHedge and TGLetter, from a fixed provider host and preserves attributed original URLs", async () => {
   let n = 0;
   const fetchImpl = mockFetch(handle => {
     n += 1;
     return ok([row(handle, "211317772374942" + String(n).padStart(4, "0"))]);
   });
   const result = await fetchXWirePreview({ nowIso: NOW, fetchImpl });
-  assert.equal(result.accounts.length, 12);
-  assert.equal(n, 12);
-  assert.equal(result.posts.length, 12);
-  assert.equal(result.health.healthy, 12);
+  assert.equal(result.accounts.length, 13);
+  assert.equal(n, 13);
+  assert.equal(result.posts.length, 13);
+  assert.equal(result.health.healthy, 13);
   assert.ok(result.posts.every(post => post.url.startsWith("https://x.com/")));
   assert.ok(result.posts.every(post => post.attribution === "THIRD_PARTY_ONLY"));
   assert.equal(result.window.windowHours, 2.5);
@@ -47,6 +47,7 @@ test("retrieves 12 registered accounts including ZeroHedge and TGLetter, from a 
   assert.ok(result.accounts.some(x=>x.handle==="TGLetter"));
   assert.ok(result.accounts.some(x=>x.handle==="HormuzReport"));
   assert.ok(result.accounts.some(x=>x.handle==="macropaperr"));
+  assert.ok(result.accounts.some(x=>x.handle==="BeginnerTrades"));
   assert.ok(result.accounts.every(x=>x.handle.toLowerCase()!=="gordianknotdev"));
   assert.equal(result.accounts.filter(x=>x.handle==="KobeissiLetter").length,1);
   assert.equal(result.deferredCount, 0);
@@ -58,7 +59,7 @@ test("provider errors are visible as blocked/unavailable, never zero new posts o
       : new Response(null, { status: 204 })),
   });
   assert.equal(result.posts.length, 0);
-  assert.equal(result.health.healthy, 11);
+  assert.equal(result.health.healthy, 12);
   assert.equal(result.health.inaccessible, 1);
   assert.equal(result.health.complete, false);
   assert.equal(result.accounts[1].status, "blocked");
