@@ -19,6 +19,7 @@ import {
   isResearchGapHandoff,
 } from "@/lib/research-gap-handoff";
 import { type ResearchRunLedgerStartFields, writeResearchRunLedgerStart } from "@/lib/research-run-ledger";
+import {persistResearchIntakeBatches} from "@/lib/research-intake-persistence";
 import { CANONICAL_RESEARCH_SLOTS } from "@/lib/research-schedule-health";
 import {
   researchScheduleHealth,
@@ -298,20 +299,20 @@ export async function POST(request: Request) {
       warnings,
       now,
     });
-    runId = await writeResearchRunLedgerStart({
+    const durableRunId = await writeResearchRunLedgerStart({
       rest,
       runKey: input.runKey,
       isScheduledInternalRequest,
       fields: ledgerFields,
       now,
     });
+    runId = durableRunId;
 
     if (validation.scoredItems.length) {
-      await rest("research_intake_items?on_conflict=item_key", {
-        method: "POST",
-        headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
-        body: JSON.stringify(validation.scoredItems.map((item) => ({
-          run_id: runId,
+      await persistResearchIntakeBatches({
+        runId:durableRunId,rest,
+        rows: validation.scoredItems.map((item) => ({
+          run_id: durableRunId,
           item_key: item.itemKey,
           item_type: item.itemType,
           publisher: item.publisher,
@@ -338,7 +339,7 @@ export async function POST(request: Request) {
           evidence_links: item.evidence,
           review_reason: item.reviewReason || null,
           updated_at: new Date().toISOString(),
-        }))),
+        })),
       });
     }
 
