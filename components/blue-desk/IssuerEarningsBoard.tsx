@@ -5,6 +5,8 @@ import {getRecentVerifiedEarningsScorecards} from "@/lib/blue-desk-earnings-resu
 import {recentOriginalIssuerReleases} from "@/lib/bluebelly-issuer-release-receipts";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import css from "./IssuerEarningsBoard.module.css";
+import EarningsResultRail from "./EarningsResultRail";
+import { earningsQuickRead } from "@/lib/bluebelly-earnings-quick-read";
 
 function easternDay(now:Date){
  const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(now);
@@ -33,7 +35,7 @@ export default function IssuerEarningsBoard({now,host}:{now:Date;host:string|nul
    .map(item=>({ticker:item.ticker,name:item.company,period:item.fiscalPeriod,day:item.releaseDay,
     fact:item.headline+" "+item.conclusion,test:item.nextTest,sourceUrl:item.sourceUrl,
     sourceName:item.sourceName,kind:"scorecard" as const})),
- ].sort((a,b)=>b.day.localeCompare(a.day)||a.ticker.localeCompare(b.ticker)).slice(0,9);
+ ].sort((a,b)=>b.day.localeCompare(a.day)||a.ticker.localeCompare(b.ticker)).slice(0,12);
  const posted=new Set(results.map(item=>item.ticker));
  const upcoming=official.filter(item=>!posted.has(item.ticker)&&isFuture(item,now,etDay));
  const groups=new Map<string,OfficialEarning[]>();
@@ -55,23 +57,19 @@ export default function IssuerEarningsBoard({now,host}:{now:Date;host:string|nul
   <div className={css.summary} aria-label="Earnings coverage">
    <span>{results.length} original-source results / reviews</span>
    <span>{upcoming.length} upcoming issuer-confirmed events</span>
-   <span>Source review: 4 Nov 2026 · displayed in ET / MYT</span>
+   <span>Source date on each report · scheduled calls in ET / MYT</span>
   </div>
   <div className={css.lanes}>
    <section className={css.section} aria-label="Verified recent issuer releases">
-    <h3 className={css.sectionTitle}>Already reported</h3>
-    <p className={css.hint}>Original issuer releases are checked separately from expected reporting appointments. Archived metrics keep their actual accounting period.</p>
-    <div className={css.results}>
-     {results.map(item=><article className={css.result} key={item.ticker+item.period} data-issuer-result={item.ticker}>
-      <div className={css.mini}><span className={css.ticker}>{item.ticker} · {item.name}</span>
-       <span className={css.status}>RESULT PUBLISHED · {item.day}</span></div>
-      <h4>{item.period}</h4>
-      <p>{item.fact}</p>
-      <p><strong>Next test:</strong> {item.test}</p>
-      <a className={css.source} href={item.sourceUrl} target="_blank" rel="noopener noreferrer">{item.sourceName} ↗</a>
-     </article>)}
-     {!results.length?<p className={css.empty}>No recent original-release reviews available; this is not evidence that no issuers reported.</p>:null}
-    </div>
+    <h3 className={css.sectionTitle}>Already reported · results & guidance</h3>
+    <p className={css.hint}>Colour-coded assessments of source-reviewed results and management outlook. Tap a card for the underlying figures; slide to browse.</p>
+    <EarningsResultRail items={results.map(item=>({
+      id: item.ticker + ":" + item.day + ":" + item.period,
+      ticker: item.ticker, name: item.name, period: item.period,
+      day: item.day, fact: item.fact, test: item.test,
+      sourceUrl: item.sourceUrl, sourceName: item.sourceName,
+      ...earningsQuickRead(item.ticker, item.day),
+    }))} />
    </section>
    <section className={css.section} aria-label="Upcoming issuer-confirmed earnings calendar">
     <h3 className={css.sectionTitle}>Upcoming — confirmed by issuer IR</h3>
