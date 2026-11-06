@@ -1,5 +1,6 @@
 import {handleScheduledResearchGapHandoff} from "@/lib/research-gap-cron";
 import {runPrivateDailyHtmlFallback} from "@/lib/bluebelly-scheduled-daily-html-job";
+import {scheduledDailyHtmlFallbackEnabled} from "@/lib/bluebelly-daily-html-fallback-gate";
 import {isAutomaticReportFallbackWindow,type AutomaticReportSlot}
  from "@/lib/blue-desk-automated-report-contract";
 import {attemptPrivateDailyPdfInExistingHandoff}
@@ -21,7 +22,10 @@ export async function GET(request:Request){
     status:"failed" as const,reason:"private_pdf_retry_unavailable"
    }))
   :null;
- const htmlTask=slot==="morning"&&now.getUTCHours()===3
+ // Disabled by default: this historical HTML writer is no longer part of
+ // the site or Writing Brain critical path. Research Gap runs independently.
+ const htmlTask=scheduledDailyHtmlFallbackEnabled(process.env)&&
+  slot==="morning"&&now.getUTCHours()===3
   ?runPrivateDailyHtmlFallback(request,now).catch(()=>({status:"failed" as const,reason:"daily_html_fallback_unavailable"}))
   :null;
  // Start all independent private work concurrently. A slow/partial Research Gap result must not make
