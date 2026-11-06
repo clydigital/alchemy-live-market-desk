@@ -22,7 +22,8 @@ test("Owner Research Library stays private while separately approved editorial R
 });
 test("private and public research have visibly different navigation destinations",()=>{
   const nav=read("components/blue-desk/BlueDeskHeader.tsx");
-  assert.match(nav,/\["Research Library", "\/owner\/research"\]/);
+  assert.doesNotMatch(nav.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0]||"",/\["Research Library", "\/owner\/research"\]/);
+  assert.match(read("app/my-reports/page.tsx"),/href="\/owner\/research"/);
   assert.match(nav,/activePath === "\/owner\/research"/);
   const pub=nav.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0] || "";
   assert.doesNotMatch(pub,/\["Research Library", "\/owner\/research"\]/);
