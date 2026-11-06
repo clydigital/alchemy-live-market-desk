@@ -37,10 +37,13 @@ test("Public CP Markets begins with breadth and keeps date-aware ETF comparison 
  assert.match(legibility,/\.breadthPrimary/);
 });
 
-test("My Desk retains daily intelligence without an embedded portfolio",()=>{
+test("My Desk is a private source-first workspace without fabricated portfolio holdings",()=>{
  const desk=read("app/my-reports/page.tsx");
- assert.match(desk,/<OwnerDailyIntelligenceHome\/>/);
- assert.match(desk,/<OwnerDailyTopicIdeas\/>/);
+ assert.doesNotMatch(desk,/OwnerDailyIntelligenceHome|OwnerDailyTopicIdeas|OwnerDailyReportAttachments/);
+ assert.match(desk,/data-private-desk="source-first-market-workspace"/);
+ assert.match(desk,/href="\/markets"/);
+ assert.match(desk,/href="\/owner\/research"/);
+ assert.match(desk,/data-my-desk-portfolio-status="not-verified"/);
  assert.doesNotMatch(desk,/OwnerPortfolioHome|OwnerPowerStackFullScan/);
  assert.doesNotMatch(desk,/href="\/my-reports\?view=portfolio"/);
  assert.match(desk,/if\(params\.view==="portfolio"\)redirect\("\/my-reports"\)/);
