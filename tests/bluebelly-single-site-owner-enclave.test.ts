@@ -76,13 +76,15 @@ test("public reader links include dated Research, omit duplicate Daily Report an
  assert.match(header,/activePath === "\/my-reports"/);
  const nav=header.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0]||"";
  for (const [label,href] of [
-  ["Today","/"],["Newsroom","/newsroom"],["Key Stories","/blue-desk/key-stories"],
-  ["Markets","/markets"],["Calendar","/calendar"],["My Desk","/my-reports"],
+  ["Today","/"],["Newsroom","/newsroom"],
+  ["Markets","/markets"],["Calendar","/calendar"],
  ]) assert.ok(nav.includes('["'+label+'", "'+href+'"]'),label);
- assert.equal((nav.match(/\["/g)||[]).length,6);
+ assert.equal((nav.match(/\["/g)||[]).length,4);
+ assert.ok(!nav.includes('["My Desk", "/my-reports"]'));
+ assert.match(header,/href="\/my-reports">My Desk/);
  const more=header.split("const PUBLIC_MORE = [")[1]?.split("] as const;")[0]||"";
  for(const [label,href] of [
-  ["Research Library","/research"],["Hormuz Watch","/hormuz"],
+  ["Deep Dives","/blue-desk/key-stories"],["Research Library","/research"],["Hormuz Watch","/hormuz"],
   ["Regime Watch","/regime-watch"],["Learn","/learn"],
  ]) assert.ok(more.includes('["'+label+'", "'+href+'"]'),label);
  assert.match(header,/className=\{chrome\.moreNav\}/);
