@@ -7,8 +7,8 @@ test("My Desk excludes legacy creator HTML editions without deleting their histo
  for(const id of ["1zeCOOzNIUHdvQvQYksyizDlz9Z0CITFs","1Wole_xxwImEEaLBCuOyBHgwlLZRsKY16",
   "1VDfUcSkgIQCOM5jpoS8TTnVrPRq8YPuR","15vGOFXyIU2pGCufoR8vR2EjLCfNI1hfI"])
   assert.ok(!page.includes(id));
- assert.match(page,/OwnerDailyIntelligenceHome/);
- assert.match(page,/OwnerDailyTopicIdeas/);
+ assert.doesNotMatch(page,/OwnerDailyIntelligenceHome|OwnerDailyTopicIdeas|OwnerDailyReportAttachments/);
+ assert.match(page,/data-my-desk-primary="market-research-shortcuts"/);
  assert.doesNotMatch(page,/CATEGORIES\.map|kind:"creators"|Supadata transcripts/);
  assert.match(page,/index:false,follow:false/);
  assert.equal(blueDeskHostAccess("/my-reports","bluebelly-desk.vercel.app"),"private");
