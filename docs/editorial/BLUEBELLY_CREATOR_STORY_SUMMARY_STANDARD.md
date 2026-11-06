@@ -1,6 +1,6 @@
 # Bluebelly — Creator Story Summary Standard
 
-**Version:** 1.1  
+**Version:** 1.2  
 **Target:** Bluebelly → Creator Intelligence → Creator Summary  
 **Status:** Editorial specification; production compiler and reader integration must be verified separately  
 **Companion:** `BLUEBELLY_STORY_DRIVEN_DAILY_REPORTS(1).md`
@@ -75,6 +75,21 @@ Keep three distinguishable layers:
 - **Creator said:** Faithfully summarise what the creator asserted, with the originating video URL and timestamp where feasible.
 - **Independent check:** Reference primary sources (filings, central banks, company releases, pricing) where the claim is consequential and verification is available. Mark confirmed, disputed or not independently checked.
 - **Bluebelly interpretation:** Explain how the argument fits existing macro themes, and label any inference as interpretation rather than a creator quote.
+
+### Preserve suspicions, doubts and contrarian theories
+
+A creator's doubts, misgivings, unconventional estimates, speculative explanations and rhetorical questions are **material creator intelligence**, even when not independently confirmed. Preserve the distinctive suspicion rather than editing it into a generic 'mixed signals' summary or silently dropping it after fact-checking. This includes doubts about official data, what the creator thinks may be hidden beneath a headline, and why they expect markets or policymakers to act differently from the reported fundamentals.
+
+For each material suspicion, separately capture:
+
+- **Creator suspects:** what they actually claimed, asked or implied; distinguish direct wording from Bluebelly inference and retain their stated uncertainty/conviction.
+- **Why:** the specific data, experience or contradiction they invoked, including original video/timecode (or TIME_UNAVAILABLE for supplied text without a verified source ID).
+- **Independent check:** evidence supporting, contradicting or not addressing the suspicion. An unverified allegation remains ATTRIBUTED, DISPUTED or UNSUPPORTED as warranted; it is never upgraded to fact just because it is interesting.
+- **Competing explanations:** credible alternatives, measurement differences and the strongest objection to the creator's causal story.
+- **Next test:** original source, observation or market reaction that could confirm, weaken or falsify it.
+- **Evolution:** NEW / REINFORCED / WEAKENED / REVISED / CONTRADICTED across dated videos, including changes of mind and lingering uncertainty.
+
+**Illustration — ClearValueTax, November 2026:** preserve both his distrust of published payroll/inflation statistics and his view that strong reported jobs could encourage the Fed to hike. Also retain his questions about leisure/hospitality layoffs, weaker consumer demand, layoff reasons and an asserted 6.5% 'actual inflation' estimate based on money supply. Mark the 6.5% figure as unsupported, not an alternative verified CPI reading. The interesting analytical tension is his expectation that policy responds to official numbers even while he questions their accuracy. Do not convert suspicion into evidence of data manipulation.
 
 Do not ascribe a creator's speculation to an official source. Never turn a guess about advance knowledge, private government contacts, motives or secret negotiations into fact. Avoid causal statements based merely on adjacent news and price moves.
 
@@ -170,6 +185,7 @@ central_tension: <text>
 acts: [<title, markdown, cited_video_ids, claim_ids>]
 learning_moments: [<title, markdown, claim_ids>]
 latest_creator_view: <text>
+suspicions: [<claim_id, asserted_or_inferred, source_video_id_or_supplied_text, timestamp_or_unavailable, creator_conviction, motivation, verification_status, countercase, next_test, evolution_status>]
 changes_since_previous: [<claim_ids>]
 watchpoints: [<instrument, catalyst, timing, source>]
 verification_status: <partial|checked|mixed>
@@ -186,6 +202,9 @@ Keep exact original transcripts and per-claim provenance available to the creato
 **Source status:** [complete/partial; outstanding videos]
 
 [Hook: what was believed, what changed, what is at stake.]\n\n## Executive summary\n[Main thesis, 5–7 distinctive insights when warranted, change vs prior edition, strongest countercase and next tests.]
+
+## What the creator suspects — attributed, not established
+[Preserve material doubts, contrarian estimates, and rhetorical questions; include the creator's reasoning, source/timecode or unverified-source label, strongest alternative, current verification and testable next observation. Omit only if the transcript has no substantive suspicions.]
 
 ## Act 1 — [The original argument]
 [Story, claims and video citations in natural order.]
@@ -219,7 +238,7 @@ Keep exact original transcripts and per-claim provenance available to the creato
 
 ## 10. Short production prompt
 
-> You are Bluebelly's creator-intelligence story writer. For one creator at a time, turn all eligible newly consumed transcripts into a single flowing, act-based market story. Lead with a compact, substantial executive summary, then reconstruct how the creator's thesis developed as successive videos introduced claims, evidence and complications. Collapse repeated points; prominently retain changed or contradictory views with source videos and dates. Add plain-English finance learning moments exactly when needed. End with the creator's latest documented stance, confirm/challenge indicators and linked video sources. Separate the creator's assertions, independent verification and Bluebelly interpretation; never invent a bridge between unrelated videos or imply verification from a transcript alone. Add source-anchored discoveries, explained research methods, caveats and reproducible chart/data checks; do not invent a discovery quota. Explain jargon at first use and link existing governed glossary concepts where exact matches exist. Produce a persistent Markdown edition and structured source/claim mapping. Follow the Bluebelly Daily Report evidence and British-English style standards, but write about the **creator's evolving argument**, not the day's verified market chronology.
+> You are Bluebelly's creator-intelligence story writer. For one creator at a time, turn all eligible newly consumed transcripts into a single flowing, act-based market story. Lead with a compact, substantial executive summary, then reconstruct how the creator's thesis developed as successive videos introduced claims, evidence and complications. Collapse repeated points; prominently retain changed or contradictory views with source videos and dates. Keep the creator's material suspicions, scepticism, unusual estimates, speculative mechanisms and rhetorical questions in an explicitly attributed layer, even when they remain unsupported; distinguish creator statements from Bluebelly inference, give counterevidence and a falsifiable next test, and track how conviction evolves. Add plain-English finance learning moments exactly when needed. End with the creator's latest documented stance, confirm/challenge indicators and linked video sources. Separate the creator's assertions, independent verification and Bluebelly interpretation; never invent a bridge between unrelated videos or imply verification from a transcript alone. Add source-anchored discoveries, explained research methods, caveats and reproducible chart/data checks; do not invent a discovery quota. Explain jargon at first use and link existing governed glossary concepts where exact matches exist. Produce a persistent Markdown edition and structured source/claim mapping. Follow the Bluebelly Daily Report evidence and British-English style standards, but write about the **creator's evolving argument**, not the day's verified market chronology.
 
 ## 11. Publication acceptance checks
 
@@ -230,6 +249,7 @@ Keep exact original transcripts and per-claim provenance available to the creato
 - [ ] Thesis revisions and contradictions preserved.
 - [ ] Every technical concept explained at point of use when necessary.
 - [ ] Creator claims not represented as independent facts.
+- [ ] Material suspicions, contrarian interpretations and rhetorical questions are preserved with attribution, reasoning, counterchecks, falsifiers and subsequent stance changes; interesting but unsupported claims remain labelled, not quietly removed.
 - [ ] Ends with a concrete most-recent stance and testable watchpoints.
 - [ ] Edition and structured evidence persist and remain inspectable.
 - [ ] Story is readable aloud and engaging without fictional details.
