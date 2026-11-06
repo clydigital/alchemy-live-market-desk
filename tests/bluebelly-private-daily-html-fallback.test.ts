@@ -65,7 +65,8 @@ test("existing cron calls authorised private generator without new schedules or 
  assert.match(route,/runPrivateDailyHtmlFallback\(request,now\)/);
  assert.match(route,/handleScheduledResearchGapHandoff\(request\)/);
  assert.match(job,/acceptsResearchAuthorization/);
- assert.match(job,/NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED/);
+ assert.match(read("lib/bluebelly-daily-html-fallback-gate.ts"),/NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED/);
+ assert.match(job,/scheduledDailyHtmlFallbackEnabled\(process.env\)/);
  assert.match(job,/reportEvidenceReady\(evidence\)/);
  assert.match(job,/getOriginalPressNews/);
  assert.match(job,/getPublicSourceObservations/);

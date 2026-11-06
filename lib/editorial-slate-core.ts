@@ -5,7 +5,7 @@
 export type SlateIdea = {
   rank:1|2|3;
   ideaId?:string;
-  /** Exact private Daily Intelligence receipt supplied by Writing Brain. */
+  /** Optional legacy exact-report receipt. Source-first Writing Brain ideas do not require a parent HTML report. */
   parentReportId?:string;
   parentReportSha256?:string;
   reportSessionET?:string;
