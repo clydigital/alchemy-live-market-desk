@@ -92,7 +92,8 @@ test("second private PDF is delivered only through existing authorised jobs and 
  assert.ok(host.includes('"/api/owner/automated-report-pdf"'));
  assert.ok(publicPdf.includes("status:404"));
  assert.ok(!page.includes("<OwnerEditorialSlatePdfReader/>"));
- assert.ok(page.includes("<OwnerDailyTopicIdeas/>"));
+ assert.ok(!page.includes("<OwnerDailyTopicIdeas/>"));
+ assert.ok(page.includes('data-private-desk="source-first-market-workspace"'));
  assert.ok(reader.includes("session.auth.getUser()"));
  assert.ok(reader.includes("app_access_allowlist"));
  assert.ok(reader.includes('data-private-report-kind="COTD_OB_RESEARCH"'));
