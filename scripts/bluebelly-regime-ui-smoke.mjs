@@ -159,7 +159,7 @@ try{
  // Visual acceptance for the CP public-page convergence. Deliberately use
  // public routes and a source-agnostic data state; never invent market prices.
  const publicPages=[
-  ["/","today",'data-progressive-reading="today-v1"'],
+  ["/","market-home",'data-home-market-first="source-dated-terminal"'],
   ["/newsroom","newsroom",'data-public-newsroom="original-source-only"'],
   ["/key-stories","key-stories",'data-bluebelly-stories="catalyst-led"'],
   ["/hormuz","hormuz",'data-bluebelly-hormuz="public-source-dated-physical-first"'],
@@ -179,8 +179,8 @@ try{
  for(const [path,id,marker] of publicPages){
   const view=await waitResponse(path);
   assertHtml(view.html,marker);
-  if(id==="today"){
-   assertHtml(view.html,'id="today-headlines"','data-home-detailed-brief="on-demand"');
+  if(id==="market-home"){
+   assertHtml(view.html,'data-home-editorial-reader="legacy-on-demand"','data-home-detailed-brief="on-demand"');
   }
   if(id==="newsroom"){
    assertHtml(view.html,'data-editorial-newsroom="verified-only"');
@@ -189,8 +189,8 @@ try{
   // TradingView embeds can keep headless Chrome alive indefinitely; Markets is
   // covered by the route/HTML assertions, not a brittle third-party screenshot.
   if(id!=="markets")
-   await renderChrome("http://127.0.0.1:"+PUBLIC+path,id+"-mobile.png",390,844,{disableJavascript:id==="key-stories"||id==="today"});
-  if(id==="newsroom"||id==="key-stories"||id==="today")
+   await renderChrome("http://127.0.0.1:"+PUBLIC+path,id+"-mobile.png",390,844,{disableJavascript:id==="key-stories"||id==="market-home"});
+  if(id==="newsroom"||id==="key-stories"||id==="market-home")
    await renderChrome("http://127.0.0.1:"+PUBLIC+path,id+"-desktop.png",1440,1000,{disableJavascript:id==="key-stories"||id==="today"});
   console.log("Public CP page "+path+" "+view.status+" · mobile render saved");
  }
