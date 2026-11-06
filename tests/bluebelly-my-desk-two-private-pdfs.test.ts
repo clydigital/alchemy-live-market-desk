@@ -4,14 +4,14 @@ import {readFileSync} from "node:fs";
 import {blueDeskHostAccess} from "../lib/blue-desk-host.ts";
 const read=(p:string)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 
-test("private My Desk leads with Daily Intelligence and three inline ideas, not legacy PDF archives",()=>{
+test("private My Desk exposes market and research shortcuts, not duplicate report interfaces",()=>{
  const page=read("app/my-reports/page.tsx");
- assert.match(page,/data-private-desk="daily-report-led-three-ideas"/);
+ assert.match(page,/data-private-desk="source-first-market-workspace"/);
  assert.doesNotMatch(page,/OwnerPortfolioHome|href="\/my-reports\?view=portfolio"/);
- assert.match(page,/<OwnerDailyIntelligenceHome\/>/);
- assert.match(page,/<OwnerDailyTopicIdeas\/>/);
- assert.match(page,/data-my-desk-technical="collapsed-by-default"/);
- assert.match(page,/<OwnerPrivatePdfInputHealth\/>/);
+ assert.doesNotMatch(page,/OwnerDailyIntelligenceHome|OwnerDailyTopicIdeas|OwnerDailyReportAttachments|OwnerPrivatePdfInputHealth/);
+ assert.match(page,/data-my-desk-primary="market-research-shortcuts"/);
+ assert.match(page,/href="\/market-tools"/);
+ assert.match(page,/href="\/owner\/research"/);
  assert.doesNotMatch(page,/OwnerAutomaticReportReader|OwnerEditorialSlatePdfReader|data-drive-archive|PAGE_SIZE|CATEGORIES\.map/);
  assert.doesNotMatch(page,/generateContent|createSupabaseAdminClient/);
 });
@@ -21,7 +21,8 @@ test("retired presenter and editorial pages redirect to authenticated My Desk",(
  assert.match(nav,/\["My Desk", "\/my-reports"\]/);
  assert.doesNotMatch(nav,/Presenter Prep|Writing Studio/);
  const publicNav=header.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0]||"";
- assert.match(publicNav,/\["My Desk", "\/my-reports"\]/);
+ assert.doesNotMatch(publicNav,/\["My Desk", "\/my-reports"\]/);
+ assert.match(header, /<Link className=\{chrome\.micro\} href="\/my-reports">My Desk/);
  assert.doesNotMatch(publicNav,/Presenter Prep/);
  for(const path of ["app/owner/presenter/page.tsx","app/owner/editorial/page.tsx"]){
   const old=read(path);
