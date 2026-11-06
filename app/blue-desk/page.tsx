@@ -43,15 +43,22 @@ import {projectWhatsNewTrends} from "@/lib/blue-desk-whats-new-trends";
 import WhatsNewTrendDashboard from "@/components/blue-desk/WhatsNewTrendDashboard";
 
 import styles from "./blue-desk.module.css";
+import marketHome from "./market-first-home.module.css";
+import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Blue Desk | Market Intelligence",
-  description: "Market stories, rates and upcoming events.",
+  description: "Source-dated market observations, catalysts and research watch.",
 };
 
 
+
+function formatMarketChange(value:number|null, unit:"%"|"bp"|"pp") {
+  return value===null||!Number.isFinite(value) ? "—" :
+    (value>0?"+":"")+value.toFixed(unit==="bp"?1:2)+unit;
+}
 
 const YIELD_IDS = ["us2y", "us5y-fred", "us10y-fred", "us20y-fred", "us30y-fred"];
 
@@ -107,13 +114,93 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   const upcoming7d = selectBlueDeskUpcoming(calendar, now).slice(0, 6);
   const upcomingFallback = upcoming7d.length ? [] : selectBlueDeskUpcoming(calendar, now, 30).slice(0, 3);
   const upcoming = upcoming7d.length ? upcoming7d : upcomingFallback;
+  // Reuse the existing source-dated monitor; no new provider call or inferred prices.
+  const marketRows=publicMarketObservations(monitor?.rows||[],"all");
+  const marketTypes=["Major Index","Rates","FX","Energy","Metal","AI / Semis"] as const;
+  const marketHighlights=marketTypes.map(kind=>marketRows.find(row=>
+    row.type===kind && row.last!==null && row.asOf!==null &&
+    row.dataStatus!=="UNAVAILABLE_OR_STALE"
+  )).filter((row):row is NonNullable<typeof row>=>Boolean(row));
+
 
   return (
     <main className={styles.page} data-blue-desk-convergence="phase-1">
       <BlueDeskHeader activePath="/blue-desk" />
         {!publicHost?<CurrentMarketUpdates host={host} mode="full" now={now}/>:null}
       <div className={styles.content}>
-        {publicHost?<ProgressiveTodayReader news={verifiedNews} newsroomUpdates={newsroomUpdates} calendar={calendar} now={now} host={host}/>:
+        {publicHost?<section className={marketHome.terminal} data-home-market-first="source-dated-terminal" aria-label="Bluebelly market overview">
+          <header className={marketHome.hero}>
+            <p className={marketHome.eyebrow}>SOURCE-DATED MARKET TERMINAL</p>
+            <h1 className={marketHome.title}>Markets first. Events next. Research when needed.</h1>
+            <p className={marketHome.intro}>Compare observed moves, check upcoming catalysts and revisit tracked theses. These are dated market readings and verified source records, not automatically written daily market opinions.</p>
+            <nav className={marketHome.actions} aria-label="Market terminal shortcuts">
+              <Link href="/markets">Explore markets</Link>
+              <Link href="/calendar">Economic &amp; earnings calendar</Link>
+              <Link href="/key-stories">Research watch</Link>
+              <Link href="/my-reports">My Desk · private</Link>
+            </nav>
+          </header>
+          <div className={marketHome.overview}>
+            <section className={marketHome.panel} aria-labelledby="market-snapshot-title">
+              <div className={marketHome.panelHead}>
+                <h2 id="market-snapshot-title">Cross-asset snapshot</h2>
+                <small>Last recorded source observation · not a live price guarantee</small>
+              </div>
+              {marketHighlights.length?<div className={marketHome.quoteGrid}>
+                {marketHighlights.map(row=><article className={marketHome.quote} key={row.id}>
+                  <p className={marketHome.quoteLabel}>{row.label}</p>
+                  <p className={marketHome.quoteValue}>{row.last!.toLocaleString("en-GB",{maximumFractionDigits:row.type==="Rates"?3:2})}{row.type==="Rates"?"%":""}</p>
+                  <p className={marketHome.changes}>1D {formatMarketChange(row.change,row.changeUnit)} · 3D {formatMarketChange(row.change3d,row.changeUnit)} · 5D {formatMarketChange(row.change5d,row.changeUnit)}</p>
+                  <p className={marketHome.source}>
+                    <DualTimestamp value={row.asOf} sourceDate={row.asOf}/>{row.sourceUrl?<> · <a href={row.sourceUrl} target="_blank" rel="noopener noreferrer">{row.sourceName}</a></>:<> · {row.sourceName}</>}
+                  </p>
+                </article>)}
+              </div>:<p className={styles.coverage}>Source-dated market quotes are unavailable or stale. No indicative numbers have been substituted.</p>}
+              <div className={marketHome.panelFooter}><Link href="/markets">Full markets, breadth &amp; yields</Link></div>
+            </section>
+            <section className={marketHome.panel} aria-labelledby="market-upcoming-title">
+              <div className={marketHome.panelHead}>
+                <h2 id="market-upcoming-title">Upcoming catalysts</h2>
+                <small>Official calendar times where verified</small>
+              </div>
+              {upcoming.length?<div className={marketHome.list}>
+                {upcoming.slice(0,3).map(event=><article className={marketHome.item} key={event.id}>
+                  <h3>{event.title}</h3>
+                  <p><DualTimestamp value={event.scheduledAt} sourceDate={event.localDate}/> · {event.status}</p>
+                  <p>Actual {event.actual||"pending"} · Expected {event.consensus||"unavailable"}</p>
+                </article>)}
+              </div>:<p className={styles.coverage}>No confirmed upcoming event within this source window. This does not establish an empty economic calendar.</p>}
+              <div className={marketHome.panelFooter}><Link href="/calendar">Full calendar and actuals</Link></div>
+            </section>
+          </div>
+          <div className={marketHome.secondary}>
+            <section className={marketHome.panel} aria-labelledby="market-watch-title">
+              <div className={marketHome.panelHead}><h2 id="market-watch-title">Research watch</h2><small>Dated theses · not current trade signals</small></div>
+              {theses.length?<div className={marketHome.list}>
+                {theses.slice(0,3).map(thesis=><article className={marketHome.item} key={thesis.id}>
+                  <h3><Link href={"/key-stories?story="+encodeURIComponent(thesis.slug)}>{thesis.title}</Link></h3>
+                  <p>Last researched <DualTimestamp value={thesis.updatedAt}/></p>
+                </article>)}
+              </div>:<p className={styles.coverage}>No source-dated public theses available.</p>}
+              <div className={marketHome.panelFooter}><Link href="/key-stories">View evidence and next tests</Link></div>
+            </section>
+            <section className={marketHome.panel} aria-labelledby="market-sources-title">
+              <div className={marketHome.panelHead}><h2 id="market-sources-title">Latest verified sources</h2><small>Original-source facts · not inferred market causes</small></div>
+              {verifiedNews.length?<div className={marketHome.list}>
+                {verifiedNews.slice(0,3).map(item=><article className={marketHome.item} key={item.id}>
+                  <h3><a href={item.sourceUrl} rel="noopener noreferrer" target="_blank">{item.headline}</a></h3>
+                  <p><DualTimestamp value={item.occurredAt}/> · {item.sourceName}</p>
+                </article>)}
+              </div>:<p className={styles.coverage}>No new verified headline in the past 48 hours. Older sources remain searchable.</p>}
+              <div className={marketHome.panelFooter}><Link href="/newsroom">Search source feed</Link><Link href="/research">Research archive</Link></div>
+            </section>
+          </div>
+          <p className={marketHome.note}>1D/3D/5D changes use available source trading sessions. Nominal yield changes are basis points; equity and currency moves are percentages. Every reading must retain its own source timestamp.</p>
+        </section>:null}
+        {publicHost?<details className={marketHome.archive} data-home-editorial-reader="legacy-on-demand">
+            <summary>Read the previous Today format (dated news explanations)</summary>
+            {publicHost?<ProgressiveTodayReader news={verifiedNews} newsroomUpdates={newsroomUpdates} calendar={calendar} now={now} host={host}/>:null}
+          </details>:
           <DecisionBrief news={verifiedNews} recentNews={recentNews} calendar={calendar} now={now} host={host}
             postEventRecaps={postEventRecaps} storyPage={storyPage}/>}
         {publicHost?<details data-home-detailed-brief="on-demand" style={{margin:"18px 0",border:"1px solid var(--bb-line)",padding:"14px",background:"var(--bb-surface)"}}>
