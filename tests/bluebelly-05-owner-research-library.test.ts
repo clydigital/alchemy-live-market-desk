@@ -28,7 +28,7 @@ test("private and public research have visibly different navigation destinations
   const pub=nav.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0] || "";
   assert.doesNotMatch(pub,/\["Research Library", "\/owner\/research"\]/);
   const more=nav.split("const PUBLIC_MORE = [")[1]?.split("] as const;")[0] || "";
-  assert.match(more,/\["Research Library", "\/research"\]/);
+  assert.match(more,/\["Research Archive", "\/research"\]/);
   assert.doesNotMatch(more,/\["Research Library", "\/owner\/research"\]/);
   const priv=nav.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0] || "";
   assert.doesNotMatch(priv,/\["Research Library", "\/owner\/research"\]/);
