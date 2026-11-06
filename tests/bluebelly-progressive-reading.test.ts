@@ -4,7 +4,7 @@ import test from "node:test";
 
 const read=(path:string)=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 
-test("public Today presents the existing qualified stories in three reading depths",()=>{
+test("legacy Today stays as collapsed source-qualified reading rather than the homepage lead",()=>{
  const reader=read("components/blue-desk/ProgressiveTodayReader.tsx");
  const home=read("app/blue-desk/page.tsx");
  assert.match(reader,/decisionTopics\(news,calendar,now\)/);
@@ -19,6 +19,8 @@ test("public Today presents the existing qualified stories in three reading dept
  assert.match(reader,/item\.sourceUrl/);
  assert.match(reader,/selectBlueDeskUpcoming\(calendar,now,7\)\.slice\(0,3\)/);
  assert.match(home,/publicHost\?<ProgressiveTodayReader/);
+ assert.match(home,/data-home-market-first="source-dated-terminal"/);
+ assert.match(home,/data-home-editorial-reader="legacy-on-demand"/);
  assert.match(home,/data-home-detailed-brief="on-demand"/);
  assert.match(home,/data-home-archive="on-demand"/);
  assert.match(home,/!publicHost\?<CurrentMarketUpdates/);

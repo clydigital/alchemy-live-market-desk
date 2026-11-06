@@ -8,30 +8,27 @@ import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-
 import styles from "@/app/blue-desk/blue-desk.module.css";
 import chrome from "./bluebelly-chrome.module.css";
 
-// Keep the owner header task-focused. Specialist legacy routes remain reachable
-// from their workspaces, not as fifteen competing top-level destinations.
+// Three market utilities + owner CTA (outside public navigation).
+// The brand opens the compact market overview. Historical URLs remain valid.
 const PRIVATE_NAV = [
-  ["Today", "/blue-desk"],
-  ["Newsroom", "/blue-desk/newsroom"],
   ["Markets", "/markets"],
   ["Calendar", "/blue-desk/calendar"],
+  ["Watch", "/blue-desk/key-stories"],
   ["My Desk", "/my-reports"],
 ] as const;
 
-// One editorial destination and three market utilities. All historical
-// editorial research URLs remain valid; none of the secondary lenses are deleted.
 const PUBLIC_NAV = [
-  ["Today", "/"],
-  ["Newsroom", "/newsroom"],
   ["Markets", "/markets"],
   ["Calendar", "/calendar"],
+  ["Watch", "/key-stories"],
 ] as const;
 
+// Retained as source and historical reference tools, not parallel news products.
 const PUBLIC_MORE = [
-  ["Deep Dives", "/blue-desk/key-stories"],
-  ["Research Library", "/research"],
-  ["Regime Watch", "/regime-watch"],
-  ["Hormuz Watch", "/hormuz"],
+  ["Source Feed", "/newsroom"],
+  ["Research Archive", "/research"],
+  ["Regime Lenses", "/regime-watch"],
+  ["Hormuz Data", "/hormuz"],
   ["Learn", "/learn"],
 ] as const;
 
@@ -39,6 +36,11 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Live Market": "market",
   "Today": "market",
   "Newsroom": "layers",
+  "Source Feed": "research",
+  "Watch": "layers",
+  "Research Archive": "library",
+  "Regime Lenses": "divergence",
+  "Hormuz Data": "oil",
   "Hormuz Watch": "oil",
   "Regime Watch": "divergence",
   "Markets": "chart",
@@ -82,12 +84,12 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
         <span>Observed facts · working interpretations labelled separately</span>
       </div></div>
       <div className={chrome.masthead}><div className={chrome.mastInner}>
-        <Link href={blueDeskPublicHref("/blue-desk",host)} className={chrome.brand} aria-label="Bluebelly Today">
+        <Link href={blueDeskPublicHref("/blue-desk",host)} className={chrome.brand} aria-label="Bluebelly market overview">
           <span className={chrome.logoSymbol} aria-hidden="true">B</span><span className={chrome.logoText}>BLUE<span>BELLY</span></span>
           <span className={chrome.brandText}>MARKET INTELLIGENCE</span>
         </Link>
         <div className={chrome.mastRight}><ThemePreferences/><span>Markets, without the noise.</span>
-          <Link className={chrome.micro} href={blueDeskPublicHref("/blue-desk/regime-watch",host)}>Research lenses</Link>
+          <Link className={chrome.micro} href={blueDeskPublicHref("/blue-desk/newsroom",host)}>Source feed</Link>
           <Link className={chrome.micro} href="/my-reports">My Desk ↗</Link>
         </div>
       </div></div>
@@ -110,7 +112,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
           </details>:null}
         </nav>
         <form action={publicHost?"/newsroom":"/blue-desk/newsroom"} method="get" className={chrome.search} role="search">
-          <input name="q" type="search" maxLength={100} aria-label="Search public Newsroom" placeholder="Search stories, issuers, themes"/>
+          <input name="q" type="search" maxLength={100} aria-label="Search source feed" placeholder="Search releases, issuers, themes"/>
           <button type="submit" aria-label="Search Newsroom">⌕</button>
         </form>
       </div></div>
