@@ -92,6 +92,15 @@ export const OFFICIAL_PRESS_FEEDS = [
     publisher:"Meta Investor Relations",
   },
   {
+    // RSS discovery is never sufficient: require original, same-host HTML.
+    // Only policy decision pages qualify, not speeches or generic Bank news.
+    name: "Bank of England monetary-policy decisions",
+    feed: "https://www.bankofengland.co.uk/rss/news",
+    host: "www.bankofengland.co.uk",
+    path: /^\/monetary-policy-summary-and-minutes\/20[0-9]{2}\/(?:january|february|march|april|may|june|july|august|september|october|november|december)-20[0-9]{2}\/?$/i,
+    publisher: "Bank of England",
+  },
+  {
     name:"ECB monetary policy press decisions",
     feed:"https://www.ecb.europa.eu/rss/press.html",
     host:"www.ecb.europa.eu",
@@ -179,6 +188,11 @@ export function materiallyActionableOfficialHeadline(feed: Feed, headline: strin
     return /^statement by the monetary policy board:\s*monetary policy decision$/i.test(headline.trim())
       || /^statement on monetary policy decision$/i.test(headline.trim())
       || /^monetary policy decision statement$/i.test(headline.trim());
+  if (feed.host === "www.bankofengland.co.uk")
+    return /\bbank\s*rate\b/i.test(headline) &&
+      /\b(?:increased?|raised?|hiked?|decreased?|reduced?|lowered?|cut|maintained?|held|unchanged)\b/i.test(headline) &&
+      /\bmonetary policy summary and minutes\b/i.test(headline) &&
+      /\b\d+(?:\.\d+)?\s*%/.test(headline);
   if (feed.host === "www.ecb.europa.eu")
     return /^monetary policy decisions$/i.test(headline.trim()) ||
       (/\b(?:ECB|governing council|monetary policy|key interest rates?|deposit facility)\b/i.test(headline)
