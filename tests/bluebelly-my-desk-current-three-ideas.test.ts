@@ -80,7 +80,8 @@ test("My Desk no longer displays the former Drive, PDF or saved slate archives",
  const reader=read("components/blue-desk/OwnerDailyIntelligenceHome.tsx");
  const newComponent=read("components/blue-desk/OwnerDailyTopicIdeas.tsx");
  const server=read("lib/bluebelly-owner-report-led-ideas.ts");
- assert.match(page,/OwnerDailyTopicIdeas/);
+ assert.doesNotMatch(page,/OwnerDailyTopicIdeas|OwnerDailyIntelligenceHome|OwnerDailyReportAttachments/);
+ assert.match(page,/data-private-desk="source-first-market-workspace"/);
  assert.doesNotMatch(page,/OwnerEditorialSlatePdfReader|OwnerEditorialSlateHtml|DRIVE_FOLDER|EDITIONS|OwnerAutomaticReportReader|getPrivateHtmlEditions/);
  assert.match(reader,/postCutoverDailyArchive/);
  assert.doesNotMatch(reader,/Previous Daily Intelligence editions/);
