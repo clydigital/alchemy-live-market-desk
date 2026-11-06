@@ -17,6 +17,9 @@ test("homepage is a source-dated market utility before archived Today reading",(
   assert.match(home,/formatMarketChange\(row\.change3d,row\.changeUnit\)/);
   assert.match(home,/formatMarketChange\(row\.change5d,row\.changeUnit\)/);
   assert.match(home,/row\.dataStatus!=="UNAVAILABLE_OR_STALE"/);
+  assert.match(home,/row\.frequency==="daily"/);
+  assert.match(home,/observedAt<=now\.getTime\(\)/);
+  assert.match(home,/now\.getTime\(\)-observedAt<=7\*24\*60\*60\*1000/);
   assert.match(home,/DualTimestamp value=\{row\.asOf\}/);
   assert.match(home,/data-home-archive="on-demand"/);
   assert.match(home,/publicHost\?<ProgressiveTodayReader/);
