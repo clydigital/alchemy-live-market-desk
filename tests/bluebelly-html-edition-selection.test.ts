@@ -27,11 +27,11 @@ test("same original source report is shown only once and current beats equally s
  assert.equal(result.length,2);
  assert.equal(result[0].news.id,"unique");
 });
-test("My Desk retires legacy category pagination and keeps the private daily report first",()=>{
+test("My Desk retires all report UI while the saved-edition selectors stay independently tested",()=>{
  const page=readFileSync(new URL("../app/my-reports/page.tsx",import.meta.url),"utf8");
  const header=readFileSync(new URL("../components/blue-desk/BlueDeskHeader.tsx",import.meta.url),"utf8");
- assert.match(page,/OwnerDailyIntelligenceHome/);
- assert.match(page,/OwnerDailyTopicIdeas/);
+ assert.doesNotMatch(page,/OwnerDailyIntelligenceHome|OwnerDailyTopicIdeas|OwnerDailyReportAttachments/);
+ assert.match(page,/data-private-desk="source-first-market-workspace"/);
  assert.doesNotMatch(page,/PAGE_SIZE|CATEGORIES\.map|data-library-page|pageHref|data-edition-type/);
  const nav=header.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0]||"";
  assert.doesNotMatch(nav,/Writing Desk/);
