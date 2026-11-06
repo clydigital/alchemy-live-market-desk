@@ -40,26 +40,32 @@ export default async function MyBluebellyReports({searchParams}:{
      <Link href="/newsroom">Latest verified news</Link>
     </div>
     <div className={layout.hubGrid} data-my-desk-primary="market-research-shortcuts">
+     <article className={layout.hubCard} data-my-desk-power-stack-link="owner-only">
+      <span>01 / PRIVATE PORTFOLIO</span>
+      <h3>Power Stack</h3>
+      <p>Historical holdings and saved investment watchlist from the owner-only source. Snapshot dates are shown; holdings are not live broker balances.</p>
+      <Link href="/power-stack">Open private Power Stack</Link>
+     </article>
      <article className={layout.hubCard}>
-      <span>01 / MARKET MONITOR</span>
+      <span>02 / MARKET MONITOR</span>
       <h3>Markets &amp; breadth</h3>
       <p>Source-dated instruments, sector moves and yield comparisons where observations are available.</p>
       <Link href="/markets">Open Markets</Link>
      </article>
      <article className={layout.hubCard}>
-      <span>02 / EVIDENCE</span>
+      <span>03 / EVIDENCE</span>
       <h3>Research Library</h3>
       <p>Inspect source receipts and archived research without starting a duplicate daily report.</p>
       <Link href="/owner/research">Open Research Library</Link>
      </article>
      <article className={layout.hubCard}>
-      <span>03 / CREATOR SIGNALS</span>
+      <span>04 / CREATOR SIGNALS</span>
       <h3>X Wire</h3>
       <p>Review creator and social observations as leads, separate from original-source verification.</p>
       <Link href="/owner/x-wire">Review X Wire</Link>
      </article>
      <article className={layout.hubCard}>
-      <span>04 / ANALYSIS TOOLS</span>
+      <span>05 / ANALYSIS TOOLS</span>
       <h3>Market Tools</h3>
       <p>Access existing authenticated market utilities and technical checks.</p>
       <Link href="/market-tools">Open Market Tools</Link>
@@ -68,7 +74,7 @@ export default async function MyBluebellyReports({searchParams}:{
 
     <div className={layout.hubNote} data-my-desk-portfolio-status="not-verified">
      <p><strong>ChatGPT-first research:</strong> use the installed Bluebelly Read-Only Desk plugin for dated evidence and the existing writing workflows for article preparation. No new research schedule is started here.</p>
-     <p><strong>Portfolio:</strong> holdings are not displayed until an authenticated source and complete readback are verified. The Markets page remains available independently.</p>
+     <p><strong>Portfolio:</strong> the private Power Stack view now supports owner-scoped historical snapshots. Current quantities, account balances and prices are not independently broker-reconciled. The public Markets page remains independent.</p>
     </div>
    </section>
   </div>

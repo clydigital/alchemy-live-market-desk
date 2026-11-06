@@ -31,7 +31,7 @@ test("Owner header limits direct destinations; research, X Wire and tools live i
  const direct=navLinks("PRIVATE_NAV");
  assert.deepEqual(direct.map(x=>x.label),["Markets","Calendar","Watch","My Desk"]);
  assert.ok(direct.length<=5);
- for(const path of ["/my-reports","/owner/research","/owner/x-wire","/market-tools"]){
+ for(const path of ["/my-reports","/power-stack","/owner/research","/owner/x-wire","/market-tools"]){
   assert.equal(blueDeskHostAccess(path,"bluebelly-desk.vercel.app"),"private",path);
  }
  assert.equal(blueDeskHostAccess("/owner/daily-report","bluebelly-desk.vercel.app"),"private");

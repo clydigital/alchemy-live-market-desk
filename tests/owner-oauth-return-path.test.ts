@@ -8,6 +8,7 @@ test("Google OAuth returns to an internal owner route and preserves valid deep l
   assert.equal(safeOwnerReturnPath(""), "/my-reports");
   assert.equal(safeOwnerReturnPath("/"), "/");
   assert.equal(safeOwnerReturnPath("/owner/live"), "/owner/live");
+  assert.equal(safeOwnerReturnPath("/power-stack"), "/power-stack");
   assert.equal(safeOwnerReturnPath("/dossier?edition=abc#test"), "/dossier?edition=abc#test");
   assert.equal(safeOwnerReturnPath("/owner/live?source=https%3A%2F%2Fexample.com"), "/owner/live?source=https%3A%2F%2Fexample.com");
 });
