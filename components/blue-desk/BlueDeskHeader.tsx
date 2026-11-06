@@ -11,30 +11,24 @@ import chrome from "./bluebelly-chrome.module.css";
 // Keep the owner header task-focused. Specialist legacy routes remain reachable
 // from their workspaces, not as fifteen competing top-level destinations.
 const PRIVATE_NAV = [
-  ["Live Market", "/blue-desk"],
-  ["Key Stories", "/blue-desk/key-stories"],
+  ["Today", "/blue-desk"],
+  ["Newsroom", "/blue-desk/newsroom"],
   ["Markets", "/markets"],
-  ["My Desk", "/my-reports"],
-  ["Research Library", "/owner/research"],
-  ["Market Tools", "/market-tools"],
-  ["X Wire", "/owner/x-wire"],
   ["Calendar", "/blue-desk/calendar"],
-  ["Learn", "/blue-desk/learn"],
+  ["My Desk", "/my-reports"],
 ] as const;
 
-// Public reading sections do not duplicate the full owner Daily Intelligence.
-// My Desk stays session-gated; legacy Daily Report bookmarks redirect safely.
+// One editorial destination and three market utilities. All historical
+// editorial research URLs remain valid; none of the secondary lenses are deleted.
 const PUBLIC_NAV = [
   ["Today", "/"],
   ["Newsroom", "/newsroom"],
-  ["Key Stories", "/blue-desk/key-stories"],
   ["Markets", "/markets"],
   ["Calendar", "/calendar"],
-  ["My Desk", "/my-reports"],
 ] as const;
 
-// Secondary destinations remain available without nine competing header links.
 const PUBLIC_MORE = [
+  ["Deep Dives", "/blue-desk/key-stories"],
   ["Research Library", "/research"],
   ["Regime Watch", "/regime-watch"],
   ["Hormuz Watch", "/hormuz"],
@@ -49,6 +43,7 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Regime Watch": "divergence",
   "Markets": "chart",
   "Deep Dive": "deep-dive",
+  "Deep Dives": "deep-dive",
   "Research": "research",
   "Research Library": "research",
   "Market Tools": "chart",
