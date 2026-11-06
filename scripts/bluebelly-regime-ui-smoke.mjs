@@ -191,7 +191,7 @@ try{
   if(id!=="markets")
    await renderChrome("http://127.0.0.1:"+PUBLIC+path,id+"-mobile.png",390,844,{disableJavascript:id==="key-stories"||id==="market-home"});
   if(id==="newsroom"||id==="key-stories"||id==="market-home")
-   await renderChrome("http://127.0.0.1:"+PUBLIC+path,id+"-desktop.png",1440,1000,{disableJavascript:id==="key-stories"||id==="today"});
+   await renderChrome("http://127.0.0.1:"+PUBLIC+path,id+"-desktop.png",1440,1000,{disableJavascript:id==="key-stories"||id==="market-home"});
   console.log("Public CP page "+path+" "+view.status+" · mobile render saved");
  }
 
