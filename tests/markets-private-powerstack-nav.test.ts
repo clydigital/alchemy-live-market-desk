@@ -18,7 +18,7 @@ test("Power Stack is a single owner-only route; anonymous Markets remains separa
  assert.doesNotMatch(nav,/Power Stack/);
  const more=header.split("const PUBLIC_MORE = [")[1]?.split("] as const;")[0]||"";
  assert.doesNotMatch(more,/Power Stack/);
- assert.match(read("app/my-reports/page.tsx"),/href="\\/power-stack"/);
+ assert.ok(read("app/my-reports/page.tsx").includes('href="/power-stack"'));
  assert.doesNotMatch(read("app/blue-desk/markets/page.tsx"),/power.?stack|OwnerPortfolio|data-market-private-link/i);
 });
 test("Canonical Bluebelly intake and daily brief do not import Power Stack research",()=>{
