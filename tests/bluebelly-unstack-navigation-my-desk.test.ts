@@ -10,15 +10,14 @@ const navLinks=(kind:"PRIVATE_NAV"|"PUBLIC_NAV"|"PUBLIC_MORE")=>{
  return [...section.matchAll(/\["([^"]+)",\s*"([^"]+)"\]/g)].map(match=>({label:match[1],href:match[2]}));
 };
 
-test("Unstacked Bluebelly exposes exactly four public destinations with owner CTA outside nav",()=>{
+test("Unstacked Bluebelly exposes three market-first utilities with owner CTA outside nav",()=>{
  assert.deepEqual(navLinks("PUBLIC_NAV"),[
-  {label:"Today",href:"/"},
-  {label:"Newsroom",href:"/newsroom"},
   {label:"Markets",href:"/markets"},
   {label:"Calendar",href:"/calendar"},
+  {label:"Watch",href:"/key-stories"},
  ]);
- assert.ok(navLinks("PUBLIC_MORE").some(x=>x.label==="Deep Dives"&&x.href==="/blue-desk/key-stories"));
- assert.ok(navLinks("PUBLIC_MORE").some(x=>x.label==="Research Library"&&x.href==="/research"));
+ assert.ok(navLinks("PUBLIC_MORE").some(x=>x.label==="Source Feed"&&x.href==="/newsroom"));
+ assert.ok(navLinks("PUBLIC_MORE").some(x=>x.label==="Research Archive"&&x.href==="/research"));
  assert.match(header,/href="\/my-reports">My Desk/);
  for(const link of navLinks("PUBLIC_NAV")){
   assert.equal(blueDeskHostAccess(link.href,"bluebelly-desk.vercel.app"),"public");
@@ -30,7 +29,7 @@ test("Unstacked Bluebelly exposes exactly four public destinations with owner CT
 
 test("Owner header limits direct destinations; research, X Wire and tools live inside My Desk",()=>{
  const direct=navLinks("PRIVATE_NAV");
- assert.deepEqual(direct.map(x=>x.label),["Today","Newsroom","Markets","Calendar","My Desk"]);
+ assert.deepEqual(direct.map(x=>x.label),["Markets","Calendar","Watch","My Desk"]);
  assert.ok(direct.length<=5);
  for(const path of ["/my-reports","/owner/research","/owner/x-wire","/market-tools"]){
   assert.equal(blueDeskHostAccess(path,"bluebelly-desk.vercel.app"),"private",path);
