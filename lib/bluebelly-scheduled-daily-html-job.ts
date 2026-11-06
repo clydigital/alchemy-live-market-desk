@@ -19,6 +19,7 @@ import {assembleAutomaticReportEvidence,buildAutomaticReportModelPrompt,
  parseAutomatedReportNarrative,reportEvidenceReady,type AutomaticReportEvidence,
  type AutomatedReportNarrative} from "./blue-desk-automated-report-contract";
 import {renderScheduledDailyHtml} from "./bluebelly-scheduled-daily-html";
+import {scheduledDailyHtmlFallbackEnabled} from "./bluebelly-daily-html-fallback-gate";
 
 type Result={status:"ready"|"reused"|"stale"|"withheld"|"locked"|"failed";
  reportDay?:string;id?:string;mode?:string;reason?:string;qualified?:number};
@@ -36,8 +37,7 @@ export async function runPrivateDailyHtmlFallback(
  const secret=process.env.CRON_SECRET?.trim();
  if(!secret||!acceptsResearchAuthorization(request.headers.get("authorization"),[secret]))
   return {status:"locked",reason:"unauthorised"};
- if(process.env.NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED!=="true"
-   ||process.env.BLUEBELLY_DAILY_HTML_FALLBACK_DISABLED==="true")
+ if(!scheduledDailyHtmlFallbackEnabled(process.env))
   return {status:"locked",reason:"schedule_disabled"};
  if(!timeGate(now))return {status:"locked",reason:"outside_existing_morning_handoff"};
  const day=expectedCompletedUsWeekdaySessionDay(now);
