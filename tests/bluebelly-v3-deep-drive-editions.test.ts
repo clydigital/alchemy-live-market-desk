@@ -12,7 +12,7 @@ test("legacy 27 October Drive editions are absent from the new My Desk archive",
  "16aWhqFWKZbglodASWyAUN2gkXDkCjKV1",
  "1SEhaX-h-vSYGpLiHqlnGLKOlGO8f7kPe"])
   assert.ok(!s.includes(id),"Old Drive edition must not appear on My Desk "+id);
- assert.match(s,/OwnerDailyTopicIdeas/);
+ assert.doesNotMatch(s,/OwnerDailyTopicIdeas|OwnerDailyIntelligenceHome/);
  assert.doesNotMatch(s,/PAGE_SIZE|data-library-page|CATEGORIES|drive.google.com/);
 });
 test("deep-report contract gives creator, market and article engines separate source gates",()=>{
@@ -29,8 +29,8 @@ test("V3 private archive does not change public host or legacy owner PDF auth bo
  assert.equal(blueDeskHostAccess("/my-reports","bluebelly-desk.vercel.app"),"private");
  assert.equal(blueDeskHostAccess("/my-reports","alchemy-live-market-desk.vercel.app"),"private");
  assert.doesNotMatch(page,/data-my-desk-pdf-legacy|OwnerAutomaticReportReader|OwnerEditorialSlatePdfReader/);
- assert.match(page,/<OwnerDailyIntelligenceHome\/>/);
- assert.match(page,/<OwnerDailyTopicIdeas\/>/);
+ assert.doesNotMatch(page,/OwnerDailyIntelligenceHome|OwnerDailyTopicIdeas|OwnerDailyReportAttachments/);
+ assert.match(page,/data-private-desk="source-first-market-workspace"/);
  assert.match(page,/robots:\{index:false,follow:false\}/);
  assert.doesNotMatch(page,/createSupabaseAdminClient|generateContent\(/);
 });

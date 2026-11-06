@@ -95,7 +95,7 @@ test("Newsroom and Today share already-reviewed releases, with source and consen
  assert.equal(withExactSource.some(x=>x.id==="macro-release:"+macro[0].id),false);
 });
 
-test("the duplicate public reader retires to Newsroom, while private My Desk remains the canonical full report",()=>{
+test("duplicate public report retires to Newsroom while old reports remain protected and out of owner navigation",()=>{
  const host="bluebelly-desk.vercel.app",live="alchemy-live-market-desk.vercel.app";
  assert.equal(blueDeskHostAccess("/daily-report",host),"public");
  assert.equal(blueDeskHostAccess("/owner/daily-report",host),"private");
@@ -114,7 +114,9 @@ test("the duplicate public reader retires to Newsroom, while private My Desk rem
  assert.ok(middleware.includes("request.nextUrl.searchParams.has(key)"));
  const publicNav=nav.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0]||"";
  assert.ok(!publicNav.includes('["Daily Report", "/daily-report"]'));
- assert.ok(publicNav.includes('["My Desk", "/my-reports"]'));
+ assert.ok(!publicNav.includes('["My Desk", "/my-reports"]'));
+ assert.match(nav,/href="\/my-reports">My Desk/);
+ assert.doesNotMatch(src("app/my-reports/page.tsx"),/OwnerDailyIntelligenceHome|OwnerDailyTopicIdeas/);
  const newsroom=src("app/blue-desk/newsroom/page.tsx");
  const wire=src("components/blue-desk/BluebellyNewsWire.tsx");
  assert.doesNotMatch(newsroom,/NewsroomReleaseRail|data-newsroom-release-rail/);

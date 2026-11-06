@@ -52,6 +52,10 @@ export default async function NewsroomPage({searchParams}:Props){
   <BlueDeskHeader activePath="/blue-desk/newsroom"/>
     {!isBlueDeskPublicReaderHost(host)?<CurrentMarketUpdates host={host} mode="full" now={now}/>:null}
   <div className={desk.content}>
+    <nav className={ui.newsroomDepthNav} aria-label="Newsroom reading depth" data-newsroom-deep-dives="single-editorial-destination">
+      <span aria-current="page">Latest verified news</span>
+      <Link href={readerHref}>Deep Dives · Key Stories</Link>
+    </nav>
     {Object.values(sourceFeed.sourceReads).includes("UNAVAILABLE")?
       <p role="status">Verified-news coverage is degraded: at least one original-source reader is unavailable. This is not a confirmed quiet market.</p>:
       !news.length?<p role="status">No source-qualified news events in this reader window. This does not establish that markets are quiet.</p>:null}

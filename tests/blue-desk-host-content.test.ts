@@ -130,8 +130,9 @@ test("Bluebelly My Reports enclave is login-protected and nothing else gains own
  assert.ok(pdf.includes('app_access_allowlist'));
  assert.ok(pdf.includes('data.pdf_path!==exact'));
  const page=readFileSync(new URL("../app/my-reports/page.tsx",import.meta.url),"utf8");
- assert.ok(page.includes("<OwnerDailyIntelligenceHome/>"));
- assert.ok(page.includes("<OwnerDailyTopicIdeas/>"));
+ assert.ok(!page.includes("<OwnerDailyIntelligenceHome/>"));
+ assert.ok(!page.includes("<OwnerDailyTopicIdeas/>"));
+ assert.ok(page.includes('data-private-desk="source-first-market-workspace"'));
  assert.ok(!page.includes("<OwnerAutomaticReportReader/>"));
  assert.ok(!page.includes("ReportPublisher"));
  assert.ok(page.includes("index:false,follow:false"));
@@ -142,8 +143,10 @@ test("Bluebelly My Reports enclave is login-protected and nothing else gains own
  const pubnav=header.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0]||"";
  const privnav=header.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0]||"";
  assert.ok(privnav.includes('["My Desk", "/my-reports"]'),"Show authenticated My Desk link");
- assert.ok(privnav.includes('["Research Library", "/owner/research"]'),"Show authenticated Research Library link");
- assert.ok(pubnav.includes('["My Desk", "/my-reports"]'),"My Desk is visibly linked but remains session-gated");
+ assert.ok(!privnav.includes('["Research Library", "/owner/research"]'),"Owner research belongs inside My Desk");
+ assert.ok(page.includes('href="/owner/research"'),"My Desk retains the authenticated research route");
+ assert.ok(!pubnav.includes('["My Desk", "/my-reports"]'),"Owner link should not take a main public tab");
+ assert.ok(header.includes('href="/my-reports">My Desk'),"Masthead retains session-gated entry");
  assert.ok(!pubnav.includes("Presenter Prep"));
  assert.equal(blueDeskHostAccess("/my-reports",host),"private");
  assert.equal(blueDeskHostAccess("/owner/research",host),"private");

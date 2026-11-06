@@ -15,3 +15,9 @@
 
 .featureLead{background:var(--bb-surface);border-color:var(--bb-heading-newsroom)}
 .featureLead h2{color:var(--bb-heading-newsroom)}
+
+.newsroomDepthNav{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 0 18px}
+.newsroomDepthNav span,.newsroomDepthNav a{padding:10px 14px;min-height:40px;display:inline-flex;align-items:center;border:1px solid var(--bb-card-border);border-radius:8px;font-size:12px;font-weight:800;text-decoration:none}
+.newsroomDepthNav span{background:var(--bb-raised);color:var(--bb-text);border-color:var(--bb-accent)}
+.newsroomDepthNav a{color:var(--bb-accent);background:var(--bb-card-quiet)}
+.newsroomDepthNav a:focus-visible{outline:2px solid var(--bb-accent);outline-offset:3px}

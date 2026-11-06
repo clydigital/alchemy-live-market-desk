@@ -29,12 +29,11 @@ test("distinct corrections retain separate hashes and latest report day wins",()
  assert.deepEqual(result.editions.map(x=>x.id),[newer.id,revised.id,base.id]);
  assert.equal(result.duplicatesHidden,0);
 });
-test("My Desk puts the latest report before inline suggestions and removes old archives",()=>{
+test("My Desk retires visible daily report but preserves the protected archive reader",()=>{
  const p=read("app/my-reports/page.tsx");
- const main=p.indexOf("<OwnerDailyIntelligenceHome/>");
- const ideas=p.indexOf("<OwnerDailyTopicIdeas/>");
- assert.ok(main>0&&ideas>main);
- assert.match(p,/data-my-desk-secondary="daily-report-to-ob-cotd"/);
+ assert.doesNotMatch(p,/OwnerDailyIntelligenceHome|OwnerDailyTopicIdeas|OwnerDailyReportAttachments/);
+ assert.match(p,/data-private-desk="source-first-market-workspace"/);
+ assert.match(p,/data-my-desk-primary="market-research-shortcuts"/);
  assert.doesNotMatch(p,/OwnerEditorialSlateHtml|legacy-drive-and-research|manual-research|OwnerEditorialSlatePdfReader/);
  const reader=read("components/blue-desk/OwnerDailyIntelligenceHome.tsx");
  assert.match(reader,/postCutoverDailyArchive\(previous\)/);

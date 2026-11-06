@@ -22,7 +22,8 @@ test("Owner Research Library stays private while separately approved editorial R
 });
 test("private and public research have visibly different navigation destinations",()=>{
   const nav=read("components/blue-desk/BlueDeskHeader.tsx");
-  assert.match(nav,/\["Research Library", "\/owner\/research"\]/);
+  assert.doesNotMatch(nav.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0]||"",/\["Research Library", "\/owner\/research"\]/);
+  assert.match(read("app/my-reports/page.tsx"),/href="\/owner\/research"/);
   assert.match(nav,/activePath === "\/owner\/research"/);
   const pub=nav.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0] || "";
   assert.doesNotMatch(pub,/\["Research Library", "\/owner\/research"\]/);
@@ -30,7 +31,8 @@ test("private and public research have visibly different navigation destinations
   assert.match(more,/\["Research Library", "\/research"\]/);
   assert.doesNotMatch(more,/\["Research Library", "\/owner\/research"\]/);
   const priv=nav.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0] || "";
-  assert.match(priv,/\["Research Library", "\/owner\/research"\]/);
+  assert.doesNotMatch(priv,/\["Research Library", "\/owner\/research"\]/);
+  assert.match(read("app/my-reports/page.tsx"),/href="\/owner\/research"/);
   assert.equal(blueDeskHostAccess("/owner/research","bluebelly-desk.vercel.app"),"private");
 });
 test("Research Library uses preexisting private read-only Notion intake and exposes provenance",()=>{

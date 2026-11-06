@@ -79,8 +79,8 @@ test("private Drive receipts keep PDF proof and no public browser grants",()=>{
  assert.match(sql,/revoke all on public\.blue_desk_automated_reports from anon,authenticated/);
  assert.match(sql,/unique\(report_day,slot,report_kind,edition_key\)/);
  const source=readFileSync(new URL("../app/my-reports/page.tsx",import.meta.url),"utf8");
- assert.match(source,/OwnerDailyIntelligenceHome/);
- assert.match(source,/OwnerDailyTopicIdeas/);
+ assert.doesNotMatch(source,/OwnerDailyIntelligenceHome|OwnerDailyTopicIdeas|OwnerDailyReportAttachments/);
+ assert.match(source,/data-private-desk="source-first-market-workspace"/);
  assert.doesNotMatch(source,/getPrivateHtmlEditions|getOwnerMaterialRecall|data-material-editorial-recall/);
 });
 test("existing research cadence invokes X on 2 existing slots only",()=>{

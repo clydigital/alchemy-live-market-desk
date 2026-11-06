@@ -62,5 +62,6 @@ test("Homepage has no fixed October manual feature slot and links to historical 
  assert.doesNotMatch(home,/data-featured-manual-research="two-independent-stories"/);
  assert.doesNotMatch(home,/DEEP RESEARCH · 27 OCTOBER 2026 SNAPSHOT/);
  assert.match(nav,/const PUBLIC_MORE = \[[\s\S]*?\["Research Library", "\/research"\]/);
- assert.match(nav,/\["Research Library", "\/owner\/research"\]/);
+ assert.match(read("app/my-reports/page.tsx"),/href="\/owner\/research"/);
+ assert.doesNotMatch(nav.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0]||"",/\["Research Library", "\/owner\/research"\]/);
 });

@@ -13,7 +13,8 @@ test("Bluebelly private PDF handoff panel only reads actual persisted research",
  assert.ok(panel.includes("INVOCATIONS NOT AUDITABLE"));
  assert.ok(panel.includes("NO AUTOMATIC PDF HANDOFF"));
  assert.ok(panel.includes("data-private-report-handoff-health"));
- assert.ok(page.includes("<OwnerPrivatePdfInputHealth/>"));
+ assert.ok(!page.includes("<OwnerPrivatePdfInputHealth/>"));
+ assert.ok(page.includes('data-private-desk="source-first-market-workspace"'));
  assert.ok(!read("app/blue-desk/daily-report/page.tsx").includes("OwnerPrivatePdfInputHealth"));
  assert.ok(read("components/blue-desk/BlueDeskHeader.tsx").includes('"My Desk", "/my-reports"'));
 });
