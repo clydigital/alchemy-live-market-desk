@@ -117,10 +117,15 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   // Reuse the existing source-dated monitor; no new provider call or inferred prices.
   const marketRows=publicMarketObservations(monitor?.rows||[],"all");
   const marketTypes=["Major Index","Rates","FX","Energy","Metal","AI / Semis"] as const;
-  const marketHighlights=marketTypes.map(kind=>marketRows.find(row=>
-    row.type===kind && row.last!==null && row.asOf!==null &&
-    row.dataStatus!=="UNAVAILABLE_OR_STALE"
-  )).filter((row):row is NonNullable<typeof row>=>Boolean(row));
+  // A stored last price is not a fresh quote. Allow a weekend/holiday window,
+  // but never show future timestamps, monthly values or data older than 7 days.
+  const marketHighlights=marketTypes.map(kind=>marketRows.find(row=>{
+    const observedAt=row.asOf?Date.parse(row.asOf):Number.NaN;
+    return row.type===kind && row.frequency==="daily" && row.last!==null &&
+      Number.isFinite(observedAt) && observedAt<=now.getTime() &&
+      now.getTime()-observedAt<=7*24*60*60*1000 &&
+      row.dataStatus!=="UNAVAILABLE_OR_STALE";
+  })).filter((row):row is NonNullable<typeof row>=>Boolean(row));
 
 
   return (
