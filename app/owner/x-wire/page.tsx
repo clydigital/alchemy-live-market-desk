@@ -40,7 +40,7 @@ export default async function OwnerXWirePage({searchParams}:{
         <div><strong>{absorption?.historicalGaps??"—"}</strong><span>Unresolved source-history gaps</span></div>
       </div>
       <aside className={styles.caution} role="note">
-        <strong>Discovery is not verification.</strong>
+        <strong>Third-party discovery is not verification.</strong>
         <p>Stored X posts and research intake records do not prove the social claims. Provider retries and historical gaps remain visible. Existing scheduled research jobs own ingestion and editorial promotion; navigating pages never triggers another scan.</p>
       </aside>
       <section className={styles.filters} aria-label="Search X Wire">
