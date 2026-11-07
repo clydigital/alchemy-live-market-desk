@@ -1,4 +1,5 @@
 import { fetchJinaReader } from "../acquisition/jina-reader.ts";
+import { BLS_LABOUR_EXTRA_IDS, parseBlsLabourComposition, type BlsLabourComposition } from "./bls-labour-composition.ts";
 import {beaPceReleaseUrl,parseBeaPceActual,parseOfficialBeaPceMetricRows} from "./bea-pce-actual.ts";
 import {getOriginalBeaPceSchedule} from "./official-bea-pce-schedule.ts";
 import { getEconomicCalendar, type EconomicCalendarEvent } from "../calendar.ts";
@@ -21,6 +22,7 @@ export type OfficialActualResolution = {
   actual: string;
   sourceUrl: string;
   previousCpiMetrics?: CpiPreviousValues;
+  labourComposition?: BlsLabourComposition;
   previous?:string|null;
   releasedAt?:string;
 };
@@ -74,6 +76,7 @@ const EMPLOYMENT_SITUATION_SERIES = [
   "LNS14000000",
   "LNS11300000",
   "CES0500000003",
+  ...BLS_LABOUR_EXTRA_IDS,
 ] as const;
 const OFFICIAL_RELEASE_SEED_LOOKBACK_DAYS = 14;
 const OFFICIAL_RELEASE_SEED_FORWARD_DAYS = 45;
@@ -199,7 +202,8 @@ async function resolveBlsApiActual(release: OfficialMacroRelease, fetcher: typeo
   if (payload.status !== "REQUEST_SUCCEEDED") {
     throw new Error(`BLS Public Data API request failed${payload.message?.length ? `: ${payload.message.join(" ")}` : "."}`);
   }
-  const series = new Map((payload.Results?.series ?? []).map((item) => [item.seriesID, item]));
+  const sourceSeries = payload.Results?.series ?? [];
+  const series = new Map(sourceSeries.map((item) => [item.seriesID, item]));
   const priorMonth = previousMonth(reference);
 
   if (/consumer price index/i.test(release.release_name)) {
@@ -279,6 +283,7 @@ async function resolveBlsApiActual(release: OfficialMacroRelease, fetcher: typeo
         `AHE ${earningsYoy}% y/y`,
       ].join("; "),
       sourceUrl,
+      labourComposition: parseBlsLabourComposition(sourceSeries, reference.year, reference.month),
     };
   }
 
@@ -617,6 +622,70 @@ async function seedMissingOfficialMacroReleases(
   return missing.length;
 }
 
+/**
+ * BLS-owned labour metrics. Insert missing metrics only: never overwrite a
+ * frozen pre-release forecast, existing as-observed metric or earlier API
+ * vintage with a later revision. A later-vintage backfill can only run after
+ * matching the existing official headline; it remains labelled reconstructed.
+ */
+export async function upsertOfficialJobsMetrics(
+  client: ReturnType<typeof createSupabaseAdminClient>,
+  release: OfficialMacroRelease,
+  resolved: OfficialActualResolution,
+  fetchedAt: string,
+  reconstructed = false,
+) {
+  if (!/employment situation|nonfarm payroll/i.test(release.release_name)) return 0;
+  const composition = resolved.labourComposition;
+  if (!composition) throw new Error("BLS_LABOUR_COMPOSITION_UNAVAILABLE");
+  const reference = release.reference_period || composition.referencePeriod;
+  const rows = [
+    ...composition.sectors.map(sector => ({
+      release_id: release.id,
+      metric_key: "employment_sector_" + sector.key + "_net_change",
+      label: sector.label + " employment (monthly change)",
+      transformation: "change",
+      unit: "thousand",
+      actual: sector.changeK,
+      source_url: resolved.sourceUrl,
+      retrieved_at: fetchedAt,
+      metadata: {
+        provider: "BLS", sourceSeriesId: sector.seriesId,
+        sourceSurvey: "CES", sourceUnit: "thousands",
+        seasonallyAdjusted: true, referencePeriod: reference,
+        currentLevelK: sector.currentLevelK, previousLevelK: sector.previousLevelK,
+        sourceVintage: "current_api_vintage", reconstructedAfterRelease: reconstructed,
+      },
+    })),
+    ...composition.conditions.map(condition => ({
+      release_id: release.id,
+      metric_key: "labour_" + condition.key,
+      label: condition.label,
+      transformation: "level",
+      unit: condition.unit,
+      actual: condition.current,
+      previous: condition.previous,
+      source_url: resolved.sourceUrl,
+      retrieved_at: fetchedAt,
+      metadata: {
+        provider: "BLS", sourceSeriesId: condition.seriesId,
+        sourceSurvey: condition.key === "u6_rate" ? "CPS" : "CES",
+        seasonallyAdjusted: true, referencePeriod: reference,
+        sourceVintage: "current_api_vintage", reconstructedAfterRelease: reconstructed,
+      },
+    })),
+  ];
+  if (!rows.length) throw new Error("BLS_LABOUR_ALL_SERIES_MISSING");
+  const { error } = await client.from("macro_release_metrics").upsert(rows, {
+    onConflict: "release_id,metric_key", ignoreDuplicates: true,
+  });
+  if (error) throw new Error("BLS_LABOUR_METRICS_INSERT_FAILED: " + error.message);
+  // Never claim full sector coverage when a provider omitted even one sector.
+  // The reader should calculate aggregate breadth ONLY from 14 nonoverlapping
+  // sector rows with an exact reference period, not from partial lists.
+  return rows.length;
+}
+
 /** Preserve a stored, independently sourced consensus on conflict: this method
  * writes only official BLS actual and previously published comparison readings. */
 export async function upsertOfficialCpiMetrics(
@@ -769,6 +838,52 @@ async function recoverCompletedCpiMetrics(
 
 
 /**
+ * Bounded repair for a completed recent NFP whose sector metrics were not
+ * present in older deployments. No extra cron or unbounded historical sweep.
+ * Comparing the exact saved headline prevents passing off a revised API
+ * observation as the original release's composition.
+ */
+async function recoverCompletedJobsMetrics(
+  client: ReturnType<typeof createSupabaseAdminClient>,
+  now: Date,
+  fetcher: typeof fetch,
+) {
+  const since = new Date(now.getTime() - 10 * 86_400_000).toISOString();
+  const { data, error } = await client.from("macro_releases")
+    .select("id,release_name,agency,release_date,reference_period,actual,status,source_url")
+    .gte("release_date", since).lte("release_date", now.toISOString())
+    .eq("status", "completed").not("actual", "is", null)
+    .ilike("release_name", "%employment situation%")
+    .order("release_date", { ascending: false }).limit(2);
+  if (error) throw new Error("BLS labour recovery lookup failed: " + error.message);
+  if (!data?.length) return { restored: 0, warnings: [] as string[] };
+  const { data: present, error: readError } = await client.from("macro_release_metrics")
+    .select("release_id,metric_key").in("release_id", data.map(r => r.id));
+  if (readError) throw new Error("BLS labour metric coverage lookup failed: " + readError.message);
+  let restored = 0;
+  const warnings: string[] = [];
+  for (const row of data as OfficialMacroRelease[]) {
+    if (row.agency !== "U.S. Bureau of Labor Statistics"
+      || row.source_url !== officialActualSourceUrl(row)) continue;
+    const sectorCount = (present ?? []).filter(m => m.release_id === row.id
+      && m.metric_key.startsWith("employment_sector_")
+      && m.metric_key.endsWith("_net_change")).length;
+    if (sectorCount === 14) continue;
+    try {
+      const resolved = await resolveBlsApiActual(row, fetcher);
+      if (resolved.actual !== row.actual || resolved.sourceUrl !== row.source_url) {
+        warnings.push(row.id + ": BLS_LABOUR_LATER_VINTAGE_HEADLINE_MISMATCH");
+        continue;
+      }
+      restored += await upsertOfficialJobsMetrics(client, row, resolved, now.toISOString(), true);
+    } catch (cause) {
+      warnings.push(row.id + ": " + (cause instanceof Error ? cause.message : String(cause)));
+    }
+  }
+  return { restored, warnings };
+}
+
+/**
  * Late evidence backfill: a completed official JOLTS release might have only
  * its headline actual because the old adapter did not write the previous
  * month. Recheck the exact BLS series and original, then write ONLY the missing
@@ -893,6 +1008,7 @@ export async function ingestOfficialMacroActuals(options: {
       try {
         metricCount += await upsertOfficialCpiMetrics(client, release, resolved, attemptedAt);
         metricCount += await upsertOfficialBeaPceMetrics(client, release, resolved, attemptedAt);
+        metricCount += await upsertOfficialJobsMetrics(client, release, resolved, attemptedAt);
       } catch (cause) {
         // A successful official release must not be marked as missing merely
         // because its separate component-metric enrichment failed.
@@ -920,6 +1036,9 @@ export async function ingestOfficialMacroActuals(options: {
   const beaRecovery = await recoverCompletedBeaPceMetrics(client, now);
   metricCount += beaRecovery.restored;
   metricWarnings.push(...beaRecovery.warnings);
+  const jobsRecovery = await recoverCompletedJobsMetrics(client, now, options.fetcher ?? fetch);
+  metricCount += jobsRecovery.restored;
+  metricWarnings.push(...jobsRecovery.warnings);
   const joltsRecovery = await recoverCompletedJoltsPrevious(client, now, options.fetcher ?? fetch);
   metricWarnings.push(...joltsRecovery.warnings);
 
@@ -933,7 +1052,7 @@ export async function ingestOfficialMacroActuals(options: {
     note: (attempted
       ? `${completed}/${attempted} supported overdue official Actuals ingested; ${failed} remain retryable; ${seeded} missing official schedule row(s) seeded.`
       : `No supported overdue official Actuals required ingestion; ${seeded} missing official schedule row(s) seeded.`)
-      + ` CPI/BEA component metrics written: ${metricCount}; JOLTS prior fields recovered: ${joltsRecovery.restored}.`
+      + ` Official CPI/BEA/labour metrics satisfied: ${metricCount}; labour backfill: ${jobsRecovery.restored}; JOLTS prior fields recovered: ${joltsRecovery.restored}.`
       + (officialBea.attempted?` BEA original schedule pages readable: ${officialBea.read}/${officialBea.attempted}; verified PCE dates: ${officialBea.events.length}.`:"")
       + (metricWarnings.length ? ` Metric coverage warnings: ${metricWarnings.join(" | ").slice(0,800)}` : ""),
   };
