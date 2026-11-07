@@ -1,4 +1,7 @@
 # Bluebelly Writing Brain — source-first, report-optional handoff
+
+> **LEGACY / SUPERSEDED FOR NEW OUTPUT (NOTION-FIRST · 8 NOV 2026):** The historical three-idea Supabase slate and associated PDF/report handoffs below are preserved for audit and old-reader compatibility. The active on-demand editorial workflow now develops living theses in [Notion](https://app.notion.com/p/411519b67a9481fcb612c2d975d7f31d), governed by [the 8 November contract](./BLUEBELLY_WRITING_BRAIN_NOTION_FIRST_20261108.md). No new Writing Brain slate, report-parent dependency, schedule or automatic publication is required.
+
 **6 November 2026 · S4 unstacking decision**
 
 ## Scope
