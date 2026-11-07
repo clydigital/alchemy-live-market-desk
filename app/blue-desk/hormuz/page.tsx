@@ -6,6 +6,7 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import HormuzCrossings from "@/components/blue-desk/HormuzCrossings";
 import HormuzSituationBrief from "@/components/blue-desk/HormuzSituationBrief";
 import {getHormuzWireLeads} from "@/lib/bluebelly-hormuz-x-wire-server";
+import {readBluebellyQualifiedNews} from "@/lib/bluebelly-verified-event-server";
 import {getGlobalFlowMonitor} from "@/lib/global-flow-monitor";
 import {getHormuzMonitor} from "@/lib/hormuz-monitor";
 import {getHormuzIncidents} from "@/lib/bluebelly-hormuz-incidents";
@@ -40,10 +41,10 @@ function reading(tile:HormuzWatchTile){
 }
 export default async function HormuzTracker(){
  const now=new Date(),host=(await headers()).get("host");
- const [raw,incidents,researchDigests,wire]=await Promise.all([getGlobalFlowMonitor().catch(async()=>({
+ const [raw,incidents,researchDigests,wire,qualifiedNews]=await Promise.all([getGlobalFlowMonitor().catch(async()=>({
   hormuz:await getHormuzMonitor().catch(()=>({snapshot:null,checkedAt:now.toISOString(),nextAttemptAt:null,refreshFailed:true})),
   updatedAt:now.toISOString(),oil:[],gold:[],researchTriggers:[],coverageGaps:[]
- } satisfies GlobalFlowMonitor)),getHormuzIncidents(now),getPublishedMacroPulseBriefs(6).catch(()=>[]),getHormuzWireLeads(now)]);
+ } satisfies GlobalFlowMonitor)),getHormuzIncidents(now),getPublishedMacroPulseBriefs(6).catch(()=>[]),getHormuzWireLeads(now),readBluebellyQualifiedNews(now,18)]);
  const watch=projectHormuzPublicWatch(raw,now);
  const reviewedResearch=researchForPublicLens(projectPublishedResearchFocus(researchDigests,now,6),"hormuz");
  const pick=(ids:string[])=>ids.map(id=>watch.tiles.find(x=>x.id===id)).filter((x):x is HormuzWatchTile=>!!x);
@@ -75,7 +76,8 @@ export default async function HormuzTracker(){
    </header>
 
    <HormuzSituationBrief newsroomHref={blueDeskPublicHref("/blue-desk/newsroom",host)}
-     reviewed={reviewedResearch} wire={wire}
+     reviewed={reviewedResearch} news={qualifiedNews.news} wire={wire}
+     newsCoverageDegraded={Object.values(qualifiedNews.sourceReads).includes("UNAVAILABLE")}
      crossingState={watch.crossingState} crossings={watch.crossing.snapshot?.total??null}
      crossingAt={watch.crossing.snapshot?.observedAt??null}
      incidentState={incidents.freshness} reportedIncidents={incidents.totalWindow??null}
