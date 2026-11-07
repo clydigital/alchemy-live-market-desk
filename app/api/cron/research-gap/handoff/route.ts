@@ -1,4 +1,5 @@
 import {handleScheduledResearchGapHandoff} from "@/lib/research-gap-cron";
+import {scheduledSourceOnlyEnabled} from "@/lib/bluebelly-source-only-research";
 import {runPrivateDailyHtmlFallback} from "@/lib/bluebelly-scheduled-daily-html-job";
 import {scheduledDailyHtmlFallbackEnabled} from "@/lib/bluebelly-daily-html-fallback-gate";
 import {isAutomaticReportFallbackWindow,type AutomaticReportSlot}
@@ -17,14 +18,14 @@ export const maxDuration = 300;
 export async function GET(request:Request){
  const now=new Date();
  const slot:AutomaticReportSlot=now.getUTCHours()<12?"morning":"evening";
- const reportTask=process.env.BLUEBELLY_ENABLE_LEGACY_PDF==="true" && isAutomaticReportFallbackWindow(now,slot)
+ const reportTask=!scheduledSourceOnlyEnabled(process.env) && process.env.BLUEBELLY_ENABLE_LEGACY_PDF==="true" && isAutomaticReportFallbackWindow(now,slot)
   ?attemptPrivateDailyPdfInExistingHandoff(request,slot,now).catch(()=>({
     status:"failed" as const,reason:"private_pdf_retry_unavailable"
    }))
   :null;
  // Disabled by default: this historical HTML writer is no longer part of
  // the site or Writing Brain critical path. Research Gap runs independently.
- const htmlTask=scheduledDailyHtmlFallbackEnabled(process.env)&&
+ const htmlTask=!scheduledSourceOnlyEnabled(process.env) && scheduledDailyHtmlFallbackEnabled(process.env)&&
   slot==="morning"&&now.getUTCHours()===3
   ?runPrivateDailyHtmlFallback(request,now).catch(()=>({status:"failed" as const,reason:"daily_html_fallback_unavailable"}))
   :null;
