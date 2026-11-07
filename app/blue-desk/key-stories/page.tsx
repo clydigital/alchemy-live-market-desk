@@ -1,4 +1,5 @@
 import CurrentMarketUpdates, {EditorialUpdatedToday} from "@/components/blue-desk/CurrentMarketUpdates";
+import LeanWatch from "@/components/blue-desk/LeanWatch";
 import NovemberDeskStory from "@/components/blue-desk/NovemberDeskStory";
 import Oct30TechSelloffFeature from "@/components/blue-desk/Oct30TechSelloffFeature";
 import MidtermRallyFeature from "@/components/blue-desk/MidtermRallyFeature";
@@ -65,6 +66,18 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
   const params=await searchParams;
   const now = new Date();
   const host = (await headers()).get("host");
+  // The default Watch page is intentionally compact and read-only.
+  // Exact existing Story/feature/news/brief filters still use the historical
+  // reader below: bookmarked research and original-source context stay intact.
+  const isFocusedStoryReader=(["story","category","catalyst","feature","page","news","brief","policy","reported","postEvent"] as const)
+    .some(key=>Boolean(params?.[key]));
+  if(!isFocusedStoryReader){
+    const tracked=await getPublicThesisLedger(now,24).catch(()=>[]);
+    const linkedMotion=tracked.length
+      ?await getStoryMotionRecency(tracked.map(story=>story.id),now).catch(()=>[])
+      :[];
+    return <LeanWatch stories={orderStoriesByLatestMotion(tracked,linkedMotion,now).slice(0,8)} host={host}/>;
+  }
   // Public, allowlisted post-event recaps reuse previously reviewed source
   // snapshots; arbitrary query IDs never select private research or a URL.
   const recapId=typeof params?.postEvent==="string"&&/^[a-z0-9_-]{1,150}$/i.test(params.postEvent)?params.postEvent:null;

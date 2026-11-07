@@ -161,7 +161,7 @@ try{
  const publicPages=[
   ["/","market-home",'data-home-market-first="source-dated-terminal"'],
   ["/newsroom","newsroom",'data-public-newsroom="original-source-only"'],
-  ["/key-stories","key-stories",'data-bluebelly-stories="catalyst-led"'],
+  ["/key-stories","key-stories",'data-bluebelly-watch="lean-readonly-v1"'],
   ["/hormuz","hormuz",'data-bluebelly-hormuz="public-source-dated-physical-first"'],
   ["/markets","markets",'data-blue-desk-markets="public-observations"'],
  ];
@@ -186,6 +186,13 @@ try{
    assertHtml(view.html,'data-editorial-newsroom="verified-only"');
    if(view.html.includes('data-newsroom-release-rail='))throw Error("Duplicate release rail still rendered in public Newsroom");
   }
+  if(id==="key-stories"){
+   assertHtml(view.html,"What is developing?","Market narratives",
+    "Browse complete historical Story library");
+   if(!view.html.includes("No approved public thesis snapshot"))
+    assertHtml(view.html,"Evidence and counterargument",
+      "Read full thesis and source context");
+  }
   // TradingView embeds can keep headless Chrome alive indefinitely; Markets is
   // covered by the route/HTML assertions, not a brittle third-party screenshot.
   if(id!=="markets")
@@ -195,6 +202,12 @@ try{
   console.log("Public CP page "+path+" "+view.status+" · mobile render saved");
  }
 
+ // The full historical Story index remains accessible via an explicit
+ // category selector, even though default Watch is now a compact projection.
+ const archive=await waitResponse("/key-stories?category=All");
+ assertHtml(archive.html,'data-bluebelly-stories="catalyst-led"',
+   'data-persistent-thesis-ledger="source-identity"');
+ console.log("Historical Story index preserved via explicit ?category=All");
  // Brief-first reader acceptance uses a frozen public issuer snapshot:
  // it checks rendering, not current financial accuracy or unsourced prices.
  const investorPath="/markets?view=earnings&ticker=AMZN";
