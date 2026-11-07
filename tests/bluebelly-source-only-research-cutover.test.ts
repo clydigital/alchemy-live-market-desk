@@ -43,7 +43,7 @@ test("authenticated scheduled publisher completes only AFTER original intake and
   const terminal=publisher.indexOf("if (scheduledSourceOnly) {");
   const writer=publisher.indexOf("await runIntelligenceEngine(");
   assert.ok(intake>0&&intake<motion&&motion<terminal&&terminal<writer);
-  const portion=publisher.slice(terminal,writer);
+  const portion=publisher.slice(terminal,publisher.indexOf("if (deferScheduledIntelligence && intelligenceEnabled) {"));
   assert.match(portion,/SOURCE_ONLY_RESEARCH_MARKER/);
   assert.match(portion,/sourceOnlyCompletionDecision/);
   assert.match(portion,/status=eq\.running/);
