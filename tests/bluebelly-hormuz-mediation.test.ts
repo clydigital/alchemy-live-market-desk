@@ -9,7 +9,8 @@ const wire=read("lib/bluebelly-hormuz-x-wire-server.ts");
 
 test("Hormuz opens with a quick Iran conflict and diplomacy read, retaining physical monitors",()=>{
  assert.match(hormuz,/data-bluebelly-hormuz="public-source-dated-physical-first"/);
- assert.match(hormuz,/HormuzSituationBrief reviewed=\{reviewedResearch\} wire=\{wire\}/);
+ assert.match(hormuz,/HormuzSituationBrief newsroomHref=/);
+ assert.match(hormuz,/reviewed=\{reviewedResearch\} wire=\{wire\}/);
  assert.match(hormuz,/HormuzCrossings monitor=/);
  assert.match(hormuz,/getHormuzIncidents/);
  assert.match(hormuz,/getHormuzWireLeads/);
