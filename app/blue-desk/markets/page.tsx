@@ -13,6 +13,8 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import TradingViewChart from "@/components/blue-desk/TradingViewChart";
 import PublicMarketScreener from "@/components/blue-desk/PublicMarketScreener";
 import SectorDivergenceFeature from "@/components/blue-desk/SectorDivergenceFeature";
+import JobsLabourFeature from "@/components/blue-desk/JobsLabourFeature";
+import { readPublicUsJobs } from "@/lib/bluebelly-us-jobs-reader";
 import {TV_MARKET_GROUP_DEFAULTS} from "@/lib/bluebelly-editorial-visuals";
 import { MarketIcon, type MarketIconName } from "@/components/blue-desk/MarketIcon";
 import {
@@ -67,10 +69,11 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
       <EarningsInvestorDeepDive ticker={detail.ticker} backHref={blueDeskPublicHref("/blue-desk/markets",host)} />
     </div>
   </main>;
-  const [monitor,breadthHistory,researchDigests] = await Promise.all([
+  const [monitor,breadthHistory,researchDigests,usJobs] = await Promise.all([
     getMarketMonitor().catch(() => null),
     getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
     getPublishedMacroPulseBriefs(6).catch(()=>[]),
+    group==="all"?readPublicUsJobs():Promise.resolve(null),
   ]);
   // Public markets are independent of private investment portfolios.
   const monitoredRows=publicMarketObservations(monitor?.rows || [],group);
@@ -120,10 +123,12 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
 
         <nav aria-label="Markets page sections" className={legibility.focusNavigation}
           data-markets-primary="breadth-and-comparison">
+          {group==="all"?<a href="#jobs-monitor">US jobs</a>:null}
           <a href="#breadth-watch-heading">Market breadth</a>
           <a href="#market-group-heading">ETF comparisons</a>
           <a href="#advanced-market-charts">Open charts</a>
         </nav>
+        {group==="all"&&usJobs?<JobsLabourFeature data={usJobs}/>:null}
         {(group==="all"||group==="equities"||group==="ai"||group==="energy")?
           <SectorDivergenceFeature mode="markets"
             articleHrefBase={blueDeskPublicHref("/blue-desk/newsroom",host)}
