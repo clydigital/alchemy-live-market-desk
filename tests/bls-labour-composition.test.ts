@@ -36,7 +36,7 @@ test("CES registry contains 14 unique major sectors, not overlapping parent tota
   assert.equal(new Set(BLS_LABOUR_EXTRA_IDS).size, BLS_LABOUR_EXTRA_IDS.length);
   assert.ok(BLS_LABOUR_EXTRA_IDS.length <= 21,
     "fits with the four existing headline BLS series inside a 25-series unregistered request");
-  assert.ok(!BLS_MAJOR_SECTORS.some(row => row.key.includes("total") || row.key === "goods_producing"));
+  assert.ok(!BLS_MAJOR_SECTORS.some(row => String(row.key).includes("total") || String(row.key) === "goods_producing"));
 });
 
 test("computes month-to-month sector changes, employment breadth and worker conditions", () => {
@@ -117,6 +117,7 @@ test("labour release metrics have immutable consensus fields and traceable BLS s
     release_name: "Employment Situation for October 2026",
     release_date: "2026-11-06T13:30:00Z", reference_period: "October 2026",
     source_url: "https://www.bls.gov/news.release/archives/empsit_11062026.htm",
+    actual: "Nonfarm payrolls +165k", status: "completed",
   };
   const count = await upsertOfficialJobsMetrics(client as never, release, {
     actual: "Nonfarm payrolls +165k", sourceUrl: release.source_url,
