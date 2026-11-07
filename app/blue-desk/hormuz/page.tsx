@@ -80,7 +80,8 @@ export default async function HormuzTracker(){
     </div>
    </header>
 
-   <HormuzSituationBrief reviewed={reviewedResearch} wire={wire}
+   <HormuzSituationBrief newsroomHref={blueDeskPublicHref("/blue-desk/newsroom",host)}
+     reviewed={reviewedResearch} wire={wire}
      crossingState={watch.crossingState} crossings={watch.crossing.snapshot?.total??null}
      crossingAt={watch.crossing.snapshot?.observedAt??null}
      incidentState={incidents.freshness} reportedIncidents={incidents.totalWindow??null}
