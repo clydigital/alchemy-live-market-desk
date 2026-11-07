@@ -6,8 +6,9 @@ import type {XWireDurable} from "./x-wire-durable.ts";
 /** X is a source of investigation prompts only. It never proves the reported
  * market event, supply change, price move or canonical Story mutation. */
 export function attachXWireResearchLeads(input:ResearchRunInput,
- wire:Pick<XWireDurable,"posts"|"accounts"|"storageHealthy">,now=new Date()):ResearchRunInput{
- const ranked=wire.storageHealthy?rankXWireMarketCandidates(wire.posts,now,12):[];
+ wire:Pick<XWireDurable,"posts"|"accounts"|"storageHealthy">,now=new Date(),
+ maxLeads=12,rankingOptions:{allowDeferred?:boolean;maxAgeHours?:number}={}):ResearchRunInput{
+ const ranked=wire.storageHealthy?rankXWireMarketCandidates(wire.posts,now,maxLeads,rankingOptions):[];
  const existing=new Set(input.items.map(x=>x.url));
  const additions:IntakeItemInput[]=[];
  for(const {post,theme,priority} of ranked){
@@ -26,7 +27,7 @@ export function attachXWireResearchLeads(input:ResearchRunInput,
  }
  const unhealthy=wire.accounts.filter(a=>a.status==="unavailable"||
    a.status==="blocked"||a.status==="partial"||a.status==="unconfigured").length;
- const summary=" X Wire "+(wire.storageHealthy?"STORAGE_AVAILABLE":"STORAGE_UNAVAILABLE")+
+ const summary=" X Wire "+(rankingOptions.allowDeferred?"DEFERRED_BACKLOG ":"CURRENT ")+(wire.storageHealthy?"STORAGE_AVAILABLE":"STORAGE_UNAVAILABLE")+
    ": "+additions.length+" unverified market leads; "+unhealthy+"/"+
    wire.accounts.length+" accounts incomplete/unavailable. Shared discovery only; no facts admitted.";
  return {...input,items:[...input.items,...additions],
