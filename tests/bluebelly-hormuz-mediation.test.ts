@@ -1,26 +1,38 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import test from "node:test";
+const read=(p:string)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
+const hormuz=read("app/blue-desk/hormuz/page.tsx");
+const keyStories=read("app/blue-desk/key-stories/page.tsx");
+const brief=read("components/blue-desk/HormuzSituationBrief.tsx");
+const wire=read("lib/bluebelly-hormuz-x-wire-server.ts");
 
-const hormuz=readFileSync(new URL("../app/blue-desk/hormuz/page.tsx",import.meta.url),"utf8");
-const keyStories=readFileSync(new URL("../app/blue-desk/key-stories/page.tsx",import.meta.url),"utf8");
-const feature=readFileSync(new URL("../components/blue-desk/HormuzMediationFeature.tsx",import.meta.url),"utf8");
-const research=readFileSync(new URL("../lib/bluebelly-public-research-library.ts",import.meta.url),"utf8");
-
-test("Hormuz mediation is dated editorial above retained physical source monitors",()=>{
+test("Hormuz opens with a quick Iran conflict and diplomacy read, retaining physical monitors",()=>{
  assert.match(hormuz,/data-bluebelly-hormuz="public-source-dated-physical-first"/);
- assert.match(hormuz,/id="mediation"/);
- assert.match(hormuz,/HormuzMediationFeature mode="preview"/);
+ assert.match(hormuz,/HormuzSituationBrief reviewed=\{reviewedResearch\} wire=\{wire\}/);
  assert.match(hormuz,/HormuzCrossings monitor=/);
  assert.match(hormuz,/getHormuzIncidents/);
+ assert.match(hormuz,/getHormuzWireLeads/);
+ assert.doesNotMatch(hormuz,/HormuzMediationFeature/);
+ assert.match(brief,/data-hormuz-situation="source-dated-quick-read"/);
+ assert.match(brief,/Negotiations & conflict/);
+ assert.match(brief,/What is moving\?/);
+ assert.match(brief,/X Wire — emerging claims/);
 });
-test("Key Story link is a bounded public editorial feature, not canonical thesis mutation",()=>{
+test("Old mediation bookmark redirects to the situation watch, not an old Key Story",()=>{
  assert.match(keyStories,/feature==="hormuz-mediation-november-2026"/);
- assert.match(keyStories,/data-key-story="hormuz-mediation-source-reviewed"/);
- assert.match(research,/hormuz-mediation-november-2026/);
- assert.match(keyStories,/data-key-stories-research-handoff="dated-not-live"/);
- assert.doesNotMatch(feature,/createSupabaseAdminClient|insert\(|upsert\(/);
+ assert.match(keyStories,/redirect\(blueDeskPublicHref\("\/blue-desk\/hormuz",host\)\)/);
+ assert.doesNotMatch(keyStories,/HormuzMediationFeature/);
+ assert.doesNotMatch(read("lib/bluebelly-public-research-library.ts"),/id:"hormuz-mediation"/);
 });
-test("Mediation distinguishes proposal, incident and acceptance from verified reopening",()=>{
- for(const phrase of [/US ACCEPTANCE NOT CONFIRMED/,/REOPENING NOT VERIFIED/,/responsibility was still under investigation/i,/Al Mayeda/,/2026-11-01/,/reuters\.com/,/mofa\.gov\.qa/])assert.match(feature,phrase);
+test("X Wire is a bounded read-only discovery input, never fact verification or a polling writer",()=>{
+ assert.match(wire,/from\("x_wire_posts"\)/);
+ assert.match(wire,/eq\("intake_status","discovery"\)/);
+ assert.match(wire,/rankXWireMarketCandidates/);
+ assert.match(wire,/slice\(0,3\)/);
+ assert.doesNotMatch(wire,/getXWireDurable|scanOne|upsert\(|insert\(|update\(/);
+ assert.match(brief,/Unverified public posts/);
+ assert.match(brief,/Source edition:/);
+ assert.match(brief,/Vessel crossings are not verified barrels/);
+ assert.match(brief,/unavailable/);
 });
