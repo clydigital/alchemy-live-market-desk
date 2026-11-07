@@ -1,29 +1,16 @@
-/**
- * Already-published, source-dated public editorial readers that can be
- * discovered across Today, Newsroom and Markets. Not a news intake, an
- * automatic research approval, a new canonical event or a live-price feed.
- * Date-only reporting stays date-only: never invent a publication clock.
+/** Previously used for the fixed November 1 Hormuz editorial promotion.
+ * That one-off item has been retired in favour of the live Hormuz status view.
+ * Keep the generic return contract while the existing Newsroom/Markets
+ * consumers migrate; no stale geopolitical article is re-promoted.
  */
-export const HORMUZ_MEDIATION_PUBLIC_FOCUS = {
-  id:"hormuz-mediation-november-2026",
-  eventDay:"2026-11-01",
-  headline:"Iran proposes a two-day Hormuz reopening. Is there a deal?",
-  fact:"Qatari mediators and Iran discussed a conditional two-day reopening plan on 1 November. The US has not confirmed acceptance, and a return to safe passage is not verified.",
-  why:"The proposal could reduce disruption risk, but the negotiations have not restored shipping or refined-fuel supply.",
-  mechanism:"A diplomatic breakthrough could ease oil's risk premium before physical supply recovers. Compare confirmed crossings, insurance availability and dated Brent and diesel readings; do not attribute a price move to the proposal alone.",
-  test:"Look for documented US acceptance, actual multi-day ship crossings and safer insurance terms, then check whether diesel cracks and deliveries also ease.",
-  sourceName:"Reuters · Doha mediation, 1 November 2026",
-  sourceUrl:"https://www.reuters.com/world/middle-east/iranian-negotiators-doha-continue-talks-end-us-iran-war-official-says-2026-11-01/",
-  href:"?feature=hormuz-mediation-november-2026",
-  assets:["BRENT","WTI"],
-  topics:["energy","policy"],
-} as const;
-
-/** Retired 1 Nov single-event feature: it no longer enters Today's or Newsroom's rolling shelves. */
-export function currentReviewedPublicFocus(_now:Date):(typeof HORMUZ_MEDIATION_PUBLIC_FOCUS)[]{
+export type ReviewedPublicFocus={
+  id:string;eventDay:string;headline:string;fact:string;why:string;
+  mechanism:string;test:string;sourceName:string;sourceUrl:string;
+  href:string;assets:readonly string[];topics:readonly string[];
+};
+export function currentReviewedPublicFocus(_now:Date):ReviewedPublicFocus[]{
   return [];
 }
-/** An event can lead Today briefly; its historical reader stays accessible. */
 export function reviewedFocusIsRecent(eventDay:string,now:Date){
   const at=now.getTime(),day=Date.parse(eventDay+"T00:00:00.000Z");
   return Number.isFinite(at)&&Number.isFinite(day)&&at>=day&&at-day<48*3600000;
