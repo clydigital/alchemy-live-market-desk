@@ -40,8 +40,8 @@ export type LabourSectorChange = {
   key: string;
   label: string;
   seriesId: string;
-  currentLevelK: number;
-  previousLevelK: number;
+  currentLevelK: number | null;
+  previousLevelK: number | null;
   changeK: number;
 };
 export type WorkerCondition = {
