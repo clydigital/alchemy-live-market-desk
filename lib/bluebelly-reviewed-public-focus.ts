@@ -19,11 +19,9 @@ export const HORMUZ_MEDIATION_PUBLIC_FOCUS = {
   topics:["energy","policy"],
 } as const;
 
-/** A seven-day discovery shelf, not a rolling claim that this event is new. */
-export function currentReviewedPublicFocus(now:Date){
-  const at=now.getTime(), start=Date.parse("2026-11-01T00:00:00.000Z");
-  return Number.isFinite(at)&&at>=start&&at<start+7*86400000
-    ? [HORMUZ_MEDIATION_PUBLIC_FOCUS] : [];
+/** Retired 1 Nov single-event feature: it no longer enters Today's or Newsroom's rolling shelves. */
+export function currentReviewedPublicFocus(_now:Date):(typeof HORMUZ_MEDIATION_PUBLIC_FOCUS)[]{
+  return [];
 }
 /** An event can lead Today briefly; its historical reader stays accessible. */
 export function reviewedFocusIsRecent(eventDay:string,now:Date){
