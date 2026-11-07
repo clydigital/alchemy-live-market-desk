@@ -96,6 +96,17 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
           signal:AbortSignal.timeout(7000),
         });
       }
+      // An attributed timeline can intermittently return 404 for the very same
+      // provider cursor that was just issued. Retry that exact continuation
+      // once while the per-source budget permits. Never strip the cursor,
+      // switch hosts or mark a failed continuation as covered.
+      if(response.status===404 && cursor && Date.now()-startedAt<MAX_SCAN_MS-1500) {
+        const remaining=MAX_SCAN_MS-(Date.now()-startedAt);
+        response=await fetchImpl(url.toString(),{
+          headers:{Accept:"application/json"},cache:"no-store",redirect:"error",
+          signal:AbortSignal.timeout(Math.min(5000,remaining)),
+        });
+      }
       if(response.status===204 && !cursor) {
         await finish(db,handle,token,{...completeGapMarker,health:unresolvedGap?"partial":"healthy",
           last_error:unresolvedGap?"Unrecovered historical coverage gap":null,last_fetched:fetched,

@@ -193,3 +193,17 @@ test("later-page provider failure preserves partial X data and continuation curs
  assert.match(code,/window_start_at:invalidCursor\?null:hadPartialData\?window\.startAt:claim\.resume_start_at/);
  assert.match(code,/next_attempt_at:plus\(now,invalidCursor\|\|hadPartialData\|\|recentlyActive404\?5:30\)/);
 });
+
+
+test("transient continuation 404 receives one same-cursor budgeted retry before gap handling",()=>{
+ const code=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
+ assert.match(code,/if\(response\.status===404 && cursor && Date\.now\(\)-startedAt<MAX_SCAN_MS-1500\)/);
+ assert.match(code,/signal:AbortSignal\.timeout\(Math\.min\(5000,remaining\)\)/);
+ assert.match(code,/response=await fetchImpl\(url\.toString\(\),\{/);
+ const sameCursorRetry=code.indexOf("An attributed timeline can intermittently return 404");
+ const partial404=code.indexOf("if(response.status===404 && cursor) {");
+ assert.ok(sameCursorRetry>0 && partial404>sameCursorRetry);
+ // A repeated 404 still falls through to the retained historical gap path.
+ assert.match(code,/uncovered_before:missingBefore\|\|window\.startAt/);
+ assert.match(code,/health:"partial",last_error:"HTTP 404 on continuation/);
+});
