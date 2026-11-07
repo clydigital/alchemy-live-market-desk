@@ -83,3 +83,24 @@ test("source-only phase neither alters the existing cron schedule nor opens priv
   const human=read("app/my-reports/page.tsx");
   assert.doesNotMatch(human,/runIntelligenceEngine|generateContent|runAutomatedDailyPdfReport/);
 });
+
+test("surviving Vercel retry and Dossier crons cannot generate models or reports in source-only mode",()=>{
+  const intelligence=read("lib/cron-research-intelligence-handler.ts");
+  const noop=intelligence.indexOf("if (scheduledSourceOnlyEnabled(process.env))");
+  const model=intelligence.indexOf("const invocation = await runWithIntelligenceInvocation");
+  assert.ok(noop>0&&model>noop);
+  assert.match(intelligence.slice(noop,model),/status: "not_required"/);
+  assert.match(intelligence.slice(noop,model),/mode: "SOURCE_ONLY"/);
+  for(const slot of ["morning","evening"]){
+    const path="app/api/cron/research/"+slot+"-dossier/route.ts";
+    const code=read(path);
+    assert.match(code,/scheduledSourceOnlyEnabled\(process\.env\)/);
+    assert.match(code,/if\(!authorised\)return Response\.json\(\{status:"unauthorized"\}/);
+    assert.ok(code.indexOf("if(scheduledSourceOnlyEnabled")<code.indexOf("handleScheduledPostResearchDossier(request"));
+    assert.match(code,/mode:"SOURCE_ONLY"/);
+  }
+  const handoff=read("app/api/cron/research-gap/handoff/route.ts");
+  assert.match(handoff,/!scheduledSourceOnlyEnabled\(process\.env\) && process\.env\.BLUEBELLY_ENABLE_LEGACY_PDF/);
+  assert.match(handoff,/!scheduledSourceOnlyEnabled\(process\.env\) && scheduledDailyHtmlFallbackEnabled/);
+  assert.match(handoff,/handleScheduledResearchGapHandoff\(request\)/);
+});
