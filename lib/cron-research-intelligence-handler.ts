@@ -17,6 +17,7 @@ import {
 } from "@/lib/intelligence/publication-recovery";
 import { runIntelligenceEngine } from "@/lib/intelligence/runtime";
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
+import { scheduledSourceOnlyEnabled } from "@/lib/bluebelly-source-only-research";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
 import {
   evaluateScheduledIntelligenceContinuation,
@@ -291,6 +292,17 @@ export async function handleScheduledResearchIntelligence(
 ) {
   if (!authorised(request)) return response({ error: "Unauthorized Vercel Cron request." }, 401);
   if (!process.env.CRON_SECRET?.trim()) return response({ error: "CRON_SECRET is not configured." }, 503);
+  // Old retry schedule remains installed until both live slots pass readback.
+  // In source-only mode the collector owns terminalisation; this route must
+  // never launch a model, freeze a Story, or write a Daily Brief.
+  if (scheduledSourceOnlyEnabled(process.env)) {
+    return response({
+      status: "not_required",
+      mode: "SOURCE_ONLY",
+      slot,
+      message: "Scheduled intelligence continuation retired; source acquisition owns completion.",
+    });
+  }
   if (!scheduledResearchEnabled()) {
     return response({ status: "disabled", slot, message: "The Live research schedule is intentionally disabled." });
   }

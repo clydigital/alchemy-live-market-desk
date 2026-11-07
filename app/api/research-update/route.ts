@@ -19,6 +19,7 @@ import {
   isResearchGapHandoff,
 } from "@/lib/research-gap-handoff";
 import { type ResearchRunLedgerStartFields, writeResearchRunLedgerStart } from "@/lib/research-run-ledger";
+import { SOURCE_ONLY_RESEARCH_MARKER, sourceOnlyCompletionDecision } from "@/lib/bluebelly-source-only-research";
 import {persistResearchIntakeBatches} from "@/lib/research-intake-persistence";
 import { CANONICAL_RESEARCH_SLOTS } from "@/lib/research-schedule-health";
 import {
@@ -143,7 +144,12 @@ export async function POST(request: Request) {
   // PART A: Distinguish scheduled vs non-scheduled paths.
   // ONLY trusted after passing authorization (line 72 above).
   const isScheduledInternalRequest = request.headers.get("x-alchemy-scheduled-research") === "1";
-  const deferScheduledIntelligence = isScheduledInternalRequest && request.headers.get("x-alchemy-defer-intelligence") === "1";
+  // Both mode headers require the existing authenticated scheduled envelope.
+  // Source-only takes precedence to avoid accidentally launching the old writer.
+  const scheduledSourceOnly = isScheduledInternalRequest
+    && acceptsResearchAuthorization(request.headers.get("authorization"), [cronSecret])
+    && request.headers.get("x-alchemy-source-only") === "1";
+  const deferScheduledIntelligence = !scheduledSourceOnly && isScheduledInternalRequest && request.headers.get("x-alchemy-defer-intelligence") === "1";
   const scheduledExecutionStartedAt = request.headers.get("x-alchemy-scheduled-research-started-at");
   const scheduledExecutionStartedAtMs = scheduledExecutionStartedAt ? Date.parse(scheduledExecutionStartedAt) : Number.NaN;
 
@@ -171,7 +177,7 @@ export async function POST(request: Request) {
 
   const intelligenceEnabled = openAIIntelligenceEnabled();
   const callerRecalibrationCount = Array.isArray(input.recalibrations) ? input.recalibrations.length : 0;
-  const validationInput: ResearchRunInput = intelligenceEnabled
+  const validationInput: ResearchRunInput = intelligenceEnabled || scheduledSourceOnly
     ? { ...input, recalibrations: [] }
     : input;
   let validation = validateResearchRun(validationInput);
@@ -262,7 +268,7 @@ export async function POST(request: Request) {
     warnings.push(...new Set(safe.slice(0,20)));
   }
   if (!macroLifecycle.available) warnings.push(`Macro release lifecycle persistence is unavailable: ${macroLifecycle.reason}`);
-  if (intelligenceEnabled && callerRecalibrationCount) {
+  if ((intelligenceEnabled || scheduledSourceOnly) && callerRecalibrationCount) {
     warnings.push(`${callerRecalibrationCount} caller-supplied Story recalibration(s) were ignored because the OpenAI intelligence engine owns Story reasoning.`);
   }
   if (!calendarItems.length) warnings.push("No verified high-impact economic releases were found in the two-day lookback and eight-day forward window.");
@@ -360,6 +366,58 @@ export async function POST(request: Request) {
         const warning = `Market Motion ingestion was unavailable: ${error instanceof Error ? error.message : "unknown failure"}`;
         if (!warnings.includes(warning)) warnings.push(warning);
       }
+    }
+
+    if (scheduledSourceOnly) {
+      // The source ledger and Market Motion writes above are already durable.
+      // A completed intake is NOT a verified market cause or editorial story.
+      // The DB marker is written in the SAME finalisation update as status,
+      // so both legacy publication and slot-status triggers can distinguish
+      // this source-only event from the previous intelligence workflow.
+      const decision = sourceOnlyCompletionDecision({
+        accuracyGate: accuracy.updateGate,
+        sourceChecks: input.sourceChecks,
+      });
+      const sourceWarnings = [...new Set([
+        ...warnings, SOURCE_ONLY_RESEARCH_MARKER, decision.warning,
+      ])];
+      const finishedAt = new Date().toISOString();
+      const finalised = await rest<Array<{ id: string; status: string }>>(
+        `research_runs?id=eq.${encodeURIComponent(runId)}&status=eq.running&select=id,status`,
+        {
+          method: "PATCH",
+          headers: { Prefer: "return=representation" },
+          body: JSON.stringify({
+            completed_at: finishedAt,
+            status: decision.status,
+            updates_published: 0,
+            warnings: sourceWarnings,
+            updated_at: finishedAt,
+          }),
+        },
+      );
+      if (!Array.isArray(finalised) || finalised.length !== 1 || finalised[0].status !== decision.status) {
+        throw new Error("Source-only acquisition finalisation lost its running-run ownership fence.");
+      }
+      revalidatePath("/");
+      revalidatePath("/data/macro");
+      return response({
+        accepted: true,
+        runId,
+        status: decision.status,
+        mode: "SOURCE_ONLY",
+        sourceChecksPresent: decision.sourceChecksPresent,
+        publicationReadiness: runtimePublicationReady ? "ready" : "structurally_blocked",
+        updatesPublished: 0,
+        legacyUpdatesPublished: 0,
+        intelligence: null,
+        marketMotion,
+        calendarCandidates: calendarItems.length,
+        macroLifecycle: macroLifecycle.summary,
+        researchGapHandoff: null,
+        warnings: sourceWarnings,
+        accuracy: { status: accuracy.status, score: accuracy.score, updateGate: accuracy.updateGate },
+      }, decision.status === "completed" ? 200 : 202);
     }
 
     if (deferScheduledIntelligence && intelligenceEnabled) {
