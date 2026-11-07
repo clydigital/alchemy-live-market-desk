@@ -1,11 +1,11 @@
 import Link from "next/link";
-import PublishedResearchDispatches from "@/components/blue-desk/PublishedResearchDispatches";
 import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
 import {projectPublishedResearchFocus,researchForPublicLens} from "@/lib/blue-desk-published-research-focus";
 import {headers} from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import HormuzCrossings from "@/components/blue-desk/HormuzCrossings";
-import HormuzMediationFeature from "@/components/blue-desk/HormuzMediationFeature";
+import HormuzSituationBrief from "@/components/blue-desk/HormuzSituationBrief";
+import {getHormuzWireLeads} from "@/lib/bluebelly-hormuz-x-wire-server";
 import {getGlobalFlowMonitor} from "@/lib/global-flow-monitor";
 import {getHormuzMonitor} from "@/lib/hormuz-monitor";
 import {getHormuzIncidents} from "@/lib/bluebelly-hormuz-incidents";
@@ -40,10 +40,10 @@ function reading(tile:HormuzWatchTile){
 }
 export default async function HormuzTracker(){
  const now=new Date(),host=(await headers()).get("host");
- const [raw,incidents,researchDigests]=await Promise.all([getGlobalFlowMonitor().catch(async()=>({
+ const [raw,incidents,researchDigests,wire]=await Promise.all([getGlobalFlowMonitor().catch(async()=>({
   hormuz:await getHormuzMonitor().catch(()=>({snapshot:null,checkedAt:now.toISOString(),nextAttemptAt:null,refreshFailed:true})),
   updatedAt:now.toISOString(),oil:[],gold:[],researchTriggers:[],coverageGaps:[]
- } satisfies GlobalFlowMonitor)),getHormuzIncidents(now),getPublishedMacroPulseBriefs(6).catch(()=>[])]);
+ } satisfies GlobalFlowMonitor)),getHormuzIncidents(now),getPublishedMacroPulseBriefs(6).catch(()=>[]),getHormuzWireLeads(now)]);
  const watch=projectHormuzPublicWatch(raw,now);
  const reviewedResearch=researchForPublicLens(projectPublishedResearchFocus(researchDigests,now,6),"hormuz");
  const pick=(ids:string[])=>ids.map(id=>watch.tiles.find(x=>x.id===id)).filter((x):x is HormuzWatchTile=>!!x);
@@ -57,14 +57,14 @@ export default async function HormuzTracker(){
    <header className={s.hero}>
     <div className={s.heroCopy}>
      <p className={s.kicker}>GEOPOLITICS / ENERGY / REFINING · CONTINUOUS SOURCE WATCH</p>
-     <h1>Hormuz: the route, the barrels, the diesel squeeze.</h1>
-     <p className={s.lede}>War headlines tell you what might be interrupted. Ship transits show part of what is actually moving. Crude, fuel cracks and inventories reveal whether downstream markets are absorbing the shock.</p>
+     <h1>Hormuz: Iran conflict, negotiations and oil flows.</h1>
+     <p className={s.lede}>A quick read on diplomacy and the war comes first. Then verify the situation against actual vessel traffic, reported security incidents, crude and fuel-market data, and attributed X Wire leads.</p>
      <div className={s.metaLine}>
       <span>Checked <time dateTime={now.toISOString()}>{formatHormuzET(now)}</time></span>
       <span>{watch.available}/{watch.tiles.length} market and fuel indicators within their date windows</span>
      </div>
      <nav className={s.actions} aria-label="Related market research">
-      <Link href="#mediation">Mediation update ↓</Link>
+      <Link href="#mediation">Iran conflict & talks ↓</Link>
       <Link href={blueDeskPublicHref("/blue-desk/newsroom?q=hormuz",host)}>Search the reviewed Newsroom story →</Link>
       <Link href="#shipping">See physical traffic ↓</Link>
       <Link href="#fuels">Crude and distillates ↓</Link>
@@ -80,12 +80,11 @@ export default async function HormuzTracker(){
     </div>
    </header>
 
-   <section id="mediation" aria-label="Dated Hormuz mediation report">
-    <HormuzMediationFeature mode="preview" storyHref={blueDeskPublicHref("/blue-desk/key-stories",host)+"?feature=hormuz-mediation-november-2026"}/>
-   </section>
-
-   <PublishedResearchDispatches items={reviewedResearch} mode="hormuz"
-     readerHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/>
+   <HormuzSituationBrief reviewed={reviewedResearch} wire={wire}
+     crossingState={watch.crossingState} crossings={watch.crossing.snapshot?.total??null}
+     crossingAt={watch.crossing.snapshot?.observedAt??null}
+     incidentState={incidents.freshness} reportedIncidents={incidents.totalWindow??null}
+     incidentAt={incidents.builtAt??null}/>
 
    <section className={s.risk} aria-label="Current evidence and source coverage">
     <div><span className={s.label}>PHYSICAL OBSERVATION</span>
