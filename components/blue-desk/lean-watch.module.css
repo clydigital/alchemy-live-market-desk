@@ -1,0 +1,34 @@
+.hero{border:1px solid var(--bb-card-border);background:var(--bb-card-bg);border-radius:14px;padding:clamp(22px,3vw,34px)}
+.eyebrow{font-size:11px;font-weight:750;letter-spacing:.09em;color:var(--bb-accent);margin:0 0 9px}
+.hero h1{font:600 clamp(31px,4vw,49px)/1.12 var(--bluebelly-font);letter-spacing:-.035em;color:var(--bb-text);margin:0 0 12px}
+.hero>p:not(.eyebrow){max-width:72ch;line-height:1.65;color:var(--bb-muted);font-size:14px;margin:0}
+.shortcuts{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}
+.shortcuts a,.archiveLinks a{font-size:12px;font-weight:700;color:var(--bb-accent);padding:8px 11px;border:1px solid var(--bb-card-border);border-radius:7px;text-decoration:none}
+.shortcuts a:hover,.archiveLinks a:hover{border-color:var(--bb-accent);background:var(--bb-card-bg-hover)}
+.section{margin-top:24px}
+.sectionHeading{display:flex;align-items:end;justify-content:space-between;gap:12px}
+.sectionHeading h2{margin:0;color:var(--bb-text);font:600 clamp(23px,2.8vw,30px)/1.2 var(--bluebelly-font)}
+.count{color:var(--bb-muted);font-size:12px;white-space:nowrap}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:17px}
+.card{border:1px solid var(--bb-card-border);background:var(--bb-card-bg);border-radius:11px;min-width:0;padding:clamp(17px,2vw,23px)}
+.card:focus-within,.card:hover{border-color:var(--bb-accent)}
+.cardMeta{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:11px;color:var(--bb-muted)}
+.cardMeta span:first-child{font-weight:750;color:var(--bb-accent)}
+.card h3{color:var(--bb-text);font:600 clamp(19px,2vw,24px)/1.25 var(--bluebelly-font);margin:13px 0 8px;overflow-wrap:anywhere}
+.card h3 a{color:inherit;text-decoration:none}
+.card h3 a:hover{text-decoration:underline;text-underline-offset:3px}
+.question{font-size:13px;line-height:1.6;color:var(--bb-muted);margin:0 0 12px}
+.view,.next{display:grid;gap:4px;color:var(--bb-text);font-size:13px;line-height:1.6;margin:0 0 13px}
+.view strong,.next strong,.details strong{font-size:11px;letter-spacing:.045em;text-transform:uppercase;color:var(--bb-accent)}
+.next{border-left:2px solid var(--bb-accent);padding:6px 10px;background:var(--bb-card-quiet)}
+.details{border-top:1px solid var(--bb-card-border);padding-top:11px;color:var(--bb-muted)}
+.details summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--bb-accent)}
+.details>div{padding-top:8px}
+.details p{display:grid;gap:3px;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.cardFoot{margin-top:13px;border-top:1px solid var(--bb-card-border);padding-top:11px;display:flex;flex-direction:column;align-items:start;gap:10px}
+.cardFoot small{font-size:11px;line-height:1.55;color:var(--bb-muted)}
+.cardFoot a{font-weight:700;color:var(--bb-accent);font-size:12px;text-decoration:underline;text-underline-offset:3px}
+.archiveLinks{display:flex;flex-wrap:wrap;gap:9px;margin:23px 0}
+.empty{border:1px dashed var(--bb-card-border);border-radius:9px;padding:20px;margin-top:16px;color:var(--bb-muted);font-size:14px}
+@media(max-width:800px){.grid{grid-template-columns:1fr}.cardMeta{gap:8px}.hero{padding:22px 18px}}
+@media(prefers-reduced-motion:reduce){.card{transition:none}}
