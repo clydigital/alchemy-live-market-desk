@@ -74,6 +74,7 @@ export default async function MyBluebellyReports({searchParams}:{
 
     <div className={layout.hubNote} data-my-desk-portfolio-status="not-verified">
      <p><strong>ChatGPT-first research:</strong> use the installed Bluebelly Read-Only Desk plugin for dated evidence and the existing writing workflows for article preparation. No new research schedule is started here.</p>
+     <p data-my-desk-writing-brain="notion-first"><strong>Writing Brain:</strong> develop and revise working editorial theses in <a href="https://app.notion.com/p/411519b67a9481fcb612c2d975d7f31d" target="_blank" rel="noopener noreferrer">the Notion thesis ledger</a>. Historical research remains available; private hypotheses do not automatically become public Watch claims.</p>
      <p><strong>Portfolio:</strong> the private Power Stack view now supports owner-scoped historical snapshots. Current quantities, account balances and prices are not independently broker-reconciled. The public Markets page remains independent.</p>
     </div>
    </section>
