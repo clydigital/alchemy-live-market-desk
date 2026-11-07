@@ -87,7 +87,7 @@ test("existing research cadence invokes X on 2 existing slots only",()=>{
  const s=readFileSync(new URL("../lib/firecrawl-scheduled-research.ts",import.meta.url),"utf8");
  assert.match(s,/if \(slot==="morning" \|\| slot==="evening"\)/);
  assert.match(s,/getXWireDurable\(\{now\}\)/);
- assert.match(s,/attachXWireResearchLeads\\(originalFilings,wire,now,9\\)/);
- assert.match(s,/getDeferredXWireResearchPosts\\(now\\)/);
+ assert.match(s,/attachXWireResearchLeads\(originalFilings,wire,now,9\)/);
+ assert.match(s,/getDeferredXWireResearchPosts\(now\)/);
  assert.match(s,/maxAgeHours:168/);
 });
