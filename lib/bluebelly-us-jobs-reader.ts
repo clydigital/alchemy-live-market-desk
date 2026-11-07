@@ -12,13 +12,14 @@ export async function readPublicUsJobs(): Promise<JobsPublicProjection> {
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!base || !anonKey) return buildJobsPublicProjection(null, []);
+  const sourceBase = base.replace(/\/$/, "");
   const headers = {
     apikey: anonKey,
     Authorization: "Bearer " + anonKey,
     accept: "application/json",
   };
   async function getRows<T>(table: string, params: Record<string, string>): Promise<T[]> {
-    const url = new URL(base.replace(/\/$/, "") + "/rest/v1/" + table);
+    const url = new URL(sourceBase + "/rest/v1/" + table);
     for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
     const response = await fetch(url, {
       headers, cache: "no-store", signal: AbortSignal.timeout(5_000),
