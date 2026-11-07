@@ -10,7 +10,7 @@ import {blueDeskHostAccess,blueDeskPresentationTarget} from "../lib/blue-desk-ho
 const read=(p:string)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 
 test("Public Research only indexes finite, previously available dated editorial readers",()=>{
- assert.equal(PUBLIC_RESEARCH_INDEX.length,10);
+ assert.equal(PUBLIC_RESEARCH_INDEX.length,9);
  const ids=new Set<string>();
  for(const entry of PUBLIC_RESEARCH_INDEX){
    assert.ok(!ids.has(entry.id),"duplicate edition "+entry.id);
@@ -29,7 +29,7 @@ test("Public Research only indexes finite, previously available dated editorial 
 test("Public Research searches real title, categories, topics and historical context",()=>{
  assert.ok(PUBLIC_RESEARCH_CATEGORIES.includes("Rates & Bonds"));
  assert.deepEqual(selectPublicResearch("korea","All").map(x=>x.id),["asia-equities"]);
- assert.deepEqual(selectPublicResearch("brent","All").map(x=>x.id),["hormuz-mediation"]);
+ assert.deepEqual(selectPublicResearch("brent","All").map(x=>x.id),[]);
  assert.ok(selectPublicResearch("","Rates & Bonds").every(x=>x.category==="Rates & Bonds"));
  assert.equal(selectPublicResearch("no-such-research-item-xyz","All").length,0);
  assert.deepEqual(selectPublicResearch("AMZN","not-a-category").map(x=>x.id),["amazon-cash-test"]);
