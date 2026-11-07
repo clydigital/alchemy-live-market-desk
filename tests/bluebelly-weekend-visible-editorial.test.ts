@@ -27,6 +27,6 @@ test("Markets can show bounded reviewed stories, while Hormuz uses a separate si
  assert.match(markets,/data-markets-reviewed-catalyst/);
  assert.match(markets,/currentReviewedPublicFocus\(now\)/);
  assert.match(hormuz,/HormuzCrossings monitor=/);
- assert.match(hormuz,/HormuzSituationBrief reviewed=/);
+ assert.match(hormuz,/HormuzSituationBrief newsroomHref=/);
  assert.match(hormuz,/newsroom\?q=hormuz/);
 });
