@@ -54,7 +54,7 @@ export default async function HormuzTracker(){
  return <main className={desk.page} data-bluebelly-hormuz="public-source-dated-physical-first">
   <BlueDeskHeader activePath="/blue-desk/hormuz"/>
   <div className={desk.content}>
-   <header className={s.hero}>
+   <header className={`${s.hero} ${s.compactHero}`}>
     <div className={s.heroCopy}>
      <p className={s.kicker}>GEOPOLITICS / ENERGY / REFINING · CONTINUOUS SOURCE WATCH</p>
      <h1>Hormuz: Iran conflict, negotiations and oil flows.</h1>
@@ -71,13 +71,7 @@ export default async function HormuzTracker(){
       <Link href={blueDeskPublicHref("/blue-desk/regime-watch/energy",host)}>Energy regime research →</Link>
      </nav>
     </div>
-    <div className={s.pipeline} role="img" aria-label="Illustrative transmission chain: maritime risk affects physical shipments, crude balances, refined fuel margins, and final consumer costs. Not an accurate geographic map.">
-     <span className={s.diagramTitle}>TRANSMISSION, NOT A PRICE FORECAST</span>
-     <div><b>01</b><span>Transit risk</span><small>Vessel passage / war risk</small></div>
-     <i aria-hidden="true">↓</i><div><b>02</b><span>Crude delivered</span><small>Brent · WTI · inventories</small></div>
-     <i aria-hidden="true">↓</i><div><b>03</b><span>Refined fuels</span><small>Diesel / gasoil · refinery runs</small></div>
-     <i aria-hidden="true">↓</i><div><b>04</b><span>Inflation & rates</span><small>Freight / CPI / policy path</small></div>
-    </div>
+
    </header>
 
    <HormuzSituationBrief newsroomHref={blueDeskPublicHref("/blue-desk/newsroom",host)}
