@@ -14,7 +14,7 @@ type PostRow = {
   post_id:string;handle:string;original_url:string;published_at:string;
   body:string;intake_status:string;
 };
-const HORMUZ_TERMS=/\b(?:hormuz|strait of hormuz|iran|iranian|tehran|doha|qatari|persian gulf|oman|israel|ceasefire)\b/i;
+const HORMUZ_TERMS=/\b(?:hormuz|strait of hormuz|iran|iranian|tehran|persian gulf)\b/i;
 
 /**
  * Read already-persisted public-post discovery only. No X polling, leases,
