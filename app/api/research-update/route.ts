@@ -146,7 +146,9 @@ export async function POST(request: Request) {
   const isScheduledInternalRequest = request.headers.get("x-alchemy-scheduled-research") === "1";
   // Both mode headers require the existing authenticated scheduled envelope.
   // Source-only takes precedence to avoid accidentally launching the old writer.
-  const scheduledSourceOnly = isScheduledInternalRequest && request.headers.get("x-alchemy-source-only") === "1";
+  const scheduledSourceOnly = isScheduledInternalRequest
+    && acceptsResearchAuthorization(request.headers.get("authorization"), [cronSecret])
+    && request.headers.get("x-alchemy-source-only") === "1";
   const deferScheduledIntelligence = !scheduledSourceOnly && isScheduledInternalRequest && request.headers.get("x-alchemy-defer-intelligence") === "1";
   const scheduledExecutionStartedAt = request.headers.get("x-alchemy-scheduled-research-started-at");
   const scheduledExecutionStartedAtMs = scheduledExecutionStartedAt ? Date.parse(scheduledExecutionStartedAt) : Number.NaN;
