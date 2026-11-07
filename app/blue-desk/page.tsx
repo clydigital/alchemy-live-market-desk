@@ -1,3 +1,5 @@
+import AbsorptionHealth from "@/components/blue-desk/AbsorptionHealth";
+import {getBluebellyAbsorptionHealth} from "@/lib/bluebelly-absorption-health";
 import CurrentMarketUpdates from "@/components/blue-desk/CurrentMarketUpdates";
 import DecisionBrief from "@/components/blue-desk/DecisionBrief";
 import ProgressiveTodayReader from "@/components/blue-desk/ProgressiveTodayReader";
@@ -91,6 +93,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
     ]).then(([press,macroActuals])=>[...press,...macroActuals]),
     getPublishedMacroPulseBriefs(2).catch(() => []),
   ]);
+  const absorptionHealth = await getBluebellyAbsorptionHealth(now);
   const motionNews = selectVerifiedNewsBriefs(verifiedMotions, now, 18);
   const recentNews = combineQualifiedNews(motionNews,originalPress,18);
   const verifiedNews = recentNews.filter(n=>Date.parse(n.occurredAt)<=+now && +now-Date.parse(n.occurredAt)<=48*3600000);
@@ -132,6 +135,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
     <main className={styles.page} data-blue-desk-convergence="phase-1">
       <BlueDeskHeader activePath="/blue-desk" />
         {!publicHost?<CurrentMarketUpdates host={host} mode="full" now={now}/>:null}
+      <AbsorptionHealth health={absorptionHealth}/>
       <div className={styles.content}>
         {publicHost?<section className={marketHome.terminal} data-home-market-first="source-dated-terminal" aria-label="Bluebelly market overview">
           <header className={marketHome.hero}>
