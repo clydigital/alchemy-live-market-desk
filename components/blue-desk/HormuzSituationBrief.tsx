@@ -4,6 +4,7 @@ import type {HormuzWireRead} from "@/lib/bluebelly-hormuz-x-wire-server";
 import s from "./HormuzSituationBrief.module.css";
 
 type Props={
+  newsroomHref:string;
   reviewed:readonly PublicResearchFocus[];
   wire:HormuzWireRead;
   crossingState:"current"|"stale"|"unavailable";
@@ -17,7 +18,7 @@ const NEGOTIATIONS=/\b(?:iran|iranian|tehran|hormuz|doha|qatar|ceasefire|diploma
 
 /** Source-dated situation quick read, not a frozen geopolitical Key Story. */
 export default function HormuzSituationBrief({
-  reviewed,wire,crossingState,crossings,crossingAt,
+  newsroomHref,reviewed,wire,crossingState,crossings,crossingAt,
   incidentState,reportedIncidents,incidentAt,
 }:Props){
   const latest=reviewed.find(item=>NEGOTIATIONS.test(
@@ -29,7 +30,7 @@ export default function HormuzSituationBrief({
       <div><p className={s.eyebrow}>IRAN CONFLICT / DIPLOMACY / PHYSICAL EVIDENCE</p>
         <h2>Hormuz situation — quick read</h2>
         <p className={s.intro}>Negotiations and conflict developments first. Shipping flows and X Wire are supporting signals, not proof that a deal has been reached.</p></div>
-      <Link href="/newsroom?q=hormuz">More verified news and research →</Link>
+      <Link href={newsroomHref+"?q=hormuz"}>More verified news and research →</Link>
     </div>
     <div className={s.columns}>
       <article>
@@ -42,7 +43,7 @@ export default function HormuzSituationBrief({
         </> : <>
           <strong>Current negotiation outcome not established here</strong>
           <p>No recent, public-reviewed Iran/Hormuz negotiation update is available in the connected research window. Older proposals must not be reported as today's diplomatic position.</p>
-          <Link href="/newsroom?q=iran">Check recent Iran reporting →</Link>
+          <Link href={newsroomHref+"?q=iran"}>Check recent Iran reporting →</Link>
         </>}
       </article>
       <article>
