@@ -1,5 +1,6 @@
 import { handleScheduledPostResearchDossier } from "@/lib/dossier-post-research-trigger";
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
+import { scheduledSourceOnlyEnabled } from "@/lib/bluebelly-source-only-research";
 import {isAutomaticReportFinalisationWindow,runAutomatedDailyPdfReport}
  from "@/lib/blue-desk-automated-report-job";
 import {runPrivateEditorialSlatePdf} from "@/lib/blue-desk-private-slate-job";
@@ -15,6 +16,10 @@ export async function GET(request: Request) {
  const now=new Date();
  const authorised=Boolean(process.env.CRON_SECRET?.trim()) &&
    acceptsResearchAuthorization(request.headers.get("authorization"),[process.env.CRON_SECRET!]);
+ if(scheduledSourceOnlyEnabled(process.env)){
+   if(!authorised)return Response.json({status:"unauthorized"},{status:401,headers:{"Cache-Control":"private, no-store"}});
+   return Response.json({status:"not_required",mode:"SOURCE_ONLY",slot:"morning",message:"Scheduled Dossier and report generation disabled; source collection remains active."},{headers:{"Cache-Control":"private, no-store"}});
+ }
  const reportWindow=isAutomaticReportFinalisationWindow(now,"morning");
  const scheduleEnabled=process.env.NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED==="true";
  // Legacy PDFs are opt-in. Canonical Dossier still runs on the existing schedule.
