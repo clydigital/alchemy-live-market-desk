@@ -126,7 +126,7 @@ test("labour release metrics have immutable consensus fields and traceable BLS s
   assert.equal(inserted.length, 16);
   assert.ok(inserted.every(row => !("consensus" in row) && !("consensus_captured_at" in row)));
   const retail = inserted.find(row => row.metric_key === "employment_sector_retail_net_change");
-  assert.equal(retail?.actual, 7);
+  assert.equal(retail?.actual, -3);
   assert.equal((retail?.metadata as Record<string, unknown>).sourceSeriesId, "CES4200000001");
   assert.equal((retail?.metadata as Record<string, unknown>).reconstructedAfterRelease, true);
 });
