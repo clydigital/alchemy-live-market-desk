@@ -145,3 +145,63 @@ export function parseBlsLabourComposition(
     sectors, conditions, missingSeries, coverageComplete, breadth,
   };
 }
+
+
+export type LabourDivergence = {
+  code: "PAYROLL_VS_U6" | "PAYROLL_VS_WEEKLY_HOURS" |
+    "PAYROLL_VS_BREADTH" | "CONSUMER_EXPOSED_SECTORS";
+  severity: "watch";
+  finding: string;
+  /** A candidate relationship, NOT proof of a recession or spending collapse. */
+  nextTest: string;
+};
+
+/**
+ * Detect observed, point-in-time contradictions, not causal explanations.
+ * Positive payroll CHANGE is not a consensus beat. That requires a separate
+ * pre-release frozen forecast that this function deliberately does not accept.
+ * A single sector decline is never counted as a company layoff or gross loss.
+ */
+export function detectBlsLabourDivergences(
+  payrollChangeK: number | null,
+  composition: BlsLabourComposition,
+): LabourDivergence[] {
+  if (payrollChangeK === null || !Number.isFinite(payrollChangeK) || payrollChangeK <= 0) return [];
+  const output: LabourDivergence[] = [];
+  const u6 = composition.conditions.find(condition => condition.key === "u6_rate");
+  if (u6 && u6.current - u6.previous >= 0.2 - 0.00001) {
+    output.push({
+      code: "PAYROLL_VS_U6", severity: "watch",
+      finding: "Payrolls increased while U-6 underemployment rose at least 0.2 percentage points.",
+      nextTest: "Check involuntary part-time employment, participation and persistence over subsequent releases.",
+    });
+  }
+  const hours = composition.conditions.find(condition => condition.key === "private_weekly_hours");
+  if (hours && hours.previous - hours.current >= 0.1 - 0.00001) {
+    output.push({
+      code: "PAYROLL_VS_WEEKLY_HOURS", severity: "watch",
+      finding: "Payrolls increased while average private-sector weekly hours declined.",
+      nextTest: "Check aggregate hours worked, real weekly earnings and whether hours rebound next month.",
+    });
+  }
+  if (composition.coverageComplete && composition.breadth
+    && composition.breadth.shrinkingSectors >= 7) {
+    output.push({
+      code: "PAYROLL_VS_BREADTH", severity: "watch",
+      finding: "Payrolls grew while at least half of the 14 nonoverlapping major industries contracted.",
+      nextTest: "Check three-month sector breadth, revisions and sampling uncertainty.",
+    });
+  }
+  // For this observation to be meaningful, BOTH sectors must be present.
+  // Retail and services spending are different series; this is a research lead only.
+  const leisure = composition.sectors.find(sector => sector.key === "leisure_hospitality");
+  const wholesale = composition.sectors.find(sector => sector.key === "wholesale");
+  if (leisure && wholesale && leisure.changeK < 0 && wholesale.changeK < 0) {
+    output.push({
+      code: "CONSUMER_EXPOSED_SECTORS", severity: "watch",
+      finding: "Leisure/hospitality and wholesale employment declined despite rising aggregate payrolls.",
+      nextTest: "Check retail sales, real PCE, leisure spending, sector volatility and subsequent revisions; do not infer spending from employment alone.",
+    });
+  }
+  return output;
+}
