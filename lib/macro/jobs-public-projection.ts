@@ -135,7 +135,7 @@ export function buildJobsPublicProjection(
   const differenceK = summedChangeK === null ? null : Math.abs(summedChangeK - headline);
   const vintageSet = new Set(metrics
     .filter(m => (m.metric_key.startsWith("employment_sector_") || m.metric_key.startsWith("labour_"))
-      && validatedMetric(m, release.source_url, release.reference_period, String(m.metadata?.sourceSeriesId || "")))
+      && validatedMetric(m, release.source_url, release.reference_period!, String(m.metadata?.sourceSeriesId || "")))
     .map(m => String(m.metadata?.sourceVintage)));
   const vintages = [...vintageSet];
   const sourceVintage = vintages.length === 1 ? vintages[0] : null;
