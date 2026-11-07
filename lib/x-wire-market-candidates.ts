@@ -21,13 +21,15 @@ export function classifyXWireThemes(body:string):XMarketTheme[] {
 const SOURCE_PRIORITY=new Set(["hormuzreport","kobeissiletter","zerohedge","tgletter","macropaperr"]);
 const HANDLES=new Set(X_CORE_ROSTER.map(x=>x.handle.toLowerCase()));
 
-export function rankXWireMarketCandidates(posts:readonly WirePost[],now=new Date(),max=12):XMarketCandidate[]{
+export function rankXWireMarketCandidates(posts:readonly WirePost[],now=new Date(),max=12,options:{allowDeferred?:boolean;maxAgeHours?:number}={}):XMarketCandidate[]{
+ const maxAgeHours=Math.min(168,Math.max(1,options.maxAgeHours??48));
  const chosen:XMarketCandidate[]=[];
  const seen=new Set<string>(),byAccount=new Map<string,number>(),byTheme=new Map<XMarketTheme,number>();
  const valid=posts.flatMap(post=>{
-  if(post.intakeStatus!=="discovery"||post.text.length<30)return [];
+  if((post.intakeStatus!=="discovery" &&
+    !(options.allowDeferred && post.intakeStatus==="deferred"))||post.text.length<30)return [];
   const time=Date.parse(post.publishedAt),age=now.getTime()-time;
-  if(!Number.isFinite(age)||age< -5*60_000||age>48*3_600_000)return [];
+  if(!Number.isFinite(age)||age< -5*60_000||age>maxAgeHours*3_600_000)return [];
   let normalized:ReturnType<typeof normaliseXPostUrl>;
   try{normalized=normaliseXPostUrl(post.url);}catch{return [];}
   const handle=post.handle.toLowerCase();
