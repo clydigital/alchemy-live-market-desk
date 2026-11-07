@@ -14,6 +14,8 @@ test("Hormuz opens with a quick Iran conflict and diplomacy read, retaining phys
  assert.match(hormuz,/HormuzCrossings monitor=/);
  assert.match(hormuz,/getHormuzIncidents/);
  assert.match(hormuz,/getHormuzWireLeads/);
+ assert.match(hormuz,/readBluebellyQualifiedNews/);
+ assert.match(hormuz,/news=\{qualifiedNews.news\}/);
  assert.doesNotMatch(hormuz,/HormuzMediationFeature/);
  assert.match(brief,/data-hormuz-situation="source-dated-quick-read"/);
  assert.match(brief,/Negotiations & conflict/);
@@ -34,6 +36,8 @@ test("X Wire is a bounded read-only discovery input, never fact verification or 
  assert.doesNotMatch(wire,/getXWireDurable|scanOne|upsert\(|insert\(|update\(/);
  assert.match(brief,/Unverified public posts/);
  assert.match(brief,/Source edition:/);
+ assert.match(brief,/Source-verified reporting/);
+ assert.match(brief,/newsCoverageDegraded/);
  assert.match(brief,/Vessel crossings are not verified barrels/);
  assert.match(brief,/unavailable/);
 });
