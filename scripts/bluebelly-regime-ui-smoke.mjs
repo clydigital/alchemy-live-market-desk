@@ -214,9 +214,8 @@ try{
   if(id==="market-home")
    await renderChrome("http://127.0.0.1:"+PUBLIC+path,
     "market-home-tablet.png",1024,900,{disableJavascript:true});
-  if(id==="markets")
-   await renderChrome("http://127.0.0.1:"+PUBLIC+path+"?group=all",
-    "markets-tablet.png",1024,900,{disableJavascript:true});
+  // Markets remains route/HTML-checked. Rendering its third-party chart embeds
+  // in headless Chrome can hang the smoke runner even when JS is disabled.
   console.log("Public CP page "+path+" "+view.status+" · mobile render saved");
  }
 
