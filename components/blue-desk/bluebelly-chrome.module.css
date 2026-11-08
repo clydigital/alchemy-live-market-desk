@@ -160,3 +160,38 @@
 @media(prefers-reduced-motion:reduce){
   .commandSide a,.commandSide span{transition:none}
 }
+
+/* v7 desktop has one command navigation and one visible brand. The existing
+   masthead stays available to mobile and other page implementations. */
+.commandCrumb{
+  display:none;align-items:center;gap:12px;min-width:0;
+  font:850 14px/1.35 var(--font-figtree),sans-serif;
+  letter-spacing:.19em;color:var(--bb-command-alt);
+}
+.commandCrumb strong{
+  font-size:12px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--bb-text);
+}
+.commandCrumb span[aria-hidden="true"]{color:var(--bb-command-edge)}
+.navHint{
+  display:none;flex:none;color:var(--bb-muted);
+  font:750 10px/1.35 var(--bb-mono);letter-spacing:.12em;
+}
+@media(min-width:721px){
+  .mastInner>.brand{display:none}
+  .commandCrumb,.navHint{display:flex}
+  .links,.mobileNav{display:none}
+  .mastRight .micro{display:none}
+  .navInner{
+    display:flex;align-items:center;justify-content:space-between;
+    min-height:46px;padding-inline:clamp(14px,1.7vw,28px);
+  }
+  .search{margin:6px 0;max-width:350px}
+}
+@media(min-width:721px) and (max-width:920px){
+  .navHint{font-size:9px;letter-spacing:.04em}
+  .commandCrumb{font-size:12px;letter-spacing:.08em}
+}
+@media(max-width:720px){
+  .commandCrumb,.navHint{display:none}
+}
