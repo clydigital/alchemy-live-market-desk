@@ -87,6 +87,8 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
     const href = blueDeskPublicHref(path, host);
     return href === current || (href === "/markets" && activePath === "/blue-desk/markets");
   };
+  const commandContext = [...commandLinks, ...PUBLIC_MORE, ["My Desk", "/my-reports"] as const]
+    .find(([, path]) => isActive(path))?.[0] || (ownerWorkspace ? "My Desk" : "Markets");
   const commandLink = ([label, path]: readonly [string, string]) => (
     <Link key={path} href={blueDeskPublicHref(path,host)} title={label} aria-label={label}
       aria-current={isActive(path) ? "page" : undefined}
@@ -121,6 +123,9 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
         <span>Observed facts · working interpretations labelled separately</span>
       </div></div>
       <div className={chrome.masthead}><div className={chrome.mastInner}>
+        <div className={chrome.commandCrumb} aria-label={`Market command section: ${commandContext}`}>
+          <span>MARKET COMMAND</span><span aria-hidden="true"> / </span><strong>{commandContext}</strong>
+        </div>
         <Link href={blueDeskPublicHref("/blue-desk",host)} className={chrome.brand} aria-label="Bluebelly market overview">
           <span className={chrome.logoSymbol} aria-hidden="true">B</span><span className={chrome.logoText}>BLUE<span>BELLY</span></span>
           <span className={chrome.brandText}>MARKET INTELLIGENCE</span>
@@ -131,6 +136,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
         </div>
       </div></div>
       <div className={chrome.navbar}><div className={chrome.navInner}>
+        <span className={chrome.navHint}>SOURCE-DATED OBSERVATIONS <span aria-hidden="true">·</span> SEARCH VERIFIED RELEASES</span>
         <details className={chrome.mobileNav}><summary>Sections</summary><nav aria-label="Bluebelly mobile">{nav.map(([label,path])=><Link key={path} href={blueDeskPublicHref(path,host)}>{label}</Link>)}{more.map(([label,path])=><Link key={path} href={blueDeskPublicHref(path,host)}>{label}</Link>)}</nav></details>
         <nav className={chrome.links} aria-label="Bluebelly primary">
           {nav.map(([label,path])=>{
