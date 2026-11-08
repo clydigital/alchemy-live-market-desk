@@ -77,8 +77,45 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
   const nav = publicHost && !ownerWorkspace ? PUBLIC_NAV : PRIVATE_NAV;
   const more = publicHost && !ownerWorkspace ? PUBLIC_MORE : [];
   const current=blueDeskPublicHref(activePath,host);
+  // v7 reuses the existing host-aware routes: this is navigation, not a
+  // client-side router or an alternative source of market/owner data.
+  const commandLinks: ReadonlyArray<readonly [string,string]> = [
+    ["Dashboard", "/blue-desk"],
+    ...nav.filter(([label]) => label !== "My Desk"),
+  ];
+  const isActive = (path: string) => {
+    const href = blueDeskPublicHref(path, host);
+    return href === current || (href === "/markets" && activePath === "/blue-desk/markets");
+  };
+  const commandLink = ([label, path]: readonly [string, string]) => (
+    <Link key={path} href={blueDeskPublicHref(path,host)} title={label} aria-label={label}
+      aria-current={isActive(path) ? "page" : undefined}
+      className={isActive(path) ? chrome.sideCurrent : chrome.sideLink}>
+      <span className={chrome.sideIcon} aria-hidden="true"><MarketIcon name={NAV_ICONS[label] || "market"} size={17}/></span>
+      <span className={chrome.sideText}>{label}</span>
+    </Link>
+  );
   return (
-    <header data-bluebelly-chrome="mockup-editorial">
+    <header data-bluebelly-chrome="mockup-editorial" data-bluebelly-layout="v7-command">
+      <aside className={chrome.commandSide} aria-label="Bluebelly command navigation">
+        <Link href={blueDeskPublicHref("/blue-desk",host)} className={chrome.sideBrand}
+          aria-label="Bluebelly Dashboard">
+          <span className={chrome.sideMark} aria-hidden="true"/>
+          <span className={chrome.sideLogo}>BLUE<b>BELLY</b></span>
+        </Link>
+        <nav className={chrome.sideNav} aria-label="Bluebelly command">
+          <span className={chrome.sideGroup}>COMMAND</span>
+          {commandLinks.map(commandLink)}
+          <span className={chrome.sideGroup}>EXPLORE</span>
+          {PUBLIC_MORE.map(commandLink)}
+          <span className={chrome.sideGroup}>PRIVATE</span>
+          {commandLink(["My Desk", "/my-reports"])}
+        </nav>
+        <div className={chrome.sideFooter}>
+          <span className={chrome.sidePulse} aria-hidden="true"/>
+          <span className={chrome.sideText}>Source-dated · not a live quote feed</span>
+        </div>
+      </aside>
       <div className={chrome.utility}><div className={chrome.utilityInner}>
         <span><strong>BLUEBELLY / MARKET INTELLIGENCE</strong> · Source-qualified reporting and research</span>
         <span>Observed facts · working interpretations labelled separately</span>
