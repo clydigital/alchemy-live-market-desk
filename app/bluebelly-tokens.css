@@ -1,16 +1,53 @@
-:root{--bb-accent-ink:#090a0c;--bb-accent:#ffdb23;--bb-canvas:#050608;--bb-surface:#101316;--bb-raised:#171b20;--bb-line:#343d45;--bb-text:#f1f1e9;--bb-muted:#b4bec1;--bb-heading-today:#ffdb23;--bb-heading-newsroom:#69c9ff;--bb-heading-markets:#b6e9aa;--bb-heading-private:#ffd18d;--bb-mono:'Consolas','SFMono-Regular',monospace;--bb-display:'Arial Black',Impact,var(--font-figtree),sans-serif}
-:root[data-bluebelly-theme="neon-blue"]{--bb-accent:#3da8ff}
-:root[data-bluebelly-theme="pastel-green"]{--bb-accent:#b9e9aa}
-
-:root[data-bluebelly-theme="yellow-black"]{--bb-accent:#ffdb23}
-:root[data-bluebelly-theme="turquoise"]{--bb-accent:#49e2d0}
-
-/* Shared, non-semantic editorial-card palette. Derived from the currently
-   selected accent; do not use for positive/negative price movements or status. */
-:root{
-  --bb-card-bg:linear-gradient(135deg,color-mix(in srgb,var(--bb-surface) 97%,var(--bb-accent) 3%),var(--bb-surface));
-  --bb-card-bg-hover:linear-gradient(135deg,color-mix(in srgb,var(--bb-raised) 94%,var(--bb-accent) 6%),var(--bb-raised));
-  --bb-card-border:color-mix(in srgb,var(--bb-line) 89%,var(--bb-accent) 11%);
-  --bb-card-quiet:color-mix(in srgb,var(--bb-raised) 96%,var(--bb-accent) 4%);
-  --bb-card-focus:var(--bb-accent);
+/* Bluebelly v7 command palette. Existing --bb-* names and the stored
+   data-bluebelly-theme preference remain the only theme authority. */
+:root {
+  --bb-accent-ink: #071017;
+  --bb-accent: #ffe500;
+  --bb-command-alt: #00e7f5;
+  --bb-command-edge: #24586b;
+  --bb-command-glow: rgba(255,229,0,.15);
+  --bb-canvas: #050b10;
+  --bb-surface: #07131b;
+  --bb-raised: #0b1b24;
+  --bb-line: #24586b;
+  --bb-text: #f4f8fa;
+  --bb-muted: #adbec9;
+  --bb-heading-today: #ffe500;
+  --bb-heading-newsroom: #69c9ff;
+  --bb-heading-markets: #b6e9aa;
+  --bb-heading-private: #ffd18d;
+  --bb-mono: 'Consolas', 'SFMono-Regular', monospace;
+  --bb-display: 'Arial Black', Impact, var(--font-figtree), sans-serif;
+}
+:root[data-bluebelly-theme="yellow-black"] {
+  --bb-accent: #ffe500;
+  --bb-command-alt: #00e7f5;
+  --bb-command-edge: #24586b;
+  --bb-command-glow: rgba(255,229,0,.15);
+}
+:root[data-bluebelly-theme="turquoise"] {
+  --bb-accent: #38eed7;
+  --bb-command-alt: #ffe25e;
+  --bb-command-edge: #246c72;
+  --bb-command-glow: rgba(56,238,215,.14);
+}
+:root[data-bluebelly-theme="neon-blue"] {
+  --bb-accent: #4b9fff;
+  --bb-command-alt: #74eaff;
+  --bb-command-edge: #285c9a;
+  --bb-command-glow: rgba(75,159,255,.2);
+}
+:root[data-bluebelly-theme="pastel-green"] {
+  --bb-accent: #a3f2b3;
+  --bb-command-alt: #f1e67a;
+  --bb-command-edge: #456b65;
+  --bb-command-glow: rgba(163,242,179,.13);
+}
+/* Presentation-only surfaces; never use accent to encode rise/fall or health. */
+:root {
+  --bb-card-bg: linear-gradient(135deg,color-mix(in srgb,var(--bb-surface) 97%,var(--bb-accent) 3%),var(--bb-surface));
+  --bb-card-bg-hover: linear-gradient(135deg,color-mix(in srgb,var(--bb-raised) 94%,var(--bb-accent) 6%),var(--bb-raised));
+  --bb-card-border: color-mix(in srgb,var(--bb-line) 89%,var(--bb-accent) 11%);
+  --bb-card-quiet: color-mix(in srgb,var(--bb-raised) 96%,var(--bb-accent) 4%);
+  --bb-card-focus: var(--bb-accent);
 }
