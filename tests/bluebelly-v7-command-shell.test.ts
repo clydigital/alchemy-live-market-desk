@@ -7,6 +7,8 @@ const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.ur
 test("v7 shell reuses canonical host-aware links and preserves source search", () => {
   const header = read("components/blue-desk/BlueDeskHeader.tsx");
   assert.match(header, /data-bluebelly-layout="v7-command"/);
+  assert.match(header, /className=\{chrome\.commandCrumb\}/);
+  assert.match(header, /className=\{chrome\.navHint\}/);
   assert.match(header, /blueDeskPublicHref\(path,\s*host\)/);
   assert.match(header, /const PUBLIC_NAV/);
   assert.match(header, /const PUBLIC_MORE/);
@@ -32,5 +34,8 @@ test("v7 shell keeps four existing theme IDs, accessible rail and compact mobile
   assert.match(styles, /max-width:1050px/);
   assert.match(styles, /max-width:720px/);
   assert.match(styles, /prefers-reduced-motion/);
+  assert.match(styles, /@media\(min-width:721px\)/);
+  assert.match(styles, /\.mastInner>\.brand\{display:none\}/);
+  assert.match(styles, /\.links,\.mobileNav\{display:none\}/);
   assert.doesNotMatch(tokens, /data-theme=/);
 });
