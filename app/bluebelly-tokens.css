@@ -51,3 +51,16 @@
   --bb-card-quiet: color-mix(in srgb,var(--bb-raised) 96%,var(--bb-accent) 4%);
   --bb-card-focus: var(--bb-accent);
 }
+
+/* Shared header is rendered within each existing Next page. Offset the
+   document for its fixed v7 rail without replacing page routing/layout. */
+body:has(header[data-bluebelly-layout="v7-command"]){
+  padding-inline-start:232px;
+  background:radial-gradient(ellipse 1200px 520px at 70% -20%,#102433,transparent 75%),#050b10;
+}
+@media(max-width:1050px) and (min-width:721px){
+  body:has(header[data-bluebelly-layout="v7-command"]){padding-inline-start:68px}
+}
+@media(max-width:720px){
+  body:has(header[data-bluebelly-layout="v7-command"]){padding-inline-start:0}
+}
