@@ -14,6 +14,7 @@ export default function MarketDivergenceWatch({
 }){
   const reads=buildMarketDivergenceWatch(observations,window);
   const measured=reads.filter(r=>r.status!=="NOT_COMPARABLE");
+  const missing=reads.filter(r=>r.status==="NOT_COMPARABLE");
   return <section id="divergence-watch" data-market-divergence-watch="read-only" aria-labelledby="divergence-watch-heading">
     <p className={css.intro}>Compare observed market relationships before assigning a cause. Opposite moves appear first; a return gap by itself does not prove that a historical relationship has broken.</p>
     <nav className={css.windows} aria-label="Divergence comparison window">
@@ -22,8 +23,8 @@ export default function MarketDivergenceWatch({
         aria-current={window===w?"page":undefined}>{w}</a>)}
     </nav>
     <p className={css.intro}>{measured.length} of {reads.length} comparisons have matched, recorded {window} percentage-return data. No inferred source sessions or price series.</p>
-    <div className={css.grid}>
-      {reads.map(read=><article key={read.id} className={css.card} data-status={read.status}>
+    {measured.length?<div className={css.grid}>
+      {measured.map(read=><article key={read.id} className={css.card} data-status={read.status}>
         <span className={css.tag}>{read.status==="OPPOSITE_MOVE"?"Opposite directions":read.status==="RELATIVE_MOVE"?"Relative performance":"Data unavailable"}</span>
         <h3>{read.title}</h3>
         <p>{read.question}</p>
@@ -42,7 +43,14 @@ export default function MarketDivergenceWatch({
           </div>
         </details>
       </article>)}
-    </div>
+    </div>:<div className={css.empty} role="status">
+      <strong>No matched comparisons available for {window}.</strong>
+      <p>The monitored assets do not currently provide enough same-session percentage-return observations for these pairs. That is a coverage gap, not evidence that market relationships are normal.</p>
+    </div>}
+    {missing.length?<details className={css.missingDisclosure}>
+      <summary>Unavailable comparisons ({missing.length}) · inspect data gaps</summary>
+      <ul>{missing.map(read=><li key={read.id}><strong>{read.title}</strong> — {read.reason}</li>)}</ul>
+    </details>:null}
     <p className={css.foot}>Research watch only. Same-session ETF price returns are not adjusted total returns. No automatic Regime/Dossier changes, statistical significance claim, or trading signal. Event-driven divergences require separately frozen expectations and matched reaction windows.</p>
   </section>;
 }
