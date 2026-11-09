@@ -1,0 +1,38 @@
+/* Lightweight ambient halo, not a tracking overlay or custom pointer.
+   The source text, controls, and click targets remain untouched beneath it. */
+.halo{
+  --halo-x:-1000px;
+  --halo-y:-1000px;
+  position:fixed;
+  top:0;left:0;
+  width:620px;height:620px;
+  z-index:12;pointer-events:none;
+  transform:translate3d(calc(var(--halo-x) - 310px),calc(var(--halo-y) - 310px),0);
+  border-radius:50%;
+  opacity:0;
+  will-change:transform,opacity;
+  transition:opacity .23s ease-out;
+  background:
+    radial-gradient(circle at center,
+      color-mix(in srgb,var(--bb-command-alt) 19%,transparent) 0,
+      color-mix(in srgb,var(--bb-command-alt) 9%,transparent) 19%,
+      color-mix(in srgb,var(--bb-command-accent) 8%,transparent) 35%,
+      transparent 68%),
+    radial-gradient(circle at center,
+      transparent 0 18%,color-mix(in srgb,var(--bb-command-alt) 6%,transparent) 19%,
+      transparent 20% 37%,color-mix(in srgb,var(--bb-command-accent) 4%,transparent) 38%,
+      transparent 40%);
+  mix-blend-mode:screen;
+}
+.halo[data-visible="true"]{opacity:.82}
+/* The React effect admits only genuine mouse events, even on a hybrid
+   touch+mouse device whose primary-pointer media query reports coarse. */
+@media(max-width:720px),(prefers-reduced-motion:reduce){
+  .halo{display:none!important}
+}
+@media(forced-colors:active),(prefers-contrast:more){
+  .halo{display:none!important}
+}
+@media print{
+  .halo{display:none!important}
+}

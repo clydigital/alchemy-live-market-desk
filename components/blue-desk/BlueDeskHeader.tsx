@@ -1,6 +1,8 @@
 import CurrentMarketUpdates from "@/components/blue-desk/CurrentMarketUpdates";
 import Link from "next/link";
 import ThemePreferences from "./ThemePreferences";
+import CommandPointerHalo from "./CommandPointerHalo";
+import CommandSidebarSplash from "./CommandSidebarSplash";
 import { MarketIcon, type MarketIconName } from "./MarketIcon";
 import { headers } from "next/headers";
 import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
@@ -99,7 +101,9 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
   );
   return (
     <header data-bluebelly-chrome="mockup-editorial" data-bluebelly-layout="v7-command">
+      <CommandPointerHalo/>
       <aside className={chrome.commandSide} aria-label="Bluebelly command navigation">
+        <CommandSidebarSplash/>
         <Link href={blueDeskPublicHref("/blue-desk",host)} className={chrome.sideBrand}
           aria-label="Bluebelly Dashboard">
           <span className={chrome.sideMark} aria-hidden="true"/>
