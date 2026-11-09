@@ -121,6 +121,7 @@ export async function GET(request: Request) {
       bursaObservationsSaved:bursaSaved,bursaSkippedRecently,
       bursaProviderStatus:usage?.status??(bursa.length?"cached":"no_eligible_symbols"),
       bursaProviderFailureCode:usage?.failureCode??null,
+      bursaTokenDiagnostic:usage?.tokenDiagnostic??(bursa.length?"NOT_CHECKED":"NO_BURSA_SYMBOLS"),
       symbolsWithoutSupportedQuotes:missing,providerSnapshotAt:monitor.updatedAt,
       note:"iSaham timestamps are upstream refresh batches, NOT last trade times. Free-tier quota is checked before calls."
     });
