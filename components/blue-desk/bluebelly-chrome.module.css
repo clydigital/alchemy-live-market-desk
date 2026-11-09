@@ -195,3 +195,56 @@
 @media(max-width:720px){
   .commandCrumb,.navHint{display:none}
 }
+
+/* v7 shared atmospheric rail: links remain the highest contrast layer.
+   The splash is paint behind the buttons, never a clickable overlay. */
+.commandSide{isolation:isolate}
+.commandSide .sideBrand,.commandSide .sideNav,.commandSide .sideFooter{
+  position:relative;z-index:1;
+}
+.commandSide .sideBrand{
+  background:linear-gradient(90deg,rgba(4,16,23,.94),rgba(5,20,28,.8));
+}
+.commandSide .sideGroup{
+  text-shadow:0 0 12px color-mix(in srgb,var(--bb-command-alt) 17%,transparent);
+}
+.commandSide .sideLink{
+  position:relative;background:rgba(4,17,24,.64);
+  transition:background-color .14s ease,border-color .14s ease,color .14s ease;
+}
+.commandSide .sideLink:hover,
+.commandSide .sideLink:focus-visible{
+  background:color-mix(in srgb,var(--bb-command-alt) 13%,#091922);
+  border-color:var(--bb-command-edge);
+  color:#f3fbfe!important;
+}
+.commandSide .sideLink::after{
+  content:"";position:absolute;right:0;top:27%;height:46%;
+  width:2px;background:var(--bb-command-alt);
+  opacity:0;transform:scaleY(.3);
+  transition:opacity .14s ease,transform .14s ease;
+  box-shadow:0 0 12px color-mix(in srgb,var(--bb-command-alt) 80%,transparent);
+}
+.commandSide .sideLink:hover::after,
+.commandSide .sideLink:focus-visible::after{
+  opacity:1;transform:scaleY(1);
+}
+.commandSide .sideCurrent{
+  position:relative;z-index:2;
+  background:var(--bb-command-accent);
+  color:var(--bb-accent-ink)!important;
+}
+.commandSide .sideFooter{
+  background:linear-gradient(90deg,rgba(4,17,23,.92),rgba(5,22,28,.86));
+}
+@media(max-width:1050px) and (min-width:721px){
+  .commandSide .sideLink{background:rgba(4,17,24,.76)}
+}
+@media(prefers-reduced-motion:reduce){
+  .commandSide .sideLink,
+  .commandSide .sideLink::after{transition:none}
+}
+@media(forced-colors:active){
+  .commandSide .sideLink::after{display:none}
+  .commandSide .sideCurrent{outline:2px solid Highlight;outline-offset:-2px}
+}
