@@ -62,3 +62,16 @@ test("Wide-screen calendar board still fills the reclaimed width",()=>{
   assert.match(tokens,/max-width:none/);
   assert.match(tokens,/width:100%/);
 });
+
+test("Expanded sidebar footer offers a clear Hide navbar text action",()=>{
+  assert.match(header,/id="bluebelly-command-footer"/);
+  assert.match(toggle,/createPortal\(/);
+  assert.match(toggle,/document\.getElementById\("bluebelly-command-footer"\)/);
+  assert.match(toggle,/footer && !shelved/);
+  assert.match(toggle,/className=\{chrome\.sidebarHideText\}/);
+  assert.match(toggle,/aria-label="Hide navbar"/);
+  assert.match(toggle,/onClick=\{\(\)=>setShelved\(true\)\}/);
+  assert.match(chrome,/\.sidebarHideText\{/);
+  assert.match(chrome,/@media\(max-width:1050px\)\{\.sidebarHideText\{display:none\}\}/);
+  assert.match(chrome,/\.sidebarHideText:focus-visible/);
+});
