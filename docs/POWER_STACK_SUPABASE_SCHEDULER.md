@@ -5,7 +5,7 @@
 ## Schedule / contract
 - `pg_cron` / `pg_net`, weekdays **23:15 UTC** (07:15 MYT next day, after regular US trading close).
 - Job name `power_stack_owner_quotes_weekdays`.
-- HTTP GET `https://bluebelly-desk.vercel.app/api/cron/power-stack/quotes`.
+- HTTP GET `https://alchemy-live-market-desk-rogue-magazine.vercel.app/api/cron/power-stack/quotes`.
 - Header `Authorization: Bearer <dedicated token>` read *at runtime* from Supabase Vault secret `power_stack_refresh_token`.
 - On Vercel, the same token is configured in the server-only **production** environment variable `POWER_STACK_REFRESH_TOKEN`. It is never committed or passed in the URL.
 - `/api/cron/power-stack/quotes` upserts **dated, owner-scoped observations** into `public.power_stack_quote_observations`, sourced only from the existing monitored symbols with source/provenance. It does not update brokerage quantities or manufacture analyst estimates.
@@ -26,7 +26,7 @@ select cron.schedule(
  'power_stack_owner_quotes_weekdays', '15 23 * * 1-5',
  $job$
  select net.http_get(
-   url := 'https://bluebelly-desk.vercel.app/api/cron/power-stack/quotes',
+   url := 'https://alchemy-live-market-desk-rogue-magazine.vercel.app/api/cron/power-stack/quotes',
    headers := jsonb_build_object('Authorization', 'Bearer ' ||
       (select decrypted_secret from vault.decrypted_secrets where name='power_stack_refresh_token')),
    timeout_milliseconds := 180000
@@ -39,3 +39,10 @@ Inspect with `select jobid, jobname, schedule, active from cron.job where jobnam
 ## Limits and rollback
 Supabase organisation was verified **Free** on 10 Nov 2026; no plan upgrade was requested. This single daily job is far below normal scheduling limits; project limits and inactivity pausing still apply. Deployment and provider pricing are separate.
 To stop: `select cron.unschedule('power_stack_owner_quotes_weekdays')`. Leave quote history intact. If the HTTP response fails, don't retry in a tight loop or silently fabricate data. Rotate both Vault and Vercel secret if compromised.
+
+## First verified production smoke test — 10 Nov 2026 MYT
+- Deployment SHA `15fff00eda57caf2de3ec2497c8e709767632d52` was READY.
+- Authenticated request to the private operation hostname via `pg_net` returned HTTP **200**, `ownerCount:1`, `observationsUpserted:3`, `symbolsWithoutSupportedQuotes:51`.
+- The three stored provider observation dates were **2026-11-06**; provider cache fetch time is not confused with quote date.
+- `cron.job` name, `15 23 * * 1-5`, active state and private hostname were verified. Automatic future execution is not yet proven by a scheduled run.
+- Operational limitation: the pre-existing market monitor has sparse coverage for the private watchlist. An independent quotes provider is still needed for complete Power Stack prices; no invented quotes or analyst forecasts are emitted.
