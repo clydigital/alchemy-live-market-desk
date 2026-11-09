@@ -52,6 +52,20 @@ export default async function NewsroomPage({searchParams}:Props){
   <BlueDeskHeader activePath="/blue-desk/newsroom"/>
     {!isBlueDeskPublicReaderHost(host)?<CurrentMarketUpdates host={host} mode="full" now={now}/>:null}
   <div className={desk.content}>
+    <header className={ui.commandHero} data-v7-newsroom-command="source-qualified">
+      <div className={ui.commandTitle}>
+        <p className={ui.commandEyebrow}>BLUEBELLY / SOURCE WIRE · ORIGINAL-SOURCE RECORDS</p>
+        <h1>Newsroom<span>.</span></h1>
+        <p>What happened, when the source reported it, and where to investigate the market consequences. Dated records, not a simulated real-time news tape.</p>
+      </div>
+      <div className={ui.commandMetrics} aria-label="Current source-feed coverage">
+        <div><small>SOURCE-QUALIFIED NEWS</small><strong>{news.length}</strong><span>Items in this reader window</span></div>
+        <div><small>ARCHIVED READER ITEMS</small><strong>{archiveResult.items.length}</strong><span>Retrieved historical entries</span></div>
+        <p>{Object.values(sourceFeed.sourceReads).includes("UNAVAILABLE")
+          ?"Source coverage is partial; empty results do not mean a quiet market."
+          :"Records are source-qualified; retrieval is not an event timestamp."}</p>
+      </div>
+    </header>
     <nav className={ui.newsroomDepthNav} aria-label="Newsroom reading depth" data-newsroom-deep-dives="single-editorial-destination">
       <span aria-current="page">Latest verified news</span>
       <Link href={readerHref}>Deep Dives · Key Stories</Link>

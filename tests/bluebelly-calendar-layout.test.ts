@@ -5,7 +5,8 @@ import test from "node:test";
 const page = readFileSync(new URL("../app/blue-desk/calendar/page.tsx", import.meta.url), "utf8");
 
 test("public Bluebelly calendar leads with its interactive week grid", () => {
-  const heading = page.indexOf('<section className={styles.calendarHero}>');
+  const heading = page.indexOf('data-v7-calendar="source-dated-catalyst-command"');
+  assert.match(page,/className=\{`\$\{styles\.calendarHero\} \$\{command\.hero\}`\}/);
   const calendar = page.indexOf("<CatalystCalendar ");
   const earnings = page.indexOf("<IssuerEarningsBoard ");
   const scorecards = page.indexOf("<RecentEarningsScorecards ");

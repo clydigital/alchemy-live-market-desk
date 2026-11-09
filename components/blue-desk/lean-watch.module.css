@@ -32,3 +32,76 @@
 .empty{border:1px dashed var(--bb-card-border);border-radius:9px;padding:20px;margin-top:16px;color:var(--bb-muted);font-size:14px}
 @media(max-width:800px){.grid{grid-template-columns:1fr}.cardMeta{gap:8px}.hero{padding:22px 18px}}
 @media(prefers-reduced-motion:reduce){.card{transition:none}}
+
+/* v7 public Watch is historical thesis memory; the rings are decorative,
+   never a confidence meter, signal strength, or updated research status. */
+.hero{
+  position:relative;isolation:isolate;overflow:hidden;min-width:0;
+  display:grid;grid-template-columns:minmax(0,1fr) 220px;align-items:center;gap:20px;
+  min-height:210px;border:1px solid var(--bb-command-edge);border-radius:0;
+  clip-path:polygon(0 0,calc(100% - 18px) 0,100% 18px,100% 100%,0 100%);
+  background:radial-gradient(ellipse at 83% 43%,color-mix(in srgb,var(--bb-command-accent) 11%,transparent),transparent 43%),
+    linear-gradient(110deg,#0b2530,#081820 72%);
+  padding:clamp(17px,2.6vw,31px);
+}
+.hero::before{
+  content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.20;
+  background-image:linear-gradient(90deg,#2e6573 1px,transparent 1px),linear-gradient(0deg,#2e6573 1px,transparent 1px);
+  background-size:39px 39px;mask-image:linear-gradient(90deg,transparent 23%,#000 100%);
+}
+.hero::after{content:"";position:absolute;bottom:0;right:0;width:86px;height:3px;background:var(--bb-command-accent)}
+.heroContent{position:relative;z-index:1;min-width:0}
+.hero .eyebrow{color:var(--bb-command-alt);font:850 10px/1.3 var(--bb-mono);letter-spacing:.15em}
+.hero h1{font:900 clamp(29px,3.1vw,45px)/1.05 var(--bb-display);color:#f3fafc;letter-spacing:-.05em;margin:0 0 11px;text-transform:uppercase}
+.hero>p,.heroContent>p:not(.eyebrow){max-width:63ch;color:#bfd6de;font-size:13px;line-height:1.56;margin:0}
+.shortcuts a,.archiveLinks a{
+  border-radius:0;border:1px solid var(--bb-command-edge);
+  color:var(--bb-command-alt);background:#0a2230;
+  display:inline-flex;align-items:center;justify-content:center;min-height:37px;
+  font:800 11px/1.3 var(--bb-mono);
+}
+.shortcuts a:first-child{background:var(--bb-command-accent);border-color:var(--bb-command-accent);color:#06151c}
+.shortcuts a:hover,.archiveLinks a:hover{border-color:var(--bb-command-accent)}
+.shortcuts a:focus-visible,.archiveLinks a:focus-visible,.card a:focus-visible,.details>summary:focus-visible{
+  outline:2px solid var(--bb-command-accent);outline-offset:2px;
+}
+.heroRadar{position:relative;display:grid;place-items:center;width:100%;min-height:184px;pointer-events:none}
+.radarRing{
+  position:relative;display:grid;place-items:center;width:161px;height:161px;
+  border-radius:50%;border:1px solid var(--bb-command-alt);
+  background:
+    radial-gradient(circle,transparent 0 41%,rgba(30,178,199,.18) 41.5% 42.3%,transparent 43%),
+    conic-gradient(from 28deg,transparent 0 31deg,color-mix(in srgb,var(--bb-command-accent) 29%,transparent) 32deg 41deg,transparent 42deg 113deg,color-mix(in srgb,var(--bb-command-alt) 23%,transparent) 114deg 119deg,transparent 120deg);
+  box-shadow:0 0 24px color-mix(in srgb,var(--bb-command-alt) 8%,transparent),inset 0 0 29px rgba(14,103,133,.18);
+}
+.radarRing::before{content:"";position:absolute;inset:13px;border:1px dashed color-mix(in srgb,var(--bb-command-alt) 50%,transparent);border-radius:50%}
+.radarRing::after{content:"";position:absolute;inset:33px;border:1px solid color-mix(in srgb,var(--bb-command-accent) 60%,transparent);border-radius:50%}
+.radarCore{font:900 48px/1 var(--bb-display);letter-spacing:-.12em;color:#eaf7fa}
+.radarCore span{color:var(--bb-command-accent)}
+.radarCaption{position:absolute;bottom:-3px;font:800 8px/1.25 var(--bb-mono);letter-spacing:.11em;color:var(--bb-muted);white-space:nowrap}
+.section{margin-top:18px}
+.sectionHeading h2{font:900 clamp(19px,2.5vw,30px)/1.1 var(--bb-display);text-transform:uppercase;color:#eaf6fa}
+.sectionHeading .eyebrow{font:850 10px/1.3 var(--bb-mono);color:var(--bb-command-alt)}
+.count{font:750 11px/1.3 var(--bb-mono);color:var(--bb-muted)}
+.grid{gap:10px;margin-top:11px}
+.card{
+  position:relative;border:1px solid var(--bb-command-edge);border-radius:0;
+  background:linear-gradient(130deg,#102936,#091b27);
+  clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,0 100%);
+}
+.card::before{content:"";position:absolute;top:0;left:0;height:3px;width:65px;background:var(--bb-command-accent)}
+.cardMeta span:first-child{color:var(--bb-command-alt)}
+.card h3{font:850 clamp(18px,2vw,24px)/1.22 var(--bb-display)}
+.view strong,.next strong,.details strong{color:var(--bb-command-alt)}
+.next{background:#0d2934;border-left-color:var(--bb-command-accent)}
+.details summary{color:var(--bb-command-alt);min-height:38px;display:flex;align-items:center}
+.empty{border-radius:0;border-color:var(--bb-command-edge);background:linear-gradient(130deg,#0d2630,#091a24)}
+@media(max-width:850px){.hero{grid-template-columns:minmax(0,1fr) 140px}.heroRadar{transform:scale(.82)}}
+@media(max-width:620px){
+  .hero{grid-template-columns:1fr;min-height:0;padding:18px;clip-path:none}
+  .heroRadar{display:none}
+  .shortcuts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .shortcuts a{padding:10px 7px;font-size:10px;text-align:center;white-space:normal}
+  .card{clip-path:none}
+}
+@media(prefers-reduced-motion:reduce){.card,.shortcuts a{transition:none}}

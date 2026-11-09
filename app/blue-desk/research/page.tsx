@@ -48,7 +48,7 @@ export default async function PublicResearchPage({
  return <main className={layout.page} data-bluebelly-research-index="public-approved-dated">
    <BlueDeskHeader activePath="/blue-desk/research"/>
    <div className={layout.content}>
-     <header className={ui.hero}>
+     <header className={ui.hero} data-v7-research-command="dated-archive">
        <div>
          <p className={ui.eyebrow}>BLUEBELLY / INVESTIGATIONS</p>
          <h1>Research<span>.</span></h1>
@@ -60,7 +60,6 @@ export default async function PublicResearchPage({
        </div>
      </header>
 
-     <CurrentMarketUpdates host={host} mode="compact"/>
      <section className={ui.controls} aria-label="Find research">
        <form className={ui.search} action={href} method="get" role="search">
          <label htmlFor="public-research-search">Search investigations</label>
@@ -102,6 +101,10 @@ export default async function PublicResearchPage({
      <ReaderPagination label="Research Library" page={page.page} totalPages={page.totalPages}
        totalItems={page.totalItems} firstItem={page.firstItem} lastItem={page.lastItem}
        getHref={pageHref}/>
+     <details className={ui.editionContext} data-research-editorial="archived-secondary">
+       <summary>Source-dated editorial context · expand earlier reports</summary>
+       <CurrentMarketUpdates host={host} mode="compact"/>
+     </details>
      <footer className={ui.bottom}>
        <div>
          <h2>Keeping the record straight</h2>
