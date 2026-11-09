@@ -15,13 +15,16 @@ export default function CommandPointerHalo(){
     const node=ref.current;
     if(!node)return;
 
-    const fine=window.matchMedia("(hover: hover) and (pointer: fine)");
+    // Prefer the actual event's pointerType over the device's primary-pointer
+    // heuristic: hybrid devices and headless Chrome can report hover:none
+    // while a real mouse is attached and dispatching pointermove.
     const reduced=window.matchMedia("(prefers-reduced-motion: reduce)");
+    const contrast=window.matchMedia("(forced-colors: active), (prefers-contrast: more)");
     let frame=0;
     let hasPosition=false;
     let x=0,y=0,targetX=0,targetY=0;
 
-    const enabled=()=>fine.matches&&!reduced.matches;
+    const enabled=()=>window.innerWidth>720&&!reduced.matches&&!contrast.matches;
     const hide=()=>{node.dataset.visible="false";};
 
     const render=()=>{
@@ -34,7 +37,7 @@ export default function CommandPointerHalo(){
         frame=window.requestAnimationFrame(render);
     };
     const move=(event:PointerEvent)=>{
-      if(event.pointerType==="touch"||!enabled())return;
+      if(event.pointerType!=="mouse"||!enabled())return;
       targetX=event.clientX;targetY=event.clientY;
       if(!hasPosition){
         x=targetX;y=targetY;hasPosition=true;
@@ -53,15 +56,17 @@ export default function CommandPointerHalo(){
     window.addEventListener("pointermove",move,{passive:true});
     window.addEventListener("pointerout",leave,{passive:true});
     window.addEventListener("blur",hide);
+    window.addEventListener("resize",modeChange);
     document.addEventListener("visibilitychange",visibility);
-    fine.addEventListener("change",modeChange);
+    contrast.addEventListener("change",modeChange);
     reduced.addEventListener("change",modeChange);
     return ()=>{
       window.removeEventListener("pointermove",move);
       window.removeEventListener("pointerout",leave);
       window.removeEventListener("blur",hide);
+      window.removeEventListener("resize",modeChange);
       document.removeEventListener("visibilitychange",visibility);
-      fine.removeEventListener("change",modeChange);
+      contrast.removeEventListener("change",modeChange);
       reduced.removeEventListener("change",modeChange);
       if(frame)window.cancelAnimationFrame(frame);
     };
