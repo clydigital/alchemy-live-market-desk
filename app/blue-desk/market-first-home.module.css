@@ -131,7 +131,7 @@
 .archive summary{cursor:pointer;font-weight:750;color:var(--bb-command-accent)}
 .pipeline{margin:4px 0 22px}
 .pipeline>section{margin:0!important;border-radius:0;border-color:var(--bb-command-edge);background:#07131b}
-@media(max-width:1540px){.quoteGrid{grid-template-columns:repeat(3,minmax(0,1fr))}.quote{min-height:172px}}
+@media(max-width:1350px){.quoteGrid{grid-template-columns:repeat(3,minmax(0,1fr))}.quote{min-height:172px}}
 @media(max-width:950px){.hero{grid-template-columns:minmax(0,1fr) 175px}.heroVisual{width:170px;transform:scale(.78)}.catalysts .list{grid-template-columns:1fr 1fr}}
 @media(max-width:760px){
   .hero{grid-template-columns:1fr;min-height:0;padding:17px}
