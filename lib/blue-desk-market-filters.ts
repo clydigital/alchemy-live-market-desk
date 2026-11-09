@@ -1,4 +1,5 @@
 import type { PublicMarketObservation } from "./blue-desk-public-markets.ts";
+import { marketSignalAlignment, type SignalBias } from "./bluebelly-signal-filters.ts";
 
 /** Display-only market screener. All values retain their original source units. */
 export type MarketChangeUnit = "all" | "%" | "bp" | "pp";
@@ -65,15 +66,31 @@ export function filterPublicMarketObservations(
 /** Read-only column sorting shared by the market table and regression tests.
  * Missing observations always trail real values. Percentage returns and yield
  * basis-point changes are never interleaved as directly comparable moves. */
-export type MarketSortColumn = "instrument" | "last" | "1D" | "3D" | "5D" | "source";
+export type MarketSortColumn = "instrument" | "last" | "1D" | "3D" | "5D" | "alignment" | "source";
 
 export function sortPublicMarketColumns(
   rows: readonly PublicMarketObservation[],
   column: MarketSortColumn,
   ascending: boolean,
+  alignment: { bias: SignalBias; breakoutDays: "20" | "55" | "252" } = { bias: "bullish", breakoutDays: "55" },
 ): PublicMarketObservation[] {
   const sign = ascending ? 1 : -1;
   return [...rows].sort((a, b) => {
+    if (column === "alignment") {
+      // Match the currently displayed BULL/BEAR tally and Donchian window.
+      // Unscanned / zero-coverage instruments always trail assessed rows in
+      // either direction: "unknown" is not equivalent to a 0/5 score.
+      const score = (row: PublicMarketObservation) => {
+        const tally = marketSignalAlignment(row.screening, alignment.bias, alignment.breakoutDays);
+        return row.screening && tally.available > 0 ? tally : null;
+      };
+      const left = score(a), right = score(b);
+      if (!left) return right ? 1 : a.label.localeCompare(b.label);
+      if (!right) return -1;
+      const matched = sign * (left.matched - right.matched);
+      const share = sign * (left.matched / left.available - right.matched / right.available);
+      return matched || share || (right.available - left.available) || a.label.localeCompare(b.label);
+    }
     if (column === "instrument" || column === "source") {
       const first = column === "instrument" ? a.label : a.sourceName;
       const second = column === "instrument" ? b.label : b.sourceName;
