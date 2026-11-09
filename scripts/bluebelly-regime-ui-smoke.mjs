@@ -222,7 +222,11 @@ try{
       .replace(/<img\b[^>]*>/gi,"")
       .replace(/<link\b(?=[^>]*\brel=["']preload["'])[^>]*>/gi,"");
    assertHtml(view.html,'data-v7-treasury-ladder="source-dated-us-only"',
-      'data-v7-etf-rotation="source-matched"','data-market-change-screener="read-only"');
+      'data-market-change-screener="read-only"');
+   // ETF graphic is conditional on actual public data coverage; the fail-closed
+   // unavailable state must remain acceptable during provider outages.
+   if(!view.html.includes('data-v7-etf-rotation="source-matched"'))
+    assertHtml(view.html,"Observations unavailable");
    for(const [filename,width,height] of [
      ["markets-desktop.png",1440,1950],
      ["markets-tablet.png",1024,2350],
