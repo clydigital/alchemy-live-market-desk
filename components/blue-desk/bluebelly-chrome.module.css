@@ -273,3 +273,18 @@
 @media(min-width:721px){
   .commandSide .sideFooter{padding-left:52px}
 }
+
+/* Explicit footer action; the far-left NAV handle remains the restore control. */
+@media(min-width:1051px){
+  .commandSide .sideFooter{flex-wrap:wrap}
+  .sidebarHideText{
+    flex:1 0 100%;display:flex;align-items:center;gap:9px;justify-content:flex-start;
+    min-height:39px;padding:10px 9px;margin-top:5px;cursor:pointer;
+    border:1px solid var(--bb-command-edge);background:#102936;
+    color:var(--bb-command-alt);font:850 11px/1.3 var(--font-figtree),sans-serif;
+    letter-spacing:.07em;text-align:left;text-transform:uppercase;
+  }
+  .sidebarHideText:hover{background:#194052;color:#f3fcff;border-color:var(--bb-command-alt)}
+  .sidebarHideText:focus-visible{outline:2px solid var(--bb-command-accent);outline-offset:2px}
+}
+@media(max-width:1050px){.sidebarHideText{display:none}}
