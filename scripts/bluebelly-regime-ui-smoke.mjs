@@ -17,6 +17,7 @@ const outputs="artifacts/regime-ui";
 mkdirSync(outputs,{recursive:true});
 const children=[];
 let marketsSnapshotHtml=null;
+let supportSnapshotHtml=null;
 function launch(cmd,args,opts={}){
  const child=spawn(cmd,args,{stdio:"inherit",...opts});
  children.push(child);return child;
@@ -29,6 +30,10 @@ function proxy(){
   if(req.url?.split("?")[0]==="/__markets_snapshot"&&marketsSnapshotHtml){
    res.writeHead(200,{"content-type":"text/html; charset=utf-8","cache-control":"no-store"});
    res.end(marketsSnapshotHtml);return;
+  }
+  if(req.url?.split("?")[0]==="/__support_snapshot"&&supportSnapshotHtml){
+   res.writeHead(200,{"content-type":"text/html; charset=utf-8","cache-control":"no-store"});
+   res.end(supportSnapshotHtml);return;
   }
   const headers={...req.headers,host:"bluebelly-desk.vercel.app",
     "x-forwarded-host":"bluebelly-desk.vercel.app","x-forwarded-proto":"https"};
@@ -75,7 +80,7 @@ async function renderChrome(url,filename,width,height,{disableJavascript=false}=
   "--user-data-dir="+profile,
   "--hide-scrollbars","--no-first-run","--no-default-browser-check",
   "--window-size="+width+","+height,
-  ...(disableJavascript && filename.startsWith("markets-") ? ["--virtual-time-budget=3500"] : disableJavascript ? [] : ["--virtual-time-budget=4500"]),
+  ...(disableJavascript && (filename.startsWith("markets-")||filename.startsWith("calendar-")||filename.startsWith("research-")) ? ["--virtual-time-budget=3500"] : disableJavascript ? [] : ["--virtual-time-budget=4500"]),
   // Server-rendered public reading can include large external embeds. Capture
   // static layout without executing third-party scripts where appropriate.
   ...(disableJavascript?["--disable-javascript"]:[]),
@@ -181,6 +186,8 @@ try{
   ["/key-stories","key-stories",'data-bluebelly-watch="lean-readonly-v1"'],
   ["/hormuz","hormuz",'data-bluebelly-hormuz="public-source-dated-physical-first"'],
   ["/markets","markets",'data-blue-desk-markets="public-observations"'],
+  ["/calendar","calendar",'data-blue-desk-calendar="ET-primary"'],
+  ["/research","research",'data-bluebelly-research-index="public-approved-dated"'],
  ];
  // The duplicate public report is retired; old public bookmarks must
  // land on Newsroom without exposing or substituting a private daily edition.
@@ -201,15 +208,37 @@ try{
     'data-bluebelly-layout="v7-command"','aria-label="Bluebelly command navigation"');
   }
   if(id==="newsroom"){
+   assertHtml(view.html,'data-v7-newsroom-command="source-qualified"');
    assertHtml(view.html,'data-editorial-newsroom="verified-only"');
    if(view.html.includes('data-newsroom-release-rail='))throw Error("Duplicate release rail still rendered in public Newsroom");
   }
   if(id==="key-stories"){
+   assertHtml(view.html,'data-v7-watch-graphic="decorative-research-radar"');
    assertHtml(view.html,"What is developing?","Market narratives",
     "Browse complete historical Story library");
    if(!view.html.includes("No approved public thesis snapshot"))
     assertHtml(view.html,"Evidence and counterargument",
       "Read full thesis and source context");
+  }
+  if(id==="calendar"||id==="research"){
+   if(id==="calendar")assertHtml(view.html,
+     'data-v7-calendar="source-dated-catalyst-command"',
+     'data-calendar-graphics="source-listed-counts"',
+     'data-catalyst-calendar="v4"');
+   else assertHtml(view.html,'data-v7-research-command="dated-archive"',
+     'data-research-editorial="archived-secondary"',"Search investigations");
+   // Replay the actual public SSR response with only nonvisual third-party
+   // images and hydration scripts omitted for stable screenshot capture.
+   supportSnapshotHtml=view.html
+     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,"")
+     .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi,"")
+     .replace(/<img\b[^>]*>/gi,"");
+   for(const [suffix,width,height] of [["desktop",1440,1200],["mobile",390,1200]]){
+    await renderChrome("http://127.0.0.1:"+PUBLIC+"/__support_snapshot",
+      id+"-"+suffix+".png",width,height,{disableJavascript:true});
+   }
+   console.log("Public support view "+id+" "+view.status+" · original SSR and desktop/mobile CSS verified");
+   continue;
   }
   // Render the real source-dated SSR Markets document once from a CI-only
   // cached, same-origin path. Disable JS to exclude third-party TradingView.
