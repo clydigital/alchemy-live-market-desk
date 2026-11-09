@@ -26,12 +26,18 @@ export default async function OwnerXWirePage({searchParams}:{
   const to=Math.min(f.page*25,wire.total);
   return <>
     <BlueDeskHeader activePath="/owner/x-wire"/>
-    <main className={styles.page} data-x-wire="owner-paginated-ledger">
+    <main className={styles.page} data-x-wire="owner-paginated-ledger"
+      data-v7-x-wire="private-source-operations">
       <header className={styles.header}>
         <p className={styles.eyebrow}>BLUEBELLY / PRIVATE SOURCE OPERATIONS</p>
         <h1>X Intelligence Wire</h1>
         <p>Search the durable X archive, examine source coverage and distinguish discovery from research handoff.</p>
         <p className={styles.secondary}>Owner-only · Server-side filtered pages · No third-party source requests during browsing</p>
+        <nav className={styles.quickNav} aria-label="X Wire sections">
+          <a href="#wire-filters">Filter stored posts</a>
+          <a href="#wire-posts">Read source archive</a>
+          <a href="#wire-accounts">Source health</a>
+        </nav>
       </header>
       <div className={styles.stats}>
         <div><strong>{wire.error?"—":wire.sourceHealthy+"/"+wire.sourceMonitored}</strong><span>Complete, fresh source checks</span></div>
@@ -43,7 +49,7 @@ export default async function OwnerXWirePage({searchParams}:{
         <strong>Third-party discovery is not verification.</strong>
         <p>Stored X posts and research intake records do not prove the social claims. Provider retries and historical gaps remain visible. Existing scheduled research jobs own ingestion and editorial promotion; navigating pages never triggers another scan.</p>
       </aside>
-      <section className={styles.filters} aria-label="Search X Wire">
+      <section className={styles.filters} id="wire-filters" aria-label="Search X Wire">
         <h2>Browse the archive</h2>
         <form method="get" action="/owner/x-wire" className={styles.filterForm}>
           <label>Topic<select name="theme" defaultValue={f.theme}><option value="">All topics</option>{X_WIRE_THEMES.map(([key,label])=><option value={key} key={key}>{label}</option>)}</select></label>
@@ -56,7 +62,7 @@ export default async function OwnerXWirePage({searchParams}:{
         <p className={styles.filterHint}>Topics are overlapping keyword lenses. A post can appear under more than one topic.</p>
       </section>
       <section className={styles.grid}>
-        <div>
+        <div id="wire-posts" className={styles.postLane}>
           <div className={styles.listHead}><h2>Stored posts</h2><span>{wire.error?"Read unavailable":`Showing ${from}–${to} of ${wire.total}`}</span></div>
           {wire.error?<p className={styles.empty}>{wire.error}</p>:wire.posts.length?<div className={styles.posts}>{wire.posts.map(p=>
             <article className={styles.post} key={p.id}>
@@ -72,7 +78,7 @@ export default async function OwnerXWirePage({searchParams}:{
             {f.page<wire.pageCount?<Link href={xWireOwnerHref(f,{page:f.page+1})}>Next</Link>:<span>Next</span>}
           </nav>:null}
         </div>
-        <aside>
+        <aside id="wire-accounts" className={styles.healthLane}>
           <h2>Source health · {wire.accounts.length} accounts</h2>
           <div className={styles.accounts}>{wire.accounts.map(a=><article className={styles.account} key={a.handle}>
             <div className={styles.accountTop}><strong>@{a.handle}</strong><span data-health={a.status}>{a.status.toUpperCase()}</span></div>
