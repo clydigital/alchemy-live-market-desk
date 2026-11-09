@@ -40,6 +40,7 @@ test("pointer movement uses local rAF and tears down listeners, never mutates ma
 
 test("pointer halo cannot intercept clicks and fails closed for reduced motion, touch and print",()=>{
   const css=read("components/blue-desk/CommandPointerHalo.module.css");
+  const src=read("components/blue-desk/CommandPointerHalo.tsx");
   assert.match(css,/pointer-events:none/);
   assert.match(css,/opacity:0/);
   assert.match(css,/data-visible="true"/);
