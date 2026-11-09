@@ -249,22 +249,19 @@
   .commandSide .sideCurrent{outline:2px solid Highlight;outline-offset:-2px}
 }
 
-/* Shared lower-left command handle, always outside the sliding sidebar.
-   It remains reachable to restore the rail on every Bluebelly desktop page. */
+/* One persistent, always reachable yellow square at the bottom-left of
+   the viewport; its chevron points toward the next sidebar action. */
 .sidebarToggle{
   position:fixed;left:0;bottom:clamp(20px,4vh,42px);z-index:48;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:4px;width:38px;min-height:78px;padding:8px 3px;cursor:pointer;
-  color:var(--bb-accent-ink);background:var(--bb-command-accent);
-  border:1px solid var(--bb-command-accent);border-left:0;border-radius:0;
-  box-shadow:3px 3px 13px #0008;
+  display:grid;place-items:center;
+  width:44px;height:44px;min-height:44px;padding:0;cursor:pointer;
+  color:#090a0c;background:#ffe500;border:1px solid #ffe500;
+  border-radius:0;box-shadow:3px 3px 13px #0008;
   transition:filter .16s ease;
 }
-.sidebarToggle:hover{filter:brightness(1.08)}
+.sidebarToggle:hover{filter:brightness(1.1)}
 .sidebarToggle:focus-visible{outline:3px solid var(--bb-command-alt);outline-offset:3px}
-/* The handle remains flush with the viewport in either state. */
-.toggleArrow{font:900 29px/1 var(--bb-display)}
-.toggleLabel{font:900 9px/1 var(--bb-mono);letter-spacing:.12em}
+.toggleArrow{display:block;font:900 30px/1 var(--bb-display)}
 @media(max-width:720px){.sidebarToggle{display:none}}
 @media(prefers-reduced-motion:reduce){.sidebarToggle{transition:none}}
 @media(forced-colors:active){.sidebarToggle{border:2px solid ButtonText;color:ButtonText;background:ButtonFace}}
@@ -273,18 +270,3 @@
 @media(min-width:721px){
   .commandSide .sideFooter{padding-left:52px}
 }
-
-/* Explicit footer action; the far-left NAV handle remains the restore control. */
-@media(min-width:1051px){
-  .commandSide .sideFooter{flex-wrap:wrap}
-  .sidebarHideText{
-    flex:1 0 100%;display:flex;align-items:center;gap:9px;justify-content:flex-start;
-    min-height:39px;padding:10px 9px;margin-top:5px;cursor:pointer;
-    border:1px solid var(--bb-command-edge);background:#102936;
-    color:var(--bb-command-alt);font:850 11px/1.3 var(--font-figtree),sans-serif;
-    letter-spacing:.07em;text-align:left;text-transform:uppercase;
-  }
-  .sidebarHideText:hover{background:#194052;color:#f3fcff;border-color:var(--bb-command-alt)}
-  .sidebarHideText:focus-visible{outline:2px solid var(--bb-command-accent);outline-offset:2px}
-}
-@media(max-width:1050px){.sidebarHideText{display:none}}
