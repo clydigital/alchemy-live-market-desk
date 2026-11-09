@@ -190,6 +190,10 @@
     {
       "path": "/api/cron/research/official-actuals",
       "schedule": "12 15 * * *"
+    },
+    {
+      "path": "/api/cron/power-stack/quotes",
+      "schedule": "15 23 * * 1-5"
     }
   ],
   "ignoreCommand": "if [ \"$VERCEL_GIT_COMMIT_REF\" = \"main\" ]; then exit 1; else exit 0; fi"
