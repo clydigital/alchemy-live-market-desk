@@ -254,12 +254,27 @@ try{
       .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi,"")
       .replace(/<img\b[^>]*>/gi,"")
       .replace(/<link\b(?=[^>]*\brel=["']preload["'])[^>]*>/gi,"");
-   assertHtml(view.html,'data-v7-treasury-ladder="source-dated-us-only"',
+   assertHtml(view.html,'data-markets-working-modes="three"',
+      'data-v7-treasury-ladder="source-dated-us-only"',
       'data-market-change-screener="read-only"');
-   // ETF graphic is conditional on actual public data coverage; the fail-closed
-   // unavailable state must remain acceptable during provider outages.
-   if(!view.html.includes('data-v7-etf-rotation="source-matched"'))
-    assertHtml(view.html,"Observations unavailable");
+   // All Assets is now the first screen. Its open, searchable instrument table
+   // is present without forcing the comparison into the same long page.
+   if(view.html.includes('data-v7-etf-rotation="source-matched"'))
+    throw Error("All Assets unexpectedly rendered the Compare-only ETF graphic");
+   const compare=await waitResponse("/markets?mode=compare");
+   assertHtml(compare.html,'data-market-breadth-watch="research-first"',
+      'data-market-change-screener="read-only"');
+   // Source-matched rotation is optional when prices are unavailable.
+   if(compare.html.includes('data-v7-etf-rotation="source-matched"'))
+    console.log("Compare 200 · matching ETF rotation reader present");
+   else console.log("Compare 200 · source-limited ETF comparison correctly omitted");
+   const watch=await waitResponse("/markets?mode=watch");
+   assertHtml(watch.html,'data-market-divergence-watch="read-only"',
+      'data-markets-working-modes="three"',"Same-session ETF price returns");
+   const watch3d=await waitResponse("/markets?mode=watch&window=3D");
+   assertHtml(watch3d.html,'data-market-divergence-watch="read-only"',
+      'Divergence comparison window',"3D");
+   console.log("Divergence Watch 200 · default and 3D source-dated reader present");
    for(const [filename,width,height] of [
      ["markets-desktop.png",1440,1950],
      ["markets-tablet.png",1024,2350],
