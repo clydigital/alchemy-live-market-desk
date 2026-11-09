@@ -78,7 +78,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
     const filtered = baseFiltered.filter(row => passesMarketSignalFilter(row, {
       family: signalFamily, bias: signalBias, breakoutDays, minimumAligned,
     }));
-    if (columnSort) return sortPublicMarketColumns(filtered, columnSort, ascending);
+    if (columnSort) return sortPublicMarketColumns(filtered, columnSort, ascending, {bias: signalBias, breakoutDays});
     if (signalFamily !== "all" || minimumAligned > 0) return [...filtered].sort((a,b) =>
       marketSignalAlignment(b.screening, signalBias, breakoutDays).matched -
       marketSignalAlignment(a.screening, signalBias, breakoutDays).matched || a.label.localeCompare(b.label));
@@ -365,10 +365,13 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
       <table className={styles.publicMarketTable}>
         <thead><tr><th scope="col" aria-sort={columnSort==="instrument"?(ascending?"ascending":"descending"):undefined}><button type="button" className={ui.columnSort} onClick={()=>sortColumn("instrument")}>Instrument {columnSort==="instrument"?(ascending?"▲":"▼"):"↕"}</button></th><th scope="col" aria-sort={columnSort==="last"?(ascending?"ascending":"descending"):undefined}><button type="button" className={ui.columnSort} onClick={()=>sortColumn("last")}>Last observed {columnSort==="last"?(ascending?"▲":"▼"):"↕"}</button></th>
           {(["1D", "3D", "5D"] as const).map(period => <th scope="col" key={period} data-selected={period === window} aria-sort={columnSort===period?(ascending?"ascending":"descending"):undefined} className={period === window ? ui.selectedChange : undefined}><button type="button" className={ui.columnSort} onClick={()=>sortColumn(period)}>{period} change {columnSort===period?(ascending?"▲":"▼"):"↕"}</button></th>)}
-          <th scope="col">Signal alignment</th><th scope="col" aria-sort={columnSort==="source"?(ascending?"ascending":"descending"):undefined}><button type="button" className={ui.columnSort} onClick={()=>sortColumn("source")}>Source and vintage {columnSort==="source"?(ascending?"▲":"▼"):"↕"}</button></th></tr></thead>
+          <th scope="col" aria-sort={columnSort==="alignment"?(ascending?"ascending":"descending"):undefined}><button type="button" className={ui.columnSort} onClick={()=>sortColumn("alignment")} title={`Sort ${signalBias} alignment (Donchian ${breakoutDays}D) by matched conditions`}>Signal alignment {columnSort==="alignment"?(ascending?"▲":"▼"):"↕"}</button></th><th scope="col" aria-sort={columnSort==="source"?(ascending?"ascending":"descending"):undefined}><button type="button" className={ui.columnSort} onClick={()=>sortColumn("source")}>Source and vintage {columnSort==="source"?(ascending?"▲":"▼"):"↕"}</button></th></tr></thead>
         <tbody>{visible.map(row => <tr key={row.id}>
-          <th scope="row"><EntityRow identity={entityForAsset(row.symbol) || {kind: "asset", code: row.symbol}}
-            title={row.label} subtitle={row.symbol + " · " + (row.researchRole ? "Research instrument" : row.type)} /></th>
+          <th scope="row" className={ui.instrumentCell}>
+            <EntityRow identity={entityForAsset(row.symbol) || {kind: "asset", code: row.symbol}}
+              className={ui.instrumentIdentity} title={row.label} subtitle={row.symbol}/>
+            <span className={ui.instrumentRole}>{row.researchRole ? "Research instrument" : row.type}</span>
+          </th>
           <td className={styles.publicMarketNumber}>{level(row)}</td>
           {(["1D", "3D", "5D"] as const).map(period => {
             const value = publicMarketWindowChange(row, period);

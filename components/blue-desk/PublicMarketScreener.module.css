@@ -228,3 +228,58 @@
 .signalScore{display:block;font:800 12px/1.4 var(--bb-mono);color:var(--bb-text)}
 .signalCell small{display:block;margin-top:4px;font-size:10px;line-height:1.5;color:var(--bb-muted)}
 .noSignal{color:var(--bb-muted);font-size:11px}
+
+/* Instrument-name column: override the legacy table's blanket "tbody th span"
+   block margins. Keep the entity mark, full name, ticker and category distinct. */
+.instrumentCell{
+  min-width:248px!important;
+  width:clamp(248px,23vw,345px);
+  white-space:normal;
+  vertical-align:middle!important;
+}
+.instrumentCell .instrumentIdentity{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  margin:0;
+}
+.instrumentCell .instrumentIdentity > :first-child{
+  flex:0 0 30px;
+  margin:2px 0 0;
+}
+.instrumentCell .instrumentIdentity > :nth-child(2){
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  min-width:0;
+  margin:0;
+}
+.instrumentCell .instrumentIdentity strong{
+  display:block;
+  font-size:13px;
+  line-height:1.5;
+  font-weight:800;
+  letter-spacing:0;
+  white-space:normal;
+  overflow-wrap:break-word;
+}
+.instrumentCell .instrumentIdentity small{
+  display:block;
+  margin:0;
+  font:750 11px/1.5 var(--bb-mono);
+  color:var(--bb-command-alt);
+  overflow-wrap:anywhere;
+}
+.instrumentCell .instrumentRole{
+  display:block;
+  margin:8px 0 0 42px;
+  color:var(--bb-muted);
+  font:600 11px/1.5 var(--font-figtree),sans-serif;
+  overflow-wrap:break-word;
+}
+@media(max-width:760px){
+  .instrumentCell{min-width:228px!important;width:228px}
+}
