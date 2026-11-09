@@ -136,7 +136,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
     setSort(nextDirection === "down" ? "losers" : "magnitude");
   }
 
-  return <div data-market-change-screener="read-only">
+  return <div className={mode==="assets"?ui.assetsMode:undefined} data-market-change-screener="read-only">
     {mode === "compare" && group === "all" && comparisonUniverse.length ? <details className={ui.comparePanel} open>
       <summary>Compare sector ETFs, equal weight and semiconductors</summary>
       <p>Choose ETFs to compare 1D, 3D and 5D percentage returns from their source-dated sessions. This is not a live chart or a total-return series.</p>
@@ -228,15 +228,17 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
       <summary>All instruments · search and advanced filters</summary>
       <p>Search, filter and sort the complete available source-dated universe. The ETF comparison remains in the Compare mode.</p>
     <div className={ui.screener} aria-label="Market change filters">
-      <div className={ui.quick}>
-        <span>Quick screens</span>
+      <details className={ui.quickDisclosure}>
+        <summary>Quick screens</summary>
+        <div className={ui.quick}>
         <button type="button" onClick={reset}>All</button>
         <button type="button" onClick={() => preset("%", "up", 1)}>Up ≥1%</button>
         <button type="button" onClick={() => preset("%", "down", 1)}>Down ≥1%</button>
         <button type="button" onClick={() => preset("%", "all", 2)}>Move ≥2%</button>
         <button type="button" onClick={() => preset("bp", "all", 10)}>Rates ≥10 bp</button>
         <button type="button" onClick={() => preset("pp", "all", 2)}>Breadth ≥2 pp</button>
-      </div>
+        </div>
+      </details>
       <div className={ui.controls}>
         <label>Screen / sort period
           <select aria-label="Screen and sort period" value={window} onChange={event => { setWindow(event.target.value as MarketChangeWindow); setColumnSort(null); }}>
