@@ -1,0 +1,35 @@
+.shell{
+  min-width:0;position:relative;overflow:hidden;margin:11px 0;
+  padding:clamp(13px,1.5vw,20px);border:1px solid var(--bb-command-edge);
+  background:linear-gradient(138deg,#091c27,#06141d 80%);
+}
+.shell::before{
+  content:"";pointer-events:none;position:absolute;inset:0;opacity:.18;
+  background-image:linear-gradient(90deg,#315d67 1px,transparent 1px),
+   linear-gradient(0deg,#315d67 1px,transparent 1px);
+  background-size:44px 44px;mask-image:linear-gradient(90deg,transparent,#000);
+}
+.heading{position:relative;display:flex;justify-content:space-between;gap:16px;align-items:end;margin-bottom:13px}
+.heading p{margin:0 0 5px;color:var(--bb-command-alt);font:850 10px/1.4 var(--bb-mono);letter-spacing:.14em}
+.heading h2{margin:0;color:var(--bb-text);font:900 clamp(19px,2.2vw,27px)/1.15 var(--bb-display);text-transform:uppercase;letter-spacing:-.025em}
+.heading>span{font:800 10px/1.3 var(--bb-mono);color:var(--bb-muted);white-space:nowrap}
+.heading b{color:var(--bb-command-accent)}
+.grid{position:relative;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.tenor{
+  min-width:0;display:grid;align-content:start;gap:8px;
+  background:linear-gradient(145deg,#102731,#081a23);
+  border:1px solid color-mix(in srgb,var(--bb-command-edge) 80%,var(--bb-muted) 20%);
+  padding:11px 12px;position:relative;
+}
+.tenor::before{content:"";position:absolute;right:0;top:0;width:22px;height:2px;background:var(--bb-command-alt)}
+.topline{display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;color:#b9d2dc;font:800 9px/1.3 var(--bb-mono);letter-spacing:.06em}
+.topline>span:first-child{color:var(--bb-command-alt)}
+.value{font:900 clamp(19px,2vw,28px)/1.2 var(--bb-display);color:#f1f8fb;font-variant-numeric:tabular-nums}
+.tenor[data-status="unavailable"] .value{color:var(--bb-muted)}
+.tenor small{margin-top:4px;font-size:10px;line-height:1.4;color:#b6ced9;overflow-wrap:anywhere}
+.tenor small a{color:#cfe8f1;text-decoration:underline;text-underline-offset:2px}
+.tenor small a:focus-visible{outline:2px solid var(--bb-command-accent);outline-offset:2px}
+.caveat{position:relative;font-size:11px;line-height:1.5;color:var(--bb-muted);margin:10px 0 0}
+@media(max-width:1480px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:760px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.heading{flex-wrap:wrap}.tenor{padding:11px}}
+@media(max-width:375px){.grid{grid-template-columns:1fr}}
