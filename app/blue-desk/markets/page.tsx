@@ -252,6 +252,9 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           </details>
         </section>:null}
 
+        {catalogue?<PublicAssetCatalogue data={catalogue}
+          baseHref={blueDeskPublicHref("/blue-desk/markets",host)}/>:null}
+
         {mode!=="watch"?<section aria-labelledby="market-group-heading" className={`${styles.section} ${legibility.marketSection}`}>
           <div className={styles.sectionHead}>
             <div>
@@ -264,8 +267,6 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
 
           <PublicMarketScreener key={group} observations={observations} group={group} dataAvailable={Boolean(monitor)} mode={mode==="compare"?"compare":"assets"} />
         </section>:null}
-        {catalogue?<PublicAssetCatalogue data={catalogue}
-          baseHref={blueDeskPublicHref("/blue-desk/markets",host)}/>:null}
 
         {mode==="assets"&&group==="all"?
           <PublicTreasuryLadder rows={publicMarketObservations(monitor?.rows||[],"rates")}/>:null}
