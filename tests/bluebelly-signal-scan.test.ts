@@ -13,7 +13,7 @@ function bars(count: number, increase = 0.4, withVolume = true) {
 }
 test("Donchian uses previous highs, not including breakout candle; 20/55/252 independent", () => {
   const trending = bars(260);
-  assert.equal(scanBreakout(trending,20).state, "inside"); // rising less than previous day's high
+  assert.equal(scanBreakout(trending,20).state, "near-high"); // rising less than previous day's high
   trending[259].close += 10;
   assert.equal(scanBreakout(trending,20).state, "up");
   assert.equal(scanBreakout(trending,55).state, "up");

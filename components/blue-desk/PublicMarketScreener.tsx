@@ -72,17 +72,17 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
   }
 
   const visible = useMemo(() => {
-    const filtered = filterPublicMarketObservations(observations, {
+    const baseFiltered = filterPublicMarketObservations(observations, {
       query, window, unit, direction, minMove: minimum, sort,
     });
-    const signalFiltered = filtered.filter(row => passesMarketSignalFilter(row, {
+    const filtered = baseFiltered.filter(row => passesMarketSignalFilter(row, {
       family: signalFamily, bias: signalBias, breakoutDays, minimumAligned,
     }));
-    if (columnSort) return sortPublicMarketColumns(signalFiltered, columnSort, ascending);
-    if (signalFamily !== "all" || minimumAligned > 0) return [...signalFiltered].sort((a,b) =>
+    if (columnSort) return sortPublicMarketColumns(filtered, columnSort, ascending);
+    if (signalFamily !== "all" || minimumAligned > 0) return [...filtered].sort((a,b) =>
       (b.screening?.alignment[signalBias].matched ?? -1) -
       (a.screening?.alignment[signalBias].matched ?? -1) || a.label.localeCompare(b.label));
-    return signalFiltered;
+    return filtered;
   }, [observations, query, window, unit, direction, minimum, sort, columnSort,
       ascending, signalFamily, signalBias, breakoutDays, minimumAligned]);
 
