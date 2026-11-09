@@ -1,0 +1,16 @@
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+import test from "node:test";
+test("owner PEG readback reuses existing price ledger, never public market projection",()=>{
+ const page=readFileSync(new URL("../app/power-stack/page.tsx",import.meta.url),"utf8");
+ const publicPage=readFileSync(new URL("../app/blue-desk/markets/page.tsx",import.meta.url),"utf8");
+ assert.match(page,/getUser\(\)/);
+ assert.match(page,/app_access_allowlist/);
+ assert.match(page,/power_stack_peg_research_observations/);
+ assert.match(page,/\.eq\("owner_user_id",identity\.user\.id\)/);
+ assert.match(page,/1Y PEG research/);
+ assert.match(page,/Native revision unknown/);
+ assert.match(page,/data-power-stack-peg-contract="private-retrieval-only"/);
+ assert.doesNotMatch(publicPage,/power_stack_peg_research_observations/);
+ assert.doesNotMatch(page,/FMP_API_KEY|FMP_API|service_role/);
+});

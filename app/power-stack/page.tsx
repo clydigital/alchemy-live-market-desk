@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import styles from "@/app/blue-desk/blue-desk.module.css";
 import portfolio from "./private-power-stack.module.css";
+import { evaluatePegResearch, type PegResearchObservation } from "@/lib/power-stack-peg-research";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -154,6 +155,20 @@ export default async function PrivatePowerStack() {
   if (!quoteError) for (const quote of quoteRecords ?? []) {
     if (!latestQuotes.has(quote.ticker)) latestQuotes.set(quote.ticker, quote);
   }
+  // Private, manually source-attested PEG snapshots. Never exposed on public Markets.
+  // A fetched forecast period date is NOT an analyst revision date.
+  const {data:pegRecords,error:pegError}=ready&&trackedTickers.length
+    ? await supabase.from("power_stack_peg_research_observations")
+        .select("ticker,retrieved_at,estimate_native_updated_at,forecast_first_fy_end,forecast_second_fy_end,eps_first_fy,eps_second_fy,first_fy_analysts,second_fy_analysts,quote_price,quote_observed_on,quote_currency,estimate_currency,forecast_source,forecast_source_url,quote_source")
+        .eq("owner_user_id",identity.user.id).in("ticker",trackedTickers.slice(0,250))
+        .order("retrieved_at",{ascending:false}).limit(300)
+    : {data:null,error:null};
+  const pegByTicker=new Map<string,ReturnType<typeof evaluatePegResearch>>();
+  if(!pegError)for(const record of pegRecords??[]){
+    if(pegByTicker.has(record.ticker))continue;
+    const evaluation=evaluatePegResearch(record as PegResearchObservation);
+    pegByTicker.set(record.ticker,evaluation);
+  }
 
   return (
     <main className={styles.page} data-power-stack="owner-only"
@@ -193,22 +208,36 @@ export default async function PrivatePowerStack() {
                 <summary>Inspect all {trackedTickers.length} tracked instruments, dates, currencies and providers</summary>
                 <div className={portfolio.tableScroll}>
                 <table className={portfolio.holdingsTable}>
-                  <thead><tr><th>Symbol</th><th>Observed price</th><th>Source date / basis</th><th>Freshness</th><th>Provider</th></tr></thead>
+                  <thead><tr><th>Symbol</th><th>Observed price</th><th>Source date / basis</th><th>Freshness</th><th>Provider</th><th>1Y PEG research</th><th>Forecast basis</th></tr></thead>
                   <tbody>{trackedTickers.map(ticker => {
                     const quote = latestQuotes.get(ticker);
                     const age = quote ? Math.floor((Date.now()-Date.parse(quote.observed_on+"T00:00:00Z"))/86400000) : null;
+                    const peg=pegByTicker.get(ticker);
                     return <tr key={ticker}><td>{ticker}</td>
                       <td>{quote ? quote.currency+" "+Number(quote.price).toFixed(2) : "Unavailable"}</td>
                       <td>{quote ? quote.observed_on + (quote.timestamp_basis === "upstream_batch" ? " · Batch date (not last trade)" : " · Market observation") : "—"}</td>
                       <td>{age === null ? "Missing" : age > 5 ? "STALE" : quote?.timestamp_basis === "upstream_batch" ? "Batch date only · trade time unknown" : age > 2 ? "Delayed / market closed" : "Recent daily observation"}</td>
                       <td>{quote ? <a href={quote.source_url} target="_blank" rel="noopener noreferrer">{quote.source_name}</a> : "—"}</td>
+                      <td>{!peg ? "—" : peg.forwardPEG===null
+                        ? peg.reason==="NON_POSITIVE_GROWTH" ? "N/A · non-positive EPS growth" : "N/A · "+peg.reason
+                        : peg.forwardPEG.toFixed(2)+" · "+(peg.quality==="indicative"?"Indicative":"STALE")}</td>
+                      <td>{!peg?"Not covered":peg.forecastPeriod+
+                        " · Retrieved "+peg.forecastRetrievedOn.slice(0,10)+
+                        (peg.hasNativeEstimateRevision?" · Native revision recorded":" · Native revision unknown")}</td>
                     </tr>;
                   })}</tbody>
                 </table>
                 </div>
               </details>
-              <p>PEG screening is withheld until forward earnings estimates and their dates can be independently sourced.
-                A PEG below 1 is not a standalone buy signal.</p>
+              <p data-power-stack-peg-contract="private-retrieval-only">
+                PEG research is calculated from a dated quote and two annual consensus EPS forecasts:
+                forward P/E divided by the forecast EPS growth percentage from the first to second fiscal year.
+                It is a one-year growth comparison, not a long-term PEG recommendation.
+                Provider retrieval date is not the forecast's original revision date.
+                Indicative observations are not ranked in the public Markets screener or counted in technical alignment.
+                A PEG below 1 is not a standalone buy signal.
+              </p>
+              {pegError ? <p>Private PEG research is unavailable; the existing price ledger remains intact.</p> : null}
             </section>
             <section className={portfolio.section} data-power-stack-bond-watch="owner-research">
               <h2>Bond Watch · {bondWatch.length}</h2>
