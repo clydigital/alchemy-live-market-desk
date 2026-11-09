@@ -19,6 +19,7 @@ import { buildPresenterCalendar, type PresenterCalendarEvent } from "@/lib/prese
 import { selectBlueDeskEarningsWeek, selectBlueDeskNext24Hours, selectBlueDeskReleasedWeek, selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
 import { formatDualDeskTime } from "@/lib/blue-desk-time";
 import styles from "../blue-desk.module.css";
+import command from "./command-calendar.module.css";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -186,17 +187,30 @@ export default async function BlueDeskCalendarPage({
       
         <div className={styles.content}>
 
-        <section className={styles.calendarHero}>
-          <div>
-            <h1><MarketIcon name="calendar" size={33} /> Market calendar</h1>
+        <section className={`${styles.calendarHero} ${command.hero}`}
+          data-v7-calendar="source-dated-catalyst-command" aria-labelledby="v7-calendar-title">
+          <div className={command.heroCopy}>
+            <p className={command.eyebrow}><span aria-hidden="true"/> CALENDAR / VERIFIED SOURCE WINDOWS</p>
+            <h1 id="v7-calendar-title"><MarketIcon name="calendar" size={33} /> Market calendar</h1>
+            <p className={command.heroSub}>What is scheduled, what remains unconfirmed, and which original source establishes the time.</p>
           </div>
-          <div className={styles.calendarClock}>
-            <span className={styles.kicker}>AS OF</span>
+          <div className={`${styles.calendarClock} ${command.clock}`}>
+            <span className={styles.kicker}>DISPLAY AS OF · NOT AN EVENT RELEASE TIME</span>
             {nowDisplay ? <DualTimestamp value={nowDisplay.iso} /> : <span>Time unavailable</span>}
           </div>
         </section>
-
-        <CatalystCalendar items={catalysts} sourceCoverage={sourceCoverage} nowISO={now.toISOString()} />
+        <section className={command.metrics} aria-label="Source-listed calendar coverage"
+          data-calendar-graphics="source-listed-counts">
+          <div><span>SELECTED {windowName==="released"?"RELEASED":windowName==="24h"?"24H":windowName==="7d"?"7D":"30D"} WINDOW</span>
+            <strong>{events.length}</strong><small>Source-listed event records</small></div>
+          <div><span>EARNINGS · 30D</span><strong>{earningsHub.length}</strong>
+            <small>Upcoming issuer / provider entries</small></div>
+          <div><span>CATALYST RADAR</span><strong>{catalysts.length}</strong>
+            <small>Dated events and source-led watch items</small></div>
+        </section>
+        <div className={command.radarFrame}>
+          <CatalystCalendar items={catalysts} sourceCoverage={sourceCoverage} nowISO={now.toISOString()} />
+        </div>
 
         <IssuerEarningsBoard now={now} host={host}/>
         <RecentEarningsScorecards records={recentEarningsResults} />
