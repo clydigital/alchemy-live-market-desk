@@ -3,3 +3,37 @@
 .metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.metrics>div{border:1px solid var(--bb-line,#31596d);background:var(--bb-raised,#082c3e);border-radius:7px;padding:10px;min-width:0}
 .metrics strong{display:block;font-size:23px;font-variant-numeric:tabular-nums}.metrics span{font-size:11px;line-height:1.45;color:var(--bb-muted,#aac8d5)}.note,.missing{font-size:11px;line-height:1.55;color:var(--bb-muted,#aac8d5);margin:10px 0 0}
 @media(max-width:880px){.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:520px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.panel{padding:12px}}
+
+/* v7 private intake telemetry: every graphic length comes from the sourced
+   aggregate. Missing reads remain 'unavailable', never an inferred green state. */
+.panel{border-radius:0;border-color:var(--bb-command-edge);background:linear-gradient(115deg,#0c2530,#071821);
+ padding:16px 18px;color:#f1f9fc;position:relative}
+.panel::before{content:"";position:absolute;top:0;left:0;width:64px;height:3px;background:var(--bb-command-accent)}
+.head{align-items:center;gap:12px;margin-bottom:12px}
+.kicker{font:850 10px/1.4 var(--bb-mono);letter-spacing:.09em;color:var(--bb-command-alt)}
+.head h2{font:900 clamp(18px,2.15vw,25px)/1.2 var(--bb-display);letter-spacing:-.025em;
+ color:#eef8fc;margin:4px 0 0;text-transform:uppercase}
+.head a{font:800 11px/1.4 var(--bb-mono);border:1px solid var(--bb-command-edge);
+ color:var(--bb-command-alt);min-height:38px;display:inline-flex;align-items:center;padding:8px 12px;text-decoration:none}
+.head a:hover{border-color:var(--bb-command-accent)}
+.head a:focus-visible{outline:2px solid var(--bb-command-accent);outline-offset:2px}
+.healthReadout{margin:10px 0 13px;padding:11px 13px;border:1px solid var(--bb-command-edge);
+ background:#071b24}
+.healthLabels{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 14px;
+ font:750 11px/1.5 var(--bb-mono);color:#bdd9e3}
+.healthLabels strong{color:var(--bb-command-alt);font-variant-numeric:tabular-nums}
+.healthTrack{height:8px;background:#1b3540;border:1px solid #315568;margin:9px 0 7px;overflow:hidden}
+.healthTrack>span{display:block;height:100%;background:linear-gradient(90deg,var(--bb-command-alt),var(--bb-command-accent));transition:width .2s ease}
+.healthReadout small{font-size:10px;line-height:1.55;color:#b8cbd5}
+.metrics{gap:7px}
+.metrics>div{border:1px solid var(--bb-command-edge);background:#0d2631;border-radius:0;padding:11px;min-height:75px;
+ display:flex;flex-direction:column;justify-content:center}
+.metrics strong{font:900 clamp(20px,2.3vw,28px)/1 var(--bb-display);color:#f2f9fc}
+.metrics span{font-size:10px;line-height:1.48;color:#bed4dc;margin-top:6px}
+.note,.missing{font-size:11px;line-height:1.65;color:#bcd4db}
+.missing{border:1px dashed var(--bb-command-edge);padding:13px;background:#0b2530}
+@media(max-width:940px){.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:540px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.panel{padding:12px}
+ .head{align-items:flex-start}.head a{width:100%;justify-content:center}}
+@media(prefers-reduced-motion:reduce){.healthTrack>span{transition:none}}
+@media(forced-colors:active){.healthTrack{border:1px solid CanvasText}.healthTrack>span{background:Highlight}}
