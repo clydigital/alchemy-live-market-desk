@@ -18,6 +18,8 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import TradingViewChart from "@/components/blue-desk/TradingViewChart";
 import PublicMarketScreener from "@/components/blue-desk/PublicMarketScreener";
 import MarketDivergenceWatch from "@/components/blue-desk/MarketDivergenceWatch";
+import PublicAssetCatalogue from "@/components/blue-desk/PublicAssetCatalogue";
+import {searchPublicAssetCatalogue} from "@/lib/bluebelly-public-asset-catalogue";
 import SectorDivergenceFeature from "@/components/blue-desk/SectorDivergenceFeature";
 import JobsLabourFeature from "@/components/blue-desk/JobsLabourFeature";
 import { readPublicUsJobs } from "@/lib/bluebelly-us-jobs-reader";
@@ -41,7 +43,7 @@ export const metadata = {
 };
 
 type Props = {
-  searchParams: Promise<{ group?: string | string[]; view?: string | string[]; ticker?: string | string[]; mode?: string | string[]; window?: string | string[] }>;
+  searchParams: Promise<{ group?: string | string[]; view?: string | string[]; ticker?: string | string[]; mode?: string | string[]; window?: string | string[]; "catalogue-q"?: string | string[]; "catalogue-scope"?: string | string[]; "catalogue-page"?: string | string[] }>;
 };
 
 const GROUP_ICONS: Record<string, MarketIconName> = {
@@ -98,6 +100,10 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
         item.symbol,item.label,breadthHistory.series.find(row=>row.symbol===item.symbol)))
     : [];
   const observations=[...monitoredRows,...breadthObservations];
+  const catalogue=mode==="assets"&&group==="all"?
+    searchPublicAssetCatalogue(publicMarketObservations(monitor?.rows||[],"all"),{
+      query:query["catalogue-q"],scope:query["catalogue-scope"],page:query["catalogue-page"],
+    }):null;
   const participation=marketParticipationResearch([
     ...publicMarketObservations(monitor?.rows||[],"all"),
     ...BREADTH_WATCHES.map(item=>calculateBreadthRow(
@@ -129,7 +135,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
             </p>
           </div>
           <div className={styles.calendarClock}>
-            <span className={styles.kicker}>SOURCE COVERAGE</span>
+            <span className={styles.kicker}>ACTIVELY MONITORED</span>
             <strong className={styles.publicMarketTotal}>
               {monitor ? `${monitor.rows.length} instruments` : "Temporarily unavailable"}
             </strong>
@@ -258,6 +264,8 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
 
           <PublicMarketScreener key={group} observations={observations} group={group} dataAvailable={Boolean(monitor)} mode={mode==="compare"?"compare":"assets"} />
         </section>:null}
+        {catalogue?<PublicAssetCatalogue data={catalogue}
+          baseHref={blueDeskPublicHref("/blue-desk/markets",host)}/>:null}
 
         {mode==="assets"&&group==="all"?
           <PublicTreasuryLadder rows={publicMarketObservations(monitor?.rows||[],"rates")}/>:null}
