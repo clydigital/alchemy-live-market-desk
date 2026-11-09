@@ -125,12 +125,12 @@ export default async function PrivatePowerStack() {
   const trackedTickers = [...new Set([...holdings, ...watchlist].map(asset => asset.ticker))];
   const { data: quoteRecords, error: quoteError } = ready && trackedTickers.length
     ? await supabase.from("power_stack_quote_observations")
-        .select("ticker,price,observed_on,source_name,source_url,ingested_at")
+        .select("ticker,price,currency,observed_on,source_name,source_url,ingested_at,timestamp_basis,source_recorded_at")
         .in("ticker", trackedTickers.slice(0,250))
         .order("observed_on", { ascending: false }).limit(1000)
     : { data: null, error: null };
   const latestQuotes = new Map<string, {
-    price:number; observed_on:string; source_name:string; source_url:string;
+    price:number; currency:string; observed_on:string; source_name:string; source_url:string; timestamp_basis:string; source_recorded_at:string|null;
   }>();
   if (!quoteError) for (const quote of quoteRecords ?? []) {
     if (!latestQuotes.has(quote.ticker)) latestQuotes.set(quote.ticker, quote);
@@ -167,19 +167,19 @@ export default async function PrivatePowerStack() {
             <section className={portfolio.section} data-power-stack-quotes="scheduled-observations">
               <h2>Tracked quotes · {latestQuotes.size}/{trackedTickers.length}</h2>
               <p>Scheduled source observations for supported tracked symbols, not live streaming prices.
-                The observation date is the actual provider market date, not the refresh time.
+                Source dates may be market observation dates or upstream refresh-batch dates. iSaham\u2019s batch date is NOT its last-trade time.
                 Missing symbols are not assigned invented prices.</p>
               {quoteError ? <p>Quote store unavailable; no current prices can be verified.</p> : null}
               <div className={portfolio.tableScroll}>
                 <table className={portfolio.holdingsTable}>
-                  <thead><tr><th>Symbol</th><th>Observed price</th><th>Source date</th><th>Freshness</th><th>Provider</th></tr></thead>
+                  <thead><tr><th>Symbol</th><th>Observed price</th><th>Source date / basis</th><th>Freshness</th><th>Provider</th></tr></thead>
                   <tbody>{trackedTickers.map(ticker => {
                     const quote = latestQuotes.get(ticker);
                     const age = quote ? Math.floor((Date.now()-Date.parse(quote.observed_on+"T00:00:00Z"))/86400000) : null;
                     return <tr key={ticker}><td>{ticker}</td>
-                      <td>{quote ? "USD "+quote.price.toFixed(2) : "Unavailable"}</td>
-                      <td>{quote?.observed_on ?? "—"}</td>
-                      <td>{age === null ? "Missing" : age > 5 ? "STALE" : age > 2 ? "Delayed / market closed" : "Recent daily observation"}</td>
+                      <td>{quote ? quote.currency+" "+Number(quote.price).toFixed(2) : "Unavailable"}</td>
+                      <td>{quote ? quote.observed_on + (quote.timestamp_basis === "upstream_batch" ? " · Batch date (not last trade)" : " · Market observation") : "—"}</td>
+                      <td>{age === null ? "Missing" : age > 5 ? "STALE" : quote?.timestamp_basis === "upstream_batch" ? "Batch date only · trade time unknown" : age > 2 ? "Delayed / market closed" : "Recent daily observation"}</td>
                       <td>{quote ? <a href={quote.source_url} target="_blank" rel="noopener noreferrer">{quote.source_name}</a> : "—"}</td>
                     </tr>;
                   })}</tbody>
