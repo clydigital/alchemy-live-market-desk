@@ -288,6 +288,21 @@ try{
      console.warn("MARKETS VISUAL DEFERRED: "+filename+" screenshot failed: "+String(error));
     }
    }
+   // Capture all three public working modes from their original SSR results.
+   // These are real dated responses, never staged fixture quotes.
+   const defaultMarketsSnapshot=marketsSnapshotHtml;
+   const safeModeHtml=html=>html
+     .replace(/<script\\b[^>]*>[\\s\\S]*?<\\/script>/gi,"")
+     .replace(/<iframe\\b[^>]*>[\\s\\S]*?<\\/iframe>/gi,"")
+     .replace(/<img\\b[^>]*>/gi,"")
+     .replace(/<link\\b(?=[^>]*\\brel=["']preload["'])[^>]*>/gi,"");
+   marketsSnapshotHtml=safeModeHtml(compare.html);
+   await renderChrome("http://127.0.0.1:"+PUBLIC+"/__markets_snapshot",
+     "markets-compare-desktop.png",1440,1200,{disableJavascript:true});
+   marketsSnapshotHtml=safeModeHtml(watch.html);
+   await renderChrome("http://127.0.0.1:"+PUBLIC+"/__markets_snapshot",
+     "markets-watch-mobile.png",390,1200,{disableJavascript:true});
+   marketsSnapshotHtml=defaultMarketsSnapshot;
   }
   if(id!=="markets")
    await renderChrome("http://127.0.0.1:"+PUBLIC+path,id+"-mobile.png",390,844,{disableJavascript:id==="key-stories"||id==="market-home"});
