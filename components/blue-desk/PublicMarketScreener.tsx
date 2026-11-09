@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import {projectEtfRotationVisual} from "@/lib/bluebelly-etf-rotation-visuals";
 
 import { EntityRow } from "@/components/blue-desk/EntityIdentity";
 import MarketObservationTakeaway from "./MarketObservationTakeaway";
@@ -49,11 +50,13 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
   const [ascending, setAscending] = useState(true);
   const [compareSymbols, setCompareSymbols] = useState<string[]>(() => observations.filter(row => row.type === "Sector").map(row => row.symbol));
   const [comparisonSort, setComparisonSort] = useState<EtfComparisonSortColumn | null>("1D");
+  const [graphicWindow, setGraphicWindow] = useState<MarketChangeWindow>("1D");
   const [comparisonAscending, setComparisonAscending] = useState(false);
 
   function sortComparisonColumn(column: EtfComparisonSortColumn) {
     setComparisonAscending(comparisonSort === column ? !comparisonAscending : column === "instrument");
     setComparisonSort(column);
+    if(column==="1D"||column==="3D"||column==="5D")setGraphicWindow(column);
   }
 
   function sortColumn(column: MarketSortColumn) {
@@ -96,6 +99,10 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
   const orderedComparisonRows = comparisonSort
     ? sortEtfComparisonRows(comparisonRows, comparisonSort, comparisonAscending, equalWeight)
     : comparisonRows;
+  const rotationVisual = useMemo(
+    ()=>projectEtfRotationVisual(comparisonUniverse,compareSymbols,graphicWindow),
+    [comparisonUniverse,compareSymbols,graphicWindow],
+  );
   const comparisonHeader = (column: EtfComparisonSortColumn, label: string) =>
     <th scope="col" aria-sort={comparisonSort===column
       ? comparisonAscending ? "ascending" : "descending" : undefined}>
@@ -149,12 +156,46 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
       </div>
       </details>
       {sectorSnapshot ? <div className={ui.rotationSummary} aria-label="Source-dated XL sector rotation">
-        <div><span>1D LEADER</span><strong data-direction="up">{sectorSnapshot.leader.symbol} {change(sectorSnapshot.leader.change, "%")}</strong></div>
-        <div><span>1D LAGGARD</span><strong data-direction="down">{sectorSnapshot.laggard.symbol} {change(sectorSnapshot.laggard.change, "%")}</strong></div>
+        <div><span>1D LEADER</span><strong data-direction={sectorSnapshot.leader.change!>0?"up":sectorSnapshot.leader.change!<0?"down":"flat"}>{sectorSnapshot.leader.symbol} {change(sectorSnapshot.leader.change, "%")}</strong></div>
+        <div><span>1D LAGGARD</span><strong data-direction={sectorSnapshot.laggard.change!>0?"up":sectorSnapshot.laggard.change!<0?"down":"flat"}>{sectorSnapshot.laggard.symbol} {change(sectorSnapshot.laggard.change, "%")}</strong></div>
         <div><span>SECTOR PARTICIPATION</span><strong>{sectorSnapshot.advancing} / {sectorSnapshot.coverage} advancing</strong></div>
         <p>Leader–laggard gap: {sectorSnapshot.spread.toFixed(2)} percentage points · source session {sectorSnapshot.asOf}.
           Source-matched ETF price rotation, not confirmed investment flows or a canonical regime verdict.</p>
       </div> : <p className={ui.rotationUnavailable}>Sector rotation summary unavailable: fewer than eight same-session, source-dated sector readings. Individual ETF rows remain accessible.</p>}
+      <section className={ui.rotationGraphic} aria-label="Same-session ETF price-change comparison"
+        data-v7-etf-rotation="source-matched">
+        <div className={ui.graphicHeader}>
+          <div><h3>Rotation map <span>· recorded price changes</span></h3>
+          <p>Signed cumulative returns, same observation session only. This is not an ETF flow chart.</p></div>
+          <div className={ui.graphicPeriods} role="group" aria-label="Graph comparison window">
+            {(["1D","3D","5D"] as const).map(period=>
+              <button key={period} type="button" aria-pressed={graphicWindow===period}
+                onClick={()=>{setGraphicWindow(period);setComparisonSort(period);setComparisonAscending(false)}}>
+                {period}
+              </button>)}
+          </div>
+        </div>
+        {rotationVisual?<div className={ui.graphicBody}>
+          <div className={ui.graphicMetadata}>
+            <span>SESSION {rotationVisual.asOf}</span>
+            <span>{rotationVisual.bars.length} MATCHED / {compareSymbols.length} SELECTED</span>
+          </div>
+          <div className={ui.graphicRows}>
+            {rotationVisual.bars.map(bar=><div key={bar.id} className={ui.graphicRow}
+              data-direction={bar.direction} title={bar.label}>
+              <strong>{bar.symbol}</strong>
+              <div className={ui.graphicTrack} aria-hidden="true">
+                {bar.widthPercent>0?<span className={ui.graphicBar}
+                  style={{left:`${bar.leftPercent}%`,width:`${bar.widthPercent}%`}}/>:null}
+              </div>
+              <span className={ui.graphicValue}>{bar.display}</span>
+            </div>)}
+          </div>
+          <p className={ui.graphicCaveat}>Bars share a zero midpoint and scale only within this matched session.
+            {rotationVisual.omitted>0?` ${rotationVisual.omitted} selection(s) excluded for missing or mismatched observations.`:""}
+            The sortable table below retains every selected instrument and its individual source date.</p>
+        </div>:<p className={ui.rotationUnavailable}>No valid graphical comparison: select at least two ETFs with recorded {graphicWindow} percentage changes from the same source session. The full table below still shows all selected rows.</p>}
+      </section>
       {comparisonRows.length ? <div className={styles.publicMarketTableScroll}>
         <table className={`${styles.publicMarketTable} ${ui.compareTable}`}>
           <thead><tr>

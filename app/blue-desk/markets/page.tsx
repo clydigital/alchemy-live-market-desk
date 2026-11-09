@@ -1,4 +1,3 @@
-import CurrentMarketUpdates from "@/components/blue-desk/CurrentMarketUpdates";
 import EarningsFundamentals from "@/components/blue-desk/EarningsFundamentals";
 import EarningsInvestorDeepDive from "@/components/blue-desk/EarningsInvestorDeepDive";
 import {getEarningsCase} from "@/lib/bluebelly-earnings-investor-stories";
@@ -8,6 +7,8 @@ import MarketTakeaway from "@/components/blue-desk/MarketTakeaway";
 import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
 import {projectPublishedResearchFocus,researchForPublicLens} from "@/lib/blue-desk-published-research-focus";
 import { headers } from "next/headers";
+import type { CSSProperties } from "react";
+import PublicTreasuryLadder from "@/components/blue-desk/PublicTreasuryLadder";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import TradingViewChart from "@/components/blue-desk/TradingViewChart";
@@ -103,7 +104,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
     <main className={`${styles.page} ${legibility.publicMarketsLegibility} ${legibility.compactMarkets}`} data-blue-desk-markets="public-observations">
       <BlueDeskHeader activePath="/blue-desk/markets" />
       
-        <CurrentMarketUpdates host={host} mode="compact"/><div className={styles.content}>
+        <div className={styles.content}>
         <header className={`${styles.calendarHero} ${legibility.marketHero}`}>
           <div>
             <p className={styles.kicker}>CROSS-ASSET OBSERVATIONS</p>
@@ -123,27 +124,12 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
 
         <nav aria-label="Markets page sections" className={legibility.focusNavigation}
           data-markets-primary="breadth-and-comparison">
-          {group==="all"?<a href="#jobs-monitor">US jobs</a>:null}
           <a href="#breadth-watch-heading">Market breadth</a>
           <a href="#market-group-heading">ETF comparisons</a>
+          {(group==="all"||group==="rates")?<a href="#yield-ladder">US yields</a>:null}
+          {group==="all"?<a href="#jobs-monitor">US jobs</a>:null}
           <a href="#advanced-market-charts">Open charts</a>
         </nav>
-        {group==="all"&&usJobs?<JobsLabourFeature data={usJobs}/>:null}
-        {(group==="all"||group==="equities"||group==="ai"||group==="energy")?
-          <SectorDivergenceFeature mode="markets"
-            articleHrefBase={blueDeskPublicHref("/blue-desk/newsroom",host)}
-            crossLinkHref={blueDeskPublicHref("/blue-desk/newsroom",host)+"#sector-divergences"}/>:null}
-        <PublishedResearchDispatches items={editorialResearch} mode="market"
-          readerHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/>
-        {reviewedFocus.map(focus=><section key={focus.id} data-markets-reviewed-catalyst={focus.id}
-          className={legibility.marketSection} style={{padding:"14px 18px",margin:"10px 0"}}>
-          <p className={styles.kicker}>REVIEWED ENERGY CATALYST · {focus.eventDay} · SOURCE DATE ONLY</p>
-          <h2>{focus.headline}</h2><p>{focus.fact}</p>
-          <MarketTakeaway why={focus.mechanism} nextTest={focus.test} compact/>
-          <p><strong>Market test:</strong> {focus.test} This is not evidence of a verified price reaction.</p>
-          <p><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+focus.href}>Read the source-reviewed story →</Link>
-          {" · "}<Link href={blueDeskPublicHref("/blue-desk/hormuz",host)}>Check source-dated crossings and fuel markets →</Link></p>
-        </section>)}
         <details className={legibility.categoryDisclosure}>
           <summary>Browse markets by category</summary>
           <nav aria-label="Market group" className={`${styles.publicMarketGroups} ${legibility.marketGroups}`}>
@@ -170,8 +156,15 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
               <div className={legibility.breadthStatHeading}>
                 <strong>{item.symbol}</strong><span>{item.label}</span>
               </div>
-              <strong className={legibility.breadthLevel}>{breadthValue(reading.last,"%")}</strong>
-              <p>Constituents above {item.symbol==="S5FI"?"50":"200"}-day average</p>
+              <div className={legibility.breadthValueRow}>
+                {reading.dataStatus==="SOURCE_DATED_SECONDARY" && reading.last!==null
+                  && Number.isFinite(reading.last) && reading.last>=0 && reading.last<=100
+                  ? <span className={legibility.breadthDial} aria-hidden="true"
+                      style={{"--breadth-fill":`${reading.last}%`} as CSSProperties}/>
+                  : <span className={legibility.breadthDialUnavailable} aria-hidden="true"/>}
+                <div><strong className={legibility.breadthLevel}>{breadthValue(reading.last,"%")}</strong>
+                <p>Constituents above {item.symbol==="S5FI"?"50":"200"}-day average</p></div>
+              </div>
               <div className={legibility.breadthChanges}>
                 {([{name:"1D",value:reading.change},{name:"3D",value:reading.change3d},
                   {name:"5D",value:reading.change5d}] as const).map(period=><div key={period.name}>
@@ -185,14 +178,17 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
             </article>)}
           </div>
           <p className={styles.subtle}>When available, readings are calculated using today's S&amp;P 500 members and are proxies, not official S5FI/S5TH closes. Only provider-reported 5D change is displayed; 1D/3D require verified daily histories. <a href="https://www.thetrading.tools/stocks-above-moving-average" target="_blank" rel="noreferrer">Source and methodology ↗</a></p>
-          <div className={styles.secondaryPanel} data-breadth-research-diagnostic={participation.status}>
-            <h3>{participation.headline}</h3>
-            <MarketTakeaway why={participation.interpretation} nextTest={participation.nextTest} compact/>
-            <p><strong>What to check next:</strong> {participation.nextTest}</p>
-            <small>Through {participation.asOf||"an unavailable source date"} ·
-              Source refresh: {breadthHistory.retrievalStatus}.
-              Research context, not an automatic Regime/Dossier update or trade signal.</small>
-          </div>
+          <details className={legibility.breadthDiagnostic}>
+            <summary><strong>{participation.headline}</strong><span>Research mechanism and next tests</span></summary>
+            <div className={styles.secondaryPanel} data-breadth-research-diagnostic={participation.status}>
+              <h3>{participation.headline}</h3>
+              <MarketTakeaway why={participation.interpretation} nextTest={participation.nextTest} compact/>
+              <p><strong>What to check next:</strong> {participation.nextTest}</p>
+              <small>Through {participation.asOf||"an unavailable source date"} ·
+                Source refresh: {breadthHistory.retrievalStatus}.
+                Research context, not an automatic Regime/Dossier update or trade signal.</small>
+            </div>
+          </details>
           <details className={legibility.breadthMore}>
             <summary>Other breadth charts · Nasdaq and Russell</summary>
             <p>These series are chart links until independently source-dated histories are verified.
@@ -209,9 +205,12 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           </details>
         </section>
 
+
+
         <section aria-labelledby="market-group-heading" className={`${styles.section} ${legibility.marketSection}`}>
           <div className={styles.sectionHead}>
             <div>
+              <p className={styles.kicker}>02 / RELATIVE MARKET LEADERSHIP</p>
               <h2 id="market-group-heading"><MarketIcon name={GROUP_ICONS[group]} size={24} /> {group==="all"?"ETF & sector comparisons":selected.label}</h2>
               <p>Compare source-dated 1D, 3D and 5D sector performance. The full screener is optional.</p>
             </div>
@@ -221,6 +220,29 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <PublicMarketScreener key={group} observations={observations} group={group} dataAvailable={Boolean(monitor)} />
         </section>
 
+        {(group==="all"||group==="rates")?
+          <PublicTreasuryLadder rows={publicMarketObservations(monitor?.rows||[],"rates")}/>:null}
+
+        <section className={legibility.relatedResearch} aria-label="Related market investigation">
+          <h2>Supporting research and catalysts</h2>
+          <p>Original-source material and unresolved investigations. These do not replace the dated market readings above.</p>
+        </section>
+        {group==="all"&&usJobs?<JobsLabourFeature data={usJobs}/>:null}
+        {(group==="all"||group==="equities"||group==="ai"||group==="energy")?
+          <SectorDivergenceFeature mode="markets"
+            articleHrefBase={blueDeskPublicHref("/blue-desk/newsroom",host)}
+            crossLinkHref={blueDeskPublicHref("/blue-desk/newsroom",host)+"#sector-divergences"}/>:null}
+        <PublishedResearchDispatches items={editorialResearch} mode="market"
+          readerHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/>
+        {reviewedFocus.map(focus=><section key={focus.id} data-markets-reviewed-catalyst={focus.id}
+          className={legibility.marketSection} style={{padding:"14px 18px",margin:"10px 0"}}>
+          <p className={styles.kicker}>REVIEWED ENERGY CATALYST · {focus.eventDay} · SOURCE DATE ONLY</p>
+          <h2>{focus.headline}</h2><p>{focus.fact}</p>
+          <MarketTakeaway why={focus.mechanism} nextTest={focus.test} compact/>
+          <p><strong>Market test:</strong> {focus.test} This is not evidence of a verified price reaction.</p>
+          <p><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+focus.href}>Read the source-reviewed story →</Link>
+          {" · "}<Link href={blueDeskPublicHref("/blue-desk/hormuz",host)}>Check source-dated crossings and fuel markets →</Link></p>
+        </section>)}
         <details id="advanced-market-charts"
           className={`${styles.section} ${legibility.marketSection} ${legibility.breadthMore}`}
           data-market-chart-provider="tradingview">

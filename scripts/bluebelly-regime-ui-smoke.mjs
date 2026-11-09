@@ -16,12 +16,20 @@ const deadline=Date.now()+300000;
 const outputs="artifacts/regime-ui";
 mkdirSync(outputs,{recursive:true});
 const children=[];
+let marketsSnapshotHtml=null;
 function launch(cmd,args,opts={}){
  const child=spawn(cmd,args,{stdio:"inherit",...opts});
  children.push(child);return child;
 }
 function proxy(){
  const server=http.createServer((req,res)=>{
+  // CI-only HTML replay of the verified anonymous public SSR response. This
+  // avoids a second expensive Markets backend fetch during Chrome capture.
+  // Assets still resolve through this loopback proxy; no mock quote is used.
+  if(req.url?.split("?")[0]==="/__markets_snapshot"&&marketsSnapshotHtml){
+   res.writeHead(200,{"content-type":"text/html; charset=utf-8","cache-control":"no-store"});
+   res.end(marketsSnapshotHtml);return;
+  }
   const headers={...req.headers,host:"bluebelly-desk.vercel.app",
     "x-forwarded-host":"bluebelly-desk.vercel.app","x-forwarded-proto":"https"};
   delete headers.cookie;
@@ -67,7 +75,7 @@ async function renderChrome(url,filename,width,height,{disableJavascript=false}=
   "--user-data-dir="+profile,
   "--hide-scrollbars","--no-first-run","--no-default-browser-check",
   "--window-size="+width+","+height,
-  ...(disableJavascript?[]:["--virtual-time-budget=4500"]),
+  ...(disableJavascript && filename.startsWith("markets-") ? ["--virtual-time-budget=3500"] : disableJavascript ? [] : ["--virtual-time-budget=4500"]),
   // Server-rendered public reading can include large external embeds. Capture
   // static layout without executing third-party scripts where appropriate.
   ...(disableJavascript?["--disable-javascript"]:[]),
@@ -203,8 +211,36 @@ try{
     assertHtml(view.html,"Evidence and counterargument",
       "Read full thesis and source context");
   }
-  // TradingView embeds can keep headless Chrome alive indefinitely; Markets is
-  // covered by the route/HTML assertions, not a brittle third-party screenshot.
+  // Render the real source-dated SSR Markets document once from a CI-only
+  // cached, same-origin path. Disable JS to exclude third-party TradingView.
+  // Source rows, percentage units, dates and comparison order are untouched.
+  if(id==="markets"){
+   // Keep real public SSR data but avoid nonvisual external resources.
+   marketsSnapshotHtml=view.html
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,"")
+      .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi,"")
+      .replace(/<img\b[^>]*>/gi,"")
+      .replace(/<link\b(?=[^>]*\brel=["']preload["'])[^>]*>/gi,"");
+   assertHtml(view.html,'data-v7-treasury-ladder="source-dated-us-only"',
+      'data-market-change-screener="read-only"');
+   // ETF graphic is conditional on actual public data coverage; the fail-closed
+   // unavailable state must remain acceptable during provider outages.
+   if(!view.html.includes('data-v7-etf-rotation="source-matched"'))
+    assertHtml(view.html,"Observations unavailable");
+   for(const [filename,width,height] of [
+     ["markets-desktop.png",1440,1950],
+     ["markets-tablet.png",1024,2350],
+     ["markets-mobile.png",390,2000],
+   ]){
+    try{
+     await renderChrome("http://127.0.0.1:"+PUBLIC+"/__markets_snapshot",
+       filename,width,height,{disableJavascript:true});
+    }catch(error){
+     // Content acceptance remains hard; report any nonrendering viewport.
+     console.warn("MARKETS VISUAL DEFERRED: "+filename+" screenshot failed: "+String(error));
+    }
+   }
+  }
   if(id!=="markets")
    await renderChrome("http://127.0.0.1:"+PUBLIC+path,id+"-mobile.png",390,844,{disableJavascript:id==="key-stories"||id==="market-home"});
   if(id==="newsroom"||id==="key-stories"||id==="market-home")
@@ -216,7 +252,7 @@ try{
     "market-home-tablet.png",1024,900,{disableJavascript:true});
   // Markets remains route/HTML-checked. Rendering its third-party chart embeds
   // in headless Chrome can hang the smoke runner even when JS is disabled.
-  console.log("Public CP page "+path+" "+view.status+" · mobile render saved");
+  console.log("Public CP page "+path+" "+view.status+" · SSR verified; eligible screenshots saved");
  }
 
  // The full historical Story index remains accessible via an explicit
