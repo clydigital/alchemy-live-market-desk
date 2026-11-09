@@ -26,3 +26,6 @@
 .paging a:hover,.paging a:focus-visible{border-color:var(--bb-accent);outline-offset:2px}
 .paging span{color:var(--bb-muted)}
 @media(max-width:720px){.body{padding:12px}.search{grid-template-columns:1fr}.search button{width:100%}.directory>summary{padding:13px}.coverage{gap:5px}.coverage span{flex:1 1 42%}}
+
+.directory>summary::after{content:"+";font:850 23px/1 var(--bb-mono);margin-left:auto;color:var(--bb-accent)}
+.directory[open]>summary::after{content:"−"}
