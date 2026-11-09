@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {projectEtfRotationVisual} from "@/lib/bluebelly-etf-rotation-visuals";
-import {passesMarketSignalFilter, type SignalFamily, type SignalBias} from "@/lib/bluebelly-signal-filters";
+import {passesMarketSignalFilter, marketSignalAlignment, type SignalFamily, type SignalBias} from "@/lib/bluebelly-signal-filters";
 
 import { EntityRow } from "@/components/blue-desk/EntityIdentity";
 import MarketObservationTakeaway from "./MarketObservationTakeaway";
@@ -80,8 +80,8 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
     }));
     if (columnSort) return sortPublicMarketColumns(filtered, columnSort, ascending);
     if (signalFamily !== "all" || minimumAligned > 0) return [...filtered].sort((a,b) =>
-      (b.screening?.alignment[signalBias].matched ?? -1) -
-      (a.screening?.alignment[signalBias].matched ?? -1) || a.label.localeCompare(b.label));
+      marketSignalAlignment(b.screening, signalBias, breakoutDays).matched -
+      marketSignalAlignment(a.screening, signalBias, breakoutDays).matched || a.label.localeCompare(b.label));
     return filtered;
   }, [observations, query, window, unit, direction, minimum, sort, columnSort,
       ascending, signalFamily, signalBias, breakoutDays, minimumAligned]);
@@ -381,7 +381,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
           <td className={ui.signalCell}>
             {row.screening ? <>
               <strong className={ui.signalScore}>
-                {row.screening.alignment[signalBias].matched}/{row.screening.alignment[signalBias].available} {signalBias === "bullish" ? "BULL" : "BEAR"}
+                {marketSignalAlignment(row.screening, signalBias, breakoutDays).matched}/{marketSignalAlignment(row.screening, signalBias, breakoutDays).available} {signalBias === "bullish" ? "BULL" : "BEAR"}
               </strong>
               <small>Donchian {breakoutDays}D: {row.screening.breakout[breakoutDays].state}
                 {" · "}Stoch: {row.screening.stoch.zone}{row.screening.stoch.turn !== "none" ? " / " + row.screening.stoch.turn : ""}

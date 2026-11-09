@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {passesMarketSignalFilter} from "../lib/bluebelly-signal-filters.ts";
+import {passesMarketSignalFilter,marketSignalAlignment} from "../lib/bluebelly-signal-filters.ts";
 import type {PublicMarketObservation} from "../lib/blue-desk-public-markets.ts";
 
 const base = {id:"x",label:"X",symbol:"X",type:"MAG7",last:10,change:1,change3d:2,
@@ -21,4 +21,17 @@ test("one timeframe cannot award multiple breakout votes and missing data is exc
   assert.equal(passesMarketSignalFilter(row,{...filters,minimumAligned:3}),false);
   assert.equal(passesMarketSignalFilter(row,{...filters,family:"breakout",breakoutDays:"252"}),false);
   assert.equal(passesMarketSignalFilter(row,{...filters,family:"stoch"}),true);
+});
+
+test("alignment tally honors selected Donchian window; missing 252D does not inherit 20D",()=>{
+  const row={...base,screening:{asOf:"2026-11-09",
+    breakout:{"20":{state:"up",basis:"high-low"},"55":{state:"inside",basis:"high-low"},"252":{state:"unavailable",basis:null}},
+    stoch:{k:50,d:40,zone:"middle",turn:"none"},volume:{multiple:1,state:"normal"},
+    relative:{excess20d:null,state:"unavailable"},squeeze:{state:"normal"},
+    alignment:{bullish:{matched:1,available:4},bearish:{matched:0,available:4}}}} as unknown as PublicMarketObservation;
+  assert.deepEqual(marketSignalAlignment(row.screening,"bullish","20"),{matched:1,available:4});
+  assert.deepEqual(marketSignalAlignment(row.screening,"bullish","55"),{matched:0,available:4});
+  assert.deepEqual(marketSignalAlignment(row.screening,"bullish","252"),{matched:0,available:3});
+  assert.equal(passesMarketSignalFilter(row,{...filters,breakoutDays:"252",minimumAligned:1}),false);
+  assert.equal(passesMarketSignalFilter(row,{...filters,breakoutDays:"20",minimumAligned:1}),true);
 });
