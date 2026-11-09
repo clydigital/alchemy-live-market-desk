@@ -156,8 +156,8 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
       </div>
       </details>
       {sectorSnapshot ? <div className={ui.rotationSummary} aria-label="Source-dated XL sector rotation">
-        <div><span>1D LEADER</span><strong data-direction="up">{sectorSnapshot.leader.symbol} {change(sectorSnapshot.leader.change, "%")}</strong></div>
-        <div><span>1D LAGGARD</span><strong data-direction="down">{sectorSnapshot.laggard.symbol} {change(sectorSnapshot.laggard.change, "%")}</strong></div>
+        <div><span>1D LEADER</span><strong data-direction={sectorSnapshot.leader.change!>0?"up":sectorSnapshot.leader.change!<0?"down":"flat"}>{sectorSnapshot.leader.symbol} {change(sectorSnapshot.leader.change, "%")}</strong></div>
+        <div><span>1D LAGGARD</span><strong data-direction={sectorSnapshot.laggard.change!>0?"up":sectorSnapshot.laggard.change!<0?"down":"flat"}>{sectorSnapshot.laggard.symbol} {change(sectorSnapshot.laggard.change, "%")}</strong></div>
         <div><span>SECTOR PARTICIPATION</span><strong>{sectorSnapshot.advancing} / {sectorSnapshot.coverage} advancing</strong></div>
         <p>Leader–laggard gap: {sectorSnapshot.spread.toFixed(2)} percentage points · source session {sectorSnapshot.asOf}.
           Source-matched ETF price rotation, not confirmed investment flows or a canonical regime verdict.</p>
