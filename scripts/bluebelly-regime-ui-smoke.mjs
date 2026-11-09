@@ -10,6 +10,7 @@ import {mkdirSync,statSync,existsSync} from "node:fs";
 import {setTimeout as sleep} from "node:timers/promises";
 import {resolve} from "node:path";
 import {tmpdir} from "node:os";
+import {checkV7PointerInteraction} from "./bluebelly-v7-pointer-cdp-smoke.mjs";
 
 const BACKEND=3181, PUBLIC=3182;
 const deadline=Date.now()+300000;
@@ -322,6 +323,11 @@ try{
   await renderChrome("http://127.0.0.1:"+PUBLIC+path,name+"-mobile.png",390,844);
   console.log("Learn readability "+path+" rendered at 390px");
  }
+ // Real browser event acceptance for the shared command halo: this must run
+ // with JavaScript enabled, unlike CSS-only static screenshots above.
+ await checkV7PointerInteraction({
+   origin:"http://127.0.0.1:"+PUBLIC,output:outputs
+ });
  console.log("Regime UI smoke PASS; outputs in "+outputs);
 }catch(error){console.error(error);process.exitCode=1}
 finally{
