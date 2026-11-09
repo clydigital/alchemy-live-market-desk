@@ -143,7 +143,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
             <div className={marketHome.heroCopy}>
               <p className={marketHome.eyebrow}><span className={marketHome.heroSignal} aria-hidden="true"/> SOURCE-DATED MARKET TERMINAL</p>
               <h1 className={marketHome.title}>Markets first. <span>Events next.</span> Research when needed.</h1>
-              <p className={marketHome.intro}>Compare observed moves, check upcoming catalysts and revisit tracked theses. These are dated market readings and verified source records, not automatically written daily market opinions.</p>
+              <p className={marketHome.intro}>Observed market moves, upcoming catalysts and tracked theses — source-dated rather than simulated live quotes or automatically written daily opinions.</p>
               <nav className={marketHome.actions} aria-label="Market terminal shortcuts">
                 <Link href="/markets">Explore markets</Link>
                 <Link href="/calendar">Economic &amp; earnings calendar</Link>
