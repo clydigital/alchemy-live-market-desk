@@ -58,3 +58,28 @@ body:has(header[data-bluebelly-layout="v7-command"]){
 @media(max-width:720px){
   body:has(header[data-bluebelly-layout="v7-command"]){padding-inline-start:0}
 }
+
+/* Calendar-only opt-in: the fixed command rail translates left while the main
+   column reflows into the released width. All other routes retain their layout. */
+@media(min-width:721px){
+  body:has(header[data-bluebelly-layout="v7-command"]){
+    transition:padding-inline-start .28s cubic-bezier(.2,.8,.2,1);
+  }
+  header[data-bluebelly-layout="v7-command"] aside[aria-label="Bluebelly command navigation"]{
+    transition:transform .28s cubic-bezier(.2,.8,.2,1);
+  }
+  html[data-bluebelly-calendar-nav="shelved"] body:has(header[data-bluebelly-layout="v7-command"]){
+    padding-inline-start:0;
+  }
+  html[data-bluebelly-calendar-nav="shelved"] header[data-bluebelly-layout="v7-command"]
+    aside[aria-label="Bluebelly command navigation"]{
+    transform:translateX(-100%);
+    pointer-events:none;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  body:has(header[data-bluebelly-layout="v7-command"]),
+  header[data-bluebelly-layout="v7-command"] aside[aria-label="Bluebelly command navigation"]{
+    transition:none;
+  }
+}

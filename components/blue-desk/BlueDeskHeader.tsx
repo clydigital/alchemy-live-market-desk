@@ -102,7 +102,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
   return (
     <header data-bluebelly-chrome="mockup-editorial" data-bluebelly-layout="v7-command">
       <CommandPointerHalo/>
-      <aside className={chrome.commandSide} aria-label="Bluebelly command navigation">
+      <aside id="bluebelly-command-navigation" className={chrome.commandSide} aria-label="Bluebelly command navigation">
         <CommandSidebarSplash/>
         <Link href={blueDeskPublicHref("/blue-desk",host)} className={chrome.sideBrand}
           aria-label="Bluebelly Dashboard">

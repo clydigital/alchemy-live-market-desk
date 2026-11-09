@@ -158,3 +158,24 @@
 }
 @media(max-width:680px){.overview>span:not(.overviewNote){border-right:0;border-bottom:1px solid var(--bb-command-edge);padding:4px 8px}}
 @media(prefers-reduced-motion:reduce){.eventTile{transition:none}.eventTile:hover{transform:none}}
+
+/* Calendar-only edge handle. The same button slides the command rail away and back. */
+.sidebarToggle{
+  position:fixed;top:clamp(135px,22vh,210px);left:232px;z-index:46;
+  width:35px;min-height:78px;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:5px;cursor:pointer;
+  color:var(--bb-accent-ink);background:var(--bb-command-accent);
+  border:1px solid var(--bb-command-accent);border-left:0;border-radius:0;
+  box-shadow:3px 3px 13px #0008;
+  transition:left .28s cubic-bezier(.2,.8,.2,1),background .16s ease;
+}
+.sidebarToggle[data-shelved="true"]{left:0}
+.sidebarToggle:hover{filter:brightness(1.08)}
+.toggleArrow{font:900 29px/1 var(--bb-display)}
+.toggleLabel{font:900 9px/1 var(--bb-mono);letter-spacing:.12em}
+@media(min-width:721px) and (max-width:1050px){
+  .sidebarToggle{left:68px}
+  .sidebarToggle[data-shelved="true"]{left:0}
+}
+@media(max-width:720px){.sidebarToggle{display:none}}
+@media(prefers-reduced-motion:reduce){.sidebarToggle{transition:none}}
