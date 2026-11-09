@@ -118,7 +118,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
           <span className={chrome.sideGroup}>PRIVATE</span>
           {commandLink(["My Desk", "/my-reports"])}
         </nav>
-        <div className={chrome.sideFooter}>
+        <div id="bluebelly-command-footer" className={chrome.sideFooter}>
           <span className={chrome.sidePulse} aria-hidden="true"/>
           <span className={chrome.sideText}>Source-dated · not a live quote feed</span>
         </div>
