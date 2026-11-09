@@ -60,6 +60,10 @@ test("CP Markets visuals stay tied to the canonical screener and source dates",(
     <page.indexOf('aria-labelledby="market-group-heading"'));
   assert.ok(page.indexOf('aria-labelledby="market-group-heading"')
     <page.indexOf('aria-label="Related market investigation"'));
+  assert.ok(page.indexOf('aria-labelledby="market-group-heading"')
+    <page.indexOf('<PublicTreasuryLadder rows='));
+  assert.match(page,/className=\{legibility\.breadthDiagnostic\}/);
+  assert.match(css,/\.breadthDiagnostic\{/);
   assert.match(screener,/data-v7-etf-rotation="source-matched"/);
   assert.match(screener,/projectEtfRotationVisual\(comparisonUniverse,compareSymbols,graphicWindow\)/);
   assert.match(screener,/aria-pressed=\{graphicWindow===period\}/);
