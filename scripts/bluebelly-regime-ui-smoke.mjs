@@ -75,7 +75,7 @@ async function renderChrome(url,filename,width,height,{disableJavascript=false}=
   "--user-data-dir="+profile,
   "--hide-scrollbars","--no-first-run","--no-default-browser-check",
   "--window-size="+width+","+height,
-  ...(disableJavascript && filename==="markets-tablet.png" ? ["--virtual-time-budget=3500"] : disableJavascript ? [] : ["--virtual-time-budget=4500"]),
+  ...(disableJavascript && filename.startsWith("markets-") ? ["--virtual-time-budget=3500"] : disableJavascript ? [] : ["--virtual-time-budget=4500"]),
   // Server-rendered public reading can include large external embeds. Capture
   // static layout without executing third-party scripts where appropriate.
   ...(disableJavascript?["--disable-javascript"]:[]),
@@ -221,13 +221,20 @@ try{
       .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi,"")
       .replace(/<img\b[^>]*>/gi,"")
       .replace(/<link\b(?=[^>]*\brel=["']preload["'])[^>]*>/gi,"");
-   try{
-    await renderChrome("http://127.0.0.1:"+PUBLIC+"/__markets_snapshot",
-      "markets-tablet.png",1024,1260,{disableJavascript:true});
-   }catch(error){
-    // The route/SSR checks remain hard gates, while the historically hanging
-    // Chrome capture is an explicitly reported visual-release blocker.
-    console.warn("MARKETS VISUAL DEFERRED: 1024px screenshot failed: "+String(error));
+   assertHtml(view.html,'data-v7-treasury-ladder="source-dated-us-only"',
+      'data-v7-etf-rotation="source-matched"','data-market-change-screener="read-only"');
+   for(const [filename,width,height] of [
+     ["markets-desktop.png",1440,1950],
+     ["markets-tablet.png",1024,2350],
+     ["markets-mobile.png",390,2000],
+   ]){
+    try{
+     await renderChrome("http://127.0.0.1:"+PUBLIC+"/__markets_snapshot",
+       filename,width,height,{disableJavascript:true});
+    }catch(error){
+     // Content acceptance remains hard; report any nonrendering viewport.
+     console.warn("MARKETS VISUAL DEFERRED: "+filename+" screenshot failed: "+String(error));
+    }
    }
   }
   if(id!=="markets")
@@ -241,7 +248,7 @@ try{
     "market-home-tablet.png",1024,900,{disableJavascript:true});
   // Markets remains route/HTML-checked. Rendering its third-party chart embeds
   // in headless Chrome can hang the smoke runner even when JS is disabled.
-  console.log("Public CP page "+path+" "+view.status+" · mobile render saved");
+  console.log("Public CP page "+path+" "+view.status+" · SSR verified; eligible screenshots saved");
  }
 
  // The full historical Story index remains accessible via an explicit
