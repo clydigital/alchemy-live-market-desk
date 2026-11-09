@@ -252,23 +252,24 @@
 /* Shared lower-left command handle, always outside the sliding sidebar.
    It remains reachable to restore the rail on every Bluebelly desktop page. */
 .sidebarToggle{
-  position:fixed;left:232px;bottom:clamp(20px,4vh,42px);z-index:48;
+  position:fixed;left:0;bottom:clamp(20px,4vh,42px);z-index:48;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:4px;width:38px;min-height:78px;padding:8px 3px;cursor:pointer;
   color:var(--bb-accent-ink);background:var(--bb-command-accent);
   border:1px solid var(--bb-command-accent);border-left:0;border-radius:0;
   box-shadow:3px 3px 13px #0008;
-  transition:left .28s cubic-bezier(.2,.8,.2,1),filter .16s ease;
+  transition:filter .16s ease;
 }
 .sidebarToggle:hover{filter:brightness(1.08)}
 .sidebarToggle:focus-visible{outline:3px solid var(--bb-command-alt);outline-offset:3px}
-.sidebarToggle[data-shelved="true"]{left:0}
+/* The handle remains flush with the viewport in either state. */
 .toggleArrow{font:900 29px/1 var(--bb-display)}
 .toggleLabel{font:900 9px/1 var(--bb-mono);letter-spacing:.12em}
-@media(min-width:721px) and (max-width:1050px){
-  .sidebarToggle{left:68px}
-  .sidebarToggle[data-shelved="true"]{left:0}
-}
 @media(max-width:720px){.sidebarToggle{display:none}}
 @media(prefers-reduced-motion:reduce){.sidebarToggle{transition:none}}
 @media(forced-colors:active){.sidebarToggle{border:2px solid ButtonText;color:ButtonText;background:ButtonFace}}
+
+/* Leave the lower-left toggle unobstructed without covering footer text. */
+@media(min-width:721px){
+  .commandSide .sideFooter{padding-left:52px}
+}
