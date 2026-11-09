@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { evaluatePEG, isResearchCandidate } from "../lib/power-stack-peg";
+import { evaluatePEG, isResearchCandidate } from "../lib/power-stack-peg.ts";
 
 const base = {
   ticker: "TEST", forwardPE: 15, expectedAnnualEpsGrowthPct: 20,
