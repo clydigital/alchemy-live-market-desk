@@ -25,3 +25,11 @@
 .verdict{margin:24px 0 12px;padding:15px 17px;border-left:3px solid #e2b66e;background:#133648;color:#e7f0f4;font-size:14px}
 .sourceNote{color:#adc5ce;font-size:11px}
 @media(max-width:750px){.sequence,.conflict,.tests>div{grid-template-columns:1fr}.feature h2,.preview h2{font-size:28px}.deck{font-size:14px}.conflict>div{padding-left:11px}}
+/* The original 1 November feature is preserved but not the current headline. */
+.compactStatus{display:grid;gap:9px;max-width:100%;font-size:13px}
+.compactStatus p{font-size:12px;line-height:1.55;color:var(--bb-muted);margin:0}
+.compactStatus a{font:800 12px/1.4 var(--bb-mono);color:var(--bb-accent)}
+.historical{margin-top:11px;border-top:1px solid var(--bb-card-border)}
+.historical>summary{cursor:pointer;padding:10px 0;color:var(--bb-accent);font:800 12px/1.5 var(--bb-mono)}
+.historical>summary:focus-visible{outline:2px solid var(--bb-accent);outline-offset:2px}
+.historical[open]>summary{border-bottom:1px solid var(--bb-card-border);margin-bottom:15px}
