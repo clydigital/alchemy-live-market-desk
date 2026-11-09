@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CatalystCard, CatalystLane } from "@/lib/bluebelly-catalyst-calendar";
 import styles from "./CatalystCalendar.module.css";
 import { EntityMark } from "./EntityIdentity";
@@ -85,6 +85,27 @@ export default function CatalystCalendar({items,sourceCoverage,nowISO}:{
   const [q,setQ]=useState("");const [focus,setFocus]=useState(false);
   const [weekShift,setWeekShift]=useState(0);const [zone,setZone]=useState<DisplayZone>("UTC");
   const [view,setView]=useState<ViewMode>("week");const [selectedId,setSelectedId]=useState<string|null>(null);
+  const [navShelved,setNavShelved]=useState(false);
+  // This page can temporarily shelve the desktop command rail. Cleanup when
+  // navigating away prevents the rest of Bluebelly inheriting the shelf state.
+  useEffect(()=>{
+    const root=document.documentElement;
+    const sidebar=document.getElementById("bluebelly-command-navigation");
+    if(navShelved){
+      root.setAttribute("data-bluebelly-calendar-nav","shelved");
+      sidebar?.setAttribute("inert","");
+      sidebar?.setAttribute("aria-hidden","true");
+    }else{
+      root.removeAttribute("data-bluebelly-calendar-nav");
+      sidebar?.removeAttribute("inert");
+      sidebar?.removeAttribute("aria-hidden");
+    }
+    return ()=>{
+      root.removeAttribute("data-bluebelly-calendar-nav");
+      sidebar?.removeAttribute("inert");
+      sidebar?.removeAttribute("aria-hidden");
+    };
+  },[navShelved]);
   const start=useMemo(()=>plusDays(mondayOf(nowISO),weekShift*7),[nowISO,weekShift]);
   const week=useMemo(()=>Array.from({length:7},(_,i)=>({day:ymd(plusDays(start,i)),date:plusDays(start,i)})),[start]);
   const filtered=useMemo(()=>items.filter(item=>
@@ -112,6 +133,15 @@ export default function CatalystCalendar({items,sourceCoverage,nowISO}:{
       :<span className={styles.emptyDay}>No sourced events in this view</span>;
   }
   return <section className={styles.root} data-catalyst-calendar="v4">
+    <button type="button" className={styles.sidebarToggle}
+      data-shelved={navShelved?"true":"false"}
+      aria-controls="bluebelly-command-navigation" aria-expanded={!navShelved}
+      aria-label={navShelved?"Show navigation sidebar":"Hide navigation sidebar"}
+      title={navShelved?"Show navigation sidebar":"Hide navigation sidebar"}
+      onClick={()=>setNavShelved(value=>!value)}>
+      <span aria-hidden="true" className={styles.toggleArrow}>{navShelved?"›":"‹"}</span>
+      <span aria-hidden="true" className={styles.toggleLabel}>NAV</span>
+    </button>
     <div className={styles.header}>
       <div><span className={styles.kicker}>BLUEBELLY / CATALYST RADAR</span>
         <h2>The market week, at a glance.</h2>
