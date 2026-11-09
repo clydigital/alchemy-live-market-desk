@@ -1,4 +1,5 @@
 import Link from "next/link";
+import StoryStatusStrip from "./StoryStatusStrip";
 import StorySummaryBoxes from "./StorySummaryBoxes";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { storyMarketTransmission, type PublicThesis } from "@/lib/blue-desk-thesis-ledger";
@@ -19,6 +20,7 @@ export default function StoryEditorialArticle({story,backHref}:Props){
      <Link href={backHref}>Key Stories</Link><span aria-hidden="true">/</span><span>{category}</span>
    </nav>
    <header className={ui.header}>
+     <StoryStatusStrip status={story.status} slug={story.slug} updatedAt={story.updatedAt}/>
      <p className={ui.eyebrow}>{category} · RECORDED MARKET THESIS</p>
      <h1>{story.title}</h1>
      <p className={ui.deck}>{story.question}</p>
@@ -28,6 +30,10 @@ export default function StoryEditorialArticle({story,backHref}:Props){
      </div>
      <p className={ui.disclosure}>This is a dated analysis of an ongoing market question, not a verified report of new events, current prices or an automatically accepted Story revision.</p>
    </header>
+   <p className={ui.compactView}><strong>Recorded view:</strong> {story.thesis.length>360?story.thesis.slice(0,357).trimEnd()+"…":story.thesis}</p>
+   <p className={ui.compactNext}><strong>Next check:</strong> {story.nextTest||"No dated catalyst recorded"}</p>
+   <details className={ui.archive} data-story-archive="collapsed-by-default">
+     <summary>Read original dated analysis and evidence</summary>
    <StorySummaryBoxes items={[
      {label:"The question",text:story.question},
      {label:"The current argument",text:story.thesis},
@@ -83,5 +89,6 @@ export default function StoryEditorialArticle({story,backHref}:Props){
        <p><strong>Publication status</strong>Research interpretation; not independently verified live event</p>
      </aside>
    </div>
+   </details>
  </article>;
 }
