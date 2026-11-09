@@ -31,14 +31,20 @@ export default async function LeanWatch({stories,host}:{
   return <main className={desk.page} data-bluebelly-watch="lean-readonly-v1">
     <BlueDeskHeader activePath="/blue-desk/key-stories"/>
     <div className={desk.content}>
-      <header className={ui.hero}>
-        <p className={ui.eyebrow}>BLUEBELLY / RESEARCH WATCH</p>
+      <header className={ui.hero} data-v7-watch-graphic="decorative-research-radar">
+        <div className={ui.heroContent}>
+          <p className={ui.eyebrow}>BLUEBELLY / RESEARCH WATCH · SOURCE-DATED</p>
         <h1>What is developing?</h1>
         <p>Selected market theses, the arguments for and against them, and the next event that could change the picture. These are dated research snapshots, not live trading signals.</p>
         <nav className={ui.shortcuts} aria-label="Related market tools">
           <Link href={blueDeskPublicHref("/blue-desk/markets",host)}>Check market moves</Link>
           <Link href={blueDeskPublicHref("/blue-desk/calendar",host)}>Upcoming catalysts</Link>
         </nav>
+        </div>
+        <div className={ui.heroRadar} aria-hidden="true">
+          <span className={ui.radarRing}><span className={ui.radarCore}>B<span>B</span></span></span>
+          <span className={ui.radarCaption}>THESIS / EVIDENCE / NEXT TEST</span>
+        </div>
       </header>
 
       <section aria-labelledby="tracked-theses" className={ui.section}>
