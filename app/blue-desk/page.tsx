@@ -1,4 +1,5 @@
 import AbsorptionHealth from "@/components/blue-desk/AbsorptionHealth";
+import MarketWindowBars from "@/components/blue-desk/MarketWindowBars";
 import {getBluebellyAbsorptionHealth} from "@/lib/bluebelly-absorption-health";
 import CurrentMarketUpdates from "@/components/blue-desk/CurrentMarketUpdates";
 import DecisionBrief from "@/components/blue-desk/DecisionBrief";
@@ -135,31 +136,47 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
     <main className={styles.page} data-blue-desk-convergence="phase-1">
       <BlueDeskHeader activePath="/blue-desk" />
         {!publicHost?<CurrentMarketUpdates host={host} mode="full" now={now}/>:null}
-      <AbsorptionHealth health={absorptionHealth}/>
+      {!publicHost?<AbsorptionHealth health={absorptionHealth}/>:null}
       <div className={styles.content}>
         {publicHost?<section className={marketHome.terminal} data-home-market-first="source-dated-terminal" aria-label="Bluebelly market overview">
-          <header className={marketHome.hero}>
-            <p className={marketHome.eyebrow}>SOURCE-DATED MARKET TERMINAL</p>
-            <h1 className={marketHome.title}>Markets first. Events next. Research when needed.</h1>
-            <p className={marketHome.intro}>Compare observed moves, check upcoming catalysts and revisit tracked theses. These are dated market readings and verified source records, not automatically written daily market opinions.</p>
-            <nav className={marketHome.actions} aria-label="Market terminal shortcuts">
-              <Link href="/markets">Explore markets</Link>
-              <Link href="/calendar">Economic &amp; earnings calendar</Link>
-              <Link href="/key-stories">Research watch</Link>
-              <Link href="/my-reports">My Desk · private</Link>
-            </nav>
+          <header className={marketHome.hero} data-v7-graphical-hero="source-dated">
+            <div className={marketHome.heroCopy}>
+              <p className={marketHome.eyebrow}><span className={marketHome.heroSignal} aria-hidden="true"/> SOURCE-DATED MARKET TERMINAL</p>
+              <h1 className={marketHome.title}>Markets first. <span>Events next.</span> Research when needed.</h1>
+              <p className={marketHome.intro}>Compare observed moves, check upcoming catalysts and revisit tracked theses. These are dated market readings and verified source records, not automatically written daily market opinions.</p>
+              <nav className={marketHome.actions} aria-label="Market terminal shortcuts">
+                <Link href="/markets">Explore markets</Link>
+                <Link href="/calendar">Economic &amp; earnings calendar</Link>
+                <Link href="/key-stories">Research watch</Link>
+                <Link href="/my-reports">My Desk · private</Link>
+              </nav>
+            </div>
+            <div className={marketHome.heroVisual} aria-hidden="true">
+              <div className={marketHome.orbit}>
+                <span className={marketHome.orbitNodeA}>MARKETS</span>
+                <span className={marketHome.orbitNodeB}>CATALYSTS</span>
+                <span className={marketHome.orbitNodeC}>WATCH</span>
+                <span className={marketHome.orbitCore}>B<span>B</span><small>COMMAND</small></span>
+              </div>
+              <span className={marketHome.orbitCaption}>OBSERVE / COMPARE / INVESTIGATE</span>
+            </div>
           </header>
           <div className={marketHome.overview}>
-            <section className={marketHome.panel} aria-labelledby="market-snapshot-title">
+            <section className={`${marketHome.panel} ${marketHome.snapshot}`} aria-labelledby="market-snapshot-title" data-v7-market-tiles="source-dated">
               <div className={marketHome.panelHead}>
                 <h2 id="market-snapshot-title">Cross-asset snapshot</h2>
                 <small>Last recorded source observation · not a live price guarantee</small>
               </div>
               {marketHighlights.length?<div className={marketHome.quoteGrid}>
-                {marketHighlights.map(row=><article className={marketHome.quote} key={row.id}>
-                  <p className={marketHome.quoteLabel}>{row.label}</p>
+                {marketHighlights.map(row=><article className={marketHome.quote} key={row.id}
+                  data-direction={row.change===null?"unknown":row.change>0?"up":row.change<0?"down":"flat"}>
+                  <div className={marketHome.quoteHead}>
+                    <p className={marketHome.quoteLabel}>{row.label}</p>
+                    <span className={marketHome.quoteType}>{row.type}</span>
+                  </div>
                   <p className={marketHome.quoteValue}>{row.last!.toLocaleString("en-GB",{maximumFractionDigits:row.type==="Rates"?3:2})}{row.type==="Rates"?"%":""}</p>
-                  <p className={marketHome.changes}>1D {formatMarketChange(row.change,row.changeUnit)} · 3D {formatMarketChange(row.change3d,row.changeUnit)} · 5D {formatMarketChange(row.change5d,row.changeUnit)}</p>
+                  <MarketWindowBars change={row.change} change3d={row.change3d}
+                    change5d={row.change5d} unit={row.changeUnit}/>
                   <p className={marketHome.source}>
                     <DualTimestamp value={row.asOf} sourceDate={row.asOf}/>{row.sourceUrl?<> · <a href={row.sourceUrl} target="_blank" rel="noopener noreferrer">{row.sourceName}</a></>:<> · {row.sourceName}</>}
                   </p>
@@ -167,7 +184,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
               </div>:<p className={styles.coverage}>Source-dated market quotes are unavailable or stale. No indicative numbers have been substituted.</p>}
               <div className={marketHome.panelFooter}><Link href="/markets">Full markets, breadth &amp; yields</Link></div>
             </section>
-            <section className={marketHome.panel} aria-labelledby="market-upcoming-title">
+            <section className={`${marketHome.panel} ${marketHome.catalysts}`} aria-labelledby="market-upcoming-title">
               <div className={marketHome.panelHead}>
                 <h2 id="market-upcoming-title">Upcoming catalysts</h2>
                 <small>Official calendar times where verified</small>
@@ -204,8 +221,9 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
               <div className={marketHome.panelFooter}><Link href="/newsroom">Search source feed</Link><Link href="/research">Research archive</Link></div>
             </section>
           </div>
-          <p className={marketHome.note}>1D/3D/5D changes use available source trading sessions. Nominal yield changes are basis points; equity and currency moves are percentages. Every reading must retain its own source timestamp.</p>
+          <p className={marketHome.note}>1D/3D/5D changes use available source trading sessions. Nominal yield changes are basis points; equity and currency moves are percentages. Every reading must retain its own source timestamp. The window bars compare cumulative changes within one instrument; they do not represent historical price paths or comparable moves across assets.</p>
         </section>:null}
+        {publicHost?<div className={marketHome.pipeline}><AbsorptionHealth health={absorptionHealth}/></div>:null}
         {publicHost?<details className={marketHome.archive} data-home-editorial-reader="legacy-on-demand">
             <summary>Read the previous Today format (dated news explanations)</summary>
             {publicHost?<ProgressiveTodayReader news={verifiedNews} newsroomUpdates={newsroomUpdates} calendar={calendar} now={now} host={host}/>:null}
