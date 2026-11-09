@@ -1,0 +1,57 @@
+/* Owner-only Power Stack is a historical snapshot. No quantity, score or
+   date is inferred or translated into an investment recommendation here. */
+.hero{
+ position:relative;isolation:isolate;overflow:hidden;
+ min-height:165px;padding:clamp(20px,2.8vw,33px);margin-bottom:16px;
+ background:radial-gradient(circle at 82% 11%,color-mix(in srgb,var(--bb-command-accent) 12%,transparent),transparent 47%),
+   linear-gradient(110deg,#0c2834,#061820);
+ border:1px solid var(--bb-command-edge);
+ clip-path:polygon(0 0,calc(100% - 18px) 0,100% 18px,100% 100%,0 100%);
+}
+.hero::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.15;
+ background-image:linear-gradient(90deg,#346472 1px,transparent 1px),linear-gradient(0deg,#346472 1px,transparent 1px);
+ background-size:36px 36px;mask-image:linear-gradient(90deg,transparent 30%,#000)}
+.hero::after{content:"";position:absolute;bottom:0;left:0;width:95px;height:3px;background:var(--bb-command-accent)}
+.eyebrow{margin:0 0 8px;font:850 10px/1.4 var(--bb-mono);letter-spacing:.13em;color:var(--bb-command-alt)}
+.hero h1{font:900 clamp(31px,3.9vw,50px)/1.04 var(--bb-display);letter-spacing:-.05em;
+ text-transform:uppercase;color:#f3faff;margin:0 0 12px}
+.deck{font-size:13px;line-height:1.65;color:#c2d8e1;max-width:65ch;margin:0}
+.section,.pending{
+ padding:clamp(16px,2.2vw,26px);margin:12px 0 18px;
+ border:1px solid var(--bb-command-edge);background:linear-gradient(125deg,#102c39,#081b25);
+ min-width:0;
+}
+.section h2,.pending h2{font:900 clamp(20px,2.3vw,29px)/1.13 var(--bb-display);
+ text-transform:uppercase;letter-spacing:-.025em;color:#f2f9fc;margin:0 0 10px}
+.section>p,.pending p{font-size:13px;line-height:1.67;color:#bdd6de;max-width:105ch}
+.pending{border-left:4px solid var(--bb-command-accent);background:#102832}
+.pending h2{color:var(--bb-command-alt)}
+.pending a,.section a{color:var(--bb-command-alt);text-decoration:underline;text-underline-offset:3px}
+.tableScroll{max-width:100%;overflow-x:auto;scrollbar-width:thin;margin:16px 0 8px}
+.holdingsTable{border-collapse:collapse;min-width:660px;width:100%;text-align:left;
+ color:#eaf5fb;font:600 12px/1.5 var(--bluebelly-font)}
+.holdingsTable th{white-space:nowrap;padding:12px 13px;border:1px solid var(--bb-command-edge);
+ color:var(--bb-command-alt);background:#0b2330;text-transform:uppercase;
+ font:850 10px/1.4 var(--bb-mono);letter-spacing:.045em}
+.holdingsTable td{padding:12px 13px;border-bottom:1px solid var(--bb-command-edge);
+ vertical-align:top;min-width:115px;overflow-wrap:anywhere}
+.holdingsTable td:first-child{font-weight:850;color:#f4fafc}
+.holdingsTable tbody tr:nth-child(even){background:#102d39}
+.holdingsTable tbody tr:hover{background:#173947}
+.watchGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:10px;margin:15px 0}
+.assetDetails{min-width:0;padding:15px;border:1px solid var(--bb-command-edge);
+ background:#0c2835;overflow-wrap:anywhere}
+.assetDetails[open]{border-color:var(--bb-command-alt)}
+.assetDetails summary{cursor:pointer;display:list-item;list-style-position:inside;font-size:12px;
+ color:#eaf7fb;line-height:1.6;min-height:36px}
+.assetDetails summary::marker{color:var(--bb-command-accent)}
+.assetDetails summary strong{color:var(--bb-command-alt);font-size:14px}
+.assetDetails p{font-size:12px;line-height:1.65;color:#bfd8e0}
+.assetDetails summary:focus-visible,.pending a:focus-visible,.section a:focus-visible{
+ outline:2px solid var(--bb-command-accent);outline-offset:2px
+}
+@media(max-width:720px){.hero{min-height:0;padding:20px;clip-path:none}
+ .section,.pending{padding:16px}.watchGrid{grid-template-columns:1fr}
+ .holdingsTable{min-width:605px}}
+@media(forced-colors:active){.hero,.section,.pending,.assetDetails{border:1px solid CanvasText}}
+@media print{.hero,.section,.pending,.assetDetails{clip-path:none}}

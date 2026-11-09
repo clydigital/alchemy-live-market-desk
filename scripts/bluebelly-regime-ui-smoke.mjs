@@ -163,12 +163,15 @@ try{
   "crash-opportunity-mobile.png",390,844);
  // All private entries must remain denied by the public host, including the
  // sidebar's owner shortcut. Never follow OAuth or simulate owner credentials.
- for (const path of ["/owner/presenter", "/owner/x-wire", "/my-reports"]) {
+ for (const path of ["/owner/presenter", "/owner/x-wire", "/owner/research", "/my-reports", "/power-stack"]) {
   const privateRoute=await waitResponse(path,code=>code!==200);
   if(![302,307,401,403,404].includes(privateRoute.status))
    throw Error("Unexpected owner route response "+path+" "+privateRoute.status);
   if(privateRoute.html.includes('data-owner-intelligence=') ||
-     privateRoute.html.includes('data-owner-x-wire='))
+     privateRoute.html.includes('data-owner-x-wire=') ||
+     privateRoute.html.includes('data-power-stack=') ||
+     privateRoute.html.includes('data-bluebelly-my-reports=') ||
+     privateRoute.html.includes('data-owner-research-library='))
    throw Error("Private owner content leaked to public host: "+path);
   console.log("Owner route "+path+" HTTP "+privateRoute.status+" (no anonymous access)");
  }
