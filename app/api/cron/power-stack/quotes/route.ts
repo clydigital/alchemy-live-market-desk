@@ -21,7 +21,8 @@ function symbolsFromSnapshot(snapshot: unknown): string[] {
 }
 
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET;
+  // Isolated credential: the Supabase scheduler cannot invoke unrelated Vercel cron routes.
+  const secret = process.env.POWER_STACK_REFRESH_TOKEN;
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
