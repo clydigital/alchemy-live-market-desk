@@ -30,7 +30,7 @@ export default async function LeanWatch({stories,host}:{
         <div className={ui.heroContent}>
           <p className={ui.eyebrow}>BLUEBELLY / RESEARCH WATCH · SOURCE-DATED</p>
         <h1>What is developing?</h1>
-        <p>The latest recorded thesis status and next test, without large historical articles. Open the research only when needed. A research date does not confirm a live event.</p>
+        <p>The latest recorded thesis status and next test, without large historical articles. Open the research only when needed. These are dated research snapshots, not live trading signals.</p>
         <nav className={ui.shortcuts} aria-label="Related market tools">
           <Link href={blueDeskPublicHref("/blue-desk/markets",host)}>Check market moves</Link>
           <Link href={blueDeskPublicHref("/blue-desk/calendar",host)}>Upcoming catalysts</Link>
