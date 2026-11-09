@@ -21,3 +21,11 @@ test("source dates, currencies and one-off research remain distinct from a live 
   assert.match(page, /not streaming prices/);
   assert.match(page, /not a live executable quote/);
 });
+
+test("holdings and archived research show dated manual sweep prices without changing recorded entry facts", () => {
+  assert.match(page, /Latest verified price/);
+  assert.match(page, /latestQuotes\.has\(holding\.ticker\)/);
+  assert.match(page, /latestQuotes\.has\(asset\.ticker\)/);
+  assert.match(page, /holding\.lastPrice/);
+  assert.match(page, /holding\.quantityAsOf/);
+});

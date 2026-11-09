@@ -248,18 +248,23 @@ export default async function PrivatePowerStack() {
               <p data-power-stack-source-date="historical-only">Archived portfolio record dated {row?.snapshot_as_of ?? "unknown"}
                 {snapshotAgeDays===null?"":` · ${snapshotAgeDays} days old`}.
                 Quantities are historical and require broker reconciliation before any order.
-                Prices use their original observation dates. The date of this snapshot is not the latest account balance.</p>
+                The latest verified prices are separate sourced market observations, not a broker balance, and do not change quantities or original entry records.</p>
               <div className={portfolio.tableScroll}>
                 <table className={portfolio.holdingsTable}>
                   <thead><tr>
                     <th scope="col">Instrument</th><th scope="col">Quantity</th>
-                    <th scope="col">Price as recorded</th><th scope="col">Quantity / price date</th>
+                    <th scope="col">Price as recorded</th><th scope="col">Latest verified price</th><th scope="col">Quantity / price date</th>
                   </tr></thead>
                   <tbody>{holdings.map(holding => (
                     <tr key={holding.ticker}>
                       <td>{holding.ticker} · {holding.name}</td>
                       <td>{holding.quantity ?? "Unavailable"}</td>
                       <td>{holding.lastPrice === null ? "Unavailable" : holding.currency + " " + holding.lastPrice}</td>
+                      <td>{latestQuotes.has(holding.ticker)
+                        ? latestQuotes.get(holding.ticker)!.currency + " " +
+                          Number(latestQuotes.get(holding.ticker)!.price).toFixed(2) +
+                          " · " + latestQuotes.get(holding.ticker)!.observed_on
+                        : "Unavailable"}</td>
                       <td>{holding.quantityAsOf ?? "Unknown"} / {holding.priceAsOf ?? "Unknown"}</td>
                     </tr>
                   ))}</tbody>
@@ -279,6 +284,11 @@ export default async function PrivatePowerStack() {
                       <strong>{asset.ticker} · {asset.name}</strong>
                       {" · "}Rank {asset.rank ?? "—"}
                       {" · "}Score {asset.score ?? "—"}
+                      {latestQuotes.has(asset.ticker)
+                        ? " · " + latestQuotes.get(asset.ticker)!.currency + " " +
+                          Number(latestQuotes.get(asset.ticker)!.price).toFixed(2) +
+                          " (" + latestQuotes.get(asset.ticker)!.observed_on + ")"
+                        : " · No verified quote"}
                     </summary>
                     <p>{asset.theme || "Theme not recorded"}</p>
                     <p><strong>Recorded action:</strong> {asset.action || asset.bucket || "Research pending"}</p>
