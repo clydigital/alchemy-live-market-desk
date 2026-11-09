@@ -122,7 +122,26 @@ export default async function PrivatePowerStack() {
   // Historical only. No brokerage or quote-provider reconciliation is implied.
   const holdings = ready && row ? parseOwnerHoldings(row.snapshot) : [];
   const watchlist = ready && row ? parseOwnerWatchlist(row.snapshot) : [];
-  const trackedTickers = [...new Set([...holdings, ...watchlist].map(asset => asset.ticker))];
+  // Add current, independently-maintained bond ideas to the legacy research list
+  // without rewriting the frozen original Power Stack snapshot.
+  const { data: ideaRecords, error: ideasError } = ready
+    ? await supabase.from("power_stack_idea_tracker")
+        .select("ticker,name,currency,macro_state,macro_reason,macro_as_of,note")
+        .eq("owner_user_id", identity.user.id).eq("idea_type", "INVESTMENT").limit(100)
+    : { data: null, error: null };
+  const bondPriority = ["TLT","IEF","SGOV","SHY","EDV","ZROZ","TIP","LQD","HYG","AGG","GOVT","USFR","TLH"];
+  const bondWatch = (ideaRecords ?? [])
+    .filter(item => typeof item.macro_reason === "string" && item.macro_reason.startsWith("Bond Watch role "))
+    .sort((a,b) => {
+      const ai = bondPriority.indexOf(a.ticker);
+      const bi = bondPriority.indexOf(b.ticker);
+      return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi) || a.ticker.localeCompare(b.ticker);
+    });
+  const trackedTickers = [...new Set([
+    ...holdings.map(item => item.ticker),
+    ...watchlist.map(item => item.ticker),
+    ...bondWatch.map(item => item.ticker)
+  ])];
   const { data: quoteRecords, error: quoteError } = ready && trackedTickers.length
     ? await supabase.from("power_stack_quote_observations")
         .select("ticker,price,currency,observed_on,source_name,source_url,ingested_at,timestamp_basis,source_recorded_at")
@@ -164,13 +183,15 @@ export default async function PrivatePowerStack() {
           </section>
         ) : (
           <>
-            <section className={portfolio.section} data-power-stack-quotes="scheduled-observations">
-              <h2>Tracked quotes · {latestQuotes.size}/{trackedTickers.length}</h2>
-              <p>Scheduled source observations for supported tracked symbols, not live streaming prices.
+            <section className={portfolio.section} data-power-stack-quotes="dated-manual-observations">
+              <h2>Source-dated prices · {latestQuotes.size}/{trackedTickers.length}</h2>
+              <p>Last verified observations from manual research sweeps and optional scheduled sources, not streaming prices.
                 Source dates may be market observation dates or upstream refresh-batch dates. iSaham\u2019s batch date is NOT its last-trade time.
                 Missing symbols are not assigned invented prices.</p>
               {quoteError ? <p>Quote store unavailable; no current prices can be verified.</p> : null}
-              <div className={portfolio.tableScroll}>
+              <details className={portfolio.assetDetails} data-power-stack-quote-ledger="collapsed">
+                <summary>Inspect all {trackedTickers.length} tracked instruments, dates, currencies and providers</summary>
+                <div className={portfolio.tableScroll}>
                 <table className={portfolio.holdingsTable}>
                   <thead><tr><th>Symbol</th><th>Observed price</th><th>Source date / basis</th><th>Freshness</th><th>Provider</th></tr></thead>
                   <tbody>{trackedTickers.map(ticker => {
@@ -184,9 +205,43 @@ export default async function PrivatePowerStack() {
                     </tr>;
                   })}</tbody>
                 </table>
-              </div>
+                </div>
+              </details>
               <p>PEG screening is withheld until forward earnings estimates and their dates can be independently sourced.
                 A PEG below 1 is not a standalone buy signal.</p>
+            </section>
+            <section className={portfolio.section} data-power-stack-bond-watch="owner-research">
+              <h2>Bond Watch · {bondWatch.length}</h2>
+              <p>TLT and alternatives across Treasury duration, inflation protection and corporate credit.
+                These are monitoring candidates, not holdings or trade instructions.</p>
+              {ideasError ? <p>Bond watch unavailable: owner research could not be read.</p> : null}
+              {bondWatch.length ? (
+                <>
+                  <p><strong>TLT</strong> · {latestQuotes.get("TLT")?.currency ?? "USD"} {latestQuotes.get("TLT") ? Number(latestQuotes.get("TLT")!.price).toFixed(2) : "Unavailable"}
+                    {" "}· Source date {latestQuotes.get("TLT")?.observed_on ?? "unknown"}.
+                    Main test: inflation and Treasury term-premium response to 10 November US CPI.
+                    Long-duration prices can fall sharply when yields rise.</p>
+                  <details className={portfolio.assetDetails} data-power-stack-bond-details="collapsed">
+                    <summary>Compare {bondWatch.length} bond ETFs and research triggers</summary>
+                    <div className={portfolio.watchGrid}>
+                      {bondWatch.map(asset => {
+                        const quote = latestQuotes.get(asset.ticker);
+                        return (
+                          <details key={asset.ticker} className={portfolio.assetDetails}>
+                            <summary><strong>{asset.ticker} · {asset.name}</strong>
+                              {" · "}{quote ? quote.currency + " " + Number(quote.price).toFixed(2) : "No verified quote"}
+                              {" · "}{quote?.observed_on ?? "Source date unknown"}</summary>
+                            <p>{asset.note ?? "Monitoring rationale pending"}</p>
+                            <p><strong>Rate/credit test:</strong> {asset.macro_reason ?? "Await updated source evidence"}</p>
+                            <p>Research checked {asset.macro_as_of ?? "undated"} · Macro context {asset.macro_state ?? "unknown"}.
+                              ETF price is a dated provider observation, not a live executable quote.</p>
+                          </details>
+                        );
+                      })}
+                    </div>
+                  </details>
+                </>
+              ) : <p>No current bond watch rows. Run a manually sourced Power Stack bond sweep first.</p>}
             </section>
             <section className={portfolio.section} data-power-stack-holdings="private">
               <h2>Recorded holdings · {holdings.length}</h2>
