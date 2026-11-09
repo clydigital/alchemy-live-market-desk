@@ -23,7 +23,7 @@ export default async function LeanWatch({stories,host}:{
   stories:readonly MotionOrderedStory[];host:string|null;
 }) {
   const root=blueDeskPublicHref("/blue-desk/key-stories",host);
-  return <main className={desk.page} data-bluebelly-watch="lean-status-first-v2">
+  return <main className={desk.page} data-bluebelly-watch="lean-readonly-v1">
     <BlueDeskHeader activePath="/blue-desk/key-stories"/>
     <div className={desk.content}>
       <header className={ui.hero} data-v7-watch-graphic="decorative-research-radar">
@@ -56,7 +56,7 @@ export default async function LeanWatch({stories,host}:{
             <h3><Link href={root+"?story="+encodeURIComponent(story.slug)}>{story.title}</Link></h3>
             <p className={ui.next}><strong>Next test</strong>{story.nextTest?excerpt(story.nextTest,170):"No dated catalyst recorded"}</p>
             <details className={ui.details}>
-              <summary>Read original research and evidence</summary>
+              <summary>Evidence and counterargument · Original research</summary>
               <div>
                 <p className={ui.question}>{excerpt(story.question,175)}</p>
                 <p className={ui.view}><strong>Working view</strong>{excerpt(story.thesis,235)}</p>
