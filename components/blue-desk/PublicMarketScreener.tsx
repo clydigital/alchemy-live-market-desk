@@ -23,7 +23,7 @@ import type { PublicMarketGroup, PublicMarketObservation } from "@/lib/blue-desk
 import styles from "@/app/blue-desk/blue-desk.module.css";
 import ui from "./PublicMarketScreener.module.css";
 
-type Props = { observations: PublicMarketObservation[]; group: PublicMarketGroup; dataAvailable: boolean };
+type Props = { observations: PublicMarketObservation[]; group: PublicMarketGroup; dataAvailable: boolean; mode?: "assets" | "compare" };
 
 function level(row: PublicMarketObservation) {
   if (row.last === null) return "Unavailable";
@@ -38,7 +38,7 @@ function change(value: number | null, unit: "%" | "bp" | "pp") {
   return `${value > 0 ? "+" : ""}${value.toFixed(2)}${unit === "bp" ? " bp" : unit === "pp" ? " pp" : "%"}`;
 }
 
-export default function PublicMarketScreener({ observations, group, dataAvailable }: Props) {
+export default function PublicMarketScreener({ observations, group, dataAvailable, mode = "compare" }: Props) {
   const initialUnit: MarketChangeUnit = group === "rates" ? "bp" : group === "breadth" ? "pp" : "all";
   const [query, setQuery] = useState("");
   const [window, setWindow] = useState<MarketChangeWindow>("1D");
@@ -136,8 +136,8 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
     setSort(nextDirection === "down" ? "losers" : "magnitude");
   }
 
-  return <div data-market-change-screener="read-only">
-    {group === "all" && comparisonUniverse.length ? <details className={ui.comparePanel} open>
+  return <div className={mode==="assets"?ui.assetsMode:undefined} data-market-change-screener="read-only">
+    {mode === "compare" && group === "all" && comparisonUniverse.length ? <details className={ui.comparePanel} open>
       <summary>Compare sector ETFs, equal weight and semiconductors</summary>
       <p>Choose ETFs to compare 1D, 3D and 5D percentage returns from their source-dated sessions. This is not a live chart or a total-return series.</p>
       <div className={ui.comparePresets}>
@@ -224,20 +224,21 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
       </div> : <p>Select at least one ETF to compare.</p>}
       <p className={ui.comparisonNote}>Relative comparisons are percentage-point differences against RSP over the same five source sessions and matching observation date. Missing values are not filled in.</p>
     </details> : null}
-    <details className={ui.advancedPanel} open={group !== "all"} data-market-advanced="optional">
+    <details className={ui.advancedPanel} open={mode === "assets" || group !== "all"} data-market-advanced="optional">
       <summary>All instruments · search and advanced filters</summary>
-      <p>Need a specific market, source or date? Open the full instrument table here.
-       The comparison above stays available without using any of these controls.</p>
+      <p>Search, filter and sort the complete available source-dated universe. The ETF comparison remains in the Compare mode.</p>
     <div className={ui.screener} aria-label="Market change filters">
-      <div className={ui.quick}>
-        <span>Quick screens</span>
+      <details className={ui.quickDisclosure}>
+        <summary>Quick screens</summary>
+        <div className={ui.quick}>
         <button type="button" onClick={reset}>All</button>
         <button type="button" onClick={() => preset("%", "up", 1)}>Up ≥1%</button>
         <button type="button" onClick={() => preset("%", "down", 1)}>Down ≥1%</button>
         <button type="button" onClick={() => preset("%", "all", 2)}>Move ≥2%</button>
         <button type="button" onClick={() => preset("bp", "all", 10)}>Rates ≥10 bp</button>
         <button type="button" onClick={() => preset("pp", "all", 2)}>Breadth ≥2 pp</button>
-      </div>
+        </div>
+      </details>
       <div className={ui.controls}>
         <label>Screen / sort period
           <select aria-label="Screen and sort period" value={window} onChange={event => { setWindow(event.target.value as MarketChangeWindow); setColumnSort(null); }}>

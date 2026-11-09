@@ -9,17 +9,22 @@ import {projectPublishedResearchFocus,researchForPublicLens} from "@/lib/blue-de
 import { headers } from "next/headers";
 import type { CSSProperties } from "react";
 import PublicTreasuryLadder from "@/components/blue-desk/PublicTreasuryLadder";
+import RatesPolicyMonitor from "@/components/blue-desk/RatesPolicyMonitor";
+import {fetchJapanMofJgbYields} from "@/lib/providers/japan-mof-jgb-yields";
+import {fetchBundesbankBund10} from "@/lib/providers/bundesbank-bund10";
+import {fetchBoeGilt10} from "@/lib/providers/boe-gilt10";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import TradingViewChart from "@/components/blue-desk/TradingViewChart";
 import PublicMarketScreener from "@/components/blue-desk/PublicMarketScreener";
+import MarketDivergenceWatch from "@/components/blue-desk/MarketDivergenceWatch";
 import SectorDivergenceFeature from "@/components/blue-desk/SectorDivergenceFeature";
 import JobsLabourFeature from "@/components/blue-desk/JobsLabourFeature";
 import { readPublicUsJobs } from "@/lib/bluebelly-us-jobs-reader";
 import {TV_MARKET_GROUP_DEFAULTS} from "@/lib/bluebelly-editorial-visuals";
 import { MarketIcon, type MarketIconName } from "@/components/blue-desk/MarketIcon";
 import {
-  PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations,
+  PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations, publicGovernmentRateTrends,
 } from "@/lib/blue-desk-public-markets";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
@@ -36,7 +41,7 @@ export const metadata = {
 };
 
 type Props = {
-  searchParams: Promise<{ group?: string | string[]; view?: string | string[]; ticker?: string | string[] }>;
+  searchParams: Promise<{ group?: string | string[]; view?: string | string[]; ticker?: string | string[]; mode?: string | string[]; window?: string | string[] }>;
 };
 
 const GROUP_ICONS: Record<string, MarketIconName> = {
@@ -58,7 +63,12 @@ const BREADTH_WATCHES = [
 export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   const query = await searchParams;
   const now = new Date();
-  const group = publicMarketGroup(query.group);
+  const mode: "assets" | "compare" | "watch" =
+    query.mode==="compare"?"compare":query.mode==="watch"?"watch":"assets";
+  const watchWindow: "1D" | "3D" | "5D" =
+    query.window==="3D"?"3D":query.window==="5D"?"5D":"1D";
+  // Existing group deep links retain their original table/filter semantics.
+  const group = mode==="assets"?publicMarketGroup(query.group):"all";
   const host = (await headers()).get("host");
   // Keep the public route allowlist unchanged: a bounded query selects only
   // one of seven dated editorial cases, never arbitrary owner records.
@@ -70,15 +80,20 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
       <EarningsInvestorDeepDive ticker={detail.ticker} backHref={blueDeskPublicHref("/blue-desk/markets",host)} />
     </div>
   </main>;
-  const [monitor,breadthHistory,researchDigests,usJobs] = await Promise.all([
+  const [monitor,breadthHistory,researchDigests,usJobs,japan,bund,gilt] = await Promise.all([
     getMarketMonitor().catch(() => null),
     getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
     getPublishedMacroPulseBriefs(6).catch(()=>[]),
-    group==="all"?readPublicUsJobs():Promise.resolve(null),
+    mode==="assets"&&group==="all"?readPublicUsJobs():Promise.resolve(null),
+    // International providers only run when the reader deliberately opens
+    // the Rates category. Never add three remote requests to every market view.
+    mode==="assets"&&group==="rates"?fetchJapanMofJgbYields().catch(()=>null):Promise.resolve(null),
+    mode==="assets"&&group==="rates"?fetchBundesbankBund10().catch(()=>null):Promise.resolve(null),
+    mode==="assets"&&group==="rates"?fetchBoeGilt10().catch(()=>null):Promise.resolve(null),
   ]);
   // Public markets are independent of private investment portfolios.
   const monitoredRows=publicMarketObservations(monitor?.rows || [],group);
-  const breadthObservations = group==="all" || group==="breadth"
+  const breadthObservations = group==="breadth"
     ? BREADTH_WATCHES.map(item=>calculateBreadthRow(
         item.symbol,item.label,breadthHistory.series.find(row=>row.symbol===item.symbol)))
     : [];
@@ -110,7 +125,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
             <p className={styles.kicker}>CROSS-ASSET OBSERVATIONS</p>
             <h1><MarketIcon name="market" size={33} /> Markets</h1>
             <p className={styles.heroDeck}>
-              Breadth first. Compare market leadership in one place.
+              Search the assets, compare performance or inspect cross-market contradictions.
             </p>
           </div>
           <div className={styles.calendarClock}>
@@ -122,16 +137,30 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           </div>
         </header>
 
-        <nav aria-label="Markets page sections" className={legibility.focusNavigation}
-          data-markets-primary="breadth-and-comparison">
+        <nav aria-label="Markets working modes" data-markets-working-modes="three"
+          className={legibility.workingModes}>
+          <Link href={blueDeskPublicHref("/blue-desk/markets?mode=assets",host)}
+            aria-current={mode==="assets"?"page":undefined}>All Assets</Link>
+          <Link href={blueDeskPublicHref("/blue-desk/markets?mode=compare",host)}
+            aria-current={mode==="compare"?"page":undefined}>Compare</Link>
+          <Link href={blueDeskPublicHref("/blue-desk/markets?mode=watch",host)}
+            aria-current={mode==="watch"?"page":undefined}>Divergence Watch</Link>
+        </nav>
+        {mode==="compare"?<nav aria-label="Markets page sections"
+          className={legibility.focusNavigation} data-markets-primary="breadth-and-comparison">
           <a href="#breadth-watch-heading">Market breadth</a>
           <a href="#market-group-heading">ETF comparisons</a>
-          {(group==="all"||group==="rates")?<a href="#yield-ladder">US yields</a>:null}
+          <a href="#advanced-market-charts">Open charts</a>
+        </nav>:mode==="assets"?<nav aria-label="Markets page sections"
+          className={legibility.focusNavigation} data-markets-primary="asset-catalogue">
+          <a href="#market-group-heading">All instruments</a>
+          {group==="all"?<a href="#yield-ladder">US yields</a>:null}
+          {group==="rates"?<a href="#rates-policy-heading">Yields &amp; FedWatch</a>:null}
           {group==="all"?<a href="#jobs-monitor">US jobs</a>:null}
           <a href="#advanced-market-charts">Open charts</a>
-        </nav>
-        <details className={legibility.categoryDisclosure}>
-          <summary>Browse markets by category</summary>
+        </nav>:null}
+        {mode==="assets"?<details className={legibility.categoryDisclosure}>
+          <summary>Browse assets by category</summary>
           <nav aria-label="Market group" className={`${styles.publicMarketGroups} ${legibility.marketGroups}`}>
             {PUBLIC_MARKET_GROUPS.map(item=><Link key={item.id}
               href={blueDeskPublicHref("/blue-desk/markets?group="+item.id,host)}
@@ -141,9 +170,21 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
               {item.label}
             </Link>)}
           </nav>
-        </details>
-        
-        <section className={`${styles.section} ${legibility.marketSection}`}
+        </details>:null}
+        {mode==="watch"?<section aria-labelledby="divergence-watch-heading"
+          className={`${styles.section} ${legibility.marketSection}`}>
+          <p className={styles.kicker}>01 / WHAT IS NOT MOVING TOGETHER?</p>
+          <h2 id="divergence-watch-heading">Divergence Watch</h2>
+          <MarketDivergenceWatch observations={publicMarketObservations(monitor?.rows||[],"all")}
+            window={watchWindow}
+            windowHrefs={{
+              "1D":blueDeskPublicHref("/blue-desk/markets?mode=watch&window=1D",host),
+              "3D":blueDeskPublicHref("/blue-desk/markets?mode=watch&window=3D",host),
+              "5D":blueDeskPublicHref("/blue-desk/markets?mode=watch&window=5D",host),
+            }}/>
+        </section>:null}
+
+        {mode==="compare"?<section className={`${styles.section} ${legibility.marketSection}`}
           aria-labelledby="breadth-watch-heading" data-market-breadth-watch="research-first">
           <div className={styles.sectionHead}><div>
             <p className={styles.kicker}>01 / THE HEALTH OF THE RALLY</p>
@@ -203,38 +244,44 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
                 </a>)}
             </div>
           </details>
-        </section>
+        </section>:null}
 
-
-
-        <section aria-labelledby="market-group-heading" className={`${styles.section} ${legibility.marketSection}`}>
+        {mode!=="watch"?<section aria-labelledby="market-group-heading" className={`${styles.section} ${legibility.marketSection}`}>
           <div className={styles.sectionHead}>
             <div>
-              <p className={styles.kicker}>02 / RELATIVE MARKET LEADERSHIP</p>
-              <h2 id="market-group-heading"><MarketIcon name={GROUP_ICONS[group]} size={24} /> {group==="all"?"ETF & sector comparisons":selected.label}</h2>
-              <p>Compare source-dated 1D, 3D and 5D sector performance. The full screener is optional.</p>
+              <p className={styles.kicker}>{mode==="assets"?"01 / AVAILABLE SOURCE-DATED ASSETS":"02 / RELATIVE MARKET LEADERSHIP"}</p>
+              <h2 id="market-group-heading"><MarketIcon name={GROUP_ICONS[group]} size={24} /> {mode==="assets"?(group==="all"?"Instrument screener":selected.label):"ETF & sector comparisons"}</h2>
+              <p>{mode==="assets"?"Search, filter and sort 1D, 3D and 5D observations. Missing prices and history remain unavailable.":"Compare matched-session ETF performance and sector leadership."}</p>
             </div>
           </div>
 
 
-          <PublicMarketScreener key={group} observations={observations} group={group} dataAvailable={Boolean(monitor)} />
-        </section>
+          <PublicMarketScreener key={group} observations={observations} group={group} dataAvailable={Boolean(monitor)} mode={mode==="compare"?"compare":"assets"} />
+        </section>:null}
 
-        {(group==="all"||group==="rates")?
+        {mode==="assets"&&group==="all"?
           <PublicTreasuryLadder rows={publicMarketObservations(monitor?.rows||[],"rates")}/>:null}
+        {mode==="assets"&&group==="rates"?
+          <RatesPolicyMonitor observations={publicMarketObservations(monitor?.rows||[],"rates")}
+            trends={publicGovernmentRateTrends(monitor?.rows||[])}
+            sovereigns={[
+              {country:"Germany",tenor:"10Y",yieldPct:bund?.status==="OK"||bund?.status==="PARTIAL"?bund.latest?.yieldPct??null:null,asOf:bund?.latest?.date??null,change5dBp:bund?.status==="OK"?bund.change5dBp:null,sourceUrl:bund?.sourceUrl??null,status:bund?.status??"UNAVAILABLE"},
+              {country:"United Kingdom",tenor:"10Y",yieldPct:gilt?.status==="OK"||gilt?.status==="PARTIAL"?gilt.latest?.yieldPct??null:null,asOf:gilt?.latest?.date??null,change5dBp:gilt?.status==="OK"?gilt.change5dBp:null,sourceUrl:gilt?.sourceUrl??null,status:gilt?.status??"UNAVAILABLE"},
+              ...(["2Y","10Y","30Y"] as const).map(tenor=>({country:"Japan",tenor,yieldPct:japan?.status==="OK"||japan?.status==="PARTIAL"?japan.latest?.[tenor==="2Y"?"y2":tenor==="10Y"?"y10":"y30"]??null:null,asOf:japan?.asOf??null,change5dBp:japan?.status==="OK"?japan.changes5dBp[tenor==="2Y"?"y2":tenor==="10Y"?"y10":"y30"]:null,sourceUrl:japan?.sourceUrls[0]??null,status:japan?.status??"UNAVAILABLE"})),
+            ]} />:null}
 
-        <section className={legibility.relatedResearch} aria-label="Related market investigation">
+        {mode==="compare"?<section className={legibility.relatedResearch} aria-label="Related market investigation">
           <h2>Supporting research and catalysts</h2>
           <p>Original-source material and unresolved investigations. These do not replace the dated market readings above.</p>
-        </section>
-        {group==="all"&&usJobs?<JobsLabourFeature data={usJobs}/>:null}
-        {(group==="all"||group==="equities"||group==="ai"||group==="energy")?
+        </section>:null}
+        {mode==="assets"&&group==="all"&&usJobs?<JobsLabourFeature data={usJobs}/>:null}
+        {mode==="compare"&&(group==="all"||group==="equities"||group==="ai"||group==="energy")?
           <SectorDivergenceFeature mode="markets"
             articleHrefBase={blueDeskPublicHref("/blue-desk/newsroom",host)}
             crossLinkHref={blueDeskPublicHref("/blue-desk/newsroom",host)+"#sector-divergences"}/>:null}
-        <PublishedResearchDispatches items={editorialResearch} mode="market"
-          readerHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/>
-        {reviewedFocus.map(focus=><section key={focus.id} data-markets-reviewed-catalyst={focus.id}
+        {mode==="compare"?<PublishedResearchDispatches items={editorialResearch} mode="market"
+          readerHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/>:null}
+        {mode==="assets"?reviewedFocus.map(focus=><section key={focus.id} data-markets-reviewed-catalyst={focus.id}
           className={legibility.marketSection} style={{padding:"14px 18px",margin:"10px 0"}}>
           <p className={styles.kicker}>REVIEWED ENERGY CATALYST · {focus.eventDay} · SOURCE DATE ONLY</p>
           <h2>{focus.headline}</h2><p>{focus.fact}</p>
@@ -242,7 +289,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <p><strong>Market test:</strong> {focus.test} This is not evidence of a verified price reaction.</p>
           <p><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+focus.href}>Read the source-reviewed story →</Link>
           {" · "}<Link href={blueDeskPublicHref("/blue-desk/hormuz",host)}>Check source-dated crossings and fuel markets →</Link></p>
-        </section>)}
+        </section>):null}
         <details id="advanced-market-charts"
           className={`${styles.section} ${legibility.marketSection} ${legibility.breadthMore}`}
           data-market-chart-provider="tradingview">
@@ -251,11 +298,11 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <TradingViewChart initial={TV_MARKET_GROUP_DEFAULTS[group]||"us10y"} showPicker/>
         </details>
 
-        <details id="earnings-research" className={`${styles.section} ${legibility.marketSection}`} data-earnings-reader-entry="seven-company">
+        {mode==="assets"?<details id="earnings-research" className={`${styles.section} ${legibility.marketSection}`} data-earnings-reader-entry="seven-company">
           <summary>Optional: seven company earnings and financing investigations</summary>
           <p>Original-source investor research. These are dated investigations, not a live earnings-result feed. <Link href="#coreweave-credit-watch">Jump to the CoreWeave financing case</Link> after expanding.</p>
           <EarningsFundamentals amazonFeatureHref={blueDeskPublicHref("/blue-desk/key-stories",host)+"?feature=amazon-cash-test-october-2026"} deepBaseHref={blueDeskPublicHref("/blue-desk/markets",host)} />
-        </details>
+        </details>:null}
 
 
         <footer className={styles.footer}><span>Blue Desk</span></footer>
