@@ -10,6 +10,17 @@ export default function AbsorptionHealth({health}:{health:BluebellyAbsorptionHea
     </header>
     {!health?<p className={s.missing}>Live intake metrics are unavailable. No green status is inferred.</p>:
     <>
+      <div className={s.healthReadout} data-absorption-meter="sourced-account-health">
+        <div className={s.healthLabels}><span>Source intake coverage · completed recent checks</span>
+          <strong>{health.healthy} / {health.monitored} monitored sources</strong></div>
+        <div className={s.healthTrack} role="meter" aria-label="Complete fresh source checks"
+          aria-valuemin={0} aria-valuemax={Math.max(1,health.monitored)}
+          aria-valuenow={Math.min(health.healthy,Math.max(1,health.monitored))}
+          aria-valuetext={`${health.healthy} of ${health.monitored} monitored sources have complete fresh checks`}>
+          <span style={{width: `${Math.min(100,Math.max(0,Math.round(100*health.healthy/Math.max(1,health.monitored))))}%`}}/>
+        </div>
+        <small>Aggregate check only · not proof that every post or claim is independently verified</small>
+      </div>
       <div className={s.metrics}>
         <div><strong>{health.healthy}/{health.monitored}</strong><span>X sources with complete recent checks</span></div>
         <div><strong>{health.posts24h.toLocaleString("en-GB")}</strong><span>X posts retrieved · 24h</span></div>
