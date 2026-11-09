@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import styles from "@/app/blue-desk/blue-desk.module.css";
+import portfolio from "./private-power-stack.module.css";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -127,18 +128,18 @@ export default async function PrivatePowerStack() {
       data-private-data-ready={ready ? "yes" : "no"}>
       <BlueDeskHeader activePath="/power-stack" />
       <div className={styles.content}>
-        <header className={styles.calendarHero}>
+        <header className={portfolio.hero} data-v7-power-stack="dated-private-portfolio">
           <div>
-            <p className={styles.kicker}>PRIVATE / POWER STACK</p>
+            <p className={portfolio.eyebrow}>PRIVATE / POWER STACK · OWNER-VERIFIED RECORDS</p>
             <h1>My Portfolio</h1>
-            <p className={styles.heroDeck}>
+            <p className={portfolio.deck}>
               Historical Power Stack holdings and research watchlist, using the same
               approved Google session as My Desk. Values are not live brokerage data.
             </p>
           </div>
         </header>
         {!ready ? (
-          <section className={styles.section} data-power-stack-migration="pending">
+          <section className={portfolio.pending} data-power-stack-migration="pending">
             <h2>Private portfolio migration not yet verified</h2>
             <p>The old Power Stack GitHub Pages origin still needs to be secured
               and its personal data migrated. Holdings, quantities and account
@@ -150,14 +151,14 @@ export default async function PrivatePowerStack() {
           </section>
         ) : (
           <>
-            <section className={styles.section} data-power-stack-holdings="private">
+            <section className={portfolio.section} data-power-stack-holdings="private">
               <h2>Recorded holdings · {holdings.length}</h2>
               <p data-power-stack-source-date="historical-only">Archived portfolio record dated {row?.snapshot_as_of ?? "unknown"}
                 {snapshotAgeDays===null?"":` · ${snapshotAgeDays} days old`}.
                 Quantities are historical and require broker reconciliation before any order.
                 Prices use their original observation dates. The date of this snapshot is not the latest account balance.</p>
-              <div style={{overflowX:"auto"}}>
-                <table style={{width:"100%",borderCollapse:"collapse",textAlign:"left"}}>
+              <div className={portfolio.tableScroll}>
+                <table className={portfolio.holdingsTable}>
                   <thead><tr>
                     <th scope="col">Instrument</th><th scope="col">Quantity</th>
                     <th scope="col">Price as recorded</th><th scope="col">Quantity / price date</th>
@@ -174,14 +175,14 @@ export default async function PrivatePowerStack() {
               </div>
               {holdings.length === 0 ? <p>No valid positions in this private snapshot.</p> : null}
             </section>
-            <section className={styles.section} data-power-stack-watchlist="private">
+            <section className={portfolio.section} data-power-stack-watchlist="private">
               <h2>Research watchlist · {watchlist.length}</h2>
               <p>Archived rankings and thesis gates from the original Power Stack.
                 Scores are historical research assessments, not present-day trade signals.
                 Open a ticker for its entry condition and invalidation.</p>
-              <div style={{display:"grid",gap:12,gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,320px),1fr))"}}>
+              <div className={portfolio.watchGrid}>
                 {watchlist.map(asset => (
-                  <details key={asset.ticker} style={{padding:16,border:"1px solid currentColor",borderRadius:10}}>
+                  <details key={asset.ticker} className={portfolio.assetDetails}>
                     <summary>
                       <strong>{asset.ticker} · {asset.name}</strong>
                       {" · "}Rank {asset.rank ?? "—"}
