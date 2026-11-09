@@ -46,6 +46,10 @@ test("CP Markets visuals stay tied to the canonical screener and source dates",(
   const css=read("app/blue-desk/markets/legibility.module.css");
   assert.match(page,/getMarketMonitor\(\)/);
   assert.match(page,/data-market-breadth-watch="research-first"/);
+  assert.doesNotMatch(page,/<CurrentMarketUpdates host=\{host\} mode="compact"\/>/);
+  assert.ok(page.indexOf('data-market-breadth-watch="research-first"')
+    <page.indexOf('aria-label="Related market investigation"'));
+  assert.ok(page.indexOf('href="#breadth-watch-heading"')<page.indexOf('href="#jobs-monitor"'));
   assert.match(page,/reading\.dataStatus==="SOURCE_DATED_SECONDARY"/);
   assert.match(page,/--breadth-fill/);
   assert.match(page,/reading\.asOf\|\|"unavailable"/);
