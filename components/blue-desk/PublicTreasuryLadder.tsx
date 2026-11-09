@@ -33,7 +33,7 @@ export default function PublicTreasuryLadder({rows}:{rows:readonly PublicMarketO
     data-v7-treasury-ladder="source-dated-us-only"
     aria-labelledby="yield-ladder-title">
     <header className={s.heading}>
-      <div><p>02 / RATES MONITOR · VERIFIED SOURCE SESSIONS</p>
+      <div><p>03 / RATES MONITOR · VERIFIED SOURCE SESSIONS</p>
         <h2 id="yield-ladder-title">US Treasury yield ladder</h2></div>
       <span>LEVEL: % <b>·</b> CHANGE: bp</span>
     </header>
