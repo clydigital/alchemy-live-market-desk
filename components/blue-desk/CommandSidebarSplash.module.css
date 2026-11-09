@@ -1,0 +1,44 @@
+/* Layered SVG paint/circuit splash. Decorative and always behind links. */
+.splash{
+  position:absolute;z-index:0;inset:auto -28px 51px -22px;
+  width:auto;height:min(440px,58vh);
+  pointer-events:none;overflow:hidden;opacity:.78;
+  mask-image:linear-gradient(to bottom,transparent 0%,black 13%,black 77%,transparent 100%);
+  filter:drop-shadow(0 0 8px var(--bb-command-glow));
+}
+.art{display:block;width:100%;height:100%}
+.circuit{stroke:var(--bb-command-edge);opacity:.82}
+.horizon{stroke:var(--bb-command-alt);stroke-width:1;opacity:.62}
+.horizon path{stroke-width:.65;opacity:.68}
+.splashFills{fill:var(--bb-command-accent);opacity:.18}
+.splashFills path:nth-child(2){opacity:.58}
+.splashFills path:nth-child(3){opacity:.8}
+.slashes{stroke:var(--bb-command-accent);opacity:.9;stroke-linecap:square}
+.slashes path:nth-child(2){stroke:var(--bb-command-alt);opacity:.7}
+.sparks{stroke:var(--bb-command-alt);stroke-width:1.6;fill:var(--bb-command-alt);opacity:.75}
+.scanMarks{stroke:var(--bb-command-accent);stroke-width:1.4;fill:none;opacity:.63}
+.technical{
+  position:absolute;bottom:29px;right:37px;
+  color:var(--bb-command-alt);font:800 8px/1.2 var(--bb-mono);
+  letter-spacing:.11em;opacity:.85;white-space:nowrap;
+}
+.scanline{
+  position:absolute;top:0;left:10%;right:6%;height:1px;
+  background:linear-gradient(90deg,transparent,var(--bb-command-alt),transparent);
+  box-shadow:0 0 16px color-mix(in srgb,var(--bb-command-alt) 40%,transparent);
+  animation:command-splash-scan 12s linear infinite;
+  opacity:.5;transform:translateY(0);
+}
+@keyframes command-splash-scan{
+  0%{transform:translateY(-12px);opacity:0}
+  10%,80%{opacity:.45}
+  100%{transform:translateY(448px);opacity:0}
+}
+@media(max-width:1050px) and (min-width:721px){
+  .splash{left:-64px;right:-64px;opacity:.56}
+  .technical{display:none}
+}
+@media(max-width:720px){.splash{display:none}}
+@media(prefers-reduced-motion:reduce){.scanline{animation:none;opacity:.27;top:43%}}
+@media(forced-colors:active){.splash{display:none}}
+@media print{.splash{display:none}}
