@@ -1,5 +1,7 @@
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import Link from "next/link";
+import AbsorptionHealth from "@/components/blue-desk/AbsorptionHealth";
+import {getBluebellyAbsorptionHealth} from "@/lib/bluebelly-absorption-health";
 import {redirect} from "next/navigation";
 import styles from "@/app/blue-desk/blue-desk.module.css";
 import layout from "./my-desk.module.css";
@@ -19,19 +21,34 @@ export default async function MyBluebellyReports({searchParams}:{
 }){
  const params=await searchParams;
  if(params.view==="portfolio")redirect("/my-reports");
+ // Aggregate-only operational status; this private route is protected by
+ // the existing Supabase claims + active allowlist middleware.
+ const absorption=await getBluebellyAbsorptionHealth();
  return <main className={styles.page} data-bluebelly-my-reports="owner-only"
    data-private-desk="source-first-market-workspace">
   <BlueDeskHeader activePath="/my-reports"/>
   <div className={styles.content}>
-   <header className={styles.calendarHero}>
-    <div>
-     <p className={styles.kicker}>PRIVATE / BLUEBELLY</p>
-     <h1>My Desk</h1>
-     <p className={styles.heroDeck}>Your shortcuts to markets, source evidence and research tools. Analysis and writing now happen in ChatGPT.</p>
+   <header className={layout.ownerHero} data-v7-private-command="owner-operations-hub">
+    <div className={layout.ownerHeroCopy}>
+     <p className={layout.ownerEyebrow}>BLUEBELLY / PRIVATE MARKET COMMAND</p>
+     <h1>My Desk<span>.</span></h1>
+     <p>Your shortcuts to markets, source evidence and research tools. Analysis and writing now happen in ChatGPT.</p>
+     <nav aria-label="Private workspace shortcuts" className={layout.ownerShortcuts}>
+      <a href="#ingestion-health">Ingestion health</a>
+      <a href="#owner-research-tools">Research tools</a>
+      <Link href="/power-stack">Private portfolio</Link>
+     </nav>
+    </div>
+    <div className={layout.ownerHeroArt} aria-hidden="true">
+      <span className={layout.ownerScopeOuter}><span className={layout.ownerScopeInner}>BB</span></span>
+      <span className={layout.ownerScopeCaption}>OBSERVE / VERIFY / RESEARCH</span>
     </div>
    </header>
-
-   <section className={layout.hub} aria-label="My Desk workspace">
+   <div id="ingestion-health" className={layout.ownerOperations}
+     data-my-desk-ingestion="aggregate-private-only">
+     <AbsorptionHealth health={absorption}/>
+   </div>
+   <section className={layout.hub} id="owner-research-tools" aria-label="My Desk workspace">
     <div className={layout.hubHeading}>
      <div>
       <p className={layout.hubEyebrow}>MONITOR / VERIFY / RESEARCH</p>
