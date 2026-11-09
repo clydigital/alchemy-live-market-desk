@@ -38,3 +38,11 @@ test("Toggle preserves keyboard focus affordance, tablet rail spacing and reduce
   assert.match(calendar,/data-catalyst-calendar="v4"/);
   assert.match(calendar,/className=\{styles\.board\}/);
 });
+
+test("Wide-screen week board is not trapped behind the general 1460px article maximum",()=>{
+  const page=read("app/blue-desk/calendar/page.tsx");
+  assert.match(page,/data-blue-desk-calendar="ET-primary"/);
+  assert.match(tokens,/main\[data-blue-desk-calendar="ET-primary"\] > div\{/);
+  assert.match(tokens,/max-width:none/);
+  assert.match(tokens,/width:100%/);
+});
