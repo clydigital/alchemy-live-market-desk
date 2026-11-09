@@ -33,11 +33,18 @@ test("public slate is source-dated and distinguishes revised midterms from genui
 
 test("Today, Newsroom, Research, Markets, Regime Watch and public navigation retain dated editorial",()=>{
  for(const path of ["app/blue-desk/page.tsx","app/blue-desk/newsroom/page.tsx",
-  "app/blue-desk/research/page.tsx","app/blue-desk/markets/page.tsx",
-  "app/blue-desk/regime-watch/page.tsx",
+  "app/blue-desk/research/page.tsx","app/blue-desk/regime-watch/page.tsx",
   "components/blue-desk/BlueDeskHeader.tsx"]){
   assert.match(read(path),/CurrentMarketUpdates/,"Missing current editorial at "+path);
  }
+ // The public Markets reader keeps the same dated editorial through its
+ // shared masthead. Rendering a second compact editorial panel ahead of the
+ // market data would duplicate the coverage and obscure the actual screener.
+ const markets=read("app/blue-desk/markets/page.tsx");
+ const header=read("components/blue-desk/BlueDeskHeader.tsx");
+ assert.match(markets,/<BlueDeskHeader activePath="\/blue-desk\/markets"/);
+ assert.match(header,/<CurrentMarketUpdates host=\{host\} mode="mast"\/>/);
+ assert.doesNotMatch(markets,/<CurrentMarketUpdates host=\{host\} mode="compact"\/>/);
  const key=read("app/blue-desk/key-stories/page.tsx");
  assert.match(key,/market-desk-4-nov-2026/);
  assert.match(key,/NovemberDeskStory/);
