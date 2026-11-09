@@ -90,7 +90,7 @@ test("clickable columns sort both directions, keep missing observations last and
   assert.deepEqual(sortPublicMarketColumns(rows,"instrument",true).map(x=>x.id),
     ["fall","missing","rise","small","unchanged","yield"]);
   const ui=readFileSync(new URL("../components/blue-desk/PublicMarketScreener.tsx", import.meta.url),"utf8");
-  assert.match(ui,/sortPublicMarketColumns\(filtered, columnSort, ascending\)/);
+  assert.match(ui,/sortPublicMarketColumns\(filtered, columnSort, ascending, \{bias: signalBias, breakoutDays\}\)/);
   assert.match(ui,/onClick=\{\(\)=>sortColumn\(period\)\}/);
   assert.match(ui,/aria-sort=/);
 });
@@ -134,4 +134,66 @@ test("ETF comparison column headers sort independently, both ways, with source-d
   assert.match(ui, /onClick=\{\(\)=>sortComparisonColumn\(period\)\}/);
   assert.match(ui, /comparisonHeader\("relative5D", "5D vs RSP"\)/);
   assert.match(ui, /aria-sort=\{comparisonSort/);
+});
+
+test("signal alignment header ranks actual matched families both ways and leaves missing scans last",()=>{
+  const makeScan=(positive:boolean, medium=false)=>({
+    asOf:"2026-11-09",
+    breakout:{
+      "20":{state:positive ? "inside" as const : "down" as const,basis:"closing" as const},
+      "55":{state:positive ? "up" as const : "down" as const,basis:"closing" as const},
+      "252":{state:"inside" as const,basis:"closing" as const}
+    },
+    stoch:{k:50,d:50,zone:"middle" as const,turn:positive ? "bullish" as const : "bearish" as const},
+    volume:{multiple:1.4,state:positive && !medium ? "up-surge" as const : positive ? "normal" as const : "down-surge" as const},
+    relative:{excess20d:4,state:positive ? "leader" as const : "laggard" as const},
+    squeeze:{state:positive && !medium ? "expanding-up" as const : positive ? "normal" as const : "expanding-down" as const},
+    alignment:{bullish:{matched:0,available:0},bearish:{matched:0,available:0}},
+  });
+  const high={...row("high",3),screening:makeScan(true)};
+  const medium={...row("medium",1),screening:makeScan(true,true)};
+  const low={...row("low",-3),screening:makeScan(false)};
+  const unscanned=row("unscanned",null);
+  const candidates=[unscanned,low,medium,high];
+  assert.deepEqual(sortPublicMarketColumns(candidates,"alignment",false,{bias:"bullish",breakoutDays:"55"}).map(x=>x.id),
+    ["high","medium","low","unscanned"]);
+  assert.deepEqual(sortPublicMarketColumns(candidates,"alignment",true,{bias:"bullish",breakoutDays:"55"}).map(x=>x.id),
+    ["low","medium","high","unscanned"]);
+  assert.deepEqual(sortPublicMarketColumns(candidates,"alignment",false,{bias:"bearish",breakoutDays:"55"}).map(x=>x.id),
+    ["low","medium","high","unscanned"]);
+  assert.deepEqual(sortPublicMarketColumns(candidates,"alignment",false,{bias:"bullish",breakoutDays:"20"}).map(x=>x.id),
+    ["high","medium","low","unscanned"]);
+});
+
+test("signal alignment sorts empty-coverage scans as unknown, not a zero-match reading",()=>{
+  const noCoverage={
+    asOf:"2026-11-09",
+    breakout:{"20":{state:"unavailable" as const,basis:null},"55":{state:"unavailable" as const,basis:null},"252":{state:"unavailable" as const,basis:null}},
+    stoch:{k:null,d:null,zone:"unavailable" as const,turn:"none" as const},
+    volume:{multiple:null,state:"unavailable" as const},
+    relative:{excess20d:null,state:"unavailable" as const},
+    squeeze:{state:"unavailable" as const},
+    alignment:{bullish:{matched:0,available:0},bearish:{matched:0,available:0}},
+  };
+  const assessed={...row("assessed",0),screening:{
+    ...noCoverage,breakout:{...noCoverage.breakout,"55":{state:"inside" as const,basis:"closing" as const}}
+  }};
+  const unknown={...row("unknown",0),screening:noCoverage};
+  assert.deepEqual(sortPublicMarketColumns([unknown,assessed],"alignment",true).map(x=>x.id),["assessed","unknown"]);
+  assert.deepEqual(sortPublicMarketColumns([unknown,assessed],"alignment",false).map(x=>x.id),["assessed","unknown"]);
+});
+
+test("Markets alignment is a keyboard-sortable header and instrument name has distinct text hierarchy",()=>{
+  const ui=readFileSync(new URL("../components/blue-desk/PublicMarketScreener.tsx",import.meta.url),"utf8");
+  const css=readFileSync(new URL("../components/blue-desk/PublicMarketScreener.module.css",import.meta.url),"utf8");
+  assert.match(ui,/onClick=\{\(\)=>sortColumn\("alignment"\)\}/);
+  assert.match(ui,/aria-sort=\{columnSort==="alignment"/);
+  assert.match(ui,/title=\{row\.label\} subtitle=\{row\.symbol\}/);
+  assert.match(ui,/className=\{ui\.instrumentCell\}/);
+  assert.match(ui,/className=\{ui\.instrumentIdentity\}/);
+  assert.match(ui,/className=\{ui\.instrumentRole\}/);
+  assert.match(css,/\.instrumentCell \.instrumentIdentity/);
+  assert.match(css,/\.instrumentCell \.instrumentRole/);
+  assert.match(css,/overflow-wrap:break-word/);
+  assert.match(css,/@media\(max-width:760px\)/);
 });
