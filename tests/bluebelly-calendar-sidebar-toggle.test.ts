@@ -63,15 +63,15 @@ test("Wide-screen calendar board still fills the reclaimed width",()=>{
   assert.match(tokens,/width:100%/);
 });
 
-test("Expanded sidebar footer offers a clear Hide navbar text action",()=>{
-  assert.match(header,/id="bluebelly-command-footer"/);
-  assert.match(toggle,/createPortal\(/);
-  assert.match(toggle,/document\.getElementById\("bluebelly-command-footer"\)/);
-  assert.match(toggle,/footer && !shelved/);
-  assert.match(toggle,/className=\{chrome\.sidebarHideText\}/);
-  assert.match(toggle,/aria-label="Hide navbar"/);
-  assert.match(toggle,/onClick=\{\(\)=>setShelved\(true\)\}/);
-  assert.match(chrome,/\.sidebarHideText\{/);
-  assert.match(chrome,/@media\(max-width:1050px\)\{\.sidebarHideText\{display:none\}\}/);
-  assert.match(chrome,/\.sidebarHideText:focus-visible/);
+test("Single far-left control is a yellow square, not a tall NAV tab or footer text button",()=>{
+  assert.match(chrome,/width:44px;height:44px;min-height:44px/);
+  assert.match(chrome,/background:#ffe500;border:1px solid #ffe500/);
+  assert.match(chrome,/position:fixed;left:0;bottom:clamp\(20px,4vh,42px\)/);
+  assert.match(toggle,/className=\{chrome\.toggleArrow\}/);
+  assert.doesNotMatch(toggle,/>NAV</);
+  assert.doesNotMatch(toggle,/createPortal|sidebarHideText|bluebelly-command-footer|Hide navbar/);
+  assert.doesNotMatch(header,/bluebelly-command-footer/);
+  assert.doesNotMatch(chrome,/\.sidebarHideText|\.toggleLabel/);
+  assert.match(toggle,/onClick=\{\(\)=>setShelved\(value=>!value\)\}/);
+  assert.match(toggle,/aria-expanded=\{!shelved\}/);
 });
