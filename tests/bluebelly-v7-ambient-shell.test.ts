@@ -30,9 +30,10 @@ test("pointer movement uses local rAF and tears down listeners, never mutates ma
   assert.match(src,/window\.removeEventListener\("pointermove",move\)/);
   assert.match(src,/window\.removeEventListener\("blur",hide\)/);
   assert.match(src,/document\.removeEventListener\("visibilitychange",visibility\)/);
-  assert.match(src,/fine\.removeEventListener\("change",modeChange\)/);
+  assert.match(src,/contrast\.removeEventListener\("change",modeChange\)/);
   assert.match(src,/reduced\.removeEventListener\("change",modeChange\)/);
-  assert.match(src,/event\.pointerType==="touch"/);
+  assert.match(src,/event\.pointerType!=="mouse"/);
+  assert.match(src,/window\.innerWidth>720/);
   assert.doesNotMatch(src,/localStorage|sessionStorage|fetch\(|sendBeacon|WebSocket|navigator\.geolocation|setInterval/);
   assert.doesNotMatch(src,/document\.body\.style|document\.documentElement\.style/);
 });
@@ -44,8 +45,8 @@ test("pointer halo cannot intercept clicks and fails closed for reduced motion, 
   assert.match(css,/data-visible="true"/);
   assert.match(css,/var\(--bb-command-alt\)/);
   assert.match(css,/var\(--bb-command-accent\)/);
-  assert.match(css,/hover:none/);
-  assert.match(css,/pointer:coarse/);
+  assert.match(css,/max-width:720px/);
+  assert.match(src,/event\.pointerType!=="mouse"/);
   assert.match(css,/prefers-reduced-motion:reduce/);
   assert.match(css,/prefers-contrast:more/);
   assert.match(css,/forced-colors:active/);
