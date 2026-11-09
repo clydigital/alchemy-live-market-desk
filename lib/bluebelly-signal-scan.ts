@@ -99,8 +99,17 @@ function relativeSignal(bars: ScanBar[], benchmark: readonly ScanBar[] | null): 
   if (!benchmark || bars.length < 21) return unknown;
   const comparison = cleanBars(benchmark);
   if (comparison.length < 21 || bars.at(-1)!.time !== comparison.at(-1)!.time) return unknown;
-  const asset = (bars.at(-1)!.close / bars.at(-21)!.close - 1) * 100;
-  const base = (comparison.at(-1)!.close / comparison.at(-21)!.close - 1) * 100;
+  // Compare the same 21 common source sessions. Differing trading calendars,
+  // suspensions, and missing provider rows cannot shift the starting date.
+  const benchmarkByTime = new Map(comparison.map(point => [point.time, point.close]));
+  const matched = bars.filter(point => benchmarkByTime.has(point.time)).slice(-21);
+  if (matched.length < 21) return unknown;
+  const first = matched[0], last = matched[20];
+  const benchmarkFirst = benchmarkByTime.get(first.time)!;
+  const benchmarkLast = benchmarkByTime.get(last.time)!;
+  if (benchmarkFirst <= 0 || benchmarkLast <= 0) return unknown;
+  const asset = (last.close / first.close - 1) * 100;
+  const base = (benchmarkLast / benchmarkFirst - 1) * 100;
   const excess = asset - base;
   return { excess20d: round(excess), state: excess >= 1 ? "leader" : excess <= -1 ? "laggard" : "neutral" };
 }

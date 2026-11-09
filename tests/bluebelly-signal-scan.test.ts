@@ -50,3 +50,15 @@ test("Insufficient coverage reports unavailable, not five failed conditions", ()
   assert.equal(scan?.squeeze.state,"unavailable");
   assert.equal(scan?.stoch.zone,"unavailable");
 });
+
+test("relative strength matches the full 21-session window, not just the final date", () => {
+  const asset = bars(50,0.4);
+  // Provider skips one session in the middle of the lookback window.
+  const benchmark = bars(50,0.1).filter((_,i)=>i!==35);
+  const reading=evaluateMarketSignals(asset,benchmark);
+  const firstAligned=asset[28], last=asset[49];
+  const expected=((last.close/firstAligned.close-1)-(benchmark.at(-1)!.close/benchmark.find(b=>b.time===firstAligned.time)!.close-1))*100;
+  assert.equal(reading?.relative.excess20d,Number(expected.toFixed(2)));
+  const sparse=bars(50,0.1).filter((_,i)=>i<15||i===49);
+  assert.equal(evaluateMarketSignals(asset,sparse)?.relative.state,"unavailable");
+});
