@@ -178,3 +178,99 @@
 .marketHero h1,.marketSection h2,.marketSection h3{color:var(--bb-heading-markets)}
 .marketSection{background:var(--bb-card-bg);border-color:var(--bb-line)}
 .marketSection:before{background:var(--bb-heading-markets)}
+
+/* v7 Markets — source-first cyberpunk composition. These are framing
+   elements; no CSS implies an unavailable reading is a confirmed signal. */
+.compactMarkets .marketHero{
+  border-color:var(--bb-command-edge);position:relative;overflow:hidden;
+  background:radial-gradient(ellipse at 85% 15%,rgba(21,161,195,.12),transparent 48%),
+    linear-gradient(110deg,#0c2230,#071720);
+}
+.compactMarkets .marketHero::before{
+  opacity:.18;
+  background-image:linear-gradient(90deg,#438094 1px,transparent 1px),
+   linear-gradient(0deg,#438094 1px,transparent 1px);
+  background-size:37px 37px;mask-image:linear-gradient(90deg,transparent 30%,#000);
+}
+.compactMarkets .marketHero::after{background:var(--bb-command-accent)}
+.compactMarkets .marketHero h1{color:#f3fafc}
+.compactMarkets .marketHero h1 svg{color:var(--bb-command-accent)}
+.compactMarkets .marketHero strong{color:var(--bb-command-alt)}
+.compactMarkets .focusNavigation{
+  position:relative;display:flex;gap:5px;padding:5px;
+  border:1px solid var(--bb-command-edge);background:#071720;
+}
+.compactMarkets .focusNavigation a{
+  flex:1 1 auto;min-height:37px;font:800 10px/1.3 var(--bb-mono);
+  letter-spacing:.02em;text-transform:uppercase;border:1px solid transparent;
+  background:#10232d;color:#d7e9ee!important;padding:10px 12px;
+}
+.compactMarkets .focusNavigation a:hover,.compactMarkets .focusNavigation a:focus-visible{
+  color:#07121a!important;background:var(--bb-command-accent);
+  border-color:var(--bb-command-accent);
+}
+.compactMarkets .categoryDisclosure,.compactMarkets .breadthMore{
+  border-color:var(--bb-command-edge);background:#0b1b25;border-radius:0;
+}
+.compactMarkets .marketSection{
+  border-color:var(--bb-command-edge);
+  background:linear-gradient(138deg,#0a1e29,#081821 76%);
+}
+.compactMarkets .marketSection::before{background:var(--bb-command-accent)}
+.compactMarkets .marketSection h2{color:#e9f5f9}
+.compactMarkets .marketSection h2 svg{color:var(--bb-command-alt)}
+.compactMarkets .breadthStat{
+  position:relative;min-width:0;background:linear-gradient(130deg,#102a34,#091a25);
+  border:1px solid var(--bb-command-edge);border-radius:0;
+}
+.compactMarkets .breadthStat::before{
+  content:"";position:absolute;top:0;right:12px;width:38px;height:2px;
+  background:var(--bb-command-alt);
+}
+.compactMarkets .breadthStatHeading strong{color:var(--bb-command-alt)}
+.compactMarkets .breadthLevel{color:#f1f8fc}
+.breadthValueRow{display:flex;align-items:center;gap:18px;min-width:0}
+.breadthValueRow>div{min-width:0}
+.breadthDial,.breadthDialUnavailable{
+  position:relative;display:grid;place-items:center;flex:none;
+  width:76px;height:76px;border-radius:50%;
+  border:1px solid var(--bb-command-edge);
+}
+.breadthDial{
+  background:conic-gradient(from -90deg,var(--bb-command-alt) 0 var(--breadth-fill),
+    #183440 var(--breadth-fill) 100%);
+  filter:drop-shadow(0 0 8px rgba(0,188,212,.11));
+}
+.breadthDial::after,.breadthDialUnavailable::after{
+  content:"";display:block;width:55px;height:55px;border-radius:50%;
+  background:#0b1e29;border:1px solid #244754;box-shadow:inset 0 0 15px rgba(0,0,0,.35);
+}
+.breadthDialUnavailable{border-style:dashed;background:#102630}
+.breadthDialUnavailable::after{border-style:dashed}
+.compactMarkets .breadthValueRow p{margin:5px 0 0!important}
+.relatedResearch{
+  position:relative;margin:17px 0 10px;padding:15px 18px;
+  border:1px solid var(--bb-command-edge);
+  background:linear-gradient(100deg,#09212a,#08151c);
+}
+.relatedResearch::before{
+  content:"";position:absolute;top:0;left:0;width:70px;height:3px;
+  background:var(--bb-command-alt);
+}
+.relatedResearch h2{margin:0 0 6px;font:900 clamp(18px,2vw,24px)/1.2 var(--bb-display);color:#e8f4f9}
+.relatedResearch p{margin:0;color:var(--bb-muted);font-size:12px;line-height:1.5}
+#breadth-watch-heading,#market-group-heading,#yield-ladder,#jobs-monitor{scroll-margin-top:25px}
+@media(max-width:840px){
+  .compactMarkets .focusNavigation{flex-wrap:wrap}
+  .breadthDial,.breadthDialUnavailable{width:65px;height:65px}
+  .breadthDial::after,.breadthDialUnavailable::after{width:46px;height:46px}
+  .breadthValueRow{gap:12px}
+}
+@media(max-width:420px){
+  .breadthDial,.breadthDialUnavailable{width:57px;height:57px}
+  .breadthDial::after,.breadthDialUnavailable::after{width:40px;height:40px}
+  .compactMarkets .focusNavigation a{font-size:10px}
+}
+@media(prefers-reduced-motion:reduce){
+  .breadthDial,.focusNavigation a{transition:none}
+}
