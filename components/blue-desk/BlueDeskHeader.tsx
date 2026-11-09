@@ -3,6 +3,7 @@ import Link from "next/link";
 import ThemePreferences from "./ThemePreferences";
 import CommandPointerHalo from "./CommandPointerHalo";
 import CommandSidebarSplash from "./CommandSidebarSplash";
+import CommandSidebarToggle from "./CommandSidebarToggle";
 import { MarketIcon, type MarketIconName } from "./MarketIcon";
 import { headers } from "next/headers";
 import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
@@ -122,6 +123,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
           <span className={chrome.sideText}>Source-dated · not a live quote feed</span>
         </div>
       </aside>
+      <CommandSidebarToggle/>
       <div className={chrome.utility}><div className={chrome.utilityInner}>
         <span><strong>BLUEBELLY / MARKET INTELLIGENCE</strong> · Source-qualified reporting and research</span>
         <span>Observed facts · working interpretations labelled separately</span>
