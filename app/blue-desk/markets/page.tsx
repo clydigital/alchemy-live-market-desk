@@ -1,4 +1,3 @@
-import CurrentMarketUpdates from "@/components/blue-desk/CurrentMarketUpdates";
 import EarningsFundamentals from "@/components/blue-desk/EarningsFundamentals";
 import EarningsInvestorDeepDive from "@/components/blue-desk/EarningsInvestorDeepDive";
 import {getEarningsCase} from "@/lib/bluebelly-earnings-investor-stories";
@@ -105,7 +104,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
     <main className={`${styles.page} ${legibility.publicMarketsLegibility} ${legibility.compactMarkets}`} data-blue-desk-markets="public-observations">
       <BlueDeskHeader activePath="/blue-desk/markets" />
       
-        <CurrentMarketUpdates host={host} mode="compact"/><div className={styles.content}>
+        <div className={styles.content}>
         <header className={`${styles.calendarHero} ${legibility.marketHero}`}>
           <div>
             <p className={styles.kicker}>CROSS-ASSET OBSERVATIONS</p>
@@ -125,10 +124,10 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
 
         <nav aria-label="Markets page sections" className={legibility.focusNavigation}
           data-markets-primary="breadth-and-comparison">
-          {group==="all"?<a href="#jobs-monitor">US jobs</a>:null}
           <a href="#breadth-watch-heading">Market breadth</a>
           {(group==="all"||group==="rates")?<a href="#yield-ladder">US yields</a>:null}
           <a href="#market-group-heading">ETF comparisons</a>
+          {group==="all"?<a href="#jobs-monitor">US jobs</a>:null}
           <a href="#advanced-market-charts">Open charts</a>
         </nav>
         <details className={legibility.categoryDisclosure}>
