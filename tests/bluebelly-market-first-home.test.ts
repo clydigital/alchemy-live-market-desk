@@ -14,8 +14,13 @@ test("homepage is a source-dated market utility before archived Today reading",(
   assert.ok(lead>0&&old>lead,"Market terminal precedes legacy news reader");
   assert.match(home,/publicMarketObservations\(monitor\?\.rows\|\|\[\],"all"\)/);
   assert.match(home,/marketHighlights\.map/);
-  assert.match(home,/formatMarketChange\(row\.change3d,row\.changeUnit\)/);
-  assert.match(home,/formatMarketChange\(row\.change5d,row\.changeUnit\)/);
+  // The compact graphic retains the exact source-dated 1D/3D/5D windows.
+  assert.match(home,/<MarketWindowBars change=\{row\.change\} change3d=\{row\.change3d\}/);
+  assert.match(home,/change5d=\{row\.change5d\} unit=\{row\.changeUnit\}/);
+  const projection=read("lib/bluebelly-market-bar-visuals.ts");
+  assert.match(projection,/name:"3D"/);
+  assert.match(projection,/name:"5D"/);
+  assert.match(projection,/value\.toFixed\(unit==="bp"\?1:2\)/);
   assert.match(home,/row\.dataStatus!=="UNAVAILABLE_OR_STALE"/);
   assert.match(home,/row\.frequency==="daily"/);
   assert.match(home,/observedAt<=now\.getTime\(\)/);
