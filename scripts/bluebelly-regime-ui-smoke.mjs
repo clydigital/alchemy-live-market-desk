@@ -302,6 +302,14 @@ try{
    marketsSnapshotHtml=safeModeHtml(watch.html);
    await renderChrome("http://127.0.0.1:"+PUBLIC+"/__markets_snapshot",
      "markets-watch-mobile.png",390,1200,{disableJavascript:true});
+   // Public catalogue request must resolve to real server-side, nonprice data.
+   const directory=await waitResponse("/markets?mode=assets&catalogue-q=USDMYR");
+   assertHtml(directory.html,'data-public-asset-catalogue="identity-only"',
+     "USDMYR","Catalogue only");
+   marketsSnapshotHtml=safeModeHtml(directory.html);
+   await renderChrome("http://127.0.0.1:"+PUBLIC+"/__markets_snapshot",
+     "markets-catalogue-mobile.png",390,1200,{disableJavascript:true});
+   console.log("Public catalogue 200 · USDMYR identity-only and responsive reader present");
    marketsSnapshotHtml=defaultMarketsSnapshot;
   }
   if(id!=="markets")
