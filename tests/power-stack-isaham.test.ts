@@ -61,6 +61,8 @@ test("no key, exhausted budget or invalid response never manufactures prices",as
   assert.equal((await readISahamUsage({env:{}})).status,"unconfigured");
   assert.equal(await readISahamQuote("MISC",{env:{}}),null);
   const fail=(async()=>new Response(JSON.stringify({status:"error",error:{code:"QUOTA_EXCEEDED"}}),{status:403})) as typeof fetch;
-  assert.equal((await readISahamUsage({env:{iSaham_API_KEY:"T"},fetchImpl:fail})).status,"unavailable");
+  const denied=await readISahamUsage({env:{iSaham_API_KEY:"T"},fetchImpl:fail});
+  assert.equal(denied.status,"unavailable");
+  assert.equal(denied.failureCode,"ACCESS_403");
   assert.equal(await readISahamQuote("../etc",{env:{iSaham_API_KEY:"T"},fetchImpl:fail}),null);
 });
