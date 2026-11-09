@@ -160,7 +160,7 @@ test("signal alignment header ranks actual matched families both ways and leaves
   assert.deepEqual(sortPublicMarketColumns(candidates,"alignment",true,{bias:"bullish",breakoutDays:"55"}).map(x=>x.id),
     ["low","medium","high","unscanned"]);
   assert.deepEqual(sortPublicMarketColumns(candidates,"alignment",false,{bias:"bearish",breakoutDays:"55"}).map(x=>x.id),
-    ["low","medium","high","unscanned"]);
+    ["low","high","medium","unscanned"]); // Tied zero-match scores use alphabetical name order.
   assert.deepEqual(sortPublicMarketColumns(candidates,"alignment",false,{bias:"bullish",breakoutDays:"20"}).map(x=>x.id),
     ["high","medium","low","unscanned"]);
 });
