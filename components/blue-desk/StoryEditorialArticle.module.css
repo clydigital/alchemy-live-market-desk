@@ -28,3 +28,11 @@
 
 .story p,.chapters p,.body p,.chapter p,.section p,.lead,.reader p{font-size:17px;line-height:1.75;color:#d4dadb;max-width:68ch}.story section,.sourceCard{background:var(--bb-surface);border-color:var(--bb-line);border-radius:0;box-shadow:none}.hero{border-radius:0;background:var(--bb-surface);border-top-color:var(--bb-accent)}.story h2,.chapters h2,.chapter h2{font-size:24px;text-transform:none}.eyebrow,.kicker,.topicInfo p,.sourceCard span,.rateStrip span{font-size:12px!important}.sourceCard p{font-size:16px;line-height:1.7}.header{padding-top:8px}.header h1{margin:10px 0 16px}.meta{margin:12px 0}.chapter{padding:22px 0}
 @media(max-width:650px){.story p,.chapters p,.body p,.chapter p,.section p,.lead,.reader p{font-size:16px;line-height:1.75}.hero{padding:16px;gap:10px}.art{display:none}.header h1,.hero h1{font-size:30px;line-height:1.15}.topicLine{margin-bottom:10px}.countryBall{width:42px!important;height:42px!important}.story h2,.chapters h2{font-size:22px}}
+
+/* Historical research is available but does not dominate the current reader. */
+.compactView,.compactNext{max-width:82ch;color:var(--bb-text);font-size:14px;line-height:1.65;margin:12px 0}
+.compactNext{color:var(--bb-muted);border-left:2px solid var(--bb-accent);padding-left:12px}
+.archive{margin:20px 0;border-top:1px solid var(--bb-card-border)}
+.archive>summary{cursor:pointer;color:var(--bb-accent);font:800 12px/1.5 var(--bb-mono);padding:12px 0}
+.archive>summary:focus-visible{outline:2px solid var(--bb-accent);outline-offset:3px}
+.archive[open]>summary{border-bottom:1px solid var(--bb-card-border);margin-bottom:17px}
