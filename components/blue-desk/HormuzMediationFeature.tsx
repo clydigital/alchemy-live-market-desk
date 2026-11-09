@@ -1,4 +1,5 @@
 import Link from "next/link";
+import StoryStatusStrip from "./StoryStatusStrip";
 import s from "./HormuzMediationFeature.module.css";
 
 type Mode = "preview" | "full";
@@ -28,6 +29,19 @@ export default function HormuzMediationFeature({
       data-hormuz-mediation={preview ? "source-reviewed-preview" : "source-reviewed-key-story"}
       aria-labelledby="hormuz-mediation-title"
     >
+      <div className={s.compactStatus} data-hormuz-current-status="historical-not-live">
+        <StoryStatusStrip status="monitor" slug="hormuz-mediation-november-2026"
+          updatedAt="2026-11-01T00:00:00Z"
+          checkpoints={[
+            {label:"Peace",value:"Mediation reported",asOf:"1 Nov"},
+            {label:"MoU",value:"No final terms confirmed",asOf:"1 Nov"},
+            {label:"Route",value:"Reopening unverified",asOf:"1 Nov"},
+          ]}/>
+        <p>These are the last recorded positions in the 1 November edition, not today's peace or shipping status.</p>
+        <Link href="/hormuz">Open the Hormuz shipping and situation watch →</Link>
+      </div>
+      <details className={s.historical} data-hormuz-archive="collapsed-by-default">
+        <summary>Read the original 1 November mediation report</summary>
       <div className={s.eyebrow}>HORMUZ DIPLOMACY / QATAR MEDIATION · REPORTED 1 NOV 2026</div>
       <h2 id="hormuz-mediation-title">Iran offers a two-day Hormuz reopening. What is the catch?</h2>
       <p data-quick-market-brief="source-reviewed-conditional"><strong>Quick market brief:</strong> Peace talks could reduce concern about oil supply, but a proposed reopening is not a completed agreement. The test is whether ships can actually pass safely again.</p>
@@ -83,6 +97,7 @@ export default function HormuzMediationFeature({
           <Link className={s.readMore} href="/hormuz">Open the source-dated Hormuz traffic and fuel tracker →</Link>
         </>
       )}
+      </details>
     </article>
   );
 }

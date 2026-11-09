@@ -35,10 +35,11 @@ test("Watch remains dated public thesis memory; radar is explicitly decorative",
  assert.match(watch,/className=\{ui\.heroRadar\} aria-hidden="true"/);
  assert.match(watch,/stories\.map\(story=/);
  assert.match(watch,/data-watch-story=\{story\.slug\}/);
- assert.match(watch,/dateTime=\{story\.updatedAt\}/);
+ assert.match(watch,/<StoryStatusStrip status=\{story\.status\} slug=\{story\.slug\} updatedAt=\{story\.updatedAt\}\/>/);
  assert.match(watch,/story\.nextTest/);
  assert.match(watch,/story\.contradiction/);
  assert.match(watch,/Evidence and counterargument/);
+ assert.match(watch,/details className=\{ui\.details\}/);
  assert.match(watch,/No approved public thesis snapshot is available/);
  assert.match(styles,/\.radarRing\{/);
  assert.doesNotMatch(watch,/Math\.random|live signal =/);

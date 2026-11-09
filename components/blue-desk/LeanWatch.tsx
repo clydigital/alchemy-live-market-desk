@@ -1,4 +1,5 @@
 import Link from "next/link";
+import StoryStatusStrip from "./StoryStatusStrip";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import type {MotionOrderedStory} from "@/lib/blue-desk-thesis-ledger";
@@ -14,12 +15,6 @@ function dateUTC(iso:string):string {
   const at=new Date(iso);
   return Number.isNaN(at.getTime())?"Date unavailable":at.toISOString().slice(0,10)+" UTC";
 }
-function researchState(status:string):string {
-  if(status==="publish")return "Published thesis";
-  if(status==="monitor")return "Monitoring";
-  return "Developing";
-}
-
 /** A compact projection of existing public Story memory.
  * Never creates a thesis, updates canonical evidence or claims a live signal.
  * The full, source-limited Story reader remains available through exact deep links.
@@ -35,7 +30,7 @@ export default async function LeanWatch({stories,host}:{
         <div className={ui.heroContent}>
           <p className={ui.eyebrow}>BLUEBELLY / RESEARCH WATCH · SOURCE-DATED</p>
         <h1>What is developing?</h1>
-        <p>Selected market theses, the arguments for and against them, and the next event that could change the picture. These are dated research snapshots, not live trading signals.</p>
+        <p>The latest recorded thesis status and next test, without large historical articles. Open the research only when needed. These are dated research snapshots, not live trading signals.</p>
         <nav className={ui.shortcuts} aria-label="Related market tools">
           <Link href={blueDeskPublicHref("/blue-desk/markets",host)}>Check market moves</Link>
           <Link href={blueDeskPublicHref("/blue-desk/calendar",host)}>Upcoming catalysts</Link>
@@ -57,17 +52,14 @@ export default async function LeanWatch({stories,host}:{
         </div>
         {stories.length?<div className={ui.grid}>
           {stories.map(story=><article className={ui.card} key={story.id} data-watch-story={story.slug}>
-            <div className={ui.cardMeta}>
-              <span>{researchState(story.status)}</span>
-              <span>Assessed <time dateTime={story.updatedAt}>{dateUTC(story.updatedAt)}</time></span>
-            </div>
+            <StoryStatusStrip status={story.status} slug={story.slug} updatedAt={story.updatedAt}/>
             <h3><Link href={root+"?story="+encodeURIComponent(story.slug)}>{story.title}</Link></h3>
-            <p className={ui.question}>{excerpt(story.question,175)}</p>
-            <p className={ui.view}><strong>Working view</strong>{excerpt(story.thesis,235)}</p>
             <p className={ui.next}><strong>Next test</strong>{story.nextTest?excerpt(story.nextTest,170):"No dated catalyst recorded"}</p>
             <details className={ui.details}>
-              <summary>Evidence and counterargument</summary>
+              <summary>Evidence and counterargument · Original research</summary>
               <div>
+                <p className={ui.question}>{excerpt(story.question,175)}</p>
+                <p className={ui.view}><strong>Working view</strong>{excerpt(story.thesis,235)}</p>
                 <p><strong>Supports</strong>{story.support||"No supporting evidence recorded in this snapshot."}</p>
                 <p><strong>Challenges</strong>{story.contradiction||"No counter-evidence recorded in this snapshot."}</p>
                 {story.confirmation?<p><strong>Confirmation</strong>{story.confirmation}</p>:null}

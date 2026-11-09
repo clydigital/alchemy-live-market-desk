@@ -1,0 +1,9 @@
+.strip{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;font:700 11px/1.4 var(--bb-mono);color:var(--bb-muted);min-width:0}
+.strip>*{min-width:0;overflow-wrap:anywhere}
+.lifecycle{color:var(--bb-accent);text-transform:uppercase;letter-spacing:.045em}
+.review{color:var(--bb-command-alt);border-left:2px solid var(--bb-command-alt);padding-left:9px}
+.muted{color:var(--bb-muted);font-weight:600}
+.checkpoint{color:var(--bb-text);font-weight:600;border-left:1px solid var(--bb-card-border);padding-left:11px}
+.checkpoint b{color:var(--bb-accent)}
+.checkpoint small{color:var(--bb-muted);font-size:10px;font-weight:500}
+@media(max-width:620px){.strip{gap:5px 9px;font-size:10px}.checkpoint{flex-basis:100%;border:0;padding-left:0}}

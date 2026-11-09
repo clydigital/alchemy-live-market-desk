@@ -105,3 +105,15 @@
   .card{clip-path:none}
 }
 @media(prefers-reduced-motion:reduce){.card,.shortcuts a{transition:none}}
+
+/* Status-first compact story rows; older narrative remains one click away. */
+.grid{grid-template-columns:minmax(0,1fr)}
+.card{padding:12px clamp(13px,1.7vw,20px)}
+.card h3{font-size:clamp(16px,1.7vw,21px);margin:8px 0 9px}
+.card .next{font-size:12px;margin:0 0 5px;background:transparent;border-left:0;padding:0}
+.card .next strong{font-size:10px}
+.card .details{margin-top:6px;padding-top:5px}
+.card .details summary{min-height:29px}
+.card .cardFoot{margin-top:6px;padding-top:6px}
+.card .cardFoot small{font-size:10px}
+@media(max-width:620px){.card{padding:12px}.card .cardFoot{gap:5px}}
