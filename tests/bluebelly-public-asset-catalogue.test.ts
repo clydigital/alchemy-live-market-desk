@@ -50,3 +50,12 @@ test("public page exposes reference discovery separately from the monitored scre
  assert.match(component,/data-public-asset-catalogue="identity-only"/);
  assert.doesNotMatch(component,/owner\/|private_|power.stack|Math\.random/);
 });
+
+test("two monitored venues sharing a ticker retain separate identities",()=>{
+ const a={...obs("ABC",101),id:"venue-one"};
+ const b={...obs("ABC",202),id:"venue-two"};
+ const found=searchPublicAssetCatalogue([a,b],{scope:"all",query:"ABC"});
+ assert.equal(found.monitoredCount,2);
+ assert.equal(found.filteredCount,2);
+ assert.notEqual(found.items[0].id,found.items[1].id);
+});
