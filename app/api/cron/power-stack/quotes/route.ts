@@ -63,6 +63,8 @@ export async function GET(request: Request) {
     const available = usage?.status==="ready" ? Math.max(0,(usage.remaining??0) - BURSA_FREE_CREDIT_RESERVE):0;
     const allowance = Math.min(BURSA_MAX_QUOTES_PER_RUN,uncached.length,available);
     let fetched=0;
+    // Usage inspection is also an API request; space it from the first paid quote call.
+    if(allowance>0)await sleep(700);
     for (const symbol of uncached.slice(0,allowance)) {
       // 2 req/sec and 20 req/min on Free. Keep the loop bounded and serial.
       if (fetched>0) await sleep(650);
