@@ -9,6 +9,10 @@ import {projectPublishedResearchFocus,researchForPublicLens} from "@/lib/blue-de
 import { headers } from "next/headers";
 import type { CSSProperties } from "react";
 import PublicTreasuryLadder from "@/components/blue-desk/PublicTreasuryLadder";
+import RatesPolicyMonitor from "@/components/blue-desk/RatesPolicyMonitor";
+import {fetchJapanMofJgbYields} from "@/lib/providers/japan-mof-jgb-yields";
+import {fetchBundesbankBund10} from "@/lib/providers/bundesbank-bund10";
+import {fetchBoeGilt10} from "@/lib/providers/boe-gilt10";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import TradingViewChart from "@/components/blue-desk/TradingViewChart";
@@ -20,7 +24,7 @@ import { readPublicUsJobs } from "@/lib/bluebelly-us-jobs-reader";
 import {TV_MARKET_GROUP_DEFAULTS} from "@/lib/bluebelly-editorial-visuals";
 import { MarketIcon, type MarketIconName } from "@/components/blue-desk/MarketIcon";
 import {
-  PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations,
+  PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations, publicGovernmentRateTrends,
 } from "@/lib/blue-desk-public-markets";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
@@ -76,11 +80,16 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
       <EarningsInvestorDeepDive ticker={detail.ticker} backHref={blueDeskPublicHref("/blue-desk/markets",host)} />
     </div>
   </main>;
-  const [monitor,breadthHistory,researchDigests,usJobs] = await Promise.all([
+  const [monitor,breadthHistory,researchDigests,usJobs,japan,bund,gilt] = await Promise.all([
     getMarketMonitor().catch(() => null),
     getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
     getPublishedMacroPulseBriefs(6).catch(()=>[]),
     mode==="assets"&&group==="all"?readPublicUsJobs():Promise.resolve(null),
+    // International providers only run when the reader deliberately opens
+    // the Rates category. Never add three remote requests to every market view.
+    mode==="assets"&&group==="rates"?fetchJapanMofJgbYields().catch(()=>null):Promise.resolve(null),
+    mode==="assets"&&group==="rates"?fetchBundesbankBund10().catch(()=>null):Promise.resolve(null),
+    mode==="assets"&&group==="rates"?fetchBoeGilt10().catch(()=>null):Promise.resolve(null),
   ]);
   // Public markets are independent of private investment portfolios.
   const monitoredRows=publicMarketObservations(monitor?.rows || [],group);
@@ -145,7 +154,8 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
         </nav>:mode==="assets"?<nav aria-label="Markets page sections"
           className={legibility.focusNavigation} data-markets-primary="asset-catalogue">
           <a href="#market-group-heading">All instruments</a>
-          {(group==="all"||group==="rates")?<a href="#yield-ladder">US yields</a>:null}
+          {group==="all"?<a href="#yield-ladder">US yields</a>:null}
+          {group==="rates"?<a href="#rates-policy-heading">Yields &amp; FedWatch</a>:null}
           {group==="all"?<a href="#jobs-monitor">US jobs</a>:null}
           <a href="#advanced-market-charts">Open charts</a>
         </nav>:null}
@@ -249,8 +259,16 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <PublicMarketScreener key={group} observations={observations} group={group} dataAvailable={Boolean(monitor)} mode={mode==="compare"?"compare":"assets"} />
         </section>:null}
 
-        {mode==="assets"&&(group==="all"||group==="rates")?
+        {mode==="assets"&&group==="all"?
           <PublicTreasuryLadder rows={publicMarketObservations(monitor?.rows||[],"rates")}/>:null}
+        {mode==="assets"&&group==="rates"?
+          <RatesPolicyMonitor observations={publicMarketObservations(monitor?.rows||[],"rates")}
+            trends={publicGovernmentRateTrends(monitor?.rows||[])}
+            sovereigns={[
+              {country:"Germany",tenor:"10Y",yieldPct:bund?.status==="OK"||bund?.status==="PARTIAL"?bund.latest?.yieldPct??null:null,asOf:bund?.latest?.date??null,change5dBp:bund?.status==="OK"?bund.change5dBp:null,sourceUrl:bund?.sourceUrl??null,status:bund?.status??"UNAVAILABLE"},
+              {country:"United Kingdom",tenor:"10Y",yieldPct:gilt?.status==="OK"||gilt?.status==="PARTIAL"?gilt.latest?.yieldPct??null:null,asOf:gilt?.latest?.date??null,change5dBp:gilt?.status==="OK"?gilt.change5dBp:null,sourceUrl:gilt?.sourceUrl??null,status:gilt?.status??"UNAVAILABLE"},
+              ...(["2Y","10Y","30Y"] as const).map(tenor=>({country:"Japan",tenor,yieldPct:japan?.status==="OK"||japan?.status==="PARTIAL"?japan.latest?.[tenor==="2Y"?"y2":tenor==="10Y"?"y10":"y30"]??null:null,asOf:japan?.asOf??null,change5dBp:japan?.status==="OK"?japan.changes5dBp[tenor==="2Y"?"y2":tenor==="10Y"?"y10":"y30"]:null,sourceUrl:japan?.sourceUrls[0]??null,status:japan?.status??"UNAVAILABLE"})),
+            ]} />:null}
 
         {mode==="compare"?<section className={legibility.relatedResearch} aria-label="Related market investigation">
           <h2>Supporting research and catalysts</h2>
