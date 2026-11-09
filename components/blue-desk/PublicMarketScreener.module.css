@@ -122,3 +122,89 @@
 .rotationSummary>p{grid-column:1/-1;font-size:11px!important;line-height:1.55;color:var(--bb-muted);margin:0!important}
 .rotationUnavailable{font-size:12px;color:var(--bb-muted)}
 @media(max-width:650px){.rotationSummary{grid-template-columns:1fr 1fr}.rotationSummary>div:nth-child(3){grid-column:1/-1}}
+
+/* v7 CP rotation map: the old sortable XL comparison and 98-instrument
+   screener remain fully present below. No interpolated series or flow claims. */
+.rotationGraphic{
+  min-width:0;margin:12px 0 15px;padding:clamp(13px,1.4vw,19px);
+  border:1px solid var(--bb-command-edge);
+  background:radial-gradient(ellipse at 90% 0,rgba(0,190,230,.08),transparent 52%),
+    linear-gradient(135deg,#081a24,#07121a);
+  position:relative;overflow:hidden;
+}
+.rotationGraphic::before{
+  content:"";position:absolute;top:0;right:14px;width:47px;height:3px;
+  background:var(--bb-command-accent);
+}
+.graphicHeader{display:flex;justify-content:space-between;align-items:start;gap:10px;margin-bottom:10px}
+.graphicHeader h3{
+  margin:0 0 5px;text-transform:uppercase;letter-spacing:.02em;
+  font:900 clamp(15px,1.6vw,20px)/1.3 var(--bb-display);color:var(--bb-text);
+}
+.graphicHeader h3 span{
+  font:750 10px/1.4 var(--bb-mono);color:var(--bb-command-alt);letter-spacing:.02em;
+  text-transform:none;
+}
+.graphicHeader p{margin:0;font-size:11px;line-height:1.5;color:var(--bb-muted)}
+.graphicPeriods{display:flex;gap:3px;flex:none;padding:3px;border:1px solid var(--bb-command-edge);background:#07131b}
+.graphicPeriods button{
+  min-width:42px;min-height:34px;border:0;padding:7px 9px;color:#c4dbe4;
+  background:transparent;font:800 11px/1 var(--bb-mono);cursor:pointer;
+}
+.graphicPeriods button[aria-pressed="true"]{background:var(--bb-command-accent);color:#08121a}
+.graphicPeriods button:focus-visible{outline:2px solid var(--bb-command-alt);outline-offset:2px}
+.graphicMetadata{
+  display:flex;flex-wrap:wrap;justify-content:space-between;gap:5px;
+  font:800 10px/1.4 var(--bb-mono);letter-spacing:.07em;color:var(--bb-command-alt);
+  border-bottom:1px solid var(--bb-command-edge);padding-bottom:9px;margin-bottom:9px;
+}
+.graphicRows{display:grid;gap:4px;position:relative}
+.graphicRow{
+  display:grid;grid-template-columns:75px minmax(0,1fr) minmax(60px,auto);
+  align-items:center;gap:10px;min-height:25px;
+  font-variant-numeric:tabular-nums;
+}
+.graphicRow strong{font:900 12px/1.25 var(--bb-mono);color:#e5f2f7}
+.graphicTrack{
+  position:relative;display:block;min-width:0;height:12px;overflow:hidden;
+  background:color-mix(in srgb,var(--bb-command-edge) 20%,transparent);
+  background-image:linear-gradient(90deg,transparent 24.5%,rgba(66,128,150,.2) 25%,transparent 25.5%,transparent 74.5%,rgba(66,128,150,.2) 75%,transparent 75.5%);
+}
+.graphicTrack::before{content:"";position:absolute;left:50%;top:0;height:100%;width:1px;z-index:2;background:#7296a4}
+.graphicBar{position:absolute;display:block;height:100%;top:0;min-width:2px;background:#8aaeba}
+.graphicRow[data-direction="up"] .graphicBar{background:#33e58a}
+.graphicRow[data-direction="down"] .graphicBar{background:#ff5a75}
+.graphicValue{text-align:right;color:#a6bbc5;font:800 11px/1.25 var(--bb-mono)}
+.graphicRow[data-direction="up"] .graphicValue{color:#48e99a}
+.graphicRow[data-direction="down"] .graphicValue{color:#ff8597}
+.graphicCaveat{font-size:10px!important;line-height:1.5!important;margin:10px 0 0!important;color:var(--bb-muted)}
+.comparePanel{border-color:var(--bb-command-edge);background:#091922;border-radius:0}
+.comparePanel>summary{font:900 14px/1.5 var(--bb-display);text-transform:uppercase;color:#edf7fb}
+.comparePresets button{
+  border-color:var(--bb-command-edge);background:#102631;
+  font:800 11px/1.2 var(--bb-mono);border-radius:0;
+}
+.comparePresets button:hover,.comparePresets button:focus-visible{
+  border-color:var(--bb-command-accent);outline-offset:2px;
+}
+.rotationSummary>div{
+  border-color:var(--bb-command-edge);
+  background:linear-gradient(133deg,#102732,#081924);
+}
+.rotationSummary>div:first-child{border-top:2px solid #32e18c}
+.rotationSummary>div:nth-child(2){border-top:2px solid #ff5f78}
+.rotationSummary>div:nth-child(3){border-top:2px solid var(--bb-command-alt)}
+.advancedPanel{border-radius:0;border-color:var(--bb-command-edge);background:#071821}
+.screener{border-radius:0;border-color:var(--bb-command-edge);background:#0a1b25}
+.controls select,.controls input,.quick button,.reset{border-radius:0}
+.columnSort{font-family:var(--bb-mono)}
+@media(max-width:660px){
+  .graphicHeader{flex-wrap:wrap}
+  .graphicRow{grid-template-columns:55px minmax(0,1fr) minmax(61px,auto);gap:6px}
+  .graphicValue{font-size:10px}
+  .graphicPeriods{width:100%}
+  .graphicPeriods button{flex:1}
+}
+@media(prefers-reduced-motion:reduce){
+  .graphicBar,.rotationGraphic,.comparePresets button{transition:none}
+}
