@@ -45,8 +45,8 @@ test("iSaham validates usage quota and sends a server-side bearer, not a URL key
     seen.push(String(url));
     assert.equal(options?.headers && (options.headers as Record<string,string>).Authorization,"Bearer TEST_PRIVATE_TOKEN");
     if(String(url).endsWith("/v1/account/usage"))
-      return new Response(JSON.stringify({status:"success",data:{tier:"free",credits_remaining:400}}),{status:200});
-    return new Response(JSON.stringify(fixture),{status:200});
+      return new Response(JSON.stringify({status:"success",data:{tier:"free",credits_remaining:400}}),{status:200,headers:{"content-type":"application/json"}});
+    return new Response(JSON.stringify(fixture),{status:200,headers:{"content-type":"application/json"}});
   }) as typeof fetch;
   const env={iSaham_API_KEY:"TEST_PRIVATE_TOKEN"};
   const usage=await readISahamUsage({env,fetchImpl:fetcher});
@@ -60,9 +60,22 @@ test("iSaham validates usage quota and sends a server-side bearer, not a URL key
 test("no key, exhausted budget or invalid response never manufactures prices",async()=>{
   assert.equal((await readISahamUsage({env:{}})).status,"unconfigured");
   assert.equal(await readISahamQuote("MISC",{env:{}}),null);
-  const fail=(async()=>new Response(JSON.stringify({status:"error",error:{code:"QUOTA_EXCEEDED"}}),{status:403})) as typeof fetch;
+  const fail=(async()=>new Response(JSON.stringify({status:"error",error:{code:"QUOTA_EXCEEDED"}}),{status:403,headers:{"content-type":"application/json"}})) as typeof fetch;
   const denied=await readISahamUsage({env:{iSaham_API_KEY:"T"},fetchImpl:fail});
   assert.equal(denied.status,"unavailable");
-  assert.equal(denied.failureCode,"ACCESS_403");
+  assert.equal(denied.failureCode,"ISAHAM_QUOTA_EXCEEDED");
   assert.equal(await readISahamQuote("../etc",{env:{iSaham_API_KEY:"T"},fetchImpl:fail}),null);
+});
+
+test("provider 403 is classified without exposing error text or tokens",async()=>{
+ const deny=(async()=>new Response(JSON.stringify({status:"error",error:{
+   code:"TIER_UPGRADE_REQUIRED",message:"private sensitive provider details"
+ }}),{status:403,headers:{"content-type":"application/json"}})) as typeof fetch;
+ const r=await readISahamUsage({env:{iSaham_API_KEY:"fixture"},fetchImpl:deny});
+ assert.equal(r.failureCode,"ISAHAM_TIER_UPGRADE_REQUIRED");
+ assert.equal(r.tokenDiagnostic,"NOT_JWT_FORMAT");
+ assert.doesNotMatch(JSON.stringify(r),/private sensitive provider details/);
+ const html=(async()=>new Response("<html>Forbidden</html>",{status:403,headers:{"content-type":"text/html"}})) as typeof fetch;
+ const h=await readISahamUsage({env:{iSaham_API_KEY:"fixture"},fetchImpl:html});
+ assert.equal(h.failureCode,"ACCESS_403_NON_JSON");
 });
