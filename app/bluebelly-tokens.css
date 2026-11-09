@@ -83,3 +83,13 @@ body:has(header[data-bluebelly-layout="v7-command"]){
     transition:none;
   }
 }
+
+/* Remove the global 1460px reading-column cap for the interactive calendar
+   only. Otherwise on wide monitors shelving the rail frees body width but the
+   five-day board remains stuck at the old maximum width. */
+@media(min-width:721px){
+  main[data-blue-desk-calendar="ET-primary"] > div{
+    width:100%;
+    max-width:none;
+  }
+}
