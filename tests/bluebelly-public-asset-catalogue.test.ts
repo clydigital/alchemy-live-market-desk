@@ -46,6 +46,8 @@ test("public page exposes reference discovery separately from the monitored scre
  const component=readFileSync(new URL("../components/blue-desk/PublicAssetCatalogue.tsx",import.meta.url),"utf8");
  assert.match(page,/searchPublicAssetCatalogue/);
  assert.match(page,/<PublicAssetCatalogue /);
+ assert.ok(page.indexOf("<PublicAssetCatalogue ")<page.indexOf("<PublicMarketScreener key={group}"),
+   "Asset discovery needs to be accessible before the long monitored table");
  assert.match(component,/CATALOGUE_ONLY/);
  assert.match(component,/data-public-asset-catalogue="identity-only"/);
  assert.doesNotMatch(component,/owner\/|private_|power.stack|Math\.random/);
