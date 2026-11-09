@@ -25,10 +25,9 @@
   mix-blend-mode:screen;
 }
 .halo[data-visible="true"]{opacity:.82}
-@media(hover:none),(pointer:coarse),(prefers-reduced-motion:reduce){
-  .halo{display:none!important}
-}
-@media(max-width:720px){
+/* The React effect admits only genuine mouse events, even on a hybrid
+   touch+mouse device whose primary-pointer media query reports coarse. */
+@media(max-width:720px),(prefers-reduced-motion:reduce){
   .halo{display:none!important}
 }
 @media(forced-colors:active),(prefers-contrast:more){
