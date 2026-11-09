@@ -274,3 +274,27 @@
 @media(prefers-reduced-motion:reduce){
   .breadthDial,.focusNavigation a{transition:none}
 }
+
+/* Preserve the interpretation verbatim while reducing mobile reading friction. */
+.breadthDiagnostic{
+  border:1px solid var(--bb-command-edge);background:#0a202a;
+  margin:9px 0 8px;padding:0;min-width:0;
+}
+.breadthDiagnostic>summary{
+  display:flex;align-items:center;flex-wrap:wrap;gap:9px;
+  list-style:none;cursor:pointer;min-height:44px;padding:10px 13px;
+  color:var(--bb-text);font:800 12px/1.45 var(--font-figtree),sans-serif;
+}
+.breadthDiagnostic>summary::-webkit-details-marker{display:none}
+.breadthDiagnostic>summary::before{content:"▸";color:var(--bb-command-accent);font-size:12px}
+.breadthDiagnostic[open]>summary::before{content:"▾"}
+.breadthDiagnostic>summary strong{color:var(--bb-command-alt);font-weight:850}
+.breadthDiagnostic>summary span{
+  margin-left:auto;color:var(--bb-muted);
+  font:750 10px/1.4 var(--bb-mono);letter-spacing:.02em;
+}
+.breadthDiagnostic>summary:focus-visible{outline:2px solid var(--bb-command-accent);outline-offset:2px}
+.breadthDiagnostic>div{margin:0!important;border:0;background:#091923;padding:12px 14px}
+@media(max-width:620px){
+  .breadthDiagnostic>summary span{margin-left:0;flex-basis:100%;padding-left:19px}
+}
