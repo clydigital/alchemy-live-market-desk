@@ -16,12 +16,20 @@ const deadline=Date.now()+300000;
 const outputs="artifacts/regime-ui";
 mkdirSync(outputs,{recursive:true});
 const children=[];
+let marketsSnapshotHtml=null;
 function launch(cmd,args,opts={}){
  const child=spawn(cmd,args,{stdio:"inherit",...opts});
  children.push(child);return child;
 }
 function proxy(){
  const server=http.createServer((req,res)=>{
+  // CI-only HTML replay of the verified anonymous public SSR response. This
+  // avoids a second expensive Markets backend fetch during Chrome capture.
+  // Assets still resolve through this loopback proxy; no mock quote is used.
+  if(req.url?.split("?")[0]==="/__markets_snapshot"&&marketsSnapshotHtml){
+   res.writeHead(200,{"content-type":"text/html; charset=utf-8","cache-control":"no-store"});
+   res.end(marketsSnapshotHtml);return;
+  }
   const headers={...req.headers,host:"bluebelly-desk.vercel.app",
     "x-forwarded-host":"bluebelly-desk.vercel.app","x-forwarded-proto":"https"};
   delete headers.cookie;
@@ -203,8 +211,14 @@ try{
     assertHtml(view.html,"Evidence and counterargument",
       "Read full thesis and source context");
   }
-  // TradingView embeds can keep headless Chrome alive indefinitely; Markets is
-  // covered by the route/HTML assertions, not a brittle third-party screenshot.
+  // Render the real source-dated SSR Markets document once from a CI-only
+  // cached, same-origin path. Disable JS to exclude third-party TradingView.
+  // Source rows, percentage units, dates and comparison order are untouched.
+  if(id==="markets"){
+   marketsSnapshotHtml=view.html;
+   await renderChrome("http://127.0.0.1:"+PUBLIC+"/__markets_snapshot",
+      "markets-tablet.png",1024,1260,{disableJavascript:true});
+  }
   if(id!=="markets")
    await renderChrome("http://127.0.0.1:"+PUBLIC+path,id+"-mobile.png",390,844,{disableJavascript:id==="key-stories"||id==="market-home"});
   if(id==="newsroom"||id==="key-stories"||id==="market-home")
