@@ -84,7 +84,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   ]);
   // Public markets are independent of private investment portfolios.
   const monitoredRows=publicMarketObservations(monitor?.rows || [],group);
-  const breadthObservations = group==="all" || group==="breadth"
+  const breadthObservations = group==="breadth"
     ? BREADTH_WATCHES.map(item=>calculateBreadthRow(
         item.symbol,item.label,breadthHistory.series.find(row=>row.symbol===item.symbol)))
     : [];
@@ -240,7 +240,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <div className={styles.sectionHead}>
             <div>
               <p className={styles.kicker}>{mode==="assets"?"01 / AVAILABLE SOURCE-DATED ASSETS":"02 / RELATIVE MARKET LEADERSHIP"}</p>
-              <h2 id="market-group-heading"><MarketIcon name={GROUP_ICONS[group]} size={24} /> {mode==="assets"?(group==="all"?"All instruments":selected.label):"ETF & sector comparisons"}</h2>
+              <h2 id="market-group-heading"><MarketIcon name={GROUP_ICONS[group]} size={24} /> {mode==="assets"?(group==="all"?"Instrument screener":selected.label):"ETF & sector comparisons"}</h2>
               <p>{mode==="assets"?"Search, filter and sort 1D, 3D and 5D observations. Missing prices and history remain unavailable.":"Compare matched-session ETF performance and sector leadership."}</p>
             </div>
           </div>
