@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {projectEtfRotationVisual} from "@/lib/bluebelly-etf-rotation-visuals";
+import {passesMarketSignalFilter, type SignalFamily, type SignalBias} from "@/lib/bluebelly-signal-filters";
 
 import { EntityRow } from "@/components/blue-desk/EntityIdentity";
 import MarketObservationTakeaway from "./MarketObservationTakeaway";
@@ -52,6 +53,11 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
   const [comparisonSort, setComparisonSort] = useState<EtfComparisonSortColumn | null>("1D");
   const [graphicWindow, setGraphicWindow] = useState<MarketChangeWindow>("1D");
   const [comparisonAscending, setComparisonAscending] = useState(false);
+  // Signal discovery lives inside All Assets. No fourth navigation mode.
+  const [signalFamily, setSignalFamily] = useState<SignalFamily>("all");
+  const [signalBias, setSignalBias] = useState<SignalBias>("bullish");
+  const [breakoutDays, setBreakoutDays] = useState<"20" | "55" | "252">("55");
+  const [minimumAligned, setMinimumAligned] = useState(0);
 
   function sortComparisonColumn(column: EtfComparisonSortColumn) {
     setComparisonAscending(comparisonSort === column ? !comparisonAscending : column === "instrument");
@@ -69,8 +75,16 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
     const filtered = filterPublicMarketObservations(observations, {
       query, window, unit, direction, minMove: minimum, sort,
     });
-    return columnSort ? sortPublicMarketColumns(filtered, columnSort, ascending) : filtered;
-  }, [observations, query, window, unit, direction, minimum, sort, columnSort, ascending]);
+    const signalFiltered = filtered.filter(row => passesMarketSignalFilter(row, {
+      family: signalFamily, bias: signalBias, breakoutDays, minimumAligned,
+    }));
+    if (columnSort) return sortPublicMarketColumns(signalFiltered, columnSort, ascending);
+    if (signalFamily !== "all" || minimumAligned > 0) return [...signalFiltered].sort((a,b) =>
+      (b.screening?.alignment[signalBias].matched ?? -1) -
+      (a.screening?.alignment[signalBias].matched ?? -1) || a.label.localeCompare(b.label));
+    return signalFiltered;
+  }, [observations, query, window, unit, direction, minimum, sort, columnSort,
+      ascending, signalFamily, signalBias, breakoutDays, minimumAligned]);
 
   const comparisonUniverse = useMemo(() => observations.filter(row =>
     row.type === "Sector" || ["RSP", "SMH", "SOXX", "QQQ", "SPY"].includes(row.symbol)
@@ -126,6 +140,10 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
     setDirection("all");
     setMinimum(0);
     setSort("source");
+    setSignalFamily("all");
+    setSignalBias("bullish");
+    setBreakoutDays("55");
+    setMinimumAligned(0);
   }
 
   function preset(nextUnit: MarketChangeUnit, nextDirection: MarketChangeDirection, nextMinimum: number) {
@@ -239,6 +257,52 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
         <button type="button" onClick={() => preset("pp", "all", 2)}>Breadth ≥2 pp</button>
         </div>
       </details>
+      <details className={ui.quickDisclosure} data-market-signal-controls="inline">
+        <summary>Technical screeners · condition alignment</summary>
+        <div className={ui.signalControls}>
+          <label>Screen for
+            <select aria-label="Signal family" value={signalFamily}
+              onChange={event=>setSignalFamily(event.target.value as SignalFamily)}>
+              <option value="all">All signals</option>
+              <option value="breakout">Donchian / 52-week high–low</option>
+              <option value="stoch">Stoch RSI extremes / turns</option>
+              <option value="volume">Unusual trading volume</option>
+              <option value="relative">Relative strength leaders / laggards</option>
+              <option value="squeeze">Bollinger squeeze / expansion</option>
+            </select>
+          </label>
+          <label>Direction
+            <select aria-label="Signal direction" value={signalBias}
+              onChange={event=>setSignalBias(event.target.value as SignalBias)}>
+              <option value="bullish">Bullish / recovery</option>
+              <option value="bearish">Bearish / exhaustion</option>
+            </select>
+          </label>
+          <label>Donchian window
+            <select aria-label="Donchian window" value={breakoutDays}
+              onChange={event=>setBreakoutDays(event.target.value as "20"|"55"|"252")}>
+              <option value="20">20 sessions</option>
+              <option value="55">55 sessions</option>
+              <option value="252">52 weeks · 252 sessions</option>
+            </select>
+          </label>
+          <label>Minimum alignment
+            <select aria-label="Minimum aligned technical families" value={minimumAligned}
+              onChange={event=>setMinimumAligned(Number(event.target.value))}>
+              <option value={0}>Any</option>
+              <option value={1}>1+ conditions</option>
+              <option value={2}>2+ conditions</option>
+              <option value={3}>3+ conditions</option>
+              <option value={4}>4+ conditions</option>
+              <option value={5}>5 conditions</option>
+            </select>
+          </label>
+        </div>
+        <p className={ui.signalNote}>One vote per technical family: breakout, Stoch RSI turn, volume surge, relative strength and squeeze expansion.
+          Overbought/oversold or a tight squeeze alone is not a directional confirmation.
+          Missing inputs are excluded from the denominator. PEG uses the existing Power Stack calculator, but
+          is not tallied until dated forward estimates are verified.</p>
+      </details>
       <div className={ui.controls}>
         <label>Screen / sort period
           <select aria-label="Screen and sort period" value={window} onChange={event => { setWindow(event.target.value as MarketChangeWindow); setColumnSort(null); }}>
@@ -301,7 +365,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
       <table className={styles.publicMarketTable}>
         <thead><tr><th scope="col" aria-sort={columnSort==="instrument"?(ascending?"ascending":"descending"):undefined}><button type="button" className={ui.columnSort} onClick={()=>sortColumn("instrument")}>Instrument {columnSort==="instrument"?(ascending?"▲":"▼"):"↕"}</button></th><th scope="col" aria-sort={columnSort==="last"?(ascending?"ascending":"descending"):undefined}><button type="button" className={ui.columnSort} onClick={()=>sortColumn("last")}>Last observed {columnSort==="last"?(ascending?"▲":"▼"):"↕"}</button></th>
           {(["1D", "3D", "5D"] as const).map(period => <th scope="col" key={period} data-selected={period === window} aria-sort={columnSort===period?(ascending?"ascending":"descending"):undefined} className={period === window ? ui.selectedChange : undefined}><button type="button" className={ui.columnSort} onClick={()=>sortColumn(period)}>{period} change {columnSort===period?(ascending?"▲":"▼"):"↕"}</button></th>)}
-          <th scope="col" aria-sort={columnSort==="source"?(ascending?"ascending":"descending"):undefined}><button type="button" className={ui.columnSort} onClick={()=>sortColumn("source")}>Source and vintage {columnSort==="source"?(ascending?"▲":"▼"):"↕"}</button></th></tr></thead>
+          <th scope="col">Signal alignment</th><th scope="col" aria-sort={columnSort==="source"?(ascending?"ascending":"descending"):undefined}><button type="button" className={ui.columnSort} onClick={()=>sortColumn("source")}>Source and vintage {columnSort==="source"?(ascending?"▲":"▼"):"↕"}</button></th></tr></thead>
         <tbody>{visible.map(row => <tr key={row.id}>
           <th scope="row"><EntityRow identity={entityForAsset(row.symbol) || {kind: "asset", code: row.symbol}}
             title={row.label} subtitle={row.symbol + " · " + (row.researchRole ? "Research instrument" : row.type)} /></th>
@@ -314,6 +378,19 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
               {change(value, row.changeUnit)}
             </td>;
           })}
+          <td className={ui.signalCell}>
+            {row.screening ? <>
+              <strong className={ui.signalScore}>
+                {row.screening.alignment[signalBias].matched}/{row.screening.alignment[signalBias].available} {signalBias === "bullish" ? "BULL" : "BEAR"}
+              </strong>
+              <small>Donchian {breakoutDays}D: {row.screening.breakout[breakoutDays].state}
+                {" · "}Stoch: {row.screening.stoch.zone}{row.screening.stoch.turn !== "none" ? " / " + row.screening.stoch.turn : ""}
+                {" · "}Vol: {row.screening.volume.multiple===null?"—":row.screening.volume.multiple+"×"}
+                {" · "}RS: {row.screening.relative.excess20d===null?"—":row.screening.relative.excess20d+" pp"}
+                {" · "}BB: {row.screening.squeeze.state}
+              </small>
+            </> : <span className={ui.noSignal}>Not scanned</span>}
+          </td>
           <td className={styles.publicMarketSource}>
             <span>{row.type === "Breadth" ? "External breadth chart · no verified reading" : row.researchRole && row.last === null ? "Public symbol catalogue · price unavailable/stale" : `${row.asOf ? `Observation: ${row.asOf}` : "Observation date unavailable"} · ${row.frequency} observation`}</span>
             {row.sourceUrl ? <a href={row.sourceUrl} target="_blank" rel="noreferrer">{row.sourceName} · {row.type === "Breadth" ? "open chart ↗" : row.researchRole && row.last === null ? "source ↗" : "original data ↗"}</a>

@@ -1,4 +1,5 @@
 import { unstable_cache } from "next/cache";
+import { evaluateMarketSignals, type MarketSignalSnapshot } from "./bluebelly-signal-scan";
 
 import { getMarketData, type BreadthSnapshot, type MarketSeries, type PricePoint } from "@/lib/market";
 import { fetchBarchartMoveSnapshot } from "@/lib/providers/barchart-move";
@@ -39,6 +40,8 @@ export type MarketMonitorRow = {
   change5d: number | null;
   rsi: number | null;
   stochRsi: number | null;
+  /** Bounded, source-dated public screening summary, not raw provider candles. */
+  screening?: MarketSignalSnapshot | null;
   volPercentile: number | null;
   relative5d: number | null;
   attentionScore: number;
@@ -294,7 +297,7 @@ async function fetchNasdaqHistory(spec: ExtraSpec): Promise<RawSeries> {
     const match = row.date?.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
     if (close === null || !match) return [];
     const time = Date.UTC(Number(match[3]), Number(match[1]) - 1, Number(match[2])) / 1000;
-    return [{ time, close, open, high, low }];
+    return [{ time, close, open, high, low, volume: parseNumber(row.volume) }];
   }).sort((a, b) => a.time - b.time).slice(-300);
   return {
     id: spec.id,
@@ -641,6 +644,7 @@ function formatDate(time: number | undefined) {
 }
 
 function makeRows(rawSeries: RawSeries[]): MarketMonitorRow[] {
+  const byRawId = new Map(rawSeries.map(series => [series.id, series]));
   const prelim = rawSeries.map((raw) => {
     const points = raw.points.filter((point) => Number.isFinite(point.close)).sort((a, b) => a.time - b.time);
     const last = points.at(-1);
@@ -662,6 +666,14 @@ function makeRows(rawSeries: RawSeries[]): MarketMonitorRow[] {
       change5d: pct(points, 5),
       rsi: latestRsi(points),
       stochRsi: latestStochRsi(points),
+      screening: raw.frequency === "daily" && raw.sourceName.startsWith("Nasdaq official") &&
+        raw.type !== "Rates" ? evaluateMarketSignals(points, (() => {
+          const selected = raw.benchmark ? byRawId.get(raw.benchmark)?.points : null;
+          const fallback = raw.benchmark === "spx" ? byRawId.get("spx-proxy")?.points : null;
+          const lastTime = points.at(-1)?.time;
+          return selected?.at(-1)?.time === lastTime ? selected :
+            fallback?.at(-1)?.time === lastTime ? fallback : selected ?? null;
+        })()) : null,
       volPercentile: volPercentile(points),
       relative5d: null,
       asOf: formatDate(last?.time),

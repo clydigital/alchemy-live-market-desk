@@ -1,6 +1,6 @@
 import { unstable_cache } from "next/cache";
 
-export type PricePoint = { time: number; close: number };
+export type PricePoint = { time: number; close: number; high?: number | null; low?: number | null; volume?: number | null };
 
 export type MarketSeries = {
   symbol: string;
@@ -204,7 +204,7 @@ async function fetchNasdaqHistory(request: NasdaqRequest): Promise<PricePoint[]>
     const match = row.date?.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
     if (close === null || !match) return [];
     const time = Date.UTC(Number(match[3]), Number(match[1]) - 1, Number(match[2])) / 1000;
-    return [{ time, close }];
+    return [{ time, close, high: parseNumber(row.high), low: parseNumber(row.low), volume: parseNumber(row.volume) }];
   }).sort((a, b) => a.time - b.time);
 }
 
