@@ -292,10 +292,10 @@ try{
    // These are real dated responses, never staged fixture quotes.
    const defaultMarketsSnapshot=marketsSnapshotHtml;
    const safeModeHtml=html=>html
-     .replace(/<script\\b[^>]*>[\\s\\S]*?<\\/script>/gi,"")
-     .replace(/<iframe\\b[^>]*>[\\s\\S]*?<\\/iframe>/gi,"")
-     .replace(/<img\\b[^>]*>/gi,"")
-     .replace(/<link\\b(?=[^>]*\\brel=["']preload["'])[^>]*>/gi,"");
+     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,"")
+     .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi,"")
+     .replace(/<img\b[^>]*>/gi,"")
+     .replace(/<link\b(?=[^>]*\brel=["']preload["'])[^>]*>/gi,"");
    marketsSnapshotHtml=safeModeHtml(compare.html);
    await renderChrome("http://127.0.0.1:"+PUBLIC+"/__markets_snapshot",
      "markets-compare-desktop.png",1440,1200,{disableJavascript:true});
