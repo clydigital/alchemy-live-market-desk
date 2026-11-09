@@ -10,6 +10,12 @@ export const maxDuration = 300;
 const BURSA_MAX_QUOTES_PER_RUN = 12; // Free plan: never send bulk requests.
 const BURSA_FREE_CREDIT_RESERVE = 50; // Stop before the 500-credit allowance runs out.
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+type QuoteObservation = {
+  owner_user_id:string; ticker:string; observed_on:string; price:number;
+  currency:string; source_name:string; source_url:string;
+  timestamp_basis:"source_observation"|"upstream_batch";
+  source_recorded_at:string|null;
+};
 
 export async function GET(request: Request) {
   // Supabase pg_cron holds this separate token in Vault; public host blocks this route.
@@ -79,7 +85,7 @@ export async function GET(request: Request) {
       .map(row => [row.symbol.toUpperCase(), row]));
     let written=0, missing=0, bursaSaved=0, bursaSkippedRecently=0;
     for (const {owner,tracked} of ownerItems) {
-      const observations = tracked.flatMap(item => {
+      const observations = tracked.flatMap<QuoteObservation>(item => {
         if(item.bursaSymbol) {
           const quote=cachedBursa.get(item.bursaSymbol);
           if(!quote){ missing++; return []; }
