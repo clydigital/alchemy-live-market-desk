@@ -125,8 +125,8 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
         <nav aria-label="Markets page sections" className={legibility.focusNavigation}
           data-markets-primary="breadth-and-comparison">
           <a href="#breadth-watch-heading">Market breadth</a>
-          {(group==="all"||group==="rates")?<a href="#yield-ladder">US yields</a>:null}
           <a href="#market-group-heading">ETF comparisons</a>
+          {(group==="all"||group==="rates")?<a href="#yield-ladder">US yields</a>:null}
           {group==="all"?<a href="#jobs-monitor">US jobs</a>:null}
           <a href="#advanced-market-charts">Open charts</a>
         </nav>
@@ -178,14 +178,17 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
             </article>)}
           </div>
           <p className={styles.subtle}>When available, readings are calculated using today's S&amp;P 500 members and are proxies, not official S5FI/S5TH closes. Only provider-reported 5D change is displayed; 1D/3D require verified daily histories. <a href="https://www.thetrading.tools/stocks-above-moving-average" target="_blank" rel="noreferrer">Source and methodology ↗</a></p>
-          <div className={styles.secondaryPanel} data-breadth-research-diagnostic={participation.status}>
-            <h3>{participation.headline}</h3>
-            <MarketTakeaway why={participation.interpretation} nextTest={participation.nextTest} compact/>
-            <p><strong>What to check next:</strong> {participation.nextTest}</p>
-            <small>Through {participation.asOf||"an unavailable source date"} ·
-              Source refresh: {breadthHistory.retrievalStatus}.
-              Research context, not an automatic Regime/Dossier update or trade signal.</small>
-          </div>
+          <details className={legibility.breadthDiagnostic}>
+            <summary><strong>{participation.headline}</strong><span>Research mechanism and next tests</span></summary>
+            <div className={styles.secondaryPanel} data-breadth-research-diagnostic={participation.status}>
+              <h3>{participation.headline}</h3>
+              <MarketTakeaway why={participation.interpretation} nextTest={participation.nextTest} compact/>
+              <p><strong>What to check next:</strong> {participation.nextTest}</p>
+              <small>Through {participation.asOf||"an unavailable source date"} ·
+                Source refresh: {breadthHistory.retrievalStatus}.
+                Research context, not an automatic Regime/Dossier update or trade signal.</small>
+            </div>
+          </details>
           <details className={legibility.breadthMore}>
             <summary>Other breadth charts · Nasdaq and Russell</summary>
             <p>These series are chart links until independently source-dated histories are verified.
@@ -202,13 +205,12 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           </details>
         </section>
 
-        {(group==="all"||group==="rates")?
-          <PublicTreasuryLadder rows={publicMarketObservations(monitor?.rows||[],"rates")}/>:null}
+
 
         <section aria-labelledby="market-group-heading" className={`${styles.section} ${legibility.marketSection}`}>
           <div className={styles.sectionHead}>
             <div>
-              <p className={styles.kicker}>03 / RELATIVE MARKET LEADERSHIP</p>
+              <p className={styles.kicker}>02 / RELATIVE MARKET LEADERSHIP</p>
               <h2 id="market-group-heading"><MarketIcon name={GROUP_ICONS[group]} size={24} /> {group==="all"?"ETF & sector comparisons":selected.label}</h2>
               <p>Compare source-dated 1D, 3D and 5D sector performance. The full screener is optional.</p>
             </div>
@@ -217,6 +219,9 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
 
           <PublicMarketScreener key={group} observations={observations} group={group} dataAvailable={Boolean(monitor)} />
         </section>
+
+        {(group==="all"||group==="rates")?
+          <PublicTreasuryLadder rows={publicMarketObservations(monitor?.rows||[],"rates")}/>:null}
 
         <section className={legibility.relatedResearch} aria-label="Related market investigation">
           <h2>Supporting research and catalysts</h2>
