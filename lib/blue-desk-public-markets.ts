@@ -1,4 +1,5 @@
 import type { MarketMonitorRow, MarketMonitorType } from "./market-monitor.ts";
+import type { MarketSignalSnapshot } from "./bluebelly-signal-scan";
 
 /**
  * A deliberately narrow public projection of the existing market monitor.
@@ -38,6 +39,7 @@ export type PublicMarketObservation = {
   frequency: "daily" | "monthly";
   sourceName: string;
   sourceUrl: string | null;
+  screening?: MarketSignalSnapshot | null;
 };
 
 
@@ -110,6 +112,7 @@ function publicRow(row: MarketMonitorRow): PublicMarketObservation {
     frequency: row.frequency,
     sourceName: row.sourceName,
     sourceUrl: originalSourceUrl(row.sourceUrl),
+    screening: daily && row.type !== "Rates" ? row.screening ?? null : null,
   };
 }
 

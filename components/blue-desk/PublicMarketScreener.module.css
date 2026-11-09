@@ -218,3 +218,13 @@
 .quickDisclosure>summary{cursor:pointer;min-height:42px;padding:10px 13px;font:800 12px/1.45 var(--bb-mono);color:var(--bb-text)}
 .quickDisclosure>summary:focus-visible{outline:2px solid var(--bb-accent);outline-offset:2px}
 .quickDisclosure .quick{padding:12px 13px 14px;margin:0;border-top:1px solid var(--bb-line)}
+
+/* In-table discovery controls, never an additional market navigation mode. */
+.signalControls{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:11px;padding:13px;border-top:1px solid var(--bb-line)}
+.signalControls label{display:grid;gap:5px;color:var(--bb-muted);font-size:11px;font-weight:700}
+.signalControls select{min-width:0;width:100%;padding:8px;background:var(--bb-card-quiet);border:1px solid var(--bb-card-border);color:var(--bb-text)}
+.signalNote{font-size:11px!important;line-height:1.5!important;padding:0 13px 13px;color:var(--bb-muted)}
+.signalCell{min-width:168px;max-width:250px;vertical-align:top}
+.signalScore{display:block;font:800 12px/1.4 var(--bb-mono);color:var(--bb-text)}
+.signalCell small{display:block;margin-top:4px;font-size:10px;line-height:1.5;color:var(--bb-muted)}
+.noSignal{color:var(--bb-muted);font-size:11px}
