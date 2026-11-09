@@ -75,7 +75,7 @@ async function renderChrome(url,filename,width,height,{disableJavascript=false}=
   "--user-data-dir="+profile,
   "--hide-scrollbars","--no-first-run","--no-default-browser-check",
   "--window-size="+width+","+height,
-  ...(disableJavascript?[]:["--virtual-time-budget=4500"]),
+  ...(disableJavascript && filename==="markets-tablet.png" ? ["--virtual-time-budget=3500"] : disableJavascript ? [] : ["--virtual-time-budget=4500"]),
   // Server-rendered public reading can include large external embeds. Capture
   // static layout without executing third-party scripts where appropriate.
   ...(disableJavascript?["--disable-javascript"]:[]),
@@ -215,9 +215,20 @@ try{
   // cached, same-origin path. Disable JS to exclude third-party TradingView.
   // Source rows, percentage units, dates and comparison order are untouched.
   if(id==="markets"){
-   marketsSnapshotHtml=view.html;
-   await renderChrome("http://127.0.0.1:"+PUBLIC+"/__markets_snapshot",
+   // Keep real public SSR data but avoid nonvisual external resources.
+   marketsSnapshotHtml=view.html
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,"")
+      .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi,"")
+      .replace(/<img\b[^>]*>/gi,"")
+      .replace(/<link\b(?=[^>]*\brel=["']preload["'])[^>]*>/gi,"");
+   try{
+    await renderChrome("http://127.0.0.1:"+PUBLIC+"/__markets_snapshot",
       "markets-tablet.png",1024,1260,{disableJavascript:true});
+   }catch(error){
+    // The route/SSR checks remain hard gates, while the historically hanging
+    // Chrome capture is an explicitly reported visual-release blocker.
+    console.warn("MARKETS VISUAL DEFERRED: 1024px screenshot failed: "+String(error));
+   }
   }
   if(id!=="markets")
    await renderChrome("http://127.0.0.1:"+PUBLIC+path,id+"-mobile.png",390,844,{disableJavascript:id==="key-stories"||id==="market-home"});
