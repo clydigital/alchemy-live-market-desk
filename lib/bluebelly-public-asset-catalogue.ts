@@ -90,25 +90,31 @@ export function searchPublicAssetCatalogue(
   options: {query?:unknown;scope?:unknown;page?:unknown}={},
 ):CataloguePage{
   const query=cleanQuery(options.query),scope=cleanScope(options.scope);
-  const byKey=new Map<string,CatalogueEntry>();
+  const identities=new Map<string,CatalogueEntry>();
+  const monitoredSymbols=new Set<string>();
   for(const row of observations){
     const symbol=row.symbol?.trim();
     if(!symbol||!row.id||!row.label)continue;
-    const key=symbol.toUpperCase();
-    if(byKey.has(key))continue;
+    // Provider identities are keyed by their stable monitor ID, never by ticker:
+    // two venues may share a symbol and must remain separate observations.
+    const key="mon:"+row.id;
+    if(identities.has(key))continue;
     const valid=typeof row.last==="number"&&Number.isFinite(row.last)
       && !!row.asOf && row.dataStatus!=="UNAVAILABLE_OR_STALE";
-    byKey.set(key,{id:"mon:"+row.id,symbol,label:row.label,
+    identities.set(key,{id:key,symbol,label:row.label,
       assetClass:row.type,venue:null,
       status:valid?"SOURCE_DATED":"MONITORED_UNAVAILABLE",
       last:valid?row.last:null,asOf:row.asOf,sourceUrl:row.sourceUrl});
+    monitoredSymbols.add(symbol.toUpperCase());
   }
-  const monitoredCount=byKey.size;
-  const pricedCount=[...byKey.values()].filter(row=>row.status==="SOURCE_DATED").length;
+  const monitoredCount=identities.size;
+  const pricedCount=[...identities.values()].filter(row=>row.status==="SOURCE_DATED").length;
+  // Reference identities are omitted when this exact ticker is monitored;
+  // never conflate two distinct monitored IDs based on the same ticker.
   for(const row of refs){
-    if(!byKey.has(row.symbol.toUpperCase()))byKey.set(row.symbol.toUpperCase(),row);
+    if(!monitoredSymbols.has(row.symbol.toUpperCase()))identities.set(row.id,row);
   }
-  const universe=[...byKey.values()].sort((a,b)=>
+  const universe=[...identities.values()].sort((a,b)=>
     a.symbol.localeCompare(b.symbol)||a.id.localeCompare(b.id));
   const text=query.toLocaleLowerCase("en");
   const results=universe.filter(row=>
