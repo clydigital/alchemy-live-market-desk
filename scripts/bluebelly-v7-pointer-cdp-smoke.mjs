@@ -100,7 +100,8 @@ export async function checkV7PointerInteraction({origin,output}){
     // A real CDP mouse event exercises the hook; synthetic screenshots alone
     // cannot establish that the cursor-following effect is operational.
     let active=false;
-    for(let attempt=0;attempt<18;attempt++){
+    let lastData=null;
+    for(let attempt=0;attempt<50;attempt++){
       await send("Input.dispatchMouseEvent",{type:"mouseMoved",x:640+attempt,y:290+attempt,button:"none",pointerType:"mouse"});
       await sleep(170);
       const data=await evalJS(`({
@@ -108,10 +109,26 @@ export async function checkV7PointerInteraction({origin,output}){
         x:parseFloat(document.querySelector("${halo}")?.style.getPropertyValue("--halo-x")),
         y:parseFloat(document.querySelector("${halo}")?.style.getPropertyValue("--halo-y"))
       })`);
+      lastData=data;
       if(data.visible==="true"&&Number.isFinite(data.x)&&Math.abs(data.x-(640+attempt))<25&&
         Number.isFinite(data.y)&&Math.abs(data.y-(290+attempt))<25){active=true;break}
     }
-    if(!active)throw Error("V7 pointer halo did not follow an actual CDP mouse event");
+    if(!active){
+      const diag=await evalJS(`({
+        pointerFine:matchMedia("(hover: hover) and (pointer: fine)").matches,
+        hover:matchMedia("(hover: hover)").matches,
+        fine:matchMedia("(pointer: fine)").matches,
+        reduced:matchMedia("(prefers-reduced-motion: reduce)").matches,
+        width:innerWidth,height:innerHeight,
+        visible:document.querySelector("${halo}")?.dataset.visible,
+        haloDisplay:getComputedStyle(document.querySelector("${halo}")).display,
+        nextData:typeof window.next,
+        scripts:document.querySelectorAll("script[src]").length,
+        reactMarkers:Object.keys(document.querySelector("${halo}")).filter(x=>x.startsWith("__react"))
+      })`);
+      console.error("V7 POINTER DEBUG "+JSON.stringify({lastData,diag}));
+      throw Error("V7 pointer halo did not follow an actual CDP mouse event");
+    }
     const image=await send("Page.captureScreenshot",{format:"png",fromSurface:true});
     const screenshot=resolve(output,"v7-cursor-halo-active-desktop.png");
     writeFileSync(screenshot,Buffer.from(image.data,"base64"));
