@@ -14,3 +14,47 @@
   --bb-card-quiet:color-mix(in srgb,var(--bb-raised) 96%,var(--bb-accent) 4%);
   --bb-card-focus:var(--bb-accent);
 }
+
+/* v7 adds a separate visual shell palette; original article/market tokens
+   remain untouched to protect category semantics and existing themes. */
+:root{
+  --bb-command-accent:#ffe500;
+  --bb-command-alt:#00e7f5;
+  --bb-command-edge:#24586b;
+  --bb-command-glow:rgba(255,229,0,.15);
+}
+:root[data-bluebelly-theme="yellow-black"]{
+  --bb-command-accent:#ffe500;
+  --bb-command-alt:#00e7f5;
+  --bb-command-edge:#24586b;
+  --bb-command-glow:rgba(255,229,0,.15);
+}
+:root[data-bluebelly-theme="turquoise"]{
+  --bb-command-accent:#38eed7;
+  --bb-command-alt:#ffe25e;
+  --bb-command-edge:#246c72;
+  --bb-command-glow:rgba(56,238,215,.14);
+}
+:root[data-bluebelly-theme="neon-blue"]{
+  --bb-command-accent:#4b9fff;
+  --bb-command-alt:#74eaff;
+  --bb-command-edge:#285c9a;
+  --bb-command-glow:rgba(75,159,255,.2);
+}
+:root[data-bluebelly-theme="pastel-green"]{
+  --bb-command-accent:#a3f2b3;
+  --bb-command-alt:#f1e67a;
+  --bb-command-edge:#456b65;
+  --bb-command-glow:rgba(163,242,179,.13);
+}
+/* Existing Next pages keep their server components and deep links. */
+body:has(header[data-bluebelly-layout="v7-command"]){
+  padding-inline-start:232px;
+  background:radial-gradient(ellipse 1200px 520px at 70% -20%,#102433,transparent 75%),#050b10;
+}
+@media(max-width:1050px) and (min-width:721px){
+  body:has(header[data-bluebelly-layout="v7-command"]){padding-inline-start:68px}
+}
+@media(max-width:720px){
+  body:has(header[data-bluebelly-layout="v7-command"]){padding-inline-start:0}
+}

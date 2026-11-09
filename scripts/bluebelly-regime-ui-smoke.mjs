@@ -147,8 +147,17 @@ try{
   "crash-opportunity-desktop.png",1440,1000);
  await renderChrome("http://127.0.0.1:"+PUBLIC+"/crash-opportunity",
   "crash-opportunity-mobile.png",390,844);
- const privateRoute=await waitResponse("/owner/presenter",code=>code!==200);
- console.log("Owner route HTTP "+privateRoute.status+" on public host (no anonymous access)");
+ // All private entries must remain denied by the public host, including the
+ // sidebar's owner shortcut. Never follow OAuth or simulate owner credentials.
+ for (const path of ["/owner/presenter", "/owner/x-wire", "/my-reports"]) {
+  const privateRoute=await waitResponse(path,code=>code!==200);
+  if(![302,307,401,403,404].includes(privateRoute.status))
+   throw Error("Unexpected owner route response "+path+" "+privateRoute.status);
+  if(privateRoute.html.includes('data-owner-intelligence=') ||
+     privateRoute.html.includes('data-owner-x-wire='))
+   throw Error("Private owner content leaked to public host: "+path);
+  console.log("Owner route "+path+" HTTP "+privateRoute.status+" (no anonymous access)");
+ }
  const url="http://127.0.0.1:"+PUBLIC+"/regime-watch";
  await renderChrome(url,"overview-desktop.png",1440,1000);
  await renderChrome(url,"overview-mobile.png",390,844);
@@ -180,7 +189,8 @@ try{
   const view=await waitResponse(path);
   assertHtml(view.html,marker);
   if(id==="market-home"){
-   assertHtml(view.html,'data-home-editorial-reader="legacy-on-demand"','data-home-detailed-brief="on-demand"');
+   assertHtml(view.html,'data-home-editorial-reader="legacy-on-demand"','data-home-detailed-brief="on-demand"',
+    'data-bluebelly-layout="v7-command"','aria-label="Bluebelly command navigation"');
   }
   if(id==="newsroom"){
    assertHtml(view.html,'data-editorial-newsroom="verified-only"');
@@ -199,6 +209,13 @@ try{
    await renderChrome("http://127.0.0.1:"+PUBLIC+path,id+"-mobile.png",390,844,{disableJavascript:id==="key-stories"||id==="market-home"});
   if(id==="newsroom"||id==="key-stories"||id==="market-home")
    await renderChrome("http://127.0.0.1:"+PUBLIC+path,id+"-desktop.png",1440,1000,{disableJavascript:id==="key-stories"||id==="market-home"});
+  // 1024px is the breakpoint most likely to expose doubled navigation or
+  // overflow from the collapsed icon rail. Keep third-party embeds disabled.
+  if(id==="market-home")
+   await renderChrome("http://127.0.0.1:"+PUBLIC+path,
+    "market-home-tablet.png",1024,900,{disableJavascript:true});
+  // Markets remains route/HTML-checked. Rendering its third-party chart embeds
+  // in headless Chrome can hang the smoke runner even when JS is disabled.
   console.log("Public CP page "+path+" "+view.status+" · mobile render saved");
  }
 
