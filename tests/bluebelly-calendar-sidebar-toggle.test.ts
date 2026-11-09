@@ -35,11 +35,12 @@ test("Shelving persists across page transitions and disables offscreen keyboard 
   assert.match(tokens,/cubic-bezier\(\.2,\.8,\.2,1\)/);
 });
 
-test("Shelf button is near bottom of desktop rail and stays visible when rail is hidden",()=>{
+test("Shelf button stays flush to the far-left viewport edge in both states",()=>{
   assert.match(chrome,/\.sidebarToggle\{/);
-  assert.match(chrome,/position:fixed;left:232px;bottom:clamp\(20px,4vh,42px\)/);
-  assert.match(chrome,/\.sidebarToggle\[data-shelved="true"\]\{left:0\}/);
-  assert.match(chrome,/@media\(min-width:721px\) and \(max-width:1050px\)/);
+  assert.match(chrome,/position:fixed;left:0;bottom:clamp\(20px,4vh,42px\)/);
+  assert.doesNotMatch(chrome,/\.sidebarToggle\{left:(?:232|68)px/);
+  assert.doesNotMatch(chrome,/\.sidebarToggle\[data-shelved="true"\]\{left:0\}/);
+  assert.match(chrome,/\.commandSide \.sideFooter\{padding-left:52px\}/);
   assert.match(chrome,/@media\(max-width:720px\)\{\.sidebarToggle\{display:none\}\}/);
   assert.match(chrome,/\.sidebarToggle:focus-visible/);
   assert.match(chrome,/prefers-reduced-motion:reduce/);
