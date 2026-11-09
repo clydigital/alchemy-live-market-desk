@@ -54,3 +54,17 @@ test("Markets retains one screener, preserves source controls and has a separate
   assert.match(screener,/sortPublicMarketColumns/);
   assert.match(screener,/mode === "assets"/);
 });
+
+test("Rates category preserves source-gated sovereign and FedWatch tools from the older PR",()=>{
+  const page=readFileSync(new URL("../app/blue-desk/markets/page.tsx",import.meta.url),"utf8");
+  const rates=readFileSync(new URL("../components/blue-desk/RatesPolicyMonitor.tsx",import.meta.url),"utf8");
+  assert.match(page,/mode==="assets"&&group==="rates"\?fetchJapanMofJgbYields/);
+  assert.match(page,/mode==="assets"&&group==="rates"\?fetchBundesbankBund10/);
+  assert.match(page,/mode==="assets"&&group==="rates"\?fetchBoeGilt10/);
+  assert.match(page,/<RatesPolicyMonitor observations=/);
+  assert.match(page,/publicGovernmentRateTrends\(monitor\?\.rows\|\|\[\]\)/);
+  assert.match(page,/<PublicTreasuryLadder rows=/);
+  assert.match(rates,/Matching dated observations unavailable/);
+  assert.match(rates,/CME FedWatch target-rate probabilities require/);
+  assert.doesNotMatch(rates,/Math\.random|Math\.sin/);
+});
