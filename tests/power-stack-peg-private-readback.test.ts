@@ -8,7 +8,11 @@ test("owner PEG readback reuses existing price ledger, never public market proje
  assert.match(page,/app_access_allowlist/);
  assert.match(page,/power_stack_peg_research_observations/);
  assert.match(page,/\.eq\("owner_user_id",identity\.user\.id\)/);
- assert.match(page,/1Y PEG research/);
+ assert.match(page,/FY-to-FY PEG research/);
+ assert.match(page,/data-power-stack-peg-coverage="owner-research-only"/);
+ assert.match(page,/Analysts /);
+ assert.match(page,/Rebound-base sensitivity/);
+ assert.match(page,/Thin consensus/);
  assert.match(page,/Native revision unknown/);
  assert.match(page,/data-power-stack-peg-contract="private-retrieval-only"/);
  assert.doesNotMatch(publicPage,/power_stack_peg_research_observations/);
