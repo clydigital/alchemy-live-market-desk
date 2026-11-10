@@ -62,7 +62,7 @@ const RULES:Record<InfluenceTopic,ReasonRule[]>={
   {pattern:/\b(cloud|hyperscaler|compute|data cent(?:re|er)|inference|ai revenue|azure|aws)\b/i,reason:"Is AI utilisation and revenue keeping pace with new capacity?",check:"Compare hyperscaler segment revenue, utilisation and disclosed capital commitments."},
  ],
  china:[
-  {pattern:/\b(export control|sanction\w*|tariff|chip restriction|trade war)\b/i,reason:"Are trade restrictions changing the China–US compute cost gap?",check:"Check official export-control texts and issuer exposure disclosures."},
+  {pattern:/\b(export controls?|sanction\w*|tariff|chip restriction|trade war)\b/i,reason:"Are trade restrictions changing the China–US compute cost gap?",check:"Check official export-control texts and issuer exposure disclosures."},
   {pattern:/\b(deepseek|model|ai|compute|memory|cxmt|hbm|semiconductor)\b/i,reason:"Is Chinese compute progress changing competition or margins?",check:"Verify benchmarks, hardware access, manufacturing yields and pricing."},
  ],
  energy:[
