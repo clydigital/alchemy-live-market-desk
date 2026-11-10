@@ -66,7 +66,7 @@ export default async function RegimeWatchPage(){
     <div><span className={styles.kicker}>01 / THE NINE RESEARCH FILES</span><h2>Choose the <em>pressure point.</em></h2></div>
     <span><span className={styles.reviewDate}>Reviewed {LENS_OUTLOOK_REVIEWED_ON} MYT</span><span className={styles.reviewMeta}> · {theses===null?"Story coverage unavailable":theses.length+" public Story snapshots"} · Viewed <DualTimestamp value={now.toISOString()}/></span></span>
    </div>
-   <p className={styles.lensIntro}>Nine dated outlooks. Open a lens for its evidence, countercase and next test. Not live trading signals.</p>
+   <p className={styles.lensIntro}>Explore a research lens. Check the dated outlook, countercase and next test. Not a live trading signal.</p>
    <div className={styles.cards}>{lenses.map((lens,index)=>
     <Link key={lens.id} className={styles.card} data-research-lens={lens.id}
      href={blueDeskPublicHref("/blue-desk/regime-watch/"+lens.id,host)}
