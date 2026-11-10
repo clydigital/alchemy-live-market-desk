@@ -1,4 +1,154 @@
 {
   "version": 1,
-  "sweeps": []
+  "sweeps": [
+    {
+      "id": "2026-11-10-fed-cpi-waller-cross-market",
+      "topic": "fed",
+      "date": "2026-11-10",
+      "researchAt": "2026-11-10T16:01:28.465Z",
+      "title": "Hot CPI meets Waller's explicit December policy fork",
+      "findings": [
+        {
+          "reason": "BLS reports October headline CPI +0.4% and core CPI +0.3% monthly; shelter rose +0.3%, food +0.5%, energy +0.7%. The normal October 12-month inflation comparison is unavailable because October 2025 data were not collected.",
+          "sourceName": "US Bureau of Labor Statistics — October CPI",
+          "sourceUrl": "https://www.bls.gov/news.release/archives/cpi_11102026.htm",
+          "sourcePublishedAt": "2026-11-10T13:30:00Z",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Check the underlying inflation components and November PPI; do not infer a missing year-on-year reading."
+        },
+        {
+          "reason": "Waller said he would support a 25bp December hike even if inflation improved, and would consider 50bp if core CPI was around 0.3% or higher. Today's +0.3% core print meets his stated condition, but his position is not an FOMC decision.",
+          "sourceName": "Federal Reserve — Waller's November 10 speech",
+          "sourceUrl": "https://www.federalreserve.gov/newsevents/speech/waller20261110a.htm",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Compare subsequent Fed speakers, December futures pricing and official committee communication."
+        },
+        {
+          "reason": "The October jobs report showed +165,000 nonfarm payrolls and 4.1% unemployment, yet long-term unemployment was 2.0 million (27.6% of unemployed): job creation and labour-market quality should be assessed separately.",
+          "sourceName": "US Bureau of Labor Statistics — October employment report",
+          "sourceUrl": "https://www.bls.gov/news.release/archives/empsit_11062026.htm",
+          "sourcePublishedAt": "2026-11-06T13:30:00Z",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Break out sector jobs, involuntary part-time work, wage growth and unemployment duration."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-10-bonds-cpi-waller-cross-market",
+      "topic": "bonds",
+      "date": "2026-11-10",
+      "researchAt": "2026-11-10T16:01:28.465Z",
+      "title": "TLT duration risk: stronger inflation versus the oil relief trade",
+      "findings": [
+        {
+          "reason": "Waller's 25bp December hike preference and conditional 50bp scenario create a rate-path risk to long-duration holdings such as TLT; this is a transmission hypothesis, not a verified change in TLT's price.",
+          "sourceName": "Federal Reserve — Waller's November 10 speech",
+          "sourceUrl": "https://www.federalreserve.gov/newsevents/speech/waller20261110a.htm",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Measure same-session 2Y/10Y/30Y nominal yields, real yields, TLT total return and curve steepening."
+        },
+        {
+          "reason": "MarketWatch reported Treasury yields climbing after hot CPI. Treat the reported intraday move as a dated market reaction, not a closing print or proof that long-duration bonds are a buy.",
+          "sourceName": "MarketWatch — November 10 rates reaction",
+          "sourceUrl": "https://www.marketwatch.com/story/why-stocks-are-falling-and-10-year-yields-are-climbing-back-near-5-after-tuesdays-inflation-report-389b8392",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Read the matching timestamped Treasury yields and TLT prices, then check whether the selloff holds through the next full US session."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-10-ai-cpi-waller-cross-market",
+      "topic": "ai",
+      "date": "2026-11-10",
+      "researchAt": "2026-11-10T16:01:28.465Z",
+      "title": "AI cash conversion faces a higher-for-longer financing test",
+      "findings": [
+        {
+          "reason": "Waller explicitly cited AI-related high-tech equipment prices and electricity/energy pressures as potential persistent inflation contributors. AI demand may be strong while the cost of building it and financing it rises.",
+          "sourceName": "Federal Reserve — Waller's November 10 speech",
+          "sourceUrl": "https://www.federalreserve.gov/newsevents/speech/waller20261110a.htm",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Cross-check issuer capex, debt/lease commitments, free cash flow and the actual high-tech CPI/PPI subcomponents."
+        },
+        {
+          "reason": "The Nvidia selloff/investigation story is principally a governance and key-person risk, not evidence that GPU shipments or AI demand have deteriorated. Its relation to operating economics requires a separate source check.",
+          "sourceName": "X Wire — ZeroHedge's Nvidia premarket report",
+          "sourceUrl": "https://x.com/zerohedge/status/2120145398106824808",
+          "sourcePublishedAt": "2026-11-10T13:23:47Z",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Check Nvidia primary disclosures, earnings guidance and dated share-price reactions; keep governance separate from hardware demand."
+        },
+        {
+          "reason": "FX Evolution's earlier video advances a semiconductor deleveraging thesis. The technical and flow indicators discussed are attributed commentary, not independently verified market data.",
+          "sourceName": "FX Evolution — AI bubble video",
+          "sourceUrl": "https://www.youtube.com/watch?v=P9Rp0qBXSe8",
+          "sourcePublishedAt": "2026-11-06T00:59:27Z",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Compare actual SMH/QQQ relative returns, volume and attributable flow prints against reported claims."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-10-hormuz-cpi-waller-cross-market",
+      "topic": "hormuz",
+      "date": "2026-11-10",
+      "researchAt": "2026-11-10T16:01:28.465Z",
+      "title": "Iran de-escalation may reduce crude risk, not shipping constraints overnight",
+      "findings": [
+        {
+          "reason": "Reuters reports Trump is holding off additional Iran strikes while the US naval blockade of Hormuz remains. An apparent diplomatic improvement is not proof that navigation and deliveries have normalised.",
+          "sourceName": "Reuters — Iran strike pause and Gulf market reaction",
+          "sourceUrl": "https://www.reuters.com/world/middle-east/gulf-bourses-open-higher-trump-holds-off-iran-strikes-2026-11-10/",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Check original government and maritime notices, sustained vessel crossings, insurance conditions and actual delivered barrels."
+        },
+        {
+          "reason": "Waller warned that elevated transit and insurance costs and diesel/refining bottlenecks can transmit energy shocks to inflation even when tanker traffic partially returns. His cost assessment is not an independent physical-flow measurement.",
+          "sourceName": "Federal Reserve — Waller's November 10 speech",
+          "sourceUrl": "https://www.federalreserve.gov/newsevents/speech/waller20261110a.htm",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Test reported insurance/freight cost against UKMTO/AIS, refinery runs, diesel cracks and EIA stocks."
+        },
+        {
+          "reason": "BLS reports October monthly energy CPI +0.7% after September's +5.2%; gasoline +1.0% after +9.1%. That moderation is backward-looking and cannot establish that November shipping costs have normalised.",
+          "sourceName": "US Bureau of Labor Statistics — October CPI",
+          "sourceUrl": "https://www.bls.gov/news.release/archives/cpi_11102026.htm",
+          "sourcePublishedAt": "2026-11-10T13:30:00Z",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Compare November fuel and physical shipping data; do not equate the dated CPI reading with a live oil-market quote."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-10-breadth-cpi-waller-cross-market",
+      "topic": "breadth",
+      "date": "2026-11-10",
+      "researchAt": "2026-11-10T16:01:28.465Z",
+      "title": "Two reviewed creators give opposite interpretations of AI-equity risk",
+      "findings": [
+        {
+          "reason": "TraderNick's November 9 video presents a tactical risk-on stance in equities and AI-capex beneficiaries. That is the creator's positioning and does not demonstrate measured breadth improvement.",
+          "sourceName": "TraderNick — I'm All In",
+          "sourceUrl": "https://www.youtube.com/watch?v=-_AFTV4xQOo",
+          "sourcePublishedAt": "2026-11-09T18:34:16Z",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Check S&P 500 equal-weight, RSP, SMH and the share of stocks above 50D/200D averages at matching dates."
+        },
+        {
+          "reason": "FX Evolution's earlier AI-bubble video argues that semiconductor and index selling could reflect concentrated deleveraging. These claims conflict with an uncomplicated risk-on interpretation and need price/flow verification.",
+          "sourceName": "FX Evolution — Wall Street Just Popped The AI Bubble?",
+          "sourceUrl": "https://www.youtube.com/watch?v=P9Rp0qBXSe8",
+          "sourcePublishedAt": "2026-11-06T00:59:27Z",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Compare SMH/QQQ price structure, options/flow datasets and retail-selling evidence before calling capitulation or recovery."
+        }
+      ]
+    }
+  ]
 }
