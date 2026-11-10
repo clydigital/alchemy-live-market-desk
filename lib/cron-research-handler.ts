@@ -11,6 +11,7 @@ import { runCalendarPreproductionCheck, type CalendarPreproductionResult } from 
 import { collectOfficialMacroTrendHistory, type MacroTrendRefresh } from "@/lib/official-macro-trend-history";
 import { checkScheduledCpiCoverage, type ScheduledCpiCoverage } from "@/lib/macro/cpi-coverage-health";
 import { collectScheduledMarketMeasurements } from "@/lib/scheduled-market-measurement-intake";
+import { collectScheduledTreasuryDailyCloses, type TreasuryDailyCloseReceipt } from "@/lib/scheduled-treasury-close-ledger";
 import { collectScheduledAiCompanyCloses } from "@/lib/scheduled-ai-company-closes";
 import { collectScheduledSec10q10k } from "@/lib/scheduled-sec-10q10k-intake";
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
@@ -40,6 +41,7 @@ type ScheduledResearchHandlerDependencies = {
   collectMacroTrendHistory?: typeof collectOfficialMacroTrendHistory;
   checkCpiCoverage?: typeof checkScheduledCpiCoverage;
   collectMarketMeasurements?: typeof collectScheduledMarketMeasurements;
+  collectTreasuryCloses?: typeof collectScheduledTreasuryDailyCloses;
   collectAiCompanyCloses?: typeof collectScheduledAiCompanyCloses;
   collectSec10q10k?: typeof collectScheduledSec10q10k;
   attachMacroContext?: typeof attachMacroContextCaptureToResearchRun;
@@ -457,6 +459,11 @@ export async function handleScheduledResearchWithDependencies(
     // actual scheduled slot BEFORE research publication/intelligence snapshot.
     // No additional cron, LLM reviewer or independent Story decision.
     const numericIntakePromise = (dependencies.collectMarketMeasurements ?? collectScheduledMarketMeasurements)(now);
+    // Independent source-only official Treasury close persistence. No additional
+    // schedule, model or Dossier write. Tests using injected research skip IO.
+    const treasuryClosePromise: Promise<TreasuryDailyCloseReceipt | null> = dependencies.buildScheduledResearchInput
+      && !dependencies.collectTreasuryCloses ? Promise.resolve(null)
+      : (dependencies.collectTreasuryCloses ?? collectScheduledTreasuryDailyCloses)(now);
     // Same authorised source-only scheduled cycle. No Notion-to-Evidence
     // promotion and no LLM: the vendor's actual US close is the source.
     const aiIssuerPricePromise = (dependencies.collectAiCompanyCloses ?? collectScheduledAiCompanyCloses)(now);
@@ -532,7 +539,7 @@ export async function handleScheduledResearchWithDependencies(
     };
     if (cpiCoverage.status === "DEGRADED") console.warn(JSON.stringify(cpiCoverageLog));
     else console.info(JSON.stringify(cpiCoverageLog));
-    const [input, macroCapture, numericIntake, aiIssuerPrices, secFilings] = await Promise.all([
+    const [input, macroCapture, numericIntake, aiIssuerPrices, secFilings, treasuryCloses] = await Promise.all([
       (dependencies.buildScheduledResearchInput ?? buildScheduledResearchInputWithFirecrawl)(slot, {
         now,
         runKey,
@@ -541,7 +548,13 @@ export async function handleScheduledResearchWithDependencies(
       numericIntakePromise,
       aiIssuerPricePromise,
       secFilingsPromise,
+      treasuryClosePromise,
     ]);
+    if (treasuryCloses) {
+      const treasuryLog = { event: "scheduled_treasury_daily_closes", slot, runKey, ...treasuryCloses };
+      if (treasuryCloses.status === "RECORDED") console.info(JSON.stringify(treasuryLog));
+      else console.warn(JSON.stringify(treasuryLog));
+    }
     const secFilingLog = {
       event: "scheduled_sec_10q10k_health", slot, runKey,
       status: secFilings.status, collectedAt: secFilings.collectedAt,
@@ -643,6 +656,7 @@ export async function handleScheduledResearchWithDependencies(
         calendarPreproduction,
         cpiCoverage,
         quantifiedMarket: numericIntake,
+        treasuryCloses,
         aiIssuerPrices,
         secFilings,
         macro: {
