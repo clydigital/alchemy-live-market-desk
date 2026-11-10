@@ -17,6 +17,7 @@ import {getRegimeEditorialUpdate} from "@/lib/bluebelly-regime-verified-crossass
 import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
 import TopicInfluencePanel from "@/components/blue-desk/TopicInfluencePanel";
 import {getTopicInfluence} from "@/lib/bluebelly-topic-influence-server";
+import type {InfluenceTopic} from "@/lib/bluebelly-topic-influence";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import type {EditorialMotif} from "@/lib/bluebelly-editorial-visuals";
 import desk from "../../blue-desk.module.css";
@@ -44,7 +45,7 @@ export default async function ResearchLensPage({params}:Props){
   getPublicThesisLedger(now,38).catch(()=>null),
   getPublicSourceObservations(now,24).catch(()=>null),
   getMarketMonitor().catch(()=>null),
-  lensId==="ai"?getTopicInfluence("ai",now).catch(()=>null):Promise.resolve(null),
+  getTopicInfluence(lensId as InfluenceTopic,now).catch(()=>null),
  ]);
  const lens=groupPublicResearch(publicTheses||[]).find(item=>item.id===lensId)!;
  const lensNumber=String(EDITORIAL_REGIME_LENSES.findIndex(item=>item.id===lensId)+1).padStart(2,"0");

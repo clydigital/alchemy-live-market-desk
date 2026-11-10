@@ -1,38 +1,48 @@
-import type {TopicInfluenceRead,InfluenceLead,InfluenceSourceState} from "@/lib/bluebelly-topic-influence";
+import {getManualSweeps} from "@/lib/bluebelly-manual-sweeps";
+import type {TopicInfluenceRead,InfluenceLead} from "@/lib/bluebelly-topic-influence";
 import s from "./TopicInfluencePanel.module.css";
 
 type Props={input:TopicInfluenceRead;compact?:boolean};
-function sourceList(label:string,state:InfluenceSourceState,rows:InfluenceLead[]){
- return <div className={s.sourceGroup}>
-  <h3>{label} <small>{rows.length} lead{rows.length===1?"":"s"}</small></h3>
-  {rows.length?rows.map(item=><article key={item.id} className={s.lead} data-influence-source={item.source}>
-   <div className={s.meta}><span>{item.sourceName} · {item.source==="CREATOR"?"Transcript-backed commentary":"Public X post"}</span>
-    <span>Published {item.publishedAt.slice(0,16).replace("T"," ")} UTC</span></div>
-   <strong>{item.title}</strong>
-   <p>{item.excerpt}</p>
-   <p className={s.test}><b>Next check:</b> {item.nextCheck}</p>
-   <small>{item.reviewedAt?"Research capture: "+item.reviewedAt.slice(0,16).replace("T"," ")+" UTC":"Capture clock not supplied"} · UNVERIFIED / NOT CANONICAL</small>
-   <a href={item.url} target="_blank" rel="noopener noreferrer">Original {item.source==="X"?"post":"video"} ↗</a>
-  </article>):
-   <p className={s.empty}>{state==="UNAVAILABLE"?
-    "Source reader unavailable; this is not evidence of no news.":
-    label==="X Wire"?"No matching recent stored posts in the available 48-hour window.":
-    "No matching transcript-reviewed creator arguments in the available 14-day window."}</p>}
- </div>;
+const stamp=(value:string)=>value.slice(0,16).replace("T"," ")+" UTC";
+function reasonRow(item:InfluenceLead){
+ return <li key={item.id} className={s.lead} data-influence-source={item.source}>
+  <div className={s.meta}><span>{item.source==="X"?"X Wire":"Reviewed transcript"} · {item.sourceName}</span>
+   <time dateTime={item.publishedAt}>Source {stamp(item.publishedAt)}</time></div>
+  <strong>{item.reason}</strong>
+  {item.source==="X"?<p>{item.excerpt}</p>:<p>Creator video: {item.title}. Transcript interpretation exists; the underlying claims are not independently verified here.</p>}
+  <p className={s.test}><b>Check:</b> {item.nextCheck}</p>
+  <div className={s.receipt}><small>{item.reviewedAt?"Captured "+stamp(item.reviewedAt):"Capture time unavailable"} · UNVERIFIED / NOT CANONICAL</small>
+   <a href={item.url} target="_blank" rel="noopener noreferrer">Open original {item.source==="X"?"X post":"video"} ↗</a></div>
+ </li>;
 }
-/** One source-attributed, bounded feed; no verified market outcome or editorial promotion. */
+/** Fresh source records change the questions; only an editorially approved manual
+ * sweep can add an authored, dated explanation. Neither changes Regime evidence. */
 export default function TopicInfluencePanel({input,compact=false}:Props){
+ const manual=getManualSweeps(input.topic,new Date(input.checkedAt));
+ const leads=[...input.x,...input.creators].sort((a,b)=>b.publishedAt.localeCompare(a.publishedAt));
  return <section id={"influence-"+input.topic} className={compact?s.compact:s.panel}
    data-influence-topic={input.topic} data-influence-verification="unverified-discovery">
-  {!compact?<header className={s.heading}>
-   <span>NEW QUESTIONS / SOURCE-ATTRIBUTED DISCOVERY</span>
-   <h2>{input.topic==="ai"?"What creators and X Wire are making us check":"Fresh leads to test"}</h2>
-   <p>Recent commentary may introduce an investigation or countercase. It cannot revise the reviewed outlook until original sources and market observations support a change.</p>
-  </header>:<p className={s.compactIntro}>Unverified public posts and transcript-reviewed creator interpretations. Use them to decide what to investigate, not as evidence of a deal, market move or regime change.</p>}
-  <div className={s.groups}>
-   {sourceList("X Wire",input.xState,input.x)}
-   {sourceList("Creator transcripts",input.creatorState,input.creators)}
-  </div>
-  <p className={s.caveat}>Topic relevance is not verification. Published source time differs from collection and interpretation time; raw transcripts and private research notes are not displayed. No automatic Story or Regime change.</p>
+  <header className={s.heading}>
+   <span>LIVE SOURCE REASONS / NO AUTOMATIC VERDICT</span>
+   <h2>Why this is on watch</h2>
+   <p>Automatically refreshed from the existing X Wire and completed transcript-review ledgers. These are reasons to investigate, not established causes or changes to the reviewed Regime outlook.</p>
+   <small>Checked {stamp(input.checkedAt)} · X: {input.xState.toLowerCase()} · Transcripts: {input.creatorState.toLowerCase()}</small>
+  </header>
+  {leads.length?<ol className={s.reasons}>{leads.map(reasonRow)}</ol>:
+   <p className={s.empty}>{input.xState==="UNAVAILABLE"||input.creatorState==="UNAVAILABLE"?
+    "One or more research feeds are unavailable; no absence-of-news conclusion is possible.":
+    "No matching recent, admitted X Wire or reviewed transcript reasons in these source windows."}</p>}
+  {manual.map(sweep=><section key={sweep.id} className={s.manual} data-manual-sweep={sweep.id}>
+   <div className={s.manualHead}><span>{sweep.date} — MANUAL SWEEP FINDINGS</span>
+    <h3>{sweep.title}</h3><small>Research conducted {stamp(sweep.researchAt)} · Editorially committed, not live canonical Evidence</small></div>
+   <ol>{sweep.findings.map((finding,index)=><li key={index}>
+    <strong>{finding.reason}</strong>
+    <small>{finding.status==="RESEARCH_LEAD"?"RESEARCH LEAD — NOT VERIFIED":
+     finding.status==="CONTRADICTED"?"CONTRADICTED — SEE SOURCE":"SOURCE-CORROBORATED — SEE SOURCE"} · Source dated {stamp(finding.sourcePublishedAt)}</small>
+    {finding.nextCheck?<p><b>Next check:</b> {finding.nextCheck}</p>:null}
+    <a href={finding.sourceUrl} target="_blank" rel="noopener noreferrer">{finding.sourceName} ↗</a>
+   </li>)}</ol>
+  </section>)}
+  <p className={s.caveat}>Auto-update = newly stored source receipts appear on page refresh, without a new schedule. X posts are unverified; completed transcript review does not make a creator claim true. Manual sweeps remain source-linked editorial research and cannot rewrite canonical Regime assessments.</p>
  </section>;
 }

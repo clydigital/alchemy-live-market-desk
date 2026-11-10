@@ -38,7 +38,7 @@ test("same source records produce two distinct topic feeds with immutable URLs a
  assert.equal(ai.creators[0].id,"video:abcdefghijk");
  assert.equal(ai.creators[0].reviewedAt,"2026-11-09T06:00:00Z");
  assert.equal(hormuz.x[0].verification,"UNVERIFIED_LEAD");
- assert.match(ai.creators[0].nextCheck,/issuer filings/);
+ assert.match(ai.creators[0].nextCheck,/issuer capex, operating cash flow/);
  assert.doesNotMatch(JSON.stringify(ai.creators),/Nvidia and CoreWeave cash-flow filings|may outpace free cash flow/);
 });
 
@@ -88,8 +88,11 @@ test("Hormuz and AI pages share a single read-only collector projection and neve
  assert.match(server,/from\("research_intake_items"\)/);
  assert.match(server,/transcript_interpreted_at/);
  assert.match(hormuz,/getTopicInfluence\("hormuz",now\)/);
- assert.match(ai,/lensId==="ai"\?getTopicInfluence\("ai",now\)/);
+ assert.match(ai,/getTopicInfluence\(lensId as InfluenceTopic,now\)/);
  assert.match(ai,/TopicInfluencePanel input=\{influence\}/);
+ assert.match(read("app/blue-desk/regime-watch/page.tsx"),/getTopicInfluences\(EDITORIAL_REGIME_LENSES\.map/);
+ assert.match(panel,/Why this is on watch/);
+ assert.match(panel,/getManualSweeps/);
  assert.match(panel,/UNVERIFIED \/ NOT CANONICAL/);
  assert.doesNotMatch(server+panel,/\.insert\(|\.update\(|upsert\(|createSupabaseAdminClient\(\)\.from\("story_thesis_versions"\)/);
 });
