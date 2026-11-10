@@ -425,3 +425,6 @@
  .sourceTrack>.deckCards{grid-template-columns:1fr}
  .sourceTrack .deckCard{min-height:0}
 }
+
+/* The smaller desktop header orbit must never crop the BB/LEARN mark. */
+.heroDiagram .orbitInner{font-size:12px;letter-spacing:-.045em;white-space:nowrap}
