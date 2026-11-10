@@ -113,9 +113,12 @@ export function projectTopicInfluence(
   creators.push({
    id:"video:"+video.external_id,source:"CREATOR",sourceName:creator,
    url:video.url,title:clean(video.title,160),
-   excerpt:claim?.claim||clean(summary,240),
+   // Never publish the private transcript-derived claim or review summary.
+   // Only public video metadata and a generic topic check leave this projector.
+   excerpt:topic==="ai"?"Video identified for AI demand, financing or cash-conversion research. Its underlying claims remain unverified.":
+    "Video identified for Iran, Hormuz or maritime-risk research. Its underlying claims remain unverified.",
    publishedAt:video.published_at,reviewedAt:video.transcript_interpreted_at,
-   nextCheck:claim?.target||CHECKS[topic],verification:"UNVERIFIED_LEAD",
+   nextCheck:CHECKS[topic],verification:"UNVERIFIED_LEAD",
   });
   used.add(creator.toLowerCase());seen.add(video.external_id);
   if(creators.length===2)break;
