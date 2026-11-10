@@ -159,18 +159,30 @@ export function projectTopicInfluence(
   id:p.post_id,handle:p.handle,url:p.original_url,publishedAt:p.published_at,text:p.body,
   images:[],quoteUrl:null,attribution:"THIRD_PARTY_ONLY" as const,intakeStatus:"discovery" as const,
  }));
- const x=rankXWireMarketCandidates(posts,now,12).slice(0,3).map(({post}):InfluenceLead=>{
+ // Preserve existing priority ranking; supplement only with source-validated
+ // topic matches (e.g. gold/housing) absent from the general Market candidate taxonomy.
+ const preferred=rankXWireMarketCandidates(posts,now,12).slice(0,3).map(candidate=>candidate.post);
+ const rankedIds=new Set(preferred.map(post=>post.id));
+ const candidates=[...preferred,...posts.filter(post=>!rankedIds.has(post.id))
+  .sort((a,b)=>b.publishedAt.localeCompare(a.publishedAt))];
+ const x:InfluenceLead[]=[];
+ const usedX=new Set<string>();
+ for(const post of candidates){
+  if(x.length>=3)break;
+  let normal:ReturnType<typeof normaliseXPostUrl>;
+  try{normal=normaliseXPostUrl(post.url);}catch{continue;}
+  if(normal.postId!==post.id||normal.handle.toLowerCase()!==post.handle.toLowerCase()||
+    !ALLOWED_X.has(post.handle.toLowerCase())||post.text.length<30||usedX.has(post.id))continue;
   const original=eligiblePosts.find(row=>row.post_id===post.id);
-  // The existing X ranking validates the exact canonical post URL and monitored identity.
-  const normal=normaliseXPostUrl(post.url);
   const why=reasonForTopic(topic,post.text);
-  return {
+  x.push({
    id:"x:"+normal.postId,source:"X",sourceName:"@"+post.handle,url:normal.url,
    title:"X Wire report to verify",reason:why.reason,excerpt:clean(post.text,240),publishedAt:post.publishedAt,
    reviewedAt:original?.retrieved_at||null,nextCheck:why.check,
    verification:"UNVERIFIED_LEAD",
-  };
- });
+  });
+  usedX.add(post.id);
+ }
  const creators:InfluenceLead[]=[];
  const used=new Set<string>(),seen=new Set<string>();
  for(const video of [...videoRows].sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at))){
