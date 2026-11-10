@@ -13,7 +13,8 @@ export type PowerStackResearchGroup={
  xState:TopicInfluenceRead["xState"];creatorState:TopicInfluenceRead["creatorState"];
 };
 const TOPICS=["bonds","ai","hormuz","gold","china","fed","breadth"] as const satisfies readonly InfluenceTopic[];
-const LABELS:Record<typeof TOPICS[number],{title:string;transmission:string}>={
+type PowerStackResearchTopic=(typeof TOPICS)[number];
+const LABELS:Record<PowerStackResearchTopic,{title:string;transmission:string}>={
  bonds:{title:"Bonds & duration",transmission:"Interest rates, inflation and duration risk. A yield move does not establish a buy level for any ETF."},
  ai:{title:"AI funding & hardware",transmission:"Industry-level funding, capex and demand context. Nvidia governance news must not be treated as evidence against another issuer's orders."},
  hormuz:{title:"Oil, refining & shipping",transmission:"Diplomacy, physical flows and transport costs can affect these instruments differently. Direction and individual earnings effects remain unverified."},
@@ -24,7 +25,7 @@ const LABELS:Record<typeof TOPICS[number],{title:string;transmission:string}>={
 };
 /** Strict ticker allowlists avoid naive free-text/word matches and fake issuer attribution.
  * An unlisted ticker is left unmapped rather than guessed from a company name. */
-const ASSETS:Partial<Record<typeof TOPICS[number],readonly string[]>>={
+const ASSETS:Partial<Record<PowerStackResearchTopic,readonly string[]>>={
  bonds:["TLT","IEF","SGOV","SHY","EDV","ZROZ","TIP","LQD","HYG","AGG","GOVT","USFR","TLH","BND","BNDX","VGIT","VGLT","SCHR","SCHZ"],
  ai:["NVDA","AMD","AVGO","MU","SMH","SOXX","DELL","CRDO","AMZN","MSFT","GOOGL","GOOG","META","ORCL","CRWV","CRM","TSM","SKHYNIX","000660.KS","QQQ"],
  hormuz:["XOM","CVX","HAL","BKR","SLB","MPC","PSX","VLO","LNG","MISC","STNG","OXY","COP","EOG","SHEL","BP","XLE","XOP"],
@@ -42,7 +43,7 @@ function norm(ticker:string){return ticker.trim().toUpperCase().replace(/\.US$/,
 const scopeRank:Record<PowerStackTracked["scope"],number>={
  archived_holding:0,archived_watchlist:1,bond_watch:2,
 };
-export function powerStackResearchTopics(assets:readonly PowerStackTracked[]):InfluenceTopic[]{
+export function powerStackResearchTopics(assets:readonly PowerStackTracked[]):PowerStackResearchTopic[]{
  if(!assets.length)return [];
  const selected=new Set<InfluenceTopic>(["fed","breadth"]);
  for(const asset of assets){
