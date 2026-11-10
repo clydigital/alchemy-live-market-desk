@@ -45,7 +45,7 @@ test("manual sweeps are source-vetted and distinguish research leads from canoni
  assert.equal(projected[0].date,"2026-11-10");
  assert.equal(selectManualSweeps({version:1,sweeps:[sweep]},"ai",now).length,0);
  assert.equal(selectManualSweeps({version:2,sweeps:[sweep]},"hormuz",now).length,0);
- assert.deepEqual(getManualSweeps("hormuz",now),[]); // empty until a real user-requested sweep is committed
+ assert.deepEqual(getManualSweeps("hormuz",now),[]); // the real sweep is not valid before its researched-at clock
 });
 test("spoofed URLs, future dates and undated findings cannot publish a manual block",()=>{
  const rows=[
@@ -71,9 +71,47 @@ test("manual ledger and page readers are source-linked, require a merge, and nev
  assert.match(panel,/reasonRow/);
  assert.match(overview,/data-regime-source-reasons="live-source-linked-not-canonical"/);
  assert.match(overview,/getTopicInfluences/);
+ assert.match(overview,/getManualSweeps\(item\.topic,now,1\)/);
+ assert.match(overview,/MANUAL SWEEP FINDINGS/);
  assert.match(lens,/getTopicInfluence\(lensId as InfluenceTopic,now\)/);
  assert.match(source,/from\("x_wire_posts"\)/);
  assert.match(source,/from\("research_intake_items"\)/);
  assert.match(manual,/editor-committed/);
  assert.doesNotMatch(source+manual+panel,/\.insert\(|\.update\(|\.upsert\(|supabase\.rpc\(/);
+});
+
+test("dated 10 November research is committed to five topical manual lanes with original sources",()=>{
+ const afterResearch=new Date("2026-11-10T17:00:00Z");
+ for(const topic of ["fed","bonds","ai","hormuz","breadth"] as const){
+  const records=getManualSweeps(topic,afterResearch);
+  assert.equal(records.length,1,topic);
+  assert.equal(records[0].date,"2026-11-10");
+  assert.ok(records[0].findings.length>=2,topic);
+  assert.ok(records[0].findings.every(row=>row.sourceUrl.startsWith("https://")));
+ }
+ assert.equal(getManualSweeps("housing",afterResearch).length,0);
+});
+test("AI does not inherit an unrelated long Iran roundup; a governance investigation stays governance",()=>{
+ const clock=new Date("2026-11-10T16:05:00Z");
+ const common={handle:"zerohedge",retrieved_at:"2026-11-10T13:34:00Z",intake_status:"discovery"};
+ const unrelated={
+  ...common,post_id:"2120141214594809988",
+  original_url:"https://x.com/zerohedge/status/2120141214594809988",
+  published_at:"2026-11-10T13:07:10Z",
+  body:"Top Overnight News\nIran and Hormuz talks and blockade continue. ".repeat(2)+
+   "Qatari mediation remains conditional. ".repeat(31)+"Nvidia reported new chip exports.",
+ };
+ const governance={
+  ...common,post_id:"2120145398106824808",
+  original_url:"https://x.com/zerohedge/status/2120145398106824808",
+  published_at:"2026-11-10T13:23:47Z",
+  body:"Premarket movers: Nvidia NVDA shares are lower amid a board investigation into CEO Jensen Huang and governance.",
+ };
+ const ai=projectTopicInfluence("ai",[unrelated,governance],[],clock);
+ assert.equal(ai.x.length,1);
+ assert.equal(ai.x[0].id,"x:2120145398106824808");
+ assert.match(ai.x[0].reason,/governance/);
+ const hormuz=projectTopicInfluence("hormuz",[unrelated,governance],[],clock);
+ assert.equal(hormuz.x.length,1);
+ assert.equal(hormuz.x[0].id,"x:2120141214594809988");
 });

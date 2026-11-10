@@ -3,7 +3,7 @@ import type {TopicInfluenceRead,InfluenceLead} from "@/lib/bluebelly-topic-influ
 import s from "./TopicInfluencePanel.module.css";
 
 type Props={input:TopicInfluenceRead;compact?:boolean};
-const stamp=(value:string)=>value.slice(0,16).replace("T"," ")+" UTC";
+const stamp=(value:string)=>/^\d{4}-\d{2}-\d{2}$/.test(value)?value:value.slice(0,16).replace("T"," ")+" UTC";
 function reasonRow(item:InfluenceLead){
  return <li key={item.id} className={s.lead} data-influence-source={item.source}>
   <div className={s.meta}><span>{item.source==="X"?"X Wire":"Reviewed transcript"} · {item.sourceName}</span>

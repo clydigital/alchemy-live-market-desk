@@ -9,6 +9,7 @@ import {getPublicSourceObservations} from "@/lib/blue-desk-source-observations";
 import {scanRegimeViews,summarizeRegimeScans} from "@/lib/bluebelly-regime-view-scan";
 import {groupPublicResearch,EDITORIAL_REGIME_LENSES} from "@/lib/bluebelly-editorial-architecture";
 import {getTopicInfluences} from "@/lib/bluebelly-topic-influence-server";
+import {getManualSweeps} from "@/lib/bluebelly-manual-sweeps";
 import {getLensOutlook,LENS_OUTLOOK_REVIEWED_ON} from "@/lib/bluebelly-regime-lens-outlook";
 import {getRegimeEditorialUpdate} from "@/lib/bluebelly-regime-verified-crossasset";
 import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
@@ -43,6 +44,7 @@ export default async function RegimeWatchPage(){
      <p>Why the market behaves the way it does. Nine competing research lenses, the strongest case against each thesis and the evidence that would change the verdict.</p>
      <nav className={styles.heroActions} aria-label="Regime Watch page sections">
       <a href="#lens-grid">EXPLORE THE NINE LENSES <span aria-hidden="true">↗</span></a>
+      <a href="#source-reasons">TODAY'S SOURCE REASONS <span aria-hidden="true">↗</span></a>
       <a href="#cross-regime-watch">THE CROSS-REGIME TEST <span aria-hidden="true">↗</span></a>
      </nav>
      <small>REVIEWED FUNDAMENTAL RESEARCH / NOT LIVE TRADING SIGNALS</small>
@@ -90,13 +92,14 @@ export default async function RegimeWatchPage(){
     <span className={styles.kicker}>LIVE X WIRE + REVIEWED TRANSCRIPTS / REASONS ON WATCH</span>
     <h2>What is making us check these views again?</h2>
     <p>Automatically refreshed from existing source receipts. A post or reviewed transcript raises a question—it does not change the fundamental outlook until verified evidence supports it. Open a lens to inspect the exact original links and dates.</p>
-    <div className={styles.pathGrid}>{topicReasons.filter(item=>item.x.length+item.creators.length>0).map(item=>{
+    <div className={styles.pathGrid}>{topicReasons.filter(item=>item.x.length+item.creators.length>0||getManualSweeps(item.topic,now,1).length>0).map(item=>{
      const leads=[...item.x,...item.creators].sort((a,b)=>b.publishedAt.localeCompare(a.publishedAt));
      const name=EDITORIAL_REGIME_LENSES.find(lens=>lens.id===item.topic)?.name||item.topic;
+     const sweep=getManualSweeps(item.topic,now,1)[0];
      return <Link key={item.topic} className={styles.path} href={blueDeskPublicHref("/blue-desk/regime-watch/"+item.topic,host)+"#influence-"+item.topic}>
-      <span>{name} · {leads.length} source reasons</span>
-      <strong>{leads[0].reason}</strong>
-      <small>Most recent source {leads[0].publishedAt.slice(0,10)} · Read X / video references →</small>
+      <span>{name} · {sweep?sweep.date+" MANUAL SWEEP FINDINGS":leads.length+" live source reasons"}</span>
+      <strong>{sweep?.findings[0]?.reason||leads[0]?.reason||"Review the newest source-linked research"}</strong>
+      <small>{sweep?"Read original-source manual findings + "+leads.length+" current X / video leads":"Most recent source "+leads[0]?.publishedAt.slice(0,10)} →</small>
      </Link>;
     })}</div>
     {!topicReasons.some(item=>item.x.length+item.creators.length)?<p>No current matched research leads in this bounded source window; source availability is not proof that the view is unchanged.</p>:null}
