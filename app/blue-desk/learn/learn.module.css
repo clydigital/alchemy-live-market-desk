@@ -330,3 +330,98 @@
 .termSourceLink{display:inline-flex;align-items:center;gap:8px;line-height:1.55;font-size:13px;color:var(--bb-accent);text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
 .termSourceLink:focus-visible{outline:3px solid var(--bb-card-focus);outline-offset:3px}
 @media(max-width:730px){.sourceTrackHeading{display:block}.sourceTrackHeading p{margin-top:6px}}
+
+/* Learn: the search terminal comes first; archive is progressive, not a 13-card wall. */
+.hero{min-height:0;grid-template-columns:minmax(0,1fr) 165px;padding:clamp(19px,2.5vw,31px);gap:14px}
+.hero .eyebrow{margin:0 0 9px;font-size:10px}
+.hero h1{font-size:clamp(30px,3.3vw,46px);line-height:1.04;margin:0 0 10px}
+.heroLead{font-size:13px;line-height:1.52;max-width:67ch}
+.heroActions{margin-top:14px;gap:7px}
+.heroActions a{min-height:35px;padding:8px 12px;font-size:10px;line-height:1.4}
+.heroDiagram{min-height:135px;max-height:170px;padding:7px}
+.orbitOuter{width:105px}
+.diagramTop,.diagramBottom{font-size:8px}
+.glossarySection{margin-top:15px;scroll-margin-top:75px}
+.glossaryIntro{align-items:center;gap:14px;margin-bottom:10px}
+.glossaryIntro .eyebrow{margin-bottom:5px}
+.glossaryIntro h2{font-size:clamp(23px,2.4vw,33px);line-height:1.13;margin:4px 0 6px}
+.glossaryIntro p:not(.eyebrow){font-size:12px;line-height:1.52;max-width:88ch;margin:0}
+.glossaryCount{padding:8px 13px;min-width:102px}
+.glossaryCount strong{font-size:33px}
+.library{margin-top:9px}
+.tools{padding:13px 16px}
+.searchHead{gap:10px}
+.searchLabel{font-size:12px;line-height:1.35}
+.search{min-height:42px;font-size:14px;padding:8px 12px}
+.filters{margin-top:10px;gap:4px}
+.filter,.selected{font-size:10px;min-height:34px;padding:7px 9px;gap:5px}
+.count{font-size:10px;margin:10px 0 0}
+.glossaryWorkspace{margin-top:10px;gap:10px}
+.entryButton{min-height:49px;padding:8px 11px;gap:8px}
+.entryNumber{font-size:16px;min-width:23px}
+.entryCopy{gap:2px}
+.entryCopy strong{font-size:13px}
+.entryCopy small{font-size:9px}
+.entryArrow{font-size:15px}
+.paneHeading{padding:8px 11px;font-size:9px}
+.focusPane{min-height:0}
+.focusBody{padding:clamp(14px,2vw,23px)}
+.focusPane h3{font-size:clamp(24px,2.6vw,36px);margin:9px 0 17px}
+.focusBlock{padding:10px 0}
+.focusLabel{margin-bottom:5px;font-size:9px}
+.focusBlock p,.exampleBlock p{font-size:13px;line-height:1.55}
+.focusDefinition{font-size:16px!important;line-height:1.55!important}
+.exampleBlock{padding:11px 14px;margin-bottom:8px}
+.deckLibrary{margin-top:25px;scroll-margin-top:75px}
+.deckLibraryHeader{margin-bottom:9px;gap:13px}
+.deckLibraryHeader .eyebrow{margin-bottom:5px}
+.deckLibraryHeader h2{font-size:clamp(22px,2.4vw,32px);margin:5px 0}
+.deckLibraryHeader p:not(.eyebrow){font-size:12px;line-height:1.55}
+.sourceTrack{margin-top:7px;border:1px solid var(--bb-card-border);background:var(--bb-card-bg)}
+.sourceTrackHeading{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;cursor:pointer;
+ padding:12px 14px;margin:0;border-bottom:0}
+.sourceTrackHeading span{font-size:11px;flex:1 1 230px}
+.sourceTrackHeading small{font:600 11px/1.45 var(--bluebelly-font);color:var(--bb-muted);flex:2 1 250px}
+.sourceTrackHeading strong{font:850 10px/1.4 var(--bb-mono);color:var(--bb-accent)}
+.sourceTrack[open]>.sourceTrackHeading{border-bottom:1px solid var(--bb-card-border)}
+.sourceTrack>.deckCards{padding:11px;margin:0;gap:9px}
+.sourceTrack .deckCard{min-height:0;padding:14px}
+.sourceTrack .deckCard h3{font-size:16px;line-height:1.4}
+.sourceTrack .deckCard p{font-size:12px;line-height:1.55}
+.sourceTrack summary:focus-visible{outline:3px solid var(--bb-card-focus);outline-offset:-3px}
+@media(max-width:860px){
+ .hero{grid-template-columns:1fr}
+ .heroDiagram{display:none}
+ .glossaryWorkspace{grid-template-columns:minmax(0,.88fr) minmax(0,1.12fr)}
+}
+@media(max-width:760px){
+ .glossaryWorkspace{grid-template-columns:1fr}
+ .indexPane{order:0}
+ .focusPane{order:1;position:static}
+ .sourceTrackHeading{display:flex}
+}
+@media(max-width:560px){
+ .content{padding:12px 12px 55px}
+ .hero{padding:16px}
+ .hero .eyebrow{margin-bottom:7px}
+ .hero h1{font-size:30px}
+ .heroActions a{min-width:0;flex:1 1 130px}
+ .glossarySection{margin-top:12px}
+ .glossaryIntro{display:flex;align-items:center}
+ .glossaryIntro h2{font-size:21px}
+ .glossaryIntro p:not(.eyebrow){font-size:11px}
+ .glossaryCount{display:flex;flex-direction:column;margin:0;padding:5px 8px;min-width:66px}
+ .glossaryCount strong{font-size:23px}
+ .glossaryCount span{font-size:8px}
+ .tools{padding:12px}
+ .filters{overflow-x:auto;flex-wrap:nowrap}
+ .filter,.selected{min-height:37px}
+ .entryButton{min-height:49px}
+ .focusBody{padding:14px}
+ .focusPane h3{font-size:27px}
+ .deckLibrary{margin-top:25px}
+ .sourceTrackHeading{padding:11px 12px}
+ .sourceTrackHeading small{flex:1 1 100%}
+ .sourceTrack>.deckCards{grid-template-columns:1fr}
+ .sourceTrack .deckCard{min-height:0}
+}
