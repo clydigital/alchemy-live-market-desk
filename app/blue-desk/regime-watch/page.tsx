@@ -44,7 +44,7 @@ export default async function RegimeWatchPage(){
      <p>Why the market behaves the way it does. Nine competing research lenses, the strongest case against each thesis and the evidence that would change the verdict.</p>
      <nav className={styles.heroActions} aria-label="Regime Watch page sections">
       <a href="#lens-grid">EXPLORE THE NINE LENSES <span aria-hidden="true">↗</span></a>
-      <a href="#source-reasons">TODAY\'S SOURCE REASONS <span aria-hidden="true">↗</span></a>
+      <a href="#source-reasons">TODAY'S SOURCE REASONS <span aria-hidden="true">↗</span></a>
       <a href="#cross-regime-watch">THE CROSS-REGIME TEST <span aria-hidden="true">↗</span></a>
      </nav>
      <small>REVIEWED FUNDAMENTAL RESEARCH / NOT LIVE TRADING SIGNALS</small>
