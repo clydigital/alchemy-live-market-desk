@@ -19,7 +19,7 @@ function curve(value = 4.5): TreasuryNominalCurve {
 test("source-only ledger projects all five dated nominal yields, not intraday invented closes", () => {
   const rows=buildPublishedTreasuryCloseRows(curve(),NOW);
   assert.equal(rows.length,10);
-  assert.deepEqual(IDS.map(id=>rows.findLast(r=>r.tenor_id===id)?.observation_date),IDS.map(()=>"2026-11-09"));
+  assert.deepEqual(IDS.map(id=>rows.filter(r=>r.tenor_id===id).at(-1)?.observation_date),IDS.map(()=>"2026-11-09"));
   assert.equal(rows.filter(r=>r.observation_date==="2026-11-09").length,5);
   assert.equal(rows[1].source_updated_at,"2026-11-10T01:03:51Z");
   assert.equal(rows[1].yield_percent,4.5);
