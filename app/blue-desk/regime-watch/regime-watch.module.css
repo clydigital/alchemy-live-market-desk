@@ -253,7 +253,7 @@
 .card .open{min-height:30px;padding:8px 0 1px;margin-top:auto;font-size:10px;
  background:transparent;border-top:1px solid var(--bb-card-border)}
 /* Prioritise the three most recently editor-reviewed lanes; the whole source ledger is one click away. */
-#source-reasons{margin-top:21px;padding-top:13px}
+.transmission[data-regime-source-reasons="live-source-linked-not-canonical"]{margin-top:21px;padding-top:13px}
 .pulseHeading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
 .pulseHeading>div{min-width:0}
 .pulseHeading h2{font-size:clamp(21px,2.3vw,28px);line-height:1.12;margin:5px 0}
