@@ -38,7 +38,8 @@ test("same source records produce two distinct topic feeds with immutable URLs a
  assert.equal(ai.creators[0].id,"video:abcdefghijk");
  assert.equal(ai.creators[0].reviewedAt,"2026-11-09T06:00:00Z");
  assert.equal(hormuz.x[0].verification,"UNVERIFIED_LEAD");
- assert.match(ai.creators[0].nextCheck,/Nvidia and CoreWeave/);
+ assert.match(ai.creators[0].nextCheck,/issuer filings/);
+ assert.doesNotMatch(JSON.stringify(ai.creators),/Nvidia and CoreWeave cash-flow filings|may outpace free cash flow/);
 });
 
 test("spoofed X URLs, excluded handles, wrong review states and unsafe video URLs cannot appear",()=>{
