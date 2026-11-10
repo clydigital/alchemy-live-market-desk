@@ -35,8 +35,8 @@ export default async function BlueDeskLearnPage() {
         <header className={ui.hero}>
           <div className={ui.heroContent}>
             <p className={ui.eyebrow}>BLUEBELLY / LEARN · THE MARKET REFERENCE</p>
-            <h1>Decode the <em>market.</em><br/>Understand the move.</h1>
-            <p className={ui.heroLead}>Search the idea, inspect the mechanism, then follow original sources when you want the full lesson.</p>
+            <h1>Decode the <em>market.</em></h1>
+            <p className={ui.heroLead}>Search a term. See how it works, why markets care and where to verify.</p>
             <nav className={ui.heroActions} aria-label="Learn page sections">
               <a href="#glossary">SEARCH THE GLOSSARY <span aria-hidden="true">↗</span></a>
               <a href="#resources">BROWSE SOURCES <span aria-hidden="true">↗</span></a>
@@ -54,7 +54,7 @@ export default async function BlueDeskLearnPage() {
             <div>
               <p className={ui.eyebrow}>01 / THE MARKET REFERENCE TERMINAL</p>
               <h2 id="glossary-heading">The language behind the price.</h2>
-              <p>Not sure why yields rise when bond prices fall? Or why good earnings can send a stock lower? Search the mechanism, read a plain-English explanation and check a worked example where available.</p>
+              <p>Find mechanisms, plain-English explanations and worked examples. Select a term to see why it matters.</p>
             </div>
             <div className={ui.glossaryCount} aria-label={concepts.length+" glossary definitions"}><strong>{concepts.length}</strong><span>TERMS / EXPANDED</span></div>
           </div>
