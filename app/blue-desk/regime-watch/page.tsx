@@ -62,7 +62,88 @@ export default async function RegimeWatchPage(){
     <div><span>03 / CROSS-REGIME WATCH</span><strong>01</strong><small>CRASH VERSUS OPPORTUNITY</small></div>
     <p>Every lens is a question, not a trade. Follow the evidence into its original context, then test the counterargument.</p>
    </div>
-   <section id="view-changes" className={styles.viewScan} data-regime-view-scan="stored-stories-and-admitted-original-sources" aria-labelledby="view-scan-title">
+   <div className={styles.heading} id="lens-grid">
+    <div><span className={styles.kicker}>01 / THE NINE RESEARCH FILES</span><h2>Choose the <em>pressure point.</em></h2></div>
+    <span>Fundamental outlook reviewed {LENS_OUTLOOK_REVIEWED_ON} MYT · {theses===null?"Story coverage unavailable":theses.length+" public Story snapshots"} · Viewed <DualTimestamp value={now.toISOString()}/></span>
+   </div>
+   <p className={styles.lensIntro}>Explore a research lens. Each lens has its own outlook and confidence meter. These are reviewed fundamental judgements, not live price signals or automatic changes to canonical Regime state.</p>
+   <div className={styles.cards}>{lenses.map((lens,index)=>
+    <Link key={lens.id} className={styles.card} data-research-lens={lens.id}
+     href={blueDeskPublicHref("/blue-desk/regime-watch/"+lens.id,host)}
+     aria-label={"Explore "+lens.name+" research"}>
+      <div className={styles.art}><EditorialStoryArt headline={lens.name} motif={lens.motif as EditorialMotif} compact/><span className={styles.artSerial} aria-hidden="true">{String(index+1).padStart(2,"0")}</span></div>
+      
+        <div className={styles.content}>
+       <div className={styles.cardHeading}><span className={styles.kicker}>{lens.code} / RESEARCH LENS</span><span className={styles.cardSerial}>FILE {String(index+1).padStart(2,"0")} / 09</span></div>
+       <h3>{lens.name}</h3>
+       <RegimeOutlookMeter assessment={getLensOutlook(lens.id)} size="summary"/>
+       <p className={styles.lensReason}><strong>Why:</strong> {getLensOutlook(lens.id).headline}</p>
+       {getRegimeEditorialUpdate(lens.id)?<span className={styles.editorialUpdate}>30 OCT · POST-DECISION EDITORIAL CHECK</span>:null}
+       <span className={styles.viewState} data-view-scan-state={scans[index].state}>
+        {scans[index].newViews.length?scans[index].newViews.length+" new tracked view(s) to assess":
+         scans[index].updatedRecords.length?scans[index].updatedRecords.length+" existing record(s) updated since review":
+         scans[index].sourceInputs.length?scans[index].sourceInputs.length+" new original-source item(s) to check":
+         scans[index].state==="UNAVAILABLE"||scans[index].state==="PARTIAL"?"Source comparison incomplete":
+         "No newer inputs in bounded scan"}
+       </span>
+       <div className={styles.coverage}>{theses===null?"Story coverage unavailable":lens.stories.length+" associated public Story snapshot"+(lens.stories.length===1?"":"s")}</div>
+       <span className={styles.open}>OPEN RESEARCH / EVIDENCE &amp; TESTS <span aria-hidden="true">↗</span></span>
+      </div>
+    </Link>
+   )}</div>
+   <section id="source-reasons" className={styles.transmission} data-regime-source-reasons="live-source-linked-not-canonical">
+    <div className={styles.pulseHeading}>
+     <div><span className={styles.kicker}>LIVE RESEARCH / X WIRE + REVIEWED TRANSCRIPTS</span>
+      <h2>What is making us check these views again?</h2>
+      <p>Latest source-linked reasons and dated research. These trigger checks, not automatic changes to the reviewed outlook.</p>
+     </div>
+     <span className={styles.pulseStatus}>{topicReasons.filter(item=>item.x.length+item.creators.length>0||getManualSweeps(item.topic,now,1).length>0).length} / 09 ACTIVE LENSES</span>
+    </div>
+    <div className={styles.pulsePreview} data-regime-pulse-preview="three-sourced-highlights">
+     {topicReasons.filter(item=>getManualSweeps(item.topic,now,1).length>0).slice(0,3).map(item=>{
+      const sweep=getManualSweeps(item.topic,now,1)[0];
+      const name=EDITORIAL_REGIME_LENSES.find(lens=>lens.id===item.topic)?.name||item.topic;
+      return <Link key={item.topic} className={styles.pulseHighlight}
+       href={blueDeskPublicHref("/blue-desk/regime-watch/"+item.topic,host)+"#influence-"+item.topic}>
+       <span>{name} · {sweep.date} MANUAL SWEEP</span>
+       <strong>{sweep.title}</strong>
+       <small>{sweep.findings.length} dated source findings · Open evidence ↗</small>
+      </Link>;
+     })}
+    </div>
+    <details className={styles.pulseAll} data-regime-pulse-all="progressive-disclosure">
+     <summary>Browse all research reasons <span>Live X Wire, creator reviews and dated manual sweeps ↗</span></summary>
+    <div className={styles.pathGrid}>{topicReasons.filter(item=>item.x.length+item.creators.length>0||getManualSweeps(item.topic,now,1).length>0).map(item=>{
+     const leads=[...item.x,...item.creators].sort((a,b)=>b.publishedAt.localeCompare(a.publishedAt));
+     const name=EDITORIAL_REGIME_LENSES.find(lens=>lens.id===item.topic)?.name||item.topic;
+     const sweep=getManualSweeps(item.topic,now,1)[0];
+     return <Link key={item.topic} className={styles.path} href={blueDeskPublicHref("/blue-desk/regime-watch/"+item.topic,host)+"#influence-"+item.topic}>
+      <span>{name} · {sweep?sweep.date+" MANUAL SWEEP FINDINGS":leads.length+" live source reasons"}</span>
+      <strong>{sweep?.findings[0]?.reason||leads[0]?.reason||"Review the newest source-linked research"}</strong>
+      <small>{sweep?"Read original-source manual findings + "+leads.length+" current X / video leads":"Most recent source "+leads[0]?.publishedAt.slice(0,10)} →</small>
+     </Link>;
+    })}</div>
+
+    </details>
+    {!topicReasons.some(item=>item.x.length+item.creators.length||getManualSweeps(item.topic,now,1).length)?
+     <p>No matching recent reasons in this bounded source window. Missing leads are not proof that a thesis is unchanged.</p>:null}
+   </section>
+   <section id="cross-regime-watch" className={styles.crashFeatured} aria-labelledby="crash-opportunity-featured" data-crash-watch-entry="own-research-watch">
+    <div>
+      <span className={styles.kicker}>FEATURED / CROSS-REGIME WATCH</span>
+      <h2 id="crash-opportunity-featured">CRASH <em>VS</em> OPPORTUNITY</h2>
+      <p>When the index hides a stealth bear market, is that the warning before a wider collapse—or the setup for a broad recovery? Compare the Kobeissi and Burry cases, sourced breadth/credit signals and seven historical market scares.</p>
+      <span className={styles.crashNote}>Provisional research: contested · bull and bear evidence reviewed independently · no crash probability claimed</span>
+    </div>
+    <Link className={styles.crashFeaturedLink} href={blueDeskPublicHref("/blue-desk/crash-opportunity",host)}>OPEN THE TWO-SIDED INVESTIGATION <span aria-hidden="true">↗</span></Link>
+   </section>
+
+   <details id="view-changes" className={styles.viewScan} data-regime-view-scan="stored-stories-and-admitted-original-sources" aria-labelledby="view-scan-title">
+    <summary className={styles.reviewSummary}>
+     <span className={styles.kicker}>REVIEW QUEUE / EVIDENCE CHANGES</span>
+     <strong>What has changed since the last review?</strong>
+     <small>{changes.newViewLenses} new-view lenses · {changes.revisedRecordLenses} updated-record lenses · {changes.sourceInputLenses} new-source lenses · Expand details</small>
+    </summary>
     <div className={styles.viewScanHead}>
      <div><span className={styles.kicker}>AUTOMATED REVIEW QUEUE / EXISTING + EMERGING VIEWS</span>
       <h2 id="view-scan-title">What has changed since the last review?</h2>
@@ -87,63 +168,14 @@ export default async function RegimeWatchPage(){
       <p>No newer qualifying inputs were found in this bounded scan. This does not mean all nine market theses are unchanged.</p>:null}
     </div>
     <small>Existing Story memory and a bounded 48-hour sample of tier-1/2 original observations only. Creator/X opinions remain research leads until independently verified and admitted. No separate polling or research job.</small>
-   </section>
-   <section id="source-reasons" className={styles.transmission} data-regime-source-reasons="live-source-linked-not-canonical">
-    <span className={styles.kicker}>LIVE X WIRE + REVIEWED TRANSCRIPTS / REASONS ON WATCH</span>
-    <h2>What is making us check these views again?</h2>
-    <p>Automatically refreshed from existing source receipts. A post or reviewed transcript raises a question—it does not change the fundamental outlook until verified evidence supports it. Open a lens to inspect the exact original links and dates.</p>
-    <div className={styles.pathGrid}>{topicReasons.filter(item=>item.x.length+item.creators.length>0||getManualSweeps(item.topic,now,1).length>0).map(item=>{
-     const leads=[...item.x,...item.creators].sort((a,b)=>b.publishedAt.localeCompare(a.publishedAt));
-     const name=EDITORIAL_REGIME_LENSES.find(lens=>lens.id===item.topic)?.name||item.topic;
-     const sweep=getManualSweeps(item.topic,now,1)[0];
-     return <Link key={item.topic} className={styles.path} href={blueDeskPublicHref("/blue-desk/regime-watch/"+item.topic,host)+"#influence-"+item.topic}>
-      <span>{name} · {sweep?sweep.date+" MANUAL SWEEP FINDINGS":leads.length+" live source reasons"}</span>
-      <strong>{sweep?.findings[0]?.reason||leads[0]?.reason||"Review the newest source-linked research"}</strong>
-      <small>{sweep?"Read original-source manual findings + "+leads.length+" current X / video leads":"Most recent source "+leads[0]?.publishedAt.slice(0,10)} →</small>
-     </Link>;
-    })}</div>
-    {!topicReasons.some(item=>item.x.length+item.creators.length)?<p>No current matched research leads in this bounded source window; source availability is not proof that the view is unchanged.</p>:null}
-   </section>
-   <section id="cross-regime-watch" className={styles.crashFeatured} aria-labelledby="crash-opportunity-featured" data-crash-watch-entry="own-research-watch">
-    <div>
-      <span className={styles.kicker}>FEATURED / CROSS-REGIME WATCH</span>
-      <h2 id="crash-opportunity-featured">CRASH <em>VS</em> OPPORTUNITY</h2>
-      <p>When the index hides a stealth bear market, is that the warning before a wider collapse—or the setup for a broad recovery? Compare the Kobeissi and Burry cases, sourced breadth/credit signals and seven historical market scares.</p>
-      <span className={styles.crashNote}>Provisional research: contested · bull and bear evidence reviewed independently · no crash probability claimed</span>
-    </div>
-    <Link className={styles.crashFeaturedLink} href={blueDeskPublicHref("/blue-desk/crash-opportunity",host)}>OPEN THE TWO-SIDED INVESTIGATION <span aria-hidden="true">↗</span></Link>
-   </section>
-
-   <div className={styles.heading} id="lens-grid">
-    <div><span className={styles.kicker}>01 / THE NINE RESEARCH FILES</span><h2>Choose the <em>pressure point.</em></h2></div>
-    <span>Fundamental outlook reviewed {LENS_OUTLOOK_REVIEWED_ON} MYT · {theses===null?"Story coverage unavailable":theses.length+" public Story snapshots"} · Viewed <DualTimestamp value={now.toISOString()}/></span>
-   </div>
-   <p className={styles.lensIntro}>Explore a research lens. Each lens has its own outlook and confidence meter. These are reviewed fundamental judgements, not live price signals or automatic changes to canonical Regime state.</p>
-   <div className={styles.cards}>{lenses.map((lens,index)=>
-    <Link key={lens.id} className={styles.card} data-research-lens={lens.id}
-     href={blueDeskPublicHref("/blue-desk/regime-watch/"+lens.id,host)}
-     aria-label={"Explore "+lens.name+" research"}>
-      <div className={styles.art}><EditorialStoryArt headline={lens.name} motif={lens.motif as EditorialMotif} compact/><span className={styles.artSerial} aria-hidden="true">{String(index+1).padStart(2,"0")}</span></div>
-      
-        <CurrentMarketUpdates host={host} mode="compact"/><div className={styles.content}>
-       <div className={styles.cardHeading}><span className={styles.kicker}>{lens.code} / RESEARCH LENS</span><span className={styles.cardSerial}>FILE {String(index+1).padStart(2,"0")} / 09</span></div>
-       <h3>{lens.name}</h3>
-       <RegimeOutlookMeter assessment={getLensOutlook(lens.id)}/>
-       <p className={styles.lensReason}><strong>Why:</strong> {getLensOutlook(lens.id).headline}</p>
-       {getRegimeEditorialUpdate(lens.id)?<span className={styles.editorialUpdate}>30 OCT · POST-DECISION EDITORIAL CHECK</span>:null}
-       <span className={styles.viewState} data-view-scan-state={scans[index].state}>
-        {scans[index].newViews.length?scans[index].newViews.length+" new tracked view(s) to assess":
-         scans[index].updatedRecords.length?scans[index].updatedRecords.length+" existing record(s) updated since review":
-         scans[index].sourceInputs.length?scans[index].sourceInputs.length+" new original-source item(s) to check":
-         scans[index].state==="UNAVAILABLE"||scans[index].state==="PARTIAL"?"Source comparison incomplete":
-         "No newer inputs in bounded scan"}
-       </span>
-       <p>{lens.question}</p>
-       <div className={styles.coverage}>{theses===null?"Story coverage unavailable":lens.stories.length+" associated public Story snapshot"+(lens.stories.length===1?"":"s")}</div>
-       <span className={styles.open}>OPEN RESEARCH / EVIDENCE &amp; TESTS <span aria-hidden="true">↗</span></span>
-      </div>
-    </Link>
-   )}</div>
+   </details>
+   <details id="deep-research" className={styles.deepShelf} data-regime-deeper-files="collapsed-by-default">
+    <summary><span className={styles.kicker}>DEEP RESEARCH / OPTIONAL READING</span>
+     <strong>Issuer investigations &amp; transmission pathways</strong>
+     <small>4 Nov dated desk editorial · CoreWeave · Tesla / SpaceX · Cross-regime pathways</small>
+    </summary>
+    <div className={styles.deepShelfBody}>
+     <CurrentMarketUpdates host={host} mode="compact"/>
    <section className={styles.transmission} aria-labelledby="coreweave-ai-financing">
     <h2 id="coreweave-ai-financing">AI infrastructure: the CoreWeave financing test</h2>
     <p>CoreWeave's June 2026 financials and Q2 institutional ownership disclosures raise questions about how contracted AI compute becomes debt-serviceable cash. Reported share sales and credit-market stress need dated, original-source verification; this is an issuer research warning, not a newly accepted AI-wide Regime verdict.</p>
@@ -176,6 +208,8 @@ export default async function RegimeWatchPage(){
       <span>{label}</span><strong>{copy}</strong><small>Explore lens →</small>
     </Link>)}</div>
    </section>
+    </div>
+   </details>
   </div>
  </main>;
 }

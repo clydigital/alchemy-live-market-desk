@@ -43,6 +43,7 @@ test("Regime Watch directory links to full research pages rather than expanding 
  assert.match(directory,/data-research-lens/);
  assert.match(directory,/href=\{blueDeskPublicHref\("\/blue-desk\/regime-watch\/"\+lens\.id,host\)\}/);
  assert.match(directory,/RegimeOutlookMeter/);
+ assert.match(directory,/size="summary"/);
  assert.match(directory,/getLensOutlook\(lens\.id\)/);
  assert.doesNotMatch(directory,/data-fundamental-quick-view/);
  assert.doesNotMatch(directory,/onClick=\\{.*lens\\.id/);
