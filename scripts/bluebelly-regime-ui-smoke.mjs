@@ -222,7 +222,11 @@ try{
     "Browse complete historical Story library");
    if(!view.html.includes("No approved public thesis snapshot"))
     assertHtml(view.html,"Evidence and counterargument",
-      "Read full thesis and source context");
+      "Read full thesis and source context",
+      'data-key-stories-reading="three-leading-then-expand"',
+      'data-key-stories-leading="recorded-research-not-news"');
+   if(view.html.includes('data-key-stories-more="collapsed-by-default"'))
+    assertHtml(view.html,"MORE TRACKED QUESTIONS","Same dated research records");
   }
   if(id==="calendar"||id==="research"){
    if(id==="calendar")assertHtml(view.html,
