@@ -78,17 +78,31 @@ export function parseFxTimeline(json: unknown, handle: string, startAt: string, 
 
 /** Use the earliest recoverable source gap as the next lookback anchor.
  * Older historical gaps remain visible, but cannot monopolise fresh source checks. */
-export function xWireRecoveryAnchor(nowIso:string, lastCompleteAt:string|null, uncoveredBefore:string|null, recoveryHours=72):string|null {
+export function xWireRecoveryAnchor(nowIso:string, lastCompleteAt:string|null,
+ uncoveredBefore:string|null, recoveryHours=72, lastObservedAt:string|null=null):string|null {
  const now=Date.parse(nowIso), gap=uncoveredBefore?Date.parse(uncoveredBefore):NaN;
- if(!Number.isFinite(now)||!Number.isFinite(gap)||gap>now||
-   now-gap>recoveryHours*3_600_000)return lastCompleteAt;
+ if(!Number.isFinite(now)||!Number.isFinite(gap)||gap>now)return lastCompleteAt;
+ const cap=recoveryHours*3_600_000;
+ if(now-gap>cap){
+  // Historical gaps older than the provider's recovery window cannot be
+  // repaired by repeatedly rewinding a high-volume source for 72h. When its
+  // last *completed* checkpoint is also stale, start the fresh overlap from a
+  // previously validated observation instead. The old gap stays marked PARTIAL.
+  const last=lastCompleteAt?Date.parse(lastCompleteAt):NaN;
+  const seen=lastObservedAt?Date.parse(lastObservedAt):NaN;
+  if((!Number.isFinite(last)||now-last>cap) &&
+    Number.isFinite(seen)&&seen<=now&&now-seen<=cap)
+    return new Date(seen).toISOString();
+  return lastCompleteAt;
+ }
  const last=lastCompleteAt?Date.parse(lastCompleteAt):NaN;
  return !Number.isFinite(last)||gap<last?new Date(gap).toISOString():lastCompleteAt;
 }
 
 /** Resuming never advances a full-coverage checkpoint until the cursor is exhausted. */
 export function xWireRequestWindow(nowIso:string, lastCompleteAt:string|null,
-  cursor:string|null, startAt:string|null, lookbackHours=2.5, overlapMinutes=30, recoveryHours=72) {
+  cursor:string|null, startAt:string|null, lookbackHours=2.5, overlapMinutes=30, recoveryHours=72):
+  {startAt:string;cursor:string|null;resumed:boolean;gap:boolean} {
   const now=Date.parse(nowIso);
   if(!Number.isFinite(now))throw new Error("Invalid now");
   if(cursor && startAt && Number.isFinite(Date.parse(startAt))) {
@@ -96,9 +110,12 @@ export function xWireRequestWindow(nowIso:string, lastCompleteAt:string|null,
     if(age>=0 && age<=recoveryHours)return {
       startAt:new Date(startAt).toISOString(),cursor,resumed:true,gap:false,
     };
-    // An expired provider cursor cannot silently defeat the 72h recovery cap.
-    return {startAt:new Date(now-recoveryHours*3_600_000).toISOString(),
-      cursor:null,resumed:false,gap:true};
+    // Resume tokens expire. Restart from the selected fresh observation anchor
+    // (when it exists), rather than always rescanning 72 hours of old posts.
+    // Preserve the gap flag: token expiry is not proof of historical coverage.
+    const restarted=xWireRequestWindow(nowIso,lastCompleteAt,null,null,
+      lookbackHours,overlapMinutes,recoveryHours);
+    return {...restarted,cursor:null,resumed:false,gap:true};
   }
   const elapsed = lastCompleteAt ? (now-Date.parse(lastCompleteAt))/3_600_000 : lookbackHours;
   if(!Number.isFinite(elapsed)||elapsed < 0)throw new Error("Invalid last complete");
