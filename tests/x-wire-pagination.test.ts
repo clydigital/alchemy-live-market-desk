@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { parseFxTimeline, xWireRequestWindow, xWireRecoveryAnchor } from "../lib/x-wire-pagination.ts";
+import { X_WIRE_PROVIDER_PAGE_SIZE, parseFxTimeline, xWireRequestWindow, xWireRecoveryAnchor } from "../lib/x-wire-pagination.ts";
 import { blueDeskHostAccess } from "../lib/blue-desk-host.ts";
 
 const now="2026-10-23T06:00:00.000Z";
@@ -189,8 +189,9 @@ test("later-page provider failure preserves partial X data and continuation curs
  const code=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
  assert.match(code,/const hadPartialData=fetched>0/);
  assert.match(code,/health:invalidCursor\|\|hadPartialData\?"partial"/);
- assert.match(code,/page_cursor:invalidCursor\?null:hadPartialData\?cursor:claim\.resume_cursor/);
- assert.match(code,/window_start_at:invalidCursor\?null:hadPartialData\?window\.startAt:claim\.resume_start_at/);
+ assert.match(code,/page_cursor:invalidCursor\?null:hadPartialData\?cursor:window\.cursor/);
+ assert.doesNotMatch(code,/page_cursor:invalidCursor\?null:hadPartialData\?cursor:claim\.resume_cursor/);
+ assert.match(code,/window_start_at:invalidCursor\?null:hadPartialData\?window\.startAt:/);
  assert.match(code,/next_attempt_at:plus\(now,invalidCursor\|\|hadPartialData\|\|recentlyActive404\?5:30\)/);
 });
 
@@ -206,4 +207,30 @@ test("transient continuation 404 receives one same-cursor budgeted retry before 
  // A repeated 404 still falls through to the retained historical gap path.
  assert.match(code,/uncovered_before:missingBefore\|\|window\.startAt/);
  assert.match(code,/health:"partial",last_error:"HTTP 404 on continuation/);
+});
+
+test("documented 100-status FxEmbed page is accepted, oversized 101-status page is rejected",()=>{
+ const results=Array.from({length:X_WIRE_PROVIDER_PAGE_SIZE},(_,i)=>
+  sample({id:"211317772374942"+String(1000+i)}));
+ const page=parseFxTimeline({code:200,results,cursor:{bottom:"provider-next"}},
+  "HFI_Research","2026-10-23T03:30:00Z",now);
+ assert.equal(page.total,100);
+ assert.equal(page.posts.length,100);
+ assert.equal(page.reachedWindowStart,false);
+ assert.throws(()=>parseFxTimeline({code:200,results:[...results,results[0]]},
+  "HFI_Research","2026-10-23T03:30:00Z",now),/Unexpected X provider page/);
+ const durable=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
+ assert.match(durable,/const PAGE_SIZE = X_WIRE_PROVIDER_PAGE_SIZE/);
+});
+
+test("an expired saved continuation cannot be reinstated after first-page provider failure",()=>{
+ const expired=xWireRequestWindow(now,"2026-10-18T06:00:00Z",
+  "stale-provider-token","2026-10-19T00:00:00Z");
+ assert.equal(expired.resumed,false);
+ assert.equal(expired.cursor,null);
+ assert.equal(expired.gap,true);
+ const durable=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
+ assert.match(durable,/page_cursor:invalidCursor\?null:hadPartialData\?cursor:window\.cursor/);
+ assert.match(durable,/window\.cursor\?window\.startAt:null/);
+ assert.doesNotMatch(durable,/hadPartialData\?cursor:claim\.resume_cursor/);
 });

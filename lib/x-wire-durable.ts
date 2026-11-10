@@ -1,13 +1,13 @@
 import "server-only";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
 import { X_CORE_ROSTER, X_SWEEP_DEFAULTS, isExcludedXWireHandle, normaliseXPostUrl, xSourceHealth, type XAccountAttempt } from "./x-sweep-core.ts";
-import { parseFxTimeline, xWireRequestWindow, xWireRecoveryAnchor } from "./x-wire-pagination.ts";
+import { X_WIRE_PROVIDER_PAGE_SIZE, parseFxTimeline, xWireRequestWindow, xWireRecoveryAnchor } from "./x-wire-pagination.ts";
 import type { XWirePost } from "./x-wire-provider.ts";
 
 const ORIGIN = "https://api.fxtwitter.com";
 const PAGE_LIMIT = 6; // high-output accounts may need several 20-post provider pages
 const MAX_SCAN_MS = 18_000; // 5 concurrent accounts, at most two bounded waves per SSR invocation
-const PAGE_SIZE = 50;
+const PAGE_SIZE = X_WIRE_PROVIDER_PAGE_SIZE;
 const CONCURRENT_ACCOUNTS = 5;
 // Existing morning/evening acquisition is 12h apart; older completions are stale.
 const HEALTH_COMPLETION_MAX_AGE_HOURS = 15;
@@ -194,8 +194,12 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
         health:invalidCursor||hadPartialData?"partial":
           message.startsWith("HTTP 429")||message.startsWith("HTTP 403")?"blocked":"unavailable",
         last_error:message,
-        page_cursor:invalidCursor?null:hadPartialData?cursor:claim.resume_cursor,
-        window_start_at:invalidCursor?null:hadPartialData?window.startAt:claim.resume_start_at,
+        // Use the *validated* request window, not the raw claimed cursor. An
+        // expired (>72h) token was intentionally discarded by xWireRequestWindow;
+        // restoring claim.resume_cursor here would re-poison the next retry.
+        page_cursor:invalidCursor?null:hadPartialData?cursor:window.cursor,
+        window_start_at:invalidCursor?null:hadPartialData?window.startAt:
+          window.cursor?window.startAt:null,
         next_attempt_at:plus(now,invalidCursor||hadPartialData||recentlyActive404?5:30),last_fetched:fetched});
     } catch{ /* Preserve the original lease and unfinished cursor; never pretend success */ }
   }
