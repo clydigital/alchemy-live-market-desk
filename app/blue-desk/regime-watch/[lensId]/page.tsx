@@ -15,6 +15,8 @@ import {getMarketMonitor} from "@/lib/market-monitor-public";
 import {getLensOutlook} from "@/lib/bluebelly-regime-lens-outlook";
 import {getRegimeEditorialUpdate} from "@/lib/bluebelly-regime-verified-crossasset";
 import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
+import TopicInfluencePanel from "@/components/blue-desk/TopicInfluencePanel";
+import {getTopicInfluence} from "@/lib/bluebelly-topic-influence-server";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import type {EditorialMotif} from "@/lib/bluebelly-editorial-visuals";
 import desk from "../../blue-desk.module.css";
@@ -38,10 +40,11 @@ export default async function ResearchLensPage({params}:Props){
  const definition=EDITORIAL_REGIME_LENSES.find(item=>item.id===lensId);
  if(!definition)notFound();
  const now=new Date(),host=(await headers()).get("host");
- const [publicTheses,sourceObservations,marketMonitor]=await Promise.all([
+ const [publicTheses,sourceObservations,marketMonitor,influence]=await Promise.all([
   getPublicThesisLedger(now,38).catch(()=>null),
   getPublicSourceObservations(now,24).catch(()=>null),
   getMarketMonitor().catch(()=>null),
+  lensId==="ai"?getTopicInfluence("ai",now).catch(()=>null):Promise.resolve(null),
  ]);
  const lens=groupPublicResearch(publicTheses||[]).find(item=>item.id===lensId)!;
  const lensNumber=String(EDITORIAL_REGIME_LENSES.findIndex(item=>item.id===lensId)+1).padStart(2,"0");
@@ -173,6 +176,7 @@ export default async function ResearchLensPage({params}:Props){
      <p>No qualifying new inputs found in this bounded scan. The latest full research review may still identify changes beyond this public 48-hour source window.</p>:null}
     <p className={styles.changeFoot}>This page reuses existing Story memory and source-ingestion results; it does not poll creators, trigger another model run, or issue a new fundamental verdict.</p>
    </section>
+   {influence?<TopicInfluencePanel input={influence}/>:null}
    <nav className={styles.pageNav} aria-label="Sections in this research lens">
     <a href="#view-scan">Changes since review</a>
     <a href="#lens-outlook">Outlook &amp; confidence</a>
