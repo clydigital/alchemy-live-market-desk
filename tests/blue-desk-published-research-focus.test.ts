@@ -64,7 +64,9 @@ test("each public page has dynamic reviewed research, not an automatic SOURCE_VE
  for(const file of ["app/blue-desk/page.tsx","app/blue-desk/newsroom/page.tsx",
   "app/blue-desk/markets/page.tsx","app/blue-desk/hormuz/page.tsx"]){
   const source=read(file);
-  assert.match(source,file.endsWith("/newsroom/page.tsx")?/researchItems=/:/PublishedResearchDispatches/);
+  assert.match(source,file.endsWith("/newsroom/page.tsx")?/researchItems=/:
+    file.endsWith("/hormuz/page.tsx")?/HormuzSituationBrief newsroomHref=/:
+    /PublishedResearchDispatches/);
   assert.match(source,/projectPublishedResearchFocus/);
  }
  const wire=read("components/blue-desk/BluebellyNewsWire.tsx");

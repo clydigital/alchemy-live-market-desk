@@ -46,8 +46,8 @@ test("public Newsroom and three Key Story examples lead with a brief and retain 
  assert.match(midterms,/data-quick-market-brief="frozen-source-reviewed"/);
  assert.match(midterms,/does not guarantee a stock-market rally/);
  assert.match(midterms,/historical return figures describe specified samples/i);
- const hormuz=read("components/blue-desk/HormuzMediationFeature.tsx");
- assert.match(hormuz,/data-quick-market-brief="source-reviewed-conditional"/);
- assert.match(hormuz,/proposed reopening is not a completed agreement/);
- assert.match(hormuz,/SOURCE\.reuters/);
+ const hormuz=read("components/blue-desk/HormuzSituationBrief.tsx");
+ assert.match(hormuz,/data-hormuz-situation="source-dated-quick-read"/);
+ assert.match(hormuz,/Negotiations and conflict developments first/i);
+ assert.match(hormuz,/Unverified public posts/);
 });

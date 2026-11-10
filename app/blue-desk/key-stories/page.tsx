@@ -3,8 +3,8 @@ import LeanWatch from "@/components/blue-desk/LeanWatch";
 import NovemberDeskStory from "@/components/blue-desk/NovemberDeskStory";
 import Oct30TechSelloffFeature from "@/components/blue-desk/Oct30TechSelloffFeature";
 import MidtermRallyFeature from "@/components/blue-desk/MidtermRallyFeature";
-import HormuzMediationFeature from "@/components/blue-desk/HormuzMediationFeature";
 import Link from "next/link";
+import {redirect} from "next/navigation";
 import ReaderPagination from "@/components/blue-desk/ReaderPagination";
 import {paginateReaderItems} from "@/lib/bluebelly-reader-pagination";
 import { headers } from "next/headers";
@@ -118,13 +118,9 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     <NovemberDeskStory host={host}/>
    </div>
   </main>;
-  if(params?.feature==="hormuz-mediation-november-2026")return <main className={desk.page} data-key-story="hormuz-mediation-source-reviewed">
-    <BlueDeskHeader activePath="/blue-desk/key-stories"/>
-    <div className={desk.content}>
-      <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link>
-      <HormuzMediationFeature mode="full" />
-    </div>
-  </main>;
+  // Preserve old bookmarks without continuing to feature an obsolete proposal.
+  if(params?.feature==="hormuz-mediation-november-2026")
+    redirect(blueDeskPublicHref("/blue-desk/hormuz",host));
   const editorialKind=params?.feature==="amazon-cash-test-october-2026"?"amazon":params?.feature==="fomc-october-2026"?"fomc":null;
   if(editorialKind)return <main className={desk.page}><BlueDeskHeader activePath="/blue-desk/key-stories"/><div className={desk.content}><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link><AmazonFomcFeatures kind={editorialKind}/></div></main>;
   // This known public October FOMC edition has a separately reviewed source
