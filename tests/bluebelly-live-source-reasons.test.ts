@@ -71,6 +71,8 @@ test("manual ledger and page readers are source-linked, require a merge, and nev
  assert.match(panel,/reasonRow/);
  assert.match(overview,/data-regime-source-reasons="live-source-linked-not-canonical"/);
  assert.match(overview,/getTopicInfluences/);
+ assert.match(overview,/getManualSweeps\(item\.topic,now,1\)/);
+ assert.match(overview,/MANUAL SWEEP FINDINGS/);
  assert.match(lens,/getTopicInfluence\(lensId as InfluenceTopic,now\)/);
  assert.match(source,/from\("x_wire_posts"\)/);
  assert.match(source,/from\("research_intake_items"\)/);
