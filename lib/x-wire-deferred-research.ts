@@ -15,7 +15,10 @@ export async function getDeferredXWireResearchPosts(now=new Date()):Promise<XWir
    db.from("x_wire_posts")
     .select("post_id,handle,original_url,published_at,body,media_urls,quote_url")
     .eq("intake_status","deferred").gte("published_at",oldest)
-    .order("published_at",{ascending:false}).limit(250),
+    // 9 Nov live audit found 327 deferred items in seven days; the former
+    // 250-row head window omitted 70 unhanded leads before any ranking.
+    // Keep one bounded indexed lookup, without adding a polling cycle.
+    .order("published_at",{ascending:false}).limit(500),
    db.from("research_intake_items").select("url")
     .ilike("publisher","X/@%").order("created_at",{ascending:false}).limit(1000),
   ]);

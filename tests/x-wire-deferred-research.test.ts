@@ -40,6 +40,8 @@ test("existing schedule reserves 9 fresh plus 3 deferred; persisted X URLs are e
  assert.match(sched,/attachXWireResearchLeads\(originalFilings,wire,now,9\)/);
  assert.match(sched,/now,3,\{allowDeferred:true,maxAgeHours:168\}/);
  assert.match(reader,/\.eq\("intake_status","deferred"\)/);
+ assert.match(reader,/\.order\("published_at",\{ascending:false\}\)\.limit\(500\)/);
+ assert.doesNotMatch(reader,/\.order\("published_at",\{ascending:false\}\)\.limit\(250\)/);
  assert.match(reader,/\.ilike\("publisher","X\/@%"\)/);
  assert.match(reader,/!prior\.has\(p\.original_url\)/);
  assert.doesNotMatch(reader,/\.update\(|\.upsert\(|\.rpc\(|story_thesis_versions/);
