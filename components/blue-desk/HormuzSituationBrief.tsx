@@ -34,7 +34,7 @@ export default function HormuzSituationBrief({
     <div className={s.heading}>
       <div><p className={s.eyebrow}>IRAN CONFLICT / DIPLOMACY / PHYSICAL EVIDENCE</p>
         <h2>Hormuz situation — quick read</h2>
-        <p className={s.intro}>Negotiations and conflict developments first. Shipping flows and X Wire are supporting signals, not proof that a deal has been reached.</p></div>
+        <p className={s.intro}>What is reported, what ships are doing, and what is still unverified.</p></div>
       <Link href={newsroomHref+"?q=hormuz"}>More verified news and research →</Link>
     </div>
     <div className={s.columns}>
