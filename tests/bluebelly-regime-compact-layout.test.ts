@@ -17,7 +17,9 @@ test("the nine differentiated outlooks are the first content after the introduct
  assert.match(page,/data-research-lens=\{lens.id\}/);
  assert.match(page,/RegimeOutlookMeter assessment=\{getLensOutlook\(lens.id\)\} size="summary"/);
  assert.match(page,/getLensOutlook\(lens.id\).headline/);
- assert.doesNotMatch(page,/CurrentMarketUpdates/);
+ assert.equal((page.match(/<CurrentMarketUpdates host=\{host\} mode="compact"\/>/g)||[]).length,1);
+ assert.ok(page.indexOf("<CurrentMarketUpdates host=")>page.indexOf('id="deep-research"'));
+ assert.ok(page.indexOf("<CurrentMarketUpdates host=")>page.indexOf('data-research-lens={lens.id}'));
  assert.doesNotMatch(page,/\<p\>\{lens.question\}\<\/p\>/);
 });
 
