@@ -8,6 +8,9 @@ const text = (x: unknown, n = 2000) => typeof x === "string" ? x.trim().slice(0,
 // FxEmbed occasionally reverses neighbouring statuses by seconds. A large
 // inversion still invalidates the proof that our requested window was covered.
 const TIMELINE_ORDER_JITTER_MS = 60_000;
+// FxEmbed documents up to 100 statuses per timeline page. A larger bounded
+// head reduces continuation calls and the chance of an ambiguous cursor 404.
+export const X_WIRE_PROVIDER_PAGE_SIZE = 100;
 function published(x: Rec) {
   const t = Date.parse(text(x.created_at, 100));
   if (Number.isFinite(t)) return new Date(t).toISOString();
@@ -26,7 +29,7 @@ export type FxPage = {
 export function parseFxTimeline(json: unknown, handle: string, startAt: string, nowIso: string): FxPage {
   if (isExcludedXWireHandle(handle)) throw new Error("X Wire source explicitly excluded");
   const data = rec(json);
-  if (data.code !== 200 || !Array.isArray(data.results) || data.results.length > 50)
+  if (data.code !== 200 || !Array.isArray(data.results) || data.results.length > X_WIRE_PROVIDER_PAGE_SIZE)
     throw new Error("Unexpected X provider page");
   const oldestAt = data.results.reduce<string | null>((min, value) => {
     const date = published(rec(value)); return !date ? min : !min || date < min ? date : min;
