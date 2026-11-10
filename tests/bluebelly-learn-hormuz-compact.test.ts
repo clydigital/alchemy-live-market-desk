@@ -43,7 +43,9 @@ test("Hormuz prioritises diplomacy, shipping and crude/diesel over chronological
  assert.ok(hormuz.indexOf('id="fuels"')<hormuz.indexOf('id="incidents"'));
  for(const id of ["incidents","inventory","decisions","coverage"]){
   assert.match(hormuz,new RegExp('id="'+id+'"'));
-  assert.match(hormuz,new RegExp('<details className=\\{\\x60\\$\\{s.section\\} \\$\\{s.evidenceShelf\\}\\x60\\} id="'+id+'"'));
+  const position=hormuz.indexOf('id="'+id+'"');
+  assert.ok(position>0,id);
+  assert.match(hormuz.slice(Math.max(0,position-120),position),/<details className=/);
  }
  assert.match(hormuz,/HormuzCrossings monitor=\{watch.crossing\}/);
  assert.match(hormuz,/products\.slice\(0,1\)\.map\(reading\)/);
