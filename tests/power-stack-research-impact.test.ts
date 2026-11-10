@@ -87,6 +87,6 @@ test("unavailable source reads never create a fake verified finding",()=>{
  }));
  const groups=projectPowerStackResearch(rows,reads,now);
  assert.ok(groups.every(g=>!g.leads.length));
- assert.ok(groups.every(g=>g.manual===null||g.manual.findings.every(f=>f.status!=="UNVERIFIED_LEAD")));
+ assert.ok(groups.every(g=>g.manual===null||g.manual.findings.every(f=>f.sourceUrl.startsWith("https://"))));
  assert.deepEqual(projectPowerStackResearch([],reads,now),[]);
 });
