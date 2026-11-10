@@ -312,9 +312,15 @@ try{
    console.log("Public catalogue 200 · USDMYR identity-only and responsive reader present");
    marketsSnapshotHtml=defaultMarketsSnapshot;
   }
+  if(id==="hormuz"){
+   assertHtml(view.html,'data-hormuz-situation="source-dated-quick-read"',
+    'data-hormuz-source-detail="collapsed-by-default"',
+    'data-hormuz-fuel-proxies="collapsed"','id="shipping"','id="incidents"',
+    'id="inventory"','id="coverage"');
+  }
   if(id!=="markets")
    await renderChrome("http://127.0.0.1:"+PUBLIC+path,id+"-mobile.png",390,844,{disableJavascript:id==="key-stories"||id==="market-home"});
-  if(id==="newsroom"||id==="key-stories"||id==="market-home")
+  if(id==="newsroom"||id==="key-stories"||id==="market-home"||id==="hormuz")
    await renderChrome("http://127.0.0.1:"+PUBLIC+path,id+"-desktop.png",1440,1000,{disableJavascript:id==="key-stories"||id==="market-home"});
   // 1024px is the breakpoint most likely to expose doubled navigation or
   // overflow from the collapsed icon rail. Keep third-party embeds disabled.
@@ -362,6 +368,10 @@ try{
   if(!page.html.includes("BLUEBELLY")&&!page.html.includes("Bluebelly"))
    throw Error("Unexpected Learn response "+path);
   await renderChrome("http://127.0.0.1:"+PUBLIC+path,name+"-mobile.png",390,844);
+  if(name==="learn-index"){
+   assertHtml(page.html,'id="glossary"','id="resources"','data-glossary-mode="field-manual"');
+   await renderChrome("http://127.0.0.1:"+PUBLIC+path,"learn-index-desktop.png",1440,1000);
+  }
   console.log("Learn readability "+path+" rendered at 390px");
  }
  // Real browser event acceptance for the shared command halo: this must run
