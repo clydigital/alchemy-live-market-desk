@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type {PublicResearchFocus} from "@/lib/blue-desk-published-research-focus";
 import type {NewsBriefV1} from "@/lib/market-brief-news";
-import type {HormuzWireRead} from "@/lib/bluebelly-hormuz-x-wire-server";
+import type {TopicInfluenceRead} from "@/lib/bluebelly-topic-influence";
+import TopicInfluencePanel from "./TopicInfluencePanel";
 import s from "./HormuzSituationBrief.module.css";
 
 type Props={
@@ -9,7 +10,7 @@ type Props={
   reviewed:readonly PublicResearchFocus[];
   news:readonly NewsBriefV1[];
   newsCoverageDegraded:boolean;
-  wire:HormuzWireRead;
+  wire:TopicInfluenceRead;
   crossingState:"current"|"stale"|"unavailable";
   crossings:number|null;
   crossingAt:string|null;
@@ -68,15 +69,9 @@ export default function HormuzSituationBrief({
         <div className={s.links}><a href="#shipping">Crossings ↗</a><a href="#incidents">Security notices ↗</a><a href="#fuels">Crude & fuels ↗</a></div>
       </article>
       <article>
-        <h3>X Wire — emerging claims</h3>
-        <p className={s.caution}>Unverified public posts from the existing X Wire. A social post does not confirm a ceasefire, diplomatic agreement, attack or supply change.</p>
-        {wire.status==="available"?wire.leads.map(lead=><div key={lead.id} className={s.post}>
-          <div className={s.postMeta}>@{lead.handle} · <time dateTime={lead.publishedAt}>{lead.publishedAt.slice(0,16).replace("T"," ")} UTC</time></div>
-          <p>{lead.excerpt}</p>
-          <a href={lead.url} target="_blank" rel="noopener noreferrer">Original X post ↗</a>
-        </div>):<p>{wire.status==="unavailable"
-          ?"X Wire source unavailable; no claim about recent social activity can be made."
-          :"No relevant posts in the available 48-hour discovery window. This does not establish calm."}</p>}
+        <h3>X Wire — emerging claims and creator research</h3>
+        <p className={s.caution}>Unverified public posts and creator claims can suggest what to check. Neither confirms a ceasefire, diplomatic agreement, attack, supply change or Regime verdict.</p>
+        <TopicInfluencePanel input={wire} compact/>
       </article>
     </div>
   </section>;

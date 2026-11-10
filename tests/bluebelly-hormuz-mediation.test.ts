@@ -5,7 +5,8 @@ const read=(p:string)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 const hormuz=read("app/blue-desk/hormuz/page.tsx");
 const keyStories=read("app/blue-desk/key-stories/page.tsx");
 const brief=read("components/blue-desk/HormuzSituationBrief.tsx");
-const wire=read("lib/bluebelly-hormuz-x-wire-server.ts");
+const wire=read("lib/bluebelly-topic-influence.ts");
+const wireReader=read("lib/bluebelly-topic-influence-server.ts");
 
 test("Hormuz opens with a quick Iran conflict and diplomacy read, retaining physical monitors",()=>{
  assert.match(hormuz,/data-bluebelly-hormuz="public-source-dated-physical-first"/);
@@ -14,7 +15,7 @@ test("Hormuz opens with a quick Iran conflict and diplomacy read, retaining phys
  assert.match(hormuz,/news=\{qualifiedNews\.news\} wire=\{wire\}/);
  assert.match(hormuz,/HormuzCrossings monitor=/);
  assert.match(hormuz,/getHormuzIncidents/);
- assert.match(hormuz,/getHormuzWireLeads/);
+ assert.match(hormuz,/getTopicInfluence\("hormuz",now\)/);
  assert.match(hormuz,/readBluebellyQualifiedNews/);
  assert.match(hormuz,/news=\{qualifiedNews.news\}/);
  assert.doesNotMatch(hormuz,/HormuzMediationFeature/);
@@ -30,12 +31,13 @@ test("Old mediation bookmark redirects to the situation watch, not an old Key St
  assert.doesNotMatch(read("lib/bluebelly-public-research-library.ts"),/id:"hormuz-mediation"/);
 });
 test("X Wire is a bounded read-only discovery input, never fact verification or a polling writer",()=>{
- assert.match(wire,/from\("x_wire_posts"\)/);
- assert.match(wire,/eq\("intake_status","discovery"\)/);
+ assert.match(wireReader,/from\("x_wire_posts"\)/);
+ assert.match(wireReader,/eq\("intake_status","discovery"\)/);
  assert.match(wire,/rankXWireMarketCandidates/);
  assert.match(wire,/slice\(0,3\)/);
- assert.doesNotMatch(wire,/getXWireDurable|scanOne|upsert\(|insert\(|update\(/);
+ assert.doesNotMatch(wire+wireReader,/getXWireDurable|scanOne|upsert\(|insert\(|update\(/);
  assert.match(brief,/Unverified public posts/);
+ assert.match(brief,/TopicInfluencePanel/);
  assert.match(brief,/Source edition:/);
  assert.match(brief,/Source-verified reporting/);
  assert.match(brief,/newsCoverageDegraded/);
