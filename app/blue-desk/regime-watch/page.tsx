@@ -1,3 +1,4 @@
+import CurrentMarketUpdates from "@/components/blue-desk/CurrentMarketUpdates";
 import Link from "next/link";
 import {headers} from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
@@ -171,9 +172,10 @@ export default async function RegimeWatchPage(){
    <details id="deep-research" className={styles.deepShelf} data-regime-deeper-files="collapsed-by-default">
     <summary><span className={styles.kicker}>DEEP RESEARCH / OPTIONAL READING</span>
      <strong>Issuer investigations &amp; transmission pathways</strong>
-     <small>CoreWeave · Tesla / SpaceX · Fed / AI / Energy / Yen linkages · Expand research</small>
+     <small>4 Nov dated desk editorial · CoreWeave · Tesla / SpaceX · Cross-regime pathways</small>
     </summary>
     <div className={styles.deepShelfBody}>
+     <CurrentMarketUpdates host={host} mode="compact"/>
    <section className={styles.transmission} aria-labelledby="coreweave-ai-financing">
     <h2 id="coreweave-ai-financing">AI infrastructure: the CoreWeave financing test</h2>
     <p>CoreWeave's June 2026 financials and Q2 institutional ownership disclosures raise questions about how contracted AI compute becomes debt-serviceable cash. Reported share sales and credit-market stress need dated, original-source verification; this is an issuer research warning, not a newly accepted AI-wide Regime verdict.</p>
