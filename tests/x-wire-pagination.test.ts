@@ -234,3 +234,35 @@ test("an expired saved continuation cannot be reinstated after first-page provid
  assert.match(durable,/window\.cursor\?window\.startAt:null/);
  assert.doesNotMatch(durable,/hadPartialData\?cursor:claim\.resume_cursor/);
 });
+
+test("expired historical X gaps use a validated recent head without claiming history was recovered",()=>{
+ const auditNow="2026-11-10T07:30:00.000Z";
+ const completed="2026-10-27T22:49:14.003Z";
+ const historicalGap="2026-10-27T22:19:14.003Z";
+ const lastValidatedPost="2026-11-09T13:27:38.000Z";
+ const anchor=xWireRecoveryAnchor(auditNow,completed,historicalGap,72,lastValidatedPost);
+ assert.equal(anchor,lastValidatedPost);
+ const restarted=xWireRequestWindow(auditNow,anchor,
+  "expired-opaque-token","2026-11-06T13:33:31.918Z");
+ assert.equal(restarted.resumed,false);
+ assert.equal(restarted.cursor,null);
+ assert.equal(restarted.gap,true);
+ assert.equal(restarted.startAt,"2026-11-09T12:57:38.000Z");
+ // Existing record of missing older coverage must survive even when a
+ // fresh page crosses its newer window boundary.
+ const durable=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
+ assert.match(durable,/existing\?\.last_observed_post_at \?\? null/);
+ assert.match(durable,/const completeGapMarker = \{uncovered_before:unresolvedGap\}/);
+ assert.match(durable,/ms\(window\.startAt\)>ms\(missingBefore\)/);
+});
+
+test("recent completed checkpoints remain the preferred anchor over partial newer observations",()=>{
+ const nowIso="2026-11-10T07:30:00.000Z";
+ const oldGap="2026-10-27T22:19:14.003Z";
+ const checkpoint="2026-11-10T01:44:40.326Z";
+ assert.equal(xWireRecoveryAnchor(nowIso,checkpoint,oldGap,72,
+  "2026-11-10T07:00:00.000Z"),checkpoint);
+ // No validated observation in range means we do not invent a new anchor.
+ assert.equal(xWireRecoveryAnchor(nowIso,"2026-10-27T22:49:14.003Z",oldGap,72,
+  "2026-11-05T01:00:00.000Z"),"2026-10-27T22:49:14.003Z");
+});
