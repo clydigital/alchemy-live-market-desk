@@ -7,7 +7,8 @@ import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import {getPublicThesisLedger} from "@/lib/blue-desk-thesis-ledger-server";
 import {getPublicSourceObservations} from "@/lib/blue-desk-source-observations";
 import {scanRegimeViews,summarizeRegimeScans} from "@/lib/bluebelly-regime-view-scan";
-import {groupPublicResearch} from "@/lib/bluebelly-editorial-architecture";
+import {groupPublicResearch,EDITORIAL_REGIME_LENSES} from "@/lib/bluebelly-editorial-architecture";
+import {getTopicInfluences} from "@/lib/bluebelly-topic-influence-server";
 import {getLensOutlook,LENS_OUTLOOK_REVIEWED_ON} from "@/lib/bluebelly-regime-lens-outlook";
 import {getRegimeEditorialUpdate} from "@/lib/bluebelly-regime-verified-crossasset";
 import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
@@ -24,9 +25,10 @@ export const metadata={
 
 export default async function RegimeWatchPage(){
  const now=new Date(),host=(await headers()).get("host");
- const [theses,observations]=await Promise.all([
+ const [theses,observations,topicReasons]=await Promise.all([
   getPublicThesisLedger(now,38).catch(()=>null),
   getPublicSourceObservations(now,12).catch(()=>null),
+  getTopicInfluences(EDITORIAL_REGIME_LENSES.map(lens=>lens.id),now).catch(()=>[]),
  ]);
  const lenses=groupPublicResearch(theses||[]);
  const scans=lenses.map(lens=>scanRegimeViews(lens.id,getLensOutlook(lens.id).reviewedAt,theses,observations,now));
@@ -83,6 +85,21 @@ export default async function RegimeWatchPage(){
       <p>No newer qualifying inputs were found in this bounded scan. This does not mean all nine market theses are unchanged.</p>:null}
     </div>
     <small>Existing Story memory and a bounded 48-hour sample of tier-1/2 original observations only. Creator/X opinions remain research leads until independently verified and admitted. No separate polling or research job.</small>
+   </section>
+   <section id="source-reasons" className={styles.transmission} data-regime-source-reasons="live-source-linked-not-canonical">
+    <span className={styles.kicker}>LIVE X WIRE + REVIEWED TRANSCRIPTS / REASONS ON WATCH</span>
+    <h2>What is making us check these views again?</h2>
+    <p>Automatically refreshed from existing source receipts. A post or reviewed transcript raises a question—it does not change the fundamental outlook until verified evidence supports it. Open a lens to inspect the exact original links and dates.</p>
+    <div className={styles.pathGrid}>{topicReasons.filter(item=>item.x.length+item.creators.length>0).map(item=>{
+     const leads=[...item.x,...item.creators].sort((a,b)=>b.publishedAt.localeCompare(a.publishedAt));
+     const name=EDITORIAL_REGIME_LENSES.find(lens=>lens.id===item.topic)?.name||item.topic;
+     return <Link key={item.topic} className={styles.path} href={blueDeskPublicHref("/blue-desk/regime-watch/"+item.topic,host)+"#influence-"+item.topic}>
+      <span>{name} · {leads.length} source reasons</span>
+      <strong>{leads[0].reason}</strong>
+      <small>Most recent source {leads[0].publishedAt.slice(0,10)} · Read X / video references →</small>
+     </Link>;
+    })}</div>
+    {!topicReasons.some(item=>item.x.length+item.creators.length)?<p>No current matched research leads in this bounded source window; source availability is not proof that the view is unchanged.</p>:null}
    </section>
    <section id="cross-regime-watch" className={styles.crashFeatured} aria-labelledby="crash-opportunity-featured" data-crash-watch-entry="own-research-watch">
     <div>
