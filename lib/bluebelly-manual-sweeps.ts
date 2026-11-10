@@ -1,4 +1,4 @@
-import ledger from "../data/bluebelly-manual-sweeps.json";
+import ledger from "../data/bluebelly-manual-sweeps.json" with {type:"json"};
 import type {InfluenceTopic} from "./bluebelly-topic-influence.ts";
 
 export type ManualSweepFinding={
