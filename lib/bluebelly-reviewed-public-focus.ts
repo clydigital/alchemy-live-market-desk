@@ -3,10 +3,12 @@
  * Keep the generic return contract while the existing Newsroom/Markets
  * consumers migrate; no stale geopolitical article is re-promoted.
  */
+import type {NewsroomEditorialItem} from "./bluebelly-newsroom-editorial.ts";
+
 export type ReviewedPublicFocus={
   id:string;eventDay:string;headline:string;fact:string;why:string;
   mechanism:string;test:string;sourceName:string;sourceUrl:string;
-  href:string;assets:readonly string[];topics:readonly string[];
+  href:string;assets:readonly string[];topics:NewsroomEditorialItem["topics"];
 };
 export function currentReviewedPublicFocus(_now:Date):ReviewedPublicFocus[]{
   return [];
