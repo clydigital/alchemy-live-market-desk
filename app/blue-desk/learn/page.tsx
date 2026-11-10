@@ -34,12 +34,12 @@ export default async function BlueDeskLearnPage() {
       <div className={ui.content}>
         <header className={ui.hero}>
           <div className={ui.heroContent}>
-            <p className={ui.eyebrow}>BLUEBELLY / MARKET INTELLIGENCE FIELD MANUAL — 2026</p>
+            <p className={ui.eyebrow}>BLUEBELLY / LEARN · THE MARKET REFERENCE</p>
             <h1>Decode the <em>market.</em><br/>Understand the move.</h1>
-            <p className={ui.heroLead}>No textbook fog. Learn what the numbers mean, how one market affects another and what to check before accepting the headline.</p>
+            <p className={ui.heroLead}>Search the idea, inspect the mechanism, then follow original sources when you want the full lesson.</p>
             <nav className={ui.heroActions} aria-label="Learn page sections">
-              <a href="#resources">LEARNING MATERIALS <span aria-hidden="true">↗</span></a>
-              <a href="#glossary">OPEN THE GLOSSARY <span aria-hidden="true">↗</span></a>
+              <a href="#glossary">SEARCH THE GLOSSARY <span aria-hidden="true">↗</span></a>
+              <a href="#resources">BROWSE SOURCES <span aria-hidden="true">↗</span></a>
             </nav>
           </div>
           <div className={ui.heroDiagram} aria-hidden="true">
@@ -49,20 +49,33 @@ export default async function BlueDeskLearnPage() {
             <div className={ui.diagramIndex}>REFERENCE</div>
           </div>
         </header>
+        <section className={ui.glossarySection} id="glossary" aria-labelledby="glossary-heading">
+          <div className={ui.glossaryIntro}>
+            <div>
+              <p className={ui.eyebrow}>01 / THE MARKET REFERENCE TERMINAL</p>
+              <h2 id="glossary-heading">The language behind the price.</h2>
+              <p>Not sure why yields rise when bond prices fall? Or why good earnings can send a stock lower? Search the mechanism, read a plain-English explanation and check a worked example where available.</p>
+            </div>
+            <div className={ui.glossaryCount} aria-label={concepts.length+" glossary definitions"}><strong>{concepts.length}</strong><span>TERMS / EXPANDED</span></div>
+          </div>
+          <BlueDeskLearnExplorer concepts={concepts}/>
+        </section>
+
         <section className={ui.deckLibrary} id="resources" aria-labelledby="learn-resources-heading">
           <header className={ui.deckLibraryHeader}>
             <div>
-              <p className={ui.eyebrow}>01 / EXTERNAL LEARNING LIBRARY</p>
-              <h2 id="learn-resources-heading">Read the documents. Learn the numbers.</h2>
-              <p>Publisher-hosted PDF slides, PowerPoint lecture packets and practical courses. The nine older Bluebelly decks are no longer featured. Open original sources rather than reconstructed copies.</p>
+              <p className={ui.eyebrow}>02 / OPTIONAL REFERENCE LIBRARY</p>
+              <h2 id="learn-resources-heading">Go deeper with original learning materials.</h2>
+              <p>Publisher-hosted slides, lectures and practical courses. Choose a learning track to see its original materials; the glossary above stays the quickest way to get an explanation.</p>
             </div>
             <span>{BLUEBELLY_LEARN_RESOURCES.length} VERIFIED REFERENCES</span>
           </header>
-          {LEARNING_TRACKS.map((track,index)=><div className={ui.sourceTrack} key={track.id}>
-            <div className={ui.sourceTrackHeading}>
+          {LEARNING_TRACKS.map((track,index)=><details className={ui.sourceTrack} key={track.id}>
+            <summary className={ui.sourceTrackHeading}>
               <span>{String(index+1).padStart(2,"0")} / {track.title.toUpperCase()}</span>
-              <p>{track.detail}</p>
-            </div>
+              <small>{track.detail}</small>
+              <strong>{BLUEBELLY_LEARN_RESOURCES.filter(resource=>resource.track===track.id).length} SOURCES · EXPAND</strong>
+            </summary>
             <div className={ui.deckCards}>
               {BLUEBELLY_LEARN_RESOURCES.filter((resource)=>resource.track===track.id)
                 .map((resource)=><article className={ui.deckCard} key={resource.id}>
@@ -83,20 +96,8 @@ export default async function BlueDeskLearnPage() {
                   </div>
                 </article>)}
             </div>
-          </div>)}
+          </details>)}
           <p className={ui.footnote}>Materials are linked on their publishers' sites, not rehosted. Historical presentations explain methods, not current stock values. Some publisher PDF/PPTX download buttons may be access-restricted; the lecture index remains available.</p>
-        </section>
-
-        <section className={ui.glossarySection} id="glossary" aria-labelledby="glossary-heading">
-          <div className={ui.glossaryIntro}>
-            <div>
-              <p className={ui.eyebrow}>01 / THE MARKET REFERENCE TERMINAL</p>
-              <h2 id="glossary-heading">The language behind the price.</h2>
-              <p>Not sure why yields rise when bond prices fall? Or why good earnings can send a stock lower? Search the mechanism, read a plain-English explanation and check a worked example where available.</p>
-            </div>
-            <div className={ui.glossaryCount} aria-label={concepts.length+" glossary definitions"}><strong>{concepts.length}</strong><span>TERMS / EXPANDED</span></div>
-          </div>
-          <BlueDeskLearnExplorer concepts={concepts}/>
         </section>
       </div>
     </main>
