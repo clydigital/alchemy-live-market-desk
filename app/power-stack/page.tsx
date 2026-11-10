@@ -163,11 +163,18 @@ export default async function PrivatePowerStack() {
         .eq("owner_user_id",identity.user.id).in("ticker",trackedTickers.slice(0,250))
         .order("retrieved_at",{ascending:false}).limit(300)
     : {data:null,error:null};
-  const pegByTicker=new Map<string,ReturnType<typeof evaluatePegResearch>>();
+  const pegByTicker=new Map<string,ReturnType<typeof evaluatePegResearch> & {
+    analystsFirst:number|null; analystsSecond:number|null; source:string;
+  }>();
   if(!pegError)for(const record of pegRecords??[]){
     if(pegByTicker.has(record.ticker))continue;
     const evaluation=evaluatePegResearch(record as PegResearchObservation);
-    pegByTicker.set(record.ticker,evaluation);
+    pegByTicker.set(record.ticker,{
+      ...evaluation,
+      analystsFirst:typeof record.first_fy_analysts==="number"?record.first_fy_analysts:null,
+      analystsSecond:typeof record.second_fy_analysts==="number"?record.second_fy_analysts:null,
+      source:typeof record.forecast_source==="string"?record.forecast_source:"",
+    });
   }
 
   return (
@@ -203,12 +210,17 @@ export default async function PrivatePowerStack() {
               <p>Last verified observations from manual research sweeps and optional scheduled sources, not streaming prices.
                 Source dates may be market observation dates or upstream refresh-batch dates. iSaham\u2019s batch date is NOT its last-trade time.
                 Missing symbols are not assigned invented prices.</p>
+              <p data-power-stack-peg-coverage="owner-research-only">
+                Forward PEG research: {pegByTicker.size} of {trackedTickers.length} tracked symbols.
+                Uncovered names are not assigned estimates; non-equities, overseas listings and
+                instruments with missing comparable forecasts may be ineligible.
+              </p>
               {quoteError ? <p>Quote store unavailable; no current prices can be verified.</p> : null}
               <details className={portfolio.assetDetails} data-power-stack-quote-ledger="collapsed">
                 <summary>Inspect all {trackedTickers.length} tracked instruments, dates, currencies and providers</summary>
                 <div className={portfolio.tableScroll}>
                 <table className={portfolio.holdingsTable}>
-                  <thead><tr><th>Symbol</th><th>Observed price</th><th>Source date / basis</th><th>Freshness</th><th>Provider</th><th>1Y PEG research</th><th>Forecast basis</th></tr></thead>
+                  <thead><tr><th>Symbol</th><th>Observed price</th><th>Source date / basis</th><th>Freshness</th><th>Provider</th><th>FY-to-FY PEG research</th><th>Forecast basis</th></tr></thead>
                   <tbody>{trackedTickers.map(ticker => {
                     const quote = latestQuotes.get(ticker);
                     const age = quote ? Math.floor((Date.now()-Date.parse(quote.observed_on+"T00:00:00Z"))/86400000) : null;
@@ -218,12 +230,26 @@ export default async function PrivatePowerStack() {
                       <td>{quote ? quote.observed_on + (quote.timestamp_basis === "upstream_batch" ? " · Batch date (not last trade)" : " · Market observation") : "—"}</td>
                       <td>{age === null ? "Missing" : age > 5 ? "STALE" : quote?.timestamp_basis === "upstream_batch" ? "Batch date only · trade time unknown" : age > 2 ? "Delayed / market closed" : "Recent daily observation"}</td>
                       <td>{quote ? <a href={quote.source_url} target="_blank" rel="noopener noreferrer">{quote.source_name}</a> : "—"}</td>
-                      <td>{!peg ? "—" : peg.forwardPEG===null
-                        ? peg.reason==="NON_POSITIVE_GROWTH" ? "N/A · non-positive EPS growth" : "N/A · "+peg.reason
-                        : peg.forwardPEG.toFixed(2)+" · "+(peg.quality==="indicative"?"Indicative":"STALE")}</td>
-                      <td>{!peg?"Not covered":peg.forecastPeriod+
-                        " · Retrieved "+peg.forecastRetrievedOn.slice(0,10)+
-                        (peg.hasNativeEstimateRevision?" · Native revision recorded":" · Native revision unknown")}</td>
+                      <td>
+                        {!peg ? "—" : peg.forwardPEG===null
+                          ? peg.reason==="NON_POSITIVE_GROWTH" ? "N/A · non-positive EPS growth" : "N/A · "+peg.reason
+                          : peg.forwardPEG.toFixed(2)+" · "+(peg.quality==="indicative"?"Indicative":"STALE")}
+                        {peg?.forwardPE!==null && peg?.forwardPE!==undefined ? <div>
+                          Forward P/E {peg.forwardPE.toFixed(2)}×
+                          {peg.growthPct!==null ? " · EPS "+(peg.growthPct>=0?"+":"")+peg.growthPct.toFixed(2)+"%" : ""}
+                          {peg.growthPct!==null && peg.growthPct>100 ? " · Rebound-base sensitivity" : ""}
+                        </div> : null}
+                      </td>
+                      <td>
+                        {peg ? <>
+                          {peg.forecastPeriod+" · Retrieved "+peg.forecastRetrievedOn.slice(0,10)}
+                          {" · Analysts "+(peg.analystsFirst??"—")+"/"+(peg.analystsSecond??"—")}
+                          {peg.analystsFirst!==null && peg.analystsFirst<5 ||
+                            peg.analystsSecond!==null && peg.analystsSecond<5 ? " · Thin consensus" : ""}
+                          {peg.hasNativeEstimateRevision?" · Native revision recorded":" · Native revision unknown"}
+                          {" · "+peg.source}
+                        </> : "Not covered"}
+                      </td>
                     </tr>;
                   })}</tbody>
                 </table>
