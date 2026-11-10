@@ -57,12 +57,12 @@ export default async function HormuzTracker(){
   <div className={desk.content}>
    <header className={`${s.hero} ${s.compactHero}`}>
     <div className={s.heroCopy}>
-     <p className={s.kicker}>GEOPOLITICS / ENERGY / REFINING · CONTINUOUS SOURCE WATCH</p>
+     <p className={s.kicker}>HORMUZ WATCH / IRAN · SHIPS · FUEL</p>
      <h1>Hormuz: Talks, ships and fuel.</h1>
-     <p className={s.lede}>Follow the latest negotiations, actual ship crossings, and oil-versus-diesel confirmation. A proposal is not a reopened route.</p>
+     <p className={s.lede}>Diplomacy first. Confirm against vessel traffic and fuel prices; a proposal is not a reopened route.</p>
      <div className={s.metaLine}>
       <span>Checked <time dateTime={now.toISOString()}>{formatHormuzET(now)}</time></span>
-      <span>{watch.available}/{watch.tiles.length} market and fuel indicators within their date windows</span>
+      <span>{watch.available}/{watch.tiles.length} source-dated market and fuel indicators</span>
      </div>
      <nav className={s.actions} aria-label="Related market research">
       <Link href="#mediation">Negotiations ↓</Link>
