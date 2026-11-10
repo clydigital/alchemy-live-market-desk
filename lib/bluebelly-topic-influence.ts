@@ -52,11 +52,17 @@ const RULES:Record<InfluenceTopic,ReasonRule[]>={
   {pattern:/\b(fomc|powell|fed funds|rate cut|rate hike|dot plot|central bank)\b/i,reason:"Are the policy path and market pricing diverging?",check:"Check Fed releases against dated front-end Treasury and futures pricing."},
  ],
  bonds:[
+  {pattern:/\b(?:jobs?|payroll|cpi|inflation|wages?|fed)\b[\s\S]{0,220}\b(?:yields?|rates?|treasury|mortgage)\b/i,
+   reason:"Are macro and Fed surprises pushing the expected cost of long-duration borrowing higher?",
+   check:"Compare the source timestamp with 2Y, 10Y, 30Y, real yields, TLT and rate-futures repricing."},
   {pattern:/\b(auction|bid.to.cover|tail|treasury issuance|debt supply|term premium)\b/i,reason:"Is Treasury supply or auction demand repricing duration?",check:"Check official auction results, issuance plans and matched maturity yields."},
   {pattern:/\b(tlt|long.bond|30.y(?:ear)?|10.y(?:ear)?|duration|real yields?)\b/i,reason:"Are long-bond prices and yields signalling a duration shift?",check:"Compare TLT, Treasury yields, term premium and actual total returns."},
   {pattern:/\b(credit spread|default|refinanc\w*|funding stress|corporate bonds?)\b/i,reason:"Is refinancing or credit stress spreading?",check:"Verify credit spreads, financing terms and issuer maturity schedules."},
  ],
  ai:[
+  {pattern:/\b(?:nvidia|nvda|jensen huang)\b[\s\S]{0,135}\b(?:board|investigation|probe|ceo|governance|security|allegation)\b|\b(?:board|investigation|probe)\b[\s\S]{0,135}\b(?:nvidia|nvda)\b/i,
+   reason:"Is Nvidia's governance news changing its risk without evidence of weaker GPU demand?",
+   check:"Verify Nvidia disclosures and governance developments separately from shipments, margins and customer orders."},
   {pattern:/\b(capex|capital expenditure|cash flow|free cash|fcf|debt|financ\w*|lease|funding)\b/i,reason:"Can AI investment convert into cash flow without excessive financing?",check:"Reconcile issuer capex, operating cash flow, leases, debt and maturity disclosures."},
   {pattern:/\b(nvidia|nvda|gpu|hbm|semiconductor|chips?|memory|hynix|micron)\b/i,reason:"Is demand for AI hardware sustainable beyond current orders?",check:"Check issuer shipments, margins, backlog and inventory disclosures."},
   {pattern:/\b(cloud|hyperscaler|compute|data cent(?:re|er)|inference|ai revenue|azure|aws)\b/i,reason:"Is AI utilisation and revenue keeping pace with new capacity?",check:"Compare hyperscaler segment revenue, utilisation and disclosed capital commitments."},
@@ -154,7 +160,9 @@ export function projectTopicInfluence(
 ):TopicInfluenceRead{
  const theme=THEMES[topic],checkedAt=now.toISOString();
  const eligiblePosts=xRows.filter(p=>p.intake_status==="discovery"&&ALLOWED_X.has(p.handle.toLowerCase())&&
-  validDate(p.published_at,now,48*3600000)&&theme.test(p.body));
+  validDate(p.published_at,now,48*3600000)&&theme.test(p.body)&&
+  !(p.body.length>900&&/^(?:Top Overnight News|Premarket movers|Market wrap)\b/i.test(p.body)&&
+    p.body.search(theme)>380));
  const posts:XWireDurable["posts"]=eligiblePosts.map(p=>({
   id:p.post_id,handle:p.handle,url:p.original_url,publishedAt:p.published_at,text:p.body,
   images:[],quoteUrl:null,attribution:"THIRD_PARTY_ONLY" as const,intakeStatus:"discovery" as const,
@@ -166,13 +174,14 @@ export function projectTopicInfluence(
  const candidates=[...preferred,...posts.filter(post=>!rankedIds.has(post.id))
   .sort((a,b)=>b.publishedAt.localeCompare(a.publishedAt))];
  const x:InfluenceLead[]=[];
- const usedX=new Set<string>();
+ const usedX=new Set<string>(),byHandle=new Map<string,number>();
  for(const post of candidates){
   if(x.length>=3)break;
   let normal:ReturnType<typeof normaliseXPostUrl>;
   try{normal=normaliseXPostUrl(post.url);}catch{continue;}
   if(normal.postId!==post.id||normal.handle.toLowerCase()!==post.handle.toLowerCase()||
-    !ALLOWED_X.has(post.handle.toLowerCase())||post.text.length<30||usedX.has(post.id))continue;
+    !ALLOWED_X.has(post.handle.toLowerCase())||post.text.length<30||usedX.has(post.id)||
+    (byHandle.get(post.handle.toLowerCase())||0)>=2)continue;
   const original=eligiblePosts.find(row=>row.post_id===post.id);
   const why=reasonForTopic(topic,post.text);
   x.push({
@@ -182,6 +191,7 @@ export function projectTopicInfluence(
    verification:"UNVERIFIED_LEAD",
   });
   usedX.add(post.id);
+  byHandle.set(post.handle.toLowerCase(),(byHandle.get(post.handle.toLowerCase())||0)+1);
  }
  const creators:InfluenceLead[]=[];
  const used=new Set<string>(),seen=new Set<string>();
