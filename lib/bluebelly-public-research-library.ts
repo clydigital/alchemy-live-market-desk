@@ -53,15 +53,6 @@ const INDEX: readonly PublicResearchEdition[] = [
     keywords:["amd","palantir","apple","eaton","super micro","navitas","qualcomm","ai","earnings","capex"],
   },
   {
-    id:"hormuz-mediation",
-    title:"Hormuz: Would Two Days of Reopening Change Oil?",
-    summary:"A dated investigation into a reported mediation proposal, actual shipping recovery and what diesel prices may say differently from Brent.",
-    href:"/key-stories?feature=hormuz-mediation-november-2026",
-    category:"Energy & Geopolitics",asOf:"2026-11-01",type:"Dated editorial analysis",
-    context:"Proposal only; no confirmed shipping deal in this edition",
-    keywords:["hormuz","iran","shipping","brent","diesel","mediation"],
-  },
-  {
     id:"ai-selloff",
     title:"The 30 October AI Sell-off: Crash or Opportunity?",
     summary:"An intraday, source-dated explanation of the technology sell-off, earnings expectations, liquidity and conditions for a rebound.",

@@ -127,3 +127,11 @@
  .actions{display:grid;grid-template-columns:minmax(0,1fr);gap:9px}
  .actions a{display:flex;align-items:center;min-height:46px;width:100%;padding:13px 16px;flex:none;font-size:13px;line-height:1.45}
 }
+
+/* The situation brief is the reading focus; the former transmission illustration
+   no longer consumes the first screen of the public Hormuz watch. */
+.compactHero{display:block;padding:clamp(17px,2.6vw,27px)}
+.compactHero h1{font-size:clamp(27px,3vw,42px);margin:12px 0}
+.compactHero .lede{max-width:88ch;font-size:14px;line-height:1.65}
+.compactHero .metaLine{margin:12px 0}
+@media(max-width:720px){.compactHero{padding:17px}.compactHero h1{font-size:31px}}
