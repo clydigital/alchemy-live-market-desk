@@ -6,6 +6,9 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import styles from "@/app/blue-desk/blue-desk.module.css";
 import portfolio from "./private-power-stack.module.css";
 import { evaluatePegResearch, type PegResearchObservation } from "@/lib/power-stack-peg-research";
+import {getTopicInfluences} from "@/lib/bluebelly-topic-influence-server";
+import {powerStackResearchTopics,projectPowerStackResearch,type PowerStackTracked} from "@/lib/power-stack-research-links";
+import PowerStackResearchImpact from "@/components/blue-desk/PowerStackResearchImpact";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -177,6 +180,18 @@ export default async function PrivatePowerStack() {
     });
   }
 
+  // The source lookup starts ONLY after the verified owner session, allowlist,
+  // and retired-public-snapshot gates. Never put ticker/holding data in public Regime routes.
+  const researchedAt=new Date();
+  const researchAssets:PowerStackTracked[]=ready?[
+    ...holdings.map(item=>({ticker:item.ticker,name:item.name,scope:"archived_holding" as const})),
+    ...watchlist.map(item=>({ticker:item.ticker,name:item.name,scope:"archived_watchlist" as const})),
+    ...bondWatch.map(item=>({ticker:item.ticker,name:item.name,scope:"bond_watch" as const})),
+  ]:[];
+  const researchTopics=ready?powerStackResearchTopics(researchAssets):[];
+  const researchReads=researchTopics.length?await getTopicInfluences(researchTopics,researchedAt):[];
+  const researchGroups=ready?projectPowerStackResearch(researchAssets,researchReads,researchedAt):[];
+
   return (
     <main className={styles.page} data-power-stack="owner-only"
       data-private-data-ready={ready ? "yes" : "no"}>
@@ -205,6 +220,7 @@ export default async function PrivatePowerStack() {
           </section>
         ) : (
           <>
+            <PowerStackResearchImpact groups={researchGroups}/>
             <section className={portfolio.section} data-power-stack-quotes="dated-manual-observations">
               <h2>Source-dated prices · {latestQuotes.size}/{trackedTickers.length}</h2>
               <p>Last verified observations from manual research sweeps and optional scheduled sources, not streaming prices.

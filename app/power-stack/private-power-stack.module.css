@@ -55,3 +55,47 @@
  .holdingsTable{min-width:605px}}
 @media(forced-colors:active){.hero,.section,.pending,.assetDetails{border:1px solid CanvasText}}
 @media print{.hero,.section,.pending,.assetDetails{clip-path:none}}
+
+/* Only contextual research, not score mutation. Match Bluebelly's compact CP desk. */
+.researchHeading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:16px}
+.researchHeading h2{margin:5px 0 9px}
+.researchHeading p{font:500 12px/1.65 var(--bluebelly-font);color:#b5d2da;max-width:76ch;margin:0}
+.researchEyebrow{display:block;font:850 10px/1.5 var(--bb-mono);letter-spacing:.09em;color:var(--bb-command-alt);text-transform:uppercase;margin:0}
+.researchCount{display:flex;flex-direction:column;gap:3px;align-items:flex-end;min-width:108px;padding:10px 13px;
+ border:1px solid var(--bb-command-edge);background:#0b222c}
+.researchCount strong{font:900 28px/1 var(--bb-display);color:#f7feff}
+.researchCount span{font:850 9px/1.5 var(--bb-mono);letter-spacing:.08em;color:var(--bb-command-alt)}
+.researchCount small{font:500 10px/1.45 var(--bluebelly-font);color:#a3bfcb}
+.researchGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.researchCard{min-width:0;padding:17px 18px;border:1px solid var(--bb-command-edge);border-top:2px solid var(--bb-command-accent);
+ background:linear-gradient(150deg,#0f2b38,#0a222e);overflow-wrap:anywhere}
+.researchCardTop{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.researchCard h3{margin:8px 0 12px;color:#f4fbff;font:900 19px/1.12 var(--bb-display);text-transform:uppercase}
+.researchDeepLink{font:800 11px/1.5 var(--bluebelly-font);white-space:normal}
+.researchAssets{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.researchAsset{display:inline-flex;align-items:center;gap:5px;background:#173743;
+ border:1px solid #315765;padding:4px 7px;font:850 10px/1.35 var(--bb-mono);color:#e7f7fc}
+.researchAsset small{font:850 9px/1 var(--bb-mono);color:var(--bb-command-alt)}
+.researchMoreAssets{width:100%;font:700 11px/1.5 var(--bluebelly-font);color:#bdd7de}
+.researchMoreAssets summary{cursor:pointer;padding:5px 2px}
+.researchTransmission,.researchGeneral{font:500 11px/1.65 var(--bluebelly-font);color:#b3d0dc}
+.researchTransmission{margin:12px 0}
+.researchManual{border-top:1px solid var(--bb-command-edge);padding-top:12px;margin-top:12px}
+.researchManual h4{font:850 13px/1.45 var(--bluebelly-font);color:#eefbfe;margin:4px 0 9px}
+.researchFindings{margin:0;padding:0;list-style:none;display:grid;gap:10px}
+.researchFindings li{padding:10px 11px;background:rgba(1,16,23,.42);border-left:2px solid #487f8d}
+.researchFindings li p{font:600 11px/1.65 var(--bluebelly-font);color:#daeaf0;margin:0 0 7px}
+.researchFindings li>small{display:block;font:500 10px/1.6 var(--bluebelly-font);color:#aacbd6;margin-top:6px}
+.researchSourceLine{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 12px;align-items:baseline}
+.researchSourceLine small{font:850 9px/1.5 var(--bb-mono);color:#b8ccd5}
+.researchSourceLine a{font:700 10px/1.5 var(--bluebelly-font);overflow-wrap:anywhere}
+.researchLeads{border-top:1px solid var(--bb-command-edge);padding-top:11px;margin-top:13px}
+.researchLeads ul{margin:6px 0 0;padding:0;list-style:none}
+.researchLeads li{display:grid;gap:2px;margin-top:9px}
+.researchLeads li span{font:850 9px/1.5 var(--bb-mono);color:#a5beca}
+.researchLeads li a{font:650 11px/1.55 var(--bluebelly-font)}
+.researchDisclaimer{margin:13px 0 0!important;font:500 11px/1.65 var(--bluebelly-font);color:#a9c4cd!important}
+@media(max-width:900px){.researchGrid{grid-template-columns:1fr}}
+@media(max-width:480px){.researchHeading{flex-direction:column}.researchCount{align-items:flex-start;width:100%}
+.researchCard{padding:14px}}
+@media(forced-colors:active){.researchCard,.researchAsset,.researchFindings li{border:1px solid CanvasText}}
