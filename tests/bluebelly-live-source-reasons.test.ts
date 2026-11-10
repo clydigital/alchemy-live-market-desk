@@ -74,6 +74,6 @@ test("manual ledger and page readers are source-linked, require a merge, and nev
  assert.match(lens,/getTopicInfluence\(lensId as InfluenceTopic,now\)/);
  assert.match(source,/from\("x_wire_posts"\)/);
  assert.match(source,/from\("research_intake_items"\)/);
- assert.match(manual,/Editorially/);
+ assert.match(manual,/editor-committed/);
  assert.doesNotMatch(source+manual+panel,/\.insert\(|\.update\(|\.upsert\(|supabase\.rpc\(/);
 });
