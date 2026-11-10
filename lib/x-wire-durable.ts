@@ -60,7 +60,7 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
   const {data:existing}=await db.from("x_wire_accounts")
     .select("last_observed_post_at,uncovered_before").eq("handle",handle).maybeSingle();
   const anchor=xWireRecoveryAnchor(now,claim.checkpoint_at,existing?.uncovered_before ?? null,
-    X_SWEEP_DEFAULTS.recoveryLookbackHours);
+    X_SWEEP_DEFAULTS.recoveryLookbackHours,existing?.last_observed_post_at ?? null);
   const window=xWireRequestWindow(now,anchor,claim.resume_cursor,claim.resume_start_at,
     X_SWEEP_DEFAULTS.lookbackHours,X_SWEEP_DEFAULTS.overlapMinutes,X_SWEEP_DEFAULTS.recoveryLookbackHours);
   let latest=ms(existing?.last_observed_post_at);
