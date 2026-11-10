@@ -41,7 +41,7 @@ export function buildPublishedTreasuryCloseRows(
     for (const point of points) {
       const day = Date.parse(point.date + "T00:00:00Z");
       const clock = point.sourceUpdatedAt ? Date.parse(point.sourceUpdatedAt) : NaN;
-      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(point.date)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(point.date)
         || !Number.isFinite(day) || day > now.getTime()
         || !Number.isFinite(point.yieldPercent)
         || point.yieldPercent < 0 || point.yieldPercent > 30
