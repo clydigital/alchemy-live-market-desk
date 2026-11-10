@@ -39,9 +39,9 @@ export default async function RegimeWatchPage(){
   <div className={desk.content}>
    <header className={styles.intro} data-regime-design="cyberpunk-field-guide">
     <div className={styles.introContent}>
-     <span className={styles.kicker}>BLUEBELLY / REGIME INTELLIGENCE — FIELD GUIDE 01</span>
+     <span className={styles.kicker}>BLUEBELLY / REGIME WATCH</span>
      <h1>THE BIGGER <em>MARKET</em> PICTURE.</h1>
-     <p>Why the market behaves the way it does. Nine competing research lenses, the strongest case against each thesis and the evidence that would change the verdict.</p>
+     <p>Nine lenses on what drives markets. Each includes a countercase and the evidence that could change the verdict.</p>
      <nav className={styles.heroActions} aria-label="Regime Watch page sections">
       <a href="#lens-grid">EXPLORE THE NINE LENSES <span aria-hidden="true">↗</span></a>
       <a href="#source-reasons">TODAY'S SOURCE REASONS <span aria-hidden="true">↗</span></a>
@@ -64,9 +64,9 @@ export default async function RegimeWatchPage(){
    </div>
    <div className={styles.heading} id="lens-grid">
     <div><span className={styles.kicker}>01 / THE NINE RESEARCH FILES</span><h2>Choose the <em>pressure point.</em></h2></div>
-    <span>Fundamental outlook reviewed {LENS_OUTLOOK_REVIEWED_ON} MYT · {theses===null?"Story coverage unavailable":theses.length+" public Story snapshots"} · Viewed <DualTimestamp value={now.toISOString()}/></span>
+    <span><span className={styles.reviewDate}>Reviewed {LENS_OUTLOOK_REVIEWED_ON} MYT</span><span className={styles.reviewMeta}> · {theses===null?"Story coverage unavailable":theses.length+" public Story snapshots"} · Viewed <DualTimestamp value={now.toISOString()}/></span></span>
    </div>
-   <p className={styles.lensIntro}>Explore a research lens. Each lens has its own outlook and confidence meter. These are reviewed fundamental judgements, not live price signals or automatic changes to canonical Regime state.</p>
+   <p className={styles.lensIntro}>Explore a research lens. Check the dated outlook, countercase and next test. Not a live trading signal.</p>
    <div className={styles.cards}>{lenses.map((lens,index)=>
     <Link key={lens.id} className={styles.card} data-research-lens={lens.id}
      href={blueDeskPublicHref("/blue-desk/regime-watch/"+lens.id,host)}
