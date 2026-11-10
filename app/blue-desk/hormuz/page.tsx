@@ -5,7 +5,7 @@ import {headers} from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import HormuzCrossings from "@/components/blue-desk/HormuzCrossings";
 import HormuzSituationBrief from "@/components/blue-desk/HormuzSituationBrief";
-import {getHormuzWireLeads} from "@/lib/bluebelly-hormuz-x-wire-server";
+import {getTopicInfluence} from "@/lib/bluebelly-topic-influence-server";
 import {readBluebellyQualifiedNews} from "@/lib/bluebelly-verified-event-server";
 import {getGlobalFlowMonitor} from "@/lib/global-flow-monitor";
 import {getHormuzMonitor} from "@/lib/hormuz-monitor";
@@ -44,7 +44,7 @@ export default async function HormuzTracker(){
  const [raw,incidents,researchDigests,wire,qualifiedNews]=await Promise.all([getGlobalFlowMonitor().catch(async()=>({
   hormuz:await getHormuzMonitor().catch(()=>({snapshot:null,checkedAt:now.toISOString(),nextAttemptAt:null,refreshFailed:true})),
   updatedAt:now.toISOString(),oil:[],gold:[],researchTriggers:[],coverageGaps:[]
- } satisfies GlobalFlowMonitor)),getHormuzIncidents(now),getPublishedMacroPulseBriefs(6).catch(()=>[]),getHormuzWireLeads(now),readBluebellyQualifiedNews(now,18)]);
+ } satisfies GlobalFlowMonitor)),getHormuzIncidents(now),getPublishedMacroPulseBriefs(6).catch(()=>[]),getTopicInfluence("hormuz",now),readBluebellyQualifiedNews(now,18)]);
  const watch=projectHormuzPublicWatch(raw,now);
  const reviewedResearch=researchForPublicLens(projectPublishedResearchFocus(researchDigests,now,6),"hormuz");
  const pick=(ids:string[])=>ids.map(id=>watch.tiles.find(x=>x.id===id)).filter((x):x is HormuzWatchTile=>!!x);
