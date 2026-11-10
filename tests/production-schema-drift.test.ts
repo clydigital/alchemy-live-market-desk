@@ -10,6 +10,7 @@ import {
 } from "../lib/production-schema-drift-auth.ts";
 import {
   PRODUCTION_SCHEMA_ENFORCEMENT_START,
+  VERIFIED_PRODUCTION_MIGRATION_NAME_RESTAMPS,
   assessProductionSchemaDrift,
   assessProductionSchemaInvariants,
   handleProductionSchemaDriftWithDependencies,
@@ -354,4 +355,60 @@ test("v2 E1 checklist history reconciles only with applied account-scoped E1 and
   assert.equal(noBase.missing.length, 1);
   const unrelated = assessProductionSchemaDrift([{version:"20261010000001",name:"missing_other_migration"}], applied);
   assert.equal(unrelated.healthy, false);
+});
+
+test("14 audited filename restamps reconcile only with exact applied migration names", () => {
+  const pairs = Object.entries(VERIFIED_PRODUCTION_MIGRATION_NAME_RESTAMPS);
+  assert.equal(pairs.length, 14);
+  const expected = pairs.map(([name], i) => ({
+    version: `202610${String(i + 1).padStart(8,"0")}`, name,
+  }));
+  const applied = pairs.map(([, name], i) => ({
+    version: `202610${String(i + 1).padStart(8,"0")}`, name,
+  }));
+  const clean = assessProductionSchemaDrift(expected, applied);
+  assert.equal(clean.healthy, true);
+  assert.equal(clean.expectedCount, 14);
+  assert.equal(clean.appliedCount, 14);
+  assert.equal(clean.missing.length, 0);
+  assert.deepEqual(
+    clean.historicalAliases.map(row => [row.expectedName, row.appliedName]),
+    pairs,
+  );
+
+  // One missing applied record is still a hard error even if other aliases match.
+  const incomplete = assessProductionSchemaDrift(expected, applied.slice(1));
+  assert.equal(incomplete.healthy, false);
+  assert.deepEqual(incomplete.missing.map(row => row.name), [pairs[0][0]]);
+
+  // Lookalike names cannot silently satisfy the ledger: no prefix/suffix guessing.
+  const lookalike = assessProductionSchemaDrift(expected, [
+    ...applied.slice(1),
+    { version: "20261002000000", name: applied[0].name + "_copy" },
+  ]);
+  assert.equal(lookalike.healthy, false);
+  assert.equal(lookalike.missing[0].name, pairs[0][0]);
+
+  // A truly new migration must still be present under its exact name.
+  const unknown = assessProductionSchemaDrift([
+    ...expected, { version: "20261111000000", name: "genuinely_missing_change" },
+  ], applied);
+  assert.equal(unknown.healthy, false);
+  assert.deepEqual(unknown.missing.map(row => row.name), ["genuinely_missing_change"]);
+});
+
+test("the four restored production receipts require exact ledger names, not inferred state", () => {
+  const restored = [
+    "x_wire_macropaperr_roster",
+    "x_wire_beginnertrades_roster",
+    "x_wire_oddstats_roster",
+    "bluebelly_source_only_publication_fence",
+  ];
+  for (const name of restored) {
+    const expected = [{version: "20261107080500", name}];
+    assert.equal(assessProductionSchemaDrift(expected, []).healthy, false);
+    assert.equal(assessProductionSchemaDrift(expected, [
+      {version: "20261110155837", name},
+    ]).healthy, true);
+  }
 });
