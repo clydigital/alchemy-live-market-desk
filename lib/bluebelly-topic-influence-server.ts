@@ -11,7 +11,9 @@ import {
  * An interpreted video is still commentary, even if its transcript was reviewed.
  */
 export async function getTopicInfluence(topic:InfluenceTopic,now=new Date()):Promise<TopicInfluenceRead>{
- const db=createSupabaseAdminClient();
+ let db:ReturnType<typeof createSupabaseAdminClient>;
+ try{db=createSupabaseAdminClient();}
+ catch{return projectTopicInfluence(topic,[],[],now,"UNAVAILABLE","UNAVAILABLE");}
  const sinceX=new Date(now.getTime()-48*3600000).toISOString();
  const sinceCreator=new Date(now.getTime()-14*86400000).toISOString();
  const [posts,videos]=await Promise.allSettled([
