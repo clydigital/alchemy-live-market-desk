@@ -11,6 +11,32 @@ export const REQUIRED_PRODUCTION_SCHEMA_INVARIANTS = [
   "story_maintenance_evidence_provenance",
 ] as const;
 
+/**
+ * Exact, audited Git-file-name -> Supabase migration-ledger-name restamps.
+ *
+ * Older production migrations were applied through Supabase with a descriptive
+ * /dated name instead of the checked-in SQL filename. The schema guard must
+ * recognise ONLY these exact, independently observed history entries.
+ * Never use prefix/fuzzy matching, rewrite a ledger row, or mark a missing
+ * migration applied based solely on the table existing.
+ */
+export const VERIFIED_PRODUCTION_MIGRATION_NAME_RESTAMPS: Readonly<Record<string, string>> = Object.freeze({
+  blue_desk_editorial_slate_handoff: "blue_desk_editorial_slate_handoff_20261023",
+  x_wire_durable_intake: "x_wire_durable_intake_20261023",
+  editorial_publications: "editorial_publications_and_private_pdf_bucket_20261025",
+  automated_daily_pdf_reports: "automated_daily_pdf_reports_20261027",
+  automated_daily_pdf_private_upgrade: "automated_daily_pdf_private_upgrade_20261027",
+  private_report_kinds_and_receipts: "private_report_kinds_and_receipts_20261027",
+  allow_casual_finance_transcript_claims: "allow_casual_finance_transcript_claims_20261027",
+  material_event_editorial_receipts: "material_event_editorial_receipts_20261028",
+  private_drive_html_report_receipts: "private_drive_html_report_receipts_20261028",
+  bluebelly_publication_archive: "bluebelly_publication_archive_20261030",
+  private_html_immutable_editions: "private_html_immutable_editions_20261031",
+  private_work_html_inbox: "private_work_html_inbox_20261031",
+  power_stack_owner_snapshots: "power_stack_owner_snapshots_20261101",
+  scheduled_private_daily_html_fallback: "scheduled_private_daily_html_fallback_20261101",
+});
+
 type ExpectedMigration = {
   version: string;
   name: string;
@@ -82,17 +108,24 @@ export function assessProductionSchemaDrift(
   const presenterReconciled =
     appliedNames.has("presenter_technical_checklists_account_scoped_e1")
     && appliedNames.has("presenter_smh_check_v3");
-  const historicalAliases = expected.filter((migration) =>
-    migration.name === presenterAlias && !appliedNames.has(presenterAlias)
-    && presenterReconciled
-  ).map((migration) => ({
-    expectedName: migration.name,
-    appliedName: "presenter_technical_checklists_account_scoped_e1",
-    successorName: "presenter_smh_check_v3",
-  }));
+  const historicalAliases = expected.flatMap((migration) => {
+    if (appliedNames.has(migration.name)) return [];
+    if (migration.name === presenterAlias && presenterReconciled) {
+      return [{
+        expectedName: migration.name,
+        appliedName: "presenter_technical_checklists_account_scoped_e1",
+        successorName: "presenter_smh_check_v3",
+      }];
+    }
+    const restampedName = VERIFIED_PRODUCTION_MIGRATION_NAME_RESTAMPS[migration.name];
+    if (restampedName && appliedNames.has(restampedName)) {
+      return [{ expectedName: migration.name, appliedName: restampedName }];
+    }
+    return [];
+  });
+  const reconciledNames = new Set(historicalAliases.map((entry) => entry.expectedName));
   const missing = expected.filter((migration) =>
-    !appliedNames.has(migration.name)
-    && !(migration.name === presenterAlias && presenterReconciled)
+    !appliedNames.has(migration.name) && !reconciledNames.has(migration.name)
   );
   const appliedExpectedCount = expected.length - missing.length;
 
