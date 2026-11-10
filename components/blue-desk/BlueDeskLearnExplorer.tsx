@@ -47,7 +47,7 @@ export default function BlueDeskLearnExplorer({concepts}:{concepts:LearnConcept[
   const [query,setQuery] = useState("");
   const [category,setCategory] = useState<string>("all");
   const [selectedKey,setSelectedKey] = useState("");
-  const [visibleCount,setVisibleCount] = useState(18);
+  const [visibleCount,setVisibleCount] = useState(12);
 
   useEffect(()=>{
     const selectFromHash=()=>{
@@ -57,7 +57,7 @@ export default function BlueDeskLearnExplorer({concepts}:{concepts:LearnConcept[
       setQuery("");
       setCategory("all");
       setSelectedKey(key);
-      setVisibleCount(Math.max(18,position+1));
+      setVisibleCount(Math.max(12,position+1));
     };
     selectFromHash();
     window.addEventListener("hashchange",selectFromHash);
@@ -87,7 +87,7 @@ export default function BlueDeskLearnExplorer({concepts}:{concepts:LearnConcept[
       <div className={ui.searchLine}>
         <span aria-hidden="true" className={ui.searchSymbol}>⌕</span>
         <input id="concept-search" className={ui.search} value={query}
-          onChange={(event)=>{setQuery(event.target.value);setVisibleCount(18);}}
+          onChange={(event)=>{setQuery(event.target.value);setVisibleCount(12);}}
           placeholder="Search a term, indicator or market question…" type="search"/>
         {query && <button className={ui.clearSearch} type="button" onClick={()=>setQuery("")}>Clear</button>}
       </div>
@@ -95,7 +95,7 @@ export default function BlueDeskLearnExplorer({concepts}:{concepts:LearnConcept[
         {categories.map((item)=><button key={item.slug} type="button"
           aria-pressed={category===item.slug}
           className={category===item.slug ? ui.selected : ui.filter}
-          onClick={()=>{setCategory(item.slug);setVisibleCount(18);}}>
+          onClick={()=>{setCategory(item.slug);setVisibleCount(12);}}>
           <span aria-hidden="true">{item.code}</span>{item.label}
         </button>)}
       </nav>
@@ -104,7 +104,7 @@ export default function BlueDeskLearnExplorer({concepts}:{concepts:LearnConcept[
 
     {filtered.length===0 ? <div className={ui.empty}>
       <p>No matching term. Try a broader keyword or explore all categories.</p>
-      <button onClick={()=>{setQuery("");setCategory("all");setVisibleCount(18);}} type="button">Reset glossary</button>
+      <button onClick={()=>{setQuery("");setCategory("all");setVisibleCount(12);}} type="button">Reset glossary</button>
     </div> : <div className={ui.glossaryWorkspace}>
       <div className={ui.indexPane}>
         <div className={ui.paneHeading}><span>01 / CONCEPT INDEX</span><span>ALPHABETICAL</span></div>
@@ -122,7 +122,7 @@ export default function BlueDeskLearnExplorer({concepts}:{concepts:LearnConcept[
           </article>)}
         </div>
         {filtered.length>visibleCount && <button type="button" className={ui.loadMore}
-          onClick={()=>setVisibleCount((n)=>n+18)}>LOAD MORE DEFINITIONS <span>+{Math.min(18,filtered.length-visibleCount)}</span></button>}
+          onClick={()=>setVisibleCount((n)=>n+12)}>LOAD MORE DEFINITIONS <span>+{Math.min(12,filtered.length-visibleCount)}</span></button>}
       </div>
 
       <article className={ui.focusPane} id="concept-focus" aria-live="polite" aria-atomic="true">
