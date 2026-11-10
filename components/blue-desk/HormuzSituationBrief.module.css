@@ -16,3 +16,26 @@
 .post .postMeta{font:700 11px/1.4 var(--bb-mono);color:var(--bb-accent)}
 .post p{overflow-wrap:anywhere;margin:6px 0}
 @media(max-width:960px){.columns{grid-template-columns:1fr}.heading{flex-direction:column}.heading>a{white-space:normal}}
+
+/* Decision-first: two readable briefs; X/creator evidence is available but not a third wall. */
+.brief{padding:clamp(13px,1.7vw,19px);margin:10px 0 12px}
+.heading h2{font-size:clamp(20px,2.2vw,28px);margin:5px 0}
+.heading .intro{font-size:12px;line-height:1.45;margin:0 0 9px}
+.heading>a{font-size:11px}
+.columns{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.columns article{padding:12px}
+.columns h3{font-size:16px;margin-bottom:6px}
+.columns strong{font-size:13px;line-height:1.4;margin-top:6px}
+.columns p{font-size:12px;line-height:1.5;margin:6px 0}
+.columns .caution{font-size:11px;line-height:1.45}
+.links{gap:8px}
+.wireDisclosure{grid-column:1/-1;min-width:0;background:var(--bb-card-quiet);border:1px solid var(--bb-card-border)}
+.wireDisclosure>summary{cursor:pointer;display:flex;flex-wrap:wrap;align-items:baseline;gap:5px 13px;
+ padding:10px 13px;color:var(--bb-text)}
+.wireDisclosure>summary strong{font:800 12px/1.4 var(--bb-display);margin:0}
+.wireDisclosure>summary span{font:650 10px/1.4 var(--bb-mono);color:var(--bb-muted)}
+.wireDisclosure[open]>summary{border-bottom:1px solid var(--bb-card-border)}
+.wireBody{padding:12px}
+.wireDisclosure>summary:focus-visible{outline:3px solid var(--bb-card-focus);outline-offset:-3px}
+@media(max-width:960px){.columns{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:680px){.columns{grid-template-columns:1fr}.heading{gap:5px}}

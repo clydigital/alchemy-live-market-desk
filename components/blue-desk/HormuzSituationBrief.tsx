@@ -34,7 +34,7 @@ export default function HormuzSituationBrief({
     <div className={s.heading}>
       <div><p className={s.eyebrow}>IRAN CONFLICT / DIPLOMACY / PHYSICAL EVIDENCE</p>
         <h2>Hormuz situation — quick read</h2>
-        <p className={s.intro}>Negotiations and conflict developments first. Shipping flows and X Wire are supporting signals, not proof that a deal has been reached.</p></div>
+        <p className={s.intro}>Negotiations and conflict developments first. Verify against vessel crossings and original-source reports.</p></div>
       <Link href={newsroomHref+"?q=hormuz"}>More verified news and research →</Link>
     </div>
     <div className={s.columns}>
@@ -68,11 +68,16 @@ export default function HormuzSituationBrief({
         <p className={s.caution}>{incidentAt?"Compiled "+incidentAt+". ":""}Provider-reported incidents require original-notice checks.</p>
         <div className={s.links}><a href="#shipping">Crossings ↗</a><a href="#incidents">Security notices ↗</a><a href="#fuels">Crude & fuels ↗</a></div>
       </article>
-      <article>
-        <h3>X Wire — emerging claims and creator research</h3>
-        <p className={s.caution}>Unverified public posts and creator claims can suggest what to check. Neither confirms a ceasefire, diplomatic agreement, attack, supply change or Regime verdict.</p>
-        <TopicInfluencePanel input={wire} compact/>
-      </article>
+      <details className={s.wireDisclosure} data-hormuz-source-detail="collapsed-by-default">
+        <summary>
+          <strong>X Wire — emerging claims and creator research</strong>
+          <span>Source leads and reviewed transcripts · Expand evidence</span>
+        </summary>
+        <div className={s.wireBody}>
+          <p className={s.caution}>Unverified public posts and creator claims can suggest what to check. Neither confirms a ceasefire, diplomatic agreement, attack, supply change or Regime verdict.</p>
+          <TopicInfluencePanel input={wire} compact/>
+        </div>
+      </details>
     </div>
   </section>;
 }
