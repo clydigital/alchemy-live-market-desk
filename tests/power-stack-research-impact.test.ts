@@ -27,7 +27,7 @@ test("actual tracked ticker groups require explicit mappings, not name/word gues
  const assets=[holding("XOM"),watch("MU"),watch("GLDM"),bond("TLT"),watch("9988.HK")];
  const topics=powerStackResearchTopics(assets);
  for(const expected of ["bonds","ai","hormuz","gold","china","fed","breadth"]){
-  assert.ok(topics.includes(expected as InfluenceTopic),expected);
+  assert.ok(topics.some(topic=>topic===expected),expected);
  }
  assert.equal(powerStackResearchTopics([holding("BWXT"),watch("SMR")]).includes("hormuz"),false);
  assert.equal(powerStackResearchTopics([holding("BWXT"),watch("SMR")]).includes("ai"),false);
