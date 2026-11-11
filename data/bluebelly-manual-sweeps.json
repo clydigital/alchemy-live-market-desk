@@ -2,6 +2,156 @@
   "version": 1,
   "sweeps": [
     {
+      "id": "2026-11-12-hormuz-navigation-versus-recovery",
+      "topic": "hormuz",
+      "date": "2026-11-12",
+      "researchAt": "2026-11-11T23:17:02Z",
+      "title": "Navigation threat persists despite energy-flow recovery",
+      "findings": [
+        {
+          "reason": "Reuters reports, citing three sources, an alleged strike on navigation systems on Oman's Didamar island on 11 November. Damage and operational consequences were not independently verified; this is a security lead, not proof that commercial shipping stopped.",
+          "sourceName": "Reuters — Didamar navigation systems report",
+          "sourceUrl": "https://www.reuters.com/world/middle-east/iran-attacks-shipping-navigation-systems-omans-didamar-island-sources-say-2026-11-11/",
+          "sourcePublishedAt": "2026-11-11",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Recover dated Omani/UKMTO notices and maritime operator reports; test whether vessel routes and completed transits actually changed."
+        },
+        {
+          "reason": "EIA assesses Middle East crude-production shut-ins at about 2.5 million barrels/day in October, versus 10.9 million at the May peak. It also describes ship-to-ship transfers off Oman supporting recovered exports. Those are regional supply estimates, not a verified safe reopening of Hormuz.",
+          "sourceName": "EIA — November STEO crude market review",
+          "sourceUrl": "https://www.eia.gov/outlooks/steo/marketreview/crude.php",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Compare daily and completed-week commercial transits, cargo loadings, insurance and alternate-route volumes with the EIA's vintage; keep crude flow distinct from AIS crossing counts."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-12-energy-crude-vs-physical",
+      "topic": "energy",
+      "date": "2026-11-12",
+      "researchAt": "2026-11-11T23:17:02Z",
+      "title": "Oil-price relief does not imply finished-fuel relief",
+      "findings": [
+        {
+          "reason": "EIA forecasts Brent near $100/barrel in November–December after lower October production shut-ins, but says shipping risks, longer routes and constrained tanker capacity remain. This is a November 5 forecast vintage published November 10, not a live price or proof about diesel.",
+          "sourceName": "EIA — November STEO outlook",
+          "sourceUrl": "https://www.eia.gov/outlooks/steo/",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Check actual delivered crude, freight and insurance against dated Brent/WTI and separately measure diesel cracks and distillate stocks."
+        },
+        {
+          "reason": "Reuters' 11 November oil report described Brent at $92.20/barrel at 01:19 GMT following a two-month low, alongside renewed ship-attack concerns. The intraday quote must not be compared as a same-period observation with EIA's monthly Brent forecast.",
+          "sourceName": "Reuters via Investing.com — 11 November oil tape",
+          "sourceUrl": "https://au.investing.com/news/commodities-news/oil-rises-from-twomonth-low-as-hormuz-shipping-attacks-offset-iran-truce-hopes-4760347",
+          "sourcePublishedAt": "2026-11-11",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Use a matched futures settlement and US/Asian product-crack observations; distinguish oil risk-premium change from physical-product shortages."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-12-fed-inflation-labor-quality",
+      "topic": "fed",
+      "date": "2026-11-12",
+      "researchAt": "2026-11-11T23:17:02Z",
+      "title": "Hot CPI and decent jobs are not the full growth story",
+      "findings": [
+        {
+          "reason": "BLS says October CPI rose 0.4% month-on-month and core rose 0.3%. Energy rose 0.7% and shelter 0.3%. Most October 2026 twelve-month CPI comparisons are unavailable because BLS did not collect October 2025 data.",
+          "sourceName": "BLS — October 2026 CPI",
+          "sourceUrl": "https://www.bls.gov/news.release/archives/cpi_11102026.htm",
+          "sourcePublishedAt": "2026-11-10T13:30:00Z",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Track comparable monthly services/shelter inflation and December policy-market pricing without fabricating missing year-on-year rates."
+        },
+        {
+          "reason": "BLS October employment report shows +165,000 payrolls and 4.1% unemployment; long-term unemployment stood at about 2 million, 27.6% of unemployed workers, while professional/business services added 70,000. Headline hiring and labour quality require separate evaluation.",
+          "sourceName": "BLS — October 2026 employment report",
+          "sourceUrl": "https://www.bls.gov/news.release/archives/empsit_11062026.htm",
+          "sourcePublishedAt": "2026-11-06T13:30:00Z",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Compare sector job gains and losses, U-6, hours, involuntary part-time employment, wages and employment revisions in a labour-quality report."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-12-bonds-cpi-then-equity-rebound",
+      "topic": "bonds",
+      "date": "2026-11-12",
+      "researchAt": "2026-11-11T23:17:02Z",
+      "title": "Duration and risk assets diverge after inflation surprise",
+      "findings": [
+        {
+          "reason": "Reuters reported that after 10 November CPI the US 2-year yield rose 18.44bp to about 4.731% and the 10-year rose 12.55bp to about 4.988%; these are dated 10 November observations, not present-time Treasury levels.",
+          "sourceName": "Reuters via MarketScreener — 10 November yields",
+          "sourceUrl": "https://www.marketscreener.com/news/us-yields-climb-stocks-fall-as-inflation-data-boosts-chances-for-larger-fed-rate-hike-ce785edad18ef224",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Measure 11 November 2Y/10Y/30Y official closes, real yields, TLT and duration ETF reaction with exact dates; inspect policy-path versus term-premium explanations."
+        },
+        {
+          "reason": "BLS's monthly headline +0.4% and core +0.3% establish a hotter CPI observation; they do not establish that a December 50bp hike will occur or that long bonds must keep falling.",
+          "sourceName": "BLS — October 2026 CPI",
+          "sourceUrl": "https://www.bls.gov/news.release/archives/cpi_11102026.htm",
+          "sourcePublishedAt": "2026-11-10T13:30:00Z",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Separate the official release from the next-meeting implied path and investigate nominal-versus-real yield divergence."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-12-ai-post-cpi-rebound",
+      "topic": "ai",
+      "date": "2026-11-12",
+      "researchAt": "2026-11-11T23:17:02Z",
+      "title": "AI stock rebound challenges a one-way duration selloff",
+      "findings": [
+        {
+          "reason": "Associated Press reported a 11 November US equity rebound: S&P 500 about +1.3% and Nasdaq about +1.6%, with AI-related shares recovering. This is a dated session report, not evidence of a sustained new AI Regime.",
+          "sourceName": "Associated Press — 11 November equity rebound",
+          "sourceUrl": "https://apnews.com/article/297d040c83844a9563327340b370c24e",
+          "sourcePublishedAt": "2026-11-11",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Compare 10 November selloff against 11–12 November follow-through, SMH/QQQ, 2Y/10Y yields, relative strength and cash-session breadth."
+        },
+        {
+          "reason": "AP reported CoreWeave rose about 24.7% after results, revised revenue guidance and expected customer prepayments/deposits. Reporting needs verification against the actual issuer release before interpreting contracted revenue or cash conversion as established.",
+          "sourceName": "Associated Press — CoreWeave and AI shares",
+          "sourceUrl": "https://apnews.com/article/297d040c83844a9563327340b370c24e",
+          "sourcePublishedAt": "2026-11-11",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Read CoreWeave's original 10-Q/earnings release, separate deposits from recognised revenue, calculate operating cash flow, capex, financing and FCF before any AI-funding verdict."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-12-breadth-risk-on-test",
+      "topic": "breadth",
+      "date": "2026-11-12",
+      "researchAt": "2026-11-11T23:17:02Z",
+      "title": "Risk-on rebound needs equal-weight and sector confirmation",
+      "findings": [
+        {
+          "reason": "AP's 11 November headline S&P 500 and Nasdaq gains describe cap-weight benchmarks; they do not establish that equal-weight stocks or semiconductors have uniformly recovered.",
+          "sourceName": "Associated Press — 11 November market",
+          "sourceUrl": "https://apnews.com/article/297d040c83844a9563327340b370c24e",
+          "sourcePublishedAt": "2026-11-11",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Compare SPX with RSP, SMH/QQQ, S5FI/S5TH and advance–decline readings for matched 10–12 November sessions."
+        },
+        {
+          "reason": "The 10 November inflation surprise and reported bond-yield jump create a relevant alternative explanation to short-covering for the 11 November rebound; the mechanisms remain unproved without matched price/positioning data.",
+          "sourceName": "Reuters via MarketScreener — 10 November post-CPI tape",
+          "sourceUrl": "https://www.marketscreener.com/news/us-yields-climb-stocks-fall-as-inflation-data-boosts-chances-for-larger-fed-rate-hike-ce785edad18ef224",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Build event sequence and test US real yields, DXY, index intraday breadth and volume before attributing the bounce to positioning."
+        }
+      ]
+    },
+    {
       "id": "2026-11-12-ai-nvidia-ceo-board-consideration",
       "topic": "ai",
       "date": "2026-11-12",
