@@ -19,6 +19,7 @@ export default function DirectionQuickRead({question,summary,read}:Props){
       data-direction-window={window.label} data-direction-trend={window.trend}>
     <div className={s.top}><strong>{window.label}</strong><span className={s.dot} aria-hidden="true"/></div>
     <span className={s.state}>{WORDING[window.trend]}</span>
+    <small>{window.better} easing · {window.worse} adverse{window.mixed?" · "+window.mixed+" mixed":""}</small>
     <small>{window.count} dated signal{window.count===1?"":"s"} · {window.from} to {window.to}</small>
    </div>)}
   </div>
