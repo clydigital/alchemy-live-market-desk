@@ -127,3 +127,16 @@ test("reader is linked from existing regime directory, without an added schedule
   assert.match(page,/CRASH_HISTORY/);
   assert.doesNotMatch(page,/service_role|createClient|insert\(|update\(/i);
 });
+
+
+test("11 November challenge distinguishes intraday equity recovery from closed bond markets and canonical regime state",()=>{
+  const crash=readFileSync("app/blue-desk/crash-opportunity/page.tsx","utf8");
+  const regime=readFileSync("app/blue-desk/regime-watch/page.tsx","utf8");
+  assert.match(crash,/data-regime-challenge="2026-11-11-source-dated"/);
+  assert.match(crash,/intraday, not a completed close/);
+  assert.match(crash,/fixed income was closed for Veterans Day/);
+  assert.match(crash,/not yet collected cash/);
+  assert.match(crash,/Does not replace the Regime projector/);
+  assert.match(regime,/data-regime-research-delta="2026-11-11-provisional"/);
+  assert.match(regime,/current Regime verdict is not revised/);
+});

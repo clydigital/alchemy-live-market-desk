@@ -56,6 +56,14 @@ export default async function RegimeWatchPage(){
      <span className={styles.visualFooter}>CONNECTIONS / NOT CONCLUSIONS</span>
     </div>
    </header>
+
+   <aside id="nov11-regime-challenge" data-regime-research-delta="2026-11-11-provisional" style={{border:"1px solid var(--bb-card-border)",background:"var(--bb-surface)",borderRadius:10,padding:"18px 22px",margin:"18px 0"}}>
+    <span className={styles.kicker}>NEW SOURCE-DATED COUNTERCASE · 11 NOVEMBER 2026</span>
+    <h2 style={{fontSize:"clamp(22px,2.5vw,30px)",margin:"9px 0"}}>Rates restrictive. AI shares rebound. What changes the regime?</h2>
+    <p>October CPI and the 10 November Treasury yield jump support restrictive financing conditions. But 11 November's <strong>intraday</strong> AI rebound followed stronger CoreWeave guidance, while 20-session equal-weight participation challenged the narrow-rally narrative. The US bond market was closed on 11 November: there is no same-session Treasury confirmation of the rebound.</p>
+    <p><strong>Open questions:</strong> Is this durable earnings-led absorption, mechanical short covering, or rotation that still leaves AI financing fragile? The current Regime verdict is not revised by this editorial assessment.</p>
+    <Link href={blueDeskPublicHref("/blue-desk/crash-opportunity",host)+"#nov11-challenge"}>Examine the sources, three competing interpretations and deciding tests →</Link>
+   </aside>
    <div className={styles.intelStrip} aria-label="Regime Watch research scope">
     <div><span>01 / RESEARCH LENSES</span><strong>09</strong><small>DIFFERENT MARKET SYSTEMS</small></div>
     <div><span>02 / SOURCE CONTEXT</span><strong>{theses===null?"—":theses.length}</strong><small>ASSOCIATED PUBLIC STORY RECORDS</small></div>
