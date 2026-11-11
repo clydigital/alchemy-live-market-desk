@@ -16,6 +16,7 @@ import {getLensOutlook} from "@/lib/bluebelly-regime-lens-outlook";
 import {getRegimeEditorialUpdate} from "@/lib/bluebelly-regime-verified-crossasset";
 import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
 import RegimeResearchClocks from "@/components/blue-desk/RegimeResearchClocks";
+import RegimeManualChallenge from "@/components/blue-desk/RegimeManualChallenge";
 import {getRegimeShadowHealth} from "@/lib/regime-engine";
 import TopicInfluencePanel from "@/components/blue-desk/TopicInfluencePanel";
 import {getTopicInfluence} from "@/lib/bluebelly-topic-influence-server";
@@ -87,6 +88,7 @@ export default async function ResearchLensPage({params}:Props){
     </div>
    </header>
    <RegimeResearchClocks sources={sourceObservations===null?null:recent} editorialReviewedOn={outlook.reviewedAt} shadow={shadowHealth}/>
+   <RegimeManualChallenge lens={lens.id}/>
    <div className={styles.lensQuickStrip} aria-label="Research file orientation">
     <div><span>01 / REVIEWED DIRECTION</span><strong>{outlook.outlook}</strong><small>For {outlook.directionTarget}</small></div>
     <div><span>02 / CONFIDENCE</span><strong>{outlook.confidence}</strong><small>Qualitative evidence judgement</small></div>
