@@ -4,6 +4,9 @@ import type {NewsBriefV1} from "@/lib/market-brief-news";
 import type {TopicInfluenceRead} from "@/lib/bluebelly-topic-influence";
 import TopicInfluencePanel from "./TopicInfluencePanel";
 import s from "./HormuzSituationBrief.module.css";
+import DirectionQuickRead from "./DirectionQuickRead";
+import {buildDirectionQuickRead,type DirectionEvidence} from "@/lib/bluebelly-direction-quick-read";
+import directionData from "@/data/bluebelly-hormuz-peace-signals.json";
 
 type Props={
   newsroomHref:string;
@@ -25,6 +28,7 @@ export default function HormuzSituationBrief({
   newsroomHref,reviewed,news,newsCoverageDegraded,wire,crossingState,crossings,crossingAt,
   incidentState,reportedIncidents,incidentAt,
 }:Props){
+  const peace=buildDirectionQuickRead(directionData.signals as DirectionEvidence[],new Date());
   const verified=news.find(item=>NEGOTIATIONS.test(item.headline+" "+item.summary));
   const latest=reviewed.find(item=>NEGOTIATIONS.test(
     [item.headline,item.standfirst,item.whatChanged].join(" ")));
@@ -37,6 +41,9 @@ export default function HormuzSituationBrief({
         <p className={s.intro}>Negotiations and conflict developments first. Verify against vessel crossings and original-source reports.</p></div>
       <Link href={newsroomHref+"?q=hormuz"}>More verified news and research →</Link>
     </div>
+    <DirectionQuickRead question="Are we getting closer to peace?"
+      summary="Recent public positions and restraint signals, grouped by 1/3/5 source-publication days."
+      read={peace}/>
     <div className={s.columns}>
       <article>
         <h3>Negotiations & conflict</h3>

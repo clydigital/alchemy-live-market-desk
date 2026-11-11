@@ -2,6 +2,122 @@
   "version": 1,
   "sweeps": [
     {
+      "id": "2026-11-12-hormuz-peace-direction-source-check",
+      "topic": "hormuz",
+      "date": "2026-11-12",
+      "researchAt": "2026-11-11T23:59:00Z",
+      "title": "Iran denies active talks while US avoids new strikes",
+      "findings": [
+        {
+          "reason": "Iranian security chief Mohsen Rezaei publicly said no active US–Iran negotiations were underway and the seven demands for opening Hormuz remain unmet. Reported positions must not be conflated with a verified failure of Qatar-mediated contacts.",
+          "sourceName": "Reuters — Iranian security chief's remarks",
+          "sourceUrl": "https://www.reuters.com/world/middle-east/irans-top-security-official-says-no-talks-underway-with-us-2026-11-10/",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Check direct Iranian/US/Qatari position, actual proposals, and whether all parties have agreed to and implemented terms."
+        },
+        {
+          "reason": "Rezaei threatened retaliation against US bases in Europe if aircraft from them were used to strike Iran. This is an attributed conditional threat, not a confirmed new strike in Europe.",
+          "sourceName": "AFP via RTÉ — Iranian security warning",
+          "sourceUrl": "https://www.rte.ie/news/middle-east/2026/1111/1598872-iran-middle-east/",
+          "sourcePublishedAt": "2026-11-11",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Distinguish official threat changes from UK aircraft movement, UKMTO incidents, actual engagement and verified navigational effects."
+        },
+        {
+          "reason": "Reuters reports Gulf traffic and LNG exports have recovered somewhat while attacks continue; the October counts are 31 LNG tanker departures and 37 ships attacked. They are period-specific claims, not evidence that insured commercial passage is normal.",
+          "sourceName": "Reuters — Hormuz traffic and attacks",
+          "sourceUrl": "https://www.reuters.com/world/middle-east/hormuz-traffic-is-up-so-are-attacks-2026-11-11/",
+          "sourcePublishedAt": "2026-11-11",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Confirm source denominators, incident identities, comparable prewar traffic, actual cargo volumes and marine insurance before declaring peace or normalisation."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-12-energy-orlen-qatar-lng-break",
+      "topic": "energy",
+      "date": "2026-11-12",
+      "researchAt": "2026-11-11T23:59:00Z",
+      "title": "ORLEN's QatarEnergy cancellation proves disruption costs are real",
+      "findings": [
+        {
+          "reason": "ORLEN terminated one of two QatarEnergy long-term LNG deals on 10 Nov over prolonged force majeure. It covers 1 million tonnes a year, worth about EUR 570m in 2026 and remains legally in effect another 60 days; its second Qatari contract continues. This documents a commercial consequence, not new supply bought from Venture Global.",
+          "sourceName": "ORLEN regulatory announcement 39/2026",
+          "sourceUrl": "https://www.orlen.pl/en/investor-relations/reports-and-publications/regulatory-announcements/2026/03/Regulatory-announcement-no-39-2026",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Read VG and ORLEN's own contracts and actual deliveries before assigning displaced volumes or earnings benefits to VG."
+        },
+        {
+          "reason": "Reuters reports the Polish buyer already receives some Venture Global US LNG. The existing supply link is a beneficiary hypothesis, not proof of incremental revenue because of this cancellation.",
+          "sourceName": "Reuters — ORLEN and QatarEnergy",
+          "sourceUrl": "https://www.reuters.com/business/energy/polands-orlen-ends-long-term-qatarenergy-lng-contract-over-delivery-failure-2026-11-10/",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Quantify replacement cargo needs, VG contracted versus spot capacity and 2027–28 margins, using original issuer filings."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-12-ai-governance-huang-ewy",
+      "topic": "ai",
+      "date": "2026-11-12",
+      "researchAt": "2026-11-11T23:59:00Z",
+      "title": "Nvidia's CEO decision risk is distinct from AI demand",
+      "findings": [
+        {
+          "reason": "Nvidia's independent directors announced on 10 Nov the retention of outside legal counsel for a formal investigation. This is an issuer-confirmed governance milestone; the release neither announced a CEO removal nor said any national-security breach was established.",
+          "sourceName": "NVIDIA — independent directors statement",
+          "sourceUrl": "https://investor.nvidia.com/news/press-release-details/2026/Statement-from-the-Independent-Members-of-the-NVIDIA-Board/default.aspx",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Monitor the next official board/SEC disclosure and any genuine change to the CEO role; do not treat report or betting odds as a board vote."
+        },
+        {
+          "reason": "Reuters on 11 Nov reported the board was preparing to consider Huang's removal, citing WSJ; Reuters could not independently verify the allegation. Reuters' same-day global markets coverage put NVDA +2.9% in cash trading and roughly -8% after hours, not the video's unverified +6%/-10% figures.",
+          "sourceName": "Reuters — Nvidia governance report",
+          "sourceUrl": "https://www.reuters.com/technology/nvidia-is-preparing-oust-ceo-jensen-huang-wsj-reports-2026-11-11/",
+          "sourcePublishedAt": "2026-11-11",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Check exact NVDA cash/after-hours instrument and timestamp, upcoming earnings, chip shipment/guidance and the board's next statement."
+        },
+        {
+          "reason": "The claimed $28.1m EWY Jan-2028 145-strike call purchase was not independently verified from timestamped trade/OPRA data. A large options print by itself does not establish buyer identity or a naked bullish memory-chip bet.",
+          "sourceName": "Cboe — EWY options quote source",
+          "sourceUrl": "https://www.cboe.com/delayed_quotes/EWY/quote_table/",
+          "sourcePublishedAt": "2026-11-11",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Locate exact trade print, premiums, opening interest, bid/ask execution and any paired legs before treating the claim as institutional conviction."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-12-fed-goolsbee-ai-cost-push",
+      "topic": "fed",
+      "date": "2026-11-12",
+      "researchAt": "2026-11-11T23:59:00Z",
+      "title": "Goolsbee links AI infrastructure demand with stubborn service inflation",
+      "findings": [
+        {
+          "reason": "In the original 10 Nov PBS interview, Chicago Fed President Austan Goolsbee called the CPI report 'borderline disturbing', highlighting persistent services prices and data-centre spending as a source of demand-driven overheating. He did not announce an FOMC decision or a December vote.",
+          "sourceName": "PBS NewsHour — Goolsbee original interview",
+          "sourceUrl": "https://pr.pbs.org/video/november-10-2026-pbs-news-hour-full-episode-1794286802/",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Test services CPI/PPI, electrical equipment costs and policy futures with source dates; separate his comments from his voting status."
+        },
+        {
+          "reason": "A quoted 11.8% probability of a 50bp December move must be tied to its exact FedWatch contract, as-of timestamp and implied-probability convention. A video quote without contract cannot be a live Fed pricing feed.",
+          "sourceName": "CME Group — FedWatch methodology and current tool",
+          "sourceUrl": "https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html",
+          "sourcePublishedAt": "2026-11-11",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Read exact FedWatch 8–9 Dec 2026 distribution with time, contract and assumptions; don't copy a snapshot odds as real time."
+        }
+      ]
+    },
+    {
       "id": "2026-11-12-hormuz-navigation-versus-recovery",
       "topic": "hormuz",
       "date": "2026-11-12",

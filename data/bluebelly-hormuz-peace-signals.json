@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "scope": "Hormuz diplomacy / peace progress; source-publication dates (UTC), not live probabilities",
+  "signals": [
+    {
+      "id": "2026-11-11-iran-negotiations",
+      "date": "2026-11-11",
+      "direction": "worse",
+      "title": "Iran's security chief says no active US talks and conditions remain unmet",
+      "sourceName": "Al Jazeera / Reuters, 11 Nov",
+      "sourceUrl": "https://www.aljazeera.com/news/2026/11/11/iran-denies-talks-with-us-says-hormuz-will-stay-shut-until-demands-are-met",
+      "limitation": "An attributed Iranian position, not proof that every mediation channel has stopped."
+    },
+    {
+      "id": "2026-11-11-iran-conditional-retaliation",
+      "date": "2026-11-11",
+      "direction": "worse",
+      "title": "Iran warns it could target US bases beyond the Gulf if used in attacks",
+      "sourceName": "AFP via RTÉ, 11 Nov",
+      "sourceUrl": "https://www.rte.ie/news/middle-east/2026/1111/1598872-iran-middle-east/",
+      "limitation": "A conditional threat, not independent proof of strikes on European bases."
+    },
+    {
+      "id": "2026-11-10-us-strike-pause",
+      "date": "2026-11-10",
+      "direction": "better",
+      "title": "US president holds off additional strikes as Qatar remains involved",
+      "sourceName": "Reuters, 10 Nov",
+      "sourceUrl": "https://www.reuters.com/world/middle-east/gulf-bourses-open-higher-trump-holds-off-iran-strikes-2026-11-10/",
+      "limitation": "Reduced immediate escalation risk does not mean a deal, lifting of blockade or safe shipping."
+    }
+  ]
+}
