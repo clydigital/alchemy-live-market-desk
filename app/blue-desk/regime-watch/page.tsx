@@ -13,6 +13,8 @@ import {getManualSweeps} from "@/lib/bluebelly-manual-sweeps";
 import {getLensOutlook,LENS_OUTLOOK_REVIEWED_ON} from "@/lib/bluebelly-regime-lens-outlook";
 import {getRegimeEditorialUpdate} from "@/lib/bluebelly-regime-verified-crossasset";
 import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
+import RegimeResearchClocks from "@/components/blue-desk/RegimeResearchClocks";
+import {getRegimeShadowHealth} from "@/lib/regime-engine";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import type {EditorialMotif} from "@/lib/bluebelly-editorial-visuals";
 import desk from "../blue-desk.module.css";
@@ -26,10 +28,11 @@ export const metadata={
 
 export default async function RegimeWatchPage(){
  const now=new Date(),host=(await headers()).get("host");
- const [theses,observations,topicReasons]=await Promise.all([
+ const [theses,observations,topicReasons,shadowHealth]=await Promise.all([
   getPublicThesisLedger(now,38).catch(()=>null),
   getPublicSourceObservations(now,12).catch(()=>null),
   getTopicInfluences(EDITORIAL_REGIME_LENSES.map(lens=>lens.id),now).catch(()=>[]),
+  getRegimeShadowHealth().catch(()=>null),
  ]);
  const lenses=groupPublicResearch(theses||[]);
  const scans=lenses.map(lens=>scanRegimeViews(lens.id,getLensOutlook(lens.id).reviewedAt,theses,observations,now));
@@ -64,6 +67,7 @@ export default async function RegimeWatchPage(){
     <p><strong>Open questions:</strong> Is this durable earnings-led absorption, mechanical short covering, or rotation that still leaves AI financing fragile? The current Regime verdict is not revised by this editorial assessment.</p>
     <Link href={blueDeskPublicHref("/blue-desk/crash-opportunity",host)+"#nov11-challenge"}>Examine the sources, three competing interpretations and deciding tests →</Link>
    </aside>
+   <RegimeResearchClocks sources={observations} editorialReviewedOn={LENS_OUTLOOK_REVIEWED_ON} shadow={shadowHealth}/>
    <div className={styles.intelStrip} aria-label="Regime Watch research scope">
     <div><span>01 / RESEARCH LENSES</span><strong>09</strong><small>DIFFERENT MARKET SYSTEMS</small></div>
     <div><span>02 / SOURCE CONTEXT</span><strong>{theses===null?"—":theses.length}</strong><small>ASSOCIATED PUBLIC STORY RECORDS</small></div>

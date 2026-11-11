@@ -15,6 +15,8 @@ import {getMarketMonitor} from "@/lib/market-monitor-public";
 import {getLensOutlook} from "@/lib/bluebelly-regime-lens-outlook";
 import {getRegimeEditorialUpdate} from "@/lib/bluebelly-regime-verified-crossasset";
 import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
+import RegimeResearchClocks from "@/components/blue-desk/RegimeResearchClocks";
+import {getRegimeShadowHealth} from "@/lib/regime-engine";
 import TopicInfluencePanel from "@/components/blue-desk/TopicInfluencePanel";
 import {getTopicInfluence} from "@/lib/bluebelly-topic-influence-server";
 import type {InfluenceTopic} from "@/lib/bluebelly-topic-influence";
@@ -41,11 +43,12 @@ export default async function ResearchLensPage({params}:Props){
  const definition=EDITORIAL_REGIME_LENSES.find(item=>item.id===lensId);
  if(!definition)notFound();
  const now=new Date(),host=(await headers()).get("host");
- const [publicTheses,sourceObservations,marketMonitor,influence]=await Promise.all([
+ const [publicTheses,sourceObservations,marketMonitor,influence,shadowHealth]=await Promise.all([
   getPublicThesisLedger(now,38).catch(()=>null),
   getPublicSourceObservations(now,24).catch(()=>null),
   getMarketMonitor().catch(()=>null),
   getTopicInfluence(lensId as InfluenceTopic,now).catch(()=>null),
+  getRegimeShadowHealth().catch(()=>null),
  ]);
  const lens=groupPublicResearch(publicTheses||[]).find(item=>item.id===lensId)!;
  const lensNumber=String(EDITORIAL_REGIME_LENSES.findIndex(item=>item.id===lensId)+1).padStart(2,"0");
@@ -83,6 +86,7 @@ export default async function ResearchLensPage({params}:Props){
      <span className={styles.artFootnote}>MONITOR / CHALLENGE / REVISE</span>
     </div>
    </header>
+   <RegimeResearchClocks sources={sourceObservations===null?null:recent} editorialReviewedOn={outlook.reviewedAt} shadow={shadowHealth}/>
    <div className={styles.lensQuickStrip} aria-label="Research file orientation">
     <div><span>01 / REVIEWED DIRECTION</span><strong>{outlook.outlook}</strong><small>For {outlook.directionTarget}</small></div>
     <div><span>02 / CONFIDENCE</span><strong>{outlook.confidence}</strong><small>Qualitative evidence judgement</small></div>
