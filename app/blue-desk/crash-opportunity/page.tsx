@@ -3,6 +3,9 @@ import {headers} from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import {getMarketMonitor} from "@/lib/market-monitor-public";
+import {getPublicSourceObservations} from "@/lib/blue-desk-source-observations";
+import {getRegimeShadowHealth} from "@/lib/regime-engine";
+import RegimeResearchClocks from "@/components/blue-desk/RegimeResearchClocks";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import {buildCrashWatchView,CRASH_HISTORY,CRASH_LINKS} from "@/lib/bluebelly-crash-opportunity";
 import desk from "../blue-desk.module.css";
@@ -25,7 +28,11 @@ function numberWithSign(value:number|null,unit:string){
 export default async function CrashOpportunityPage(){
   const now=new Date();
   const host=(await headers()).get("host");
-  const monitor=await getMarketMonitor().catch(()=>null);
+  const [monitor,sourceObservations,shadowHealth]=await Promise.all([
+    getMarketMonitor().catch(()=>null),
+    getPublicSourceObservations(now,12).catch(()=>null),
+    getRegimeShadowHealth().catch(()=>null),
+  ]);
   const watch=buildCrashWatchView(monitor?.rows??null,now);
   const href=(path:string)=>blueDeskPublicHref("/blue-desk"+path,host);
   const position=watch.position==="BULL_LEAN"?"Opportunity lean":
@@ -56,6 +63,7 @@ export default async function CrashOpportunityPage(){
       </header>
 
 
+      <RegimeResearchClocks sources={sourceObservations} editorialReviewedOn="2026-10-30" shadow={shadowHealth}/>
       <section id="nov11-challenge" data-regime-challenge="2026-11-11-source-dated" aria-labelledby="nov11-challenge-title" style={{marginTop:18,padding:"22px clamp(16px,3vw,30px)",border:"1px solid var(--bb-card-border)",borderRadius:10,background:"var(--bb-surface)"}}>
         <span className={styles.eyebrow}>11 NOVEMBER 2026 / SOURCE-DATED MARKET CHALLENGE</span>
         <h2 id="nov11-challenge-title" style={{fontSize:"clamp(23px,2.5vw,34px)",margin:"10px 0"}}>AI stocks bounced. Has the rate shock been absorbed?</h2>
