@@ -2,6 +2,39 @@
   "version": 1,
   "sweeps": [
     {
+      "id": "2026-11-12-ai-nvidia-ceo-board-consideration",
+      "topic": "ai",
+      "date": "2026-11-12",
+      "researchAt": "2026-11-11T23:14:00Z",
+      "title": "Nvidia founder succession event: reported board consideration, not confirmed removal",
+      "findings": [
+        {
+          "reason": "The Wall Street Journal reports Nvidia's directors may consider removing Jensen Huang following a second reported affair, while Reuters says it could not independently verify the board's action. A board discussion is not a confirmed dismissal; founder succession is an additional valuation and execution risk, separate from observed GPU demand.",
+          "sourceName": "Reuters — reporting on WSJ board consideration, 11 November",
+          "sourceUrl": "https://www.reuters.com/technology/nvidia-is-preparing-oust-ceo-jensen-huang-wsj-reports-2026-11-11/",
+          "sourcePublishedAt": "2026-11-11",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Read any new Nvidia original board statement, SEC 8-K or named transition plan; verify the separate investigation and next completed regular-session stock reaction."
+        },
+        {
+          "reason": "Nvidia's original 8 November board statement expressed confidence in Huang and said it had no reason to believe company secrets or national security were compromised. That statement predates the newer 11 November reporting and cannot be represented as a fresh refutation.",
+          "sourceName": "Nvidia Investor Relations — board statement, 8 November",
+          "sourceUrl": "https://investor.nvidia.com/news/press-release-details/2026/Statement-from-NVIDIA-Board-of-Directors/default.aspx",
+          "sourcePublishedAt": "2026-11-08",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Look for a subsequent original board statement after 11 November and distinguish findings from allegations."
+        },
+        {
+          "reason": "Independent Nvidia directors publicly retained Joon H. Kim and Wachtell, Lipton, Rosen & Katz to investigate the reported foreign-intelligence targeting. The retention confirms an investigation, not an adverse finding or executive-removal decision.",
+          "sourceName": "Nvidia Investor Relations — independent directors' statement, 10 November",
+          "sourceUrl": "https://investor.nvidia.com/news/press-release-details/2026/Statement-from-the-Independent-Members-of-the-NVIDIA-Board/default.aspx",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Reconcile investigation findings with product guidance on 17 November, company leadership status and any new official export-control actions."
+        }
+      ]
+    },
+    {
       "id": "2026-11-10-fed-cpi-waller-cross-market",
       "topic": "fed",
       "date": "2026-11-10",
