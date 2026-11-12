@@ -8,7 +8,7 @@ export type PowerStackTracked={
 };
 export type PowerStackResearchGroup={
  topic:InfluenceTopic;title:string;channel:"THEME CONTEXT"|"PORTFOLIO-WIDE";
- transmission:string;assets:PowerStackTracked[];manual:ManualSweep|null;
+ transmission:string;assets:PowerStackTracked[];manual:ManualSweep|null;manuals:ManualSweep[];
  findings:ManualSweepFinding[];leads:InfluenceLead[];
  xState:TopicInfluenceRead["xState"];creatorState:TopicInfluenceRead["creatorState"];
 };
@@ -27,7 +27,7 @@ const LABELS:Record<PowerStackResearchTopic,{title:string;transmission:string}>=
  * An unlisted ticker is left unmapped rather than guessed from a company name. */
 const ASSETS:Partial<Record<PowerStackResearchTopic,readonly string[]>>={
  bonds:["TLT","IEF","SGOV","SHY","EDV","ZROZ","TIP","LQD","HYG","AGG","GOVT","USFR","TLH","BND","BNDX","VGIT","VGLT","SCHR","SCHZ"],
- ai:["NVDA","AMD","AVGO","MU","SMH","SOXX","DELL","CRDO","AMZN","MSFT","GOOGL","GOOG","META","ORCL","CRWV","CRM","TSM","SKHYNIX","000660.KS","QQQ"],
+ ai:["NVDA","AMD","AVGO","MU","SMH","SOXX","DELL","CRDO","NBIS","ANET","VRT","ETN","AMZN","MSFT","GOOGL","GOOG","META","ORCL","CRWV","CRM","TSM","SKHYNIX","000660.KS","QQQ"],
  hormuz:["XOM","CVX","HAL","BKR","SLB","MPC","PSX","VLO","LNG","MISC","STNG","OXY","COP","EOG","SHEL","BP","XLE","XOP"],
  gold:["GLD","GLDM","IAU","GDX","GDXJ","WPM","NEM","GOLD","XAUUSD"],
  china:["BABA","9988.HK","JD","9618.HK","PDD","BIDU","BILI","KWEB","FXI","MCHI"],
@@ -73,7 +73,8 @@ export function projectPowerStackResearch(
    .sort((a,b)=>scopeRank[a.scope]-scopeRank[b.scope]||a.ticker.localeCompare(b.ticker));
   if(topic!=="fed"&&topic!=="breadth"&&!scoped.length)return [];
   const read=byTopic.get(topic);
-  const current=getManualSweeps(topic,now,1)[0]||null;
+  const manuals=getManualSweeps(topic,now,2);
+  const current=manuals[0]||null;
   const leads=read?[...read.x.slice(0,1),...read.creators.slice(0,1)]
    .sort((a,b)=>b.publishedAt.localeCompare(a.publishedAt)):[];
   if(!current&&!leads.length&&read?.xState!=="UNAVAILABLE"&&read?.creatorState!=="UNAVAILABLE")return [];
@@ -81,7 +82,7 @@ export function projectPowerStackResearch(
    topic,title:LABELS[topic].title,
    channel:topic==="fed"||topic==="breadth"?"PORTFOLIO-WIDE" as const:"THEME CONTEXT" as const,
    transmission:LABELS[topic].transmission,assets:scoped,
-   manual:current,findings:current?.findings.slice(0,2)||[],leads,
+   manual:current,manuals,findings:current?.findings.slice(0,2)||[],leads,
    xState:read?.xState||"UNAVAILABLE",creatorState:read?.creatorState||"UNAVAILABLE",
   }];
  });
