@@ -18,6 +18,7 @@ const week1=[
  '"STUB_1","STUB_2","10/23/26","10/16/26","Difference","10/24/25","Difference","10/23/26","10/24/25","Percent Change"',
  '"Crude Oil Supply ","(1)     Domestic Production","13,992","13,269","723","13,644","348"',
  '"Products Supplied ","(31)     Finished Motor Gasoline","8,358","8,982","-625","8,924","-566"',
+ '"Products Supplied ","(32)     Distillate Fuel Oil","4,207","3,732","475","3,850","357"',
 ].join("\r\n")+"\r\n";
 const week9=[
  '"STUB_1","STUB_2","10/23/26","10/16/26","10/24/25","10/25/24","10/23/26","10/24/25"',
@@ -26,13 +27,13 @@ const week9=[
  '"Refiner Inputs and Utilization ","Percent Utilization","92.8","93.4","86.6","89.1","93.1","88.3"',
 ].join("\r\n")+"\r\n";
 
-test("WPSR 23 Oct original CSV rows return all eight metric IDs, true weeks and canonical units",()=>{
+test("WPSR 23 Oct original CSV rows return all nine metric IDs, true weeks and canonical units",()=>{
  const snap=parseOfficialWpsrCsv(week1,week9,"2026-10-28T14:30:00Z");
  assert.equal(snap.state,"ready");
  assert.equal(snap.asOf,"2026-10-23");
  assert.equal(snap.retrievedAt,"2026-10-28T14:30:00Z");
  assert.equal(snap.sourceUrl,WPSR_CSV_TABLE1);
- assert.equal(Object.keys(snap.metrics).length,8);
+ assert.equal(Object.keys(snap.metrics).length,9);
  assert.deepEqual(Object.keys(snap.metrics).sort(),Object.keys(EIA_WEEKLY_SERIES).sort());
  assert.equal(snap.metrics.crudeStocksExSpr?.latest.value,410625);
  assert.equal(snap.metrics.crudeStocksExSpr?.previous?.value,412517);
@@ -43,16 +44,17 @@ test("WPSR 23 Oct original CSV rows return all eight metric IDs, true weeks and 
  assert.equal(snap.metrics.crudeProduction?.latest.value,13992);
  assert.equal(snap.metrics.crudeProduction?.latest.units,"MBBL/D");
  assert.equal(snap.metrics.gasolineProductSupplied?.latest.value,8358);
+ assert.equal(snap.metrics.distillateProductSupplied?.latest.value,4207);
  assert.equal(snap.metrics.refineryCrudeInputs?.latest.value,16526);
  assert.equal(snap.metrics.refineryUtilisation?.latest.value,92.8);
  assert.equal(snap.metrics.refineryUtilisation?.latest.units,"%");
  assert.equal(snap.metrics.refineryUtilisation?.previous?.period,"2026-10-16");
- assert.match(snap.note||"",/OFFICIAL_WPSR_CSV: 8\/8/);
+ assert.match(snap.note||"",/OFFICIAL_WPSR_CSV: 9\/9/);
 });
 test("WPSR fails closed on malformed dates, missing labels, duplicate national rows and mismatched weeks",()=>{
  const dateChanged=week9.replaceAll("10/23/26","10/16/26");
  const mismatch=parseOfficialWpsrCsv(week1,dateChanged,"2026-10-31T08:00:00Z");
- assert.equal(Object.keys(mismatch.metrics).length,6);
+ assert.equal(Object.keys(mismatch.metrics).length,7);
  assert.equal(mismatch.metrics.refineryUtilisation,undefined);
  assert.match(mismatch.note||"",/week mismatch/);
  const dup=parseOfficialWpsrCsv(week1.replace('"STUB_1","STUB_2"', '"Commercial (Excluding SPR)","410.625","412.517"\r\n"STUB_1","STUB_2"'),week9,"2026-10-31T08:00:00Z");
@@ -73,7 +75,7 @@ test("keyless original CSV transport fetch is pinned to official source and no c
  };
  const snap=await fetchOfficialWpsrCsv({fetchImpl:fetchImpl as typeof fetch});
  assert.equal(snap.state,"ready");
- assert.equal(Object.keys(snap.metrics).length,8);
+ assert.equal(Object.keys(snap.metrics).length,9);
  assert.deepEqual(seen.sort(),[WPSR_CSV_TABLE1,WPSR_CSV_TABLE9].sort());
  assert.ok(seen.every(url=>!url.includes("api_key")));
 });
@@ -87,7 +89,7 @@ test("invalid API key falls back to official CSV without impersonating API succe
  };
  const result=await fetchEiaWeeklyPetroleumSnapshot("secret-key",{fetchImpl:fetchImpl as typeof fetch});
  assert.equal(result.state,"ready");
- assert.equal(Object.keys(result.metrics).length,8);
+ assert.equal(Object.keys(result.metrics).length,9);
  assert.equal(result.metrics.crudeStocksExSpr?.latest.value,410625);
  assert.equal(result.sourceUrl,WPSR_CSV_TABLE1);
  assert.match(result.note||"",/OFFICIAL_WPSR_CSV/);
@@ -104,7 +106,7 @@ test("complete API remains primary; stale CSV cannot overwrite fresher partial A
  };
  const primary=await fetchEiaWeeklyPetroleumSnapshot("key",{fetchImpl:fullyMocked as typeof fetch});
  assert.equal(primary.state,"ready");
- assert.equal(Object.keys(primary.metrics).length,8);
+ assert.equal(Object.keys(primary.metrics).length,9);
  assert.equal(primary.sourceUrl,"https://www.eia.gov/opendata/");
  const older1=week1.replaceAll("10/16/26","10/09/26").replaceAll("10/23/26","10/16/26");
  const older9=week9.replaceAll("10/16/26","10/09/26").replaceAll("10/23/26","10/16/26");
@@ -117,7 +119,7 @@ test("complete API remains primary; stale CSV cannot overwrite fresher partial A
   return new Response(JSON.stringify({response:{data:ids.map(series=>({period:"2026-10-23",series,value:"100",units:"Thousand Barrels"}))}}),{status:200});
  };
  const retained=await fetchEiaWeeklyPetroleumSnapshot("key",{fetchImpl:partial as typeof fetch});
- assert.equal(Object.keys(retained.metrics).length,6);
+ assert.equal(Object.keys(retained.metrics).length,7);
  assert.equal(retained.asOf,"2026-10-23");
  assert.equal(retained.sourceUrl,"https://www.eia.gov/opendata/");
 });
