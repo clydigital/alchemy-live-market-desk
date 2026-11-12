@@ -1567,6 +1567,7 @@ const EIA_GROUPING_KEY_BY_METRIC: Record<EiaWeeklyMetricKey, string> = {
   refineryCrudeInputs: "eia:refining",
   crudeProduction: "eia:supply-demand",
   gasolineProductSupplied: "eia:supply-demand",
+  distillateProductSupplied: "eia:supply-demand",
 };
 
 function formatObservedMetric(value: number): string {
