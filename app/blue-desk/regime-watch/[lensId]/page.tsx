@@ -19,6 +19,8 @@ import RegimeResearchClocks from "@/components/blue-desk/RegimeResearchClocks";
 import RegimeManualChallenge from "@/components/blue-desk/RegimeManualChallenge";
 import NvidiaEarningsDecisionWatch from "@/components/blue-desk/NvidiaEarningsDecisionWatch";
 import DirectionQuickRead from "@/components/blue-desk/DirectionQuickRead";
+import QuestionVerdictCard from "@/components/blue-desk/QuestionVerdictCard";
+import {getReviewedQuestions} from "@/lib/bluebelly-question-assessment-reviewed";
 import BondPressureMonitor from "@/components/blue-desk/BondPressureMonitor";
 import {projectBondPressure} from "@/lib/bluebelly-bond-pressure";
 import {getRegimeDirectionPacket} from "@/lib/bluebelly-regime-direction-reads";
@@ -61,6 +63,7 @@ export default async function ResearchLensPage({params}:Props){
  const workbook=REGIME_LENS_WORKBOOKS[lens.id];
  const outlook=getLensOutlook(lens.id);
  const direction=getRegimeDirectionPacket(lens.id,now);
+ const questionVerdicts=lens.id==="ai"?getReviewedQuestions(["ai-overall","ai-hardware","ai-cash-returns","ai-financing"],now):[];
  const bondPressure=lens.id==="bonds"?projectBondPressure(marketMonitor?.rows??null,now):null;
  const viewScan=scanRegimeViews(lens.id,outlook.reviewedAt,publicTheses,sourceObservations,now);
  const latestEditorial=getRegimeEditorialUpdate(lens.id);
@@ -94,6 +97,12 @@ export default async function ResearchLensPage({params}:Props){
      <span className={styles.artFootnote}>MONITOR / CHALLENGE / REVISE</span>
     </div>
    </header>
+   {lens.id==="ai"?<section id="ai-question-verdicts" data-ai-question-verdicts="source-reviewed-subsector-decisions" aria-label="AI direction questions and evidence">
+     {questionVerdicts.slice(0,1).map(read=><QuestionVerdictCard key={read.id} read={read}/>)}
+     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,300px),1fr))",gap:12}}>
+       {questionVerdicts.slice(1).map(read=><QuestionVerdictCard key={read.id} read={read} compact/>)}
+     </div>
+    </section>:null}
    {lens.id==="ai"?<NvidiaEarningsDecisionWatch mode="regime" now={now}/>:null}
    <RegimeResearchClocks sources={sourceObservations===null?null:recent} editorialReviewedOn={outlook.reviewedAt} shadow={shadowHealth}/>
    {bondPressure?<BondPressureMonitor reading={bondPressure}

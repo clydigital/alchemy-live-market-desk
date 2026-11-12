@@ -48,9 +48,10 @@ test("Hormuz prioritises diplomacy, shipping and crude/diesel over chronological
   assert.match(hormuz.slice(Math.max(0,position-120),position),/<details className=/);
  }
  assert.match(hormuz,/HormuzCrossings monitor=\{watch.crossing\}/);
- assert.match(hormuz,/products\.slice\(0,1\)\.map\(reading\)/);
- assert.match(hormuz,/products\.slice\(1\)\.map\(reading\)/);
+ assert.match(hormuz,/products\.slice\(0,2\)\.map\(reading\)/);
+ assert.match(hormuz,/products\.slice\(2\)\.map\(reading\)/);
  assert.match(hormuz,/balance\.map\(reading\)/);
+ assert.match(hormuz,/EnergyAcceleratorDashboard tiles=\{watch.tiles\}/);
  assert.match(hormuz,/incidents\.reports\.slice\(0,6\)/);
  assert.match(hormuz,/watch\.missingIds\.map/);
  assert.match(hormuz,/getGlobalFlowMonitor/);

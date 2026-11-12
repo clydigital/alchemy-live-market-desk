@@ -370,6 +370,14 @@ export async function buildGlobalFlowMonitorFromInputs(
       interpretation: "Crude inputs measure actual refinery throughput rather than inferring runs from product prices.",
     }),
     eiaFlowMetric({
+      id: "us-distillate-demand",
+      family: "Oil Demand",
+      label: "Distillate fuel oil product supplied",
+      sourceUrl: eia.sourceUrl,
+      metric: eia.metrics.distillateProductSupplied,
+      interpretation: "Weekly US distillate product supplied approximates diesel/heating-oil consumption but is not verified end-user consumption; large one-week moves need smoothing.",
+    }),
+    eiaFlowMetric({
       id: "us-implied-demand",
       family: "Oil Demand",
       label: "Finished motor gasoline product supplied",

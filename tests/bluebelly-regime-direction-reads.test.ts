@@ -27,7 +27,7 @@ test("evidence windows describe distinct topic-specific changes, not hardcoded b
   energy:["worse","mixed","mixed"],
   fed:["worse","worse","worse"],
   bonds:["unknown","unknown","unknown"],
-  ai:["mixed","mixed","mixed"],
+  ai:["worse","mixed","mixed"],
   breadth:["worse","mixed","mixed"]
  } as const;
  for(const id of REGIME_DIRECTION_IDS){

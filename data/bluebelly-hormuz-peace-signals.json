@@ -3,6 +3,24 @@
   "scope": "Hormuz diplomacy / peace progress; source-publication dates (UTC), not live probabilities",
   "signals": [
     {
+      "id": "2026-11-12-us-diplomatic-position",
+      "date": "2026-11-12",
+      "direction": "worse",
+      "title": "US president says a peace deal with Iran is unnecessary, weakening near-term deal expectations",
+      "sourceName": "Reuters, 12 Nov",
+      "sourceUrl": "https://www.reuters.com/world/us/trump-says-vance-should-focus-domestic-corruption-we-dont-need-deal-with-iran-2026-11-12/",
+      "limitation": "A stated US position, not proof that every mediation channel has permanently ended or that future talks are impossible."
+    },
+    {
+      "id": "2026-11-12-tankers-and-security",
+      "date": "2026-11-12",
+      "direction": "worse",
+      "title": "Four tanker explosions claimed by Iran; a separately reported UKMTO strike underscores continued shipping risk",
+      "sourceName": "Reuters / UKMTO, 12 Nov",
+      "sourceUrl": "https://www.reuters.com/world/middle-east/two-oil-tankers-disabled-by-explosions-strait-hormuz-irgc-says-2026-11-12/",
+      "limitation": "Reuters could not independently verify all Iranian tanker claims; do not equate an attack report with confirmed barrels disrupted."
+    },
+    {
       "id": "2026-11-11-iran-negotiations",
       "date": "2026-11-11",
       "direction": "worse",

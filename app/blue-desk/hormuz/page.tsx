@@ -5,6 +5,7 @@ import {headers} from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import HormuzCrossings from "@/components/blue-desk/HormuzCrossings";
 import HormuzSituationBrief from "@/components/blue-desk/HormuzSituationBrief";
+import EnergyAcceleratorDashboard from "@/components/blue-desk/EnergyAcceleratorDashboard";
 import {getTopicInfluence} from "@/lib/bluebelly-topic-influence-server";
 import {readBluebellyQualifiedNews} from "@/lib/bluebelly-verified-event-server";
 import {getGlobalFlowMonitor} from "@/lib/global-flow-monitor";
@@ -66,8 +67,9 @@ export default async function HormuzTracker(){
      </div>
      <nav className={s.actions} aria-label="Related market research">
       <Link href="#mediation">Negotiations ↓</Link>
+      <Link href="#energy-accelerators">Fuel accelerators ↓</Link>
       <Link href="#shipping">Ship crossings ↓</Link>
-      <Link href="#fuels">Oil & diesel ↓</Link>
+      <Link href="#fuels">Raw market readings ↓</Link>
      </nav>
     </div>
 
@@ -80,6 +82,8 @@ export default async function HormuzTracker(){
      crossingAt={watch.crossing.snapshot?.observedAt??null}
      incidentState={incidents.freshness} reportedIncidents={incidents.totalWindow??null}
      incidentAt={incidents.builtAt??null}/>
+
+   <EnergyAcceleratorDashboard tiles={watch.tiles}/>
 
    <section className={s.risk} aria-label="Current evidence and source coverage">
     <div><span className={s.label}>PHYSICAL OBSERVATION</span>
@@ -111,10 +115,10 @@ export default async function HormuzTracker(){
      <p>A falling oil benchmark does not automatically mean cheaper diesel. The product crack can rise while the barrel falls, signalling relative fuel scarcity or refinery constraints.</p></div>
     <div className={s.grid}>{crude.map(reading)}</div>
     <h3 className={s.subhead}>Distillates and refining spreads</h3>
-    <div className={s.grid}>{products.slice(0,1).map(reading)}</div>
+    <div className={s.grid}>{products.slice(0,2).map(reading)}</div>
     <details className={s.inlineShelf} data-hormuz-fuel-proxies="collapsed">
-      <summary>More refining spread proxies <span>Gasoline and 3:2:1 cracks · Expand</span></summary>
-      <div className={s.grid}>{products.slice(1).map(reading)}</div>
+      <summary>Composite refining margin proxy <span>3:2:1 crack · Expand</span></summary>
+      <div className={s.grid}>{products.slice(2).map(reading)}</div>
     </details>
     <p className={s.note}>The US distillate crack is an observed US futures/spot proxy, not ICE gasoil, Singapore gasoil, jet fuel or a realised refinery cash margin. Comparable price timestamps are required before interpreting differences.</p>
    </section>
