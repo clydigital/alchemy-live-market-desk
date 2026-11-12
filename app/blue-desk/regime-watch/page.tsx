@@ -14,6 +14,8 @@ import {getLensOutlook,LENS_OUTLOOK_REVIEWED_ON} from "@/lib/bluebelly-regime-le
 import {getRegimeEditorialUpdate} from "@/lib/bluebelly-regime-verified-crossasset";
 import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
 import RegimeResearchClocks from "@/components/blue-desk/RegimeResearchClocks";
+import RegimeSignalRadar from "@/components/blue-desk/RegimeSignalRadar";
+import {buildSignalRadar} from "@/lib/bluebelly-signal-radar";
 import {getRegimeDirectionPackets} from "@/lib/bluebelly-regime-direction-reads";
 import {getMarketMonitor} from "@/lib/market-monitor-public";
 import {projectBondPressure} from "@/lib/bluebelly-bond-pressure";
@@ -42,6 +44,7 @@ export default async function RegimeWatchPage(){
  const scans=lenses.map(lens=>scanRegimeViews(lens.id,getLensOutlook(lens.id).reviewedAt,theses,observations,now));
  const changes=summarizeRegimeScans(scans);
  const directionPackets=getRegimeDirectionPackets(now);
+ const signalRadar=buildSignalRadar(topicReasons,now,12);
  const bondPressure=projectBondPressure(monitor?.rows??null,now);
  return <main className={desk.page} data-public-regime-watch="dated-editorial-lens-outlooks">
   <BlueDeskHeader activePath="/blue-desk/regime-watch"/>
@@ -52,6 +55,7 @@ export default async function RegimeWatchPage(){
      <h1>THE BIGGER <em>MARKET</em> PICTURE.</h1>
      <p>Nine lenses on what drives markets. Each includes a countercase and the evidence that could change the verdict.</p>
      <nav className={styles.heroActions} aria-label="Regime Watch page sections">
+      <a href="#signal-radar">SIGNAL RADAR / DIVERGENCES <span aria-hidden="true">↗</span></a>
       <a href="#lens-grid">EXPLORE THE NINE LENSES <span aria-hidden="true">↗</span></a>
       <a href="#source-reasons">TODAY'S SOURCE REASONS <span aria-hidden="true">↗</span></a>
       <a href="#cross-regime-watch">THE CROSS-REGIME TEST <span aria-hidden="true">↗</span></a>
@@ -91,6 +95,7 @@ export default async function RegimeWatchPage(){
      </Link>})}
     </div>
    </section>
+   <RegimeSignalRadar entries={signalRadar}/>
    <details className={styles.archivedOverview} data-regime-overview-editorial="collapsed-by-default">
     <summary><strong>Previously reviewed cross-asset interpretation · 11 November 2026</strong>
      <span>Historic research context, not a current regime verdict</span></summary>
