@@ -49,11 +49,12 @@ export default function PowerStackResearchImpact({groups}:{
      </div>:
      <p className={s.researchGeneral}>Market-wide lens · no individual holding-specific claim</p>}
     <p className={s.researchTransmission}>{group.transmission}</p>
-    {group.manual?<div className={s.researchManual}>
-     <span className={s.researchEyebrow}>{group.manual.date} · MANUAL SWEEP FINDINGS</span>
-     <h4>{group.manual.title}</h4>
-     <ol className={s.researchFindings}>{group.findings.map((finding,index)=>
-      <li key={group.manual?.id+":"+index}>
+    {group.manuals.map(sweep=><div key={sweep.id} className={s.researchManual}
+      data-power-stack-manual-source={sweep.id}>
+     <span className={s.researchEyebrow}>{sweep.date} · MANUAL SWEEP FINDINGS</span>
+     <h4>{sweep.title}</h4>
+     <ol className={s.researchFindings}>{sweep.findings.slice(0,2).map((finding,index)=>
+      <li key={sweep.id+":"+index}>
        <p>{finding.reason}</p>
        <div className={s.researchSourceLine}>
         <small>{state(finding.status)} · {sourceDate(finding.sourcePublishedAt)}</small>
@@ -61,7 +62,7 @@ export default function PowerStackResearchImpact({groups}:{
        </div>
        {finding.nextCheck?<small>Next: {finding.nextCheck}</small>:null}
       </li>)}</ol>
-    </div>:null}
+    </div>)}
     {group.leads.length?<div className={s.researchLeads}>
      <span className={s.researchEyebrow}>AUTOMATIC / UNVERIFIED SOURCE LEADS</span>
      <ul>{group.leads.map(lead=><li key={lead.id}>
