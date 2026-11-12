@@ -12,20 +12,33 @@ const DEFAULT_MODEL = "gemini-3.8-flash";
 export const DEFAULT_GEMINI_VIDEO_ANALYSIS_TIMEOUT_MS = 90_000;
 const MAX_RESPONSE_BYTES = 1_000_000;
 
-export const GEMINI_VIDEO_ANALYSIS_PROMPT = `Analyse this public YouTube video for creator-market intelligence.
+export const GEMINI_VIDEO_ANALYSIS_PROMPT = `Analyse this public YouTube video for Bluebelly's PRIVATE creator-market intelligence.
+This is a SUMMARY-ONLY FALLBACK after original-caption/transcript retrieval failed. It is NOT a transcript, independently verified market evidence, a trade signal or a public Story.
 
-Return:
-1. Main thesis
-2. Directional bias and conviction
-3. Key macro, market and news claims
-4. Price levels, dates and figures
-5. Timestamp for each claim where available
-6. What the creator is uncertain about
-7. Contradictory claims and claims requiring independent verification
+Return a COMPREHENSIVE, GRANULAR analysis in the existing JSON schema:
+1. mainThesis: the creator's central argument, including what changed from their previously stated view ONLY if the video itself establishes a comparison.
+2. directionalBias and conviction: the speaker's expressed stance (not the model's forecast).
+3. claims: create a SEPARATE bullet-point-equivalent claim object for EACH distinct material point (up to 50). Do not collapse different bullish and bearish arguments into a generic summary. Begin claim.text with one suitable prefix:
+   VIEW — asset/ticker, directional outlook, timeframe and mechanism;
+   SUGGESTION — what the creator explicitly suggests buying/selling/shorting/holding/avoiding/waiting for, and whether it is a suggestion, personal position or hypothetical setup;
+   TRIGGER — the exact conditional entry, exit, confirmation or invalidation test they state;
+   WATCH — catalyst, expected announcement, instrument, timing and observation to monitor;
+   RISK — exposure, debt, leverage, earnings, financing, macro or alternative scenario raised by the creator;
+   COUNTERCASE — an opposing interpretation or what would prove their view wrong;
+   MECHANISM — a concrete cause-and-effect chain the creator advances;
+   RESEARCH QUESTION — a consequential unresolved claim worth independent verification.
+4. Include bull AND bear views, specific opportunities, tickers, technical levels, market breadth, rates, policy/earnings, physical supply-demand and financing where the VIDEO discusses them. Do not add these topics if absent.
+5. For every claim: use classification=creator_claim for statements attributable to the speaker; observable_content only for genuinely visible/audible material, which is not externally verified; inference ONLY for your own clearly labelled interpretation. Use figures[] and dates[] only for values actually given, retain the context and units in text, and provide timestampSeconds only when directly recoverable. Set requiresVerification=true and a SPECIFIC verificationTarget for market figures, news, levels, flows and causal assertions.
+6. uncertainty: itemise missing information, access gaps, weak sourcing and the creator's expressed uncertainty.
+7. contradictions: itemise internal inconsistencies, counterarguments and tensions without inventing opposition.
+8. summary: a concise synthesis of the creator's current view, most actionable research questions and strongest countercase. The detail belongs in the atomic claims above.
 
+Do NOT manufacture quotes, motives, trades, market measurements, timelines, timestamps, or video content.
+Do not treat ETF turnover as net inflow, price moves as institutional money flow, or a creator's data as independently confirmed.
+If you inspected only part of the video, set accessStatus=partial and describe coverage limits.
+If you cannot actually inspect its content, set accessStatus=unavailable; do not fabricate bullets from a title or description.
 Do not invent facts, timestamps or quotations.
-Classify every claim as creator_claim, observable_content, or inference.
-If the full video cannot be accessed, set accessStatus to unavailable and include only supported information.`;
+Classify every claim as creator_claim, observable_content, or inference.`;
 
 export type GeminiVideoInteractionInput = {
   model: string;
