@@ -39,6 +39,12 @@ test("unchanged needs a prior accepted revision and newly source-dated review",(
   verdict:"unchanged",sources:[{name:"New original review",url:"https://example.org/d",publishedOn:"2026-11-12"}]}]}),new Date("2026-11-12T19:00:00Z"));
  assert.equal(same.verdict,"unchanged");
 });
+test("an invalid prior revision cannot legitimise an unchanged judgement",()=>{
+ const first=mk().revisions[0],last=mk().revisions[1];
+ const bad=projectQuestionAssessment(mk({revisions:[{...first,sources:[{name:"Invalid",url:"http://example.org",publishedOn:"2026-11-11"}]},
+ {...last,verdict:"unchanged"}]}),new Date("2026-11-13"));
+ assert.equal(bad.verdict,"insufficient");
+});
 test("spoofed, future or mismatched sources are not accepted",()=>{
  const base=mk().revisions[1];
  for(const source of [
