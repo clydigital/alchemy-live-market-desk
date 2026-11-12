@@ -105,6 +105,11 @@ test("public YouTube analysis builds one structured request and returns summary-
   assert.equal(captured[0]?.url, "https://www.youtube.com/watch?v=ycw-010tAPA");
   assert.equal(captured[0]?.model, "gemini-3.8-flash");
   assert.match(captured[0]?.prompt || "", /Do not invent facts, timestamps or quotations/i);
+  assert.match(captured[0]?.prompt || "", /COMPREHENSIVE, GRANULAR/i);
+  assert.match(captured[0]?.prompt || "", /SUGGESTION.*what the creator explicitly suggests/i);
+  assert.match(captured[0]?.prompt || "", /COUNTERCASE.*opposing interpretation/i);
+  assert.match(captured[0]?.prompt || "", /accessStatus=partial/);
+  assert.match(captured[0]?.prompt || "", /SUMMARY-ONLY FALLBACK/);
   assert.equal(captured[0]?.responseSchema.type, "object");
 });
 
