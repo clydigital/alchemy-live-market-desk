@@ -46,10 +46,10 @@ export default async function NewsroomPage({searchParams}:Props){
  const query=typeof params.q==="string"?params.q:"";
  const readerHref=blueDeskPublicHref("/blue-desk/key-stories",host);
  // Manual notes are a separate, editor-committed evidence lane, never canonical news.
- const manualSweeps=(["hormuz","energy","ai","fed","bonds","breadth"] as const)
+ const manualSweeps=(["hormuz","energy","ai","fed","bonds","breadth","housing"] as const)
   .flatMap(topic=>getManualSweeps(topic,now,2))
   .sort((a,b)=>b.researchAt.localeCompare(a.researchAt)||a.topic.localeCompare(b.topic))
-  .slice(0,10);
+  .slice(0,12);
  const bankDecisions=recentBankDecisions(now,48);
  const reported=recentReportedEditorial(now,48);
  // Source-reviewed articles belong to the same categorised Newsroom wire,
