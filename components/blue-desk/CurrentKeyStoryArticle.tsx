@@ -46,6 +46,7 @@ export default function CurrentKeyStoryArticle({kind,now,backHref}:{kind:Kind;no
     <p><strong>Next decision:</strong> Compare the official 17 November results, forward guidance and CFO remarks against previous issuer guidance and appropriately dated consensus. Then compare NVDA, SMH, AMD and AVGO on matched market windows rather than inferring causality from broad session returns.</p>
    </section>
    <footer className={css.sources}>
+    <p><strong>Related market test:</strong> If NVIDIA's hardware demand remains strong, cloud customers still have to fund and deploy it. <Link href={backHref+"?feature=ai-compute-financing-november-2026"}>Compare CoreWeave and Nebius financing ↗</Link>. A separate <Link href="/regime-watch/breadth">semiconductor and breadth check ↗</Link> is needed before calling a sector-wide reversal.</p>
     <p>This edition is a source-dated interpretation, not an actual Q3 earnings announcement, verified share-price bottom, brokerage position or canonical AI Regime update.</p>
     <a href={nvda.transition.originalUrl} target="_blank" rel="noopener noreferrer">Original NVIDIA leadership announcement ↗</a>
     <a href={nvda.previousQuarter.originalUrl} target="_blank" rel="noopener noreferrer">Original NVIDIA prior quarter and guidance ↗</a>
@@ -77,6 +78,7 @@ export default function CurrentKeyStoryArticle({kind,now,backHref}:{kind:Kind;no
     <p><strong>Next evidence:</strong> cash-flow statements, debt maturities, installed versus commissioned MW, received customer prepayments, issuer guidance and same-window relative returns. Separate announced future deposits from cash already received.</p>
    </section>
    <footer className={css.sources}>
+    <p><strong>Related market test:</strong> NVIDIA's leadership uncertainty is not proof that GPU orders have collapsed. <Link href={backHref+"?feature=nvidia-ceo-earnings-november-2026"}>Read the NVIDIA earnings and governance decision ↗</Link>. Test supplier/semiconductor performance separately from the financing of AI-cloud operators.</p>
     <p>Original issuer data, conditional market interpretation and research gaps. No automatic change to a canonical Regime, no made-up consensus and no price target.</p>
     {coreEvidence?<a href={coreEvidence.sourceUrl} target="_blank" rel="noopener noreferrer">CoreWeave Q3 original release ↗</a>:null}
     {nebEvidence?<a href={nebEvidence.sourceUrl} target="_blank" rel="noopener noreferrer">Nebius Q3 original release ↗</a>:null}
