@@ -55,7 +55,7 @@ export default async function LeanWatch({stories,host,now}:{
         <div className={ui.heroContent}>
           <p className={ui.eyebrow}>BLUEBELLY / RESEARCH WATCH · SOURCE-DATED</p>
         <h1>What is moving the market?</h1>
-        <p>Start with current source-reviewed developments and their economic consequences. Historical Story theses remain below as dated research memory—not live trading signals.</p>
+        <p>Start with current source-reviewed developments and their economic consequences. Historical theses remain below. These are dated research snapshots, not live trading signals.</p>
         <nav className={ui.shortcuts} aria-label="Related market tools">
           <Link href={blueDeskPublicHref("/blue-desk/markets",host)}>Check market moves</Link>
           <Link href={blueDeskPublicHref("/blue-desk/calendar",host)}>Upcoming catalysts</Link>
