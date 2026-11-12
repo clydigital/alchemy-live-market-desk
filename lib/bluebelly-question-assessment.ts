@@ -31,15 +31,17 @@ function validSource(source:QuestionSource,on:string){
 /** No source publication, no "same as yesterday". The source clock is NOT page-view time. */
 export function projectQuestionAssessment(record:QuestionRecord,now:Date):QuestionAssessment{
  const today=now.toISOString().slice(0,10),todayMs=dayTime(today)!;
- const revisions=record.revisions.filter((r,i,a)=>!!r.revisionId&&
+ const vetted=record.revisions.filter((r,i,a)=>!!r.revisionId&&
   a.findIndex(other=>other.revisionId===r.revisionId)===i&&
   dayTime(r.reviewedOn)!==null&&r.reviewedOn<=today&&
   dayTime(r.sourceThrough)!==null&&r.sourceThrough<=r.reviewedOn&&
   !!r.condition&&!!r.why&&!!r.countercase&&!!r.nextTest&&
   r.sources.length>0&&r.sources.every(s=>validSource(s,r.sourceThrough))&&
-  r.sources.some(s=>s.publishedOn===r.sourceThrough)&&
-  (r.verdict!=="unchanged"||a.some(p=>dayTime(p.reviewedOn)!==null&&p.reviewedOn<r.reviewedOn))
- ).sort((a,b)=>a.reviewedOn.localeCompare(b.reviewedOn));
+  r.sources.some(s=>s.publishedOn===r.sourceThrough)
+ );
+ const revisions=vetted.filter(r=>r.verdict!=="unchanged"||
+  vetted.some(p=>p.revisionId!==r.revisionId&&p.reviewedOn<r.reviewedOn))
+  .sort((a,b)=>a.reviewedOn.localeCompare(b.reviewedOn));
  const current=revisions.at(-1),previous=revisions.at(-2);
  const age=current?Math.round((todayMs-dayTime(current.sourceThrough)!)/DAY):Infinity;
  const freshness=current?(age>=record.expiresAfterDays?"stale":"current"):"unavailable";
@@ -63,5 +65,5 @@ export function projectQuestionAssessment(record:QuestionRecord,now:Date):Questi
 }
 export const QUESTION_VERDICT_LABELS:Readonly<Record<QuestionVerdict,string>>={
  improving:"Improving",unchanged:"About the same",deteriorating:"Getting worse",
- mixed:"Mixed signals",insufficient:"Needs fresh review"
+ mixed:"Mixed signals",insufficient:"Insufficient evidence"
 };
