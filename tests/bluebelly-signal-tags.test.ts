@@ -31,6 +31,7 @@ test("mispricing candidate demands independent price and fundamentals receipts p
  assert.ok(ids({...base,evidence:"SOURCE_CORROBORATED"}).includes("mispricing"));
  assert.ok(!ids({...base,evidence:"SOURCE_CORROBORATED",reviewedValuation:{...base.reviewedValuation,priceSourceUrl:"javascript:alert(1)"}}).includes("mispricing"));
  assert.ok(!ids({...base,evidence:"SOURCE_CORROBORATED",reviewedValuation:{...base.reviewedValuation,fundamentalBasis:""}}).includes("mispricing"));
+ assert.ok(!ids({...base,evidence:"SOURCE_CORROBORATED",reviewedValuation:{...base.reviewedValuation,priceSourceUrl:base.reviewedValuation.fundamentalSourceUrl}}).includes("mispricing"));
 });
 test("single context-free market headline never proves a divergence or mispricing",()=>{
  assert.deepEqual(ids({title:"AI stock moves higher",detail:"A stock rose on a busy session.",evidence:"SOURCE_ONLY_NEWS"}),[]);
