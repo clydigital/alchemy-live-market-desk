@@ -17,6 +17,7 @@ import {getRegimeEditorialUpdate} from "@/lib/bluebelly-regime-verified-crossass
 import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
 import RegimeResearchClocks from "@/components/blue-desk/RegimeResearchClocks";
 import RegimeManualChallenge from "@/components/blue-desk/RegimeManualChallenge";
+import NvidiaEarningsDecisionWatch from "@/components/blue-desk/NvidiaEarningsDecisionWatch";
 import DirectionQuickRead from "@/components/blue-desk/DirectionQuickRead";
 import BondPressureMonitor from "@/components/blue-desk/BondPressureMonitor";
 import {projectBondPressure} from "@/lib/bluebelly-bond-pressure";
@@ -93,6 +94,7 @@ export default async function ResearchLensPage({params}:Props){
      <span className={styles.artFootnote}>MONITOR / CHALLENGE / REVISE</span>
     </div>
    </header>
+   {lens.id==="ai"?<NvidiaEarningsDecisionWatch mode="regime" now={now}/>:null}
    <RegimeResearchClocks sources={sourceObservations===null?null:recent} editorialReviewedOn={outlook.reviewedAt} shadow={shadowHealth}/>
    {bondPressure?<BondPressureMonitor reading={bondPressure}
      marketsHref={blueDeskPublicHref("/blue-desk/markets",host)+"?group=rates"}/>:null}
