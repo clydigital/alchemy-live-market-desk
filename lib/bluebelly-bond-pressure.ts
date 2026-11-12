@@ -75,6 +75,7 @@ function metric(rows:readonly MarketMonitorRow[]|null,id:string,label:string,kin
    if(clean.length>n){
     const prior=clean.at(-(n+1))!;
     changes[window]=Number((kind==="etf"?(last!.value/prior.value-1)*100:
+      kind==="volatility"?(last!.value-prior.value):
       (last!.value-prior.value)*100).toFixed(2));
    }
   }
