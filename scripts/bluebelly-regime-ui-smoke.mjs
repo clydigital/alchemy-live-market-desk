@@ -218,8 +218,10 @@ try{
   }
   if(id==="key-stories"){
    assertHtml(view.html,'data-v7-watch-graphic="decorative-research-radar"');
-   assertHtml(view.html,"What is developing?","Market narratives",
-    "Browse complete historical Story library");
+   assertHtml(view.html,"What is moving the market?","The stories the market is trying to price",
+    'data-key-stories-current="source-reviewed-featured-not-canonical"',
+    'data-key-story-lead="nvidia-leadership-q3"',
+    "Market narratives","Browse complete historical Story library");
    if(!view.html.includes("No approved public thesis snapshot"))
     assertHtml(view.html,"Evidence and counterargument",
       "Read full thesis and source context",
