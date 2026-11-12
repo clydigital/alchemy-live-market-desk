@@ -294,3 +294,19 @@ test("Public glossary reuses governed concepts and never loads raw creator trans
   assert.equal(blueDeskHostAccess("/blue-desk/learn", "bluebelly-desk.vercel.app"), "public");
   assert.equal(blueDeskHostAccess("/concepts", "bluebelly-desk.vercel.app"), "blocked");
 });
+
+test("Only fixed source-dated public US/EU stock coverage path bypasses Bluebelly owner auth",()=>{
+ const host="bluebelly-desk.vercel.app";
+ assert.equal(blueDeskHostAccess("/api/markets/stocks",host),"public");
+ assert.equal(blueDeskPresentationTarget("/api/markets/stocks",host),null);
+ for(const path of ["/api/markets/stocks/","/api/markets/stocks/private",
+  "/api/markets/stocks/NVDA","/api/markets/prices","/api/markets/owner",
+  "/api/owner/portfolio","/api/markets/stocks/search"])
+  assert.equal(blueDeskHostAccess(path,host),"blocked",path);
+ assert.equal(blueDeskHostAccess("/api/markets/stocks","alchemy-blue-desk.vercel.app"),"blocked");
+ const route=readFileSync(new URL("../app/api/markets/stocks/route.ts",import.meta.url),"utf8");
+ assert(route.includes("projectPublicEquityCoverage(rows)"));
+ assert(route.includes('"Access-Control-Allow-Origin":"https://clydigital.github.io"'));
+ assert(!route.includes("owner_user_id"));
+ assert(!route.includes("process.env"));
+});
