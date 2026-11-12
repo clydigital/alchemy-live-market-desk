@@ -29,7 +29,7 @@ test("missing shipping, cracks and distillate inventories never become zero or c
  assert.equal(v.crossingState,"unavailable");
  assert.equal(v.crossing.snapshot,null);
  assert.equal(v.available,0);
- assert.equal(v.tiles.length,10);
+ assert.equal(v.tiles.length,14);
  assert.ok(v.tiles.every(x=>x.value===null&&x.status==="unavailable"));
  assert.ok(v.missingIds.some(x=>/jet/.test(x.label)));
  assert.match(v.dataLimit,/AIS counts/);
