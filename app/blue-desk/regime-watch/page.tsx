@@ -15,6 +15,8 @@ import {getRegimeEditorialUpdate} from "@/lib/bluebelly-regime-verified-crossass
 import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
 import RegimeResearchClocks from "@/components/blue-desk/RegimeResearchClocks";
 import {getRegimeDirectionPackets} from "@/lib/bluebelly-regime-direction-reads";
+import {getMarketMonitor} from "@/lib/market-monitor-public";
+import {projectBondPressure} from "@/lib/bluebelly-bond-pressure";
 import {getRegimeShadowHealth} from "@/lib/regime-engine";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import type {EditorialMotif} from "@/lib/bluebelly-editorial-visuals";
@@ -29,16 +31,18 @@ export const metadata={
 
 export default async function RegimeWatchPage(){
  const now=new Date(),host=(await headers()).get("host");
- const [theses,observations,topicReasons,shadowHealth]=await Promise.all([
+ const [theses,observations,topicReasons,shadowHealth,monitor]=await Promise.all([
   getPublicThesisLedger(now,38).catch(()=>null),
   getPublicSourceObservations(now,12).catch(()=>null),
   getTopicInfluences(EDITORIAL_REGIME_LENSES.map(lens=>lens.id),now).catch(()=>[]),
   getRegimeShadowHealth().catch(()=>null),
+  getMarketMonitor().catch(()=>null),
  ]);
  const lenses=groupPublicResearch(theses||[]);
  const scans=lenses.map(lens=>scanRegimeViews(lens.id,getLensOutlook(lens.id).reviewedAt,theses,observations,now));
  const changes=summarizeRegimeScans(scans);
  const directionPackets=getRegimeDirectionPackets(now);
+ const bondPressure=projectBondPressure(monitor?.rows??null,now);
  return <main className={desk.page} data-public-regime-watch="dated-editorial-lens-outlooks">
   <BlueDeskHeader activePath="/blue-desk/regime-watch"/>
   <div className={desk.content}>
@@ -62,37 +66,42 @@ export default async function RegimeWatchPage(){
     </div>
    </header>
 
-   <aside id="nov11-regime-challenge" data-regime-research-delta="2026-11-11-provisional" style={{border:"1px solid var(--bb-card-border)",background:"var(--bb-surface)",borderRadius:10,padding:"18px 22px",margin:"18px 0"}}>
-    <span className={styles.kicker}>NEW SOURCE-DATED COUNTERCASE · 11 NOVEMBER 2026</span>
-    <h2 style={{fontSize:"clamp(22px,2.5vw,30px)",margin:"9px 0"}}>Rates restrictive. AI shares rebound. What changes the regime?</h2>
-    <p>October CPI and the 10 November Treasury yield jump support restrictive financing conditions. But 11 November's <strong>intraday</strong> AI rebound followed stronger CoreWeave guidance, while 20-session equal-weight participation challenged the narrow-rally narrative. The US bond market was closed on 11 November: there is no same-session Treasury confirmation of the rebound.</p>
-    <p><strong>Open questions:</strong> Is this durable earnings-led absorption, mechanical short covering, or rotation that still leaves AI financing fragile? The current Regime verdict is not revised by this editorial assessment.</p>
-    <Link href={blueDeskPublicHref("/blue-desk/crash-opportunity",host)+"#nov11-challenge"}>Examine the sources, three competing interpretations and deciding tests →</Link>
-   </aside>
    <RegimeResearchClocks sources={observations} editorialReviewedOn={LENS_OUTLOOK_REVIEWED_ON} shadow={shadowHealth}/>
    <section id="direction-overview" className={styles.directionShelf} data-regime-direction-overview="five-evidence-vetted-lenses" aria-labelledby="direction-overview-title">
     <div className={styles.directionHead}>
      <div><span className={styles.kicker}>01 / FIVE FAST CONTEXT READS</span>
       <h2 id="direction-overview-title">Where is the pressure moving?</h2></div>
-     <p>1D / 3D / 5D = dated-source windows, not price returns or live probabilities. Open each research lens for sources. Grey means stale or insufficient evidence.</p>
+     <p>Bonds: actual 1D/3D/5D Treasury trading-session yield moves. Other cards: source-publication-day evidence. Grey indicates missing or stale inputs; expand each lens for dates.</p>
     </div>
     <div className={styles.directionGrid} role="list" aria-label="Five dated Regime pressure readings">
-     {directionPackets.map(packet=><Link key={packet.id} role="listitem" className={styles.directionCard}
-      href={blueDeskPublicHref("/blue-desk/regime-watch/"+packet.id,host)+"#quick-direction"}
+     {directionPackets.map(packet=>{const windows=packet.id==="bonds"?bondPressure.windows:packet.read.windows;
+      return <Link key={packet.id} role="listitem" className={styles.directionCard}
+      href={blueDeskPublicHref("/blue-desk/regime-watch/"+packet.id,host)+(packet.id==="bonds"?"#bond-pressure":"#quick-direction")}
       data-direction-overview-card={packet.id}>
-      <span className={styles.directionLabel}>{packet.id.toUpperCase()} / SOURCE REVIEW</span>
+      <span className={styles.directionLabel}>{packet.id.toUpperCase()} / {packet.id==="bonds"?"YIELD SESSIONS":"SOURCE REVIEW"}</span>
       <strong>{packet.question}</strong>
       <div className={styles.directionStatuses} aria-label={packet.question+" 1, 3 and 5 source-days"}>
-       {packet.read.windows.map(window=><span key={window.label}
+       {windows.map(window=><span key={window.label}
         className={styles.directionMini} data-direction-window={window.label} data-direction-trend={window.trend}>
         <b>{window.label}</b><span className={styles.directionDot} aria-hidden="true"/>
-        <span>{window.trend==="unknown"?"UNKNOWN":window.trend==="mixed"?"MIXED":window.trend==="better"?"BETTER":"WORSE"}</span>
+        <span>{window.trend==="unknown"?"UNKNOWN":window.trend==="mixed"?"MIXED":window.trend==="better"?packet.id==="bonds"?"YIELDS ↓":"BETTER":packet.id==="bonds"?"YIELDS ↑":"WORSE"}</span>
        </span>)}
       </div>
-      <small>{packet.read.stale?"STALE / DATA GAP":"SOURCED "+packet.read.sourceDay+" UTC"} · OPEN EVIDENCE ↗</small>
-     </Link>)}
+      <small>{packet.id==="bonds"?(bondPressure.asOf?"TREASURY "+bondPressure.asOf+" · "+bondPressure.state:"TREASURY DATA UNAVAILABLE"):(packet.read.stale?"STALE / DATA GAP":"SOURCED "+packet.read.sourceDay+" UTC")} · OPEN EVIDENCE ↗</small>
+     </Link>})}
     </div>
    </section>
+   <details className={styles.archivedOverview} data-regime-overview-editorial="collapsed-by-default">
+    <summary><strong>Previously reviewed cross-asset interpretation · 11 November 2026</strong>
+     <span>Historic research context, not a current regime verdict</span></summary>
+   <aside id="nov11-regime-challenge" data-regime-research-delta="2026-11-11-provisional" style={{border:"1px solid var(--bb-card-border)",background:"var(--bb-surface)",borderRadius:10,padding:"18px 22px",margin:"18px 0"}}>
+    <span className={styles.kicker}>DATED CROSS-ASSET RESEARCH · 11 NOVEMBER 2026</span>
+    <h2 style={{fontSize:"clamp(22px,2.5vw,30px)",margin:"9px 0"}}>Rates restrictive. AI shares rebound. What changes the regime?</h2>
+    <p>October CPI and the 10 November Treasury yield jump support restrictive financing conditions. But 11 November's <strong>intraday</strong> AI rebound followed stronger CoreWeave guidance, while 20-session equal-weight participation challenged the narrow-rally narrative. The US bond market was closed on 11 November: there is no same-session Treasury confirmation of the rebound.</p>
+    <p><strong>Open questions:</strong> Is this durable earnings-led absorption, mechanical short covering, or rotation that still leaves AI financing fragile? The current Regime verdict is not revised by this editorial assessment.</p>
+    <Link href={blueDeskPublicHref("/blue-desk/crash-opportunity",host)+"#nov11-challenge"}>Examine the sources, three competing interpretations and deciding tests →</Link>
+   </aside>
+   </details>
    <div className={styles.intelStrip} aria-label="Regime Watch research scope">
     <div><span>01 / RESEARCH LENSES</span><strong>09</strong><small>DIFFERENT MARKET SYSTEMS</small></div>
     <div><span>02 / SOURCE CONTEXT</span><strong>{theses===null?"—":theses.length}</strong><small>ASSOCIATED PUBLIC STORY RECORDS</small></div>
@@ -113,9 +122,13 @@ export default async function RegimeWatchPage(){
         <div className={styles.content}>
        <div className={styles.cardHeading}><span className={styles.kicker}>{lens.code} / RESEARCH LENS</span><span className={styles.cardSerial}>FILE {String(index+1).padStart(2,"0")} / 09</span></div>
        <h3>{lens.name}</h3>
-       <RegimeOutlookMeter assessment={getLensOutlook(lens.id)} size="summary"/>
-       <p className={styles.lensReason}><strong>Why:</strong> {getLensOutlook(lens.id).headline}</p>
-       {getRegimeEditorialUpdate(lens.id)?<span className={styles.editorialUpdate}>30 OCT · POST-DECISION EDITORIAL CHECK</span>:null}
+       <small className={styles.archivedContext}>HISTORICAL 30 OCT EDITORIAL · AVAILABLE INSIDE RESEARCH FILE</small>
+       <div className={styles.archivedMeterHidden} aria-hidden="true">
+        <RegimeOutlookMeter assessment={getLensOutlook(lens.id)} size="summary"/>
+        <p className={styles.lensReason}><strong>Why:</strong> {getLensOutlook(lens.id).headline}</p>
+        {getRegimeEditorialUpdate(lens.id)?<span className={styles.editorialUpdate}>30 OCT · POST-DECISION EDITORIAL CHECK</span>:null}
+       </div>
+       <p className={styles.lensReason}><strong>Next deciding test:</strong> {lens.nextTest}</p>
        <span className={styles.viewState} data-view-scan-state={scans[index].state}>
         {scans[index].newViews.length?scans[index].newViews.length+" new tracked view(s) to assess":
          scans[index].updatedRecords.length?scans[index].updatedRecords.length+" existing record(s) updated since review":

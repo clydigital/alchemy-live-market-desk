@@ -15,6 +15,7 @@ export type MarketMonitorType =
   | "Energy"
   | "FX"
   | "Rates"
+  | "Bond ETF"
   | "Credit / Risk"
   | "IPO / New Issue"
   | "Crypto";
@@ -187,6 +188,11 @@ const BASE_SPECS: BaseSpec[] = [
 ];
 
 const EXTRA_SPECS: ExtraSpec[] = [
+  // ETF price feeds are intentionally separate from official bond yields.
+  { id: "tlt", providerSymbol: "TLT", assetClass: "etf", label: "TLT · 20+Y Treasury ETF", type: "Bond ETF" },
+  { id: "ief", providerSymbol: "IEF", assetClass: "etf", label: "IEF · 7–10Y Treasury ETF", type: "Bond ETF" },
+  { id: "shy", providerSymbol: "SHY", assetClass: "etf", label: "SHY · 1–3Y Treasury ETF", type: "Bond ETF" },
+  { id: "tip", providerSymbol: "TIP", assetClass: "etf", label: "TIP · TIPS ETF", type: "Bond ETF" },
   { id: "ndx", providerSymbol: "QQQ", assetClass: "etf", label: "Nasdaq 100 · QQQ proxy", type: "Major Index", benchmark: "spx" },
   { id: "dow", providerSymbol: "DIA", assetClass: "etf", label: "Dow · DIA proxy", type: "Major Index", benchmark: "spx" },
   { id: "russell", providerSymbol: "IWM", assetClass: "etf", label: "Russell 2000 · IWM proxy", type: "Major Index", benchmark: "spx" },
