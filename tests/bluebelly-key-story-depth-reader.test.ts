@@ -101,3 +101,28 @@ test("a recycled UUID, altered issuer URL, or changed event clock cannot acquire
  assert.equal(storyDepthForNews({...novNvidia,occurredAt:"2026-11-10T05:00:00Z"}),null);
  assert.equal(storyDepthForNews({...novNvidia,verification:"SOURCE_VERIFIED",sourceKind:"reporting"}),null);
 });
+
+test("EIA and NVLink stories teach products, decision signals, efficiency and supply-demand without conflating certainty",()=>{
+ const eia=storyDepthForNews(novEia)!;
+ const nvidia=storyDepthForNews(novNvidia)!;
+ assert.ok(eia.concepts && eia.concepts.length>=5);
+ assert.ok(eia.concepts.some(t=>t.term.includes("Henry Hub")&&t.meaning.includes("MMBtu")));
+ assert.ok(eia.concepts.some(t=>t.term.includes("Diesel")&&t.meaning.includes("crude")));
+ assert.ok(eia.decisionSignals?.some(x=>x.supplyDemand.includes("Demand for heating gas")&&x.efficiency.includes("not that")));
+ assert.ok(eia.decisionSignals?.some(x=>x.supplyDemand.includes("demand for US gas")&&x.uncertainty.includes("shipping")));
+ assert.ok(nvidia.concepts?.some(x=>x.term.includes("NVLink Fusion")&&x.meaning.includes("partner-designed")));
+ assert.ok(nvidia.concepts?.some(x=>x.term.includes("Inference")&&x.meaning.includes("decode")));
+ assert.ok(nvidia.decisionSignals?.some(x=>x.efficiency.includes("electricity")&&x.supplyDemand.includes("demand")));
+ assert.ok(nvidia.chronology.some(x=>x.includes("2028")));
+ assert.ok(nvidia.decisionSignals?.some(x=>x.uncertainty.includes("2028")));
+ const renderer=read("components/blue-desk/KeyStoryDeepArticle.tsx");
+ assert.match(renderer,/depth\.concepts\?\.length/);
+ assert.match(renderer,/depth\.decisionSignals\?\.length/);
+ assert.match(renderer,/data-key-story-learning="concepts"/);
+ assert.match(renderer,/data-key-story-learning="market-impact"/);
+ assert.match(renderer,/What would confirm it/);
+ assert.match(renderer,/What the market tape actually shows/);
+ const styles=read("components/blue-desk/KeyStoryDeepArticle.module.css");
+ assert.match(styles,/\.conceptList/);
+ assert.match(styles,/\.decisionCard/);
+});
