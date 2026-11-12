@@ -23,7 +23,7 @@ export default function JensenGovernanceWatch({host}:{host:string|null}){
   <nav className={styles.jensenLinks} aria-label="Governance watch source records">
    {watch.official.map(item=><a key={item.url} href={item.url} target="_blank" rel="noopener noreferrer">{item.label} ↗</a>)}
    <a href={watch.reported.url} target="_blank" rel="noopener noreferrer">{watch.reported.label} ↗</a>
-   <Link href={blueDeskPublicHref("/blue-desk/regime-watch/ai",host)}>AI Regime context →</Link>
+   <Link href={blueDeskPublicHref("/blue-desk/regime-watch/ai",host)+"#nvidia-earnings-decision"}>AI Regime · earnings and investment tests →</Link>
   </nav>
   <p className={styles.manualNote}>This is a dated watch, not live board-status monitoring. Huang's resignation and Kress's interim appointment are confirmed; reported personal allegations and any security compromise remain unproven here. No decline in physical GPU demand is inferred from the share-price move.</p>
  </section>;
