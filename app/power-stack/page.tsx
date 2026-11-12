@@ -10,6 +10,7 @@ import {getTopicInfluences} from "@/lib/bluebelly-topic-influence-server";
 import {powerStackResearchTopics,projectPowerStackResearch,type PowerStackTracked} from "@/lib/power-stack-research-links";
 import PowerStackResearchImpact from "@/components/blue-desk/PowerStackResearchImpact";
 import NvidiaEarningsDecisionWatch from "@/components/blue-desk/NvidiaEarningsDecisionWatch";
+import PowerStackDecisionHub from "@/components/blue-desk/PowerStackDecisionHub";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -201,38 +202,40 @@ export default async function PrivatePowerStack() {
         <header className={portfolio.hero} data-v7-power-stack="dated-private-portfolio">
           <div>
             <p className={portfolio.eyebrow}>PRIVATE / POWER STACK · OWNER-VERIFIED RECORDS</p>
-            <h1>My Portfolio</h1>
+            <h1>Power Stack</h1>
             <p className={portfolio.deck}>
-              Historical Power Stack holdings and research watchlist, using the same
-              approved Google session as My Desk. Values are not live brokerage data.
+              My decision terminal for long-term investments, short-term setups and source-checked market intelligence.
+              Private historical holdings remain below; portfolio values are not live brokerage data.
             </p>
           </div>
         </header>
+        <PowerStackDecisionHub now={researchedAt}/>
+        <NvidiaEarningsDecisionWatch mode="power-stack" now={researchedAt} owner={{
+          recordedScope:holdings.some(h=>h.ticker==="NVDA")?"ARCHIVED_HOLDING":
+            watchlist.some(w=>w.ticker==="NVDA")?"ARCHIVED_WATCHLIST":"NOT_IN_RECORDED_PORTFOLIO",
+          quote:latestQuotes.has("NVDA")?{
+            price:latestQuotes.get("NVDA")!.price,
+            currency:latestQuotes.get("NVDA")!.currency,
+            observedOn:latestQuotes.get("NVDA")!.observed_on,
+            sourceName:latestQuotes.get("NVDA")!.source_name,
+            sourceUrl:latestQuotes.get("NVDA")!.source_url,
+            timestampBasis:latestQuotes.get("NVDA")!.timestamp_basis,
+          }:null,
+        }}/>
         {!ready ? (
           <section className={portfolio.pending} data-power-stack-migration="pending">
-            <h2>Private portfolio migration not yet verified</h2>
+            <h2>Historical portfolio migration not yet verified</h2>
             <p>The old Power Stack GitHub Pages origin still needs to be secured
               and its personal data migrated. Holdings, quantities and account
               notes are deliberately withheld until the original public access
               and private snapshot have been verified.</p>
-            <p>This does not block anonymous market research.
+            <p>This does not block the source-dated investment and trade research above.
               {" "}<Link href="/markets">Open public Markets</Link>.
               {" "}<Link href="/my-reports">Return to My Desk</Link>.</p>
           </section>
         ) : (
           <>
-            <NvidiaEarningsDecisionWatch mode="power-stack" now={researchedAt} owner={{
-              recordedScope:holdings.some(h=>h.ticker==="NVDA")?"ARCHIVED_HOLDING":
-                watchlist.some(w=>w.ticker==="NVDA")?"ARCHIVED_WATCHLIST":"NOT_IN_RECORDED_PORTFOLIO",
-              quote:latestQuotes.has("NVDA")?{
-                price:latestQuotes.get("NVDA")!.price,
-                currency:latestQuotes.get("NVDA")!.currency,
-                observedOn:latestQuotes.get("NVDA")!.observed_on,
-                sourceName:latestQuotes.get("NVDA")!.source_name,
-                sourceUrl:latestQuotes.get("NVDA")!.source_url,
-                timestampBasis:latestQuotes.get("NVDA")!.timestamp_basis,
-              }:null,
-            }}/>
+
             <PowerStackResearchImpact groups={researchGroups}/>
             <section className={portfolio.section} data-power-stack-quotes="dated-manual-observations">
               <h2>Source-dated prices · {latestQuotes.size}/{trackedTickers.length}</h2>
