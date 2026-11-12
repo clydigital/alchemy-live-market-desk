@@ -15,6 +15,8 @@ import {getRegimeEditorialUpdate} from "@/lib/bluebelly-regime-verified-crossass
 import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
 import RegimeResearchClocks from "@/components/blue-desk/RegimeResearchClocks";
 import {getRegimeDirectionPackets} from "@/lib/bluebelly-regime-direction-reads";
+import {getMarketMonitor} from "@/lib/market-monitor-public";
+import {projectBondPressure} from "@/lib/bluebelly-bond-pressure";
 import {getRegimeShadowHealth} from "@/lib/regime-engine";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import type {EditorialMotif} from "@/lib/bluebelly-editorial-visuals";
@@ -29,16 +31,18 @@ export const metadata={
 
 export default async function RegimeWatchPage(){
  const now=new Date(),host=(await headers()).get("host");
- const [theses,observations,topicReasons,shadowHealth]=await Promise.all([
+ const [theses,observations,topicReasons,shadowHealth,monitor]=await Promise.all([
   getPublicThesisLedger(now,38).catch(()=>null),
   getPublicSourceObservations(now,12).catch(()=>null),
   getTopicInfluences(EDITORIAL_REGIME_LENSES.map(lens=>lens.id),now).catch(()=>[]),
   getRegimeShadowHealth().catch(()=>null),
+  getMarketMonitor().catch(()=>null),
  ]);
  const lenses=groupPublicResearch(theses||[]);
  const scans=lenses.map(lens=>scanRegimeViews(lens.id,getLensOutlook(lens.id).reviewedAt,theses,observations,now));
  const changes=summarizeRegimeScans(scans);
  const directionPackets=getRegimeDirectionPackets(now);
+ const bondPressure=projectBondPressure(monitor?.rows??null,now);
  return <main className={desk.page} data-public-regime-watch="dated-editorial-lens-outlooks">
   <BlueDeskHeader activePath="/blue-desk/regime-watch"/>
   <div className={desk.content}>
@@ -74,23 +78,24 @@ export default async function RegimeWatchPage(){
     <div className={styles.directionHead}>
      <div><span className={styles.kicker}>01 / FIVE FAST CONTEXT READS</span>
       <h2 id="direction-overview-title">Where is the pressure moving?</h2></div>
-     <p>1D / 3D / 5D = dated-source windows, not price returns or live probabilities. Open each research lens for sources. Grey means stale or insufficient evidence.</p>
+     <p>Bonds: actual 1D/3D/5D Treasury trading-session yield moves. Other cards: source-publication-day evidence. Grey indicates missing or stale inputs; expand each lens for dates.</p>
     </div>
     <div className={styles.directionGrid} role="list" aria-label="Five dated Regime pressure readings">
-     {directionPackets.map(packet=><Link key={packet.id} role="listitem" className={styles.directionCard}
-      href={blueDeskPublicHref("/blue-desk/regime-watch/"+packet.id,host)+"#quick-direction"}
+     {directionPackets.map(packet=>{const windows=packet.id==="bonds"?bondPressure.windows:packet.read.windows;
+      return <Link key={packet.id} role="listitem" className={styles.directionCard}
+      href={blueDeskPublicHref("/blue-desk/regime-watch/"+packet.id,host)+(packet.id==="bonds"?"#bond-pressure":"#quick-direction")}
       data-direction-overview-card={packet.id}>
-      <span className={styles.directionLabel}>{packet.id.toUpperCase()} / SOURCE REVIEW</span>
+      <span className={styles.directionLabel}>{packet.id.toUpperCase()} / {packet.id==="bonds"?"YIELD SESSIONS":"SOURCE REVIEW"}</span>
       <strong>{packet.question}</strong>
       <div className={styles.directionStatuses} aria-label={packet.question+" 1, 3 and 5 source-days"}>
-       {packet.read.windows.map(window=><span key={window.label}
+       {windows.map(window=><span key={window.label}
         className={styles.directionMini} data-direction-window={window.label} data-direction-trend={window.trend}>
         <b>{window.label}</b><span className={styles.directionDot} aria-hidden="true"/>
-        <span>{window.trend==="unknown"?"UNKNOWN":window.trend==="mixed"?"MIXED":window.trend==="better"?"BETTER":"WORSE"}</span>
+        <span>{window.trend==="unknown"?"UNKNOWN":window.trend==="mixed"?"MIXED":window.trend==="better"?packet.id==="bonds"?"YIELDS ↓":"BETTER":packet.id==="bonds"?"YIELDS ↑":"WORSE"}</span>
        </span>)}
       </div>
-      <small>{packet.read.stale?"STALE / DATA GAP":"SOURCED "+packet.read.sourceDay+" UTC"} · OPEN EVIDENCE ↗</small>
-     </Link>)}
+      <small>{packet.id==="bonds"?(bondPressure.asOf?"TREASURY "+bondPressure.asOf+" · "+bondPressure.state:"TREASURY DATA UNAVAILABLE"):(packet.read.stale?"STALE / DATA GAP":"SOURCED "+packet.read.sourceDay+" UTC")} · OPEN EVIDENCE ↗</small>
+     </Link>})}
     </div>
    </section>
    <div className={styles.intelStrip} aria-label="Regime Watch research scope">
@@ -113,6 +118,7 @@ export default async function RegimeWatchPage(){
         <div className={styles.content}>
        <div className={styles.cardHeading}><span className={styles.kicker}>{lens.code} / RESEARCH LENS</span><span className={styles.cardSerial}>FILE {String(index+1).padStart(2,"0")} / 09</span></div>
        <h3>{lens.name}</h3>
+       <small className={styles.archivedContext}>30 OCT 2026 / ARCHIVED EDITORIAL BASELINE — NOT TODAY'S MARKET VERDICT</small>
        <RegimeOutlookMeter assessment={getLensOutlook(lens.id)} size="summary"/>
        <p className={styles.lensReason}><strong>Why:</strong> {getLensOutlook(lens.id).headline}</p>
        {getRegimeEditorialUpdate(lens.id)?<span className={styles.editorialUpdate}>30 OCT · POST-DECISION EDITORIAL CHECK</span>:null}
