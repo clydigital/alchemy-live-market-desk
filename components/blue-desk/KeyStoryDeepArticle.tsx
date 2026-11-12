@@ -44,6 +44,8 @@ export default function KeyStoryDeepArticle({
      <a href="#receipts">Numbers</a>
      <a href="#change">What changed</a>
      <a href="#transmission">Why it matters</a>
+     {depth.concepts?.length?<a href="#terms">Products & jargon</a>:null}
+     {depth.decisionSignals?.length?<a href="#decisions">Signals & supply/demand</a>:null}
      <a href="#risk">The objection</a>
      <a href="#ahead">What next</a>
    </nav>
@@ -81,6 +83,27 @@ export default function KeyStoryDeepArticle({
          <p className={styles.kicker}>FOLLOW THE MONEY / MARKET TRANSMISSION</p>
          <h2>How could this development affect markets?</h2>
          {depth.explanation.map((p,i)=><p key={i}>{p}</p>)}
+         {depth.concepts?.length?<div id="terms" className={styles.learningSection} data-key-story-learning="concepts">
+          <h3>What do the products and terms mean?</h3>
+          <p className={styles.learningIntro}>Each term is explained where it affects the economics—not merely defined in isolation.</p>
+          <dl className={styles.conceptList}>{depth.concepts.map(item=><div key={item.term} className={styles.conceptItem}>
+           <dt>{item.term}</dt><dd>{item.meaning}</dd>
+           <dd className={styles.conceptMarket}><strong>Market connection:</strong> {item.marketUse}</dd>
+          </div>)}</dl>
+         </div>:null}
+         {depth.decisionSignals?.length?<div id="decisions" className={styles.learningSection} data-key-story-learning="market-impact">
+          <h3>What each decision signals for efficiency, supply and demand</h3>
+          <p className={styles.learningIntro}>These are conditional economic mechanisms, not verified stock-price reactions or a change to the canonical regime.</p>
+          <div className={styles.decisionList}>{depth.decisionSignals.map(item=><section className={styles.decisionCard} key={item.decision}>
+           <h4>{item.decision}</h4>
+           <p className={styles.decisionSignal}><strong>Signal:</strong> {item.signal}</p>
+           <p><strong>What the decision means:</strong> {item.meaning}</p>
+           <p><strong>Efficiency and costs:</strong> {item.efficiency}</p>
+           <p><strong>Supply and demand:</strong> {item.supplyDemand}</p>
+           <p><strong>Where it may go wrong:</strong> {item.uncertainty}</p>
+           <p><strong>What would confirm it:</strong> {item.confirmation}</p>
+          </section>)}</div>
+         </div>:null}
          <h3>What the market tape actually shows</h3>
          {depth.marketTape.map((p,i)=><p key={i}>{p}</p>)}
        </section>
