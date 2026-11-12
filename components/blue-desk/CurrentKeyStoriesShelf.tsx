@@ -71,6 +71,11 @@ export default function CurrentKeyStoriesShelf({now,host}:{now:Date;host:string|
       </div>
     </article>)}
    </div>
+   <nav className={css.deepDive} aria-label="Previously reviewed original-source Key Stories">
+     <strong>ALSO RESEARCHED / ORIGINAL-SOURCE DEEP DIVES</strong>
+     <Link href={root+"?news=1acd67c7-e804-48bf-9ee7-97a2f96be283"}>EIA: cheaper US gas versus diesel inflation →</Link>
+     <Link href={root+"?news=fdddf542-68f9-4576-9fde-812af424c724"}>NVIDIA NVLink Fusion: custom AI chips and networking demand →</Link>
+   </nav>
    <p className={css.note}>Research checks here do not constitute published canonical Story or Regime changes. They remain separately sourced from the historical thesis list below. A missing matched market reaction is unmeasured, not a positive or negative surprise.</p>
   </section>;
 }
