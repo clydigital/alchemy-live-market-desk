@@ -87,8 +87,12 @@ const PACKETS:Record<RegimeDirectionId,Packet>={
   followUpHref:"#signals",followUpLabel:"Inspect issuer and market evidence",
   supportingTerm:"strength",opposingTerm:"risk",
   signals:[
+   {id:"ai-12-nov-ceo-transition",date:"2026-11-12",direction:"worse",
+    title:"NVIDIA confirms Jensen Huang resignation and Colette Kress interim appointment",
+    sourceName:"NVIDIA official CEO release, 12 Nov",sourceUrl:"https://investor.nvidia.com/news/press-release-details/2026/NVIDIA-Announces-CEO-Transition/default.aspx",
+    limitation:"Confirmed leadership transition, not evidence of lost chip orders or broad sector earnings deterioration."},
    {id:"ai-11-nov-governance",date:"2026-11-11",direction:"worse",
-    title:"Reuters reports Nvidia board could consider CEO removal; company has not confirmed it",
+    title:"Earlier 11 Nov reporting raised risk of a CEO change, resolved by NVIDIA announcement 12 Nov",
     sourceName:"Reuters, 11 Nov",sourceUrl:"https://www.reuters.com/technology/nvidia-is-preparing-oust-ceo-jensen-huang-wsj-reports-2026-11-11/",
     limitation:"Reuters could not independently verify the report. A governance risk modifier, not a semiconductor-demand forecast."},
    {id:"ai-11-nov-rebound",date:"2026-11-11",direction:"better",
