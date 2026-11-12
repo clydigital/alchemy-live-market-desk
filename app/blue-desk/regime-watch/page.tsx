@@ -14,6 +14,7 @@ import {getLensOutlook,LENS_OUTLOOK_REVIEWED_ON} from "@/lib/bluebelly-regime-le
 import {getRegimeEditorialUpdate} from "@/lib/bluebelly-regime-verified-crossasset";
 import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
 import RegimeResearchClocks from "@/components/blue-desk/RegimeResearchClocks";
+import {getRegimeDirectionPackets} from "@/lib/bluebelly-regime-direction-reads";
 import {getRegimeShadowHealth} from "@/lib/regime-engine";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import type {EditorialMotif} from "@/lib/bluebelly-editorial-visuals";
@@ -37,6 +38,7 @@ export default async function RegimeWatchPage(){
  const lenses=groupPublicResearch(theses||[]);
  const scans=lenses.map(lens=>scanRegimeViews(lens.id,getLensOutlook(lens.id).reviewedAt,theses,observations,now));
  const changes=summarizeRegimeScans(scans);
+ const directionPackets=getRegimeDirectionPackets(now);
  return <main className={desk.page} data-public-regime-watch="dated-editorial-lens-outlooks">
   <BlueDeskHeader activePath="/blue-desk/regime-watch"/>
   <div className={desk.content}>
@@ -68,6 +70,29 @@ export default async function RegimeWatchPage(){
     <Link href={blueDeskPublicHref("/blue-desk/crash-opportunity",host)+"#nov11-challenge"}>Examine the sources, three competing interpretations and deciding tests →</Link>
    </aside>
    <RegimeResearchClocks sources={observations} editorialReviewedOn={LENS_OUTLOOK_REVIEWED_ON} shadow={shadowHealth}/>
+   <section id="direction-overview" className={styles.directionShelf} data-regime-direction-overview="five-evidence-vetted-lenses" aria-labelledby="direction-overview-title">
+    <div className={styles.directionHead}>
+     <div><span className={styles.kicker}>01 / FIVE FAST CONTEXT READS</span>
+      <h2 id="direction-overview-title">Where is the pressure moving?</h2></div>
+     <p>1D / 3D / 5D = dated-source windows, not price returns or live probabilities. Open each research lens for sources. Grey means stale or insufficient evidence.</p>
+    </div>
+    <div className={styles.directionGrid} role="list" aria-label="Five dated Regime pressure readings">
+     {directionPackets.map(packet=><Link key={packet.id} role="listitem" className={styles.directionCard}
+      href={blueDeskPublicHref("/blue-desk/regime-watch/"+packet.id,host)+"#quick-direction"}
+      data-direction-overview-card={packet.id}>
+      <span className={styles.directionLabel}>{packet.id.toUpperCase()} / SOURCE REVIEW</span>
+      <strong>{packet.question}</strong>
+      <div className={styles.directionStatuses} aria-label={packet.question+" 1, 3 and 5 source-days"}>
+       {packet.read.windows.map(window=><span key={window.label}
+        className={styles.directionMini} data-direction-window={window.label} data-direction-trend={window.trend}>
+        <b>{window.label}</b><span className={styles.directionDot} aria-hidden="true"/>
+        <span>{window.trend==="unknown"?"UNKNOWN":window.trend==="mixed"?"MIXED":window.trend==="better"?"BETTER":"WORSE"}</span>
+       </span>)}
+      </div>
+      <small>{packet.read.stale?"STALE / DATA GAP":"SOURCED "+packet.read.sourceDay+" UTC"} · OPEN EVIDENCE ↗</small>
+     </Link>)}
+    </div>
+   </section>
    <div className={styles.intelStrip} aria-label="Regime Watch research scope">
     <div><span>01 / RESEARCH LENSES</span><strong>09</strong><small>DIFFERENT MARKET SYSTEMS</small></div>
     <div><span>02 / SOURCE CONTEXT</span><strong>{theses===null?"—":theses.length}</strong><small>ASSOCIATED PUBLIC STORY RECORDS</small></div>
