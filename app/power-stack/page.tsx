@@ -9,6 +9,7 @@ import { evaluatePegResearch, type PegResearchObservation } from "@/lib/power-st
 import {getTopicInfluences} from "@/lib/bluebelly-topic-influence-server";
 import {powerStackResearchTopics,projectPowerStackResearch,type PowerStackTracked} from "@/lib/power-stack-research-links";
 import PowerStackResearchImpact from "@/components/blue-desk/PowerStackResearchImpact";
+import NvidiaEarningsDecisionWatch from "@/components/blue-desk/NvidiaEarningsDecisionWatch";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -220,6 +221,18 @@ export default async function PrivatePowerStack() {
           </section>
         ) : (
           <>
+            <NvidiaEarningsDecisionWatch mode="power-stack" now={researchedAt} owner={{
+              recordedScope:holdings.some(h=>h.ticker==="NVDA")?"ARCHIVED_HOLDING":
+                watchlist.some(w=>w.ticker==="NVDA")?"ARCHIVED_WATCHLIST":"NOT_IN_RECORDED_PORTFOLIO",
+              quote:latestQuotes.has("NVDA")?{
+                price:latestQuotes.get("NVDA")!.price,
+                currency:latestQuotes.get("NVDA")!.currency,
+                observedOn:latestQuotes.get("NVDA")!.observed_on,
+                sourceName:latestQuotes.get("NVDA")!.source_name,
+                sourceUrl:latestQuotes.get("NVDA")!.source_url,
+                timestampBasis:latestQuotes.get("NVDA")!.timestamp_basis,
+              }:null,
+            }}/>
             <PowerStackResearchImpact groups={researchGroups}/>
             <section className={portfolio.section} data-power-stack-quotes="dated-manual-observations">
               <h2>Source-dated prices · {latestQuotes.size}/{trackedTickers.length}</h2>
