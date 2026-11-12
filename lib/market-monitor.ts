@@ -1,4 +1,6 @@
 import { unstable_cache } from "next/cache";
+import {ADDITIONAL_US_STOCKS,EUROPE_STOCKS} from "./bluebelly-equity-universe";
+import {fetchEuropeanStockHistory} from "./bluebelly-europe-stock-history";
 import { evaluateMarketSignals, type MarketSignalSnapshot } from "./bluebelly-signal-scan";
 
 import { getMarketData, type BreadthSnapshot, type MarketSeries, type PricePoint } from "@/lib/market";
@@ -18,6 +20,8 @@ export type MarketMonitorType =
   | "Bond ETF"
   | "Credit / Risk"
   | "IPO / New Issue"
+  | "US Stock"
+  | "Europe Stock"
   | "Crypto";
 
 export type MarketMonitorPoint = PricePoint & {
@@ -53,6 +57,8 @@ export type MarketMonitorRow = {
   frequency: "daily" | "monthly";
   sourceName: string;
   sourceUrl: string;
+  /** Explicit source venue currency; null for synthetic macro instruments. */
+  currency?: string | null;
   /** Source-provided XML entry update time; only used for same-day live admission. */
   sourceUpdatedAt?: string | null;
   points: Array<{ time: number; close: number }>;
@@ -111,6 +117,7 @@ type RawSeries = {
   points: MarketMonitorPoint[];
   sourceName: string;
   sourceUrl: string;
+  currency?: string|null;
   frequency: "daily" | "monthly";
   sourceUpdatedAt?: string | null;
 };
@@ -240,7 +247,12 @@ const EXTRA_SPECS: ExtraSpec[] = [
   { id: "jnk", providerSymbol: "JNK", assetClass: "etf", label: "High Yield Credit · JNK", type: "Credit / Risk", benchmark: "spx" },
   { id: "vixy", providerSymbol: "VIXY", assetClass: "etf", label: "VIX Futures · VIXY proxy", type: "Credit / Risk" },
 
-  { id: "spcx", providerSymbol: "SPCX", assetClass: "etf", label: "SPCX New-Issue / SPAC", type: "IPO / New Issue", benchmark: "spx" },
+  // SPCX is SpaceX's June 2026 publicly listed common equity, NOT an ETF/SPAC proxy.
+  { id: "spcx", providerSymbol: "SPCX", assetClass: "stocks", label: "SpaceX Class A · SPCX", type: "US Stock", benchmark: "spx" },
+  ...ADDITIONAL_US_STOCKS.map(item=>({
+   id:item.monitorId,providerSymbol:item.providerSymbol,assetClass:"stocks" as const,
+   label:item.company,type:"US Stock" as const,benchmark:"spx",
+  })),
   { id: "ipo", providerSymbol: "IPO", assetClass: "etf", label: "Renaissance IPO ETF", type: "IPO / New Issue", benchmark: "spx" },
 
   { id: "aud", providerSymbol: "FXA", assetClass: "etf", label: "Australian Dollar · FXA proxy", type: "FX" },
@@ -537,7 +549,18 @@ export const loadExtras = unstable_cache(async () => {
       : null)
     .catch(() => null);
   return [...extraRows, ...rateRows, ...creditRows, ...globalRateRows, moveRow].filter((row): row is RawSeries => Boolean(row));
-}, ["alchemy-market-monitor-extras-v7"], { revalidate: EXTRA_REVALIDATE });
+}, ["alchemy-market-monitor-extras-v8-us-stocks"], { revalidate: EXTRA_REVALIDATE });
+const loadEuropeEquities=unstable_cache(async()=>{
+ const fetched=await mapLimit(EUROPE_STOCKS,4,async spec=>{
+  try{return await fetchEuropeanStockHistory(spec);}
+  catch(error){
+   console.warn(JSON.stringify({event:"bluebelly_eu_stock_source_unavailable",ticker:spec.ticker,
+    reason:error instanceof Error?error.message.slice(0,110):"UNAVAILABLE"}));
+   return null;
+  }
+ });
+ return fetched.filter((row):row is NonNullable<typeof row>=>row!==null);
+},["bluebelly-europe-daily-shares-v1"],{revalidate:60*60*6});
 
 export const loadCashAnchors = unstable_cache(async () => {
   const rows = await Promise.all([
@@ -686,6 +709,7 @@ function makeRows(rawSeries: RawSeries[]): MarketMonitorRow[] {
       frequency: raw.frequency,
       sourceName: raw.sourceName,
       sourceUrl: raw.sourceUrl,
+      ...(raw.currency?{currency:raw.currency}:{}),
       ...(raw.sourceUpdatedAt ? { sourceUpdatedAt: raw.sourceUpdatedAt } : {}),
       points: points.slice(-64).map((point) => ({ time: point.time, close: point.close })),
     } satisfies Omit<MarketMonitorRow, "attentionScore" | "hot" | "contradiction" | "tags">;
@@ -771,7 +795,7 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   // Degrade independently: core market data, broad extras and cash anchors.
   // Cash anchors stay on their own short cache so headline prices can refresh
   // without re-fetching the full extras universe.
-  const results = await Promise.allSettled([getMarketData(), loadExtras(), loadCashAnchors()]);
+  const results = await Promise.allSettled([getMarketData(), loadExtras(), loadCashAnchors(),loadEuropeEquities()]);
   
   const marketResult = results[0];
   const extrasResult = results[1];
@@ -781,6 +805,9 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   const market = marketResult.status === "fulfilled" ? marketResult.value : null;
   const extras = extrasResult.status === "fulfilled" ? extrasResult.value : [];
   const cashAnchors = cashResult.status === "fulfilled" ? cashResult.value : [];
+  const euroResult=results[3];
+  const europeanStocks=euroResult.status==="fulfilled"?euroResult.value:[];
+  if(euroResult.status==="rejected")console.warn(JSON.stringify({event:"bluebelly_eu_equities_unavailable"}));
   
   // Collect coverage gaps from failed branches
   const coverageGaps: string[] = [];
@@ -830,7 +857,7 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   
   // Combine base (from getMarketData) and extras (from loadExtras)
   // If both branches failed, rows will be empty but not crash.
-  let rows = makeRows([...base, ...extras, ...cashAnchors]);
+  let rows = makeRows([...base, ...extras, ...cashAnchors, ...europeanStocks]);
   const contradictions = buildContradictions(rows);
   const contradictionIds = new Set(contradictions.flatMap((item) => item.assets));
   rows = rows.map((row) => {
@@ -853,6 +880,7 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
     "Daily open/gap is shown only when the upstream history exposes an opening price.",
     "Euro-area and Japan long-yield fallbacks are monthly until a reliable daily official structured feed is connected; daily momentum fields remain unavailable for those rows.",
     "Daily headline anchors use direct cash/spot series where available. ETF rows such as SPY, GLD and IBIT remain separate proxies for secondary positioning/market-structure analysis.",
+    "European ordinary shares are sourced separately from unofficial Yahoo Finance daily history. Missing/late sessions remain unavailable, not 0% changes or US ADR stand-ins. EU values retain local EUR/DKK currencies and must not be USD compared without FX conversion.",
   ].filter((item): item is string => Boolean(item));
   
   return {
