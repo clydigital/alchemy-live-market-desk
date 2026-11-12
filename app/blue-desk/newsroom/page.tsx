@@ -12,6 +12,8 @@ import Newsroom48hTimeline from "@/components/blue-desk/Newsroom48hTimeline";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
 import {getManualSweeps} from "@/lib/bluebelly-manual-sweeps";
+import SignalTags from "@/components/blue-desk/SignalTags";
+import {suggestSignalTags} from "@/lib/bluebelly-signal-tags";
 import {isJensenGovernanceWatchWindow} from "@/lib/bluebelly-jensen-governance-watch";
 import JensenGovernanceWatch from "@/components/blue-desk/JensenGovernanceWatch";
 import {readBluebellyQualifiedNews} from "@/lib/bluebelly-verified-event-server";
@@ -116,6 +118,7 @@ export default async function NewsroomPage({searchParams}:Props){
          return <article key={sweep.id} className={ui.manualCard} data-manual-sweep-topic={sweep.topic}>
           <small>{sweep.date} · {sweep.topic.toUpperCase()} · {best.status.replaceAll("_"," ")}</small>
           <h3><Link href={blueDeskPublicHref(target,host)}>{sweep.title}</Link></h3>
+          <SignalTags tags={suggestSignalTags({title:sweep.title,detail:best.reason,evidence:best.status})}/>
           <p>{best.reason}</p>
           <div className={ui.manualLinks}>
             <Link href={blueDeskPublicHref(target,host)}>Open the regime / flow evidence →</Link>
