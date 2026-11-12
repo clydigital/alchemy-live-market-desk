@@ -1,14 +1,14 @@
 .root{background:linear-gradient(148deg,#0b2b3c,#071e2e);border:1px solid var(--bb-card-border,#386377);border-top:3px solid var(--bb-accent,#48c5e9);border-radius:10px;padding:clamp(16px,2.5vw,26px);margin:19px 0 28px;color:#e9f7fc;scroll-margin-top:90px}
 .root a{color:#83dfff;text-underline-offset:3px}
-.kicker,.outlook span,.metricGrid small,.handoff small,.caseIndex,.trades small{display:block;color:#8fe0fc;font:800 10px/1.6 var(--bb-mono,monospace);letter-spacing:.07em}
+.kicker,.outlook span,.metricGrid small,.handoff small,.caseIndex,.trades small{display:block;color:#8fe0fc;font:800 10px/1.6 var(--bluebelly-font);letter-spacing:.07em}
 .top{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}
 .top>div:first-child{flex:1;min-width:0}
-.top h2{font:750 clamp(22px,2.3vw,32px)/1.18 var(--bb-display,system-ui);margin:7px 0 12px;letter-spacing:-.02em;color:#f5fcff}
+.top h2{font:750 clamp(22px,2.3vw,32px)/1.18 var(--bluebelly-font);margin:7px 0 12px;letter-spacing:-.02em;color:#f5fcff}
 .deck,.notice,.handoff p,.case p,.evidence p,.trades p,.caveat,.owner{font-size:12px;line-height:1.72;color:#c5dfe8}
 .deck{max-width:80ch;margin:0 0 13px}
 .outlook{display:flex;flex-direction:column;gap:4px;min-width:160px;padding:12px;border:1px solid #355e71;background:#0b3444}
 .outlook strong{font-size:15px;line-height:1.3;color:#f6fcff}
-.outlook small{font:700 9px/1.4 var(--bb-mono,monospace);color:#b3cbd5}
+.outlook small{font:700 9px/1.4 var(--bluebelly-font);color:#b3cbd5}
 .outlook span:not(:first-child){margin-top:5px}
 .metricGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:13px 0}
 .metricGrid>div{background:#102e3d;border:1px solid #2f576b;padding:12px;min-width:0}
@@ -17,7 +17,7 @@
 .notice{padding:10px 13px;border-left:3px solid #8fe0fc;background:#123848;display:flex;flex-wrap:wrap;gap:3px 7px}
 .notice strong{color:#effaff}
 .owner{display:grid;gap:4px;margin:9px 0 13px;padding:11px 12px;background:#182e39;border:1px dashed #4a7f8c}
-.owner strong{font:800 11px/1.4 var(--bb-mono,monospace);color:#8fe0fc}
+.owner strong{font:800 11px/1.4 var(--bluebelly-font);color:#8fe0fc}
 .handoff{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0 18px}
 .handoff>div{border-left:2px solid #427b92;padding:7px 12px;background:#102b3a}
 .handoff p{margin:4px 0;color:#d4eaf0}
