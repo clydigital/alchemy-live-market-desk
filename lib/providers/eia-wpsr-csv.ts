@@ -99,6 +99,7 @@ const mapping:Array<{
  {key:"sprStocks",table:1,group:"stocks",label:"Strategic Petroleum Reserve (SPR)",multiplier:1000,rawUnits:"Million Barrels"},
  {key:"crudeProduction",table:1,group:"Crude Oil Supply",label:"Domestic Production",multiplier:1,rawUnits:"Thousand Barrels per Day"},
  {key:"gasolineProductSupplied",table:1,group:"Products Supplied",label:"Finished Motor Gasoline",multiplier:1,rawUnits:"Thousand Barrels per Day"},
+ {key:"distillateProductSupplied",table:1,group:"Products Supplied",label:"Distillate Fuel Oil",multiplier:1,rawUnits:"Thousand Barrels per Day"},
  {key:"refineryCrudeInputs",table:9,group:"Refiner Inputs and Utilization",label:"Crude Oil Inputs",multiplier:1,rawUnits:"Thousand Barrels per Day"},
  {key:"refineryUtilisation",table:9,group:"Refiner Inputs and Utilization",label:"Percent Utilization",multiplier:1,rawUnits:"Percent"},
 ];
@@ -132,7 +133,7 @@ export function parseOfficialWpsrCsv(table1:string,table9:string,retrievedAt:str
   asOf:count?a!.period:null,retrievedAt:count?retrievedAt:null,metrics,
   sourceName:"U.S. Energy Information Administration",
   sourceUrl:WPSR_CSV_TABLE1,
-  note:count?("OFFICIAL_WPSR_CSV: "+count+"/8 metrics"+
+  note:count?("OFFICIAL_WPSR_CSV: "+count+"/"+mapping.length+" metrics"+
     (!matched?"; refinery table missing or week mismatch":"")):
     "OFFICIAL_WPSR_CSV_NO_VALID_ROWS",
  };
