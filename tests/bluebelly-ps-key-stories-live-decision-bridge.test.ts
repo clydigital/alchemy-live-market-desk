@@ -93,3 +93,21 @@ test("Original manual sweeps support the new financing and macro tiles without s
  assert.ok(getManualSweeps("breadth",now,5).some(s=>s.id.includes("msci")&&s.findings.some(f=>f.status==="SOURCE_CORROBORATED")));
  assert.ok(getManualSweeps("energy",now,5).some(s=>s.id.includes("siemens")&&s.findings.some(f=>f.status==="SOURCE_CORROBORATED")));
 });
+
+test("Current Stories provide a dated change, guided cross-story pathway and source-scoped macro context",()=>{
+ const shelf=read("components/blue-desk/CurrentKeyStoriesShelf.tsx");
+ const css=read("components/blue-desk/CurrentKeyStoriesShelf.module.css");
+ const article=read("components/blue-desk/CurrentKeyStoryArticle.tsx");
+ assert.match(shelf,/data-nvidia-change-since="2026-11-12"/);
+ assert.match(shelf,/data-key-stories-journey="existing-approved-readers"/);
+ assert.match(shelf,/data-key-stories-related="verified-facts-not-reaction-proof"/);
+ for(const key of ["inflation-labor-quality","eia-us-gas","peace-direction","ai-compute-financing-november-2026"])
+  assert.ok(shelf.includes(key),key);
+ assert.match(shelf,/Source corroboration of a CPI, issuer or diplomatic fact does not verify the market reaction/);
+ assert.match(shelf,/item\.finding\.status|find\(f=>f.status==="SOURCE_CORROBORATED"\)/);
+ assert.match(article,/Compare CoreWeave and Nebius financing/);
+ assert.match(article,/Read the NVIDIA earnings and governance decision/);
+ assert.match(css,/\.journeyGrid\{/);
+ assert.match(css,/@media\(max-width:620px\)\{\.journeyGrid,\.contextGrid/);
+ assert.doesNotMatch(shelf,/createSupabaseAdminClient|service_role|power_stack_owner_snapshots/);
+});
