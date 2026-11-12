@@ -13,3 +13,19 @@
 .breadthTableWrap td small{font-size:10px;line-height:1.4;color:var(--muted,#6b7280);margin-top:4px;max-width:260px}
 .breadthTableWrap tr[data-coverage="insufficient"] td{color:var(--muted,#6b7280)}
 .breadthFootnote{padding:11px 18px}
+
+/* Market region discovery: price and research status are explicitly source dated. */
+.equityMarkets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr)) auto;gap:12px;align-items:stretch;margin:1px 0 4px}
+.equityMarkets button{min-width:0;display:grid;gap:5px;align-content:start;text-align:left;min-height:99px;padding:16px 19px;color:var(--ink,#f8faff);background:color-mix(in srgb,var(--panel,#10273a) 92%,#51b8da 8%);border:1px solid var(--line,#5c87a0);border-left:5px solid #70b9df;border-radius:10px;cursor:pointer}
+.equityMarkets button:nth-child(2){background:color-mix(in srgb,var(--panel,#10273a) 90%,#86c9ac 10%);border-left-color:#83d5b1}
+.equityMarkets button[data-selected="true"]{outline:2px solid var(--ink,#e2f4ff);outline-offset:2px}
+.equityMarkets button>span{font-size:14px;line-height:1.4;font-weight:800}
+.equityMarkets button>strong{font-size:22px;line-height:1.2;font-variant-numeric:tabular-nums}
+.equityMarkets button>small{font-size:12px;line-height:1.45;color:var(--muted,#b7cbd9)}
+.equityMarkets>a{min-width:140px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--ink,#e8f3fb);border:1px solid var(--line,#6486a5);padding:14px;border-radius:10px;font-size:13px;line-height:1.45}
+.tableWrap td.number{font-size:12px;font-variant-numeric:tabular-nums}
+.tableWrap .assetButton strong{font-size:13px}
+.tableWrap .assetButton span{font-size:11px}
+.tableWrap .typePill{font-size:11px}
+@media(max-width:850px){.equityMarkets{grid-template-columns:repeat(2,minmax(0,1fr))}.equityMarkets>a{grid-column:1/-1;min-height:42px}}
+@media(max-width:500px){.equityMarkets{grid-template-columns:1fr}.equityMarkets>a{grid-column:auto}}
