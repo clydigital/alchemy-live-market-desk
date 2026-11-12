@@ -30,3 +30,11 @@
 .foot{font:600 11px/1.45 var(--bb-mono);color:var(--bb-muted);margin:8px 0 0}
 .foot a{color:var(--bb-accent)}
 @media(max-width:720px){.heading{flex-direction:column}.asOf{white-space:normal}.windows{gap:5px}.window{padding:8px}.state{font-size:9px}.window small{font-size:9px}}
+
+/* Generic evidence packets may carry a paired comparison-market source. */
+.sourceContent{display:flex;flex-direction:column;gap:3px;min-width:0}
+.sourceContent a{overflow-wrap:anywhere}
+.sourceContent .comparison{font:650 10px/1.4 var(--bb-mono);color:var(--bb-accent)}
+.sourceContent small{color:var(--bb-muted);font-size:11px}
+.noSource{color:var(--bb-muted);font-size:12px;margin:9px 0}
+.wrap{scroll-margin-top:88px}
