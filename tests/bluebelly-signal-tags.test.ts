@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {SIGNAL_TAGS,suggestSignalTags} from "../lib/bluebelly-signal-tags.ts";
 import {buildSignalRadar} from "../lib/bluebelly-signal-radar.ts";
+import {selectManualSweeps} from "../lib/bluebelly-manual-sweeps.ts";
 import type {TopicInfluenceRead} from "../lib/bluebelly-topic-influence.ts";
 const read=(p:string)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 const ids=(input:Parameters<typeof suggestSignalTags>[0])=>suggestSignalTags(input).map(t=>t.id);
@@ -39,6 +40,29 @@ test("single context-free market headline never proves a divergence or mispricin
   detail:"The FOMC meets with inflation pressure still elevated.",evidence:"SOURCE_ONLY_NEWS"});
  assert.ok(tags.includes("catalyst"));
  assert.ok(!tags.includes("mispricing"));
+});
+test("only source-corroborated, validated editor-provided valuation comparisons survive public manual sweep validation",()=>{
+ const now=new Date("2026-11-13T02:00:00Z");
+ const v={marketPrice:17,priceObservedOn:"2026-11-12",priceSourceUrl:"https://exchange.example/close",
+ fundamentalValue:28,fundamentalBasis:"Issuer audited earnings per share comparison",
+ fundamentalSourceUrl:"https://issuer.example/quarterly/results",
+ comparisonExplanation:"Compare a matched per-share valuation to a sourced market closing price."};
+ const datum=(status:string,reviewedValuation:unknown)=>({version:1,sweeps:[{
+  id:"2026-11-13-test-mispricing-signal",topic:"ai",date:"2026-11-13",
+  title:"Company appears mispriced against cash generation",researchAt:"2026-11-13T00:00:00Z",
+  findings:[{reason:"Cash flow is growing while market price lags, requiring a valuation comparison.",
+   sourceName:"Issuer filing",sourceUrl:"https://issuer.example/quarterly/results",
+   sourcePublishedAt:"2026-11-12",status,nextCheck:"Recalculate cash per share.",reviewedValuation}]
+ }]});
+ const admitted=selectManualSweeps(datum("SOURCE_CORROBORATED",v),"ai",now);
+ assert.equal(admitted[0].findings[0].reviewedValuation?.marketPrice,17);
+ const tags=suggestSignalTags({title:admitted[0].title,detail:admitted[0].findings[0].reason,
+  evidence:admitted[0].findings[0].status,reviewedValuation:admitted[0].findings[0].reviewedValuation});
+ assert.ok(tags.some(tag=>tag.id==="mispricing"&&tag.state==="SOURCED_COMPARISON"));
+ const unreviewed=selectManualSweeps(datum("RESEARCH_LEAD",v),"ai",now);
+ assert.equal(unreviewed[0].findings[0].reviewedValuation,undefined);
+ const sameUrl=selectManualSweeps(datum("SOURCE_CORROBORATED",{...v,priceSourceUrl:v.fundamentalSourceUrl}),"ai",now);
+ assert.equal(sameUrl[0].findings[0].reviewedValuation,undefined);
 });
 test("Regime signal radar recycles source-qualified manual notes and unverified leads, no writers",()=>{
  const now=new Date("2026-11-13T01:00:00Z");
