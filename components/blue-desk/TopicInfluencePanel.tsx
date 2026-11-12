@@ -40,7 +40,7 @@ export default function TopicInfluencePanel({input,compact=false}:Props){
     <h3>{sweep.title}</h3><small>Research conducted {stamp(sweep.researchAt)} · Editorially committed, not live canonical Evidence</small></div>
    <ol>{sweep.findings.map((finding,index)=><li key={index}>
     <strong>{finding.reason}</strong>
-    <SignalTags tags={suggestSignalTags({title:sweep.title,detail:finding.reason,evidence:finding.status})}/>
+    <SignalTags tags={suggestSignalTags({title:sweep.title,detail:finding.reason,evidence:finding.status,reviewedValuation:finding.reviewedValuation})}/>
     <small>{finding.status==="RESEARCH_LEAD"?"RESEARCH LEAD — NOT VERIFIED":
      finding.status==="CONTRADICTED"?"CONTRADICTED — SEE SOURCE":"SOURCE-CORROBORATED — SEE SOURCE"} · Source dated {stamp(finding.sourcePublishedAt)}</small>
     {finding.nextCheck?<p><b>Next check:</b> {finding.nextCheck}</p>:null}
