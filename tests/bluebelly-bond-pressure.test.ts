@@ -83,7 +83,7 @@ test("public Bonds page renders custom source-session monitor ahead of old edito
  assert.ok(detail.indexOf("<BondPressureMonitor")<detail.indexOf('id="editorial-archive"'));
  assert.match(hub,/bondPressure\.windows/);
  assert.match(hub,/data-regime-overview-editorial="collapsed-by-default"/);
- assert.match(hub,/ARCHIVED EDITORIAL BASELINE/);
+ assert.match(hub,/HISTORICAL 30 OCT EDITORIAL/);
  assert.match(comp,/data-bond-pressure-monitor="market-series-v1"/);
  assert.match(comp,/data-tlt-confirmation/);
  assert.match(comp,/getBondPressure|BondPressureMonitor/);
