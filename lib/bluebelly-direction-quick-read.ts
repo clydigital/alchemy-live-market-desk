@@ -3,6 +3,7 @@ export type DirectionTrend="better"|"mixed"|"worse"|"unknown";
 export type DirectionEvidence={
  id:string;date:string;direction:Exclude<DirectionTrend,"unknown">;
  title:string;sourceName:string;sourceUrl:string;limitation:string;
+ comparisonSourceUrl?:string;
 };
 export type DirectionWindow={
  label:"1D"|"3D"|"5D";days:1|3|5;from:string;to:string;
@@ -34,7 +35,8 @@ export function buildDirectionQuickRead(input:readonly DirectionEvidence[],now:D
  const evidence=input.filter(item=>{
   if(!item||!item.id||seen.has(item.id)||!validDay(item.date)||item.date>today||
     !["better","mixed","worse"].includes(item.direction)||!item.title||!item.sourceName||
-    !validSource(item.sourceUrl)||!item.limitation)return false;
+    !validSource(item.sourceUrl)||!item.limitation||
+    (item.comparisonSourceUrl!==undefined&&!validSource(item.comparisonSourceUrl)))return false;
   seen.add(item.id);return true;
  }).sort((a,b)=>b.date.localeCompare(a.date)||a.id.localeCompare(b.id));
  const sourceDay=evidence[0]?.date||null;

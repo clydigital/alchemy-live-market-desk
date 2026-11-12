@@ -17,6 +17,8 @@ import {getRegimeEditorialUpdate} from "@/lib/bluebelly-regime-verified-crossass
 import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
 import RegimeResearchClocks from "@/components/blue-desk/RegimeResearchClocks";
 import RegimeManualChallenge from "@/components/blue-desk/RegimeManualChallenge";
+import DirectionQuickRead from "@/components/blue-desk/DirectionQuickRead";
+import {getRegimeDirectionPacket} from "@/lib/bluebelly-regime-direction-reads";
 import {getRegimeShadowHealth} from "@/lib/regime-engine";
 import TopicInfluencePanel from "@/components/blue-desk/TopicInfluencePanel";
 import {getTopicInfluence} from "@/lib/bluebelly-topic-influence-server";
@@ -55,6 +57,7 @@ export default async function ResearchLensPage({params}:Props){
  const lensNumber=String(EDITORIAL_REGIME_LENSES.findIndex(item=>item.id===lensId)+1).padStart(2,"0");
  const workbook=REGIME_LENS_WORKBOOKS[lens.id];
  const outlook=getLensOutlook(lens.id);
+ const direction=getRegimeDirectionPacket(lens.id,now);
  const viewScan=scanRegimeViews(lens.id,outlook.reviewedAt,publicTheses,sourceObservations,now);
  const latestEditorial=getRegimeEditorialUpdate(lens.id);
  const assessments=quickViewsForLens(lens.id);
@@ -89,6 +92,11 @@ export default async function ResearchLensPage({params}:Props){
    </header>
    <RegimeResearchClocks sources={sourceObservations===null?null:recent} editorialReviewedOn={outlook.reviewedAt} shadow={shadowHealth}/>
    <RegimeManualChallenge lens={lens.id}/>
+   {direction?<DirectionQuickRead question={direction.question} summary={direction.summary}
+     read={direction.read} eyebrow="REGIME PRESSURE / SOURCE-DATED QUICK READ"
+     meaning={direction.meaning+" These are editorial observations, not a canonical Regime verdict or a trade signal."}
+     supportingTerm={direction.supportingTerm} opposingTerm={direction.opposingTerm}
+     followUpHref={direction.followUpHref} followUpLabel={direction.followUpLabel}/>:null}
    <div className={styles.lensQuickStrip} aria-label="Research file orientation">
     <div><span>01 / REVIEWED DIRECTION</span><strong>{outlook.outlook}</strong><small>For {outlook.directionTarget}</small></div>
     <div><span>02 / CONFIDENCE</span><strong>{outlook.confidence}</strong><small>Qualitative evidence judgement</small></div>

@@ -384,3 +384,38 @@
  .reviewMeta{display:none}
  .lensIntro{font-size:10px;line-height:1.38;margin:4px 0 8px}
 }
+
+
+/* Five evidence clocks, not pseudo-live market indicators. Theme tokens match existing Bluebelly cards. */
+.directionShelf{margin:15px 0 18px;padding:14px;background:var(--bb-card-quiet);
+ border:1px solid var(--bb-card-border);scroll-margin-top:85px}
+.directionHead{display:flex;justify-content:space-between;align-items:start;gap:14px;margin:0 0 11px}
+.directionHead h2{font:900 clamp(19px,2vw,26px)/1.2 var(--bb-display);margin:4px 0;color:var(--bb-text)}
+.directionHead p{font-size:11px;line-height:1.5;color:var(--bb-muted);max-width:48ch;margin:0}
+.directionGrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.directionCard{display:flex;flex-direction:column;gap:7px;min-width:0;padding:12px;border:1px solid var(--bb-card-border);
+ background:var(--bb-card-bg);text-decoration:none;color:var(--bb-text);transition:border-color .15s ease}
+.directionCard:hover,.directionCard:focus-visible{border-color:var(--bb-accent);outline-offset:2px}
+.directionLabel{font:800 9px/1.35 var(--bb-mono);color:var(--bb-accent);letter-spacing:.04em}
+.directionCard>strong{display:block;font:800 12px/1.35 var(--bb-display);min-height:33px}
+.directionStatuses{display:grid;gap:4px;margin:4px 0}
+.directionMini{--status:#8da0af;display:flex;align-items:center;gap:5px;
+ border:1px solid var(--bb-card-border);padding:4px 6px;background:var(--bb-card-quiet);
+ color:var(--status);font:800 9px/1.2 var(--bb-mono);min-width:0}
+.directionMini b{width:20px;color:var(--bb-text);flex-shrink:0}
+.directionMini[data-direction-trend="better"]{--status:#36c49b}
+.directionMini[data-direction-trend="mixed"]{--status:#eab65b}
+.directionMini[data-direction-trend="worse"]{--status:#fa7479}
+.directionDot{width:7px;height:7px;background:var(--status);border-radius:50%;flex-shrink:0}
+.directionCard>small{font:700 9px/1.4 var(--bb-mono);color:var(--bb-muted);margin-top:auto;overflow-wrap:anywhere}
+@media(max-width:1100px){.directionGrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:700px){.directionHead{flex-direction:column;gap:4px}
+ .directionShelf{padding:10px}
+ .directionGrid{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(225px,80%);grid-template-columns:none;
+  overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;padding-bottom:8px}
+ .directionCard{scroll-snap-align:start;padding:10px}
+ .directionCard>strong{min-height:0}
+ .directionStatuses{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .directionMini{flex-wrap:wrap;gap:3px}
+}
+@media(prefers-reduced-motion:reduce){.directionGrid{scroll-behavior:auto}}
