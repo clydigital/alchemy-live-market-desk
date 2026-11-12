@@ -6,11 +6,11 @@ const read=(path:string)=>readFileSync(new URL("../"+path,import.meta.url),"utf8
 const input=JSON.parse(read("data/bluebelly-hormuz-peace-signals.json")) as {version:number;signals:DirectionEvidence[]};
 test("1D/3D/5D peace directions are dated, sourced and explicitly non-probabilistic",()=>{
  assert.equal(input.version,1);
- assert.equal(input.signals.length,3);
+ assert.equal(input.signals.length,5);
  const result=buildDirectionQuickRead(input.signals,new Date("2026-11-12T06:00:00Z"));
- assert.equal(result.sourceDay,"2026-11-11");
+ assert.equal(result.sourceDay,"2026-11-12");
  assert.deepEqual(result.windows.map(w=>[w.label,w.trend,w.count]),[
-  ["1D","worse",2],["3D","mixed",3],["5D","mixed",3]
+  ["1D","worse",2],["3D","mixed",5],["5D","mixed",5]
  ]);
  assert.ok(result.evidence.every(s=>s.sourceUrl.startsWith("https://")));
 });
@@ -29,7 +29,7 @@ test("future dated and spoofed sources cannot influence the direction",()=>{
   {...input.signals[1],id:"bad-date",date:"2026-02-30"},
  ];
  const out=buildDirectionQuickRead([...bad,...input.signals],new Date("2026-11-12T06:00:00Z"));
- assert.equal(out.evidence.length,3);
+ assert.equal(out.evidence.length,5);
  assert.equal(out.windows[0].trend,"worse");
 });
 test("public Hormuz UI exposes three readable windows and source detail without a new writer",()=>{
