@@ -11,7 +11,7 @@ const polar=(degree:number,radius:number)=>{
 };
 const arc=(from:number,to:number,radius:number)=>{
  const [x1,y1]=polar(from,radius),[x2,y2]=polar(to,radius);
- return `M ${x1} ${y1} A ${radius} ${radius} 0 0 1 ${x2} ${y2}`;
+ return `M ${x1} ${y1} A ${radius} ${radius} 0 ${Math.abs(to-from)>180?1:0} 1 ${x2} ${y2}`;
 };
 export default function AcceleratorDial({label,direction,leftLabel,rightLabel,compact=false}:Props){
  const angle=direction===null?-104:direction*70;
