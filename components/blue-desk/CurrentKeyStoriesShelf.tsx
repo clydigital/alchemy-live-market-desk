@@ -6,13 +6,16 @@ import css from "./CurrentKeyStoriesShelf.module.css";
 
 const feature="nvidia-ceo-earnings-november-2026";
 const funding="ai-compute-financing-november-2026";
-type Topic="ai"|"breadth"|"energy"|"fed"|"housing";
+type Topic="ai"|"breadth"|"energy"|"fed"|"housing"|"hormuz";
 const selected=[
  {topic:"ai" as Topic,match:"nebius",href:funding,label:"AI CLOUD · CAPACITY"},
  {topic:"ai" as Topic,match:"coreweave",href:funding,label:"AI CLOUD · FINANCING"},
  {topic:"energy" as Topic,match:"siemens-power",href:null,label:"PHYSICAL AI INFRASTRUCTURE"},
  {topic:"breadth" as Topic,match:"msci-november",href:null,label:"INDEX-RELATED SHARE FLOWS"},
- {topic:"fed" as Topic,match:"weekly-initial-claims",href:null,label:"LABOUR · FED"}
+ {topic:"fed" as Topic,match:"weekly-initial-claims",href:null,label:"LABOUR · FED"},
+ {topic:"fed" as Topic,match:"inflation-labor-quality",href:null,label:"CPI · LABOUR QUALITY",context:true},
+ {topic:"energy" as Topic,match:"eia-us-gas",href:null,label:"US GAS · GLOBAL LNG",context:true},
+ {topic:"hormuz" as Topic,match:"peace-direction",href:null,label:"HORMUZ · DIPLOMACY",context:true}
 ] as const;
 
 /** Only editorially committed, source-dated research. This does NOT expose
@@ -57,9 +60,27 @@ export default function CurrentKeyStoriesShelf({now,host}:{now:Date;host:string|
      <span>KEY QUESTION</span>
      <p>Can strong actual earnings reduce the governance discount, or will weaker funding economics keep the stock under pressure?</p>
     </aside>
+    <div className={css.latestDelta} data-nvidia-change-since="2026-11-12">
+      <span>LAST VERIFIED CHANGE · 12 NOV</span>
+      <p>NVIDIA announced the CEO transition. Customer orders and the next earnings result have not been independently established by that announcement.</p>
+      <span>NEXT VERIFICATION</span>
+      <p>{state==="UPCOMING"?"17 November issuer earnings, forward orders, margins and matched NVDA/SMH reaction.":"Release window reached: check the original issuer report before updating this frozen pre-earnings view."}</p>
+    </div>
    </article>
+   <nav className={css.journey} aria-label="Guided investigation across current stories" data-key-stories-journey="existing-approved-readers">
+    <div className={css.journeyHeading}>
+      <strong>FOLLOW THE MARKET CONNECTIONS</strong>
+      <p>Start with the event, then test whether the consequence is company-specific or broader. These links connect research; they do not establish causation.</p>
+    </div>
+    <div className={css.journeyGrid}>
+      <Link href={root+"?feature="+funding}><small>01 · CAPITAL</small><strong>NVIDIA → AI cloud funding</strong><span>CoreWeave and Nebius: paid demand, capex and financing</span></Link>
+      <Link href={blueDeskPublicHref("/blue-desk/regime-watch/breadth",host)}><small>02 · TAPE</small><strong>AI stocks → market breadth</strong><span>Test SMH, Nasdaq and equal-weight confirmation</span></Link>
+      <Link href={blueDeskPublicHref("/blue-desk/regime-watch/bonds",host)}><small>03 · RATES</small><strong>Inflation → long-duration assets</strong><span>Separate verified CPI from unmeasured yield causality</span></Link>
+      <Link href={blueDeskPublicHref("/blue-desk/hormuz",host)}><small>04 · PHYSICAL</small><strong>Hormuz → delivered energy</strong><span>Negotiation status is not tanker-flow normalisation</span></Link>
+    </div>
+   </nav>
    <div className={css.grid} data-key-stories-reviewed-research="labelled-not-promoted">
-    {notes.map(item=><article key={item.id} className={css.card}>
+    {notes.filter(item=>!("context" in item)).map(item=><article key={item.id} className={css.card}>
       <span className={css.cardMeta}>{item.date} · {item.label} · SOURCE CORROBORATED</span>
       <h3>{item.href?<Link href={root+"?feature="+item.href}>{item.title}</Link>:item.title}</h3>
       <p>{item.finding.reason}</p>
@@ -71,11 +92,29 @@ export default function CurrentKeyStoriesShelf({now,host}:{now:Date;host:string|
       </div>
     </article>)}
    </div>
+   <section className={css.context} aria-labelledby="key-stories-related-context" data-key-stories-related="verified-facts-not-reaction-proof">
+     <div className={css.contextHeading}>
+       <h3 id="key-stories-related-context">Related macro and physical-market developments</h3>
+       <p>Original-source-checked developments, not confirmed explanations for the equity or bond tape.</p>
+     </div>
+     <div className={css.contextGrid}>
+      {notes.filter(item=>"context" in item).map(item=><article key={item.id} className={css.contextCard}>
+        <small>{item.date} · {item.label} · FACT SOURCE CORROBORATED</small>
+        <strong>{item.title}</strong>
+        <p>{item.finding.reason}</p>
+        <p><b>Still to test:</b> {item.finding.nextCheck}</p>
+        <div className={css.contextLinks}>
+          <Link href={item.topic==="hormuz"?blueDeskPublicHref("/blue-desk/hormuz",host):blueDeskPublicHref("/blue-desk/regime-watch/"+(item.topic==="energy"?"energy":"fed"),host)}>Explore related watch</Link>
+          <a href={item.finding.sourceUrl} target="_blank" rel="noopener noreferrer">{item.finding.sourceName} · original source ↗</a>
+        </div>
+      </article>)}
+     </div>
+   </section>
    <nav className={css.deepDive} aria-label="Previously reviewed original-source Key Stories">
      <strong>ALSO RESEARCHED / ORIGINAL-SOURCE DEEP DIVES</strong>
      <Link href={root+"?news=1acd67c7-e804-48bf-9ee7-97a2f96be283"}>EIA: cheaper US gas versus diesel inflation →</Link>
      <Link href={root+"?news=fdddf542-68f9-4576-9fde-812af424c724"}>NVIDIA NVLink Fusion: custom AI chips and networking demand →</Link>
    </nav>
-   <p className={css.note}>Research checks here do not constitute published canonical Story or Regime changes. They remain separately sourced from the historical thesis list below. A missing matched market reaction is unmeasured, not a positive or negative surprise.</p>
+   <p className={css.note}>Research checks here do not constitute published canonical Story or Regime changes. They remain separately sourced from the historical thesis list below. Source corroboration of a CPI, issuer or diplomatic fact does not verify the market reaction. A missing matched market reaction is unmeasured, not a positive or negative surprise.</p>
   </section>;
 }
