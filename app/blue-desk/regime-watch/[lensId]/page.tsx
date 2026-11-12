@@ -207,7 +207,7 @@ export default async function ResearchLensPage({params}:Props){
    <nav className={styles.pageNav} aria-label="Sections in this research lens">
     <a href="#view-scan">Changes since review</a>
     <a href="#editorial-archive">Archived editorial outlook</a>
-    {latestEditorial?<a href="#editorial-archive">Dated editorial check</a>:null}
+    {latestEditorial?<a href="#editorial-archive">Latest editorial evidence (archived)</a>:null}
     {assessments.length?<a href="#asset-monitoring">Latest original sources &amp; tape</a>:null}
     <a href="#research-position">Recorded position</a>
     {workbook.policyDilemma?<a href="#policy-dilemma">Fed policy dilemma</a>:null}
