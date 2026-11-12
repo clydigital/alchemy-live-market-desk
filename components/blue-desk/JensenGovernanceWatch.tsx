@@ -9,9 +9,9 @@ export default function JensenGovernanceWatch({host}:{host:string|null}){
    <span className={styles.manualEyebrow}>WATCHED STORY / NVIDIA LEADERSHIP · SOURCE REVIEW {watch.reviewedOn}</span>
    <span className={styles.jensenStatus}>{watch.status}</span>
   </header>
-  <h2 id="jensen-watch-title">Jensen Huang: investigation versus NVIDIA's underlying AI demand</h2>
+  <h2 id="jensen-watch-title">Jensen Huang resigns: what changes for NVIDIA and the AI ecosystem?</h2>
   <p><strong>What is confirmed:</strong> {watch.official.map(item=>item.text).join(" ")}</p>
-  <p><strong>What is reported, not decided:</strong> {watch.reported.text}</p>
+  <p><strong>External reporting and unresolved risks:</strong> {watch.reported.text}</p>
   <details className={styles.jensenDetails}>
    <summary>Uncertainty, market implications and deciding tests</summary>
    <p><strong>Decision signal:</strong> {watch.market.signal}</p>
@@ -25,6 +25,6 @@ export default function JensenGovernanceWatch({host}:{host:string|null}){
    <a href={watch.reported.url} target="_blank" rel="noopener noreferrer">{watch.reported.label} ↗</a>
    <Link href={blueDeskPublicHref("/blue-desk/regime-watch/ai",host)}>AI Regime context →</Link>
   </nav>
-  <p className={styles.manualNote}>This is a dated watch, not live board-status monitoring. Reported personal allegations are not findings. No final CEO decision, security compromise or direct demand shock is asserted without a new issuer or regulatory source.</p>
+  <p className={styles.manualNote}>This is a dated watch, not live board-status monitoring. Huang's resignation and Kress's interim appointment are confirmed; reported personal allegations and any security compromise remain unproven here. No decline in physical GPU demand is inferred from the share-price move.</p>
  </section>;
 }
