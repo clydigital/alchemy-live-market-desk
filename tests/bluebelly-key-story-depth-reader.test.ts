@@ -66,3 +66,38 @@ test("FOMC hero places original-event clock and Key Stories return beneath illus
  assert.match(css,/@media\(max-width:600px\)\{\.art\{display:flex/);
  assert.doesNotMatch(css,/@media\(max-width:600px\)\{\.art\{display:none/);
 });
+
+
+const novEia:NewsBriefV1={
+ ...qualified,id:"1acd67c7-e804-48bf-9ee7-97a2f96be283",
+ headline:"EIA raises November natural gas storage forecast after warm start to month",
+ summary:"The full November 2026 Short-Term Energy Outlook is available on the EIA website.",
+ sourceName:"U.S. Energy Information Administration",
+ sourceUrl:"https://www.eia.gov/pressroom/releases/press594.php",
+ occurredAt:"2026-11-10T17:00:00Z",observedAt:"2026-11-11T01:46:00Z",
+};
+const novNvidia:NewsBriefV1={
+ ...qualified,id:"fdddf542-68f9-4576-9fde-812af424c724",
+ headline:"NVIDIA, Rebellions and SK Telecom Announce Collaboration to Advance Sovereign AI Infrastructure With NVIDIA NVLink Fusion",
+ summary:"The original publisher issued this dated announcement.",
+ sourceName:"NVIDIA Newsroom",
+ sourceUrl:"https://nvidianews.nvidia.com/news/nvidia-rebellions-and-sk-telecom-announce-collaboration-to-advance-sovereign-ai-infrastructure-with-nvidia-nvlink-fusion",
+ occurredAt:"2026-11-09T05:00:00Z",observedAt:"2026-11-09T13:35:00Z",
+};
+test("November EIA and NVIDIA original receipts get substantive dated recaps, without invented price reaction",()=>{
+ const eia=storyDepthForNews(novEia);
+ const nvidia=storyDepthForNews(novNvidia);
+ assert.ok(eia && nvidia);
+ assert.match(eia!.lead,/3,840 billion cubic feet/);
+ assert.ok(eia!.numbers.some(x=>x.label.includes("diesel")&&x.observed.includes("$5.03")));
+ assert.ok(nvidia!.explanation.some(x=>x.includes("prefill")&&x.includes("decode")));
+ assert.ok(nvidia!.missing.some(x=>x.includes("No causal event-window")));
+ assert.equal(storyCoverageForNews(novEia).status,"RESEARCH_ENRICHED");
+ assert.equal(storyCoverageForNews(novNvidia).status,"RESEARCH_ENRICHED");
+});
+test("a recycled UUID, altered issuer URL, or changed event clock cannot acquire the researched overlays",()=>{
+ assert.equal(storyDepthForNews({...novEia,sourceUrl:"https://example.com/eia"}),null);
+ assert.equal(storyDepthForNews({...novEia,id:"other-record"}),null);
+ assert.equal(storyDepthForNews({...novNvidia,occurredAt:"2026-11-10T05:00:00Z"}),null);
+ assert.equal(storyDepthForNews({...novNvidia,verification:"SOURCE_VERIFIED",sourceKind:"reporting"}),null);
+});

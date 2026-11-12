@@ -170,6 +170,131 @@ export const SEPTEMBER_JOLTS_DEPTH:PublicStoryDepth={
  ],
 };
 
+const NOV_EIA="https://www.eia.gov/pressroom/releases/press594.php";
+const NOV_EIA_NATGAS="https://www.eia.gov/outlooks/steo/report/natgas.php";
+const NOV_EIA_REPORT="https://www.eia.gov/outlooks/steo/";
+
+export const NOVEMBER_EIA_GAS_DEPTH:PublicStoryDepth={
+ edition:"12 November 2026 · primary-source editorial research; forecast vintage 10 November, compiled 5 November",
+ eventAt:"2026-11-10T17:00:00.000Z",
+ topic:"US gas supply versus global fuel inflation",
+ title:"US Natural Gas Gets Cheaper. Why Is Diesel Still Expensive?",
+ hook:"A warm November has given America more gas for winter and lowered the EIA's Henry Hub outlook. Yet the same report warns that global diesel and other refined fuels could remain tight through 2027.",
+ lead:"The EIA expects 3,840 billion cubic feet in US natural gas storage at the end of November, 67 Bcf more than it estimated a month ago. With less heating demand, it now forecasts an average Henry Hub price of $2.87 per million Btu from November through March, down 16% from its previous outlook. Cheaper domestic gas is not the same as cheaper fuel everywhere.",
+ chronology:[
+  "5 November: the EIA completed its November forecast, using an assumption that US November heating-degree days would be 13% below the 10-year average. This is a weather/forecast assumption, not the final month's observed temperature.",
+  "10 November: the EIA published its Short-Term Energy Outlook and raised its forecast for end-November US working gas inventories by 67 Bcf to 3,840 Bcf.",
+  "The same forecast continued to project global refined-product supply constraints through 2027, raised US 2027 retail diesel and petrol price forecasts, and expected additional US LNG export capacity to lift exports in 2027."
+ ],
+ numbers:[
+  {label:"US gas storage, end November",baseline:"Prior October forecast approximately 3,773 Bcf",expected:"EIA's October forecast (not an external market consensus)",observed:"3,840 Bcf forecast",change:"+67 Bcf versus EIA's prior forecast",basis:"Forecast comparison, not an actual weekly EIA storage reading",sourceName:"EIA November STEO · natural gas",sourceUrl:NOV_EIA_NATGAS},
+  {label:"Henry Hub, November–March average",baseline:"October winter forecast, implied approximately $3.42/MMBtu",expected:"No independently frozen futures-market expectation",observed:"$2.87/MMBtu forecast",change:"16% lower than October winter forecast; 36% below last winter",basis:"Forecast of monthly-average spot prices; not a spot quote",sourceName:"EIA November STEO · natural gas",sourceUrl:NOV_EIA_NATGAS},
+  {label:"US retail diesel, 2027 average",baseline:"October STEO forecast: $4.49/US gallon",expected:"Earlier EIA forecast, not pre-release consensus",observed:"$5.03/US gallon forecast",change:"+$0.54/gal revision",basis:"2027 projection; different market from Henry Hub gas",sourceName:"EIA · 10 November press release",sourceUrl:NOV_EIA},
+  {label:"US retail petrol, 2027 average",baseline:"October STEO forecast: $3.56/US gallon",expected:"Earlier EIA forecast, not pre-release consensus",observed:"$3.73/US gallon forecast",change:"+$0.17/gal revision",basis:"2027 projection; not November pump prices",sourceName:"EIA · 10 November press release",sourceUrl:NOV_EIA},
+  {label:"US gross LNG exports",baseline:"Approximately 15 Bcf/day in 2025",expected:"EIA medium-term projection, not announced sales contracts",observed:"Approximately 19 Bcf/day in 2027",change:"+4 Bcf/day forecast increase versus 2025 level",basis:"Projected gross daily exports, dependent on capacity and operation",sourceName:"EIA November STEO",sourceUrl:NOV_EIA_REPORT}
+ ],
+ whatChanged:[
+  "The warm start to November changed the US gas inventory and winter-price outlook. Higher expected storage means less immediate urgency to pay up for heating supply.",
+  "The contradiction is in other fuels: the EIA revised next year's retail diesel and petrol forecasts higher because it still expects global refined-product supply constraints.",
+  "US LNG exports are forecast to expand. Domestic Henry Hub pricing, international LNG pricing and diesel refining margins therefore need separate monitoring; they are not interchangeable energy indicators."
+ ],
+ explanation:[
+  "Homes and businesses need less gas for heating when temperatures stay mild. More gas is left in storage, which can make near-term American natural gas cheaper. Gas-fired electricity generators may also benefit if that forecast becomes reality.",
+  "Diesel is made from crude oil, not natural gas. Refinery capacity, shipping and available finished fuel can remain under pressure even while US gas storage improves. Higher diesel costs can continue to affect freight, farms and consumer prices.",
+  "The difference between US Henry Hub and overseas LNG prices can encourage exports, subject to terminal capacity. Export growth could absorb some US supply over time; it does not cancel the EIA's near-term winter price projection."
+ ],
+ countercase:[
+  "Winter weather can change quickly. A cold December or unusually high demand could reduce inventories and invalidate the softer gas-price outlook.",
+  "The EIA's crude and fuel figures are forecasts, not realised market prices. Shipping disruption, refinery outages and demand surprises may move refined fuels differently from the central forecast.",
+  "The 10 November press-release summary labels some annual forecast table values as draft/pending reconciliation. Use the detailed STEO for the cited winter gas figures, and refresh annual projections when EIA issues revisions."
+ ],
+ marketTape:[
+  "The verified evidence establishes a revised EIA forecast, not an independently measured 5-minute, 30-minute or next-session Henry Hub, Brent, diesel or energy-stock reaction.",
+  "Physical-market stress and financial-futures prices should be compared on matching observation dates before claiming that an oil or gas trade has changed."
+ ],
+ theQuestion:"Can cheaper US gas offset pressure from still-expensive diesel and global LNG?",
+ nextTests:[
+  "Compare each new EIA weekly working-gas storage release with the 3,840 Bcf end-November forecast and monitor revisions to heating-degree-day expectations.",
+  "Track Henry Hub against TTF or Asian LNG benchmarks and actual LNG exports, recording contract units and dates.",
+  "Compare Brent/WTI, ULSD diesel crack spreads, refinery utilisation and distillate stocks rather than assuming crude and products move together.",
+  "Recheck the next STEO on 8 December 2026 before altering the longer-term energy-security regime."
+ ],
+ missing:[
+  "No matched, independently verified Henry Hub or related-equity reaction immediately following the 10 November release.",
+  "No contemporaneous futures consensus with comparable winter reference dates.",
+  "No new canonical System 2 energy-regime adjudication for this event."
+ ],
+ sources:[
+  {label:"EIA · 10 November 2026 original press release",url:NOV_EIA,role:"US inventory, natural-gas and refined-fuel forecasts"},
+  {label:"EIA · November natural-gas STEO detail",url:NOV_EIA_NATGAS,role:"3,840 Bcf, +67 Bcf, winter $2.87/MMBtu and weather assumption"},
+  {label:"EIA · full November STEO",url:NOV_EIA_REPORT,role:"Refined-product constraints and LNG export outlook"}
+ ],
+ relatedHref:"?category=Energy",
+};
+
+const NOV_NVLINK="https://nvidianews.nvidia.com/news/nvidia-rebellions-and-sk-telecom-announce-collaboration-to-advance-sovereign-ai-infrastructure-with-nvidia-nvlink-fusion";
+
+export const NOVEMBER_NVLINK_DEPTH:PublicStoryDepth={
+ edition:"12 November 2026 · original-NVIDIA-release editorial analysis; announced 9 November Korea time",
+ eventAt:"2026-11-09T05:00:00.000Z",
+ topic:"Korean sovereign AI, custom chips and NVIDIA infrastructure",
+ title:"NVIDIA May Benefit Even When Its Customers Use Rival AI Chips",
+ hook:"NVIDIA is helping SK Telecom link Korean-designed AI chips to NVIDIA networking and racks. The unusual opportunity is selling infrastructure even when the accelerator isn't NVIDIA's own.",
+ lead:"NVIDIA, Rebellions and SK Telecom announced plans to develop rack-scale AI systems combining Rebellions' next-generation R200 neural processors with NVIDIA's NVLink Fusion networking and MGX rack design. SK Telecom plans to deploy them for Korean sovereign-AI services. This is an engineering and deployment collaboration, not a disclosed sales contract.",
+ chronology:[
+  "Before the announcement: AI data-centre infrastructure commonly depended on accelerator choices, proprietary interconnect and rack design. No dated consensus forecast for this specific collaboration was established.",
+  "9 November in Korea (8 November on NVIDIA's global newsroom): the companies announced their partnership, supported by Korea's Ministry of Science and ICT.",
+  "Next proposed step: Rebellions develops R200 systems connected through NVLink Fusion and MGX, while SK Telecom plans data-centre deployment. Commercial shipment volumes, contract value and measured customer savings were not announced."
+ ],
+ numbers:[
+  {label:"Custom accelerator",baseline:"No independently verified prior volume or signed order baseline",expected:"No pre-release deployment consensus established",observed:"Rebellions next-generation R200 NPU planned",change:"Proposed integration with NVIDIA NVLink Fusion",basis:"Technical design intention, not shipped units",sourceName:"NVIDIA original announcement",sourceUrl:NOV_NVLINK},
+  {label:"Inference workload allocation",baseline:"No comparative throughput/cost benchmark disclosed",expected:"No verified cost-per-token target",observed:"GPU prefill plus Rebellions NPU decode proposed",change:"Workload split could reduce the cost of token generation if benchmarks confirm it",basis:"Planned disaggregated inference; not measured commercial savings",sourceName:"NVIDIA original announcement",sourceUrl:NOV_NVLINK},
+  {label:"Infrastructure platform",baseline:"No project-specific infrastructure revenue disclosed",expected:"No contract-value guidance",observed:"NVIDIA NVLink Fusion + MGX rack framework planned",change:"Custom processor might still use NVIDIA networking and shared rack ecosystem",basis:"Architecture collaboration; no margin or revenue forecast",sourceName:"NVIDIA original announcement",sourceUrl:NOV_NVLINK}
+ ],
+ whatChanged:[
+  "Rebellions plans to connect its R200 NPUs to NVIDIA's rack-scale platform using NVLink Fusion. SK Telecom plans to deploy the architecture in its AI data centres.",
+  "NVLink is a high-speed processor interconnect; NVLink Fusion enables partner-designed processors to join an NVIDIA-based infrastructure ecosystem. MGX supplies modular rack/server reference designs, including common power and cooling elements.",
+  "The longer-term investor question is whether NVIDIA can retain networking and systems revenue as more customers use custom accelerators rather than buying only NVIDIA GPUs."
+ ],
+ explanation:[
+  "Large AI models divide work among many processors. If the chips cannot exchange data efficiently, the network can become a bottleneck even when the processors are fast.",
+  "An AI request has two useful phases: prefill processes the prompt; decode generates the answer token by token. The partners propose using NVIDIA GPUs for prefill and Rebellions NPUs for decode, assigning the jobs to different chips.",
+  "NVIDIA could still supply the networking and shared rack infrastructure surrounding those custom processors. That is a possible ecosystem advantage, not proof of exclusive adoption or stronger future margins."
+ ],
+ countercase:[
+  "This announcement does not disclose a signed order value, scheduled commercial capacity, verified cost-per-token reduction or booked NVIDIA revenue.",
+  "Customers might use alternative networks and processors, and a jointly developed platform could face technical or economic integration problems.",
+  "A strong technology partnership does not prove that NVIDIA shares immediately repriced because of it; rates, AI spending and other events affect the stock."
+ ],
+ marketTape:[
+  "No independently verified timestamp-matched NVIDIA, SK Telecom or semiconductor-index reaction to this announcement is attached.",
+  "Treat the collaboration as an infrastructure adoption lead; do not infer a revenue or market-share change from the headline alone."
+ ],
+ theQuestion:"Could NVIDIA own more of the AI factory even when competitors make some of the chips?",
+ nextTests:[
+  "Check dated Rebellions R200 product milestones, independent GPU/NPU prefill-and-decode benchmarks and actual deployment capacity at SK Telecom.",
+  "Look for announced capex budgets, signed purchase orders and reported project economics rather than treating collaboration language as contracted sales.",
+  "Monitor NVIDIA's next networking/data-centre disclosures for realised revenue and margins attributable to infrastructure, without assuming NVLink Fusion already dominates custom AI silicon.",
+  "Compare sovereign AI deployment evidence with the AI capital-cycle regime and any offsetting customer cash-flow or funding stress."
+ ],
+ missing:[
+  "No verified signed project value, product volume or economic payback data.",
+  "No independently benchmarked energy efficiency or inference cost saving for the proposed R200 architecture.",
+  "No causal event-window market-price study or canonical System 2 AI-regime change linked to this exact release."
+ ],
+ sources:[
+  {label:"NVIDIA Newsroom · original collaboration announcement",url:NOV_NVLINK,role:"Partners, architecture, deployment plans and limitations"}
+ ],
+ relatedHref:"?category=AI",
+};
+
+function exactNovemberRelease(news:NewsBriefV1,id:string,url:string,day:string):boolean{
+ const event=Date.parse(news.occurredAt), observed=Date.parse(news.observedAt);
+ return news.id===id && news.sourceUrl===url &&
+  news.verification==="SOURCE_VERIFIED" && ["official","primary"].includes(news.sourceKind.toLowerCase()) &&
+  event===Date.parse(day) && Number.isFinite(observed) && observed>=event;
+}
+
 function isExactSeptemberJoltsReceipt(news:NewsBriefV1):boolean{
  const t=Date.parse(news.occurredAt);
  const seen=Date.parse(news.observedAt);
@@ -193,7 +318,9 @@ function isExactOctoberFedReceipt(news:NewsBriefV1){
  * The query-string UUID alone grants no access to an editorial research pack.
  */
 export function storyDepthForNews(news:NewsBriefV1):PublicStoryDepth|null{
- return isExactOctoberFedReceipt(news)?OCTOBER_FED_DEPTH:
+ return exactNovemberRelease(news,"1acd67c7-e804-48bf-9ee7-97a2f96be283",NOV_EIA,NOVEMBER_EIA_GAS_DEPTH.eventAt)?NOVEMBER_EIA_GAS_DEPTH:
+  exactNovemberRelease(news,"fdddf542-68f9-4576-9fde-812af424c724",NOV_NVLINK,NOVEMBER_NVLINK_DEPTH.eventAt)?NOVEMBER_NVLINK_DEPTH:
+  isExactOctoberFedReceipt(news)?OCTOBER_FED_DEPTH:
   isExactSeptemberJoltsReceipt(news)?SEPTEMBER_JOLTS_DEPTH:null;
 }
 
