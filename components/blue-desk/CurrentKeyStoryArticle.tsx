@@ -1,6 +1,7 @@
 import Link from "next/link";
 import NvidiaEarningsDecisionWatch from "@/components/blue-desk/NvidiaEarningsDecisionWatch";
 import {NVIDIA_EARNINGS_WATCH as nvda} from "@/lib/bluebelly-nvidia-earnings-watch";
+import {JENSEN_GOVERNANCE_WATCH as governance} from "@/lib/bluebelly-jensen-governance-watch";
 import {getManualSweeps} from "@/lib/bluebelly-manual-sweeps";
 import css from "./CurrentKeyStoryArticle.module.css";
 type Kind="nvidia"|"ai-financing";
@@ -32,6 +33,8 @@ export default function CurrentKeyStoryArticle({kind,now,backHref}:{kind:Kind;no
     <h2>Higher uncertainty about the CEO. But what has actually changed for customers?</h2>
     <p>NVIDIA's board confirmed Huang resigned on 12 November. Colette Kress, CFO since 2013, became interim CEO. That resolves the immediate leadership decision but introduces succession, strategy and regulatory uncertainty. The board's expectation of normal operations is a management statement, not independently observed order flow.</p>
     <p>The distinction matters for valuation: investors can demand a larger risk premium from NVIDIA equity even while AI service providers continue ordering hardware. A fall in the stock alone is not proof that GPU demand disappeared.</p>
+    <p><strong>What Kress brings:</strong> More than a decade leading NVIDIA's financial organisation, following finance roles at Microsoft and Cisco. That supports continuity in capital discipline, but her record as interim CEO has not yet demonstrated the same technical and customer-facing leadership associated with the founder.</p>
+    <p><strong>What the market actually showed:</strong> {governance.market.price} The heavy turnover shown in the 12 November TradingView screenshot is an observed chart reading, not a verified tally of net institutional purchases. <a href={governance.reported.url} target="_blank" rel="noopener noreferrer">Dated Reuters reporting ↗</a></p>
    </section>
    <NvidiaEarningsDecisionWatch mode="regime" now={now}/>
    <section className={css.question}>
