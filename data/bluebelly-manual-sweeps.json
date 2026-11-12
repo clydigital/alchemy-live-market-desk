@@ -2,6 +2,57 @@
   "version": 1,
   "sweeps": [
     {
+      "id": "2026-11-13-housing-us-existing-home-sales-october-crash",
+      "topic": "housing",
+      "date": "2026-11-13",
+      "researchAt": "2026-11-12T16:38:22.421Z",
+      "title": "US existing-home sales hit 3.75 million annualised as high rates crush transactions",
+      "findings": [
+        {
+          "reason": "Reuters and AP report the NAR October release at 3.75m annualised sales, −5.5% m/m and below roughly 3.85m forecast. Inventories were approximately 1.59m homes; these figures signal weaker mortgage-sensitive transaction demand, not necessarily a proportional decline in home prices. NAR original October tables were not independently accessible in this pass.",
+          "sourceName": "Reuters — NAR October existing-home-sales report",
+          "sourceUrl": "https://www.reuters.com/business/us-existing-home-sales-slump-more-than-16-year-low-october-2026-11-12/",
+          "sourcePublishedAt": "2026-11-12",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Obtain original NAR October release/revisions, first-time-buyer share and median-price basis; compare 30Y mortgage rates, housing shares and US10Y with source-aligned timing."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-13-fed-us-weekly-initial-claims-200k",
+      "topic": "fed",
+      "date": "2026-11-13",
+      "researchAt": "2026-11-12T16:38:22.421Z",
+      "title": "Claims remain low as US labour demand cools gradually",
+      "findings": [
+        {
+          "reason": "The US Labor Department reported 200,000 initial claims for the week ending 7 November, up 9,000 against the revised 191,000; its four-week mean held at 195,250. Continuing insured unemployment was 1.697m for the preceding week, down 20,000. A higher weekly print is not proof of an emerging layoff wave.",
+          "sourceName": "US Department of Labor — 12 Nov weekly claims",
+          "sourceUrl": "https://www.dol.gov/sites/dolgov/files/OPA/newsreleases/ui-claims/20261694.pdf",
+          "sourcePublishedAt": "2026-11-12",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Compare labour signals with 6 Nov payrolls (+165k), sector-specific layoffs, pre-release 195k consensus, and matched 2Y yield/Fed futures reaction; recheck the four-week average."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-13-ai-nebius-q3-capacity-delay-financing",
+      "topic": "ai",
+      "date": "2026-11-13",
+      "researchAt": "2026-11-12T16:38:22.421Z",
+      "title": "Nebius AI cloud demand rises, but capacity delays defer revenue and raise capex",
+      "findings": [
+        {
+          "reason": "Nebius' original Q3 2026 release reports $980.8m revenue (+571% YoY). Its shareholder update delays part of its planned third-party AI capacity into H1 2027, guides 2026 revenue to the low end of $3.0–3.4bn and lifts capex to approximately $27bn. It expects $40–45bn capex in 2027, funded in part by projected prepayments and asset-backed facilities, not all verified receipts.",
+          "sourceName": "Nebius Group — original Q3 2026 financial release",
+          "sourceUrl": "https://assets.nebius.com/assets/e2ac679c-fc62-4799-ba0e-6611e59c6863/Nebius-2026-Q3.pdf",
+          "sourcePublishedAt": "2026-11-12",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Reconcile delivered MW capacity versus contracted demand; actual financing drawn, cash capex, customer deposits, costs, and post-results NBIS reaction on matched timestamps."
+        }
+      ]
+    },
+    {
       "id": "2026-11-12-breadth-msci-november-rebalance-passive-share-demand",
       "topic": "breadth",
       "date": "2026-11-12",
