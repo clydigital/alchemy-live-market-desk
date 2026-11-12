@@ -122,10 +122,13 @@ export default async function RegimeWatchPage(){
         <div className={styles.content}>
        <div className={styles.cardHeading}><span className={styles.kicker}>{lens.code} / RESEARCH LENS</span><span className={styles.cardSerial}>FILE {String(index+1).padStart(2,"0")} / 09</span></div>
        <h3>{lens.name}</h3>
-       <small className={styles.archivedContext}>30 OCT 2026 / ARCHIVED EDITORIAL BASELINE — NOT TODAY'S MARKET VERDICT</small>
-       <RegimeOutlookMeter assessment={getLensOutlook(lens.id)} size="summary"/>
-       <p className={styles.lensReason}><strong>Why:</strong> {getLensOutlook(lens.id).headline}</p>
-       {getRegimeEditorialUpdate(lens.id)?<span className={styles.editorialUpdate}>30 OCT · POST-DECISION EDITORIAL CHECK</span>:null}
+       <small className={styles.archivedContext}>HISTORICAL 30 OCT EDITORIAL · AVAILABLE INSIDE RESEARCH FILE</small>
+       <div className={styles.archivedMeterHidden} aria-hidden="true">
+        <RegimeOutlookMeter assessment={getLensOutlook(lens.id)} size="summary"/>
+        <p className={styles.lensReason}><strong>Why:</strong> {getLensOutlook(lens.id).headline}</p>
+        {getRegimeEditorialUpdate(lens.id)?<span className={styles.editorialUpdate}>30 OCT · POST-DECISION EDITORIAL CHECK</span>:null}
+       </div>
+       <p className={styles.lensReason}><strong>Next deciding test:</strong> {lens.nextTest}</p>
        <span className={styles.viewState} data-view-scan-state={scans[index].state}>
         {scans[index].newViews.length?scans[index].newViews.length+" new tracked view(s) to assess":
          scans[index].updatedRecords.length?scans[index].updatedRecords.length+" existing record(s) updated since review":
