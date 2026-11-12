@@ -2,6 +2,56 @@
   "version": 1,
   "sweeps": [
     {
+      "id": "2026-11-12-ai-nvidia-nvlink-fusion-sovereign-infrastructure",
+      "topic": "ai",
+      "date": "2026-11-12",
+      "researchAt": "2026-11-12T06:38:12.888Z",
+      "title": "NVLink Fusion may keep NVIDIA in the rack when customers choose custom chips",
+      "findings": [
+        {
+          "reason": "NVIDIA, Rebellions and SK Telecom announced that Rebellions plans to connect its R200 NPU using NVIDIA NVLink Fusion and MGX while SK Telecom plans Korean data-centre deployments. This is a proposed integration, not proof of realised sales, inference efficiency or an event-window share-price move.",
+          "sourceName": "NVIDIA Newsroom — original NVLink Fusion collaboration",
+          "sourceUrl": "https://nvidianews.nvidia.com/news/nvidia-rebellions-and-sk-telecom-announce-collaboration-to-advance-sovereign-ai-infrastructure-with-nvidia-nvlink-fusion",
+          "sourcePublishedAt": "2026-11-08",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Verify R200 deployments, independent cost-per-token benchmarks, SK Telecom capacity and NVIDIA networking revenue disclosures."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-12-energy-eia-us-gas-global-lng-divergence",
+      "topic": "energy",
+      "date": "2026-11-12",
+      "researchAt": "2026-11-12T06:38:12.888Z",
+      "title": "Warm US gas storage contrasts with costly international LNG",
+      "findings": [
+        {
+          "reason": "EIA's 10 November outlook raised forecast end-November US storage to 3,840 Bcf (+67 Bcf) and lowered the November–March Henry Hub price forecast to $2.87/MMBtu (−16% versus the previous forecast). These are forecasts, not actual storage measurements or a current spot quote.",
+          "sourceName": "EIA — November 2026 STEO natural gas",
+          "sourceUrl": "https://www.eia.gov/outlooks/steo/report/natgas.php",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Check subsequent weekly EIA storage, temperatures, matched-date Henry Hub versus TTF/JKM quotes and LNG exports."
+        },
+        {
+          "reason": "The EIA reports that October monthly front-month TTF futures averaged $28.51/MMBtu and the Japan–Korea Marker $28.59/MMBtu, up from $11.27 and $10.82 respectively in February. October international futures must not be compared as a same-day spread against the November–March Henry Hub forecast.",
+          "sourceName": "EIA — international LNG observations in November STEO",
+          "sourceUrl": "https://www.eia.gov/outlooks/steo/report/natgas.php",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Retrieve matched observation dates and contract horizons before quantifying the US versus overseas gas arbitrage."
+        },
+        {
+          "reason": "EIA revised its 2027 US retail diesel forecast from $4.49 to $5.03 per gallon because it sees persistent global refined-fuel constraints. This is a forecast revision, not a rise in the current pump price.",
+          "sourceName": "EIA — 10 November STEO press release",
+          "sourceUrl": "https://www.eia.gov/pressroom/releases/press594.php",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Track ULSD cracks, refinery utilisation, distillate inventories and Hormuz vessel flow separately from Henry Hub."
+        }
+      ]
+    },
+    {
       "id": "2026-11-12-hormuz-peace-direction-source-check",
       "topic": "hormuz",
       "date": "2026-11-12",

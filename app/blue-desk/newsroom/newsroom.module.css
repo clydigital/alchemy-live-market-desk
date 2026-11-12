@@ -103,3 +103,24 @@
  .historicalHint{margin-left:0}
  .historicalContent{padding:0 7px 7px}
 }
+
+/* Manual research is a distinct, dated, source-checked lane below the live wire.
+   Do not make unverified research leads look like published first-party news. */
+.manualShelf{margin:22px 0 28px;padding:19px;border:1px solid var(--bb-card-border);border-radius:12px;background:var(--bb-card-quiet);scroll-margin-top:100px}
+.manualHeader{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:15px}
+.manualEyebrow{font:800 10px/1.5 var(--bb-mono);letter-spacing:.08em;color:var(--bb-accent)}
+.manualHeader h2{font:850 clamp(17px,2.4vw,24px)/1.25 var(--bb-display);color:var(--bb-text);margin:5px 0 5px}
+.manualHeader p,.manualNote{font-size:12px;line-height:1.6;color:var(--bb-muted);margin:0}
+.manualCount{flex:none;border:1px solid var(--bb-card-border);border-radius:7px;padding:7px 10px;font:800 10px var(--bb-mono);color:var(--bb-accent)}
+.manualGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.manualCard{display:flex;flex-direction:column;min-width:0;padding:14px;border:1px solid var(--bb-card-border);border-radius:9px;background:var(--bb-surface)}
+.manualCard small{font:800 9px/1.5 var(--bb-mono);letter-spacing:.04em;color:var(--bb-muted)}
+.manualCard h3{font:800 15px/1.35 var(--bb-display);margin:7px 0 8px}
+.manualCard h3 a{color:var(--bb-text);text-decoration:none}
+.manualCard h3 a:hover{color:var(--bb-accent);text-decoration:underline}
+.manualCard p{font-size:12px;line-height:1.6;color:var(--bb-text);margin:0 0 9px;flex:1}
+.manualLinks{display:grid;gap:5px;margin-top:auto;padding-top:8px;border-top:1px solid var(--bb-card-border);font-size:11px}
+.manualLinks a{color:var(--bb-accent);overflow-wrap:anywhere}
+.manualNote{margin-top:12px}
+@media(max-width:900px){.manualGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:580px){.manualShelf{padding:12px}.manualHeader{flex-direction:column}.manualGrid{grid-template-columns:1fr}.manualCard{padding:12px}}

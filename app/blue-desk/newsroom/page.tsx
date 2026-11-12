@@ -11,6 +11,7 @@ import {getDatedEquityArticle} from "@/lib/bluebelly-dated-equity-articles";
 import Newsroom48hTimeline from "@/components/blue-desk/Newsroom48hTimeline";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
+import {getManualSweeps} from "@/lib/bluebelly-manual-sweeps";
 import {readBluebellyQualifiedNews} from "@/lib/bluebelly-verified-event-server";
 import {recentBankDecisions} from "@/lib/bluebelly-bank-decision-snapshots";
 import {recentReportedEditorial} from "@/lib/bluebelly-reported-editorial";
@@ -42,6 +43,11 @@ export default async function NewsroomPage({searchParams}:Props){
  const news=sourceFeed.news;
  const query=typeof params.q==="string"?params.q:"";
  const readerHref=blueDeskPublicHref("/blue-desk/key-stories",host);
+ // Manual notes are a separate, editor-committed evidence lane, never canonical news.
+ const manualSweeps=(["hormuz","energy","ai","fed","bonds","breadth"] as const)
+  .flatMap(topic=>getManualSweeps(topic,now,1))
+  .sort((a,b)=>b.researchAt.localeCompare(a.researchAt)||a.topic.localeCompare(b.topic))
+  .slice(0,6);
  const bankDecisions=recentBankDecisions(now,48);
  const reported=recentReportedEditorial(now,48);
  // Source-reviewed articles belong to the same categorised Newsroom wire,
@@ -69,6 +75,7 @@ export default async function NewsroomPage({searchParams}:Props){
     <nav className={ui.newsroomDepthNav} aria-label="Newsroom reading depth" data-newsroom-deep-dives="single-editorial-destination">
       <span aria-current="page">Latest verified news</span>
       <Link href={readerHref}>Deep Dives · Key Stories</Link>
+      <a href="#newsroom-manual-sweeps">Manual research checks</a>
     </nav>
     {Object.values(sourceFeed.sourceReads).includes("UNAVAILABLE")?
       <p role="status">Verified-news coverage is degraded: at least one original-source reader is unavailable. This is not a confirmed quiet market.</p>:
@@ -91,6 +98,31 @@ export default async function NewsroomPage({searchParams}:Props){
       </div>
       <Newsroom48hTimeline banks={bankDecisions} reports={reported} readerHref={readerHref}/>
     </BluebellyNewsWire>
+    {manualSweeps.length>0?<section id="newsroom-manual-sweeps" className={ui.manualShelf}
+      data-newsroom-manual-sweeps="editor-committed-source-labelled" aria-labelledby="newsroom-manual-title">
+      <header className={ui.manualHeader}>
+       <div><span className={ui.manualEyebrow}>RESEARCH FOLLOW-THROUGH / MANUAL SOURCE CHECKS</span>
+        <h2 id="newsroom-manual-title">Latest sweep findings, with their status</h2>
+        <p>Editor-committed research checks, not fresh verified headline releases or canonical Regime changes. An attributed lead is still a lead.</p>
+       </div>
+       <span className={ui.manualCount}>{manualSweeps.length} recent topic checks</span>
+      </header>
+      <div className={ui.manualGrid}>
+       {manualSweeps.map(sweep=>{const best=sweep.findings.find(f=>f.status==="SOURCE_CORROBORATED")||sweep.findings[0];
+         const target=sweep.topic==="hormuz"?"/blue-desk/hormuz":"/blue-desk/regime-watch/"+sweep.topic;
+         return <article key={sweep.id} className={ui.manualCard} data-manual-sweep-topic={sweep.topic}>
+          <small>{sweep.date} · {sweep.topic.toUpperCase()} · {best.status.replaceAll("_"," ")}</small>
+          <h3><Link href={blueDeskPublicHref(target,host)}>{sweep.title}</Link></h3>
+          <p>{best.reason}</p>
+          <div className={ui.manualLinks}>
+            <Link href={blueDeskPublicHref(target,host)}>Open the regime / flow evidence →</Link>
+            <a href={best.sourceUrl} target="_blank" rel="noopener noreferrer">{best.sourceName} · original source ↗</a>
+          </div>
+         </article>;
+       })}
+      </div>
+      <p className={ui.manualNote}>Source-led manual findings are displayed separately from the verified Newsroom wire. Failed or unreviewed research does not silently become a public Story. Earlier checks remain available inside their relevant Regime Watch lenses.</p>
+     </section>:null}
     <details id="historical-sector-editorial" className={ui.historicalEditorial}
       data-newsroom-historical-sector="collapsed-below-news-wire">
       <summary>
