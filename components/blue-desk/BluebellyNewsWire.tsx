@@ -11,6 +11,7 @@ import type {PublicResearchFocus} from "@/lib/blue-desk-published-research-focus
 import Link from "next/link";
 import type {NewsBriefV1} from "@/lib/market-brief-news";
 import {consequenceForSourceOnlyNews} from "@/lib/bluebelly-market-consequence-read-model";
+import {storyDepthForNews} from "@/lib/bluebelly-key-story-depth";
 import {publicArchiveSearchIndex,type ArchiveNewsItem} from "@/lib/bluebelly-publication-archive";
 import type {NewsroomHotPicks} from "@/lib/bluebelly-newsroom-hot-picks";
 import type {NewsroomEditorialItem} from "@/lib/bluebelly-newsroom-editorial";
@@ -53,6 +54,26 @@ function SourceOnlyConsequence({news}:{news:NewsBriefV1}){
      {chart?<TradingViewChart initial={chart} compact/>:null}
    </div>
   </details>;
+}
+/** Show only source-reviewed, exact-receipt editorial packets. Never promote
+ * unreviewed private research or source-only receipts into this surface. */
+function ReviewedNewsConsequence({news}:{news:NewsBriefV1}){
+ const depth=storyDepthForNews(news);
+ if(!depth)return null;
+ return <details className={styles.readMore} data-market-consequence="reviewed-original-event">
+  <summary>Why this matters and what to check next</summary>
+  <div className={styles.detailBody}>
+   <h3>What the reviewed evidence changes</h3>
+   <p>{depth.whatChanged[0]||depth.hook}</p>
+   <h3>The economic mechanism</h3>
+   <p>{depth.explanation[0]||depth.lead}</p>
+   <h3>What could challenge it</h3>
+   <p>{depth.countercase[0]||"No event-specific alternative established."}</p>
+   <h3>Next verification</h3>
+   <p>{depth.nextTests[0]||depth.theQuestion}</p>
+   <p>Source-reviewed editorial expansion as of {depth.edition}. This is not a measured market-price reaction or an automatic canonical Regime change.</p>
+  </div>
+ </details>;
 }
 type NewsroomCategory=EditorialTopicId|"hot"|"chart-watch";
 export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailable=true,hotPicks,editorials=[],researchItems=[],initialQuery="",initialCategory="all",initialPage="1",now,readerHref,children}:{
@@ -246,18 +267,18 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
     <article key={card.item.id} className={styles.item} data-progressive-news="source-only">
       <div className={styles.art}><EditorialStoryArt headline={card.item.headline} summary={card.item.summary} compact/></div>
       <div className={styles.content}>
-       <span className={styles.chip}>{Date.parse(now)-Date.parse(card.item.occurredAt)>48*3600000?"VERIFIED · EARLIER THIS WEEK":"SOURCE VERIFIED · LAST 48H"}</span>
+       <span className={styles.chip}>{storyDepthForNews(card.item)?"SOURCE VERIFIED · REVIEWED KEY STORY":Date.parse(now)-Date.parse(card.item.occurredAt)>48*3600000?"VERIFIED · EARLIER THIS WEEK":"SOURCE VERIFIED · LAST 48H"}</span>
        <small className={styles.metadata}>{editorialNewsTopics(card.item).join(" · ").toUpperCase()} · {clock(card.item.occurredAt)}</small>
-       <h2><Link href={readerHref+"?news="+encodeURIComponent(card.item.id)}>{publicReadingHeadline(card.item.headline,card.item.summary,card.item.sourceName)}</Link></h2>
-       <p data-quick-market-brief="source-qualified-summary">{card.item.summary}</p>
+       <h2><Link href={readerHref+"?news="+encodeURIComponent(card.item.id)}>{storyDepthForNews(card.item)?.title||publicReadingHeadline(card.item.headline,card.item.summary,card.item.sourceName)}</Link></h2>
+       <p data-quick-market-brief="source-qualified-summary">{storyDepthForNews(card.item)?.hook||card.item.summary}</p>
 
        <div className={styles.actions}>
-        <Link href={readerHref+"?news="+encodeURIComponent(card.item.id)}>Read short Bluebelly recap →</Link>
+        <Link href={readerHref+"?news="+encodeURIComponent(card.item.id)}>{storyDepthForNews(card.item)?"Read source-reviewed Key Story →":"Read short Bluebelly recap →"}</Link>
         <a href={card.item.sourceUrl} rel="noopener noreferrer" target="_blank">{card.item.sourceName} · original report ↗</a>
         <button type="button" onClick={()=>setShortlist(ids=>ids.includes(card.item.id)?ids.filter(i=>i!==card.item.id):[...ids,card.item.id])}
           aria-pressed={shortlist.includes(card.item.id)}>{shortlist.includes(card.item.id)?"✓ Shortlisted":"+ Brief shortlist"}</button>
        </div>
-       <SourceOnlyConsequence news={card.item}/>
+       {storyDepthForNews(card.item)?<ReviewedNewsConsequence news={card.item}/>:<SourceOnlyConsequence news={card.item}/>}
       </div>
     </article>)}
     {visibleCount===0?<p className={styles.empty}>No qualifying reports match. Clear the search or try another category; an empty feed does not mean nothing happened.</p>:null}
