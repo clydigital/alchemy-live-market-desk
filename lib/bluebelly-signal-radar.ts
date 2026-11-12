@@ -28,7 +28,7 @@ export function buildSignalRadar(feeds:readonly TopicInfluenceRead[],now=new Dat
   for(const sweep of getManualSweeps(topic,now,4)){
    const finding=sweep.findings.find(x=>x.status==="SOURCE_CORROBORATED")||sweep.findings[0];
    const tags=suggestSignalTags({title:sweep.title,detail:finding.reason,
-    nextCheck:finding.nextCheck,evidence:finding.status});
+    nextCheck:finding.nextCheck,evidence:finding.status,reviewedValuation:finding.reviewedValuation});
    if(!tags.length)continue;
    entries.push({id:sweep.id,topic,title:sweep.title,reason:finding.reason.slice(0,240),nextTest:finding.nextCheck,
     tags,sourceAt:finding.sourcePublishedAt,sourceName:finding.sourceName,sourceUrl:finding.sourceUrl,
