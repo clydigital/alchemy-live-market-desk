@@ -12,6 +12,7 @@ import Link from "next/link";
 import type {NewsBriefV1} from "@/lib/market-brief-news";
 import {consequenceForSourceOnlyNews} from "@/lib/bluebelly-market-consequence-read-model";
 import {storyDepthForNews} from "@/lib/bluebelly-key-story-depth";
+import {reviewedImpactForDepth} from "@/lib/bluebelly-editorial-market-framework";
 import {publicArchiveSearchIndex,type ArchiveNewsItem} from "@/lib/bluebelly-publication-archive";
 import type {NewsroomHotPicks} from "@/lib/bluebelly-newsroom-hot-picks";
 import type {NewsroomEditorialItem} from "@/lib/bluebelly-newsroom-editorial";
@@ -48,6 +49,7 @@ function SourceOnlyConsequence({news}:{news:NewsBriefV1}){
      <h3>What the original source confirms</h3><p>{news.summary}</p>
      <h3>Economic effect</h3><p>{evidence?.economic.text||"Not established from this source notice."}</p>
      <h3>Uncertainty</h3><p>A specific unresolved outcome has not yet been independently assessed. Do not label this report a broad market-uncertainty shock.</p>
+     <h3>Decision signal and supply/demand</h3><p>No event-specific decision signal or physical supply-and-demand change has been reviewed from this source notice. Do not infer market positivity from headline tone.</p>
      <h3>Prior expectations</h3><p>{evidence?.expectations.text||"Not verified."}</p>
      <h3>Observed share or market response</h3><p>{evidence?.price.text||"Not measured."}</p>
      <p>Original event {clock(news.occurredAt)} · desk observed {clock(news.observedAt)}. Source-verified does not mean an accepted market cause or a canonical Story update.</p>
@@ -60,6 +62,7 @@ function SourceOnlyConsequence({news}:{news:NewsBriefV1}){
 function ReviewedNewsConsequence({news}:{news:NewsBriefV1}){
  const depth=storyDepthForNews(news);
  if(!depth)return null;
+ const impact=reviewedImpactForDepth(depth);
  return <details className={styles.readMore} data-market-consequence="reviewed-original-event">
   <summary>Why this matters and what to check next</summary>
   <div className={styles.detailBody}>
@@ -67,6 +70,19 @@ function ReviewedNewsConsequence({news}:{news:NewsBriefV1}){
    <p>{depth.whatChanged[0]||depth.hook}</p>
    <h3>The economic mechanism</h3>
    <p>{depth.explanation[0]||depth.lead}</p>
+   {impact?<div data-newsroom-impact="reviewed-conditional">
+    <h3>What the decision signals</h3><p>{impact.decisionSignal}</p>
+    <h3>Uncertainty: {impact.uncertaintyDirection.toLowerCase()}</h3><p>{impact.uncertaintyWhy}</p>
+    <h3>Who benefits or faces pressure?</h3><p><strong>Potential beneficiaries:</strong> {impact.beneficiaries}</p>
+    <p><strong>Potentially pressured:</strong> {impact.pressured}</p>
+    <h3>Supply, demand and financing</h3>
+    <p><strong>Supply:</strong> {impact.supplyEffect}</p>
+    <p><strong>Demand:</strong> {impact.demandEffect}</p>
+    <p><strong>Funding:</strong> {impact.financingEffect}</p>
+    <h3>What should happen versus what the tape shows</h3>
+    <p>{impact.expectedReaction}</p><p>{impact.observedReaction}</p>
+    <p><strong>Divergence: {impact.divergence.toLowerCase()}.</strong> {impact.alternative}</p>
+   </div>:<p>Source reviewed, but positive/negative market interpretation has not been separately adjudicated.</p>}
    <h3>What could challenge it</h3>
    <p>{depth.countercase[0]||"No event-specific alternative established."}</p>
    <h3>Next verification</h3>

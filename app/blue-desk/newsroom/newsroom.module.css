@@ -124,3 +124,18 @@
 .manualNote{margin-top:12px}
 @media(max-width:900px){.manualGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:580px){.manualShelf{padding:12px}.manualHeader{flex-direction:column}.manualGrid{grid-template-columns:1fr}.manualCard{padding:12px}}
+
+/* Dated Jensen governance watch: avoid styling unconfirmed board deliberation
+   like a completed issuer disclosure or real-time breaking-news alert. */
+.jensenWatch{border:1px solid var(--bb-card-border);background:var(--bb-card-quiet);border-radius:10px;padding:16px 20px;margin:12px 0 18px;scroll-margin-top:90px}
+.jensenHead{display:flex;flex-wrap:wrap;gap:8px 15px;align-items:center;justify-content:space-between}
+.jensenStatus{font:800 10px/1.5 var(--bb-mono);padding:5px 8px;border:1px solid var(--bb-card-border);border-radius:5px;color:var(--bb-muted)}
+.jensenWatch h2{font:850 clamp(18px,2.2vw,24px)/1.25 var(--bb-display);color:var(--bb-text);margin:8px 0}
+.jensenWatch>p,.jensenDetails p{font-size:12px;line-height:1.7;color:var(--bb-text);margin:7px 0}
+.jensenWatch strong{color:var(--bb-accent)}
+.jensenDetails{padding:10px 12px;border:1px solid var(--bb-card-border);border-radius:6px;margin:10px 0}
+.jensenDetails summary{font-size:12px;font-weight:800;cursor:pointer}
+.jensenDetails p{margin:10px 0}
+.jensenLinks{display:flex;flex-wrap:wrap;gap:7px 15px;margin-top:12px}
+.jensenLinks a{font-size:11px;color:var(--bb-accent);overflow-wrap:anywhere}
+@media(max-width:600px){.jensenWatch{padding:12px}.jensenHead{flex-direction:column;align-items:flex-start}.jensenLinks{flex-direction:column}}

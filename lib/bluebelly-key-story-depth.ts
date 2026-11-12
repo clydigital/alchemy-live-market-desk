@@ -1,4 +1,5 @@
 import type {NewsBriefV1} from "./market-brief-news.ts";
+import type {MarketImpactFramework} from "./bluebelly-editorial-market-framework.ts";
 
 /**
  * Publicly checked, dated analysis overlays on existing SOURCE_VERIFIED news.
@@ -27,6 +28,8 @@ export type PublicStoryDepth={
   missing:readonly string[];
   sources:readonly {label:string;url:string;role:string}[];
   relatedHref?:string;
+  /** Explicit source-checked market interpretation, not automatic headline sentiment. */
+  impact?:MarketImpactFramework;
   /** Optional original-source-checked, article-specific teaching notes.
    * Not a blanket source-verified economic conclusion or Regime change. */
   concepts?:readonly {term:string;meaning:string;marketUse:string}[];
@@ -103,6 +106,21 @@ export const OCTOBER_FED_DEPTH:PublicStoryDepth={
   {label:"Reuters · pre-decision pricing",url:REUTERS_EXPECTATION,role:"Attributed pre-event hold probability"},
   {label:"Reuters · afternoon reaction",url:REUTERS_REACTION,role:"Dated secondary reactions and opinions"}
  ],
+ impact:{
+  asOf:"2026-10-29",sourceUrl:FED,
+  decisionSignal:"An expected Fed hold contained two votes for higher rates and firmer language on activity. The unchanged decision itself was not a surprise; the forward path remains disputed.",
+  uncertaintyDirection:"MIXED",uncertaintyWhy:"The near-term policy rate was settled, reducing uncertainty for that meeting, but two hike dissents keep the next decision and inflation reaction unsettled. A vote split does not quantify a probability.",
+  assetValence:"MIXED_BY_EXPOSURE",beneficiaries:"Cash yields and interest income can remain attractive if short rates stay restrictive; the exact beneficiaries depend on balance-sheet duration and funding mix.",
+  pressured:"Leveraged and long-duration borrowers face potential refinancing costs if yields stay elevated; no issuer-specific credit penalty has been measured.",
+  supplyEffect:"Higher risk-free yields may restrain new borrowing, investment and housing supply over time, not directly change today's physical goods supply.",
+  demandEffect:"Restrictive credit can moderate interest-sensitive spending; a firmer economy may keep underlying demand resilient.",
+  financingEffect:"The 2Y and long-end yields respond to different expectations, inflation and term premiums. A change in the longer end is not automatically caused by the Fed vote.",
+  expectedReaction:"Relative to a neutral hold, unexpectedly hawkish communication would conventionally support front-end yields and the dollar and weigh on duration-sensitive assets.",
+  observedReaction:"The official 28 October 2Y reading fell 3bp while 10Y and 30Y yields rose 6bp and 7bp; these are daily observations, not a controlled Fed event-window study.",
+  tapeStatus:"DATED_NOT_CAUSAL",divergence:"MIXED",
+  alternative:"Previously priced policy, term premiums, supply and commodity developments may explain different yield directions.",
+  nextTest:"Freeze same-clock Treasury futures/OIS, DXY and gold observations and upcoming CPI/PCE before assigning a causal or directional verdict."
+ },
  relatedHref:"?feature=fomc-october-2026",
 };
 
@@ -174,7 +192,21 @@ export const SEPTEMBER_JOLTS_DEPTH:PublicStoryDepth={
   {label:"Econoday · 2 November pre-release consensus",url:JOLTS_PREVIEW,role:"Retrospectively recovered externally published pre-release forecast (7.134M)"},
   {label:"Reuters · 3 November labour-market analysis",url:JOLTS_REUTERS,role:"Separately attributed 7.100M Reuters consensus and labour-market interpretation"},
   {label:"MarketWatch / FactSet · dated 3 November Treasury session",url:JOLTS_MARKETWATCH,role:"Attributed session yield observations; not 10:00 EST event-window pricing"},
- ],
+ ], impact:{
+  asOf:"2026-11-05",sourceUrl:JOLTS_BLS,
+  decisionSignal:"Advertised US job openings exceeded an independently published forecast, while quits rose and layoffs declined. This signals more resilient labour demand but not a new surge in actual hiring.",
+  uncertaintyDirection:"MIXED",uncertaintyWhy:"Stronger vacancies reduce some immediate employment-collapse worries, but the survey's revisions and modest hiring leave wage and Fed-policy implications unresolved.",
+  assetValence:"MIXED_BY_EXPOSURE",beneficiaries:"Employment-sensitive businesses may benefit if vacancies translate to actual hires and household income.",
+  pressured:"Rate-sensitive borrowers and long-duration equities could face pressure if confirmed labour strength changes the expected Fed path.",
+  supplyEffect:"Vacancies represent unfilled labour positions, not increased labour supply or production capacity until hiring occurs.",
+  demandEffect:"Potential employment and wage income can support consumption; higher openings alone do not prove spending growth.",
+  financingEffect:"Stronger labour data could reduce expectations of easier policy and raise borrowing costs, but that transmission is not established by the observed session yield alone.",
+  expectedReaction:"A clear upside jobs-demand surprise would ordinarily put upward pressure on front-end yields if it changed the policy path.",
+  observedReaction:"A secondary 3 November report described higher Treasury yields during the session, without a timestamp-matched 10:00 ET JOLTS event study.",
+  tapeStatus:"DATED_NOT_CAUSAL",divergence:"MIXED",
+  alternative:"Election headlines, inflation risk, positioning and the Treasury term premium may also explain the session.",
+  nextTest:"Measure matched pre/post-JOLTS US2Y and DXY; compare later payrolls, hires, quit-rate revisions and actual Fed-funds expectations."
+ },
 };
 
 const NOV_EIA="https://www.eia.gov/pressroom/releases/press594.php";
@@ -248,6 +280,21 @@ export const NOVEMBER_EIA_GAS_DEPTH:PublicStoryDepth={
   {decision:"EIA projects stronger LNG exports as overseas gas stays dear",signal:"Constructive for LNG export economics; mixed for US buyers",meaning:"Exporters have an incentive to liquefy US gas and sell to higher-priced markets, but only where terminals, ships and contracts allow it.",efficiency:"Higher terminal utilisation can spread fixed costs over more shipments; liquefaction and shipping still consume energy. No new improvement in physical conversion efficiency is proven.",supplyDemand:"Exports add demand for US gas, potentially lifting domestic prices relative to a no-export scenario. They also add available imported gas overseas, potentially easing international shortages once cargoes arrive. New capacity changes potential supply, not immediate deliveries.",uncertainty:"The global price premium, shipping/insurance risks, terminal constraints and US production can all change. The report does not establish a same-day Henry Hub–TTF spread.",confirmation:"Track LNG export volumes and utilisation, terminal start-ups and same-date Henry Hub versus TTF/JKM prices net of shipping and liquefaction."},
   {decision:"EIA raises next year's diesel and petrol forecasts",signal:"Inflation risk persists despite cheaper US gas",meaning:"Crude must be turned into diesel and petrol at refineries. A shortage of finished products can remain even if gas storage is comfortable.",efficiency:"More refinery throughput can spread costs, but cannot exceed physical capacity or solve shipping disruptions. Higher refining margins are not automatically better efficiency.",supplyDemand:"Tight refining and transport capacity restrain finished-fuel supply. If diesel demand stays firm, the imbalance supports diesel and freight costs and can add inflation pressure. The EIA's forecast revision is not an observed immediate pump-price change.",uncertainty:"Weak industrial/freight demand, improved shipping or new refinery output could lower product prices. Brent and diesel do not have to move together.",confirmation:"Monitor ULSD crack spreads, US distillate stocks, refinery utilisation, tanker/insurance conditions and next EIA diesel revisions."}
  ],
+ impact:{
+  asOf:"2026-11-12",sourceUrl:NOV_EIA_NATGAS,
+  decisionSignal:"A warmer November changes the EIA's US gas-storage and winter-price forecasts; separately, globally tight diesel and refined fuels keep another inflation channel open.",
+  uncertaintyDirection:"MIXED",uncertaintyWhy:"The new EIA forecast clarifies the current winter baseline and reduces near-term gas scarcity concern, but weather, shipping, overseas LNG and refined-product disruptions remain unpredictable.",
+  assetValence:"MIXED_BY_EXPOSURE",beneficiaries:"US gas-consuming households, power generators and energy-intensive buyers may benefit if cheaper Henry Hub prices materialise; refiners could benefit from stronger fuel cracks depending on costs.",
+  pressured:"Domestic gas producers may face lower realised prices; freight and diesel-heavy firms remain exposed to elevated finished-fuel costs.",
+  supplyEffect:"Lower heating use leaves more gas in storage relative to demand; overseas LNG and refined-fuel availability still depend on terminals, tankers and refineries.",
+  demandEffect:"Warmer weather lowers gas-heating demand, while higher export capacity can increase demand for US feedgas. Industrial and freight diesel demand is a separate market.",
+  financingEffect:"Reduced domestic gas input costs can ease operating cash needs for some businesses, while persistent diesel prices can keep inflation and rates restrictive.",
+  expectedReaction:"An unanticipated higher inventory forecast would ordinarily pressure near-term Henry Hub futures; constrained diesel supply can support product margins despite softer US gas.",
+  observedReaction:"No independently matched release-window Henry Hub, Brent, diesel or energy-stock response has been attached; EIA projections are not spot prints.",
+  tapeStatus:"NOT_MEASURED",divergence:"UNTESTED",
+  alternative:"Weather shifts, export nominations, crude supply and pre-release positioning can independently determine actual prices.",
+  nextTest:"Compare weekly actual storage against the forecast and matched-date Henry Hub, TTF/JKM, diesel crack and freight observations."
+ },
  relatedHref:"?category=Energy",
 };
 
@@ -317,6 +364,21 @@ export const NOVEMBER_NVLINK_DEPTH:PublicStoryDepth={
   {decision:"The partners split AI prompts between GPUs and NPUs",signal:"Potentially constructive for cost per AI response; efficiency not yet demonstrated",meaning:"They plan to give GPU processors the initial prompt-reading work and let Rebellions NPUs generate subsequent answer tokens, each doing the job the system designers think suits it.",efficiency:"If proven, more useful answers could be delivered per unit of electricity or per dollar of installed equipment. Moving data between two types of chips adds complexity and could erase some savings.",supplyDemand:"Lower cost per answer effectively expands the supply of affordable AI services. It can also increase demand as more firms and users find AI economical. Greater total usage could still raise aggregate data-centre electricity needs even if each answer uses fewer watts.",uncertainty:"There are no independently demonstrated R200 throughput, latency, power-per-token or lifetime-cost results for this architecture.",confirmation:"Demand controlled, apples-to-apples benchmarks including token/s, delay, watts/token, full rack capex, utilisation and integration overhead."},
   {decision:"SK Telecom plans to bring Korean sovereign AI services into its data centre",signal:"Long-run demand opportunity; near-term revenue uncertain",meaning:"The telecom operator would combine domestically designed chips, its AI models and services with standardised rack infrastructure. The ministry's support is an endorsement, not disclosed purchase funding.",efficiency:"Standard rack footprints, cooling and power interfaces might speed rollout and simplify maintenance; actual power usage, payback and service pricing remain unknown.",supplyDemand:"A working deployment could add more AI-service capacity for Korean institutions and businesses, raising demand for compute, networking, electricity and data-centre investment. If capacity grows faster than paying users, utilisation and returns may disappoint.",uncertainty:"No signed project value, customer uptake, binding 2028 order volume or realised NVIDIA margin is disclosed. Local content and data requirements may also affect costs.",confirmation:"Look for SK Telecom funded capex, signed procurement, utilisation, customer contracts, measured inference costs and realised partner revenue."}
  ],
+ impact:{
+  asOf:"2026-11-12",sourceUrl:NOV_NVLINK,
+  decisionSignal:"NVIDIA is extending its networking ecosystem to partner-designed NPUs rather than insisting every accelerator must be NVIDIA-built. This signals a potential infrastructure revenue hedge against custom-chip adoption.",
+  uncertaintyDirection:"MIXED",uncertaintyWhy:"The partnership makes intended architecture and partners clearer, but no binding order value, delivered capacity, payback or independent performance results are verified.",
+  assetValence:"MIXED_BY_EXPOSURE",beneficiaries:"NVIDIA networking/rack suppliers, Rebellions and SK Telecom may benefit if the systems are deployed economically and customer use rises.",
+  pressured:"Some general-purpose GPU demand could be displaced by cost-effective specialised NPUs; custom integration failure or excess capacity could burden buyers.",
+  supplyEffect:"Interoperable custom accelerators could expand available AI inference capacity and lower bottlenecks, conditional on actual 2028 product delivery.",
+  demandEffect:"Lower realised cost per answer could increase paid AI adoption and demand for networking, chips and electricity; efficiency may increase total usage rather than total electricity savings.",
+  financingEffect:"Standardised rack infrastructure may reduce integration time and uncertainty, but no cost-per-token, deployment capex or customer return-on-investment has yet been demonstrated.",
+  expectedReaction:"If verified demand and margins expand, infrastructure suppliers could benefit; custom NPUs may also challenge GPU unit economics. Without orders, no specific share-price magnitude is defensible.",
+  observedReaction:"No same-event NVDA, SK Telecom or semiconductor-index market-price reaction is independently attached to the release.",
+  tapeStatus:"NOT_MEASURED",divergence:"UNTESTED",
+  alternative:"Broader AI financing concerns and separate NVIDIA governance headlines could dominate the stock reaction even if this partnership is technically positive.",
+  nextTest:"Verify purchase orders, R200 shipment readiness, SK Telecom funded capacity, independent tokens-per-watt and networking margins."
+ },
  relatedHref:"?category=AI",
 };
 

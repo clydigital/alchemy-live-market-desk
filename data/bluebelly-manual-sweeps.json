@@ -2,6 +2,65 @@
   "version": 1,
   "sweeps": [
     {
+      "id": "2026-11-12-breadth-msci-november-rebalance-passive-share-demand",
+      "topic": "breadth",
+      "date": "2026-11-12",
+      "researchAt": "2026-11-12T10:23:07.950Z",
+      "title": "MSCI's index review creates a passive share-demand test, not a Bitcoin supply shock",
+      "findings": [
+        {
+          "reason": "MSCI officially announced its November index review effective after 30 November's close. Index inclusion or removal changes potential passive demand for a security, not the physical or token supply of its underlying investment; final fund outflows are not yet independently measured.",
+          "sourceName": "MSCI — original November 2026 index-review release",
+          "sourceUrl": "https://ir.msci.com/news-releases/news-release-details/msci-equity-indexes-november-2026-index-review",
+          "sourcePublishedAt": "2026-11-11",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Verify affected constituent deletions in the exact MSCI index lists, tracker AUM and ownership, expected rebalance selling and current versus already-priced share reactions."
+        },
+        {
+          "reason": "Secondary market reporting names Strategy and Metaplanet among removals; the source reviewed here does not independently tie named deletions to fund flows. No estimate of forced BTC sales or uranium liquidation is supported.",
+          "sourceName": "The Block — attributed Strategy / Metaplanet report",
+          "sourceUrl": "https://www.theblock.co/news/markets/2026-11-11-strategy-metaplanet-lose-msci-index-membership-november-reshuffle-438437",
+          "sourcePublishedAt": "2026-11-11",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Inspect exact MSCI deletions by index and avoid conflating passive sales of listed shares with underlying BTC or uranium market demand."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-12-energy-siemens-power-backlog-versus-ai-financing",
+      "topic": "energy",
+      "date": "2026-11-12",
+      "researchAt": "2026-11-12T10:23:07.950Z",
+      "title": "Siemens Energy's physical power orders contrast with AI cloud funding risk",
+      "findings": [
+        {
+          "reason": "Siemens Energy reported a €164bn order backlog and €8.8bn FY2026 pre-tax free cash flow. These are issuer-reported figures, supporting grid and turbine demand, but backlog includes future obligations and free cash flow benefits from customer advances.",
+          "sourceName": "Siemens Energy — FY2026 results release",
+          "sourceUrl": "https://www.siemensenergy.com/global/en/home/press-releases/siemens-energy-reports-record-year-and-sets-ambitious-targets-fo.html",
+          "sourcePublishedAt": "2026-11-11",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Test backlog delivery schedules, customer advance quality, cash-flow definition, power-equipment margins and how much demand is from AI data centres."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-12-ai-coreweave-revenue-versus-interest-issuer-results",
+      "topic": "ai",
+      "date": "2026-11-12",
+      "researchAt": "2026-11-12T10:23:07.950Z",
+      "title": "CoreWeave's AI demand grows faster than its financing comfort",
+      "findings": [
+        {
+          "reason": "CoreWeave's original Q3 statement reports $3.661bn revenue, $846m net interest expense and a $709m net loss. This verifies strong compute demand alongside high financing costs; $9bn of customer prepayments and deposits is expected later, not already received.",
+          "sourceName": "CoreWeave investor relations — Q3 2026 results",
+          "sourceUrl": "https://investors.coreweave.com/news/news-details/2026/CoreWeave-Reports-Strong-Third-Quarter-2026-Results/default.aspx",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Track actual received customer deposits, operating cash after capex, interest, signed capacity, utilisation and refinance spreads before assigning an AI-bubble verdict."
+        }
+      ]
+    },
+    {
       "id": "2026-11-12-ai-nvidia-nvlink-fusion-sovereign-infrastructure",
       "topic": "ai",
       "date": "2026-11-12",

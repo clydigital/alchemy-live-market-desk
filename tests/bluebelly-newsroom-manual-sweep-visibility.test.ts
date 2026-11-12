@@ -7,7 +7,7 @@ const read=(s:string)=>readFileSync(new URL("../"+s,import.meta.url),"utf8");
 test("Newsroom exposes committed manual sweep checks as a separately labelled public evidence lane",()=>{
  const page=read("app/blue-desk/newsroom/page.tsx");
  assert.match(page,/data-newsroom-manual-sweeps="editor-committed-source-labelled"/);
- assert.match(page,/getManualSweeps\(topic,now,1\)/);
+ assert.match(page,/getManualSweeps\(topic,now,2\)/);
  assert.match(page,/sweep\.findings\.find\(f=>f\.status==="SOURCE_CORROBORATED"\)/);
  assert.match(page,/best\.status\.replaceAll\("_"," "\)/);
  assert.match(page,/An attributed lead is still a lead/);

@@ -12,6 +12,8 @@ import Newsroom48hTimeline from "@/components/blue-desk/Newsroom48hTimeline";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
 import {getManualSweeps} from "@/lib/bluebelly-manual-sweeps";
+import {isJensenGovernanceWatchWindow} from "@/lib/bluebelly-jensen-governance-watch";
+import JensenGovernanceWatch from "@/components/blue-desk/JensenGovernanceWatch";
 import {readBluebellyQualifiedNews} from "@/lib/bluebelly-verified-event-server";
 import {recentBankDecisions} from "@/lib/bluebelly-bank-decision-snapshots";
 import {recentReportedEditorial} from "@/lib/bluebelly-reported-editorial";
@@ -45,9 +47,9 @@ export default async function NewsroomPage({searchParams}:Props){
  const readerHref=blueDeskPublicHref("/blue-desk/key-stories",host);
  // Manual notes are a separate, editor-committed evidence lane, never canonical news.
  const manualSweeps=(["hormuz","energy","ai","fed","bonds","breadth"] as const)
-  .flatMap(topic=>getManualSweeps(topic,now,1))
+  .flatMap(topic=>getManualSweeps(topic,now,2))
   .sort((a,b)=>b.researchAt.localeCompare(a.researchAt)||a.topic.localeCompare(b.topic))
-  .slice(0,6);
+  .slice(0,10);
  const bankDecisions=recentBankDecisions(now,48);
  const reported=recentReportedEditorial(now,48);
  // Source-reviewed articles belong to the same categorised Newsroom wire,
@@ -77,6 +79,7 @@ export default async function NewsroomPage({searchParams}:Props){
       <Link href={readerHref}>Deep Dives · Key Stories</Link>
       <a href="#newsroom-manual-sweeps">Manual research checks</a>
     </nav>
+    {isJensenGovernanceWatchWindow(now)?<JensenGovernanceWatch host={host}/>:null}
     {Object.values(sourceFeed.sourceReads).includes("UNAVAILABLE")?
       <p role="status">Verified-news coverage is degraded: at least one original-source reader is unavailable. This is not a confirmed quiet market.</p>:
       !news.length?<p role="status">No source-qualified news events in this reader window. This does not establish that markets are quiet.</p>:null}

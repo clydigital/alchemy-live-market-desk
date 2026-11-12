@@ -1,5 +1,6 @@
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import ResearchLibraryExplorer from "@/components/blue-desk/ResearchLibraryExplorer";
+import MarketResearchGapQueue from "@/components/blue-desk/MarketResearchGapQueue";
 import { fetchTodayNotionResearch } from "@/lib/notion-market-research";
 import {getOwnerResearchHandoffStatus} from "@/lib/bluebelly-owner-research-handoff-status";
 import desk from "@/app/blue-desk/blue-desk.module.css";
@@ -37,6 +38,7 @@ export default async function OwnerResearchLibraryPage() {
        </div>:<p role="status">Publication handoff status unavailable. Do not infer that the Newsroom is current.</p>}
        <p style={{marginTop:12,fontSize:"0.85rem"}}>Work-mode MacroPulse and manual investigation notes remain in the Notion research library below. Only approved, source-qualified outputs with publication readback become public Newsroom dispatches. No research or regime state is changed by this panel.</p>
       </section>
+      <MarketResearchGapQueue />
       <ResearchLibraryExplorer intake={intake} />
     </main>
   );
