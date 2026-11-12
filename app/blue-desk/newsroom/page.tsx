@@ -81,9 +81,6 @@ export default async function NewsroomPage({searchParams}:Props){
         <p><Link href={readerHref+OCT30_SELL_OFF.href}>Read the complete source-led Key Story →</Link>{" · "}<Link href={blueDeskPublicHref("/blue-desk/crash-opportunity",host)}>Crash vs Opportunity watch →</Link></p>
         <a href={OCT30_SELL_OFF.sourceUrl} target="_blank" rel="noopener noreferrer" className={ui.featureSource}>{OCT30_SELL_OFF.sourceName} ↗</a>
       </article>:null}
-    <SectorDivergenceFeature mode="newsroom"
-      articleHrefBase={blueDeskPublicHref("/blue-desk/newsroom",host)}
-      crossLinkHref={blueDeskPublicHref("/blue-desk/markets",host)+"#sector-divergences"}/>
     <BluebellyNewsWire news={news} researchItems={projectPublishedResearchFocus(researchDigests,now,6)} archiveEntries={archiveResult.items} archiveAvailable={archiveResult.available} hotPicks={hotPicks} editorials={editorials}
       initialQuery={query} initialCategory={typeof params.category==="string"?params.category:"all"}
       initialPage={typeof params.page==="string"?params.page:"1"}
@@ -94,6 +91,19 @@ export default async function NewsroomPage({searchParams}:Props){
       </div>
       <Newsroom48hTimeline banks={bankDecisions} reports={reported} readerHref={readerHref}/>
     </BluebellyNewsWire>
+    <details id="historical-sector-editorial" className={ui.historicalEditorial}
+      data-newsroom-historical-sector="collapsed-below-news-wire">
+      <summary>
+        <span className={ui.historicalEyebrow}>HISTORICAL RESEARCH / US CLOSE 4 NOVEMBER 2026</span>
+        <strong>Sector divergence &amp; Solarvest company comparison</strong>
+        <span className={ui.historicalHint}>Archived analysis · open full research and source links</span>
+      </summary>
+      <div className={ui.historicalContent}>
+        <SectorDivergenceFeature mode="newsroom"
+          articleHrefBase={blueDeskPublicHref("/blue-desk/newsroom",host)}
+          crossLinkHref={blueDeskPublicHref("/blue-desk/markets",host)+"#sector-divergences"}/>
+      </div>
+    </details>
   </div>
  </main>;
 }
