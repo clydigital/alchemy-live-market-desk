@@ -45,6 +45,9 @@ export default function HormuzSituationBrief({
         <p className={s.intro}>Negotiations and conflict developments first. Verify against vessel crossings and original-source reports.</p></div>
       <Link href={newsroomHref+"?q=hormuz"}>More verified news and research →</Link>
     </div>
+    <div data-hormuz-question-verdicts="peace-and-shipping" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,320px),1fr))",gap:12}}>
+      {verdicts.map(item=><QuestionVerdictCard key={item.id} read={item} compact/>)}
+    </div>
     <DirectionQuickRead question="Are we getting closer to peace?"
       summary="Recent public positions and restraint signals, grouped by 1/3/5 source-publication days."
       read={peace}/>

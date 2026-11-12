@@ -80,6 +80,8 @@ test("cards appear on Hormuz and AI, provide source expiry and do not write cano
  assert.match(card,/Countercase/);
  assert.match(card,/nextTest/);
  assert.match(hormuz,/getReviewedQuestions/);
+ assert.match(hormuz,/<QuestionVerdictCard key=\{item\.id\} read=\{item\} compact\/>/);
+ assert.match(hormuz,/data-hormuz-question-verdicts="peace-and-shipping"/);
  assert.match(ai,/getReviewedQuestions/);
  assert.match(ai,/QuestionVerdictCard/);
  assert.doesNotMatch(card+records,/\.upsert\(|\.insert\(|CRON_SECRET/);
