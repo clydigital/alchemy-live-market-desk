@@ -1,5 +1,6 @@
 import CurrentMarketUpdates, {EditorialUpdatedToday} from "@/components/blue-desk/CurrentMarketUpdates";
 import LeanWatch from "@/components/blue-desk/LeanWatch";
+import CurrentKeyStoryArticle from "@/components/blue-desk/CurrentKeyStoryArticle";
 import NovemberDeskStory from "@/components/blue-desk/NovemberDeskStory";
 import Oct30TechSelloffFeature from "@/components/blue-desk/Oct30TechSelloffFeature";
 import MidtermRallyFeature from "@/components/blue-desk/MidtermRallyFeature";
@@ -76,8 +77,20 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     const linkedMotion=tracked.length
       ?await getStoryMotionRecency(tracked.map(story=>story.id),now).catch(()=>[])
       :[];
-    return <LeanWatch stories={orderStoriesByLatestMotion(tracked,linkedMotion,now).slice(0,8)} host={host}/>;
+    return <LeanWatch stories={orderStoriesByLatestMotion(tracked,linkedMotion,now).slice(0,8)} host={host} now={now}/>;
   }
+  // Immutable, allowlisted and dated editorial Key Story editions. These do
+  // NOT require an arbitrary new news ID, a private Notion row or canonical writer.
+  const currentEdition=params?.feature==="nvidia-ceo-earnings-november-2026"?"nvidia":
+    params?.feature==="ai-compute-financing-november-2026"?"ai-financing":null;
+  if(currentEdition)return <main className={desk.page}
+    data-key-story-current={currentEdition} data-publication-state="source-reviewed-not-canonical">
+    <BlueDeskHeader activePath="/blue-desk/key-stories"/>
+    <div className={desk.content}>
+      <CurrentKeyStoryArticle kind={currentEdition} now={now}
+        backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}/>
+    </div>
+  </main>;
   // Public, allowlisted post-event recaps reuse previously reviewed source
   // snapshots; arbitrary query IDs never select private research or a URL.
   const recapId=typeof params?.postEvent==="string"&&/^[a-z0-9_-]{1,150}$/i.test(params.postEvent)?params.postEvent:null;
