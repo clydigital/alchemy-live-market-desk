@@ -67,7 +67,12 @@ export default function ShortNewsRecap({recap,backHref,coverage}:{recap:Recap;ba
        <summary>Show the checks required for a full investigation</summary>
        <ul>{coverage.missing.map(item=><li key={item}>{item}</li>)}</ul>
       </details>
-      {sourceOnly?<p data-market-consequence="source-only-unassessed" className={ui.caution}>No reviewed economic effect or event-window share-price response is attached. Expectations have not been independently matched; no causal market conclusion is asserted.</p>:null}
+      {sourceOnly?<div data-market-consequence="source-only-unassessed" className={ui.caution}>
+       <p>No reviewed economic effect or event-window share-price response is attached. Expectations have not been independently matched; no causal market conclusion is asserted.</p>
+       <p><strong>Uncertainty:</strong> Not assessed — a risk premium cannot be inferred from the headline alone.</p>
+       <p><strong>Supply and demand:</strong> The net effect on buyers, producers, financial flows and costs has not been reviewed.</p>
+       <p><strong>Market direction:</strong> Unknown pending an expected-versus-observed, source-matched comparison.</p>
+      </div>:null}
     </section>
   </div>
   <footer className={ui.source}><strong>Dated source evidence</strong>
