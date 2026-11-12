@@ -19,7 +19,7 @@ test("EIA URL builder partitions source series across their actual official API 
   const expected={
     stocks:["WCESTUS1","WGTSTUS1","WDISTUS1","WCSSTUS1"],
     refinery:["WPULEUS3","WCRRIUS2"],
-    supply:["WCRFPUS2","WGFUPUS2"],
+    supply:["WCRFPUS2","WGFUPUS2","WDIUPUS2"],
   };
   for(const {group,url:raw} of urls){
     const url=new URL(raw);
@@ -46,7 +46,7 @@ test("EIA fetch merges independently dated stock, refinery and supply observatio
   const result=await fetchEiaWeeklyPetroleumSnapshot("fixture-key",{fetchImpl:read as typeof fetch});
   assert.equal(result.state,"ready");
   assert.equal(result.asOf,"2026-10-23");
-  assert.equal(Object.keys(result.metrics).length,8);
+  assert.equal(Object.keys(result.metrics).length,9);
   assert.equal(result.metrics.crudeStocksExSpr?.previous?.period,"2026-10-16");
   assert.equal(result.metrics.refineryUtilisation?.latest.units,"%");
   assert.deepEqual(calls.sort(),[
@@ -67,7 +67,7 @@ test("EIA route failures retain partial primary observations and explicit missin
  };
  const result=await fetchEiaWeeklyPetroleumSnapshot("fixture-key",{fetchImpl:fetchImpl as typeof fetch});
  assert.equal(result.state,"ready");
- assert.equal(Object.keys(result.metrics).length,6);
+ assert.equal(Object.keys(result.metrics).length,7);
  assert.equal(result.metrics.refineryUtilisation,undefined);
  assert.match(result.note||"",/refinery:HTTP_400/);
  assert.equal(JSON.stringify(result).includes("fixture-key"),false);
@@ -162,6 +162,8 @@ test("Canonical global-flow monitor consumes correctly normalized EIA output", a
           { period: "2026-07-31", series: "WCRFPUS2", value: 13300, units: "MBBL/D" },
           { period: "2026-08-07", series: "WCSSTUS1", value: 375000, units: "MBBL" },
           { period: "2026-07-31", series: "WCSSTUS1", value: 374000, units: "MBBL" },
+          { period: "2026-08-07", series: "WDIUPUS2", value: 3900, units: "MBBL/D" },
+          { period: "2026-07-31", series: "WDIUPUS2", value: 4000, units: "MBBL/D" },
           { period: "2026-08-07", series: "WGFUPUS2", value: 9100, units: "MBBL/D" },
           { period: "2026-07-31", series: "WGFUPUS2", value: 8900, units: "MBBL/D" },
         ],
@@ -194,6 +196,7 @@ test("Canonical global-flow monitor consumes correctly normalized EIA output", a
     "us-refinery-utilisation",
     "us-refinery-inputs",
     "us-implied-demand",
+    "us-distillate-demand",
     "us-spr",
     "us-production",
   ];
