@@ -89,6 +89,11 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   // posts; never expose owner pages, raw operational data, tokens or write APIs.
   if(hostname===BLUEBELLY_PRESENTATION_HOST &&
      pathname==="/api/x-wire/discovery")return "public";
+  // Public, fixed 37-ticker US/EU stock research coverage for Power Stack.
+  // This exact GET is sanitized and cannot search arbitrary symbols, accounts,
+  // owner holdings or research drafts. Every other API stays denied by default.
+  if(hostname===BLUEBELLY_PRESENTATION_HOST &&
+     pathname==="/api/markets/stocks")return "public";
 
   // Narrow approved-owner enclave on the Bluebelly hostname. This is
   // NOT a public page: the normal middleware session+allowlist gate applies.
