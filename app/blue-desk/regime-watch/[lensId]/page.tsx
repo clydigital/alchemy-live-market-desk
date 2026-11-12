@@ -18,6 +18,8 @@ import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
 import RegimeResearchClocks from "@/components/blue-desk/RegimeResearchClocks";
 import RegimeManualChallenge from "@/components/blue-desk/RegimeManualChallenge";
 import DirectionQuickRead from "@/components/blue-desk/DirectionQuickRead";
+import BondPressureMonitor from "@/components/blue-desk/BondPressureMonitor";
+import {projectBondPressure} from "@/lib/bluebelly-bond-pressure";
 import {getRegimeDirectionPacket} from "@/lib/bluebelly-regime-direction-reads";
 import {getRegimeShadowHealth} from "@/lib/regime-engine";
 import TopicInfluencePanel from "@/components/blue-desk/TopicInfluencePanel";
@@ -58,6 +60,7 @@ export default async function ResearchLensPage({params}:Props){
  const workbook=REGIME_LENS_WORKBOOKS[lens.id];
  const outlook=getLensOutlook(lens.id);
  const direction=getRegimeDirectionPacket(lens.id,now);
+ const bondPressure=lens.id==="bonds"?projectBondPressure(marketMonitor?.rows??null,now):null;
  const viewScan=scanRegimeViews(lens.id,outlook.reviewedAt,publicTheses,sourceObservations,now);
  const latestEditorial=getRegimeEditorialUpdate(lens.id);
  const assessments=quickViewsForLens(lens.id);
@@ -77,7 +80,7 @@ export default async function ResearchLensPage({params}:Props){
      <h1>{lens.name}</h1>
      <p className={styles.question}>{lens.question}</p>
      <p className={styles.scope}>{workbook.lead}</p>
-     <div className={styles.heroActions}><a href="#lens-outlook">READ THE OUTLOOK <span aria-hidden="true">↗</span></a><a href="#decision-fork">WHAT WOULD CHANGE IT <span aria-hidden="true">↗</span></a></div>
+     <div className={styles.heroActions}><a href={lens.id==="bonds"?"#bond-pressure":"#quick-direction"}>LATEST READING <span aria-hidden="true">↗</span></a><a href="#decision-fork">WHAT WOULD CHANGE IT <span aria-hidden="true">↗</span></a></div>
      <div className={styles.meta}>
       <span>{publicTheses===null?"Stored Story read unavailable":lens.stories.length+" associated public Story record"+(lens.stories.length===1?"":"s")}</span>
       <span>Page viewed <DualTimestamp value={now.toISOString()}/></span>
@@ -91,12 +94,19 @@ export default async function ResearchLensPage({params}:Props){
     </div>
    </header>
    <RegimeResearchClocks sources={sourceObservations===null?null:recent} editorialReviewedOn={outlook.reviewedAt} shadow={shadowHealth}/>
-   <RegimeManualChallenge lens={lens.id}/>
-   {direction?<DirectionQuickRead question={direction.question} summary={direction.summary}
+   {bondPressure?<BondPressureMonitor reading={bondPressure}
+     marketsHref={blueDeskPublicHref("/blue-desk/markets",host)+"?group=rates"}/>:null}
+   {lens.id!=="bonds"&&direction?<DirectionQuickRead question={direction.question} summary={direction.summary}
      read={direction.read} eyebrow="REGIME PRESSURE / SOURCE-DATED QUICK READ"
      meaning={direction.meaning+" These are editorial observations, not a canonical Regime verdict or a trade signal."}
      supportingTerm={direction.supportingTerm} opposingTerm={direction.opposingTerm}
      followUpHref={direction.followUpHref} followUpLabel={direction.followUpLabel}/>:null}
+   <details className={styles.archiveShelf} id="editorial-archive"
+     data-regime-editorial-archive="collapsed-by-default">
+    <summary><strong>Historical editorial &amp; research assessments</strong>
+      <span>30 October baseline · dated follow-up checks · expand the archived reasoning</span></summary>
+    <div className={styles.archiveBody}>
+   <RegimeManualChallenge lens={lens.id}/>
    <div className={styles.lensQuickStrip} aria-label="Research file orientation">
     <div><span>01 / REVIEWED DIRECTION</span><strong>{outlook.outlook}</strong><small>For {outlook.directionTarget}</small></div>
     <div><span>02 / CONFIDENCE</span><strong>{outlook.confidence}</strong><small>Qualitative evidence judgement</small></div>
@@ -151,6 +161,8 @@ export default async function ResearchLensPage({params}:Props){
      </li>)}</ul>
     </details>
    </section>:null}
+    </div>
+   </details>
 
    <section id="view-scan" className={styles.changeScan} data-regime-view-scan={viewScan.state} aria-labelledby="lens-scan-heading">
     <span className={styles.kicker}>AUTOMATIC SOURCE + VIEW RECHECK / SINCE {outlook.reviewedAt} MYT</span>
@@ -194,8 +206,8 @@ export default async function ResearchLensPage({params}:Props){
    {influence?<TopicInfluencePanel input={influence}/>:null}
    <nav className={styles.pageNav} aria-label="Sections in this research lens">
     <a href="#view-scan">Changes since review</a>
-    <a href="#lens-outlook">Outlook &amp; confidence</a>
-    {latestEditorial?<a href="#latest-editorial">Latest editorial evidence</a>:null}
+    <a href="#editorial-archive">Archived editorial outlook</a>
+    {latestEditorial?<a href="#editorial-archive">Dated editorial check</a>:null}
     {assessments.length?<a href="#asset-monitoring">Latest original sources &amp; tape</a>:null}
     <a href="#research-position">Recorded position</a>
     {workbook.policyDilemma?<a href="#policy-dilemma">Fed policy dilemma</a>:null}
