@@ -6,6 +6,8 @@ import {normaliseReaderPage,paginateReaderItems} from "@/lib/bluebelly-reader-pa
 import type {ReactNode} from "react";
 import PublishedResearchDispatches from "./PublishedResearchDispatches";
 import MarketTakeaway from "./MarketTakeaway";
+import SignalTags from "./SignalTags";
+import {suggestSignalTags} from "@/lib/bluebelly-signal-tags";
 import {publicReadingHeadline} from "@/lib/bluebelly-public-headline";
 import type {PublicResearchFocus} from "@/lib/blue-desk-published-research-focus";
 import Link from "next/link";
@@ -287,6 +289,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
        <small className={styles.metadata}>{editorialNewsTopics(card.item).join(" · ").toUpperCase()} · {clock(card.item.occurredAt)}</small>
        <h2><Link href={readerHref+"?news="+encodeURIComponent(card.item.id)}>{storyDepthForNews(card.item)?.title||publicReadingHeadline(card.item.headline,card.item.summary,card.item.sourceName)}</Link></h2>
        <p data-quick-market-brief="source-qualified-summary">{storyDepthForNews(card.item)?.hook||card.item.summary}</p>
+       <SignalTags tags={suggestSignalTags({title:card.item.headline,detail:card.item.summary,evidence:"SOURCE_ONLY_NEWS"})}/>
 
        <div className={styles.actions}>
         <Link href={readerHref+"?news="+encodeURIComponent(card.item.id)}>{storyDepthForNews(card.item)?"Read source-reviewed Key Story →":"Read short Bluebelly recap →"}</Link>
