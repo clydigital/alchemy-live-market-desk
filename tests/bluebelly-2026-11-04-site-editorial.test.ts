@@ -62,3 +62,11 @@ test("source and editor status never become canonical evidence or private/public
  assert.equal(blueDeskHostAccess("/owner/research","bluebelly-desk.vercel.app"),"private");
  assert.equal(blueDeskHostAccess("/key-stories","bluebelly-desk.vercel.app"),"public");
 });
+
+test("stale global masthead expires after its editorial day without deleting archived readers",()=>{
+ const component=read("components/blue-desk/CurrentMarketUpdates.tsx");
+ assert.match(component,/if\(mode==="mast"&&!isCurrent\)return null/);
+ assert.match(component,/data-bluebelly-current-editorial=\{DESK_EDITORIAL_EDITION\}/);
+ assert.match(component,/data-bluebelly-date-brief="2026-11-04"/);
+ assert.equal(editorialCalendarDay(new Date("2026-11-13T05:00:00Z")),"2026-11-13");
+});
