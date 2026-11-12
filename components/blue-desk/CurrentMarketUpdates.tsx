@@ -20,6 +20,9 @@ export default function CurrentMarketUpdates({host,mode="full",now=new Date()}:{
  const href=(path:string)=>blueDeskPublicHref("/blue-desk"+path,host);
  const dateLabel="4 NOV 2026";
  const [lead,sweden,amd]=DESK_EDITORIAL_UPDATES;
+ // The global masthead must not keep a historical edition above fresher
+ // source-reviewed Key Stories. Preserve its full archival article readers.
+ if(mode==="mast"&&!isCurrent)return null;
  if(mode==="mast")return <div data-bluebelly-date-brief="2026-11-04" style={{
   display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,
   padding:"9px clamp(18px,2.5vw,40px)",background:"var(--bb-raised,#062b3c)",borderBottom:"1px solid var(--bb-line,#31596d)",
