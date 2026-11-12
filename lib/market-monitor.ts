@@ -277,7 +277,7 @@ function parseNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-async function mapLimit<T, R>(items: T[], limit: number, worker: (item: T) => Promise<R>) {
+async function mapLimit<T, R>(items: readonly T[], limit: number, worker: (item: T) => Promise<R>) {
   const results = new Array<R>(items.length);
   let cursor = 0;
   async function run() {
@@ -550,8 +550,8 @@ export const loadExtras = unstable_cache(async () => {
     .catch(() => null);
   return [...extraRows, ...rateRows, ...creditRows, ...globalRateRows, moveRow].filter((row): row is RawSeries => Boolean(row));
 }, ["alchemy-market-monitor-extras-v8-us-stocks"], { revalidate: EXTRA_REVALIDATE });
-const loadEuropeEquities=unstable_cache(async()=>{
- const fetched=await mapLimit(EUROPE_STOCKS,4,async spec=>{
+const loadEuropeEquities=unstable_cache(async():Promise<RawSeries[]>=>{
+ const fetched=await mapLimit(EUROPE_STOCKS,4,async (spec):Promise<RawSeries|null>=>{
   try{return await fetchEuropeanStockHistory(spec);}
   catch(error){
    console.warn(JSON.stringify({event:"bluebelly_eu_stock_source_unavailable",ticker:spec.ticker,
@@ -559,7 +559,7 @@ const loadEuropeEquities=unstable_cache(async()=>{
    return null;
   }
  });
- return fetched.filter((row):row is NonNullable<typeof row>=>row!==null);
+ return fetched.filter((row):row is RawSeries=>row!==null);
 },["bluebelly-europe-daily-shares-v1"],{revalidate:60*60*6});
 
 export const loadCashAnchors = unstable_cache(async () => {
