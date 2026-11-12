@@ -1,5 +1,6 @@
 import Link from "next/link";
 import StoryStatusStrip from "./StoryStatusStrip";
+import CurrentKeyStoriesShelf from "./CurrentKeyStoriesShelf";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import type {MotionOrderedStory} from "@/lib/blue-desk-thesis-ledger";
@@ -19,8 +20,8 @@ function dateUTC(iso:string):string {
  * Never creates a thesis, updates canonical evidence or claims a live signal.
  * The full, source-limited Story reader remains available through exact deep links.
  */
-export default async function LeanWatch({stories,host}:{
-  stories:readonly MotionOrderedStory[];host:string|null;
+export default async function LeanWatch({stories,host,now}:{
+  stories:readonly MotionOrderedStory[];host:string|null;now:Date;
 }) {
   const root=blueDeskPublicHref("/blue-desk/key-stories",host);
   const cards=stories.map(story=><article className={ui.card} key={story.id} data-watch-story={story.slug}>
@@ -53,12 +54,12 @@ export default async function LeanWatch({stories,host}:{
       <header className={ui.hero} data-v7-watch-graphic="decorative-research-radar">
         <div className={ui.heroContent}>
           <p className={ui.eyebrow}>BLUEBELLY / RESEARCH WATCH · SOURCE-DATED</p>
-        <h1>What is developing?</h1>
-        <p>Three leading research questions and their next tests. Expand more tracked stories or open the full dated thesis when needed. These are dated research snapshots, not live trading signals.</p>
+        <h1>What is moving the market?</h1>
+        <p>Start with current source-reviewed developments and their economic consequences. Historical Story theses remain below as dated research memory—not live trading signals.</p>
         <nav className={ui.shortcuts} aria-label="Related market tools">
           <Link href={blueDeskPublicHref("/blue-desk/markets",host)}>Check market moves</Link>
           <Link href={blueDeskPublicHref("/blue-desk/calendar",host)}>Upcoming catalysts</Link>
-          <a href="#tracked-theses">Browse Story questions ↓</a>
+          <a href="#key-stories-current">Current Key Stories ↓</a>
         </nav>
         </div>
         <div className={ui.heroRadar} aria-hidden="true">
@@ -67,10 +68,11 @@ export default async function LeanWatch({stories,host}:{
         </div>
       </header>
 
+      <CurrentKeyStoriesShelf now={now} host={host}/>
       <section aria-labelledby="tracked-theses" className={ui.section}>
         <div className={ui.sectionHeading}>
           <div>
-            <p className={ui.eyebrow}>TRACKED QUESTIONS / EXISTING STORY MEMORY</p>
+            <p className={ui.eyebrow}>HISTORICAL RESEARCH / EXISTING STORY MEMORY</p>
             <h2 id="tracked-theses">Market narratives</h2>
             <p className={ui.sectionNote}>Source-dated positions, not live verdicts. Open a question for its countercase and supporting evidence.</p>
           </div>
