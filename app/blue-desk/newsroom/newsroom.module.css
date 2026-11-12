@@ -75,3 +75,31 @@
 @media(max-width:560px){.commandHero{clip-path:none;padding:16px}.commandMetrics>div{padding:10px 9px}
  .newsroomDepthNav span,.newsroomDepthNav a{font-size:10px;flex:1 1 auto;text-align:center;justify-content:center}}
 @media(prefers-reduced-motion:reduce){.newsroomDepthNav a{transition:none}}
+
+
+/* Completed-session sector research is discoverable after the current Newsroom,
+   not a permanent oversized banner above today's source-qualified wire. */
+.historicalEditorial{
+ margin:22px 0 38px;
+ border:1px solid var(--bb-card-border);
+ background:var(--bb-card-quiet);
+ border-radius:12px;
+ scroll-margin-top:90px;
+}
+.historicalEditorial>summary{
+ cursor:pointer;display:flex;align-items:center;flex-wrap:wrap;gap:6px 18px;
+ padding:15px 18px;color:var(--bb-text);
+}
+.historicalEditorial>summary:focus-visible{outline:2px solid var(--bb-accent);outline-offset:3px}
+.historicalEditorial>summary::marker{color:var(--bb-accent)}
+.historicalEyebrow{font:800 10px/1.45 var(--bb-mono);letter-spacing:.07em;color:var(--bb-muted)}
+.historicalEditorial>summary strong{font:800 13px/1.45 var(--bb-display);color:var(--bb-text)}
+.historicalHint{font:650 11px/1.45 var(--bb-mono);color:var(--bb-muted);margin-left:auto}
+.historicalEditorial[open]>summary{border-bottom:1px solid var(--bb-card-border)}
+.historicalContent{padding:0 12px 12px}
+.historicalContent>section{margin-bottom:0}
+@media(max-width:650px){
+ .historicalEditorial>summary{padding:13px;align-items:flex-start;flex-direction:column}
+ .historicalHint{margin-left:0}
+ .historicalContent{padding:0 7px 7px}
+}
