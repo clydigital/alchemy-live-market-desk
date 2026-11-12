@@ -2,7 +2,7 @@ import s from "./AcceleratorDial.module.css";
 
 type Props={
  label:string;direction:-1|0|1|null;leftLabel:string;rightLabel:string;
- compact?:boolean;
+ compact?:boolean;middleLabel?:string;
 };
 /** Tachometer-style ordinal direction. Needle positions are categorical, not measured scores. */
 const polar=(degree:number,radius:number)=>{
@@ -13,12 +13,12 @@ const arc=(from:number,to:number,radius:number)=>{
  const [x1,y1]=polar(from,radius),[x2,y2]=polar(to,radius);
  return `M ${x1} ${y1} A ${radius} ${radius} 0 ${Math.abs(to-from)>180?1:0} 1 ${x2} ${y2}`;
 };
-export default function AcceleratorDial({label,direction,leftLabel,rightLabel,compact=false}:Props){
+export default function AcceleratorDial({label,direction,leftLabel,rightLabel,middleLabel="UNCHANGED",compact=false}:Props){
  const angle=direction===null?-104:direction*70;
  const state=direction===null?"unknown":direction===1?"rising":direction===-1?"falling":"unchanged";
  return <div className={compact?s.compact:s.dial} data-accelerator-dial={state}>
   <svg viewBox="0 0 180 123" role="img"
-    aria-label={`${label}: ${direction===null?"unavailable or stale":direction===1?rightLabel:direction===-1?leftLabel:"little weekly change"}. Direction only, not a probability.`}>
+    aria-label={`${label}: ${direction===null?"unavailable or stale":direction===1?rightLabel:direction===-1?leftLabel:middleLabel}. Direction only, not a probability.`}>
    <path d={arc(-106,106,68)} className={s.rail}/>
    <path d={arc(-104,-38,68)} className={s.leftArc}/>
    <path d={arc(-34,34,68)} className={s.middleArc}/>
@@ -32,7 +32,7 @@ export default function AcceleratorDial({label,direction,leftLabel,rightLabel,co
     </g>:null}
    <circle cx="90" cy="94" r="8" className={s.hub}/>
    <text x="90" y="119" textAnchor="middle" className={s.readText}>
-     {direction===null?"NO READING":direction===1?"RISING":direction===-1?"FALLING":"UNCHANGED"}
+     {direction===null?"NO READING":direction===1?"RISING":direction===-1?"FALLING":middleLabel}
    </text>
   </svg>
   <div className={s.extremes}><small>{leftLabel}</small><small>{rightLabel}</small></div>
