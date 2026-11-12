@@ -35,3 +35,21 @@
 .rail h3{font-size:23px;margin:7px 0}.rail p,.rail small{font-size:13px;line-height:1.65;color:var(--bb-muted)}.rail strong{color:var(--bb-text)}
 @media(max-width:900px){.columns,.hero{grid-template-columns:1fr}.rail{position:static;grid-template-columns:repeat(2,minmax(0,1fr))}.art{max-width:400px}.hero h1{max-width:none}}
 @media(max-width:600px){.art{display:flex;max-width:100%}.storyMeta{padding:13px 15px}.rail{grid-template-columns:1fr}.section>p{font-size:15px}.hero h1{font-size:36px}.section{padding:17px 0 29px}.toc a{font-size:11px;padding:8px}}
+
+/* Plain-language teaching is embedded in the sourced article, not a separate glossary page. */
+.learningSection{margin:29px 0;padding:17px 0 9px;border-top:1px solid var(--bb-card-border);scroll-margin-top:100px}
+.learningSection h3{font-size:clamp(21px,2.3vw,27px);margin:0 0 11px;color:var(--bb-text)}
+.learningIntro{font-size:14px;line-height:1.65;color:var(--bb-muted);margin:0 0 17px}
+.conceptList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin:0}
+.conceptItem{padding:14px;border:1px solid var(--bb-card-border);border-radius:7px;background:var(--bb-card-quiet);min-width:0}
+.conceptItem dt{font-weight:800;color:var(--bb-text);font-size:14px;margin:0 0 7px;line-height:1.4}
+.conceptItem dd{margin:0 0 8px;color:var(--bb-muted);font-size:13px;line-height:1.65}
+.conceptItem dd:last-child{margin-bottom:0}
+.conceptMarket strong{color:var(--bb-text)}
+.decisionList{display:grid;gap:14px}
+.decisionCard{padding:17px 19px;border-radius:8px;border:1px solid var(--bb-card-border);background:var(--bb-card-quiet)}
+.decisionCard h4{font-size:17px;line-height:1.35;margin:0 0 10px;color:var(--bb-text)}
+.decisionCard p{margin:9px 0;font-size:14px;line-height:1.7;color:var(--bb-muted)}
+.decisionCard p strong{color:var(--bb-text)}
+.decisionCard .decisionSignal{border-left:3px solid var(--bb-accent);padding:7px 10px;color:var(--bb-text)}
+@media(max-width:680px){.conceptList{grid-template-columns:1fr}.decisionCard{padding:14px}.learningSection{padding-top:16px}}
