@@ -24,7 +24,7 @@ export type SignalTagInput=Readonly<{
 }>;
 const lower=(s:string)=>s.toLowerCase();
 const validHttps=(v:string)=>{try{const u=new URL(v);return u.protocol==="https:"&&!u.username&&!u.password&&u.hostname.includes(".");}catch{return false;}};
-function vettedValuation(v:ValuationComparison|undefined|null):boolean{
+export function isReviewedValuationComparison(v:ValuationComparison|undefined|null):boolean{
  if(!v||!Number.isFinite(v.marketPrice)||v.marketPrice<=0||
    !Number.isFinite(v.fundamentalValue)||v.fundamentalValue<=0||
    !/^\d{4}-\d{2}-\d{2}$/.test(v.priceObservedOn)||
@@ -55,7 +55,7 @@ export function suggestSignalTags(input:SignalTagInput):SignalTag[]{
  const ids:SignalTagId[]=[];
  const add=(id:SignalTagId)=>{if(!ids.includes(id))ids.push(id);};
  if(DIFFERENCE.test(text)&&DIMENSIONS.filter(re=>re.test(text)).length>=2)add("divergence");
- if(input.evidence==="SOURCE_CORROBORATED"&&vettedValuation(input.reviewedValuation))add("mispricing");
+ if(input.evidence==="SOURCE_CORROBORATED"&&isReviewedValuationComparison(input.reviewedValuation))add("mispricing");
  if(CATALYST.test(titlesOnly))add("catalyst");
  if(PRESSURE.test(text)&&CHANGING.test(text))add("regime");
  if(SUPPLY.test(text)&&DISTORTION.test(text))add("supply");
