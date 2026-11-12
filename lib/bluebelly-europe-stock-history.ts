@@ -67,6 +67,7 @@ export async function fetchEuropeanStockHistory(
  spec:StockIdentity,now=new Date(),fetcher:typeof fetch=fetch,
 ):Promise<EuStockHistory>{
  if(spec.region!=="EU")throw Error("Cannot request non-EU stock on EU connector");
+ if(spec.currency!=="EUR"&&spec.currency!=="DKK")throw Error("EU quote currency cannot be USD");
  // Exactly curated symbols, never request-supplied URL parameters.
  if(!/^[A-Z0-9-]{1,12}\.(AS|DE|PA|CO)$/.test(spec.providerSymbol))throw Error("Unexpected EU chart symbol");
  const sourceUrl="https://query1.finance.yahoo.com/v8/finance/chart/"+
@@ -76,7 +77,7 @@ export async function fetchEuropeanStockHistory(
  if(!response.ok)throw Error("EU chart source "+response.status);
  const payload=await response.json();
  const points=parseEuropeanStockChart(payload,spec,now);
- return {id:spec.monitorId,symbol:spec.ticker,label:spec.company,currency:spec.currency,
+ return {id:spec.monitorId,symbol:spec.ticker,label:spec.company,currency:spec.currency as "EUR"|"DKK",
   type:"Europe Stock",benchmark:null,points,
   sourceName:"Yahoo Finance public daily chart (secondary; delayed)",
   sourceUrl:"https://finance.yahoo.com/quote/"+encodeURIComponent(spec.providerSymbol)+"/history/",
