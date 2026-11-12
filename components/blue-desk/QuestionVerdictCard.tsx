@@ -7,6 +7,7 @@ export default function QuestionVerdictCard({read,compact=false}:{read:QuestionA
  const direction=read.verdict==="improving"?1:read.verdict==="deteriorating"?-1:
   read.verdict==="mixed"||read.verdict==="unchanged"?0:null;
  const middle=read.verdict==="mixed"?"MIXED":"SAME";
+ const answer=read.freshness==="current"?QUESTION_VERDICT_LABELS[read.verdict]:"Needs fresh review";
  return <article className={s.card} data-question-id={read.id} data-question-verdict={read.verdict}
   data-question-freshness={read.freshness} data-question-authority={read.authority}>
   <div className={s.meta}><span>QUESTION INTELLIGENCE / {read.scope}</span>
@@ -14,7 +15,7 @@ export default function QuestionVerdictCard({read,compact=false}:{read:QuestionA
   <div className={s.grid}>
    <div className={s.explainer}>
     <h3>{read.question}</h3>
-    <div className={s.answer} aria-label={"Current answer: "+QUESTION_VERDICT_LABELS[read.verdict]}>{QUESTION_VERDICT_LABELS[read.verdict]}</div>
+    <div className={s.answer} aria-label={"Current answer: "+answer}>{answer}</div>
     <p className={s.condition}><strong>Current condition:</strong> {read.condition}</p>
     <p><strong>Why:</strong> {read.freshness==="current"?read.why:"This source review is no longer fresh. Last recorded view: "+QUESTION_VERDICT_LABELS[read.recordedVerdict]+". "+read.why}</p>
    </div>
