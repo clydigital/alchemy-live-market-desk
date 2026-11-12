@@ -1,4 +1,4 @@
-import {BLUEBELLY_STOCK_UNIVERSE,stockUniverseCoverage,type StockIdentity} from "./bluebelly-equity-universe";
+import {BLUEBELLY_STOCK_UNIVERSE,stockUniverseCoverage,type StockIdentity} from "./bluebelly-equity-universe.ts";
 import type {MarketMonitorRow} from "./market-monitor";
 
 export type EquityCoverageStatus="SOURCE_DATED"|"MONITORED_UNAVAILABLE";
