@@ -32,6 +32,9 @@ export default function StoryEditorialArticle({story,backHref}:Props){
    </header>
    <p className={ui.compactView}><strong>Recorded view:</strong> {story.thesis.length>360?story.thesis.slice(0,357).trimEnd()+"…":story.thesis}</p>
    <p className={ui.compactNext}><strong>Next check:</strong> {story.nextTest||"No dated catalyst recorded"}</p>
+   <p data-story-market-framework="evidence-incomplete" className={ui.disclosure}>
+    <strong>Market impact is not automatically assigned:</strong> The recorded thesis may imply a demand, supply or financing channel, but it does not independently establish a change in uncertainty, a positive or negative asset reaction, a pre-event expectation or a matched market-tape divergence. These require dated event-specific evidence before publication as a verdict.
+   </p>
    <details className={ui.archive} data-story-archive="collapsed-by-default">
      <summary>Read original dated analysis and evidence</summary>
    <StorySummaryBoxes items={[
