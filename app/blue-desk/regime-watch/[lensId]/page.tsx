@@ -80,7 +80,7 @@ export default async function ResearchLensPage({params}:Props){
      <h1>{lens.name}</h1>
      <p className={styles.question}>{lens.question}</p>
      <p className={styles.scope}>{workbook.lead}</p>
-     <div className={styles.heroActions}><a href={lens.id==="bonds"?"#bond-pressure":"#quick-direction"}>LATEST READING <span aria-hidden="true">↗</span></a><a href="#decision-fork">WHAT WOULD CHANGE IT <span aria-hidden="true">↗</span></a></div>
+     <div className={styles.heroActions}><a href={bondPressure?"#bond-pressure":direction?"#quick-direction":"#editorial-archive"}>LATEST READING <span aria-hidden="true">↗</span></a><a href="#decision-fork">WHAT WOULD CHANGE IT <span aria-hidden="true">↗</span></a></div>
      <div className={styles.meta}>
       <span>{publicTheses===null?"Stored Story read unavailable":lens.stories.length+" associated public Story record"+(lens.stories.length===1?"":"s")}</span>
       <span>Page viewed <DualTimestamp value={now.toISOString()}/></span>
