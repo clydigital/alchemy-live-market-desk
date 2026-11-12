@@ -1,0 +1,27 @@
+.card{border:1px solid var(--bb-card-border);border-top:3px solid var(--bb-accent);background:var(--bb-card-bg);padding:clamp(13px,1.8vw,20px);margin:10px 0 14px;min-width:0}
+.meta{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;color:var(--bb-muted);font:750 10px/1.5 var(--bb-mono);letter-spacing:.035em;text-transform:uppercase}
+.grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(145px,.85fr);gap:12px;align-items:center}
+.explainer h3{color:var(--bb-text);font:900 clamp(19px,2.3vw,28px)/1.2 var(--bb-display);margin:9px 0}
+.answer{font:900 clamp(24px,3vw,35px)/1.2 var(--bb-display);color:#d8b472;margin:6px 0}
+.card[data-question-verdict="improving"] .answer{color:#4fc9a0}
+.card[data-question-verdict="deteriorating"] .answer{color:#f08181}
+.card[data-question-verdict="mixed"] .answer{color:#e6bc76}
+.card[data-question-verdict="insufficient"] .answer{color:var(--bb-muted)}
+.explainer p{color:var(--bb-text);font-size:13px;line-height:1.52;margin:7px 0}
+.explainer strong{color:var(--bb-accent)}
+.gauge{text-align:center;min-width:0}
+.gauge small{color:var(--bb-muted);font:650 10px/1.5 var(--bb-mono)}
+.history{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:4px 12px;border-top:1px solid var(--bb-card-border);padding:10px 0;color:var(--bb-muted)}
+.history span{font:750 10px/1.5 var(--bb-mono)}
+.history strong{font:750 11px/1.5 var(--bb-display);color:var(--bb-text)}
+.detail{border-top:1px solid var(--bb-card-border);padding-top:7px}
+.detail summary{cursor:pointer;display:flex;justify-content:space-between;gap:12px;font:800 12px/1.5 var(--bb-display);color:var(--bb-text)}
+.detail summary span{font:700 10px/1.5 var(--bb-mono);color:var(--bb-accent)}
+.detail summary:focus-visible{outline:2px solid var(--bb-card-focus);outline-offset:3px}
+.detail p{font:550 12px/1.5 var(--bb-display);color:var(--bb-muted)}
+.detail ul{list-style:none;margin:8px 0;padding:0;display:grid;gap:5px}
+.detail li{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 12px;border-left:2px solid var(--bb-accent);padding:5px 8px;background:var(--bb-card-quiet)}
+.detail li a{color:var(--bb-accent);font-size:12px;font-weight:750}
+.detail li small{color:var(--bb-muted);font-size:10px}
+.detail .disclaimer{font:600 10px/1.5 var(--bb-mono)}
+@media(max-width:600px){.grid{grid-template-columns:1fr}.gauge{max-width:240px;justify-self:center}.history{display:block}}
