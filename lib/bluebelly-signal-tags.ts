@@ -19,7 +19,7 @@ export type ValuationComparison=Readonly<{
 }>;
 export type SignalTagInput=Readonly<{
  title:string;detail?:string;nextCheck?:string;
- evidence:"AUTOMATED_LEAD"|"SOURCE_ONLY_NEWS"|"SOURCE_CORROBORATED"|"RESEARCH_LEAD";
+ evidence:"AUTOMATED_LEAD"|"SOURCE_ONLY_NEWS"|"SOURCE_CORROBORATED"|"RESEARCH_LEAD"|"CONTRADICTED";
  reviewedValuation?:ValuationComparison|null;
 }>;
 const lower=(s:string)=>s.toLowerCase();
