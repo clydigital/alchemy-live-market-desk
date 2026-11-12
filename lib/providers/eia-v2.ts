@@ -10,6 +10,7 @@ export const EIA_WEEKLY_SERIES = {
   crudeProduction: { id: "WCRFPUS2", label: "Field production of crude oil", canonicalUnit: "MBBL/D" },
   sprStocks: { id: "WCSSTUS1", label: "Crude oil stocks in SPR", canonicalUnit: "MBBL" },
   gasolineProductSupplied: { id: "WGFUPUS2", label: "Finished motor gasoline product supplied", canonicalUnit: "MBBL/D" },
+  distillateProductSupplied: { id: "WDIUPUS2", label: "Distillate fuel oil product supplied", canonicalUnit: "MBBL/D" },
 } as const;
 
 export type EiaWeeklyMetricKey = keyof typeof EIA_WEEKLY_SERIES;
@@ -25,7 +26,7 @@ export const EIA_WEEKLY_ROUTE_GROUPS = {
   },
   supply: {
     url: EIA_WEEKLY_PETROLEUM_ROUTE,
-    series: ["crudeProduction", "gasolineProductSupplied"],
+    series: ["crudeProduction", "gasolineProductSupplied", "distillateProductSupplied"],
   },
 } as const;
 export type EiaWeeklyRouteGroup = keyof typeof EIA_WEEKLY_ROUTE_GROUPS;
@@ -252,7 +253,7 @@ export async function fetchEiaWeeklyPetroleumSnapshot(
   // Do not mix observations from two transports or unequal reporting weeks.
   // Prefer one complete, at-least-as-fresh original WPSR snapshot when the
   // API is missing metrics. A failed fallback never invents recovered rows.
-  if(Object.keys(metrics).length<8){
+  if(Object.keys(metrics).length<Object.keys(EIA_WEEKLY_SERIES).length){
     const csv=await fetchOfficialWpsrCsv(options);
     if(csv.state==="ready"&&csv.asOf&&
        (!asOf||csv.asOf>=asOf)&&Object.keys(csv.metrics).length>Object.keys(metrics).length){
