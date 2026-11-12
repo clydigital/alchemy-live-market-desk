@@ -42,7 +42,7 @@ const DIMENSIONS=[
 ];
 const CATALYST=/\b(?:earnings|fomc|cpi|pce|payrolls|auctions?|meetings?|scheduled|deadline|vote|decision|index review|guidance|result(?:s)?|regulat(?:or|ory)|licen[cs]ing)\b/i;
 const PRESSURE=/\b(?:fed|rates?|treasur\w*|credit|debt|funding|financing|inflation|tariff|sanction|war|policy|export control|liquidity)\b/i;
-const CHANGING=/\b(?:tight|stress|risk|higher|lower|hike|cut|repric|widen|narrow|shif|shock|restrict|surg|slow|disrupt|rising|falling|increase|decrease)\w*\b/i;
+const CHANGING=/\b(?:tight|stress|risk|higher|lower|hike|cut|repric|widen|narrow|shif|shock|restrict|surg|slow|disrupt|rising|falling|ris\w*|climb\w*|increase|decrease)\w*\b/i;
 const SUPPLY=/\b(?:supply|demand|fuel|diesel|gasoline|lng|refiner\w*|ship\w*|tankers?|inventory|storage|capacity|pipeline|grid|hbm|orders?|chokepoint)\b/i;
 const DISTORTION=/\b(?:disrupt|block|tight|constrain|shortage|surplus|delay|bottleneck|recovery|recover|shut|backlog|outpac|scarcity|spike|scarce|ration)\w*\b/i;
 const COUNTER=/\b(?:despite|however|yet|contradict|countercase|not necessarily|even as|nevertheless|failed to|not enough|is not|does not)\b/i;
