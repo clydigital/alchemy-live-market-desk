@@ -29,6 +29,7 @@ function vettedValuation(v:ValuationComparison|undefined|null):boolean{
    !Number.isFinite(v.fundamentalValue)||v.fundamentalValue<=0||
    !/^\d{4}-\d{2}-\d{2}$/.test(v.priceObservedOn)||
    !validHttps(v.priceSourceUrl)||!validHttps(v.fundamentalSourceUrl)||
+   v.priceSourceUrl===v.fundamentalSourceUrl||
    v.fundamentalBasis.trim().length<12||v.comparisonExplanation.trim().length<20)return false;
  return true;
 }
