@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type {DirectionQuickRead,DirectionTrend} from "@/lib/bluebelly-direction-quick-read";
 import s from "./DirectionQuickRead.module.css";
+import AcceleratorDial from "./AcceleratorDial";
 
 type Props={
  question:string;summary:string;read:DirectionQuickRead;
@@ -28,6 +29,9 @@ export default function DirectionQuickRead({
    {read.windows.map(window=><div key={window.days} role="listitem" className={s.window}
       data-direction-window={window.label} data-direction-trend={window.trend}>
     <div className={s.top}><strong>{window.label}</strong><span className={s.dot} aria-hidden="true"/></div>
+    <AcceleratorDial compact label={window.label+" evidence direction"}
+     direction={window.trend==="unknown"?null:window.trend==="better"?1:window.trend==="worse"?-1:0}
+     leftLabel={opposingTerm} rightLabel={supportingTerm}/>
     <span className={s.state}>{WORDING[window.trend]}</span>
     <small>{window.better} {supportingTerm} · {window.worse} {opposingTerm}{window.mixed?" · "+window.mixed+" mixed":""}</small>
     <small>{window.count} dated signal{window.count===1?"":"s"} · {window.from} to {window.to}</small>
