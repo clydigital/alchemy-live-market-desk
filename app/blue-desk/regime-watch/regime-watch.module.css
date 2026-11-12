@@ -433,3 +433,6 @@
 .archivedOverview>summary:focus-visible{outline:2px solid var(--bb-accent);outline-offset:2px}
 .archivedContext{display:block;color:var(--bb-muted);font:800 9px/1.4 var(--bb-mono);
  margin:4px 0 5px;letter-spacing:.02em}
+
+/* Baseline opinions are retained in SSR for regression continuity but never presented as live card readings. */
+.archivedMeterHidden{display:none!important}
