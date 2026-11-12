@@ -16,13 +16,14 @@ type Props = {
 type Screen = "all" | "hot" | "gainers" | "losers" | "overbought" | "oversold" | "gap" | "highvol" | "relative" | "contradiction";
 type SortKey = "attention" | "day" | "3d" | "5d" | "rsi" | "vol" | "type";
 
-const TYPE_ORDER: MarketMonitorType[] = ["Major Index", "AI / Semis", "MAG7", "Sector", "Metal", "Energy", "FX", "Rates", "Credit / Risk", "IPO / New Issue", "Crypto"];
+const TYPE_ORDER: MarketMonitorType[] = ["Major Index", "AI / Semis", "MAG7", "US Stock", "Europe Stock", "Sector", "Metal", "Energy", "FX", "Rates", "Credit / Risk", "IPO / New Issue", "Crypto"];
 
-function formatPrice(value: number | null, type: MarketMonitorType) {
+function formatPrice(value: number | null, type: MarketMonitorType,currency?:string|null) {
   if (value == null) return "—";
   if (type === "Rates") return `${value.toFixed(2)}%`;
   const digits = Math.abs(value) >= 1000 ? 1 : Math.abs(value) >= 100 ? 2 : Math.abs(value) >= 10 ? 2 : 3;
-  return value.toLocaleString("en-GB", { maximumFractionDigits: digits });
+  const formatted=value.toLocaleString("en-GB", { maximumFractionDigits: digits });
+  return currency?currency+" "+formatted:formatted;
 }
 
 function formatPct(value: number | null) {
@@ -122,6 +123,10 @@ export default function MarketsMonitor({ monitor, flows }: Props) {
   const types = TYPE_ORDER.filter((candidate) => monitor.rows.some((row) => row.type === candidate));
   const hotCount = monitor.rows.filter((row) => row.hot).length;
   const gapCount = monitor.rows.filter((row) => row.rsi == null || row.dayChange == null).length;
+  const usStocks=monitor.rows.filter(row=>row.type==="US Stock"||row.type==="MAG7");
+  const euStocks=monitor.rows.filter(row=>row.type==="Europe Stock");
+  const euroSourceHealth=euStocks.length+"/12 source-dated EU shares";
+  const usSourceHealth=usStocks.length+" monitored US shares";
 
   return <div className={styles.workspace}>
     <section className={styles.statStrip}>
@@ -130,6 +135,15 @@ export default function MarketsMonitor({ monitor, flows }: Props) {
       <div><span>CONTRADICTIONS</span><strong>{monitor.contradictions.length}</strong></div>
       <div><span>PARTIAL DATA</span><strong>{gapCount}</strong></div>
     </section>
+    <nav className={styles.equityMarkets} aria-label="Regional equity research">
+      <button type="button" data-selected={type==="US Stock"} onClick={()=>{setType("US Stock");setScreen("all");}}>
+        <span>US stock watch</span><strong>{usStocks.length}</strong><small>{usSourceHealth} · select US-only stocks</small>
+      </button>
+      <button type="button" data-selected={type==="Europe Stock"} onClick={()=>{setType("Europe Stock");setScreen("all");}}>
+        <span>European local shares</span><strong>{euStocks.length} / 12</strong><small>EUR &amp; DKK · {euroSourceHealth}; unavailable shares shown in coverage API</small>
+      </button>
+      <a href="/api/markets/stocks" target="_blank" rel="noreferrer">Stock coverage feed ↗</a>
+    </nav>
 
     {monitor.breadth.length ? <section className={styles.breadthPanel} aria-label="Measured breadth participation">
       <header><span>MARKET PARTICIPATION · DIAGNOSTIC ONLY</span><h2>Source-dated breadth comparison</h2>
@@ -190,7 +204,7 @@ export default function MarketsMonitor({ monitor, flows }: Props) {
               <td><button className={styles.assetButton} type="button"><strong>{row.label}</strong><span>{row.symbol} · {row.asOf || "N/A"}</span>{row.tags.length ? <small>{row.tags.slice(0, 3).join(" · ")}</small> : null}</button></td>
               <td><Sparkline row={row} /></td>
               <td><span className={styles.typePill}>{row.type}</span></td>
-              <td className={styles.number}><strong>{formatPrice(row.last, row.type)}</strong></td>
+              <td className={styles.number}><strong>{formatPrice(row.last, row.type,row.currency)}</strong></td>
               <td className={styles.number} data-tone={tone(row.dayChange)}>{formatDay(row)}</td>
               <td className={styles.number} data-tone={tone(row.gapChange)}>{formatPct(row.gapChange)}</td>
               <td className={styles.number} data-tone={tone(row.change3d)}>{formatPct(row.change3d)}</td>
@@ -201,8 +215,8 @@ export default function MarketsMonitor({ monitor, flows }: Props) {
               <td><span className={styles.hotScore} data-hot={row.hot}>{row.attentionScore}</span></td>
             </tr>
             {expanded === row.id ? <tr className={styles.expanded} key={`${row.id}-detail`}><td colSpan={12}><div className={styles.detailGrid}>
-              <div><span>Previous close</span><strong>{formatPrice(row.previousClose, row.type)}</strong></div>
-              <div><span>Session open</span><strong>{formatPrice(row.sessionOpen, row.type)}</strong></div>
+              <div><span>Previous close</span><strong>{formatPrice(row.previousClose, row.type,row.currency)}</strong></div>
+              <div><span>Session open</span><strong>{formatPrice(row.sessionOpen, row.type,row.currency)}</strong></div>
               <div><span>Relative 5D</span><strong>{formatPct(row.relative5d)}</strong></div>
               <div><span>Frequency</span><strong>{row.frequency}</strong></div>
               <div className={styles.detailSource}><span>Source</span><a href={row.sourceUrl} target="_blank" rel="noreferrer">{row.sourceName} ↗</a></div>

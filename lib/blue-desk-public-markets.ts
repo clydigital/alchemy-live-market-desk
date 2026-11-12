@@ -39,6 +39,7 @@ export type PublicMarketObservation = {
   frequency: "daily" | "monthly";
   sourceName: string;
   sourceUrl: string | null;
+  currency?: string | null;
   screening?: MarketSignalSnapshot | null;
 };
 
@@ -56,7 +57,7 @@ function includedType(type: MarketMonitorType, group: PublicMarketGroup): boolea
     case "energy": return type === "Energy";
     case "fx": return type === "FX";
     case "credit": return type === "Credit / Risk";
-    case "equities": return ["Major Index", "MAG7", "Sector", "IPO / New Issue"].includes(type);
+    case "equities": return ["Major Index", "MAG7", "Sector", "IPO / New Issue", "US Stock", "Europe Stock"].includes(type);
     case "metals": return type === "Metal";
     default: return true;
   }
@@ -112,6 +113,7 @@ function publicRow(row: MarketMonitorRow): PublicMarketObservation {
     frequency: row.frequency,
     sourceName: row.sourceName,
     sourceUrl: originalSourceUrl(row.sourceUrl),
+    currency: row.currency ?? null,
     screening: daily && row.type !== "Rates" ? row.screening ?? null : null,
   };
 }
