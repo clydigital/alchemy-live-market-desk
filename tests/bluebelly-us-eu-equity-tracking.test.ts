@@ -76,7 +76,9 @@ test("public coverage excludes expired source dates and never reveals any user p
  assert.equal(accepted.rows.find(x=>x.ticker==="ASML.AS")?.price,1025);
  assert.equal(expired.rows.find(x=>x.ticker==="ASML.AS")?.price,null);
  assert.equal(projectPublicEquityCoverage([wrongCurrency],now).coverage.sourceDated,0);
- assert(!JSON.stringify(accepted).match(/owner_user_id|holdings|quantity|broker|account_number/i));
+ const forbidden=/^(owner_user_id|holdings|quantity|broker|account_number|portfolio_id)$/i;
+ assert(!Object.keys(accepted).some(k=>forbidden.test(k)));
+ assert(accepted.rows.every(stock=>!Object.keys(stock).some(k=>forbidden.test(k))));
  assert(read("app/api/markets/stocks/route.ts").includes('"Access-Control-Allow-Origin":"https://clydigital.github.io"'));
  const ui=read("components/live-desk/MarketsMonitor.tsx");
  assert(ui.includes("European local shares")&&ui.includes("US stock watch"));
