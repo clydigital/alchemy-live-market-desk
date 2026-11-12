@@ -1,0 +1,15 @@
+.dial,.compact{width:100%;min-width:0;--acc-needle:#e8faff}
+.dial svg{display:block;width:min(100%,215px);height:auto;margin:0 auto}
+.compact svg{display:block;width:min(100%,150px);height:auto;margin:0 auto}
+.rail{fill:none;stroke:var(--bb-card-border);stroke-width:12;stroke-linecap:round;opacity:.65}
+.leftArc,.middleArc,.rightArc{fill:none;stroke-width:9;stroke-linecap:butt}
+.leftArc{stroke:#318fae}.middleArc{stroke:#d3a85d}.rightArc{stroke:#70d9c3}
+.tick{stroke:var(--bb-text);stroke-width:1.8;opacity:.7}
+.needle{stroke:var(--acc-needle);stroke-width:4;stroke-linecap:round;filter:drop-shadow(0 0 5px rgba(85,210,240,.8))}
+.hub{fill:var(--bb-accent);stroke:var(--bb-card-bg);stroke-width:3}
+.readText{font:900 11px var(--bb-mono);fill:var(--bb-text);letter-spacing:.03em}
+[data-accelerator-dial="unknown"] .hub{fill:#8294a2}
+.extremes{display:flex;justify-content:space-between;gap:7px;margin-top:-7px;color:var(--bb-muted);font:700 10px/1.3 var(--bb-mono)}
+.extremes small{font-size:inherit;max-width:49%;text-align:center}
+.compact .extremes{font-size:9px}
+@media(max-width:680px){.dial svg{width:min(100%,190px)}.compact svg{width:min(100%,135px)}}
