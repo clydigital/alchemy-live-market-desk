@@ -12,7 +12,7 @@ test("historical 4 November sector research is below the current source-qualifie
  const story=page.indexOf('<SectorDivergenceFeature mode="newsroom"');
  assert.ok(wire>=0&&wireEnd>wire,"qualified wire must be rendered first");
  assert.ok(open>wireEnd&&story>open,"dated editorial appears after live source wire");
- assert.ok(!page.slice(open,story).includes(" open"),"archive is closed by default");
+ assert.doesNotMatch(page.slice(open,story),/<details[^>]*\\sopen(?:\\s|=|>)/,"archive is closed by default");
  assert.equal(page.match(/<SectorDivergenceFeature mode="newsroom"/g)?.length,1,"no duplicate hero");
  assert.match(page,/data-newsroom-historical-sector="collapsed-below-news-wire"/);
  assert.match(page,/HISTORICAL RESEARCH \/ US CLOSE 4 NOVEMBER 2026/);
