@@ -21,7 +21,7 @@ const PACKETS:Record<RegimeDirectionId,Packet>={
   question:"Is the physical energy squeeze easing?",
   summary:"Delivered supply, LNG contractual disruption, and maritime attacks can move in opposite directions.",
   meaning:"Physical supply relief is not the same as safe passage, normal LNG delivery, or lower diesel margins. Source-publication days, not live oil quotes.",
-  followUpHref:"#asset-monitoring",followUpLabel:"Check energy sources and price tape",
+  followUpHref:"#signals",followUpLabel:"Check energy sources and price tape",
   supportingTerm:"relief",opposingTerm:"pressure",
   signals:[
    {id:"energy-11-nov-navigation",date:"2026-11-11",direction:"worse",
@@ -46,7 +46,7 @@ const PACKETS:Record<RegimeDirectionId,Packet>={
   question:"Are inflation and Fed policy pressures easing?",
   summary:"Separate the official CPI print, Fed speakers, and the market-implied path; no speaker forecast is a policy decision.",
   meaning:"Easing means less price/policy pressure, not falling equity prices. Missing matched FedWatch observations cannot be promoted as odds.",
-  followUpHref:"#asset-monitoring",followUpLabel:"Inspect dated policy observations",
+  followUpHref:"#signals",followUpLabel:"Inspect dated policy observations",
   supportingTerm:"easing",opposingTerm:"pressure",
   signals:[
    {id:"fed-11-nov-repricing",date:"2026-11-11",direction:"worse",
@@ -67,7 +67,7 @@ const PACKETS:Record<RegimeDirectionId,Packet>={
   question:"Is borrowing-cost pressure easing for duration?",
   summary:"Track actual Treasury cash yields separately from TLT ETF proxies, policy expectations and real rates.",
   meaning:"No confirmed 11 November US bond cash session: the official market-close notice is a coverage warning, not a bearish market print.",
-  followUpHref:"#asset-monitoring",followUpLabel:"Inspect yield and TLT data clocks",
+  followUpHref:"#signals",followUpLabel:"Inspect yield and TLT data clocks",
   supportingTerm:"relief",opposingTerm:"pressure",
   signals:[
    {id:"bonds-10-nov-yields",date:"2026-11-10",direction:"worse",
@@ -84,7 +84,7 @@ const PACKETS:Record<RegimeDirectionId,Packet>={
   question:"Are AI investment conditions strengthening?",
   summary:"Demand, issuer cash conversion, financing cost and Nvidia leadership risk are separate tests.",
   meaning:"A single AI stock rebound does not establish sector free cash flow, and a CEO allegation does not prove lost GPU orders.",
-  followUpHref:"#asset-monitoring",followUpLabel:"Inspect issuer and market evidence",
+  followUpHref:"#signals",followUpLabel:"Inspect issuer and market evidence",
   supportingTerm:"strength",opposingTerm:"risk",
   signals:[
    {id:"ai-11-nov-governance",date:"2026-11-11",direction:"worse",
@@ -109,7 +109,7 @@ const PACKETS:Record<RegimeDirectionId,Packet>={
   question:"Is the equity rally broadening beyond megacaps?",
   summary:"Match SPY and RSP on completed US sessions; sector rallies alone cannot establish broad participation.",
   meaning:"Relative equal-weight participation is only one proxy. Confirmation still needs advancers, sectors, SMH/QQQ and 50/200-day breadth.",
-  followUpHref:"#asset-monitoring",followUpLabel:"Check index and breadth context",
+  followUpHref:"#signals",followUpLabel:"Check index and breadth context",
   supportingTerm:"breadth",opposingTerm:"narrowing",
   signals:[
    {id:"breadth-11-nov-spy-rsp",date:"2026-11-11",direction:"worse",
