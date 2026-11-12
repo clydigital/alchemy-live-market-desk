@@ -95,6 +95,24 @@ This path is deliberately fenced:
   even when the video itself is healthy. Important videos should still retry
   the transcript chain later.
 
+## Comprehensive Gemini creator-view fallback — 13 November 2026
+
+When the original transcript provider and independently available full-text caption mirrors fail, invoke the **existing** server-side Gemini public-video rescue only where the video is public and the configured model can actually inspect it. Do not equate a model-generated analysis with a transcript. This route is `GEMINI_SUMMARY_ONLY` and **cannot** advance a consumed-transcript watermark, satisfy evidence admission, or generate automatic market orders or public Stories.
+
+Ask Gemini for **comprehensive bullet-point-equivalent, individual claim items** rather than a short prose paragraph. The request must cover the creator's:
+- **Directional views**: long/short/neutral bias for each mentioned instrument, claimed conviction, duration and why.
+- **Actionable suggestions**: buy, sell, hold, avoid, wait, hedge, position sizing or stop/exit management where stated. Explicitly distinguish a creator's *open position*, a suggestion to the audience and a hypothetical setup.
+- **Entry and invalidation tests**: technical levels (with instrument/timeframe), policy/earnings catalysts, matched market reactions, risk/reward, alternative paths, and what changes their mind.
+- **Underlying mechanisms**: earnings, financing, bond yields, FX, credit, positioning, ETF flows versus turnover, physical energy supply/demand and relevant cross-asset divergences *only where covered by the video*.
+- **Counterarguments and uncertainties**: bullish and bearish cases, data-quality caveats, questionable correlations, and verification questions with original primary-source targets.
+- **Specific sources and timecodes where reliably available**: original video ID, URL, publication date, speaker, quoted figures and units; never invent a timecode or pretend that a chart shown in a video has been independently measured.
+
+Keep every material view as a separate `claims[]` record (maximum 50 under the current schema). Prefix the text with `VIEW`, `SUGGESTION`, `TRIGGER`, `WATCH`, `RISK`, `COUNTERCASE`, `MECHANISM` or `RESEARCH QUESTION`; preserve `classification`, `figures`, `dates`, `timestampSeconds`, `requiresVerification` and `verificationTarget`. `mainThesis`, `uncertainty[]`, `contradictions[]` and `summary` provide context, not a replacement for individual bullets.
+
+**Use this retrieval ladder before a Gemini rescue:** original YouTube caption/transcript → authorised alternative transcript sources, including accessible full-text indexed mirrors with source and completeness metadata → configured Gemini video analysis → discovery-only PENDING with retry. Cross-check external mirrors' channel/video ID, publish date, language and text completeness. Stop or defer when providers are inaccessible; never bypass CAPTCHA/verification or spend unbounded credits. Third-party mirrors may be transcript-complete but are not first-party provenance.
+
+**Display and persistence boundary:** owner Creator Intelligence / Research Gap may show `GEMINI_SUMMARY_ONLY` as an attributed research hypothesis alongside pending-video state, with model, access status, video URL, observed date and verification targets. Only later independently sourced claims may enter the existing evidence gate. The Gemini output itself does not grant a Newsroom or Regime change.
+
 ## Transcript gate
 
 For every video admitted to transcript intake:
