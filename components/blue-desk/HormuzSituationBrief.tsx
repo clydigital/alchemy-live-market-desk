@@ -5,6 +5,8 @@ import type {TopicInfluenceRead} from "@/lib/bluebelly-topic-influence";
 import TopicInfluencePanel from "./TopicInfluencePanel";
 import s from "./HormuzSituationBrief.module.css";
 import DirectionQuickRead from "./DirectionQuickRead";
+import QuestionVerdictCard from "./QuestionVerdictCard";
+import {getReviewedQuestions} from "@/lib/bluebelly-question-assessment-reviewed";
 import {buildDirectionQuickRead,type DirectionEvidence} from "@/lib/bluebelly-direction-quick-read";
 import directionData from "@/data/bluebelly-hormuz-peace-signals.json";
 
@@ -28,7 +30,9 @@ export default function HormuzSituationBrief({
   newsroomHref,reviewed,news,newsCoverageDegraded,wire,crossingState,crossings,crossingAt,
   incidentState,reportedIncidents,incidentAt,
 }:Props){
-  const peace=buildDirectionQuickRead(directionData.signals as DirectionEvidence[],new Date());
+  const now=new Date();
+  const peace=buildDirectionQuickRead(directionData.signals as DirectionEvidence[],now);
+  const verdicts=getReviewedQuestions(["hormuz-peace","hormuz-shipping"],now);
   const verified=news.find(item=>NEGOTIATIONS.test(item.headline+" "+item.summary));
   const latest=reviewed.find(item=>NEGOTIATIONS.test(
     [item.headline,item.standfirst,item.whatChanged].join(" ")));
