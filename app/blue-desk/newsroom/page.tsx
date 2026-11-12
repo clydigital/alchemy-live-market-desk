@@ -118,7 +118,7 @@ export default async function NewsroomPage({searchParams}:Props){
          return <article key={sweep.id} className={ui.manualCard} data-manual-sweep-topic={sweep.topic}>
           <small>{sweep.date} · {sweep.topic.toUpperCase()} · {best.status.replaceAll("_"," ")}</small>
           <h3><Link href={blueDeskPublicHref(target,host)}>{sweep.title}</Link></h3>
-          <SignalTags tags={suggestSignalTags({title:sweep.title,detail:best.reason,evidence:best.status})}/>
+          <SignalTags tags={suggestSignalTags({title:sweep.title,detail:best.reason,evidence:best.status,reviewedValuation:best.reviewedValuation})}/>
           <p>{best.reason}</p>
           <div className={ui.manualLinks}>
             <Link href={blueDeskPublicHref(target,host)}>Open the regime / flow evidence →</Link>
