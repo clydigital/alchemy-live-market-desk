@@ -196,11 +196,13 @@ export default async function PrivatePowerStack() {
     ...bondWatch.map(item=>({ticker:item.ticker,name:item.name,scope:"bond_watch" as const})),
   ]:[];
   const researchTopics=ready?powerStackResearchTopics(researchAssets):[];
-  const researchReads=researchTopics.length?await getTopicInfluences(researchTopics,researchedAt):[];
+  // Both reads happen only after owner/allowlist gating. Run in parallel to
+  // avoid slowing the private terminal by sequential source collection.
+  const [researchReads,publicTape]=await Promise.all([
+   researchTopics.length?getTopicInfluences(researchTopics,researchedAt):Promise.resolve([]),
+   ready?getMarketMonitor().catch(()=>null):Promise.resolve(null),
+  ]);
   const researchGroups=ready?projectPowerStackResearch(researchAssets,researchReads,researchedAt):[];
-  // Owner gate already passed: use the same public market-return projection,
-  // then match interests inside the private page without public portfolio joins.
-  const publicTape=ready?await getMarketMonitor().catch(()=>null):null;
   const tapeComparisons=buildMarketDivergenceWatch(publicMarketObservations(publicTape?.rows??[],"all"),"1D");
   const measuredSignals=selectMeasuredMarketSignals(tapeComparisons,"1D",researchedAt,5);
 
