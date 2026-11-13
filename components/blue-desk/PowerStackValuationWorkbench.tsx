@@ -5,7 +5,7 @@ import s from "./PowerStackValuationWorkbench.module.css";
 export type ValuationResearchAsset=Readonly<{
  ticker:string;name:string;
  scope:"archived_holding"|"archived_watchlist"|"bond_watch";
- peg:(PegResearchEvaluation & {analystsFirst:number|null;analystsSecond:number|null;source:string})|null;
+ peg:(PegResearchEvaluation & {analystsFirst:number|null;analystsSecond:number|null;source:string;forecastSourceUrl:string})|null;
  quote:{price:number;currency:string;observed_on:string;source_url:string;timestamp_basis:string}|null;
 }>;
 const money=(x:number,currency:string)=>currency+" "+x.toLocaleString("en-GB",{maximumFractionDigits:2});
@@ -73,7 +73,10 @@ export default function PowerStackValuationWorkbench({assets,reviews,storeError}
       <p><b>Missing before calling mispricing:</b> issuer-reported operating cash flow/capex, earnings quality, dilution and net debt,
        a credible independently linked valuation range, downside assumptions and a current exchange-dated quote.</p>
       <p className={s.warning}>A low PEG or a recent price drop is not evidence of undervaluation.</p>
-      {asset.quote?.source_url?.startsWith("https://")?<a href={asset.quote.source_url} target="_blank" rel="noopener noreferrer">Existing quote receipt ↗</a>:null}
+      <div className={s.links}>
+       {asset.quote?.source_url?.startsWith("https://")?<a href={asset.quote.source_url} target="_blank" rel="noopener noreferrer">Existing quote receipt ↗</a>:null}
+       {asset.peg?.forecastSourceUrl.startsWith("https://")?<a href={asset.peg.forecastSourceUrl} target="_blank" rel="noopener noreferrer">Forecast source ↗</a>:null}
+      </div>
     </div>}
    </article>;
   })}</div>
