@@ -7,3 +7,48 @@
 @media(max-width:950px){.main{grid-template-columns:1fr}.risk{max-width:470px}.assets{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:620px){.wrap{padding:15px;margin-top:9px}.main{gap:12px}.verdict h1{font-size:27px}.verdict p{font-size:13px}.risk{padding:10px}.risk p{display:none}.decision{grid-template-columns:1fr;gap:8px;margin:13px 0 17px}.decisionBlock{padding:10px 12px}.decisionBlock strong{font-size:12px}.assetHeader{display:block}.assetHeader>span{display:block;text-align:left;margin-top:4px}.assets{grid-template-columns:repeat(2,minmax(0,1fr))}.asset{padding:11px}.disclaimer{font-size:9px}.footer{display:block}.footer a{display:block;margin-top:8px}.riskCell{font-size:10px;padding:9px 2px}}
 @media(max-width:345px){.riskCell{font-size:9px}.asset>strong{font-size:14px}.verdict h1{font-size:25px}}
+
+/* Same dated semantic proxy colours as the nine Regime lenses.
+   Do not equate "up" with "good": higher 2Y/10Y/oil = rising pressure. */
+.wrap{--mc-positive:#36c49b;--mc-pressure:#fa7479;--mc-mixed:#eab65b;--mc-unknown:#8795a3}
+.wrap[data-compass-state="RISK_ON"]{--mc-summary-tone:var(--mc-positive)}
+.wrap[data-compass-state="RISK_OFF"]{--mc-summary-tone:var(--mc-pressure)}
+.wrap[data-compass-state="MIXED"]{--mc-summary-tone:var(--mc-mixed)}
+.wrap[data-compass-state="UNMEASURED"]{--mc-summary-tone:var(--mc-unknown)}
+.risk{border-color:color-mix(in srgb,var(--mc-summary-tone) 64%,#31536a 36%);
+ box-shadow:inset 4px 0 0 var(--mc-summary-tone);
+ background:linear-gradient(125deg,color-mix(in srgb,#081d2d 88%,var(--mc-summary-tone) 12%),#081d2d)}
+.wrap .riskCell[data-selected=true]{border-color:var(--mc-summary-tone);
+ box-shadow:inset 0 -4px var(--mc-summary-tone);
+ background:color-mix(in srgb,#173044 68%,var(--mc-summary-tone) 32%);color:#fff}
+.wrap[data-compass-state="UNMEASURED"] .riskCell[data-selected=true]{border-color:#355267;box-shadow:none}
+.legend{display:flex;flex-wrap:wrap;gap:5px 12px;margin:0 0 11px}
+.legend span{display:inline-flex;gap:6px;align-items:center;color:#b4cedd;
+ font:700 10px/1.35 var(--bluebelly-font)}
+.legend i{display:inline-block;width:9px;height:9px;flex:none;border-radius:2px;background:var(--mc-tone)}
+.legend [data-legend-tone="improving"]{--mc-tone:var(--mc-positive)}
+.legend [data-legend-tone="pressure"]{--mc-tone:var(--mc-pressure)}
+.legend [data-legend-tone="mixed"]{--mc-tone:var(--mc-mixed)}
+.legend [data-legend-tone="unknown"]{--mc-tone:var(--mc-unknown)}
+.asset[data-signal-tone="improving"]{--mc-tone:var(--mc-positive)}
+.asset[data-signal-tone="pressure"]{--mc-tone:var(--mc-pressure)}
+.asset[data-signal-tone="mixed"]{--mc-tone:var(--mc-mixed)}
+.asset[data-signal-tone="unknown"]{--mc-tone:var(--mc-unknown)}
+.asset[data-signal-tone]{border:1px solid color-mix(in srgb,var(--mc-tone) 68%,#2f5062 32%);
+ border-left:4px solid var(--mc-tone);
+ background:linear-gradient(130deg,color-mix(in srgb,#0a2536 81%,var(--mc-tone) 19%),
+ color-mix(in srgb,#0a2536 94%,var(--mc-tone) 6%));
+ transition:background .15s ease,border-color .15s ease}
+.asset[data-signal-tone]:hover,.asset[data-signal-tone]:focus-visible{
+ border-color:var(--mc-tone);border-left-color:var(--mc-tone);
+ background:linear-gradient(130deg,color-mix(in srgb,#0a2536 76%,var(--mc-tone) 24%),#0a2536)}
+.asset[data-signal-tone] .assetTop b{color:var(--mc-tone)}
+.asset[data-signal-tone]>strong{font-size:14px;line-height:1.35;min-height:38px}
+.asset[data-signal-tone] .assetDelta{color:#f0f8fb;font-size:11px;font-weight:850;
+ font-variant-numeric:tabular-nums}
+.asset[data-signal-tone] .assetScope{color:#a9c2d0;font-size:9px;line-height:1.45}
+.asset[data-signal-tone] .assetClock{margin-top:auto;border-top:1px solid color-mix(in srgb,var(--mc-tone) 26%,#2f5062 74%);
+ padding-top:7px}
+.asset[data-status="last_reported"]{border-right-style:dashed}
+@media(max-width:620px){.legend{gap:4px 9px}.legend span{font-size:9px}
+ .asset[data-signal-tone]>strong{min-height:0;font-size:13px}}
