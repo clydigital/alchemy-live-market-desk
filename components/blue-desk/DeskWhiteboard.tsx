@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type {MarketCompassSummary} from "@/lib/bluebelly-market-compass";
 import type {NewsBriefV1} from "@/lib/market-brief-news";
+import {sourceCheckedReleaseImpact} from "@/lib/bluebelly-release-impact-brief";
 import type {PublicThesis} from "@/lib/blue-desk-thesis-ledger";
 import type {PresenterCalendarEvent} from "@/lib/presenter-calendar";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
@@ -27,6 +28,7 @@ export default function DeskWhiteboard({
  const latest=news.find(item=>Number.isFinite(Date.parse(item.occurredAt)) &&
    Date.parse(item.occurredAt)<=now.getTime() &&
    now.getTime()-Date.parse(item.occurredAt)<=48*3600000);
+ const reviewedRelease=latest?sourceCheckedReleaseImpact(latest):null;
  const story=theses[0]??null;
  const catalyst=upcoming[0]??null;
  const open=(path:string)=>blueDeskPublicHref(path,host);
@@ -50,8 +52,10 @@ export default function DeskWhiteboard({
    </article>
    <article className={styles.cell} data-whiteboard-cell="release">
     <span className={styles.label}>02 / LATEST VERIFIED CHANGE</span>
-    <h3>{latest?shortened(latest.headline,93):"No fresh source-qualified update"}</h3>
-    <p>{latest?shortened(latest.summary,165):"No new release in the checked 48-hour source window. This is a coverage state, not an empty-news claim."}</p>
+    <h3>{reviewedRelease?shortened(reviewedRelease.title,93):
+      latest?shortened(latest.headline,93):"No fresh source-qualified update"}</h3>
+    <p>{reviewedRelease?shortened(reviewedRelease.lead,200):
+      latest?shortened(latest.summary,165):"No new release in the checked 48-hour source window. This is a coverage state, not an empty-news claim."}</p>
     <small>{latest?<><DualTimestamp value={latest.occurredAt}/> · {latest.sourceName}</>:"Source freshness pending"}</small>
     <Link href={newsHref}>{latest?"Read qualified event":"Browse original sources"} <span aria-hidden="true">↗</span></Link>
    </article>

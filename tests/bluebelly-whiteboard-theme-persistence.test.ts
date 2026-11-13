@@ -40,6 +40,10 @@ test("dashboard whiteboard reuses canonical existing source data and market dire
  assert.match(home,/<DeskWhiteboard compass=\{marketCompass\} news=\{verifiedNews\} theses=\{theses\}/);
  for(const lane of ["market","release","thesis","catalyst"])assert.ok(board.includes('data-whiteboard-cell="'+lane+'"'));
  assert.match(board,/MarketCompassSummary/);
+ assert.match(board,/sourceCheckedReleaseImpact\(latest\)/);
+ assert.match(board,/reviewedRelease\.lead/);
+ assert.match(board,/reviewedRelease\.title/);
+
  assert.match(board,/Date.parse\(item.occurredAt\)/);
  assert.match(board,/48\*3600000/);
  assert.match(board,/sourceSession/);
