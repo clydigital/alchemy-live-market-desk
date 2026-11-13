@@ -80,8 +80,8 @@ export function evaluateIssuerValuation(
  const riskFlags:string[]=[];
  if(freeCashFlow<0)riskFlags.push("Negative reported free cash flow");
  if(freeCashFlow===0)riskFlags.push("No reported free cash flow cushion");
- if(n(input.net_income)!==null&&n(input.net_income)!<=0)riskFlags.push("Non-positive reported net income");
- if(n(input.share_based_compensation)!==null&&ocf>0&&n(input.share_based_compensation)!/ocf>0.25)
+ if(n(input.net_income)!==null&&(n(input.net_income)??1)<=0)riskFlags.push("Non-positive reported net income");
+ if(n(input.share_based_compensation)!==null&&ocf>0&&(n(input.share_based_compensation)??0)/ocf>0.25)
    riskFlags.push("Share-based compensation exceeds 25% of reported operating cash flow");
  const verdict:IssuerReviewVerdict=price<low*.9?"BELOW_REVIEWED_RANGE":
   price>high*1.1?"ABOVE_REVIEWED_RANGE":"WITHIN_REVIEWED_RANGE";
@@ -103,6 +103,7 @@ export function evaluateIssuerValuation(
 export function projectIssuerValuationReviews(
  raw:readonly unknown[],trackedTickers:readonly string[],now=new Date(),limit=100,
 ):IssuerReviewResult[]{
+ if(!Number.isInteger(limit)||limit<=0)return [];
  const allowed=new Set(trackedTickers.map(t=>t.toUpperCase()));
  const output:IssuerReviewResult[]=[],seen=new Set<string>();
  const sorted=[...raw].filter((x):x is PrivateIssuerValuationReview=>
