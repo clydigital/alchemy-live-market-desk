@@ -7,6 +7,7 @@ import {buildSignalRadar} from "../lib/bluebelly-signal-radar.ts";
 import {filterNewsBySignal,newsResearchTags,normaliseNewsSignalFilter} from "../lib/bluebelly-news-signal-filter.ts";
 import type {PublicMarketObservation} from "../lib/blue-desk-public-markets.ts";
 import type {NewsBriefV1} from "../lib/market-brief-news.ts";
+import type {TopicInfluenceRead} from "../lib/bluebelly-topic-influence.ts";
 const read=(p:string)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 const row=(symbol:string,change:number,asOf="2026-11-12"):PublicMarketObservation=>({
  id:symbol,symbol,label:symbol,type:"Sector",last:100,change,change3d:change*2,change5d:change*3,
@@ -50,7 +51,7 @@ test("stale, future, mismatched, unknown or unsigned sources never enter the rad
  assert.equal(selectMeasuredMarketSignals(unavailable,"1D",now).length,0);
 });
 test("Regime radar reserves bounded measured market space, preserves source checks and limits",()=>{
- const sourceFeed=[];const readings=tape(-3.1,1.7);
+ const sourceFeed:TopicInfluenceRead[]=[];const readings=tape(-3.1,1.7);
  const radar=buildSignalRadar(sourceFeed,now,12,readings,"1D");
  assert.equal(radar.length,1);
  assert.equal(radar[0].verification,"MEASURED MARKET GAP");
