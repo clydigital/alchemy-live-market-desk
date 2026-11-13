@@ -100,5 +100,5 @@ test("the live pages use a typed measured market bridge and preserve owner-only 
  assert.match(news,/signal"\);else url.searchParams.set\("signal"/);
  assert.match(newsPage,/initialSignal=\{typeof params.signal/);
  assert.doesNotMatch(pub,/power_stack_owner_snapshots|trackedTickers/);
- assert.doesNotMatch(privatePanel,/\\.insert\\(|\\.update\\(|\\.upsert\\(/);
+ assert.ok(![".insert(", ".update(", ".upsert("].some(token=>privatePanel.includes(token)));
 });
