@@ -33,5 +33,7 @@ test("a missing SPY never substitutes the cash S&P 500 index",()=>{
   {...etf("^GSPC",0.4),id:"spx-proxy",symbol:"^GSPC",sourceName:"Index"}
  ],"1D");
  assert.equal(reads.find(x=>x.id==="equal-vs-cap")?.status,"NOT_COMPARABLE");
- assert.equal(buildMarketCompassSummary(reads,new Date("2026-11-13T14:00:00Z")).state,"UNMEASURED");
+ const verdict=buildMarketCompassSummary(reads,new Date("2026-11-13T14:00:00Z"));
+ assert.equal(verdict.state,"UNMEASURED");
+ assert.match(verdict.explanation,/SPY/);
 });
