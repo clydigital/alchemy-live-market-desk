@@ -5,7 +5,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import styles from "@/app/blue-desk/blue-desk.module.css";
 import portfolio from "./private-power-stack.module.css";
-import { evaluatePegResearch, type PegResearchObservation } from "@/lib/power-stack-peg-research";
+import {repricePegResearch,type PegResearchObservation,type RebasedPegResearchEvaluation} from "@/lib/power-stack-peg-research";
+import PowerStackResearchFocus from "@/components/blue-desk/PowerStackResearchFocus";
 import {getTopicInfluences} from "@/lib/bluebelly-topic-influence-server";
 import {powerStackResearchTopics,projectPowerStackResearch,type PowerStackTracked} from "@/lib/power-stack-research-links";
 import PowerStackResearchImpact from "@/components/blue-desk/PowerStackResearchImpact";
@@ -175,12 +176,17 @@ export default async function PrivatePowerStack() {
         .eq("owner_user_id",identity.user.id).in("ticker",trackedTickers.slice(0,250))
         .order("retrieved_at",{ascending:false}).limit(300)
     : {data:null,error:null};
-  const pegByTicker=new Map<string,ReturnType<typeof evaluatePegResearch> & {
+  const pegByTicker=new Map<string,RebasedPegResearchEvaluation & {
     analystsFirst:number|null; analystsSecond:number|null; source:string;forecastSourceUrl:string;
   }>();
   if(!pegError)for(const record of pegRecords??[]){
     if(pegByTicker.has(record.ticker))continue;
-    const evaluation=evaluatePegResearch(record as PegResearchObservation);
+    const ownerQuote=latestQuotes.get(record.ticker);
+    const evaluation=repricePegResearch(record as PegResearchObservation,ownerQuote?{
+      price:ownerQuote.price,currency:ownerQuote.currency,observed_on:ownerQuote.observed_on,
+      source_url:ownerQuote.source_url,timestamp_basis:ownerQuote.timestamp_basis,
+      source_recorded_at:ownerQuote.source_recorded_at,
+    }:null);
     pegByTicker.set(record.ticker,{
       ...evaluation,
       analystsFirst:typeof record.first_fy_analysts==="number"?record.first_fy_analysts:null,
@@ -253,6 +259,7 @@ export default async function PrivatePowerStack() {
         </header>
         <PowerStackDecisionHub now={researchedAt}/>
         {ready?<PowerStackMeasuredSignals signals={measuredSignals} trackedTickers={trackedTickers} topics={researchTopics}/>:null}
+        {ready?<PowerStackResearchFocus assets={issuers} now={researchedAt}/>:null}
         {ready?<PowerStackValuationWorkbench assets={issuers} reviews={issuerReviews}
           storeError={Boolean(issuerValuationError)}/>:null}
         <NvidiaEarningsDecisionWatch mode="power-stack" now={researchedAt} owner={{
@@ -325,6 +332,8 @@ export default async function PrivatePowerStack() {
                             peg.analystsSecond!==null && peg.analystsSecond<5 ? " · Thin consensus" : ""}
                           {peg.hasNativeEstimateRevision?" · Native revision recorded":" · Native revision unknown"}
                           {" · "+peg.source}
+                          {" · Price "+peg.quoteObservedOn+" / "+(peg.quoteBasis==="FRESH_OWNER_PRICE"?"fresh owner quote":"forecast snapshot")}
+                          {peg.quoteSourceUrl?<a href={peg.quoteSourceUrl} target="_blank" rel="noopener noreferrer">Quote receipt ↗</a>:null}
                         </> : "Not covered"}
                       </td>
                     </tr>;
