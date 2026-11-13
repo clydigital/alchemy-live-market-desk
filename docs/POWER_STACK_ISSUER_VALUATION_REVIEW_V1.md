@@ -15,9 +15,9 @@
 
 ## Exact fields and provenance
 
-`ticker, reviewed_at, review_status='SOURCE_REVIEWED', price_observed_on, market_price, price_currency, price_source_url, source_timestamp_basis='market_session', valuation_low, valuation_high, valuation_currency, valuation_method, valuation_source_url, method_explanation, downside_case, invalidation_test, financial_period_end, fundamental_source_url, revenue, net_income, operating_cash_flow, capital_expenditure, share_based_compensation, net_debt, reviewer_note`.
+`ticker, reviewed_at, review_status='SOURCE_REVIEWED', price_observed_on, market_price, price_currency, price_source_url, source_timestamp_basis='market_session', valuation_low, valuation_high, valuation_currency, valuation_method, valuation_source_url, method_explanation, downside_case, invalidation_test, financial_period_end, financials_currency, financials_unit, fundamental_source_url, revenue, net_income, operating_cash_flow, capital_expenditure, share_based_compensation, net_debt, reviewer_note`.
 
-Amounts in the financial statement metrics must use a **consistent issuer reporting unit** (e.g. USD millions). The interface labels the FCF proxy with the review's currency but the input units must be understood; the UI must not imply an absolute dollar total if the reviewer reported millions. Source records should disclose units explicitly in the reviewer's method note. There is no adjustment for acquired intangibles, lease accounting, maintenance vs growth capex, dilution, future share count or net cash unless documented in the valuation model.
+Amounts in the financial statement metrics must use the explicitly declared **consistent issuer reporting unit** (ones, thousands or millions), and financials currency must match the model and quoted share currency or the reviewer must normalise the amounts before submission. The interface displays the FCF proxy with this exact unit. There is no adjustment for acquired intangibles, lease accounting, maintenance vs growth capex, dilution, future share count or net cash unless documented in the valuation model.
 
 ## Rollout fence
 
