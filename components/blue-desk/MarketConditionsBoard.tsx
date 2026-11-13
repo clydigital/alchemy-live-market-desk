@@ -17,7 +17,7 @@ type Props = {
 };
 function lastDate(value:string|null,now:Date,maxDays:number){
   if(!value)return false;
-  const stamp=Date.parse(/^\\d{4}-\\d{2}-\\d{2}$/.test(value)?value+"T00:00:00Z":value);
+  const stamp=Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(value)?value+"T00:00:00Z":value);
   const age=now.getTime()-stamp;
   return Number.isFinite(stamp) && age>=-300000 && age<=maxDays*86400000;
 }
