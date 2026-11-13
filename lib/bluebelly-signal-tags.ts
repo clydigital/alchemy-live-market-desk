@@ -37,7 +37,7 @@ const DIFFERENCE=/\b(?:despite|while|versus|vs\.?|although|even as|but|yet|contr
 const DIMENSIONS=[
  /\b(?:price|shares?|stocks?|etf|valuation|yield|brent|crack|index|equities|premium)\b/i,
  /\b(?:revenue|sales|demand|orders?|shipments?|backlog|capex|capacity|utilisation|utilization|contracts?)\b/i,
- /\b(?:cash flow|fcf|profit|earnings|margin|loss|interest expense|debt|finance|funding|credit)\b/i,
+ /\b(?:cash flow|fcf|profit|earnings|margin|loss|interest (?:expense|costs?)|borrowing costs?|debt|financ\w*|funding|credit)\b/i,
  /\b(?:supply|inventory|storage|tanker|shipping|refin\w*|exports?|lng|diesel|gasoline|fuel)\b/i,
  /\b(?:rate|fed|policy|inflation|cpi|tariff|sanction|export controls?)\b/i,
 ];
