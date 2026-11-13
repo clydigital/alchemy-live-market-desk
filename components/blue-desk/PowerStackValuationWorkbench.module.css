@@ -1,0 +1,27 @@
+.root{margin:18px 0;padding:clamp(15px,2vw,22px);border:1px solid var(--bb-card-border);border-top:3px solid var(--bb-accent);background:var(--bb-card-bg);color:var(--bb-text)}
+.header{display:flex;align-items:start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.header>div:first-child>span{color:var(--bb-accent);font:800 10px/1.5 var(--bb-mono)}
+.header h2{font:900 clamp(21px,2.6vw,29px)/1.2 var(--bb-display);margin:6px 0 9px}
+.header p,.footer{font:550 12px/1.65 var(--bb-display);color:var(--bb-muted);max-width:91ch}
+.totals{min-width:170px;padding:10px 12px;background:var(--bb-card-quiet);border:1px solid var(--bb-card-border);display:flex;flex-direction:column}
+.totals strong{font:900 28px/1.1 var(--bb-display);color:var(--bb-text)}
+.totals small,.totals span{font:700 10px/1.6 var(--bb-mono);color:var(--bb-muted)}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:16px}
+.card{min-width:0;border:1px solid var(--bb-card-border);background:var(--bb-card-quiet);padding:15px}
+.meta{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;font:750 10px/1.45 var(--bb-mono);color:var(--bb-muted)}
+.meta strong{color:var(--bb-accent)}
+.card h3{font:850 17px/1.35 var(--bb-display);margin:7px 0}
+.card p{color:var(--bb-muted);font:550 12px/1.6 var(--bb-display)}
+.card p b{color:var(--bb-text)}
+.state{font:750 10px/1.5 var(--bb-mono)!important;color:var(--bb-accent)!important}
+.badge{font:850 11px/1.5 var(--bb-mono)!important;color:var(--bb-text)!important}
+.warning{color:var(--bb-muted);font-size:12px;line-height:1.65}
+.card .warning{padding:8px;border-left:2px solid var(--bb-accent);background:var(--bb-card-bg)}
+.card details{border-top:1px solid var(--bb-card-border);margin-top:12px;padding-top:10px}
+.card summary{color:var(--bb-accent);font:800 11px/1.45 var(--bb-mono);cursor:pointer}
+.links{display:flex;flex-wrap:wrap;gap:8px 12px;margin-top:10px}
+.links a,.card a,.footer a{font:700 11px/1.5 var(--bb-mono);color:var(--bb-accent)}
+.footer{border-top:1px solid var(--bb-card-border);margin:15px 0 0;padding-top:13px}
+.empty{font-size:13px;color:var(--bb-muted)}
+@media(max-width:1070px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:690px){.grid{grid-template-columns:1fr}.card{padding:13px}}
