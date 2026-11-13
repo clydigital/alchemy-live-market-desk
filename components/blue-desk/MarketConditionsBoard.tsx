@@ -4,6 +4,8 @@ import type {PublicMarketObservation} from "@/lib/blue-desk-public-markets";
 import type {JobsPublicProjection} from "@/lib/macro/jobs-public-projection";
 import type {BluebellyAbsorptionHealth} from "@/lib/bluebelly-absorption-health";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
+import {proxySignalTone,type LensSignalTone} from "@/lib/bluebelly-regime-lens-card-signal";
+import type {RegimeDirectionId} from "@/lib/bluebelly-regime-direction-reads";
 import s from "./MarketConditionsBoard.module.css";
 
 type Direction = -1 | 0 | 1 | null;
@@ -35,17 +37,22 @@ function findMarket(rows:readonly PublicMarketObservation[],type:string,prefer:R
   const group=rows.filter(x=>x.type===type);
   return group.find(x=>prefer.test(x.symbol)||prefer.test(x.label))??group[0]??null;
 }
-function TapeCard({name,scope,row,href,now,changeWindow="1D",left,right}:{
+function TapeCard({name,scope,row,href,now,signalId,changeWindow="1D",left,right}:{
   name:string;scope:string;row:PublicMarketObservation|null;href:string;now:Date;
-  changeWindow?:"1D"|"5D";left:string;right:string;
+  signalId:RegimeDirectionId;changeWindow?:"1D"|"5D";left:string;right:string;
 }){
   const ready=admissible(row,now);
   const delta=ready?(changeWindow==="5D"?row!.change5d:row!.change):null;
   const needle=direction(delta);
   const unit=row?.changeUnit??"%";
+  const signal=proxySignalTone(signalId,needle);
+  const status=signal==="improving"?"EASING / STRENGTHENING":
+    signal==="pressure"?"RISING PRESSURE / WEAKNESS":
+    signal==="mixed"?"MIXED / FLAT":"NO CURRENT SIGNAL";
   return <Link href={href} className={s.card} data-condition={name.toLowerCase().replace(/[^a-z0-9]+/g,"-")}
-    data-condition-status={!ready?"unavailable":needle===null?"partial":"measured"}>
-    <span className={s.scope}>{scope}</span>
+    data-condition-status={!ready?"unavailable":needle===null?"partial":"measured"} data-signal-tone={signal}
+    aria-label={name+": "+status+". "+(ready?row!.asOf:"Source unavailable")}>
+    <div className={s.cardTop}><span className={s.scope}>{scope}</span><strong className={s.toneTag}>{status}</strong></div>
     <h3>{name}</h3>
     <div className={s.meter}><AcceleratorDial compact label={name} direction={needle}
       leftLabel={left} rightLabel={right} middleLabel="FLAT"/></div>
@@ -55,13 +62,21 @@ function TapeCard({name,scope,row,href,now,changeWindow="1D",left,right}:{
     <span className={s.open}>OPEN SOURCE-DATED DETAIL ↗</span>
   </Link>;
 }
-function FractionCard({name,scope,value,total,caption,date,href,available}:{
+function FractionCard({name,scope,value,total,caption,date,href,available,metric}:{
   name:string;scope:string;value:number;total:number;caption:string;date:string|null;href:string;available:boolean;
+  metric:"jobs"|"source";
 }){
   const share=available&&total>0?Math.max(0,Math.min(100,Math.round(100*value/total))):0;
+  const tone:LensSignalTone=!available||total<=0?"unknown":
+    metric==="jobs"?(value*2>total?"improving":value*2<total?"pressure":"mixed"):
+    value===total?"improving":value===0?"pressure":"mixed";
+  const status=tone==="unknown"?"COVERAGE UNKNOWN":
+    metric==="jobs"?(tone==="improving"?"MORE SECTORS GROWING":tone==="pressure"?"MORE SECTORS NOT GROWING":"EVENLY SPLIT"):
+    tone==="improving"?"CHECKS COMPLETE":tone==="pressure"?"NO CHECKS HEALTHY":"PARTIAL COVERAGE";
   return <Link href={href} className={s.card} data-condition={name.toLowerCase().replace(/[^a-z0-9]+/g,"-")}
-    data-condition-status={available?"measured":"unavailable"}>
-    <span className={s.scope}>{scope}</span>
+    data-condition-status={available?"measured":"unavailable"} data-signal-tone={tone}
+    aria-label={name+": "+status+". "+(date||"Source unavailable")}>
+    <div className={s.cardTop}><span className={s.scope}>{scope}</span><strong className={s.toneTag}>{status}</strong></div>
     <h3>{name}</h3>
     <div className={s.fractionGraph} role="img"
       aria-label={available?value+" of "+total+" — "+share+" percent":name+": source unavailable"}>
@@ -93,23 +108,23 @@ export default function MarketConditionsBoard({market,breadth,jobs,health,now,ho
         <h2 id="condition-board-heading">See the signals. Then read the story.</h2></div>
       <Link href={go("/blue-desk/regime-watch")}>FULL REGIME WATCH ↗</Link>
     </header>
-    <p className={s.intro}>Needles show the direction of the named observation, not probabilities, investment ratings or a full regime verdict. Grey means no comparable current reading.</p>
+    <p className={s.intro}>Coloured cards show the direction or coverage of their named measurement. Green means an improving proxy, red means increasing pressure, amber means mixed/partial and grey means unmeasured. These are not full Regime verdicts or trade recommendations.</p>
     <div className={s.grid}>
-      <TapeCard name="AI / SEMIS" scope="Sector price direction" row={ai} now={now}
+      <TapeCard name="AI / SEMIS" scope="Sector price direction" row={ai} now={now} signalId="ai"
         href={go("/blue-desk/markets?group=ai")} left="Price falling" right="Price rising"/>
-      <TapeCard name="CRUDE OIL" scope="Energy price direction" row={energy} now={now}
+      <TapeCard name="CRUDE OIL" scope="Energy price direction" row={energy} now={now} signalId="energy"
         href={go("/blue-desk/hormuz")} left="Price falling" right="Price rising"/>
-      <TapeCard name="US 10Y YIELD" scope="Yield pressure · bp" row={treasury} now={now}
+      <TapeCard name="US 10Y YIELD" scope="Yield pressure · bp" row={treasury} now={now} signalId="bonds"
         href={go("/blue-desk/regime-watch/bonds#bond-pressure")} left="Yield falling" right="Yield rising"/>
-      <TapeCard name="S&P 500 BREADTH" scope="Stocks above 50D · 5-session change" row={freshBreadth} now={now}
+      <TapeCard name="S&P 500 BREADTH" scope="Stocks above 50D · 5-session change" row={freshBreadth} now={now} signalId="breadth"
         href={go("/blue-desk/markets?group=breadth")} changeWindow="5D"
         left="Participation falling" right="Participation rising"/>
-      <FractionCard name="US JOBS BREADTH" scope="Growing sectors · latest BLS release"
+      <FractionCard name="US JOBS BREADTH" scope="Growing sectors · latest BLS release" metric="jobs"
         value={jobsReady?jobs!.growing!:0} total={jobsReady?jobs!.sectorCount:0}
         available={jobsReady} date={jobsReady?jobs!.period+" · released "+jobs!.releasedAt:null}
         caption={jobsReady?jobs!.shrinking+" sectors contracting · net payroll "+(jobs!.headlineChangeK===null?"unavailable":sign(jobs!.headlineChangeK,"K")):""}
         href={go("/blue-desk/markets#jobs-monitor")}/>
-      <FractionCard name="SOURCE HEALTH" scope="X Wire · complete fresh source checks"
+      <FractionCard name="SOURCE HEALTH" scope="X Wire · complete fresh source checks" metric="source"
         value={healthReady?health!.healthy:0} total={healthReady?health!.monitored:0}
         available={healthReady} date={healthReady?"Checked "+health!.checkedAt.slice(0,16).replace("T"," ")+" UTC":null}
         caption={healthReady?health!.historicalGaps+" accounts with historical gaps":""}

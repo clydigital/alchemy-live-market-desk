@@ -43,8 +43,9 @@ export default function DeskWhiteboard({
    <small>Checked <DualTimestamp value={now.toISOString()}/> · No simulated live calls</small>
   </header>
   <div className={styles.grid}>
-   <article className={styles.cell} data-whiteboard-cell="market">
+   <article className={styles.cell} data-whiteboard-cell="market" data-compass-state={compass.state}>
     <span className={styles.label}>01 / MARKET TAPE</span>
+    <strong className={styles.marketFlag}>{compass.state==="RISK_ON"?"RISK-ON SESSION":compass.state==="RISK_OFF"?"RISK-OFF SESSION":compass.state==="MIXED"?"MIXED TAPE":"TAPE NOT MEASURED"}</strong>
     <h3>{compass.title}</h3>
     <p>{shortened(compass.explanation,170)}</p>
     <small>{compass.sourceSession?"US session "+compass.sourceSession+" · 1D matched ETFs":"Comparable ETF session unavailable"}</small>
