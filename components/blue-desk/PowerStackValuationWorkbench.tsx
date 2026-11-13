@@ -50,7 +50,9 @@ export default function PowerStackValuationWorkbench({assets,reviews,storeError}
       <p><b>Reviewed model range:</b> {money(r.valuationLow,r.currency)}–{money(r.valuationHigh,r.currency)} ({r.valuationMethod.replaceAll("_"," ")})</p>
       <p><b>Distance to low case:</b> {r.distanceToLowPct>0?"+":""}{r.distanceToLowPct}% · not a forecast return</p>
       <p><b>Reported FCF proxy:</b> {money(r.freeCashFlow,r.currency)} {r.financialsUnit} (operating cash flow minus capex) · period ended {r.financialPeriodEnd}</p>
-      <p><b>Net income:</b> {r.netIncome===null?"Not supplied":money(r.netIncome,r.currency)+" "+r.financialsUnit}</p>
+      <p><b>Operating cash flow / capex:</b> {money(r.cashFlowFromOperations,r.currency)} / {money(r.capitalExpenditure,r.currency)} {r.financialsUnit}</p>
+      <p><b>Revenue / net income:</b> {r.revenue===null?"Not supplied":money(r.revenue,r.currency)+" "+r.financialsUnit} / {r.netIncome===null?"Not supplied":money(r.netIncome,r.currency)+" "+r.financialsUnit}</p>
+      <p><b>Share compensation / net debt:</b> {r.shareBasedCompensation===null?"Not supplied":money(r.shareBasedCompensation,r.currency)+" "+r.financialsUnit} / {r.netDebt===null?"Not supplied":money(r.netDebt,r.currency)+" "+r.financialsUnit}</p>
       {r.riskFlags.length?<p className={s.warning}><b>Quality flags:</b> {r.riskFlags.join("; ")}</p>:null}
       <details><summary>Model assumptions, downside and invalidation</summary>
        <p><b>Method:</b> {r.methodExplanation}</p>
