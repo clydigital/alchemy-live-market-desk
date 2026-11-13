@@ -20,6 +20,7 @@ import {getMarketMonitor} from "@/lib/market-monitor-public";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
 import {calculateBreadthRow} from "@/lib/bluebelly-breadth-dated";
 import {projectRegimeMeterReadings} from "@/lib/bluebelly-regime-market-meter";
+import {lensCardSignal} from "@/lib/bluebelly-regime-lens-card-signal";
 import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
 import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
 import {projectBondPressure} from "@/lib/bluebelly-bond-pressure";
@@ -84,17 +85,29 @@ export default async function RegimeWatchPage(){
     <div><span className={styles.kicker}>01 / THE NINE RESEARCH FILES</span><h2>Choose the <em>pressure point.</em></h2></div>
     <span><span className={styles.reviewDate}>Reviewed {LENS_OUTLOOK_REVIEWED_ON} MYT</span><span className={styles.reviewMeta}> · {theses===null?"Story coverage unavailable":theses.length+" public Story snapshots"} · Viewed <DualTimestamp value={now.toISOString()}/></span></span>
    </div>
-   <p className={styles.lensIntro}>Explore a research lens. Check the dated outlook, countercase and next test. Not a live trading signal.</p>
-   <div className={styles.cards}>{lenses.map((lens,index)=>
-    <Link key={lens.id} className={styles.card} data-research-lens={lens.id}
+   <p className={styles.lensIntro}>Each lens is colour-coded by its latest usable market proxy where available. This is a dated price or yield observation, not a bullish/bearish fundamental verdict or a trade recommendation.</p>
+   <div className={styles.lensLegend} aria-label="Regime lens market-signal colour key">
+    <span data-legend-tone="improving"><i aria-hidden="true"/> Easing pressure / strengthening proxy</span>
+    <span data-legend-tone="pressure"><i aria-hidden="true"/> Rising pressure / weakening proxy</span>
+    <span data-legend-tone="mixed"><i aria-hidden="true"/> Flat or mixed</span>
+    <span data-legend-tone="unknown"><i aria-hidden="true"/> Missing or stale</span>
+   </div>
+   <div className={styles.cards}>{lenses.map((lens,index)=>{
+    const signal=lensCardSignal(lens.id,meterReadings);
+    return <Link key={lens.id} className={styles.card} data-research-lens={lens.id} data-lens-tone={signal.tone}
      href={blueDeskPublicHref("/blue-desk/regime-watch/"+lens.id,host)}
-     aria-label={"Explore "+lens.name+" research"}>
+     aria-label={"Explore "+lens.name+" research · "+signal.label}>
       <div className={styles.art}><EditorialStoryArt headline={lens.name} motif={lens.motif as EditorialMotif} compact/><span className={styles.artSerial} aria-hidden="true">{String(index+1).padStart(2,"0")}</span></div>
       
         <div className={styles.content}>
        <div className={styles.cardHeading}><span className={styles.kicker}>{lens.code} / RESEARCH LENS</span><span className={styles.cardSerial}>FILE {String(index+1).padStart(2,"0")} / 09</span></div>
        <h3>{lens.name}</h3>
-       <small className={styles.archivedContext}>HISTORICAL 30 OCT EDITORIAL · NOT THE CURRENT 1D SIGNAL</small>
+       <div className={styles.lensStatus} data-lens-status={signal.tone}>
+        <strong className={styles.lensStatusLabel}>{signal.label}</strong>
+        <span className={styles.lensStatusDetail}>{signal.readout}</span>
+        <small>{signal.sourceDate?signal.dateNote+" "+signal.sourceDate:signal.dateNote} · {signal.scope}</small>
+       </div>
+       <small className={styles.archivedContext}>HISTORICAL 30 OCT EDITORIAL · NOT THE CURRENT MARKET PROXY</small>
        <div className={styles.lensActivity} aria-label={
         scans[index].newViews.length+" new views, "+scans[index].updatedRecords.length+
         " updated records, "+scans[index].sourceInputs.length+" new original-source inputs since review"}>
@@ -119,8 +132,8 @@ export default async function RegimeWatchPage(){
        <div className={styles.coverage}>{theses===null?"Story coverage unavailable":lens.stories.length+" associated public Story snapshot"+(lens.stories.length===1?"":"s")}</div>
        <span className={styles.open}>OPEN RESEARCH / EVIDENCE &amp; TESTS <span aria-hidden="true">↗</span></span>
       </div>
-    </Link>
-   )}</div>
+    </Link>;
+   })}</div>
    <section id="source-reasons" className={styles.transmission} data-regime-source-reasons="live-source-linked-not-canonical">
     <div className={styles.pulseHeading}>
      <div><span className={styles.kicker}>LIVE RESEARCH / X WIRE + REVIEWED TRANSCRIPTS</span>
