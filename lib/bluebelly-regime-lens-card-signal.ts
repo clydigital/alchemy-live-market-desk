@@ -36,6 +36,15 @@ const DOWN:Record<RegimeDirectionId,string>={
  energy:"Crude price pressure easing"
 };
 const RISKS:readonly RegimeDirectionId[]=["fed","bonds","energy"];
+/** The same directional semantics across Lens cards, Compass and the homepage.
+ * A higher Treasury yield or crude price is more pressure, unlike higher breadth
+ * or semiconductor prices. This is a proxy read, not a canonical verdict. */
+export function proxySignalTone(id:RegimeDirectionId,direction:-1|0|1|null):LensSignalTone{
+ if(direction===null)return "unknown";
+ if(direction===0)return "mixed";
+ const relief=RISKS.includes(id)?direction===-1:direction===1;
+ return relief?"improving":"pressure";
+}
 function isMeasuredId(id:string):id is RegimeDirectionId{
  return id==="ai"||id==="fed"||id==="bonds"||id==="breadth"||id==="energy";
 }
@@ -52,8 +61,7 @@ export function lensCardSignal(lensId:string,readings:Record<RegimeDirectionId,R
     !measured||measured.trend==="unknown"||measured.readout==="NOT SUPPLIED")
   return unknown(scope);
  const direction=r.direction;
- const favourable=RISKS.includes(lensId)?direction===-1:direction===1;
- const tone:LensSignalTone=direction===0?"mixed":favourable?"improving":"pressure";
+ const tone=proxySignalTone(lensId,direction);
  const label=direction===0?"Mixed / flat proxy":
   direction===1?UP[lensId]:DOWN[lensId];
  return {tone,label,scope,
