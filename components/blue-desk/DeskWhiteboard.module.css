@@ -18,3 +18,17 @@
 .board a:focus-visible{outline:2px solid var(--bb-command-alt);outline-offset:3px}
 @media(max-width:1200px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cell h3{min-height:0}}
 @media(max-width:650px){.grid{grid-template-columns:1fr}.board{padding:12px}.cell{padding:11px}.cell h3{font-size:13px}.nextTest{align-items:flex-start;gap:6px}.nextTest p{flex-basis:100%}}
+
+/* Only the market-tape cell is direction-coded; latest news, a thesis question
+   and a future event have no comparable signed tape signal. */
+.cell[data-compass-state="RISK_ON"]{--wb-tone:#36c49b}
+.cell[data-compass-state="RISK_OFF"]{--wb-tone:#fa7479}
+.cell[data-compass-state="MIXED"]{--wb-tone:#eab65b}
+.cell[data-compass-state="UNMEASURED"]{--wb-tone:#8795a3}
+.cell[data-compass-state]{box-shadow:inset 4px 0 0 var(--wb-tone);
+ background:linear-gradient(115deg,color-mix(in srgb,#0b1c25 83%,var(--wb-tone) 17%),#0b1c25)}
+.marketFlag{display:inline-flex;gap:6px;align-items:center;padding:4px 7px;
+ background:color-mix(in srgb,#0b1c25 72%,var(--wb-tone) 28%);
+ border:1px solid color-mix(in srgb,var(--wb-tone) 64%,#385364 36%);
+ font:800 9px/1.35 var(--bb-mono);letter-spacing:.035em;color:#f2fafd}
+.marketFlag:before{content:"";width:8px;height:8px;background:var(--wb-tone)}
