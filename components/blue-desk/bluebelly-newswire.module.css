@@ -173,3 +173,12 @@
 .item .readMore[open]>summary{border-color:var(--bb-accent)}
 .item .readMore .detailBody p{display:block;overflow:visible}
 @media(max-width:620px){.intro{padding:16px}.intro h1{font-size:27px}.item{grid-template-columns:1fr;padding:13px}.item .art{display:none}.item h2{font-size:21px}.item p{display:block;line-height:1.6}.metadata{font-size:11px}}
+
+/* Secondary classification layer; does not override original-source status. */
+.signalFilters{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:-6px 0 15px;padding:10px 0 13px;border-top:1px solid var(--bb-card-border);border-bottom:1px solid var(--bb-card-border)}
+.signalFilters>span{color:var(--bb-accent);font:800 10px/1.5 var(--bb-mono);letter-spacing:.035em;margin-right:8px}
+.signalFilters button{min-height:33px;cursor:pointer;border:1px solid var(--bb-card-border);color:var(--bb-text);background:var(--bb-card-quiet);font:750 10px/1.3 var(--bb-mono);padding:6px 9px}
+.signalFilters button[aria-pressed="true"]{border-color:var(--bb-accent);background:var(--bb-accent);color:var(--bb-accent-ink)}
+.signalFilters button:hover,.signalFilters button:focus-visible{outline:2px solid var(--bb-card-focus);outline-offset:2px}
+.signalFilters button small{margin-left:6px;opacity:.7}
+.signalNote{font:650 11px/1.55 var(--bb-mono);color:var(--bb-muted);margin:0 0 14px}
