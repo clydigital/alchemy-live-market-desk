@@ -7,7 +7,8 @@ import type {ReactNode} from "react";
 import PublishedResearchDispatches from "./PublishedResearchDispatches";
 import MarketTakeaway from "./MarketTakeaway";
 import SignalTags from "./SignalTags";
-import {suggestSignalTags} from "@/lib/bluebelly-signal-tags";
+import {SIGNAL_TAGS} from "@/lib/bluebelly-signal-tags";
+import {filterNewsBySignal,newsResearchTags,normaliseNewsSignalFilter,type NewsSignalFilter} from "@/lib/bluebelly-news-signal-filter";
 import {publicReadingHeadline} from "@/lib/bluebelly-public-headline";
 import type {PublicResearchFocus} from "@/lib/blue-desk-published-research-focus";
 import Link from "next/link";
@@ -94,32 +95,37 @@ function ReviewedNewsConsequence({news}:{news:NewsBriefV1}){
  </details>;
 }
 type NewsroomCategory=EditorialTopicId|"hot"|"chart-watch";
-export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailable=true,hotPicks,editorials=[],researchItems=[],initialQuery="",initialCategory="all",initialPage="1",now,readerHref,children}:{
+export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailable=true,hotPicks,editorials=[],researchItems=[],initialQuery="",initialCategory="all",initialSignal="all",initialPage="1",now,readerHref,children}:{
  news:readonly NewsBriefV1[];archiveEntries?:readonly ArchiveNewsItem[];archiveAvailable?:boolean;
  hotPicks:NewsroomHotPicks;editorials?:readonly NewsroomEditorialItem[];
  researchItems?:readonly PublicResearchFocus[];
- initialQuery?:string;initialCategory?:string;initialPage?:string;
+ initialQuery?:string;initialCategory?:string;initialSignal?:string;initialPage?:string;
  now:string;readerHref:string;children?:ReactNode;
 }){
  const [topic,setTopic]=useState<NewsroomCategory>(()=>
   initialCategory==="hot"||initialCategory==="chart-watch"||EDITORIAL_TOPICS.some(t=>t.id===initialCategory)?
     initialCategory as NewsroomCategory:"all");
  const [query,setQuery]=useState(initialQuery.slice(0,100));
+ const [signal,setSignal]=useState<NewsSignalFilter>(()=>normaliseNewsSignalFilter(initialSignal));
  const [currentPage,setCurrentPage]=useState(normaliseReaderPage(initialPage,10000));
  // The URL is shareable for topic/search/page and browser Back/Forward restores
  // the reader selection without requesting new data or bypassing source gates.
- function syncUrl(nextTopic:NewsroomCategory,nextQuery:string,nextPage:number,kind:"push"|"replace"="replace"){
+ function syncUrl(nextTopic:NewsroomCategory,nextQuery:string,nextPage:number,kind:"push"|"replace"="replace",nextSignal:NewsSignalFilter=signal){
   if(typeof window==="undefined")return;
   const url=new URL(window.location.href);
   if(nextTopic==="all")url.searchParams.delete("category");else url.searchParams.set("category",nextTopic);
   if(nextQuery.trim())url.searchParams.set("q",nextQuery.trim());else url.searchParams.delete("q");
   if(nextPage>1)url.searchParams.set("page",String(nextPage));else url.searchParams.delete("page");
+  if(nextSignal==="all")url.searchParams.delete("signal");else url.searchParams.set("signal",nextSignal);
   if(kind==="push")window.history.pushState(null,"",url);else window.history.replaceState(null,"",url);
  }
  function selectTopic(next:NewsroomCategory,clearQuery=false){
   const nextQuery=clearQuery?"":query;
   setTopic(next);setQuery(nextQuery);setCurrentPage(1);
   syncUrl(next,nextQuery,1);
+ }
+ function selectSignal(next:NewsSignalFilter){
+  setSignal(next);setCurrentPage(1);syncUrl(topic,query,1,"replace",next);
  }
  function changeQuery(next:string){
   const value=next.slice(0,100);
@@ -135,6 +141,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
    const requested=url.searchParams.get("category");
    setTopic(requested==="hot"||requested==="chart-watch"||EDITORIAL_TOPICS.some(t=>t.id===requested)?requested as NewsroomCategory:"all");
    setQuery((url.searchParams.get("q")||"").slice(0,100));
+   setSignal(normaliseNewsSignalFilter(url.searchParams.get("signal")));
    setCurrentPage(normaliseReaderPage(url.searchParams.get("page"),10000));
   }
   window.addEventListener("popstate",restore);
@@ -167,10 +174,11 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
      topic==="hot"?hotPicks.keys.includes("archive:"+item.id):
     topic==="all"||archiveTopics(item).includes(topic))&&
   publicArchiveSearchIndex(item).includes(query.trim().toLowerCase()));
+ const sourceSignalNews=filterNewsBySignal(visible,signal);
  const visibleCards=[
-  ...editorialVisible.map(item=>({kind:"editorial" as const,item})),
-  ...archiveVisible.map(item=>({kind:"archive" as const,item})),
-  ...visible.map(item=>({kind:"news" as const,item})),
+  ...(signal==="all"?editorialVisible:[]).map(item=>({kind:"editorial" as const,item})),
+  ...(signal==="all"?archiveVisible:[]).map(item=>({kind:"archive" as const,item})),
+  ...sourceSignalNews.map(item=>({kind:"news" as const,item})),
  ].sort((a,b)=>{
   if(topic==="hot")return hotPicks.keys.indexOf(a.kind+":"+a.item.id)-hotPicks.keys.indexOf(b.kind+":"+b.item.id);
   const aAt=Date.parse(a.kind==="archive"?(a.item.eventAt||(a.item.eventDay?a.item.eventDay+"T00:00:00Z":"")):a.item.occurredAt);
@@ -179,7 +187,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
  });
  const paginated=paginateReaderItems(visibleCards,currentPage,8);
  const selected=shortlist.flatMap(id=>newsOnly.find(n=>n.id===id)||[]);
- const visibleCount=visible.length+archiveVisible.length+editorialVisible.length;
+ const visibleCount=sourceSignalNews.length+(signal==="all"?archiveVisible.length+editorialVisible.length:0);
  function copy(){
   const content=selected.map((n,i)=>String(i+1)+". "+n.headline+"\nSource: "+n.sourceName+"\nOriginal: "+n.sourceUrl+
     "\nEvent (ET): "+clock(n.occurredAt)+"\nWhat was reported: "+n.summary).join("\n\n");
@@ -214,6 +222,16 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
     return <button key={t.id} type="button" aria-pressed={topic===t.id} className={topic===t.id?styles.selected:styles.filter}
      onClick={()=>selectTopic(t.id)}>{t.label} <small>{count}</small></button>})}
   </div>
+  <div className={styles.signalFilters} role="group" aria-label="Research signal filter" data-newsroom-signal-filter="source-only-news">
+    <span>INTERESTING SIGNALS / RESEARCH QUESTIONS</span>
+    <button type="button" aria-pressed={signal==="all"} onClick={()=>selectSignal("all")}>All signals</button>
+    {SIGNAL_TAGS.map(tag=><button key={tag.id} type="button" aria-pressed={signal===tag.id}
+      title={tag.question} onClick={()=>selectSignal(tag.id)}>{tag.label}
+      <small>{filterNewsBySignal(visible,tag.id).length}</small></button>)}
+  </div>
+  {signal!=="all"?<p className={styles.signalNote} data-newsroom-signal-coverage="source-only">
+    Signal-filtered results are limited to already source-qualified news briefs. Archived features and reviewed editorials retain their original reading categories; no archive item is silently reclassified as fresh news.
+  </p>:null}
   <div className={styles.columns}><section className={styles.feed} aria-live="polite" id="newsroom-results">
     {topic==="chart-watch"?<p className={styles.hotIntro} data-chart-watch-series="published-only">
        Chart-led market analysis, admitted only after an original-source review, a dated quantitative chart and public-use clearance.
@@ -289,7 +307,7 @@ export default function BluebellyNewsWire({news,archiveEntries=[],archiveAvailab
        <small className={styles.metadata}>{editorialNewsTopics(card.item).join(" · ").toUpperCase()} · {clock(card.item.occurredAt)}</small>
        <h2><Link href={readerHref+"?news="+encodeURIComponent(card.item.id)}>{storyDepthForNews(card.item)?.title||publicReadingHeadline(card.item.headline,card.item.summary,card.item.sourceName)}</Link></h2>
        <p data-quick-market-brief="source-qualified-summary">{storyDepthForNews(card.item)?.hook||card.item.summary}</p>
-       <SignalTags tags={suggestSignalTags({title:card.item.headline,detail:card.item.summary,evidence:"SOURCE_ONLY_NEWS"})}/>
+       <SignalTags tags={newsResearchTags(card.item)}/>
 
        <div className={styles.actions}>
         <Link href={readerHref+"?news="+encodeURIComponent(card.item.id)}>{storyDepthForNews(card.item)?"Read source-reviewed Key Story →":"Read short Bluebelly recap →"}</Link>
