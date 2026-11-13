@@ -3,3 +3,5 @@
  background:var(--bb-card-quiet);color:var(--bb-muted);padding:3px 7px;
  font:700 10px/1.4 var(--bb-mono);letter-spacing:.015em;white-space:normal}
 .tag[data-signal-status="SOURCED_COMPARISON"]{border-color:var(--bb-accent);color:var(--bb-accent)}
+
+.tag[data-signal-status="MEASURED_RELATIVE"]{border-color:var(--bb-accent);color:var(--bb-accent);background:var(--bb-card-bg)}

@@ -86,10 +86,10 @@ test("Newsroom and Regime and source panels actually render tags and working fil
  const wire=read("components/blue-desk/BluebellyNewsWire.tsx");
  const radar=read("components/blue-desk/RegimeSignalRadar.tsx");
  assert.match(hub,/<RegimeSignalRadar entries=\{signalRadar\}\/>/);
- assert.match(hub,/buildSignalRadar\(topicReasons,now,12\)/);
+ assert.match(hub,/buildSignalRadar\(topicReasons,now,12,measuredMarket,"1D"\)/);
  assert.match(panel,/SignalTags tags=\{suggestSignalTags/);
  assert.match(room,/SignalTags tags=\{suggestSignalTags/);
- assert.match(wire,/SignalTags tags=\{suggestSignalTags/);
+ assert.match(wire,/SignalTags tags=\{newsResearchTags\(card\.item\)\}/);
  assert.match(radar,/aria-pressed=\{tag===t.id\}/);
  assert.match(radar,/key=\{tag\} className=\{s.cards\}/);
  assert.match(radar,/data-active-filter=\{tag\}/);

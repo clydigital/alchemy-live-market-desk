@@ -1,5 +1,7 @@
 import type {PublicMarketObservation} from "@/lib/blue-desk-public-markets";
 import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
+import {selectMeasuredMarketSignals} from "@/lib/bluebelly-measured-market-signals";
+import SignalTags from "./SignalTags";
 import type {MarketChangeWindow} from "@/lib/blue-desk-market-filters";
 import css from "./MarketDivergenceWatch.module.css";
 
@@ -14,6 +16,8 @@ export default function MarketDivergenceWatch({
 }){
   const reads=buildMarketDivergenceWatch(observations,window);
   const measured=reads.filter(r=>r.status!=="NOT_COMPARABLE");
+  const qualified=selectMeasuredMarketSignals(reads,window,new Date(),5);
+  const qualifiedById=new Map(qualified.map(read=>[read.id,read]));
   const missing=reads.filter(r=>r.status==="NOT_COMPARABLE");
   return <section id="divergence-watch" data-market-divergence-watch="read-only" aria-labelledby="divergence-watch-heading">
     <p className={css.intro}>Compare observed market relationships before assigning a cause. Opposite moves appear first; a return gap by itself does not prove that a historical relationship has broken.</p>
@@ -25,6 +29,7 @@ export default function MarketDivergenceWatch({
     <p className={css.intro}>{measured.length} of {reads.length} comparisons have matched, recorded {window} percentage-return data. No inferred source sessions or price series.</p>
     {measured.length?<div className={css.grid}>
       {measured.map(read=><article key={read.id} className={css.card} data-status={read.status}>
+        {qualifiedById.has(read.id)?<SignalTags tags={[qualifiedById.get(read.id)!.tag]}/>:null}
         <span className={css.tag}>{read.status==="OPPOSITE_MOVE"?"Opposite directions":read.status==="RELATIVE_MOVE"?"Relative performance":"Data unavailable"}</span>
         <h3>{read.title}</h3>
         <p>{read.question}</p>
