@@ -12,7 +12,7 @@ const valid:PrivateIssuerValuationReview={
  method_explanation:"The model applies an explicit normalized free cash flow multiple to debt-adjusted equity, and requires peer comparability and scenario sensitivities.",
  downside_case:"The discount may reflect deteriorating renewal rates and less reliable operating cash flow during a capital investment cycle.",
  invalidation_test:"If next quarter reports shrinking contracted demand or rising refinancing costs, reassess the range.",
- financial_period_end:"2026-09-30",fundamental_source_url:"https://investor.example/financials/q3",
+ financial_period_end:"2026-09-30",financials_currency:"USD",financials_unit:"millions",fundamental_source_url:"https://investor.example/financials/q3",
  revenue:1000,net_income:80,operating_cash_flow:145,capital_expenditure:45,share_based_compensation:15,net_debt:320,
  reviewer_note:"Independent reviewer checked market price and issuer cash flow against the model inputs before publication.",
 };
@@ -26,6 +26,7 @@ test("a reviewed case distinguishes price from model values and calculates sourc
  assert.equal(r.riskFlags.length,0);
  assert.equal(r.priceObservedOn,"2026-11-12");
  assert.equal(r.valuationMethod,"FCF_MULTIPLE");
+ assert.equal(r.financialsUnit,"millions");
 });
 test("expensive versus fairly priced reviewed ranges are contextual, not buy/sell calls",()=>{
  assert.equal(evaluateIssuerValuation(p({market_price:180}),now)?.verdict,"ABOVE_REVIEWED_RANGE");
@@ -46,7 +47,7 @@ test("missing, future, mismatched, stale, upstream-batch or empty evidence fails
   {price_observed_on:"2026-11-01"},{price_observed_on:"2026-11-15"},
   {reviewed_at:"2026-08-01T00:00:00Z"},{reviewed_at:"2026-11-14T02:00:00Z"},
   {financial_period_end:"2025-12-31"},{financial_period_end:"2026-11-15"},
-  {valuation_currency:"MYR"},{valuation_low:160,valuation_high:140},
+  {valuation_currency:"MYR"},{financials_currency:"MYR"},{financials_unit:"nonsense"},{valuation_low:160,valuation_high:140},
   {capital_expenditure:-1},{market_price:0},
   {price_source_url:"http://exchange.example"},{fundamental_source_url:"https://exchange.example/stock/TEST"},
   {valuation_source_url:"https://investor.example/financials/q3"},
