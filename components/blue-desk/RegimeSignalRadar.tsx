@@ -22,8 +22,8 @@ export default function RegimeSignalRadar({entries}:{entries:readonly SignalRada
     title={t.question} onClick={()=>setTag(t.id)}>{t.label}
     <small>{entries.filter(item=>item.tags.some(tag=>tag.id===t.id)).length}</small></button>)}
   </div>
-  <div className={s.cards} aria-live="polite">
-   {visible.length?visible.map(item=><article key={item.id} className={s.card} data-radar-item={item.id}>
+  <div key={tag} className={s.cards} data-active-filter={tag} aria-live="polite">
+   {visible.length?visible.map(item=><article key={item.id} className={s.card} data-radar-item={item.id} data-tags={item.tags.map(t=>t.id).join(" ")}>
     <div className={s.meta}><strong>{item.topic.toUpperCase()} · {item.verification}</strong>
      <time dateTime={item.sourceAt}>Source {item.sourceAt.slice(0,10)}</time></div>
     <SignalTags tags={item.tags}/>
