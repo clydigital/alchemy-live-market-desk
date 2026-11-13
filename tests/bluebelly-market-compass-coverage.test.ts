@@ -11,12 +11,17 @@ function etf(symbol:string,delta:number,date="2026-11-12"):PublicMarketObservati
  sourceName:"Nasdaq official etf history",
  sourceUrl:"https://www.nasdaq.com/market-activity/etf/"+symbol.toLowerCase()+"/historical"};
 }
-test("SPY and exchange-sourced RSP are explicit monitor ETFs, not a renamed S&P index",()=>{
- const source=readFileSync(new URL("../lib/market-monitor.ts",import.meta.url),"utf8");
- assert.match(source,/id: "spy", providerSymbol: "SPY", assetClass: "etf"/);
- assert.match(source,/id: "rsp-exchange", providerSymbol: "RSP", assetClass: "etf"/);
- assert.match(source,/id: "spx-proxy", sourceSymbol: "\^GSPC"/);
- assert.match(source,/extras-v9-compass-etfs/);
+test("SPY and RSP are real Nasdaq ETFs with an explicit, guarded SPY identifier",()=>{
+ const monitor=readFileSync(new URL("../lib/market-monitor.ts",import.meta.url),"utf8");
+ const core=readFileSync(new URL("../lib/market.ts",import.meta.url),"utf8");
+ assert.match(core,/symbol: "\^GSPC", providerSymbol: "SPY", assetClass: "etf"/);
+ assert.match(core,/symbol: "RSP", providerSymbol: "RSP", assetClass: "etf"/);
+ assert.match(monitor,/id: "spx-proxy", sourceSymbol: "\^GSPC"/);
+ assert.match(monitor,/spySeries=bySymbol.get\("\^GSPC"\)/);
+ assert.match(monitor,/spySeries.sourceName==="Nasdaq official etf history"/);
+ assert.match(monitor,/spySeries.sourceUrl==="https:\/\/www.nasdaq.com\/market-activity\/etf\/spy\/historical"/);
+ assert.match(monitor,/base.push\(\{\.\.\.baseRaw\(\{id:"spy".*?\},spySeries\),symbol:"SPY"\}\)/);
+ assert.doesNotMatch(monitor,/id: "spy", providerSymbol: "SPY"/);
 });
 test("actual four-ETF same-day close yields an ordinal equity direction",()=>{
  const reads=buildMarketDivergenceWatch([
