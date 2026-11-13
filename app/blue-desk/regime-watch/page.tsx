@@ -140,7 +140,7 @@ export default async function RegimeWatchPage(){
         <div className={styles.content}>
        <div className={styles.cardHeading}><span className={styles.kicker}>{lens.code} / RESEARCH LENS</span><span className={styles.cardSerial}>FILE {String(index+1).padStart(2,"0")} / 09</span></div>
        <h3>{lens.name}</h3>
-       <small className={styles.archivedContext}>EDITORIAL VERDICT REVIEWED 30 OCT · NOT THE CURRENT 1D SIGNAL</small>
+       <small className={styles.archivedContext}>HISTORICAL 30 OCT EDITORIAL · NOT THE CURRENT 1D SIGNAL</small>
        <div className={styles.lensActivity} aria-label={
         scans[index].newViews.length+" new views, "+scans[index].updatedRecords.length+
         " updated records, "+scans[index].sourceInputs.length+" new original-source inputs since review"}>
