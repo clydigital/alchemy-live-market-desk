@@ -51,3 +51,23 @@ test("Homepage contains no dedicated permanent incident/recap takeover; Newsroom
  assert.match(wire,/aAt=Date\.parse/);
  assert.match(wire,/data-newsroom-timeline="expandable-only"/);
 });
+
+test("Microsoft 365 incident enters the 48h Newsroom without being mislabeled a breach or proven price catalyst",()=>{
+ const observed=new Date("2026-11-13T15:00:00Z");
+ const incident=recentReportedEditorial(observed,48).find(row=>row.id==="microsoft-365-service-incident-2026-11-12");
+ assert.ok(incident);
+ assert.equal(incident.kind,"SERVICE_INCIDENT");
+ assert.match(incident.reporting,/authentication\/routing/);
+ assert.match(incident.countercase,/No evidence currently establishes a cyberattack/);
+ const projected=projectNewsroomEditorial([], [incident], [], reader, observed)[0];
+ assert.equal(projected.kind,"incident");
+ assert.ok(projected.topics.includes("ai"));
+ assert.ok(!projected.topics.includes("crypto"));
+ assert.match(projected.verificationLabel,/CAUSE PENDING/);
+ assert.match(projected.readerHref,/\?reported=microsoft-365-service-incident-2026-11-12/);
+ assert.equal(recentReportedEditorial(new Date("2026-11-13T08:06:24Z"),48).some(x=>x.id===incident.id),false);
+ assert.equal(recentReportedEditorial(new Date("2026-11-16T09:00:00Z"),48).some(x=>x.id===incident.id),false);
+ const readerFile=readFileSync(new URL("../components/blue-desk/NewsroomEventReader.tsx",import.meta.url),"utf8");
+ assert.match(readerFile,/official-cloud-service-incident/);
+ assert.match(readerFile,/root cause pending/);
+});
