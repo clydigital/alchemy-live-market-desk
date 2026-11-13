@@ -10,11 +10,14 @@ type Topic="ai"|"breadth"|"energy"|"fed"|"housing"|"hormuz";
 const selected=[
  {topic:"ai" as Topic,match:"nebius",href:funding,label:"AI CLOUD · CAPACITY"},
  {topic:"ai" as Topic,match:"coreweave",href:funding,label:"AI CLOUD · FINANCING"},
+ {topic:"energy" as Topic,match:"iea-crude-surplus",href:null,label:"CRUDE SURPLUS · DIESEL CONTRADICTION"},
  {topic:"energy" as Topic,match:"siemens-power",href:null,label:"PHYSICAL AI INFRASTRUCTURE"},
  {topic:"breadth" as Topic,match:"msci-november",href:null,label:"INDEX-RELATED SHARE FLOWS"},
  {topic:"fed" as Topic,match:"weekly-initial-claims",href:null,label:"LABOUR · FED"},
  {topic:"fed" as Topic,match:"inflation-labor-quality",href:null,label:"CPI · LABOUR QUALITY",context:true},
  {topic:"energy" as Topic,match:"eia-us-gas",href:null,label:"US GAS · GLOBAL LNG",context:true},
+ {topic:"hormuz" as Topic,match:"iea-flows",href:null,label:"GULF FLOWS · MARITIME SAFETY",context:true},
+ {topic:"fed" as Topic,match:"cpi-versus-ppi",href:null,label:"CPI · PPI CONTRADICTION",context:true},
  {topic:"hormuz" as Topic,match:"peace-direction",href:null,label:"HORMUZ · DIPLOMACY",context:true}
 ] as const;
 
@@ -67,6 +70,26 @@ export default function CurrentKeyStoriesShelf({now,host}:{now:Date;host:string|
       <p>{state==="UPCOMING"?"17 November issuer earnings, forward orders, margins and matched NVDA/SMH reaction.":"Release window reached: check the original issuer report before updating this frozen pre-earnings view."}</p>
     </div>
    </article>
+   <section className={css.context} id="faa-incident-watch" data-key-story-incident="faa-ground-stop-2026-11-13" aria-labelledby="faa-incident-title">
+    <div className={css.contextHeading}>
+     <h3 id="faa-incident-title">FAA · Nationwide ground stop: investigate, don't assume contagion</h3>
+     <p>13 November 2026 US event · attributed reporting · operational incident, not an automatically revised macro regime.</p>
+    </div>
+    <div className={css.contextGrid}>
+     <article className={css.contextCard}>
+      <small>{now.getTime()>Date.parse("2026-11-15T00:00:00Z")?"STALE INCIDENT SNAPSHOT · REVERIFY":"13 NOV 2026 · SOURCE-REPORTED"} · FAA COMMUNICATIONS</small>
+      <strong>US flight departures halted after air-traffic communications problems</strong>
+      <p>Reuters and AP report that the FAA ordered a nationwide ground stop on 13 November, with communications issues affecting 22 regional air-traffic control centres. The stop and initial safety rationale are reported; this snapshot does not establish a currently active stop, an all-clear, a definitive root cause or a connection to Microsoft's separate outage.</p>
+      <p><b>Market transmission:</b> Airlines may face cancellations, displaced crews and costs if disruption persists. FAA infrastructure contractors are a separate long-horizon research theme, not proven beneficiaries of this specific failure.</p>
+      <p><b>What changes the view?</b> Recheck the actual FAA notice and restoration status, flight cancellations and timing, airlines' own guidance, verified incident cause, and separately approved funding and contract awards.</p>
+      <div className={css.contextLinks}>
+       <a href="https://www.reuters.com/world/us/faa-issues-national-ground-stop-due-extraordinary-circumstance-reasons-safety-2026-11-13/" target="_blank" rel="noopener noreferrer">Reuters · ground-stop report ↗</a>
+       <a href="https://www.l3harris.com/newsroom/press-release/2026/07/faa-awards-l3harris-airspace-surveillance-modernization-contract" target="_blank" rel="noopener noreferrer">L3Harris · July contract (pre-existing) ↗</a>
+       <a href="https://www.fly.faa.gov/ois/oisedit/summary_pub" target="_blank" rel="noopener noreferrer">FAA · check current NAS status ↗</a>
+      </div>
+     </article>
+    </div>
+   </section>
    <nav className={css.journey} aria-label="Guided investigation across current stories" data-key-stories-journey="existing-approved-readers">
     <div className={css.journeyHeading}>
       <strong>FOLLOW THE MARKET CONNECTIONS</strong>
