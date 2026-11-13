@@ -85,7 +85,7 @@ export default async function RegimeWatchPage(){
     <div><span className={styles.kicker}>01 / THE NINE RESEARCH FILES</span><h2>Choose the <em>pressure point.</em></h2></div>
     <span><span className={styles.reviewDate}>Reviewed {LENS_OUTLOOK_REVIEWED_ON} MYT</span><span className={styles.reviewMeta}> · {theses===null?"Story coverage unavailable":theses.length+" public Story snapshots"} · Viewed <DualTimestamp value={now.toISOString()}/></span></span>
    </div>
-   <p className={styles.lensIntro}>Each lens is colour-coded by its latest usable market proxy where available. This is a dated price or yield observation, not a bullish/bearish fundamental verdict or a trade recommendation.</p>
+   <p className={styles.lensIntro}>Explore a research lens using colour-coded, dated market proxies where available. Colours describe price or yield direction, not a fundamental Regime verdict or trade recommendation.</p>
    <div className={styles.lensLegend} aria-label="Regime lens market-signal colour key">
     <span data-legend-tone="improving"><i aria-hidden="true"/> Easing pressure / strengthening proxy</span>
     <span data-legend-tone="pressure"><i aria-hidden="true"/> Rising pressure / weakening proxy</span>
