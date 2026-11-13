@@ -49,8 +49,8 @@ export default function PowerStackValuationWorkbench({assets,reviews,storeError}
       <p><b>Observed price:</b> {money(r.marketPrice,r.currency)} · {r.priceObservedOn}</p>
       <p><b>Reviewed model range:</b> {money(r.valuationLow,r.currency)}–{money(r.valuationHigh,r.currency)} ({r.valuationMethod.replaceAll("_"," ")})</p>
       <p><b>Distance to low case:</b> {r.distanceToLowPct>0?"+":""}{r.distanceToLowPct}% · not a forecast return</p>
-      <p><b>Reported FCF proxy:</b> {money(r.freeCashFlow,r.currency)} (operating cash flow minus capex) · period ended {r.financialPeriodEnd}</p>
-      <p><b>Net income:</b> {r.netIncome===null?"Not supplied":money(r.netIncome,r.currency)}</p>
+      <p><b>Reported FCF proxy:</b> {money(r.freeCashFlow,r.currency)} {r.financialsUnit} (operating cash flow minus capex) · period ended {r.financialPeriodEnd}</p>
+      <p><b>Net income:</b> {r.netIncome===null?"Not supplied":money(r.netIncome,r.currency)+" "+r.financialsUnit}</p>
       {r.riskFlags.length?<p className={s.warning}><b>Quality flags:</b> {r.riskFlags.join("; ")}</p>:null}
       <details><summary>Model assumptions, downside and invalidation</summary>
        <p><b>Method:</b> {r.methodExplanation}</p>
