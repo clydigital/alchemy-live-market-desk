@@ -55,7 +55,12 @@ export function buildMarketCompassSummary(
   semis.sourceSession!==breadth.sourceSession||
   !usableSession(semis.sourceSession,now)||
   ![semis.leftSourceUrl,semis.rightSourceUrl,breadth.leftSourceUrl,breadth.rightSourceUrl]
-   .every(validSource))return missing;
+   .every(validSource)){
+   const issues=[semis,breadth].filter(item=>!item||item.status==="NOT_COMPARABLE")
+    .map(item=>item?.reason||"One required ETF comparison is unavailable.");
+   return {...missing,
+    explanation:issues.length?issues.join(" ")+" A market-wide direction needs both ETF pairs from a completed, comparable US session.":missing.explanation};
+  }
  const four=[semis.leftChange,semis.rightChange,breadth.leftChange,breadth.rightChange];
  if(four.some(value=>value===null||!Number.isFinite(value)))return missing;
  const returns=four as number[];
