@@ -72,9 +72,12 @@ test("no fabricated 1D reading when the only provider window is 5D",()=>{
 test("Regime hub retains historical research gate and makes primary-source provenance visible",()=>{
  const page=readFileSync(new URL("../app/blue-desk/regime-watch/page.tsx",import.meta.url),"utf8");
  const src=readFileSync(new URL("../lib/bluebelly-regime-market-meter.ts",import.meta.url),"utf8");
+ const compass=readFileSync(new URL("../components/blue-desk/MarketCompass.tsx",import.meta.url),"utf8");
  assert.match(page,/projectRegimeMeterReadings/);
- assert.match(page,/EDITORIAL REVIEW:/);
- assert.match(page,/data-meter-evidence/);
+ assert.match(page,/RegimeResearchClocks/);
+ assert.match(page,/MarketCompass summary=\{compassSummary\}/);
+ assert.match(compass,/data-status=\{item.state\}/);
+ assert.match(compass,/item.observedAt/);
  assert.match(page,/HISTORICAL 30 OCT EDITORIAL/);
  assert.match(src,/not FedWatch odds/);
  assert.doesNotMatch(src+page,/\.upsert\(|\.insert\(|supabase\.rpc\(/);

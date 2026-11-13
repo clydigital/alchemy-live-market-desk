@@ -29,7 +29,7 @@ test("all nine public Regime research files retain the same exact routes and evi
 });
 
 test("overview and each lens use the Learn-inspired cyberpunk stage without fixing theme colours",()=>{
- assert.match(directory,/data-regime-design="cyberpunk-field-guide"/);
+ assert.match(directory,/MarketCompass summary=\{compassSummary\}/);
  assert.match(directory,/id="lens-grid"/);
  assert.match(directory,/data-research-lens/);
  assert.match(directory,/RegimeOutlookMeter/);

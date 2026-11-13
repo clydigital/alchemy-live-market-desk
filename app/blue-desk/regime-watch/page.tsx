@@ -13,11 +13,9 @@ import {getManualSweeps} from "@/lib/bluebelly-manual-sweeps";
 import {getLensOutlook,LENS_OUTLOOK_REVIEWED_ON} from "@/lib/bluebelly-regime-lens-outlook";
 import {getRegimeEditorialUpdate} from "@/lib/bluebelly-regime-verified-crossasset";
 import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
-import AcceleratorDial from "@/components/blue-desk/AcceleratorDial";
 import RegimeResearchClocks from "@/components/blue-desk/RegimeResearchClocks";
 import RegimeSignalRadar from "@/components/blue-desk/RegimeSignalRadar";
 import {buildSignalRadar} from "@/lib/bluebelly-signal-radar";
-import {getRegimeDirectionPackets} from "@/lib/bluebelly-regime-direction-reads";
 import {getMarketMonitor} from "@/lib/market-monitor-public";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
 import {calculateBreadthRow} from "@/lib/bluebelly-breadth-dated";
@@ -26,6 +24,8 @@ import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
 import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
 import {projectBondPressure} from "@/lib/bluebelly-bond-pressure";
 import {getRegimeShadowHealth} from "@/lib/regime-engine";
+import MarketCompass from "@/components/blue-desk/MarketCompass";
+import {buildMarketCompassSummary} from "@/lib/bluebelly-market-compass";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import type {EditorialMotif} from "@/lib/bluebelly-editorial-visuals";
 import desk from "../blue-desk.module.css";
@@ -50,76 +50,18 @@ export default async function RegimeWatchPage(){
  const lenses=groupPublicResearch(theses||[]);
  const scans=lenses.map(lens=>scanRegimeViews(lens.id,getLensOutlook(lens.id).reviewedAt,theses,observations,now));
  const changes=summarizeRegimeScans(scans);
- const directionPackets=getRegimeDirectionPackets(now);
  const measuredMarket=buildMarketDivergenceWatch(publicMarketObservations(monitor?.rows??[],"all"),"1D");
  const signalRadar=buildSignalRadar(topicReasons,now,12,measuredMarket,"1D");
  const bondPressure=projectBondPressure(monitor?.rows??null,now);
  const breadth50=calculateBreadthRow("S5FI","S&P 500 above 50-day MA",breadthFeed.series.find(row=>row.symbol==="S5FI"),now);
  const meterReadings=projectRegimeMeterReadings(publicMarketObservations(monitor?.rows??[],"all"),breadth50,bondPressure,now);
+ const compassSummary=buildMarketCompassSummary(measuredMarket,now);
  return <main className={desk.page} data-public-regime-watch="dated-editorial-lens-outlooks">
   <BlueDeskHeader activePath="/blue-desk/regime-watch"/>
   <div className={desk.content}>
-   <header className={styles.intro} data-regime-design="cyberpunk-field-guide">
-    <div className={styles.introContent}>
-     <span className={styles.kicker}>BLUEBELLY / REGIME WATCH</span>
-     <h1>THE BIGGER <em>MARKET</em> PICTURE.</h1>
-     <p>Nine lenses on what drives markets. Each includes a countercase and the evidence that could change the verdict.</p>
-     <nav className={styles.heroActions} aria-label="Regime Watch page sections">
-      <a href="#signal-radar">SIGNAL RADAR / DIVERGENCES <span aria-hidden="true">↗</span></a>
-      <a href="#lens-grid">EXPLORE THE NINE LENSES <span aria-hidden="true">↗</span></a>
-      <a href="#source-reasons">TODAY'S SOURCE REASONS <span aria-hidden="true">↗</span></a>
-      <a href="#cross-regime-watch">THE CROSS-REGIME TEST <span aria-hidden="true">↗</span></a>
-     </nav>
-     <small>REVIEWED FUNDAMENTAL RESEARCH / NOT LIVE TRADING SIGNALS</small>
-    </div>
-    <div className={styles.introVisual} aria-hidden="true">
-     <span className={styles.visualHeader}>// NINE INTERLOCKING MARKET SYSTEMS</span>
-     <div className={styles.regimeMatrix}>{Array.from({length:9},(_,index)=><span key={index}>{String(index+1).padStart(2,"0")}</span>)}</div>
-     <strong>09<span>/</span>LENSES</strong>
-     <span className={styles.visualFooter}>CONNECTIONS / NOT CONCLUSIONS</span>
-    </div>
-   </header>
-
+   <MarketCompass summary={compassSummary} readings={meterReadings} host={host}/>
+   <p style={{margin:"10px 0 14px",fontSize:"12px",color:"var(--bb-muted)"}}>The directional reading summarises one matched equity session. Deeper research, nine regime lenses and evidence follow below; no tape signal automatically changes a fundamental thesis.</p>
    <RegimeResearchClocks sources={observations} editorialReviewedOn={LENS_OUTLOOK_REVIEWED_ON} shadow={shadowHealth}/>
-   <section id="direction-overview" className={styles.directionShelf} data-regime-direction-overview="five-evidence-vetted-lenses" aria-labelledby="direction-overview-title">
-    <div className={styles.directionHead}>
-     <div><span className={styles.kicker}>01 / FIVE FAST CONTEXT READS</span>
-      <h2 id="direction-overview-title">Where is the pressure moving?</h2></div>
-     <p>Needles track dated market proxies, not verdicts on physical supply, Fed decisions or AI fundamentals. The separately reviewed research clock stays visible below each dial.</p>
-    </div>
-    <div className={styles.directionGrid} role="list" aria-label="Five dated Regime pressure readings">
-     {directionPackets.map(packet=>{const proxy=meterReadings[packet.id];
-      const windows=proxy.windows;
-      return <Link key={packet.id} role="listitem" className={styles.directionCard}
-      href={blueDeskPublicHref("/blue-desk/regime-watch/"+packet.id,host)+(packet.id==="bonds"?"#bond-pressure":"#quick-direction")}
-      data-direction-overview-card={packet.id}>
-      <span className={styles.directionLabel}>{packet.id.toUpperCase()} / OBSERVED MARKET PROXY</span>
-      <strong>{packet.question}</strong>
-      <div className={styles.directionDial} data-regime-direction-dial={packet.id}
-        data-meter-evidence={proxy.state} data-meter-period={proxy.needlePeriod}>
-        <AcceleratorDial compact label={proxy.label} direction={proxy.direction}
-          leftLabel={proxy.leftLabel} rightLabel={proxy.rightLabel} middleLabel="FLAT"/>
-        <span>{proxy.scope}</span>
-      </div>
-      <div className={styles.proxyReading} data-meter-value={proxy.state}>
-        <strong>{proxy.value??"SOURCE UNAVAILABLE"}</strong>
-        <span>{proxy.observedAt??"No current source session"} · {proxy.state==="last_reported"?"LAST OFFICIAL SESSION":proxy.needlePeriod+" MARKET PROXY"}</span>
-      </div>
-      <div className={styles.directionStatuses} aria-label={proxy.label+" source-session movements"}>
-       {windows.map(window=><span key={window.label}
-        className={styles.directionMini} data-direction-window={window.label} data-direction-trend={window.trend}>
-        <b>{window.label}</b><span className={styles.directionDot} aria-hidden="true"/>
-        <span>{window.readout}</span>
-       </span>)}
-      </div>
-      <small className={styles.proxySource}>{proxy.sourceName??"Current market source not available"} · {proxy.observedAt??"Unobserved"} · OPEN EVIDENCE ↗</small>
-      <small className={styles.proxyCaveat}>{proxy.caveat}</small>
-      <small className={styles.editorialClock} data-editorial-source-state={packet.read.stale?"historical":"recent"}>
-        EDITORIAL REVIEW: {packet.read.stale?"HISTORICAL · NOT UPDATED":packet.read.sourceDay+" UTC"} · INDEPENDENT OF THE MARKET METER
-      </small>
-     </Link>})}
-    </div>
-   </section>
    <RegimeSignalRadar entries={signalRadar}/>
    <details className={styles.archivedOverview} data-regime-overview-editorial="collapsed-by-default">
     <summary><strong>Previously reviewed cross-asset interpretation · 11 November 2026</strong>

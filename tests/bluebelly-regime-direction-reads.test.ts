@@ -67,8 +67,12 @@ test("public Regime hub and lens pages share a single accessible read without pu
  const ui=read("components/blue-desk/DirectionQuickRead.tsx");
  const css=read("app/blue-desk/regime-watch/regime-watch.module.css");
  const store=read("lib/bluebelly-regime-direction-reads.ts");
- assert.match(hub,/data-regime-direction-overview="five-evidence-vetted-lenses"/);
- assert.match(hub,/data-direction-overview-card/);
+ const compass=read("components/blue-desk/MarketCompass.tsx");
+ const compassCss=read("components/blue-desk/MarketCompass.module.css");
+ assert.match(hub,/MarketCompass summary=\{compassSummary\}/);
+ assert.match(compass,/data-asset-id=\{id\}/);
+ assert.match(compass,/data-status=\{item.state\}/);
+ assert.match(compass,/sourceUrl/);
  assert.match(lens,/getRegimeDirectionPacket\(lens.id,now\)/);
  assert.match(lens,/RegimeManualChallenge lens=\{lens.id\}/);
  assert.match(lens,/RegimeOutlookMeter/);
@@ -76,5 +80,7 @@ test("public Regime hub and lens pages share a single accessible read without pu
  assert.match(ui,/not the probability of peace/);
  assert.match(ui,/data-direction-window/);
  assert.match(css,/scroll-snap-type:x mandatory/);
+ assert.match(compassCss,/@media\(max-width:620px\)/);
+ assert.match(compassCss,/overflow-x:auto/);
  assert.doesNotMatch(store+hub+lens,/\.insert\(|\.upsert\(|supabase\.rpc\(/);
 });
