@@ -11,7 +11,7 @@ export const SIGNAL_TAGS=[
  {id:"counter",label:"Counter-signal",question:"What evidence challenges the prevailing interpretation?"},
 ] as const;
 export type SignalTagId=typeof SIGNAL_TAGS[number]["id"];
-export type SignalTag=Readonly<{id:SignalTagId;label:string;state:"QUESTION"|"SOURCED_COMPARISON"}>;
+export type SignalTag=Readonly<{id:SignalTagId;label:string;state:"QUESTION"|"SOURCED_COMPARISON"|"MEASURED_RELATIVE"}>;
 export type ValuationComparison=Readonly<{
  marketPrice:number;priceObservedOn:string;priceSourceUrl:string;
  fundamentalValue:number;fundamentalBasis:string;fundamentalSourceUrl:string;
