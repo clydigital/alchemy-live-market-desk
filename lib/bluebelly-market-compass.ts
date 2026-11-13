@@ -13,12 +13,25 @@ export type MarketCompassSummary={
 };
 
 const DAY=86400000;
+function completedUSSession(date:string,now:Date):boolean{
+ const parts=new Intl.DateTimeFormat("en-US",{
+  timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit",
+  hour:"2-digit",minute:"2-digit",hourCycle:"h23"
+ }).formatToParts(now);
+ const get=(part:string)=>parts.find(p=>p.type===part)?.value??"";
+ const nyDate=get("year")+"-"+get("month")+"-"+get("day");
+ const weekday=new Date(date+"T12:00:00Z").getUTCDay();
+ if(weekday===0||weekday===6||date>nyDate)return false;
+ if(date<nyDate)return true;
+ return Number(get("hour"))*60+Number(get("minute"))>=16*60+15;
+}
+
 function usableSession(date:string|null,now:Date):boolean{
  if(!date||!/^\d{4}-\d{2}-\d{2}$/.test(date))return false;
  const time=Date.parse(date+"T00:00:00Z");
  if(!Number.isFinite(time)||new Date(time).toISOString().slice(0,10)!==date)return false;
  const age=now.getTime()-time;
- return age>=0&&age<=6*DAY;
+ return age>=0&&age<=6*DAY&&completedUSSession(date,now);
 }
 
 /** An observed 1D ETF-tape summary, NOT a fundamental or canonical Regime verdict.
