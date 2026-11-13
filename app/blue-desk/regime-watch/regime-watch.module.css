@@ -447,3 +447,16 @@
 .lensActivity>span[data-activity="new"]{background:var(--bb-accent);border-color:var(--bb-accent)}
 .lensActivity>small{grid-column:1/-1;color:var(--bb-muted);font:750 9px/1.4 var(--bb-mono)}
 @media(max-width:700px){.directionDial{min-height:90px}.directionDial>div{max-width:125px}}
+
+/* Dated observations are front-and-centre; historical research remains separately labelled. */
+.proxyReading{display:flex;flex-direction:column;gap:3px;min-width:0;margin:1px 0 5px}
+.proxyReading>strong{font:900 clamp(15px,1.5vw,20px)/1.16 var(--bb-display);
+ font-variant-numeric:tabular-nums;color:var(--bb-text);overflow-wrap:anywhere}
+.proxyReading>span{font:750 9px/1.4 var(--bb-mono);color:var(--bb-muted)}
+.proxyReading[data-meter-value="unavailable"]>strong{font-size:11px;color:var(--bb-muted)}
+.directionMini span:last-child{font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.proxySource{color:var(--bb-accent)!important}
+.proxyCaveat{font:650 9px/1.5 var(--bb-mono);color:var(--bb-muted);margin:4px 0}
+.editorialClock{display:block;border-top:1px solid var(--bb-card-border);
+ padding-top:7px;margin-top:4px;font:800 9px/1.45 var(--bb-mono);color:var(--bb-muted)}
+.editorialClock[data-editorial-source-state="recent"]{color:var(--bb-accent)}
