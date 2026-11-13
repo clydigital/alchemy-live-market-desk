@@ -11,6 +11,8 @@ import {decisionTopics} from "@/lib/bluebelly-decision-brief";
 import {publicReadingHeadline} from "@/lib/bluebelly-public-headline";
 import ui from "./ShortNewsRecap.module.css";
 import type {StoryCoverageStatus} from "@/lib/bluebelly-key-story-depth";
+import {sourceCheckedReleaseImpact} from "@/lib/bluebelly-release-impact-brief";
+import ReleaseComparisonDisruption from "./ReleaseComparisonDisruption";
 import {consequenceForSourceOnlyNews,consequenceForEarnings} from "@/lib/bluebelly-market-consequence-read-model";
 
 type Recap={
@@ -47,36 +49,47 @@ export function recapFromDecision(
 /** Read-only explanation of the existing qualified record, never an on-request AI verdict. */
 export default function ShortNewsRecap({recap,backHref,coverage}:{recap:Recap;backHref:string;coverage?:StoryCoverageStatus}){
  const sourceOnly=recap.rawNews?consequenceForSourceOnlyNews(recap.rawNews):null;
+ const checkedRelease=recap.rawNews?sourceCheckedReleaseImpact(recap.rawNews):null;
  if(coverage?.status==="SOURCE_ONLY")return <article className={ui.article} data-bluebelly-news-recap="source-only-depth-incomplete">
   <header className={ui.hero}><div className={ui.head}>
     <h1>{recap.title}</h1>
-    <p className={ui.kicker}>QUICK MARKET BRIEF · FACTUAL NOTICE</p>
-    <p className={ui.deck} data-quick-market-brief="source-only">{recap.fact}</p>
-    <p>This original-source report is verified. No separately reviewed analysis packet is linked to this exact event yet; that is a publication status, not proof that upstream research is absent.</p>
+    <p className={ui.kicker}>{checkedRelease?"QUICK MARKET BRIEF · COMPARATIVE SOURCE CONTEXT":"QUICK MARKET BRIEF · FACTUAL NOTICE"}</p>
+    <p className={ui.deck} data-quick-market-brief="source-only">{checkedRelease?checkedRelease.lead:recap.fact}</p>
+    <p>{checkedRelease?
+      "Earlier data and independently attributed pre-release expectations are compared below. Named asset effects remain scenarios; no matched event-window price response is claimed.":
+      "The original report is verified, but a like-for-like previous reading and an independent pre-release consensus have not been reviewed for this event. We will not treat a headline alone as a new market verdict."}</p>
   </div><StoryHeroAside headline={recap.title} summary={recap.fact}
-    category="SOURCE-VERIFIED REPORT · RESEARCH DEPTH INCOMPLETE"
+    category={checkedRelease?"SOURCE-CHECKED COMPARISON · ASSET SCENARIOS":"SOURCE-VERIFIED REPORT · RESEARCH DEPTH INCOMPLETE"}
     sourceName={recap.sourceName} eventAt={recap.asOf}
     backHref={backHref} backLabel="Key Stories"/>
   </header>
   <div className={ui.chapters}>
-    <section><p className={ui.kicker}>WHAT WE CAN VERIFY</p><h2>The confirmed development</h2><p>{recap.fact}</p></section>
+    {checkedRelease?<ReleaseComparisonDisruption brief={checkedRelease}/>:
+     <section><p className={ui.kicker}>WHAT WE CAN VERIFY</p><h2>The confirmed development</h2>
+      <p>{recap.fact}</p>
+      <p><strong>Comparison needed:</strong> Find the previous original release and any revised same-basis value. Freeze a genuinely pre-release forecast, then compare actual versus both before interpreting the result.</p>
+      <p><strong>Market channel to investigate:</strong> {recap.mechanism}</p>
+     </section>}
     <section data-bluebelly-coverage="review-handoff-pending">
-      <p className={ui.kicker}>RESEARCH / EDITORIAL STATUS</p><h2>Further analysis not yet linked</h2>
-      <p>The existing public record confirms the announcement. A reviewed same-event comparison, business assessment and independent market observation have not been attached to this reader.</p>
-      <details>
-       <summary>Show the checks required for a full investigation</summary>
-       <ul>{coverage.missing.map(item=><li key={item}>{item}</li>)}</ul>
-      </details>
-      {sourceOnly?<div data-market-consequence="source-only-unassessed" className={ui.caution}>
-       <p>No reviewed economic effect or event-window share-price response is attached. Expectations have not been independently matched; no causal market conclusion is asserted.</p>
-       <p><strong>Uncertainty:</strong> Not assessed — a risk premium cannot be inferred from the headline alone.</p>
-       <p><strong>Supply and demand:</strong> The net effect on buyers, producers, financial flows and costs has not been reviewed.</p>
-       <p><strong>Market direction:</strong> Unknown pending an expected-versus-observed, source-matched comparison.</p>
-      </div>:null}
+     <p className={ui.kicker}>EVIDENCE STILL NEEDED</p>
+     <h2>{checkedRelease?"What could change this assessment?":"What remains to be checked?"}</h2>
+     {checkedRelease?
+       <p>Independently reconcile the October BLS component tables, then measure instrument prices and Fed-funds expectations around 08:30 ET. Any subsequent yield or equity move must be distinguished from other catalysts. {checkedRelease.exposures[0].decidingTest}</p>:
+       <p>Before publishing a trade or economic conclusion, check the previous comparable data, the pre-event expectation and the actual market response. The next investigation question is: {recap.nextTest}</p>}
+     <details>
+      <summary>Show the checks required for a full investigation</summary>
+      {checkedRelease?
+       <p>Original component-table reconciliation; matched 08:30 ET Treasury and equity reactions; competing Fed-path explanations; issuer-specific margin and pricing checks.</p>:
+       <p>{coverage.missing.join(" · ")}</p>}
+     </details>
+     {sourceOnly&&!checkedRelease?<p className={ui.caution} data-market-consequence="source-only-unassessed">
+      Market direction and asset disruption are not rated from a headline alone. No verified previous/actual/expected comparison or matched event-window price response has been attached. <strong>Supply and demand:</strong> the effect on buyers and producers still requires comparable inputs and direct sector evidence.</p>:null}
     </section>
   </div>
   <footer className={ui.source}><strong>Dated source evidence</strong>
-   <p>This is a qualified report in the Newsroom evidence tier, not a completed investor investigation. The next existing research review can connect a sourced comparator and publish a new dated edition.</p>
+   <p>{checkedRelease?
+      "The comparative figures have original-period and contemporaneous reporting sources above; asset exposure remains an explicitly conditional analytical scenario, not canonical Story/Regime evidence or a verified price reaction.":
+      "This is a source-qualified notice, not a completed investor investigation. The existing research process must attach a historical comparator before promoting a directional conclusion."}</p>
    {validSource(recap.sourceUrl)?<a href={recap.sourceUrl} target="_blank" rel="noopener noreferrer">{recap.sourceName} · dated source ↗</a>:<span>Original source link unavailable</span>}
   </footer>
  </article>;
