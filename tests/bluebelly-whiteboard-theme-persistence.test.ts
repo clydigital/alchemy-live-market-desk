@@ -26,7 +26,7 @@ test("nav shelf square uses palette-driven command token with no mandatory yello
  const css=read("components/blue-desk/bluebelly-chrome.module.css");
  const tokens=read("app/bluebelly-tokens.css");
  assert.match(css,/background:var\(--bb-command-accent\);border:1px solid var\(--bb-command-accent\)/);
- assert.doesNotMatch(css,/\.sidebarToggle\{[^}]*background:#ffe500/s);
+ assert.doesNotMatch(css,/\.sidebarToggle\{[^}]*background:#ffe500/);
  for(const t of ["turquoise","neon-blue","pastel-green","yellow-black"]){
   assert.ok(tokens.includes(':root[data-bluebelly-theme="'+t+'"]'));
  }
