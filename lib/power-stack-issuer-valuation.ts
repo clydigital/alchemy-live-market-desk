@@ -11,7 +11,7 @@ export type PrivateIssuerValuationReview=Readonly<{
  valuation_low:number|string;valuation_high:number|string;valuation_currency:string;
  valuation_method:"DCF"|"FCF_MULTIPLE"|"EARNINGS_MULTIPLE"|"SUM_OF_PARTS"|"COMPS";
  valuation_source_url:string;method_explanation:string;downside_case:string;invalidation_test:string;
- financial_period_end:string;fundamental_source_url:string;
+ financial_period_end:string;financials_currency:string;financials_unit:"ones"|"thousands"|"millions";fundamental_source_url:string;
  revenue:number|string|null;net_income:number|string|null;
  operating_cash_flow:number|string;capital_expenditure:number|string;
  share_based_compensation:number|string|null;net_debt:number|string|null;
@@ -20,7 +20,7 @@ export type PrivateIssuerValuationReview=Readonly<{
 export type IssuerReviewVerdict="BELOW_REVIEWED_RANGE"|"ABOVE_REVIEWED_RANGE"|"WITHIN_REVIEWED_RANGE";
 export type IssuerReviewResult=Readonly<{
  ticker:string;verdict:IssuerReviewVerdict;reviewedAt:string;priceObservedOn:string;
- financialPeriodEnd:string;marketPrice:number;currency:string;
+ financialPeriodEnd:string;financialsUnit:PrivateIssuerValuationReview["financials_unit"];marketPrice:number;currency:string;
  valuationLow:number;valuationHigh:number;distanceToLowPct:number;distanceToHighPct:number;
  cashFlowFromOperations:number;capitalExpenditure:number;freeCashFlow:number;
  netIncome:number|null;revenue:number|null;shareBasedCompensation:number|null;netDebt:number|null;
@@ -70,7 +70,9 @@ export function evaluateIssuerValuation(
   !finiteOptional(input.net_income)||!finiteOptional(input.revenue)||
   !finiteOptional(input.share_based_compensation)||!finiteOptional(input.net_debt)||
   (n(input.share_based_compensation)??0)<0||
-  !/^[A-Z]{3}$/.test(input.price_currency)||input.price_currency!==input.valuation_currency)return null;
+  !/^[A-Z]{3}$/.test(input.price_currency)||input.price_currency!==input.valuation_currency||
+  input.price_currency!==input.financials_currency||
+  !["ones","thousands","millions"].includes(input.financials_unit))return null;
  if(!https(input.price_source_url)||!https(input.fundamental_source_url)||
    !https(input.valuation_source_url)||
    new Set([input.price_source_url,input.fundamental_source_url,input.valuation_source_url]).size!==3)return null;
@@ -86,7 +88,7 @@ export function evaluateIssuerValuation(
  const verdict:IssuerReviewVerdict=price<low*.9?"BELOW_REVIEWED_RANGE":
   price>high*1.1?"ABOVE_REVIEWED_RANGE":"WITHIN_REVIEWED_RANGE";
  return {ticker:input.ticker,verdict,reviewedAt:input.reviewed_at,priceObservedOn:input.price_observed_on,
-  financialPeriodEnd:input.financial_period_end,marketPrice:price,currency:input.price_currency,
+  financialPeriodEnd:input.financial_period_end,financialsUnit:input.financials_unit,marketPrice:price,currency:input.price_currency,
   valuationLow:low,valuationHigh:high,distanceToLowPct:round((low/price-1)*100),
   distanceToHighPct:round((high/price-1)*100),
   cashFlowFromOperations:ocf,capitalExpenditure:capex,freeCashFlow:round(freeCashFlow),
