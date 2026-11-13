@@ -176,7 +176,7 @@ export default async function PrivatePowerStack() {
         .order("retrieved_at",{ascending:false}).limit(300)
     : {data:null,error:null};
   const pegByTicker=new Map<string,ReturnType<typeof evaluatePegResearch> & {
-    analystsFirst:number|null; analystsSecond:number|null; source:string;
+    analystsFirst:number|null; analystsSecond:number|null; source:string;forecastSourceUrl:string;
   }>();
   if(!pegError)for(const record of pegRecords??[]){
     if(pegByTicker.has(record.ticker))continue;
@@ -186,6 +186,7 @@ export default async function PrivatePowerStack() {
       analystsFirst:typeof record.first_fy_analysts==="number"?record.first_fy_analysts:null,
       analystsSecond:typeof record.second_fy_analysts==="number"?record.second_fy_analysts:null,
       source:typeof record.forecast_source==="string"?record.forecast_source:"",
+      forecastSourceUrl:typeof record.forecast_source_url==="string"?record.forecast_source_url:"",
     });
   }
 
@@ -212,7 +213,8 @@ export default async function PrivatePowerStack() {
   const nonIssuer=new Set(["TLT","IEF","EDV","ZROZ","AGG","GOVT","USFR","SGOV","SHY","TIP","LQD","HYG","BND","BNDX","VGIT","VGLT",
     "SPY","QQQ","RSP","SMH","SOXX","IGV","XLE","XLF","XLK","XLY","XOP","KWEB","FXI","MCHI","GLD","GLDM","GDX","GDXJ","IAU"]);
   const issuers:ValuationResearchAsset[]=ready?researchAssets.filter(item=>
-    item.scope!=="bond_watch"&&!nonIssuer.has(item.ticker.toUpperCase())).map(item=>({
+    item.scope!=="bond_watch"&&!nonIssuer.has(item.ticker.toUpperCase())).filter((item,index,all)=>
+      all.findIndex(other=>other.ticker.toUpperCase()===item.ticker.toUpperCase())===index).map(item=>({
       ...item,peg:pegByTicker.get(item.ticker)||null,
       quote:latestQuotes.get(item.ticker)?{
         price:latestQuotes.get(item.ticker)!.price,
