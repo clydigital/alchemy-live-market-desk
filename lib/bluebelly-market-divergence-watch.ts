@@ -73,11 +73,11 @@ export function buildMarketDivergenceWatch(
         : "Unmatched source sessions: "+pair.left+" "+leftEligible.map(row=>row.asOf).join(", ")+" vs "+pair.right+" "+rightEligible.map(row=>row.asOf).join(", ")+".";
       return {...base,status:"NOT_COMPARABLE" as const,reason};
     }
-    const leftChange=publicMarketWindowChange(a,window)!;
-    const rightChange=publicMarketWindowChange(b,window)!;
+    const leftChange=publicMarketWindowChange(selection.a,window)!;
+    const rightChange=publicMarketWindowChange(selection.b,window)!;
     const gapPp=Number((leftChange-rightChange).toFixed(2));
     const opposite=leftChange*rightChange<0;
-    return {...base,leftChange,rightChange,gapPp,sourceSession:a.asOf,
+    return {...base,leftChange,rightChange,gapPp,sourceSession:selection.a.asOf,
       status:opposite?"OPPOSITE_MOVE" as const:"RELATIVE_MOVE" as const,reason:null};
   }).sort((a,b)=>{
     const priority=(r:MarketDivergenceRead)=>r.status==="OPPOSITE_MOVE"?0:r.status==="RELATIVE_MOVE"?1:2;
