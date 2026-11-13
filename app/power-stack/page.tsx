@@ -193,7 +193,7 @@ export default async function PrivatePowerStack() {
   // store. An absent table/migration is a visible coverage gap, never a buy.
   const {data:issuerValuationRows,error:issuerValuationError}=ready&&trackedTickers.length
     ? await supabase.from("power_stack_issuer_valuation_reviews")
-        .select("ticker,reviewed_at,review_status,price_observed_on,market_price,price_currency,price_source_url,source_timestamp_basis,valuation_low,valuation_high,valuation_currency,valuation_method,valuation_source_url,method_explanation,downside_case,invalidation_test,financial_period_end,fundamental_source_url,revenue,net_income,operating_cash_flow,capital_expenditure,share_based_compensation,net_debt,reviewer_note")
+        .select("ticker,reviewed_at,review_status,price_observed_on,market_price,price_currency,price_source_url,source_timestamp_basis,valuation_low,valuation_high,valuation_currency,valuation_method,valuation_source_url,method_explanation,downside_case,invalidation_test,financial_period_end,financials_currency,financials_unit,fundamental_source_url,revenue,net_income,operating_cash_flow,capital_expenditure,share_based_compensation,net_debt,reviewer_note")
         .eq("owner_user_id",identity.user.id).in("ticker",trackedTickers.slice(0,250))
         .order("reviewed_at",{ascending:false}).limit(300)
     : {data:null,error:null};
