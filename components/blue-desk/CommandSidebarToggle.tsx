@@ -33,11 +33,10 @@ export default function CommandSidebarToggle(){
     try{window.localStorage.setItem(STORAGE_KEY,shelved?"1":"0");}
     catch{/* Still usable without persistence. */}
 
-    return ()=>{
-      root.removeAttribute("data-bluebelly-sidebar");
-      nav?.removeAttribute("inert");
-      nav?.removeAttribute("aria-hidden");
-    };
+    // Do not remove the persisted global rail state when the header unmounts
+    // during a Next.js route transition. The next page restores its nav's
+    // inert state independently; clearing the root here flashes the rail.
+
   },[restored,shelved]);
 
   const label=shelved?"Show navigation sidebar":"Hide navigation sidebar";
