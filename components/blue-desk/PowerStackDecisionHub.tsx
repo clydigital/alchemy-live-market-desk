@@ -8,6 +8,17 @@ type Idea={
  uncertainty:string;mechanism:string;entry:string;failure:string;href:string;
  sourceUrl:string|null;sourceName:string;sourceDay:string;lane:"investment"|"trade";
 };
+/** Status is research workflow readiness, not a live buy/sell forecast.
+ * Deliberately NO green actionable state while verified triggers remain zero. */
+const IDEA_STATUS_TONE:Readonly<Record<string,"risk"|"pending"|"research">>={
+ "nvda-long":"pending",
+ "ai-cloud":"risk",
+ "tlt-duration":"research",
+ "nvda-swing":"pending",
+ "bond-swing":"pending",
+ "oil-shipping":"pending",
+ "msci-flow":"research"
+};
 /** Owner-only decision queue. Curation is explicit and does not alter
  * holdings/legacy ranking or infer real-time price, conviction or execution. */
 export default function PowerStackDecisionHub({now}:{now:Date}){
@@ -87,6 +98,11 @@ export default function PowerStackDecisionHub({now}:{now:Date}){
     <p>Separate multi-year investments from tactical setups. These are dated research candidates, not live signals, portfolio orders or automatically ranked assets.</p></div>
    <div className={s.count}><strong>{base.length}</strong><span>CONDITIONAL IDEAS</span><small>0 verified trade triggers</small></div>
   </header>
+  <div className={s.statusLegend} aria-label="Research idea status key">
+   <span data-idea-legend="risk"><i aria-hidden="true"/> Material financing / execution risk</span>
+   <span data-idea-legend="pending"><i aria-hidden="true"/> Confirmation pending</span>
+   <span data-idea-legend="research"><i aria-hidden="true"/> Research-stage opportunity</span>
+  </div>
   <nav className={s.jump} aria-label="Power Stack investment desk navigation">
    <a href="#power-stack-investment">Investment ideas</a>
    <a href="#power-stack-trades">Short trade ideas</a>
@@ -99,7 +115,7 @@ export default function PowerStackDecisionHub({now}:{now:Date}){
     <div className={s.laneHead}><h3>{lane==="investment"?"01 / Multi-year investment ideas":"02 / Short-term trade setups"}</h3>
      <span>{lane==="investment"?"Earnings · valuation · cash conversion":"Catalyst · technical confirmation · invalidation"}</span></div>
     <div className={s.grid}>{base.filter(idea=>idea.lane===lane).map(idea=><article key={idea.id} className={s.card}
-     data-power-stack-candidate={idea.id}>
+     data-power-stack-candidate={idea.id} data-idea-tone={IDEA_STATUS_TONE[idea.id]??"research"}>
       <div className={s.cardTop}><span>{idea.tickers}</span><strong>{idea.state}</strong></div>
       <h4>{idea.title}</h4>
       <p><strong>Case:</strong> {idea.hypothesis}</p>
