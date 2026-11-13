@@ -1,5 +1,9 @@
 import AbsorptionHealth from "@/components/blue-desk/AbsorptionHealth";
 import MarketWindowBars from "@/components/blue-desk/MarketWindowBars";
+import MarketConditionsBoard from "@/components/blue-desk/MarketConditionsBoard";
+import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
+import {calculateBreadthRow} from "@/lib/bluebelly-breadth-dated";
+import {readPublicUsJobs} from "@/lib/bluebelly-us-jobs-reader";
 import {getBluebellyAbsorptionHealth} from "@/lib/bluebelly-absorption-health";
 import CurrentMarketUpdates from "@/components/blue-desk/CurrentMarketUpdates";
 import DecisionBrief from "@/components/blue-desk/DecisionBrief";
@@ -77,7 +81,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   const now = new Date();
   const host = (await headers()).get("host");
   const publicHost = isBlueDeskPublicReaderHost(host);
-  const [macro, earnings, monitor, verifiedMotions, observations, theses, originalPress, digestBriefs] = await Promise.all([
+  const [macro, earnings, monitor, verifiedMotions, observations, theses, originalPress, digestBriefs, breadthFeed, jobs] = await Promise.all([
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({ now }).catch(() => ({
       events: [], coverage: "unavailable" as const, warning: "Earnings source unavailable",
@@ -93,6 +97,8 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
       getCompletedOfficialMacroNews(now,18,7).catch(()=>[]),
     ]).then(([press,macroActuals])=>[...press,...macroActuals]),
     getPublishedMacroPulseBriefs(2).catch(() => []),
+    getSourceDatedBreadth().catch(() => ({series:[],retrievalStatus:"fallback" as const})),
+    readPublicUsJobs().catch(() => null),
   ]);
   const absorptionHealth = await getBluebellyAbsorptionHealth(now);
   const motionNews = selectVerifiedNewsBriefs(verifiedMotions, now, 18);
@@ -120,6 +126,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   const upcoming = upcoming7d.length ? upcoming7d : upcomingFallback;
   // Reuse the existing source-dated monitor; no new provider call or inferred prices.
   const marketRows=publicMarketObservations(monitor?.rows||[],"all");
+  const breadth50=calculateBreadthRow("S5FI","S&P 500 above 50-day MA",breadthFeed.series.find(s=>s.symbol==="S5FI"),now);
   const marketTypes=["Major Index","Rates","FX","Energy","Metal","AI / Semis"] as const;
   // A stored last price is not a fresh quote. Allow a weekend/holiday window,
   // but never show future timestamps, monthly values or data older than 7 days.
@@ -161,6 +168,8 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
               <span className={marketHome.orbitCaption}>OBSERVE / COMPARE / INVESTIGATE</span>
             </div>
           </header>
+          <MarketConditionsBoard market={marketRows} breadth={breadth50} jobs={jobs}
+            health={absorptionHealth} now={now} host={host}/>
           <div className={marketHome.overview}>
             <section className={`${marketHome.panel} ${marketHome.snapshot}`} aria-labelledby="market-snapshot-title" data-v7-market-tiles="source-dated">
               <div className={marketHome.panelHead}>

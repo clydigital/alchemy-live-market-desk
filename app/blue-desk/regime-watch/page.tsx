@@ -13,6 +13,7 @@ import {getManualSweeps} from "@/lib/bluebelly-manual-sweeps";
 import {getLensOutlook,LENS_OUTLOOK_REVIEWED_ON} from "@/lib/bluebelly-regime-lens-outlook";
 import {getRegimeEditorialUpdate} from "@/lib/bluebelly-regime-verified-crossasset";
 import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
+import AcceleratorDial from "@/components/blue-desk/AcceleratorDial";
 import RegimeResearchClocks from "@/components/blue-desk/RegimeResearchClocks";
 import RegimeSignalRadar from "@/components/blue-desk/RegimeSignalRadar";
 import {buildSignalRadar} from "@/lib/bluebelly-signal-radar";
@@ -82,11 +83,20 @@ export default async function RegimeWatchPage(){
     </div>
     <div className={styles.directionGrid} role="list" aria-label="Five dated Regime pressure readings">
      {directionPackets.map(packet=>{const windows=packet.id==="bonds"?bondPressure.windows:packet.read.windows;
+      const first=windows.find(w=>w.label==="1D");
+      const current=packet.id==="bonds"?bondPressure.state==="READY":!packet.read.stale;
+      const trend:-1|0|1|null=!current||!first?null:first.trend==="better"?1:first.trend==="worse"?-1:first.trend==="mixed"?0:null;
       return <Link key={packet.id} role="listitem" className={styles.directionCard}
       href={blueDeskPublicHref("/blue-desk/regime-watch/"+packet.id,host)+(packet.id==="bonds"?"#bond-pressure":"#quick-direction")}
       data-direction-overview-card={packet.id}>
       <span className={styles.directionLabel}>{packet.id.toUpperCase()} / {packet.id==="bonds"?"YIELD SESSIONS":"SOURCE REVIEW"}</span>
       <strong>{packet.question}</strong>
+      <div className={styles.directionDial} data-regime-direction-dial={packet.id}>
+        <AcceleratorDial compact label={packet.question} direction={trend}
+          leftLabel={packet.id==="bonds"?"Yields rising":"Conditions worse"}
+          rightLabel={packet.id==="bonds"?"Yields easing":"Conditions better"} middleLabel="MIXED"/>
+        <span>{trend===null?"CURRENT READ UNAVAILABLE":packet.id==="bonds"?"1D TREASURY DIRECTION":"1D REVIEWED EVIDENCE DIRECTION"}</span>
+      </div>
       <div className={styles.directionStatuses} aria-label={packet.question+" 1, 3 and 5 source-days"}>
        {windows.map(window=><span key={window.label}
         className={styles.directionMini} data-direction-window={window.label} data-direction-trend={window.trend}>
@@ -130,7 +140,15 @@ export default async function RegimeWatchPage(){
         <div className={styles.content}>
        <div className={styles.cardHeading}><span className={styles.kicker}>{lens.code} / RESEARCH LENS</span><span className={styles.cardSerial}>FILE {String(index+1).padStart(2,"0")} / 09</span></div>
        <h3>{lens.name}</h3>
-       <small className={styles.archivedContext}>HISTORICAL 30 OCT EDITORIAL · AVAILABLE INSIDE RESEARCH FILE</small>
+       <small className={styles.archivedContext}>HISTORICAL 30 OCT EDITORIAL · NOT THE CURRENT 1D SIGNAL</small>
+       <div className={styles.lensActivity} aria-label={
+        scans[index].newViews.length+" new views, "+scans[index].updatedRecords.length+
+        " updated records, "+scans[index].sourceInputs.length+" new original-source inputs since review"}>
+        <span data-activity={scans[index].newViews.length>0?"new":"none"} title="New views"/>
+        <span data-activity={scans[index].updatedRecords.length>0?"new":"none"} title="Updated records"/>
+        <span data-activity={scans[index].sourceInputs.length>0?"new":"none"} title="New source inputs"/>
+        <small>NEW VIEWS / RECORDS / SOURCES</small>
+       </div>
        <div className={styles.archivedMeterHidden} aria-hidden="true">
         <RegimeOutlookMeter assessment={getLensOutlook(lens.id)} size="summary"/>
         <p className={styles.lensReason}><strong>Why:</strong> {getLensOutlook(lens.id).headline}</p>
