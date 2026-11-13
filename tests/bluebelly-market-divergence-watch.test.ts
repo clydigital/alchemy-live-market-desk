@@ -35,6 +35,25 @@ test("mismatched, unavailable, stale and nonpercent rows fail closed",()=>{
   const missing=buildMarketDivergenceWatch([row("SMH",-2,-3,null),row("QQQ",2,3,4)],"5D");
   assert.equal(missing.find(r=>r.id==="semis-vs-nasdaq")!.status,"NOT_COMPARABLE");
 });
+test("comparison chooses newest matched ETFs and prefers one provider on tied dates",()=>{
+ const nasdaq="Nasdaq official etf history";
+ const baseRSP={...row("RSP",2,3,4,"2026-11-13"),sourceName:"Core market price feed"};
+ const sameExchangeRSP={...row("RSP",-1,-2,-3,"2026-11-12"),sourceName:nasdaq};
+ const spy={...row("SPY",0.5,1,2,"2026-11-12"),sourceName:nasdaq};
+ const match=buildMarketDivergenceWatch([baseRSP,sameExchangeRSP,spy],"1D")
+  .find(r=>r.id==="equal-vs-cap")!;
+ assert.equal(match.status,"OPPOSITE_MOVE");
+ assert.equal(match.sourceSession,"2026-11-12");
+ assert.equal(match.leftChange,-1);
+ const sameDateCore={...row("RSP",9,9,9,"2026-11-12"),sourceName:"Core market price feed"};
+ const preferred=buildMarketDivergenceWatch([sameDateCore,sameExchangeRSP,spy],"1D")
+  .find(r=>r.id==="equal-vs-cap")!;
+ assert.equal(preferred.leftChange,-1,"same-session Nasdaq ETF source preferred on tied dates");
+ const mismatched=buildMarketDivergenceWatch([sameExchangeRSP,{...spy,asOf:"2026-11-13"}],"1D")
+  .find(r=>r.id==="equal-vs-cap")!;
+ assert.equal(mismatched.status,"NOT_COMPARABLE");
+ assert.match(mismatched.reason!,/Unmatched source sessions/);
+});
 test("window selection changes measurements rather than substituting 1D",()=>{
   const input=[row("SMH",-3,4,6),row("QQQ",2,1,1)];
   const d1=buildMarketDivergenceWatch(input,"1D").find(r=>r.id==="semis-vs-nasdaq")!;
