@@ -65,7 +65,7 @@ export default function ShortNewsRecap({recap,backHref,coverage}:{recap:Recap;ba
   </header>
   <div className={ui.chapters}>
     {checkedRelease?<ReleaseComparisonDisruption brief={checkedRelease}/>:
-     <section><p className={ui.kicker}>WHAT IS KNOWN</p><h2>The confirmed development</h2>
+     <section><p className={ui.kicker}>WHAT WE CAN VERIFY</p><h2>The confirmed development</h2>
       <p>{recap.fact}</p>
       <p><strong>Comparison needed:</strong> Find the previous original release and any revised same-basis value. Freeze a genuinely pre-release forecast, then compare actual versus both before interpreting the result.</p>
       <p><strong>Market channel to investigate:</strong> {recap.mechanism}</p>
@@ -83,7 +83,7 @@ export default function ShortNewsRecap({recap,backHref,coverage}:{recap:Recap;ba
        <p>{coverage.missing.join(" · ")}</p>}
      </details>
      {sourceOnly&&!checkedRelease?<p className={ui.caution} data-market-consequence="source-only-unassessed">
-      Market direction and asset disruption are not rated from a headline alone. No verified previous/actual/expected comparison or matched event-window price response has been attached.</p>:null}
+      Market direction and asset disruption are not rated from a headline alone. No verified previous/actual/expected comparison or matched event-window price response has been attached. <strong>Supply and demand:</strong> the effect on buyers and producers still requires comparable inputs and direct sector evidence.</p>:null}
     </section>
   </div>
   <footer className={ui.source}><strong>Dated source evidence</strong>
