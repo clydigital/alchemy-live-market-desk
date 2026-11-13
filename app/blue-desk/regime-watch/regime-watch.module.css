@@ -476,3 +476,45 @@
 @media(max-width:700px){.directionGrid{grid-auto-flow:column;grid-auto-columns:minmax(235px,85%);
  grid-template-columns:none;overflow-x:auto;scroll-snap-type:x mandatory}
  .directionCard{min-height:278px}.directionDial{min-height:116px}}
+
+/* Status belongs to the lens's latest admitted market proxy, not the Oct 30
+   archival editorial outlook. Four lenses with no proxy remain neutral. */
+.lensLegend{display:flex;flex-wrap:wrap;gap:5px 13px;margin:0 0 12px}
+.lensLegend>span{display:inline-flex;align-items:center;gap:6px;font:700 10px/1.4 var(--bb-mono);color:var(--bb-muted)}
+.lensLegend i{display:inline-block;width:9px;height:9px;flex-shrink:0;border-radius:2px;background:var(--lens-tone,#8795a3)}
+.lensLegend [data-legend-tone="improving"]{--lens-tone:#36c49b}
+.lensLegend [data-legend-tone="pressure"]{--lens-tone:#fa7479}
+.lensLegend [data-legend-tone="mixed"]{--lens-tone:#eab65b}
+.lensLegend [data-legend-tone="unknown"]{--lens-tone:#8795a3}
+.card[data-lens-tone="improving"]{--lens-tone:#36c49b}
+.card[data-lens-tone="pressure"]{--lens-tone:#fa7479}
+.card[data-lens-tone="mixed"]{--lens-tone:#eab65b}
+.card[data-lens-tone="unknown"]{--lens-tone:#8795a3}
+.card[data-lens-tone]{border:1px solid color-mix(in srgb,var(--lens-tone) 72%,var(--bb-card-border) 28%);
+ border-left:5px solid var(--lens-tone);
+ background:linear-gradient(105deg,
+  color-mix(in srgb,var(--bb-card-bg) 84%,var(--lens-tone) 16%),
+  color-mix(in srgb,var(--bb-card-bg) 94%,var(--lens-tone) 6%));
+ transition:background .16s ease,border-color .16s ease}
+.card[data-lens-tone]:hover,.card[data-lens-tone]:focus-visible{
+ border-color:var(--lens-tone);border-left-color:var(--lens-tone);
+ background:linear-gradient(105deg,
+  color-mix(in srgb,var(--bb-card-bg-hover) 79%,var(--lens-tone) 21%),
+  color-mix(in srgb,var(--bb-card-bg-hover) 89%,var(--lens-tone) 11%))}
+.card[data-lens-tone]:after{border-top-color:var(--lens-tone);border-right-color:var(--lens-tone)}
+.lensStatus{display:flex;flex-wrap:wrap;align-items:center;gap:3px 8px;
+ border:1px solid color-mix(in srgb,var(--lens-tone) 48%,var(--bb-card-border) 52%);
+ background:color-mix(in srgb,var(--bb-card-bg) 84%,var(--lens-tone) 16%);
+ padding:7px 9px;margin:4px 0}
+.lensStatusLabel{display:flex;align-items:center;gap:6px;flex:1 1 170px;
+ font:850 12px/1.35 var(--bb-display);
+ color:color-mix(in srgb,var(--lens-tone) 65%,var(--bb-text) 35%)}
+.lensStatusLabel:before{content:"";flex:0 0 8px;height:8px;background:var(--lens-tone);border-radius:2px}
+.lensStatusDetail{font:850 11px/1.35 var(--bb-mono);color:var(--bb-text);font-variant-numeric:tabular-nums}
+.lensStatus>small{flex-basis:100%;color:var(--bb-muted);font:650 9px/1.4 var(--bb-mono)}
+@media(max-width:600px){
+ .lensLegend{gap:5px 10px}
+ .lensLegend>span{font-size:9px}
+ .lensStatus{padding:7px 8px;margin:3px 0}
+ .lensStatusLabel{font-size:12px;flex-basis:150px}
+}
