@@ -255,7 +255,7 @@
   position:fixed;left:0;bottom:clamp(20px,4vh,42px);z-index:48;
   display:grid;place-items:center;
   width:44px;height:44px;min-height:44px;padding:0;cursor:pointer;
-  color:#090a0c;background:#ffe500;border:1px solid #ffe500;
+  color:var(--bb-accent-ink);background:var(--bb-command-accent);border:1px solid var(--bb-command-accent);
   border-radius:0;box-shadow:3px 3px 13px #0008;
   transition:filter .16s ease;
 }

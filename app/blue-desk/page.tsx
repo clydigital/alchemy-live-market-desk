@@ -1,6 +1,9 @@
 import AbsorptionHealth from "@/components/blue-desk/AbsorptionHealth";
 import MarketWindowBars from "@/components/blue-desk/MarketWindowBars";
 import MarketConditionsBoard from "@/components/blue-desk/MarketConditionsBoard";
+import DeskWhiteboard from "@/components/blue-desk/DeskWhiteboard";
+import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
+import {buildMarketCompassSummary} from "@/lib/bluebelly-market-compass";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
 import {calculateBreadthRow} from "@/lib/bluebelly-breadth-dated";
 import {readPublicUsJobs} from "@/lib/bluebelly-us-jobs-reader";
@@ -126,6 +129,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   const upcoming = upcoming7d.length ? upcoming7d : upcomingFallback;
   // Reuse the existing source-dated monitor; no new provider call or inferred prices.
   const marketRows=publicMarketObservations(monitor?.rows||[],"all");
+  const marketCompass=buildMarketCompassSummary(buildMarketDivergenceWatch(marketRows,"1D"),now);
   const breadth50=calculateBreadthRow("S5FI","S&P 500 above 50-day MA",breadthFeed.series.find(s=>s.symbol==="S5FI"),now);
   const marketTypes=["Major Index","Rates","FX","Energy","Metal","AI / Semis"] as const;
   // A stored last price is not a fresh quote. Allow a weekend/holiday window,
@@ -168,6 +172,8 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
               <span className={marketHome.orbitCaption}>OBSERVE / COMPARE / INVESTIGATE</span>
             </div>
           </header>
+          <DeskWhiteboard compass={marketCompass} news={verifiedNews} theses={theses}
+            upcoming={upcoming} now={now} host={host}/>
           <MarketConditionsBoard market={marketRows} breadth={breadth50} jobs={jobs}
             health={absorptionHealth} now={now} host={host}/>
           <div className={marketHome.overview}>
