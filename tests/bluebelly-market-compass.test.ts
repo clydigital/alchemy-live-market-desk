@@ -9,7 +9,7 @@ function pair(id:string,left:number,right:number,date="2026-11-13"):MarketDiverg
   right:id==="semis-vs-nasdaq"?"QQQ":"SPY",question:"",nextTest:"",
   status:left*right<0?"OPPOSITE_MOVE":"RELATIVE_MOVE",leftChange:left,
   rightChange:right,gapPp:Number((left-right).toFixed(2)),sourceSession:date,
-  leftSourceUrl:null,rightSourceUrl:null,reason:null};
+  leftSourceUrl:"https://example.org/left",rightSourceUrl:"https://example.org/right",reason:null};
 }
 const inputs=(a:number,b:number,c:number,d:number)=>[
  pair("semis-vs-nasdaq",a,b),pair("equal-vs-cap",c,d)
@@ -39,4 +39,8 @@ test("missing or non-comparable evidence fails closed",()=>{
  assert.equal(buildMarketCompassSummary(rows,NOW).state,"UNMEASURED");
  const rows2=inputs(1,2,3,4); rows2[1].leftChange=null;
  assert.equal(buildMarketCompassSummary(rows2,NOW).state,"UNMEASURED");
+ const noReceipt=inputs(1,2,3,4);noReceipt[0].leftSourceUrl=null;
+ assert.equal(buildMarketCompassSummary(noReceipt,NOW).state,"UNMEASURED");
+ const future=inputs(1,2,3,4).map(r=>({...r,sourceSession:"2026-11-15"}));
+ assert.equal(buildMarketCompassSummary(future,NOW).state,"UNMEASURED");
 });
