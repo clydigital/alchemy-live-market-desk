@@ -91,6 +91,10 @@ test("Newsroom and Regime and source panels actually render tags and working fil
  assert.match(room,/SignalTags tags=\{suggestSignalTags/);
  assert.match(wire,/SignalTags tags=\{suggestSignalTags/);
  assert.match(radar,/aria-pressed=\{tag===t.id\}/);
+ assert.match(radar,/key=\{tag\} className=\{s.cards\}/);
+ assert.match(radar,/data-active-filter=\{tag\}/);
+ assert.match(radar,/data-tags=\{item.tags.map/);
+ assert.match(read("components/blue-desk/RegimeSignalRadar.module.css"),/data-active-filter="divergence"/);
  assert.match(radar,/data-signal-radar/);
  assert.doesNotMatch(hub+radar+panel+room,/\.upsert\(|\.insert\(|supabase\.rpc\(/);
 });
