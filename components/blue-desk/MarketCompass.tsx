@@ -33,7 +33,7 @@ export default function MarketCompass({
     <div className={styles.session} aria-live="polite">
      {summary.sourceSession?
       <><span className={styles.sessionDot}/> Matched source session <time dateTime={summary.sourceSession}>{summary.sourceSession}</time> · {summary.evidenceCount} ETF returns</>
-      :<>No current matched-session reading · evidence incomplete</>}
+      :<>No complete four-ETF session · evidence incomplete</>}
     </div>
    </div>
    <div className={styles.risk} role="group" aria-label="Qualitative one-day US equity direction, not a probability">
