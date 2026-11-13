@@ -6,10 +6,27 @@ export type ReportedEditorial={
  id:string;headline:string;publishedAt:string;publisher:string;sourceUrl:string;
  reporting:string;why:string;countercase:string;nextTest:string;
  assetNames:readonly string[];
- kind?:"VERIFIED_INCIDENT";
+ kind?:"VERIFIED_INCIDENT"|"SERVICE_INCIDENT";
  secondarySourceUrl?:string;secondarySourceName?:string;
 };
 const REPORTS:readonly ReportedEditorial[]=[
+ {
+ id:"microsoft-365-service-incident-2026-11-12",
+ kind:"SERVICE_INCIDENT",
+ headline:"Microsoft 365 outage: patch stabilises servers, final cause pending",
+ // Source clock: Microsoft EX1550543 update at 08:06:25 UTC, 13 November.
+ // This is not the start of the incident or a completion-of-recovery timestamp.
+ publishedAt:"2026-11-13T08:06:25.000Z",
+ publisher:"Microsoft 365 service-health advisory EX1550543 · PennO365 mirror",
+ sourceUrl:"https://mailservices.isc.upenn.edu/computing/email/penno365/alerts/ms-incidents.html",
+ secondarySourceUrl:"https://apnews.com/article/d92547a821930290db2964388016979a",
+ secondarySourceName:"Associated Press · 13 November 2026",
+ reporting:"A widespread Exchange Online connectivity incident began on 12 November, disrupting Outlook mailbox access and some Microsoft 365 functions. Microsoft's EX1550543 advisory on 13 November said an upstream authentication/routing configuration-component patch improved stability and was being deployed more broadly. Services were recovering unevenly, with intermittent access and delayed emails still reported. Microsoft said it was not aware of malicious activity causing the incident. Its final root-cause report was not yet available.",
+ why:"A shared connection and routing layer can affect millions of organisations without a separate failure at each customer. Microsoft reported that unavailable servers shifted traffic onto surviving capacity, while the process establishing secure connections became overwhelmed. The investment question is whether recovery holds and whether repeated reliability problems produce credits, remediation costs or customer churn. This event alone does not establish a change in Azure demand, profitability or MSFT's fair value.",
+ countercase:"The sequence is consistent with an internal infrastructure or configuration failure, but Microsoft's full post-incident report is pending. A correlated network change is not by itself a proven root cause. No evidence currently establishes a cyberattack, expired physical chips or expired security certificates. The share-price move cannot be assigned solely to this outage without a matched market/sector comparison.",
+ nextTest:"Check Microsoft's EX1550543 and MO1550821 advisories for verified full resolution, then the promised post-incident report for root cause and prevention changes. Track service-credit or customer-impact disclosures; compare MSFT against QQQ and IGV over matching sessions; separately assess Azure growth and capital expenditure against cash generation at the next earnings release.",
+ assetNames:["MSFT","IGV","QQQ"],
+ },
  {
  id:"binance-security-incident-2026-10-30",
  kind:"VERIFIED_INCIDENT",

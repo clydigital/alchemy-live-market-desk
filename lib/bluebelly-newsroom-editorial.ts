@@ -41,9 +41,9 @@ export function projectNewsroomEditorial(
   id:"reported:"+r.id,headline:r.headline,summary:r.reporting,occurredAt:r.publishedAt,
   sourceName:r.publisher,sourceUrl:r.sourceUrl,
   readerHref:readerHref+"?reported="+encodeURIComponent(r.id),
-  topics:(r.kind==="VERIFIED_INCIDENT"?["crypto"]:["ai","earnings"]) as EditorialTopicId[],
-  verificationLabel:r.kind==="VERIFIED_INCIDENT"?"OFFICIAL INCIDENT · ESTIMATED IMPACT":"ATTRIBUTED REPORT · UNCONFIRMED",
-  why:r.why,nextTest:r.nextTest,kind:r.kind==="VERIFIED_INCIDENT"?"incident":"reported",
+  topics:(r.kind==="SERVICE_INCIDENT"?["ai"]:r.kind==="VERIFIED_INCIDENT"?["crypto"]:["ai","earnings"]) as EditorialTopicId[],
+  verificationLabel:r.kind==="SERVICE_INCIDENT"?"OFFICIAL CLOUD SERVICE INCIDENT · CAUSE PENDING":r.kind==="VERIFIED_INCIDENT"?"OFFICIAL INCIDENT · ESTIMATED IMPACT":"ATTRIBUTED REPORT · UNCONFIRMED",
+  why:r.why,nextTest:r.nextTest,kind:r.kind==="SERVICE_INCIDENT"||r.kind==="VERIFIED_INCIDENT"?"incident":"reported",
  }));
  const at=+now;
  return [...incidents,...reviewed,...decisions]
