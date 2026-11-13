@@ -1,0 +1,20 @@
+.board{min-width:0;border:1px solid var(--bb-command-edge);background:linear-gradient(145deg,#091921,#071219);color:var(--bb-text);padding:clamp(12px,1.45vw,18px);display:grid;gap:12px}
+.heading{display:flex;align-items:end;justify-content:space-between;flex-wrap:wrap;gap:7px}
+.heading h2{font-size:clamp(18px,2vw,23px);line-height:1.2;margin:2px 0 0;letter-spacing:-.035em}
+.kicker{margin:0;color:var(--bb-command-accent);font:850 10px/1.3 var(--bb-mono);letter-spacing:.1em}
+.heading small{color:var(--bb-muted);font-size:10px}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--bb-command-edge);border:1px solid var(--bb-command-edge)}
+.cell{min-width:0;background:#0b1c25;padding:12px;display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.cell .label{font:800 9px/1.35 var(--bb-mono);letter-spacing:.06em;color:var(--bb-command-alt)}
+.cell h3{font-size:13px;font-weight:800;line-height:1.35;margin:0;min-height:34px;overflow-wrap:anywhere}
+.cell p{font-size:11px;line-height:1.5;color:#cadce5;margin:0}
+.cell small{margin-top:auto;font-size:10px;line-height:1.4;color:var(--bb-muted);overflow-wrap:anywhere}
+.cell>a{font-size:11px;font-weight:800;text-decoration:none;color:var(--bb-command-accent);margin-top:4px}
+.cell>a:hover{text-decoration:underline}
+.nextTest{display:flex;align-items:center;gap:13px;flex-wrap:wrap;border-top:1px solid var(--bb-command-edge);padding:11px 3px 1px}
+.nextTest span{font:850 10px/1.4 var(--bb-mono);letter-spacing:.06em;color:var(--bb-command-alt)}
+.nextTest p{font-size:11px;line-height:1.45;color:#c0d7e2;margin:0;flex:1 1 270px}
+.nextTest>a{color:var(--bb-command-accent);font-size:11px;font-weight:800;text-decoration:none}
+.board a:focus-visible{outline:2px solid var(--bb-command-alt);outline-offset:3px}
+@media(max-width:1200px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cell h3{min-height:0}}
+@media(max-width:650px){.grid{grid-template-columns:1fr}.board{padding:12px}.cell{padding:11px}.cell h3{font-size:13px}.nextTest{align-items:flex-start;gap:6px}.nextTest p{flex-basis:100%}}
