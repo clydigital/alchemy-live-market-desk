@@ -198,6 +198,15 @@ export default async function PrivatePowerStack() {
         .order("reviewed_at",{ascending:false}).limit(300)
     : {data:null,error:null};
   const issuerReviews=projectIssuerValuationReviews(issuerValuationRows??[],trackedTickers,new Date());
+  // The source lookup starts ONLY after the verified owner session, allowlist,
+  // and retired-public-snapshot gates. Never put ticker/holding data in public Regime routes.
+  const researchedAt=new Date();
+  const researchAssets:PowerStackTracked[]=ready?[
+    ...holdings.map(item=>({ticker:item.ticker,name:item.name,scope:"archived_holding" as const})),
+    ...watchlist.map(item=>({ticker:item.ticker,name:item.name,scope:"archived_watchlist" as const})),
+    ...bondWatch.map(item=>({ticker:item.ticker,name:item.name,scope:"bond_watch" as const})),
+  ]:[];
+  const researchTopics=ready?powerStackResearchTopics(researchAssets):[];
   // Avoid classifying bond funds, broad index baskets or commodity proxies as
   // operating companies. Unmapped equities remain coverage gaps.
   const nonIssuer=new Set(["TLT","IEF","EDV","ZROZ","AGG","GOVT","USFR","SGOV","SHY","TIP","LQD","HYG","BND","BNDX","VGIT","VGLT",
@@ -214,15 +223,7 @@ export default async function PrivatePowerStack() {
       }:null,
     })):[];
 
-  // The source lookup starts ONLY after the verified owner session, allowlist,
-  // and retired-public-snapshot gates. Never put ticker/holding data in public Regime routes.
-  const researchedAt=new Date();
-  const researchAssets:PowerStackTracked[]=ready?[
-    ...holdings.map(item=>({ticker:item.ticker,name:item.name,scope:"archived_holding" as const})),
-    ...watchlist.map(item=>({ticker:item.ticker,name:item.name,scope:"archived_watchlist" as const})),
-    ...bondWatch.map(item=>({ticker:item.ticker,name:item.name,scope:"bond_watch" as const})),
-  ]:[];
-  const researchTopics=ready?powerStackResearchTopics(researchAssets):[];
+
   // Both reads happen only after owner/allowlist gating. Run in parallel to
   // avoid slowing the private terminal by sequential source collection.
   const [researchReads,publicTape]=await Promise.all([
