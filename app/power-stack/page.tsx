@@ -11,6 +11,11 @@ import {powerStackResearchTopics,projectPowerStackResearch,type PowerStackTracke
 import PowerStackResearchImpact from "@/components/blue-desk/PowerStackResearchImpact";
 import NvidiaEarningsDecisionWatch from "@/components/blue-desk/NvidiaEarningsDecisionWatch";
 import PowerStackDecisionHub from "@/components/blue-desk/PowerStackDecisionHub";
+import PowerStackMeasuredSignals from "@/components/blue-desk/PowerStackMeasuredSignals";
+import {getMarketMonitor} from "@/lib/market-monitor-public";
+import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
+import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
+import {selectMeasuredMarketSignals} from "@/lib/bluebelly-measured-market-signals";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -193,6 +198,11 @@ export default async function PrivatePowerStack() {
   const researchTopics=ready?powerStackResearchTopics(researchAssets):[];
   const researchReads=researchTopics.length?await getTopicInfluences(researchTopics,researchedAt):[];
   const researchGroups=ready?projectPowerStackResearch(researchAssets,researchReads,researchedAt):[];
+  // Owner gate already passed: use the same public market-return projection,
+  // then match interests inside the private page without public portfolio joins.
+  const publicTape=ready?await getMarketMonitor().catch(()=>null):null;
+  const tapeComparisons=buildMarketDivergenceWatch(publicMarketObservations(publicTape?.rows??[],"all"),"1D");
+  const measuredSignals=selectMeasuredMarketSignals(tapeComparisons,"1D",researchedAt,5);
 
   return (
     <main className={styles.page} data-power-stack="owner-only"
@@ -210,6 +220,7 @@ export default async function PrivatePowerStack() {
           </div>
         </header>
         <PowerStackDecisionHub now={researchedAt}/>
+        {ready?<PowerStackMeasuredSignals signals={measuredSignals} trackedTickers={trackedTickers} topics={researchTopics}/>:null}
         <NvidiaEarningsDecisionWatch mode="power-stack" now={researchedAt} owner={{
           recordedScope:holdings.some(h=>h.ticker==="NVDA")?"ARCHIVED_HOLDING":
             watchlist.some(w=>w.ticker==="NVDA")?"ARCHIVED_WATCHLIST":"NOT_IN_RECORDED_PORTFOLIO",
