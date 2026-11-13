@@ -79,14 +79,14 @@ function tape(id:RegimeDirectionId,rows:readonly PublicMarketObservation[],ids:r
 }
 function treasury(bonds:BondPressureMonitor):RegimeMeterReading{
  const base=empty("bonds","10Y + 30Y Treasury","Matched official cash-yield sessions",
-  "Yields rising","Yields falling","A dated Treasury yield comparison is not a forecast of TLT returns.","1D");
+  "Yields falling","Yields rising","A dated Treasury yield comparison is not a forecast of TLT returns.","1D");
  if(bonds.state!=="READY"&&bonds.state!=="LAST_REPORTED")return base;
  const ten=bonds.curve.find(x=>x.id==="us10y-fred");
  const thirty=bonds.curve.find(x=>x.id==="us30y-fred");
  if(!ten||!thirty||!bonds.asOf||ten.asOf!==bonds.asOf||
   thirty.asOf!==bonds.asOf||!sourceOk(ten.sourceUrl)||!sourceOk(thirty.sourceUrl))return base;
  const first=bonds.windows.find(w=>w.label==="1D");
- const dir=first?.trend==="better"?1:first?.trend==="worse"?-1:first?.trend==="mixed"?0:null;
+ const dir=first?.trend==="worse"?1:first?.trend==="better"?-1:first?.trend==="mixed"?0:null;
  return {...base,direction:dir,observedAt:bonds.asOf,sourceName:"US Treasury yields · "+(ten.sourceName??"FRED"),
   sourceUrl:ten.sourceUrl,value:"10Y "+ten.last!.toFixed(2)+"% · 30Y "+thirty.last!.toFixed(2)+"%",
   state:bonds.state==="READY"?"observed":"last_reported",
