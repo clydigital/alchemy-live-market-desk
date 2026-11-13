@@ -81,7 +81,10 @@ test("public Bonds page renders custom source-session monitor ahead of old edito
  assert.match(detail,/BondPressureMonitor reading=\{bondPressure\}/);
  assert.match(detail,/data-regime-editorial-archive="collapsed-by-default"/);
  assert.ok(detail.indexOf("<BondPressureMonitor")<detail.indexOf('id="editorial-archive"'));
- assert.match(hub,/bondPressure\.windows/);
+ assert.match(hub,/projectRegimeMeterReadings/);
+ const meter=read("lib/bluebelly-regime-market-meter.ts");
+ assert.match(meter,/bonds\.windows/);
+ assert.match(meter,/LAST_REPORTED/);
  assert.match(hub,/data-regime-overview-editorial="collapsed-by-default"/);
  assert.match(hub,/HISTORICAL 30 OCT EDITORIAL/);
  assert.match(comp,/data-bond-pressure-monitor="market-series-v1"/);
