@@ -18,6 +18,8 @@ import RegimeSignalRadar from "@/components/blue-desk/RegimeSignalRadar";
 import {buildSignalRadar} from "@/lib/bluebelly-signal-radar";
 import {getRegimeDirectionPackets} from "@/lib/bluebelly-regime-direction-reads";
 import {getMarketMonitor} from "@/lib/market-monitor-public";
+import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
+import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
 import {projectBondPressure} from "@/lib/bluebelly-bond-pressure";
 import {getRegimeShadowHealth} from "@/lib/regime-engine";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
@@ -44,7 +46,8 @@ export default async function RegimeWatchPage(){
  const scans=lenses.map(lens=>scanRegimeViews(lens.id,getLensOutlook(lens.id).reviewedAt,theses,observations,now));
  const changes=summarizeRegimeScans(scans);
  const directionPackets=getRegimeDirectionPackets(now);
- const signalRadar=buildSignalRadar(topicReasons,now,12);
+ const measuredMarket=buildMarketDivergenceWatch(publicMarketObservations(monitor?.rows??[],"all"),"1D");
+ const signalRadar=buildSignalRadar(topicReasons,now,12,measuredMarket,"1D");
  const bondPressure=projectBondPressure(monitor?.rows??null,now);
  return <main className={desk.page} data-public-regime-watch="dated-editorial-lens-outlooks">
   <BlueDeskHeader activePath="/blue-desk/regime-watch"/>
