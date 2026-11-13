@@ -13,7 +13,7 @@ export default function RegimeSignalRadar({entries}:{entries:readonly SignalRada
    <div><span>RESEARCH RADAR / SOMETHING DOESN'T ADD UP?</span>
     <h2>What is worth investigating?</h2>
     <p>Tagged anomalies and catalysts from existing source-review notes, X discovery and reviewed creator metadata.
-      A tag marks a research question, not a measured mispricing or canonical Regime change.</p></div>
+      Most tags mark research questions. MEASURED means a matched-session ETF return gap, not mispricing or a canonical Regime change.</p></div>
    <small>{entries.length} bounded leads · source and event dates below</small>
   </header>
   <div className={s.filters} role="group" aria-label="Filter market signal type">
@@ -29,9 +29,11 @@ export default function RegimeSignalRadar({entries}:{entries:readonly SignalRada
     <SignalTags tags={item.tags}/>
     <h3><Link href={item.href}>{item.title}</Link></h3>
     <p>{item.reason}</p>
+    {item.measured?<p data-radar-measured-window={item.measured.window}><strong>Measured:</strong> {item.measured.left} {item.measured.leftChange>0?"+":""}{item.measured.leftChange.toFixed(2)}% vs {item.measured.right} {item.measured.rightChange>0?"+":""}{item.measured.rightChange.toFixed(2)}% · {item.measured.sourceSession} · {item.measured.window}. Gap only; no valuation inference.</p>:null}
     <small><b>Deciding test:</b> {item.nextTest||"Check original sources and a matched market observation."}</small>
     <div className={s.links}><Link href={item.href}>Open Regime evidence →</Link>
-     <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">{item.sourceName} ↗</a></div>
+     <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">{item.sourceName} ↗</a>
+     {item.secondarySource?<a href={item.secondarySource.url} target="_blank" rel="noopener noreferrer">{item.secondarySource.name} ↗</a>:null}</div>
    </article>):<p className={s.empty}>No source-qualified candidates for this tag in the current bounded window. This does not prove that no such opportunity exists.</p>}
   </div>
  </section>;
