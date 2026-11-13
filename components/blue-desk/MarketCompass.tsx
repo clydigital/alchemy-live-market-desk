@@ -3,6 +3,7 @@ import type {MarketCompassSummary} from "@/lib/bluebelly-market-compass";
 import type {RegimeMeterReading} from "@/lib/bluebelly-regime-market-meter";
 import type {RegimeDirectionId} from "@/lib/bluebelly-regime-direction-reads";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
+import {lensCardSignal} from "@/lib/bluebelly-regime-lens-card-signal";
 import styles from "./MarketCompass.module.css";
 
 const NAMES:Readonly<Record<RegimeDirectionId,string>>={
@@ -57,17 +58,26 @@ export default function MarketCompass({
    </div>
   </div>
   <div className={styles.assetHeader}><h2>Five independent market checks</h2>
-   <span>Direction describes each instrument, not whether equities are bullish.</span></div>
+   <span>Coloured by the pressure or strength of each named proxy—not a regime or trade call.</span></div>
+  <div className={styles.legend} aria-label="Market Compass colour key">
+   <span data-legend-tone="improving"><i aria-hidden="true"/> Easing pressure / strengthening</span>
+   <span data-legend-tone="pressure"><i aria-hidden="true"/> Rising pressure / weakening</span>
+   <span data-legend-tone="mixed"><i aria-hidden="true"/> Mixed / flat</span>
+   <span data-legend-tone="unknown"><i aria-hidden="true"/> Unmeasured / stale</span>
+  </div>
   <div className={styles.assets}>
    {ORDER.map(id=>{
     const item=readings[id];
-    const window=item.windows.find(window=>window.label===item.needlePeriod);
-    const observed=item.state!=="unavailable"&&item.direction!==null;
+    const signal=lensCardSignal(id,readings);
+    const observed=signal.tone!=="unknown";
     return <Link key={id} className={styles.asset} data-asset-id={id} data-status={item.state}
-      href={blueDeskPublicHref("/blue-desk/regime-watch/"+id,host)+(id==="bonds"?"#bond-pressure":"#quick-direction")}>
+      data-signal-tone={signal.tone}
+      href={blueDeskPublicHref("/blue-desk/regime-watch/"+id,host)+(id==="bonds"?"#bond-pressure":"#quick-direction")}
+      aria-label={NAMES[id]+": "+signal.label+". "+signal.readout+". "+(signal.sourceDate||"Source date unavailable")}>
       <div className={styles.assetTop}><span>{NAMES[id]}</span><b aria-hidden="true">{!observed?"—":item.direction===1?"↑":item.direction===-1?"↓":"→"}</b></div>
-      <strong>{observed?(item.direction===1?"Rising":item.direction===-1?"Falling":"Flat"):"Unmeasured"}</strong>
-      <small>{window?.label||"1D"} · {window?.readout||"NOT SUPPLIED"}</small>
+      <strong>{signal.label}</strong>
+      <small className={styles.assetDelta}>{observed?(item.direction===1?"Rising":item.direction===-1?"Falling":"Flat")+" · ":""}{signal.readout}</small>
+      <small className={styles.assetScope}>{signal.scope}</small>
       <small className={styles.assetClock}>{item.observedAt||"No verified source date"}{item.state==="last_reported"?" · LAST REPORTED":""}</small>
      </Link>;
    })}
