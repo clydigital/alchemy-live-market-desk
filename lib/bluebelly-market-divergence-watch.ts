@@ -42,9 +42,17 @@ export function buildMarketDivergenceWatch(
   // This does not backfill missing prices or substitute an index for an ETF.
   const bySymbol=new Map<string,PublicMarketObservation[]>();
   for(const row of observations){
-    const rows=bySymbol.get(row.symbol)??[];
-    rows.push(row);
-    bySymbol.set(row.symbol,rows);
+    // The legacy ^GSPC-labelled "spx-proxy" is actually a Nasdaq SPY ETF
+    // history in the existing core market feed. Only that exact original
+    // issuer/source may serve the SPY side of RSP/SPY; cash index feeds cannot.
+    const isSpyUnderlying=row.id==="spx-proxy"&&row.symbol==="^GSPC"&&
+      row.sourceName==="Nasdaq official etf history"&&
+      row.sourceUrl==="https://www.nasdaq.com/market-activity/etf/spy/historical";
+    for(const key of (isSpyUnderlying?[row.symbol,"SPY"]:[row.symbol])){
+      const rows=bySymbol.get(key)??[];
+      rows.push(row);
+      bySymbol.set(key,rows);
+    }
   }
   return MARKET_DIVERGENCE_PAIRS.map(pair=>{
     const leftRows=bySymbol.get(pair.left)??[];
