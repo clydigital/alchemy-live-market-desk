@@ -18,7 +18,7 @@ function usableSession(date:string|null,now:Date):boolean{
  const time=Date.parse(date+"T00:00:00Z");
  if(!Number.isFinite(time)||new Date(time).toISOString().slice(0,10)!==date)return false;
  const age=now.getTime()-time;
- return age>=-DAY&&age<=6*DAY;
+ return age>=0&&age<=6*DAY;
 }
 
 /** An observed 1D ETF-tape summary, NOT a fundamental or canonical Regime verdict.
@@ -40,7 +40,9 @@ export function buildMarketCompassSummary(
  if(!semis||!breadth||semis.status==="NOT_COMPARABLE"||
   breadth.status==="NOT_COMPARABLE"||!semis.sourceSession||
   semis.sourceSession!==breadth.sourceSession||
-  !usableSession(semis.sourceSession,now))return missing;
+  !usableSession(semis.sourceSession,now)||
+  ![semis.leftSourceUrl,semis.rightSourceUrl,breadth.leftSourceUrl,breadth.rightSourceUrl]
+   .every(validSource))return missing;
  const four=[semis.leftChange,semis.rightChange,breadth.leftChange,breadth.rightChange];
  if(four.some(value=>value===null||!Number.isFinite(value)))return missing;
  const returns=four as number[];
@@ -87,6 +89,12 @@ export function buildMarketCompassSummary(
   nextTest:summary.nextTest,sourceSession:semis.sourceSession,evidenceCount:4,
   note:"Measured 1D ETF returns only · no estimated 3D/5D moves · no inferred investor motive or trade entry."
  };
+}
+
+function validSource(value:string|null):boolean{
+ if(!value)return false;
+ try{const u=new URL(value);return u.protocol==="https:"&&!u.username&&!u.password&&u.href.length<=2048;}
+ catch{return false;}
 }
 
 function signed(value:number):string{
