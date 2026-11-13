@@ -1,0 +1,5 @@
+.wrap{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:7px 0}
+.tag{max-width:100%;display:inline-flex;align-items:center;border:1px solid var(--bb-card-border);
+ background:var(--bb-card-quiet);color:var(--bb-muted);padding:3px 7px;
+ font:700 10px/1.4 var(--bb-mono);letter-spacing:.015em;white-space:normal}
+.tag[data-signal-status="SOURCED_COMPARISON"]{border-color:var(--bb-accent);color:var(--bb-accent)}

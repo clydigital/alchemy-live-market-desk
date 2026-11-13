@@ -1,6 +1,8 @@
 import {getManualSweeps} from "@/lib/bluebelly-manual-sweeps";
 import type {TopicInfluenceRead,InfluenceLead} from "@/lib/bluebelly-topic-influence";
 import s from "./TopicInfluencePanel.module.css";
+import SignalTags from "./SignalTags";
+import {suggestSignalTags} from "@/lib/bluebelly-signal-tags";
 
 type Props={input:TopicInfluenceRead;compact?:boolean};
 const stamp=(value:string)=>/^\d{4}-\d{2}-\d{2}$/.test(value)?value:value.slice(0,16).replace("T"," ")+" UTC";
@@ -9,6 +11,7 @@ function reasonRow(item:InfluenceLead){
   <div className={s.meta}><span>{item.source==="X"?"X Wire":"Reviewed transcript"} · {item.sourceName}</span>
    <time dateTime={item.publishedAt}>Source {stamp(item.publishedAt)}</time></div>
   <strong>{item.reason}</strong>
+  <SignalTags tags={suggestSignalTags({title:item.title,detail:item.source==="X"?item.excerpt:item.reason,evidence:"AUTOMATED_LEAD"})}/>
   {item.source==="X"?<p>{item.excerpt}</p>:<p>Creator video: {item.title}. Transcript interpretation exists; the underlying claims are not independently verified here.</p>}
   <p className={s.test}><b>Check:</b> {item.nextCheck}</p>
   <div className={s.receipt}><small>{item.reviewedAt?"Captured "+stamp(item.reviewedAt):"Capture time unavailable"} · UNVERIFIED / NOT CANONICAL</small>
@@ -37,6 +40,7 @@ export default function TopicInfluencePanel({input,compact=false}:Props){
     <h3>{sweep.title}</h3><small>Research conducted {stamp(sweep.researchAt)} · Editorially committed, not live canonical Evidence</small></div>
    <ol>{sweep.findings.map((finding,index)=><li key={index}>
     <strong>{finding.reason}</strong>
+    <SignalTags tags={suggestSignalTags({title:sweep.title,detail:finding.reason,evidence:finding.status,reviewedValuation:finding.reviewedValuation})}/>
     <small>{finding.status==="RESEARCH_LEAD"?"RESEARCH LEAD — NOT VERIFIED":
      finding.status==="CONTRADICTED"?"CONTRADICTED — SEE SOURCE":"SOURCE-CORROBORATED — SEE SOURCE"} · Source dated {stamp(finding.sourcePublishedAt)}</small>
     {finding.nextCheck?<p><b>Next check:</b> {finding.nextCheck}</p>:null}

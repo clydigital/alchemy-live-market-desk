@@ -1,5 +1,6 @@
 import ledger from "../data/bluebelly-manual-sweeps.json" with {type:"json"};
 import type {InfluenceTopic} from "./bluebelly-topic-influence.ts";
+import {isReviewedValuationComparison,type ValuationComparison} from "./bluebelly-signal-tags.ts";
 
 export type ManualSweepFinding={
  reason:string;
@@ -8,6 +9,8 @@ export type ManualSweepFinding={
  sourcePublishedAt:string;
  status:"RESEARCH_LEAD"|"SOURCE_CORROBORATED"|"CONTRADICTED";
  nextCheck:string;
+ /** Explicit, dual-source valuation comparison; rejected if incomplete. */
+ reviewedValuation?:ValuationComparison;
 };
 export type ManualSweep={
  id:string;topic:InfluenceTopic;date:string;researchAt:string;title:string;
@@ -32,8 +35,11 @@ function asSourceFinding(value:unknown,now:Date):ManualSweepFinding|null{
  const status=row.status;
  if(!reason||!sourceName||!sourceUrl||!Number.isFinite(sourceMs)||sourceMs>now.getTime()+300000||
     !["RESEARCH_LEAD","SOURCE_CORROBORATED","CONTRADICTED"].includes(String(status)))return null;
+ const candidate=row.reviewedValuation as ValuationComparison|undefined;
+ const reviewedValuation=status==="SOURCE_CORROBORATED"&&isReviewedValuationComparison(candidate)&&
+  candidate!.priceObservedOn<=new Date(now.getTime()+8*3600000).toISOString().slice(0,10)?candidate:undefined;
  return {reason,sourceName,sourceUrl,sourcePublishedAt,status:status as ManualSweepFinding["status"],
-  nextCheck:text(row.nextCheck,300)};
+  nextCheck:text(row.nextCheck,300),...(reviewedValuation?{reviewedValuation}:{})};
 }
 /** Only editor-committed, exact-source and date-vetted manual notes are public.
  * Git commits are the audit trail; the application never turns chat into a public write.
