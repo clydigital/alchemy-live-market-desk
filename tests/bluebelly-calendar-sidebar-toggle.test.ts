@@ -45,6 +45,8 @@ test("Shelf button stays flush to the far-left viewport edge in both states",()=
   assert.match(chrome,/\.sidebarToggle:focus-visible/);
   assert.match(chrome,/prefers-reduced-motion:reduce/);
   assert.match(tokens,/prefers-reduced-motion:reduce/);
+  // Unmounting the header must not clear persisted root state and flash the rail.
+  assert.doesNotMatch(toggle,/return \(\)=>\{\s*root\.removeAttribute\("data-bluebelly-sidebar"\)/);
 });
 
 test("Calendar has no second toggle and retains the unchanged week board",()=>{
@@ -63,9 +65,9 @@ test("Wide-screen calendar board still fills the reclaimed width",()=>{
   assert.match(tokens,/width:100%/);
 });
 
-test("Single far-left control is a yellow square, not a tall NAV tab or footer text button",()=>{
+test("Single far-left control follows theme accent, not a hardcoded yellow tab",()=>{
   assert.match(chrome,/width:44px;height:44px;min-height:44px/);
-  assert.match(chrome,/background:#ffe500;border:1px solid #ffe500/);
+  assert.match(chrome,/background:var\(--bb-command-accent\);border:1px solid var\(--bb-command-accent\)/);
   assert.match(chrome,/position:fixed;left:0;bottom:clamp\(20px,4vh,42px\)/);
   assert.match(toggle,/className=\{chrome\.toggleArrow\}/);
   assert.doesNotMatch(toggle,/>NAV</);
