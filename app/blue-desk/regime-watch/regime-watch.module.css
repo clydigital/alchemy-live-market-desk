@@ -436,3 +436,14 @@
 
 /* Baseline opinions are retained in SSR for regression continuity but never presented as live card readings. */
 .archivedMeterHidden{display:none!important}
+
+/* First-screen evidence-direction needles and three-category research-change markers. */
+.directionDial{display:flex;flex-direction:column;justify-content:center;align-items:center;
+ min-height:110px;margin:1px 0 4px;border-top:1px solid var(--bb-card-border);border-bottom:1px solid var(--bb-card-border)}
+.directionDial>div{max-width:155px}
+.directionDial>span{color:var(--bb-muted);font:800 8px/1.35 var(--bb-mono);letter-spacing:.04em;text-align:center;margin:-2px 0 6px}
+.lensActivity{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;min-width:0;margin:9px 0}
+.lensActivity>span{height:7px;background:var(--bb-line);border:1px solid var(--bb-card-border)}
+.lensActivity>span[data-activity="new"]{background:var(--bb-accent);border-color:var(--bb-accent)}
+.lensActivity>small{grid-column:1/-1;color:var(--bb-muted);font:750 9px/1.4 var(--bb-mono)}
+@media(max-width:700px){.directionDial{min-height:90px}.directionDial>div{max-width:125px}}
