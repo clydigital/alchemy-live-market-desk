@@ -83,10 +83,16 @@ test("owner page, table, controls and audit preserve authentication, no public r
  assert.match(visual,/Missing before calling mispricing/);
  assert.match(visual,/valuation evidence missing/i);
  assert.doesNotMatch(publicRegime+publicMarket,/power_stack_issuer_valuation_reviews|PowerStackValuationWorkbench/);
+ assert.equal((sql.match(/create table if not exists public\.power_stack_issuer_valuation_reviews/g)||[]).length,1);
+ assert.equal((sql.match(/financials_currency text not null/g)||[]).length,1);
+ assert.equal((sql.match(/financials_unit text not null/g)||[]).length,1);
+ assert.equal((sql.match(/fundamental_source_url text not null/g)||[]).length,1);
+ assert.equal((sql.match(/primary key \(owner_user_id,ticker,reviewed_at\)/g)||[]).length,1);
+ assert.ok(sql.includes("price_currency = valuation_currency and price_currency = financials_currency"));
  assert.match(sql,/enable row level security/i);
  assert.match(sql,/revoke all on table public\.power_stack_issuer_valuation_reviews from anon,authenticated/);
  assert.match(sql,/grant select on table public\.power_stack_issuer_valuation_reviews to authenticated/);
- assert.match(sql,/using\(owner_user_id=\(select auth\.uid\(\)\)\)/);
+ assert.match(sql,/using\s*\(owner_user_id\s*=\s*\(select auth\.uid\(\)\)\)/);
  assert.doesNotMatch(sql,/grant (?:insert|update|delete|all) on table public\.power_stack_issuer_valuation_reviews to authenticated/);
  assert.doesNotMatch(visual,/\.insert\(|\.update\(|\.upsert\(/);
 });
