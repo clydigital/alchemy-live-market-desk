@@ -43,7 +43,7 @@ export default function PowerStackValuationWorkbench({assets,reviews,storeError}
     data-valuation-status={r?.verdict||"NO_REVIEW"}>
     <div className={s.meta}><strong>{asset.ticker}</strong><span>{asset.scope.replaceAll("_"," ").toUpperCase()}</span></div>
     <h3>{asset.name}</h3>
-    <p className={s.state}>{r?"POTENTIAL MISPRICING · REVIEWED MODEL CANDIDATE":"RESEARCH GAP · NOT A MISPRICING CANDIDATE"}</p>
+    <p className={s.state}>{r?(r.verdict==="WITHIN_REVIEWED_RANGE"?"UNDERWRITING · REVIEWED MODEL":"POTENTIAL MISPRICING · REVIEWED MODEL CANDIDATE"):"RESEARCH GAP · NOT A MISPRICING CANDIDATE"}</p>
     <p className={s.badge}>{badge}</p>
     {r?<div data-reviewed-valuation={r.ticker}>
       <p><b>Observed price:</b> {money(r.marketPrice,r.currency)} · {r.priceObservedOn}</p>
