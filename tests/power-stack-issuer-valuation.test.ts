@@ -77,6 +77,8 @@ test("owner page, table, controls and audit preserve authentication, no public r
  assert.match(page,/\.eq\("owner_user_id",identity\.user\.id\)/);
  assert.match(page,/ready\?<PowerStackValuationWorkbench/);
  assert.match(page,/data-power-stack="owner-only"/);
+ assert.match(page,/forecastSourceUrl:typeof record.forecast_source_url/);
+ assert.match(page,/all.findIndex\(other=>other.ticker.toUpperCase\(\)===item.ticker.toUpperCase\(\)\)===index/);
  assert.match(visual,/data-power-stack-issuer-underwriting="owner-only-source-reviewed-not-trade-signals"/);
  assert.match(visual,/Missing before calling mispricing/);
  assert.match(visual,/valuation evidence missing/i);
