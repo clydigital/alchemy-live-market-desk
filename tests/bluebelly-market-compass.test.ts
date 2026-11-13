@@ -20,6 +20,12 @@ test("market direction requires two matching same-session ETF pairs",()=>{
  const mismatched=inputs(1,2,3,4);mismatched[1].sourceSession="2026-11-12";
  assert.equal(buildMarketCompassSummary(mismatched,NOW).state,"UNMEASURED");
 });
+test("current-session intraday quotes cannot masquerade as completed US market closes",()=>{
+ const intraday=new Date("2026-11-13T19:30:00Z");
+ const afterClose=new Date("2026-11-13T21:30:00Z");
+ assert.equal(buildMarketCompassSummary(inputs(1,2,1,2),intraday).state,"UNMEASURED");
+ assert.equal(buildMarketCompassSummary(inputs(1,2,1,2),afterClose).state,"RISK_ON");
+});
 test("does not promote stale tape into a live directional read",()=>{
  assert.equal(buildMarketCompassSummary([
   pair("semis-vs-nasdaq",1,1,"2026-11-01"),
