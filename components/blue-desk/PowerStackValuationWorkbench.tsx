@@ -1,11 +1,11 @@
 import Link from "next/link";
 import type {IssuerReviewResult} from "@/lib/power-stack-issuer-valuation";
-import type {PegResearchEvaluation} from "@/lib/power-stack-peg-research";
+import type {RebasedPegResearchEvaluation} from "@/lib/power-stack-peg-research";
 import s from "./PowerStackValuationWorkbench.module.css";
 export type ValuationResearchAsset=Readonly<{
  ticker:string;name:string;
  scope:"archived_holding"|"archived_watchlist"|"bond_watch";
- peg:(PegResearchEvaluation & {analystsFirst:number|null;analystsSecond:number|null;source:string;forecastSourceUrl:string})|null;
+ peg:(RebasedPegResearchEvaluation & {analystsFirst:number|null;analystsSecond:number|null;source:string;forecastSourceUrl:string})|null;
  quote:{price:number;currency:string;observed_on:string;source_url:string;timestamp_basis:string}|null;
 }>;
 const money=(x:number,currency:string)=>currency+" "+x.toLocaleString("en-GB",{maximumFractionDigits:2});
@@ -71,7 +71,7 @@ export default function PowerStackValuationWorkbench({assets,reviews,storeError}
          money(asset.quote.price,asset.quote.currency)+" · "+asset.quote.observed_on:
          "Not independently dated to a market session"}</p>
       <p><b>Forward PEG:</b> {asset.peg?.forwardPEG===null||asset.peg?.forwardPEG===undefined?"Unavailable":
-        asset.peg.forwardPEG.toFixed(2)+" ("+asset.peg.quality+"; "+asset.peg.forecastPeriod+")"}</p>
+        asset.peg.forwardPEG.toFixed(2)+" ("+asset.peg.quality+"; "+asset.peg.forecastPeriod+"; price "+asset.peg.quoteObservedOn+")"}</p>
       <p><b>Missing before calling mispricing:</b> issuer-reported operating cash flow/capex, earnings quality, dilution and net debt,
        a credible independently linked valuation range, downside assumptions and a current exchange-dated quote.</p>
       <p className={s.warning}>A low PEG or a recent price drop is not evidence of undervaluation.</p>
