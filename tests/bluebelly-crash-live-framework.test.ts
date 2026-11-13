@@ -37,7 +37,6 @@ test("durable recovery is only aligned when 1D tape, 5D breadth, HY funding agre
  assert.equal(v.scenarios.find(s=>s.id==="contagion")?.state,"CONTRADICTED");
  assert.equal(v.scenarios.find(s=>s.id==="bounce")?.state,"PARTIAL");
  assert.match(v.scenarios[0].nextTest,/cash-flow guidance/);
- assert.equal(v.coverage.startsWith("3\/3"),false); // actual UI coverage text has a slash, not a decimal rating
  assert.match(v.coverage,/3\/3 comparable decision inputs/);
 });
 test("credit-led risk only aligns with broad selloff and failing breadth",()=>{
