@@ -2,6 +2,115 @@
   "version": 1,
   "sweeps": [
     {
+      "id": "2026-11-14-ai-nvidia-ceo-earnings-governance",
+      "topic": "ai",
+      "date": "2026-11-14",
+      "researchAt": "2026-11-13T22:19:14.103Z",
+      "title": "NVIDIA CEO transition is confirmed; 17 November earnings test underlying demand",
+      "findings": [
+        {
+          "reason": "NVIDIA's 12 Nov announcement and 8-K confirm Jensen Huang's immediate departure as president, CEO and director, Colette Kress as interim CEO/CFO and Harvey Jones as board chair. These prove a governance transition, not cancelled GPU orders or an established national-security compromise.",
+          "sourceName": "NVIDIA Newsroom — original CEO transition announcement",
+          "sourceUrl": "https://nvidianews.nvidia.com/news/nvidia-announces-ceo-transition/",
+          "sourcePublishedAt": "2026-11-12",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Verify 17 Nov FY27 Q3 earnings against the frozen $108bn guide, gross margin, future guidance, customer commitments and matched NVDA/SMH peer returns; distinguish governance from AI demand."
+        },
+        {
+          "reason": "The SEC filing lists the 11 Nov board acceptance of Huang's resignation. A successor, investigation result, alleged security breach or changes to export controls are not established by the filing.",
+          "sourceName": "NVIDIA Form 8-K — SEC original filing",
+          "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000082/nvda-20261111.htm",
+          "sourcePublishedAt": "2026-11-12",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Track successor announcement and subsequent company disclosures. Do not infer political motives or hardware-price effects without contracts, regulation and actual allocation evidence."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-14-energy-iea-crude-surplus-product-shortage",
+      "topic": "energy",
+      "date": "2026-11-14",
+      "researchAt": "2026-11-13T22:19:14.103Z",
+      "title": "IEA sees crude supply rebalancing even while diesel remains tight",
+      "findings": [
+        {
+          "reason": "IEA's 13 Nov Oil Market Report forecasts a global crude supply surplus in 4Q26 after Gulf exports recovered. October global supply reached 105.4mb/d and observed global inventories rose 52m barrels, but on-land stocks remain unusually low. Forecast surplus is not proof all tanker risks are resolved.",
+          "sourceName": "IEA — November 2026 Oil Market Report",
+          "sourceUrl": "https://www.iea.org/reports/oil-market-report-november-2026",
+          "sourcePublishedAt": "2026-11-13",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Compare the next IEA and EIA actual supply/inventory vintages against Brent, actual Gulf sailings and on-land stocks before reducing all energy risk to a crude-price headline."
+        },
+        {
+          "reason": "The same IEA report warns diesel/product supply remains severely constrained: European diesel near $180/bbl despite crude retreating to around $93/bbl, freight still high and Middle East/Russian product disruptions unresolved. This contradicts a simple oil-down-so-inflation-gone narrative.",
+          "sourceName": "IEA — 13 Nov original diesel and refining assessment",
+          "sourceUrl": "https://www.iea.org/reports/oil-market-report-november-2026",
+          "sourcePublishedAt": "2026-11-13",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Track ULSD cracks, refinery throughput, distillate inventories, freight/insurance and delivery costs. Split crude relief from transport-fuel inflation in Fed/energy regime views."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-14-hormuz-iea-flows-versus-maritime-safety",
+      "topic": "hormuz",
+      "date": "2026-11-14",
+      "researchAt": "2026-11-13T22:19:14.103Z",
+      "title": "Gulf crude export rebound does not establish safe Hormuz transit or peace",
+      "findings": [
+        {
+          "reason": "IEA reports October Gulf oil exports excluding Oman reached 18.4mb/d, still 26% below pre-war, while crude flows recovered to about 82% of pre-war levels. Attacks on shipping and elevated freight persist. Higher shipped volumes must not be interpreted as a signed deal, safe passage or normalized insurance.",
+          "sourceName": "IEA — November 2026 Oil Market Report",
+          "sourceUrl": "https://www.iea.org/reports/oil-market-report-november-2026",
+          "sourcePublishedAt": "2026-11-13",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Check verified US/Iran/Qatar agreement terms, UKMTO incident IDs, safe commercial crossings, delivered cargo, insurance and product freight. Do not force a 1D/3D/5D peace meter from the IEA supply estimate."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-14-bonds-treasury-curve-squeeze-and-cpi",
+      "topic": "bonds",
+      "date": "2026-11-14",
+      "researchAt": "2026-11-13T22:19:14.103Z",
+      "title": "Treasury curve reprices upward; disinflation alone is not yet a TLT trigger",
+      "findings": [
+        {
+          "reason": "US Treasury original constant-maturity table records 12 Nov yields around 2Y 4.86%, 5Y 4.95%, 10Y 5.10% and 30Y 5.43%, above 10 Nov levels of 4.73%, 4.81%, 4.98% and 5.35%. These are dated nominal yields; they do not separate real yield, inflation breakeven or term premium.",
+          "sourceName": "US Treasury — Daily Treasury par yield curve",
+          "sourceUrl": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_yield_curve&field_tdr_date_value=2026",
+          "sourcePublishedAt": "2026-11-12",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Fetch 13 Nov official close as available and match 2Y/10Y/30Y, 10Y TIPS, breakevens, HY OAS and TLT/IEF ETF return to common sessions; no bottom claim until yields and price confirm."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-14-fed-cpi-versus-ppi-market-repricing",
+      "topic": "fed",
+      "date": "2026-11-14",
+      "researchAt": "2026-11-13T22:19:14.103Z",
+      "title": "Hot CPI versus softer monthly producer inflation complicates rate-path story",
+      "findings": [
+        {
+          "reason": "BLS's original October CPI release reports headline +0.4% month-on-month versus +0.6% September, core +0.3%, and energy +0.7% after +5.2%. A hotter-than-consensus CPI is not the same as accelerating versus the previous monthly release.",
+          "sourceName": "BLS — original October 2026 CPI release",
+          "sourceUrl": "https://www.bls.gov/news.release/cpi.nr0.htm",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Compare actual-minus-frozen pre-release consensus against previously published and revised previous CPI; reconcile with 13 Nov PPI, longer-duration yields and real-rate data."
+        },
+        {
+          "reason": "Contemporaneous WSJ reporting says October PPI rose 0.3% month-on-month, slower than September and below a 0.4% forecast, while markets still priced a high chance of December tightening. The original October PPI release was not independently retrievable in this pass; treat this as attributed research, not an official-source quote.",
+          "sourceName": "Wall Street Journal — 13 Nov bonds and October PPI report",
+          "sourceUrl": "https://www.wsj.com/economy/central-banking/upward-pressure-remains-in-treasury-yields-even-as-two-year-yield-stabilizes-0c267082",
+          "sourcePublishedAt": "2026-11-13",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Obtain archived BLS October 2026 PPI first-party release, verify revisions and consensus timestamp, then match Treasury maturities and implied December policy moves."
+        }
+      ]
+    },
+    {
       "id": "2026-11-13-housing-us-existing-home-sales-october-crash",
       "topic": "housing",
       "date": "2026-11-13",
