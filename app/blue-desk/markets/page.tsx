@@ -18,6 +18,8 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import TradingViewChart from "@/components/blue-desk/TradingViewChart";
 import PublicMarketScreener from "@/components/blue-desk/PublicMarketScreener";
 import MarketDivergenceWatch from "@/components/blue-desk/MarketDivergenceWatch";
+import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
+import {buildMarketCompassSummary} from "@/lib/bluebelly-market-compass";
 import PublicAssetCatalogue from "@/components/blue-desk/PublicAssetCatalogue";
 import {searchPublicAssetCatalogue} from "@/lib/bluebelly-public-asset-catalogue";
 import SectorDivergenceFeature from "@/components/blue-desk/SectorDivergenceFeature";
@@ -95,6 +97,8 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   ]);
   // Public markets are independent of private investment portfolios.
   const monitoredRows=publicMarketObservations(monitor?.rows || [],group);
+  const marketContext=mode==="assets"&&group==="all"?
+    buildMarketCompassSummary(buildMarketDivergenceWatch(monitoredRows,"1D"),now):null;
   const breadthObservations = group==="breadth"
     ? BREADTH_WATCHES.map(item=>calculateBreadthRow(
         item.symbol,item.label,breadthHistory.series.find(row=>row.symbol===item.symbol)))
@@ -141,7 +145,16 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
             </strong>
             <small>Source dates appear alongside prices</small>
           </div>
-        </header>
+        </header>        {marketContext?<aside className={legibility.marketContextStrip}
+          data-markets-whiteboard="market-compass-context" aria-label="Current source-dated market reading">
+          <div><small>MARKET WHITEBOARD / 1D EQUITY SESSION</small>
+           <strong>{marketContext.title}</strong>
+           <p>{marketContext.contradiction}</p>
+           <span>{marketContext.sourceSession?"Matched "+marketContext.sourceSession:"No verified matched session"} · Not a fundamental regime or event cause</span>
+          </div>
+          <Link href={blueDeskPublicHref("/blue-desk/regime-watch",host)}>Explain &amp; test the reading ↗</Link>
+         </aside>:null}
+
 
         <nav aria-label="Markets working modes" data-markets-working-modes="three"
           className={legibility.workingModes}>
