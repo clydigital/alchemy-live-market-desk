@@ -305,3 +305,16 @@
 .workingModes a[aria-current="page"]{background:var(--bb-accent);border-color:var(--bb-accent);color:var(--bb-accent-ink)!important}
 .workingModes a:hover,.workingModes a:focus-visible{outline:2px solid var(--bb-accent);outline-offset:2px}
 @media(max-width:540px){.workingModes{gap:4px}.workingModes a{min-width:0;flex:1 1 30%;font-size:12px;padding:9px 6px;min-height:48px}}
+
+
+/* One-line bridge from observed ETF tape into the deeper Regime Compass.
+   Never restate all terminal metrics or invent a market cause. */
+.marketContextStrip{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap;margin:10px 0 15px;padding:13px 16px;border:1px solid var(--bb-command-edge);background:#0a1c25;color:var(--bb-text)}
+.marketContextStrip>div{min-width:0;flex:1 1 340px}
+.marketContextStrip small{display:block;font:800 10px/1.35 var(--bb-mono);color:var(--bb-command-alt);letter-spacing:.06em}
+.marketContextStrip strong{display:block;font-size:15px;line-height:1.35;margin-top:3px}
+.marketContextStrip p{margin:4px 0;font-size:12px;line-height:1.45;color:#d0e2e9}
+.marketContextStrip span{display:block;font-size:10px;line-height:1.45;color:var(--bb-muted)}
+.marketContextStrip a{color:var(--bb-command-accent);font-size:12px;font-weight:750;text-decoration:none}
+.marketContextStrip a:focus-visible{outline:2px solid var(--bb-command-alt);outline-offset:3px}
+@media(max-width:650px){.marketContextStrip{padding:11px 12px}.marketContextStrip a{font-size:11px}}
