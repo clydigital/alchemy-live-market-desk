@@ -17,10 +17,10 @@ export default function Newsroom48hTimeline({
   href:readerHref+"?policy="+encodeURIComponent(b.id),
   countryCode:b.countryCode as string|null,verified:true})),
  ...reports.map(r=>({id:r.id,at:r.publishedAt,title:r.headline,
-  label:r.kind==="VERIFIED_INCIDENT"?"EXCHANGE INCIDENT · OFFICIAL STATEMENT":"REPORTED TALKS · NOT CONFIRMED",topic:r.kind==="VERIFIED_INCIDENT"?"CRYPTO / MARKET REACTION":"DEVELOPING / RUMOUR",
+  label:r.kind==="SERVICE_INCIDENT"?"CLOUD SERVICE INCIDENT · MICROSOFT ADVISORY":r.kind==="VERIFIED_INCIDENT"?"EXCHANGE INCIDENT · OFFICIAL STATEMENT":"REPORTED TALKS · NOT CONFIRMED",topic:r.kind==="SERVICE_INCIDENT"?"MSFT / CLOUD RELIABILITY":r.kind==="VERIFIED_INCIDENT"?"CRYPTO / MARKET REACTION":"DEVELOPING / RUMOUR",
   detail:r.reporting,why:r.why,question:r.nextTest,
   sourceName:r.publisher,sourceUrl:r.sourceUrl,
-  href:readerHref+"?reported="+encodeURIComponent(r.id),countryCode:null as string|null,verified:r.kind==="VERIFIED_INCIDENT"}))
+  href:readerHref+"?reported="+encodeURIComponent(r.id),countryCode:null as string|null,verified:r.kind==="SERVICE_INCIDENT"||r.kind==="VERIFIED_INCIDENT"}))
  ].sort((a,b)=>Date.parse(b.at)-Date.parse(a.at));
  return <section className={s.section} aria-label="Previous 48 hours market developments" data-newsroom-window="48h">
   <header className={s.heading}><div><p className={s.eyebrow}>THE LAST 48 HOURS · RELEASE-CLOCK ORDER</p>
