@@ -12,6 +12,8 @@ import PowerStackResearchImpact from "@/components/blue-desk/PowerStackResearchI
 import NvidiaEarningsDecisionWatch from "@/components/blue-desk/NvidiaEarningsDecisionWatch";
 import PowerStackDecisionHub from "@/components/blue-desk/PowerStackDecisionHub";
 import PowerStackMeasuredSignals from "@/components/blue-desk/PowerStackMeasuredSignals";
+import PowerStackValuationWorkbench,{type ValuationResearchAsset} from "@/components/blue-desk/PowerStackValuationWorkbench";
+import {projectIssuerValuationReviews} from "@/lib/power-stack-issuer-valuation";
 import {getMarketMonitor} from "@/lib/market-monitor-public";
 import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
 import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
@@ -187,6 +189,31 @@ export default async function PrivatePowerStack() {
     });
   }
 
+  // Reviewer-attested per-issuer valuations live in a *separate* owner-RLS
+  // store. An absent table/migration is a visible coverage gap, never a buy.
+  const {data:issuerValuationRows,error:issuerValuationError}=ready&&trackedTickers.length
+    ? await supabase.from("power_stack_issuer_valuation_reviews")
+        .select("ticker,reviewed_at,review_status,price_observed_on,market_price,price_currency,price_source_url,source_timestamp_basis,valuation_low,valuation_high,valuation_currency,valuation_method,valuation_source_url,method_explanation,downside_case,invalidation_test,financial_period_end,fundamental_source_url,revenue,net_income,operating_cash_flow,capital_expenditure,share_based_compensation,net_debt,reviewer_note")
+        .eq("owner_user_id",identity.user.id).in("ticker",trackedTickers.slice(0,250))
+        .order("reviewed_at",{ascending:false}).limit(300)
+    : {data:null,error:null};
+  const issuerReviews=projectIssuerValuationReviews(issuerValuationRows??[],trackedTickers,new Date());
+  // Avoid classifying bond funds, broad index baskets or commodity proxies as
+  // operating companies. Unmapped equities remain coverage gaps.
+  const nonIssuer=new Set(["TLT","IEF","EDV","ZROZ","AGG","GOVT","USFR","SGOV","SHY","TIP","LQD","HYG","BND","BNDX","VGIT","VGLT",
+    "SPY","QQQ","RSP","SMH","SOXX","IGV","XLE","XLF","XLK","XLY","XOP","KWEB","FXI","MCHI","GLD","GLDM","GDX","GDXJ","IAU"]);
+  const issuers:ValuationResearchAsset[]=ready?researchAssets.filter(item=>
+    item.scope!=="bond_watch"&&!nonIssuer.has(item.ticker.toUpperCase())).map(item=>({
+      ...item,peg:pegByTicker.get(item.ticker)||null,
+      quote:latestQuotes.get(item.ticker)?{
+        price:latestQuotes.get(item.ticker)!.price,
+        currency:latestQuotes.get(item.ticker)!.currency,
+        observed_on:latestQuotes.get(item.ticker)!.observed_on,
+        source_url:latestQuotes.get(item.ticker)!.source_url,
+        timestamp_basis:latestQuotes.get(item.ticker)!.timestamp_basis,
+      }:null,
+    })):[];
+
   // The source lookup starts ONLY after the verified owner session, allowlist,
   // and retired-public-snapshot gates. Never put ticker/holding data in public Regime routes.
   const researchedAt=new Date();
@@ -223,6 +250,8 @@ export default async function PrivatePowerStack() {
         </header>
         <PowerStackDecisionHub now={researchedAt}/>
         {ready?<PowerStackMeasuredSignals signals={measuredSignals} trackedTickers={trackedTickers} topics={researchTopics}/>:null}
+        {ready?<PowerStackValuationWorkbench assets={issuers} reviews={issuerReviews}
+          storeError={Boolean(issuerValuationError)}/>:null}
         <NvidiaEarningsDecisionWatch mode="power-stack" now={researchedAt} owner={{
           recordedScope:holdings.some(h=>h.ticker==="NVDA")?"ARCHIVED_HOLDING":
             watchlist.some(w=>w.ticker==="NVDA")?"ARCHIVED_WATCHLIST":"NOT_IN_RECORDED_PORTFOLIO",
