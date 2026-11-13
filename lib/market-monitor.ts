@@ -201,6 +201,9 @@ const EXTRA_SPECS: ExtraSpec[] = [
   { id: "shy", providerSymbol: "SHY", assetClass: "etf", label: "SHY · 1–3Y Treasury ETF", type: "Bond ETF" },
   { id: "tip", providerSymbol: "TIP", assetClass: "etf", label: "TIP · TIPS ETF", type: "Bond ETF" },
   { id: "ndx", providerSymbol: "QQQ", assetClass: "etf", label: "Nasdaq 100 · QQQ proxy", type: "Major Index", benchmark: "spx" },
+  // True ETF comparisons for the Market Compass: never label ^GSPC as SPY.
+  { id: "spy", providerSymbol: "SPY", assetClass: "etf", label: "SPY S&P 500 ETF", type: "Major Index" },
+  { id: "rsp-exchange", providerSymbol: "RSP", assetClass: "etf", label: "RSP Equal Weight ETF · Nasdaq history", type: "Major Index", benchmark: "spy" },
   { id: "dow", providerSymbol: "DIA", assetClass: "etf", label: "Dow · DIA proxy", type: "Major Index", benchmark: "spx" },
   { id: "russell", providerSymbol: "IWM", assetClass: "etf", label: "Russell 2000 · IWM proxy", type: "Major Index", benchmark: "spx" },
   { id: "nikkei", providerSymbol: "EWJ", assetClass: "etf", label: "Japan Equities · EWJ proxy", type: "Major Index", benchmark: "spx" },
@@ -549,7 +552,7 @@ export const loadExtras = unstable_cache(async () => {
       : null)
     .catch(() => null);
   return [...extraRows, ...rateRows, ...creditRows, ...globalRateRows, moveRow].filter((row): row is RawSeries => Boolean(row));
-}, ["alchemy-market-monitor-extras-v8-us-stocks"], { revalidate: EXTRA_REVALIDATE });
+}, ["alchemy-market-monitor-extras-v9-compass-etfs"], { revalidate: EXTRA_REVALIDATE });
 const loadEuropeEquities=unstable_cache(async():Promise<RawSeries[]>=>{
  const fetched=await mapLimit(EUROPE_STOCKS,4,async (spec):Promise<RawSeries|null>=>{
   try{return await fetchEuropeanStockHistory(spec);}
