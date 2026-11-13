@@ -25,7 +25,7 @@ export default function RegimeSignalRadar({entries}:{entries:readonly SignalRada
   <div key={tag} className={s.cards} data-active-filter={tag} aria-live="polite">
    {visible.length?visible.map(item=><article key={item.id} className={s.card} data-radar-item={item.id} data-tags={item.tags.map(t=>t.id).join(" ")}>
     <div className={s.meta}><strong>{item.topic.toUpperCase()} · {item.verification}</strong>
-     <time dateTime={item.sourceAt}>Source {item.sourceAt.slice(0,10)}</time></div>
+     <time dateTime={item.sourceAt}>{item.measured?"Market session":"Source"} {item.sourceAt.slice(0,10)}</time></div>
     <SignalTags tags={item.tags}/>
     <h3><Link href={item.href}>{item.title}</Link></h3>
     <p>{item.reason}</p>
