@@ -838,17 +838,6 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
         base.push(baseRaw(spec, series));
       }
     }
-
-    // getMarketData already fetches real Nasdaq SPY ETF history but publishes
-    // its legacy S&P proxy with the alias "^GSPC". Keep that old proxy intact.
-    // Admit an actual SPY-labelled ETF row only when original-source identity
-    // explicitly proves the underlying observation is SPY, never cash ^GSPC.
-    const spySeries=bySymbol.get("^GSPC");
-    if(spySeries?.sourceName==="Nasdaq official etf history"&&
-      spySeries.sourceUrl==="https://www.nasdaq.com/market-activity/etf/spy/historical"&&
-      spySeries.points.length>=2){
-      base.push({...baseRaw({id:"spy",sourceSymbol:"^GSPC",label:"SPY S&P 500 ETF",type:"Major Index"},spySeries),symbol:"SPY"});
-    }
     
     // Add crack series if available
     for (const crack of market.cracks) {
