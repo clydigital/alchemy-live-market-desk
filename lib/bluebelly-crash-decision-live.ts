@@ -38,8 +38,8 @@ function status(required:readonly CrashSignal[],positive:CrashSignal,contrary:Cr
  const known=required.filter(s=>s!=="UNKNOWN").length;
  return {state:known===0?"UNMEASURED":
   corroborated===required.length?"ALIGNED":
-  corroborated>0?"PARTIAL":
-  contraryCount===required.length?"CONTRADICTED":"UNMEASURED",
+  contraryCount>=2?"CONTRADICTED":
+  corroborated>0?"PARTIAL":"UNMEASURED",
   corroborated};
 }
 export function buildCrashDecisionLayer(
