@@ -91,3 +91,46 @@ export function evaluatePegResearch(input:PegResearchObservation, now=new Date()
   // the metric to a technical alignment signal or a buy recommendation.
   return {...basic,forwardPEG:peg,reason:"OK_RETRIEVAL_ONLY",quality:"indicative"};
 }
+
+
+/** Use the *owner's append-only, source-dated* quote ledger to refresh the
+ * numerator of an older EPS forecast. The estimates are never represented as
+ * newly revised, and stale or upstream-batch "last updated" dates are rejected.
+ */
+export type DatedOwnerPegQuote=Readonly<{
+ price:number|string;currency:string;observed_on:string;source_url:string;
+ timestamp_basis:string;source_recorded_at?:string|null;
+}>;
+export type RebasedPegResearchEvaluation=PegResearchEvaluation&Readonly<{
+ quotePriceUsed:number|null;
+ quoteSourceUrl:string|null;
+ quoteBasis:"FRESH_OWNER_PRICE"|"ORIGINAL_FORECAST_SNAPSHOT";
+ quoteRefreshWarning:string|null;
+}>;
+const acceptableHttps=(text:string)=>{
+ try{const u=new URL(text);return u.protocol==="https:"&&!u.username&&!u.password&&!u.port&&u.hostname.includes(".");}
+ catch{return false;}
+};
+export function repricePegResearch(
+ input:PegResearchObservation,quote:DatedOwnerPegQuote|null,now=new Date(),
+):RebasedPegResearchEvaluation{
+ const snapshot=evaluatePegResearch(input,now);
+ const initialPrice=finite(input.quote_price),originalDay=day(input.quote_observed_on);
+ const quotePrice=quote?finite(quote.price):null,latestDay=quote?day(quote.observed_on):null;
+ const today=day(now.toISOString().slice(0,10));
+ const valid=quote!==null&&quotePrice!==null&&quotePrice>0&&initialPrice!==null&&initialPrice>0&&
+  originalDay!==null&&latestDay!==null&&today!==null&&latestDay>=originalDay&&
+  latestDay<=today&&(today-latestDay)<=7*dayMS&&
+  quote.currency.toUpperCase()===input.quote_currency.toUpperCase()&&
+  quote.timestamp_basis==="source_observation"&&acceptableHttps(quote.source_url)&&
+  // A discontinuity of this size needs manual split/ADR/unit reconciliation.
+  quotePrice/initialPrice>=.4&&quotePrice/initialPrice<=2.5;
+ if(valid){
+  const fresh=evaluatePegResearch({...input,quote_price:quotePrice!,quote_observed_on:quote!.observed_on},now);
+  return {...fresh,quotePriceUsed:quotePrice,quoteSourceUrl:quote!.source_url,
+   quoteBasis:"FRESH_OWNER_PRICE",quoteRefreshWarning:"Price is newer than the analyst-forecast retrieval; estimate revision vintage remains unchanged."};
+ }
+ return {...snapshot,quotePriceUsed:initialPrice,
+  quoteSourceUrl:null,quoteBasis:"ORIGINAL_FORECAST_SNAPSHOT",
+  quoteRefreshWarning:quote?"Newer price rejected: source, session, currency, age or potential split mismatch.":"No fresher independently dated owner quote was supplied."};
+}
