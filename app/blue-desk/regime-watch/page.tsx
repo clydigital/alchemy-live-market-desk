@@ -19,6 +19,9 @@ import RegimeSignalRadar from "@/components/blue-desk/RegimeSignalRadar";
 import {buildSignalRadar} from "@/lib/bluebelly-signal-radar";
 import {getRegimeDirectionPackets} from "@/lib/bluebelly-regime-direction-reads";
 import {getMarketMonitor} from "@/lib/market-monitor-public";
+import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
+import {calculateBreadthRow} from "@/lib/bluebelly-breadth-dated";
+import {projectRegimeMeterReadings} from "@/lib/bluebelly-regime-market-meter";
 import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
 import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
 import {projectBondPressure} from "@/lib/bluebelly-bond-pressure";
@@ -36,12 +39,13 @@ export const metadata={
 
 export default async function RegimeWatchPage(){
  const now=new Date(),host=(await headers()).get("host");
- const [theses,observations,topicReasons,shadowHealth,monitor]=await Promise.all([
+ const [theses,observations,topicReasons,shadowHealth,monitor,breadthFeed]=await Promise.all([
   getPublicThesisLedger(now,38).catch(()=>null),
   getPublicSourceObservations(now,12).catch(()=>null),
   getTopicInfluences(EDITORIAL_REGIME_LENSES.map(lens=>lens.id),now).catch(()=>[]),
   getRegimeShadowHealth().catch(()=>null),
   getMarketMonitor().catch(()=>null),
+  getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
  ]);
  const lenses=groupPublicResearch(theses||[]);
  const scans=lenses.map(lens=>scanRegimeViews(lens.id,getLensOutlook(lens.id).reviewedAt,theses,observations,now));
@@ -50,6 +54,8 @@ export default async function RegimeWatchPage(){
  const measuredMarket=buildMarketDivergenceWatch(publicMarketObservations(monitor?.rows??[],"all"),"1D");
  const signalRadar=buildSignalRadar(topicReasons,now,12,measuredMarket,"1D");
  const bondPressure=projectBondPressure(monitor?.rows??null,now);
+ const breadth50=calculateBreadthRow("S5FI","S&P 500 above 50-day MA",breadthFeed.series.find(row=>row.symbol==="S5FI"),now);
+ const meterReadings=projectRegimeMeterReadings(publicMarketObservations(monitor?.rows??[],"all"),breadth50,bondPressure,now);
  return <main className={desk.page} data-public-regime-watch="dated-editorial-lens-outlooks">
   <BlueDeskHeader activePath="/blue-desk/regime-watch"/>
   <div className={desk.content}>
@@ -79,32 +85,38 @@ export default async function RegimeWatchPage(){
     <div className={styles.directionHead}>
      <div><span className={styles.kicker}>01 / FIVE FAST CONTEXT READS</span>
       <h2 id="direction-overview-title">Where is the pressure moving?</h2></div>
-     <p>Bonds: actual 1D/3D/5D Treasury trading-session yield moves. Other cards: source-publication-day evidence. Grey indicates missing or stale inputs; expand each lens for dates.</p>
+     <p>Needles track dated market proxies, not verdicts on physical supply, Fed decisions or AI fundamentals. The separately reviewed research clock stays visible below each dial.</p>
     </div>
     <div className={styles.directionGrid} role="list" aria-label="Five dated Regime pressure readings">
-     {directionPackets.map(packet=>{const windows=packet.id==="bonds"?bondPressure.windows:packet.read.windows;
-      const first=windows.find(w=>w.label==="1D");
-      const current=packet.id==="bonds"?bondPressure.state==="READY":!packet.read.stale;
-      const trend:-1|0|1|null=!current||!first?null:first.trend==="better"?1:first.trend==="worse"?-1:first.trend==="mixed"?0:null;
+     {directionPackets.map(packet=>{const proxy=meterReadings[packet.id];
+      const windows=proxy.windows;
       return <Link key={packet.id} role="listitem" className={styles.directionCard}
       href={blueDeskPublicHref("/blue-desk/regime-watch/"+packet.id,host)+(packet.id==="bonds"?"#bond-pressure":"#quick-direction")}
       data-direction-overview-card={packet.id}>
-      <span className={styles.directionLabel}>{packet.id.toUpperCase()} / {packet.id==="bonds"?"YIELD SESSIONS":"SOURCE REVIEW"}</span>
+      <span className={styles.directionLabel}>{packet.id.toUpperCase()} / OBSERVED MARKET PROXY</span>
       <strong>{packet.question}</strong>
-      <div className={styles.directionDial} data-regime-direction-dial={packet.id}>
-        <AcceleratorDial compact label={packet.question} direction={trend}
-          leftLabel={packet.id==="bonds"?"Yields rising":"Conditions worse"}
-          rightLabel={packet.id==="bonds"?"Yields easing":"Conditions better"} middleLabel="MIXED"/>
-        <span>{trend===null?"CURRENT READ UNAVAILABLE":packet.id==="bonds"?"1D TREASURY DIRECTION":"1D REVIEWED EVIDENCE DIRECTION"}</span>
+      <div className={styles.directionDial} data-regime-direction-dial={packet.id}
+        data-meter-evidence={proxy.state} data-meter-period={proxy.needlePeriod}>
+        <AcceleratorDial compact label={proxy.label} direction={proxy.direction}
+          leftLabel={proxy.leftLabel} rightLabel={proxy.rightLabel} middleLabel="FLAT"/>
+        <span>{proxy.scope}</span>
       </div>
-      <div className={styles.directionStatuses} aria-label={packet.question+" 1, 3 and 5 source-days"}>
+      <div className={styles.proxyReading} data-meter-value={proxy.state}>
+        <strong>{proxy.value??"SOURCE UNAVAILABLE"}</strong>
+        <span>{proxy.observedAt??"No current source session"} · {proxy.state==="last_reported"?"LAST OFFICIAL SESSION":proxy.needlePeriod+" MARKET PROXY"}</span>
+      </div>
+      <div className={styles.directionStatuses} aria-label={proxy.label+" source-session movements"}>
        {windows.map(window=><span key={window.label}
         className={styles.directionMini} data-direction-window={window.label} data-direction-trend={window.trend}>
         <b>{window.label}</b><span className={styles.directionDot} aria-hidden="true"/>
-        <span>{window.trend==="unknown"?"UNKNOWN":window.trend==="mixed"?"MIXED":window.trend==="better"?packet.id==="bonds"?"YIELDS ↓":"BETTER":packet.id==="bonds"?"YIELDS ↑":"WORSE"}</span>
+        <span>{window.readout}</span>
        </span>)}
       </div>
-      <small>{packet.id==="bonds"?(bondPressure.asOf?"TREASURY "+bondPressure.asOf+" · "+bondPressure.state:"TREASURY DATA UNAVAILABLE"):(packet.read.stale?"STALE / DATA GAP":"SOURCED "+packet.read.sourceDay+" UTC")} · OPEN EVIDENCE ↗</small>
+      <small className={styles.proxySource}>{proxy.sourceName??"Current market source not available"} · {proxy.observedAt??"Unobserved"} · OPEN EVIDENCE ↗</small>
+      <small className={styles.proxyCaveat}>{proxy.caveat}</small>
+      <small className={styles.editorialClock} data-editorial-source-state={packet.read.stale?"historical":"recent"}>
+        EDITORIAL REVIEW: {packet.read.stale?"HISTORICAL · NOT UPDATED":packet.read.sourceDay+" UTC"} · INDEPENDENT OF THE MARKET METER
+      </small>
      </Link>})}
     </div>
    </section>
