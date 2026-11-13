@@ -3,6 +3,11 @@ import {headers} from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import {getMarketMonitor} from "@/lib/market-monitor-public";
+import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
+import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
+import {buildMarketCompassSummary} from "@/lib/bluebelly-market-compass";
+import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
+import {buildCrashDecisionLayer,recentCrashResearch} from "@/lib/bluebelly-crash-decision-live";
 import {getPublicSourceObservations} from "@/lib/blue-desk-source-observations";
 import {getRegimeShadowHealth} from "@/lib/regime-engine";
 import RegimeResearchClocks from "@/components/blue-desk/RegimeResearchClocks";
@@ -28,12 +33,17 @@ function numberWithSign(value:number|null,unit:string){
 export default async function CrashOpportunityPage(){
   const now=new Date();
   const host=(await headers()).get("host");
-  const [monitor,sourceObservations,shadowHealth]=await Promise.all([
+  const [monitor,sourceObservations,shadowHealth,publishedPulse]=await Promise.all([
     getMarketMonitor().catch(()=>null),
     getPublicSourceObservations(now,12).catch(()=>null),
     getRegimeShadowHealth().catch(()=>null),
+    getPublishedMacroPulseBriefs(8).catch(()=>[]),
   ]);
   const watch=buildCrashWatchView(monitor?.rows??null,now);
+  const matchedTape=buildMarketDivergenceWatch(publicMarketObservations(monitor?.rows??[],"all"),"1D");
+  const compass=buildMarketCompassSummary(matchedTape,now);
+  const decision=buildCrashDecisionLayer(watch,compass);
+  const freshResearch=recentCrashResearch(publishedPulse,now,3);
   const href=(path:string)=>blueDeskPublicHref("/blue-desk"+path,host);
   const position=watch.position==="BULL_LEAN"?"Opportunity lean":
     watch.position==="BEAR_LEAN"?"Crash-risk lean":"Contested";
@@ -49,7 +59,8 @@ export default async function CrashOpportunityPage(){
           <h1>CRASH <em>VS</em> OPPORTUNITY</h1>
           <p className={styles.dek}>A record-high index can hide hundreds of struggling stocks. Is that the warning before a collapse—or a recovery already gathering strength beneath the surface?</p>
           <div className={styles.heroLinks}>
-            <a href="#gauge">READ THE EVIDENCE GAUGE ↗</a>
+            <a href="#live-decision">CURRENT DECISION BOARD ↗</a>
+            <a href="#gauge">SEVEN-PILLAR GAUGE ↗</a>
             <a href="#mirrors">HISTORICAL MIRRORS ↗</a>
             <a href="#cross-regimes">CONNECTED SYSTEMS ↗</a>
           </div>
@@ -63,7 +74,80 @@ export default async function CrashOpportunityPage(){
       </header>
 
 
+      <section id="live-decision" className={styles.live} aria-labelledby="crash-live-title"
+        data-crash-live="existing-source-feeds-v1" data-decision-tape={compass.state}
+        data-research-count={freshResearch.length}>
+        <div className={styles.liveHead}>
+          <div><span className={styles.eyebrow}>CURRENT / AUTOMATIC SOURCE-DATED READ</span>
+            <h2 id="crash-live-title">What does the evidence support <em>now?</em></h2>
+            <p>{decision.strongest}</p></div>
+          <div className={styles.liveSync}>READ-ONLY · REBUILT ON PAGE REQUEST
+            <small>New admitted market data and published research are reflected automatically. No new task or forecast is created.</small>
+          </div>
+        </div>
+        <div className={styles.liveStats}>
+          <div data-live-market-state={compass.state}><span>1D / EQUITY RISK TAPE</span>
+            <strong>{compass.state==="RISK_ON"?"RISK-ON":compass.state==="RISK_OFF"?"RISK-OFF":compass.state==="MIXED"?"MIXED":"UNMEASURED"}</strong>
+            <small>{decision.marketSession?"Completed "+decision.marketSession:"Matched four-ETF session unavailable"}</small>
+          </div>
+          <div data-live-market-state={watch.pillars[0]?.signal??"UNKNOWN"}><span>5-SESSION / PARTICIPATION</span>
+            <strong>{watch.pillars[0]?.signal==="BULL"?"STRENGTHENING":watch.pillars[0]?.signal==="BEAR"?"WEAKENING":watch.pillars[0]?.signal==="MIXED"?"MIXED":"UNMEASURED"}</strong>
+            <small>{decision.breadthSession||"Matched RSP/SPX date missing"}</small>
+          </div>
+          <div data-live-market-state={watch.pillars[1]?.signal??"UNKNOWN"}><span>5 OBSERVATIONS / HIGH-YIELD CREDIT</span>
+            <strong>{watch.pillars[1]?.signal==="BULL"?"SPREAD RELIEF":watch.pillars[1]?.signal==="BEAR"?"SPREAD STRESS":watch.pillars[1]?.signal==="MIXED"?"MIXED":"UNMEASURED"}</strong>
+            <small>{decision.creditSession||"Qualified HY OAS date missing"}</small>
+          </div>
+        </div>
+        <p className={styles.liveCoverage}>{decision.coverage} · These different source-session clocks do not establish event causality, forced selling or an entry price. Historical source observations are not made live by the page-view timestamp.</p>
+        <div className={styles.scenarioGrid} aria-label="Three conditional crash-or-opportunity scenarios">
+          {decision.scenarios.map(scenario=><article key={scenario.id} className={styles.scenario}
+            data-crash-scenario={scenario.id} data-scenario-state={scenario.state}>
+            <div className={styles.scenarioTop}>
+              <span>{scenario.id==="durable"?"OPPORTUNITY":scenario.id==="bounce"?"TACTICAL / CAUTION":"SYSTEMIC RISK"}</span>
+              <strong>{scenario.state==="ALIGNED"?"OBSERVATIONS ALIGN":scenario.state==="PARTIAL"?"PARTIAL SUPPORT":scenario.state==="CONTRADICTED"?"CONTRADICTED":"INSUFFICIENT DATA"}</strong>
+            </div>
+            <h3>{scenario.title}</h3><p>{scenario.question}</p>
+            <small>{scenario.corroborated} / {scenario.required} required directional conditions · {scenario.evidence}</small>
+            <div className={styles.scenarioTest}><b>Deciding test</b><p>{scenario.nextTest}</p></div>
+            <div className={styles.scenarioTest}><b>What weakens this case?</b><p>{scenario.failure}</p></div>
+          </article>)}
+        </div>
+        <div className={styles.workflowHead}>
+          <div><span className={styles.eyebrow}>CREATOR-INFORMED · SOURCE-TESTED FRAMEWORK</span>
+            <h3>Shock → absorption → credit → cash → confirmation</h3>
+            <p>Structured from recent opposing creator research. The steps update only when the relevant qualified evidence exists; no transcript, opinion or inferred institutional flow is silently treated as verified tape.</p></div>
+          <span>5 TESTS · NO PROBABILITY</span>
+        </div>
+        <div className={styles.checkpoints}>
+          {decision.checkpoints.map(step=><article key={step.id} data-framework-check={step.id}
+            data-check-status={step.state} className={styles.checkpoint}>
+            <div><h4>{step.name}</h4><strong>{step.state==="OBSERVED"?"MEASURED PROXY":"RESEARCH GAP"}</strong></div>
+            <p>{step.result}</p><small>What to verify next: {step.next}</small>
+          </article>)}
+        </div>
+        <div className={styles.automatedResearch} data-crash-automated-research="public-macropulse">
+          <div className={styles.researchHeading}><h3>Latest related research</h3>
+            <span>EXISTING MACROPULSE PUBLIC READER · NOT SCORED</span></div>
+          {freshResearch.length?<div className={styles.researchGrid}>
+            {freshResearch.map(item=>{
+              const original=item.source_links.find(l=>l.kind!=="SOCIAL_LEAD"&&/^https:\/\//.test(l.url));
+              return <article key={item.source_pulse_id} className={styles.researchCard}>
+                <span>RESEARCH-DERIVED · UNADJUDICATED · {item.primary_region.toUpperCase()}</span>
+                <h4>{item.headline}</h4><p>{item.standfirst}</p>
+                <small>Original source published <time dateTime={item.source_published_at}>{item.source_published_at.slice(0,10)}</time>; brief published {item.published_at.slice(0,10)}</small>
+                <p><b>Alternative / countercase:</b> {item.countercase}</p>
+                <p><b>Watch next:</b> {item.watch_next}</p>
+                {original?<a href={original.url} target="_blank" rel="noopener noreferrer">{original.label} · source ↗</a>:null}
+              </article>;
+            })}
+          </div>:<p className={styles.noResearch}>No recent qualifying published MacroPulse brief for this topic. This is a coverage gap, not evidence that the market is quiet. The measured market checks above still update independently.</p>}
+        </div>
+      </section>
+
       <RegimeResearchClocks sources={sourceObservations} editorialReviewedOn="2026-10-30" shadow={shadowHealth}/>
+      <details className={styles.archive} data-crash-research-archive="historical-editions">
+        <summary>Previous research editions · 11 Nov / 30 Oct <span>OPEN DATED CONTEXT ↗</span></summary>
       <section id="nov11-challenge" data-regime-challenge="2026-11-11-source-dated" aria-labelledby="nov11-challenge-title" style={{marginTop:18,padding:"22px clamp(16px,3vw,30px)",border:"1px solid var(--bb-card-border)",borderRadius:10,background:"var(--bb-surface)"}}>
         <span className={styles.eyebrow}>11 NOVEMBER 2026 / SOURCE-DATED MARKET CHALLENGE</span>
         <h2 id="nov11-challenge-title" style={{fontSize:"clamp(23px,2.5vw,34px)",margin:"10px 0"}}>AI stocks bounced. Has the rate shock been absorbed?</h2>
@@ -84,6 +168,7 @@ export default async function CrashOpportunityPage(){
         <p style={{fontSize:15,lineHeight:1.65}}>The Nasdaq and S&amp;P 500 fell sharply in Friday's afternoon trading as Intel's guidance and the cash costs of AI infrastructure unsettled technology shares. This reported <em>intraday</em> sell-off is distinct from the watch's independently dated, mostly 29 October closing evidence.</p>
         <Link href={href("/key-stories")+"?feature=ai-cash-selloff-october-2026"}>Read the new Key Story: AI Demand Is Booming. So Why Are Investors Selling? →</Link>
       </aside>
+      </details>
       <section id="gauge" className={styles.gauge} aria-labelledby="gauge-title">
         <div className={styles.sectionTop}>
           <div><span className={styles.eyebrow}>01 / TWO-SIDED RESEARCH</span><h2 id="gauge-title">Where the evidence leans</h2></div>
