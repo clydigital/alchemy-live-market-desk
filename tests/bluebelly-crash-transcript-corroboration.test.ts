@@ -79,6 +79,18 @@ test("transcript repetition cannot turn one publisher into multiple independent 
  assert.equal(repeated.crashUnits,.5);
  assert.equal(repeated.corroboratedPublishers,2);
 });
+test("one creator covering three corroborated topics still counts at most 0.25",()=>{
+ const [view,compass]=states("BEAR","BEAR","RISK_OFF");
+ const digest=scoreReviewedCrashTranscripts([
+  review("FX Evolution",[
+   "Credit spreads are widening","RSP is underperforming","Stocks are falling"
+  ])
+ ],view,compass,now);
+ assert.equal(digest.crashUnits,.25);
+ assert.equal(digest.corroboratedPublishers,1);
+ assert.equal(digest.topics.length,1);
+ assert.equal(digest.topics[0].id,"credit");
+});
 test("uncorroborated, predicted, negated, mixed and non-admitted source claims score zero",()=>{
  const [watch,compass]=states("BEAR","MIXED","RISK_OFF");
  const reviews=[
