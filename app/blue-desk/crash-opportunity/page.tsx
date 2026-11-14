@@ -8,6 +8,8 @@ import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watc
 import {buildMarketCompassSummary} from "@/lib/bluebelly-market-compass";
 import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
 import {buildCrashDecisionLayer,recentCrashResearch} from "@/lib/bluebelly-crash-decision-live";
+import {buildCrashEvidenceBalance} from "@/lib/bluebelly-crash-evidence-balance";
+import CrashEvidenceSeesaw from "@/components/blue-desk/CrashEvidenceSeesaw";
 import {getPublicSourceObservations} from "@/lib/blue-desk-source-observations";
 import {getRegimeShadowHealth} from "@/lib/regime-engine";
 import RegimeResearchClocks from "@/components/blue-desk/RegimeResearchClocks";
@@ -43,6 +45,7 @@ export default async function CrashOpportunityPage(){
   const matchedTape=buildMarketDivergenceWatch(publicMarketObservations(monitor?.rows??[],"all"),"1D");
   const compass=buildMarketCompassSummary(matchedTape,now);
   const decision=buildCrashDecisionLayer(watch,compass);
+  const balance=buildCrashEvidenceBalance(watch,compass);
   const freshResearch=recentCrashResearch(publishedPulse,now,3);
   const href=(path:string)=>blueDeskPublicHref("/blue-desk"+path,host);
   const position=watch.position==="BULL_LEAN"?"Opportunity lean":
@@ -85,6 +88,7 @@ export default async function CrashOpportunityPage(){
             <small>New admitted market data and published research are reflected automatically. No new task or forecast is created.</small>
           </div>
         </div>
+        <CrashEvidenceSeesaw balance={balance}/>
         <div className={styles.liveStats}>
           <div data-live-market-state={compass.state}><span>1D / EQUITY RISK TAPE</span>
             <strong>{compass.state==="RISK_ON"?"RISK-ON":compass.state==="RISK_OFF"?"RISK-OFF":compass.state==="MIXED"?"MIXED":"UNMEASURED"}</strong>
