@@ -66,11 +66,11 @@ test("completed source-only intake can schedule ONE evidence-gated Dossier asses
  });
  assert.equal(postResearchEligibility(run, slot({
    ...receipts,
-   stage_summary:{...receipts.stage_summary, source_only_contract:"INVALID"},
+   stage_summary:{...(receipts.stage_summary??{}), source_only_contract:"INVALID"},
  }),now).reason,"canonical_publication_incomplete");
  assert.equal(postResearchEligibility(run, slot({
    ...receipts,
-   stage_summary:{...receipts.stage_summary,accuracy_gate:"blocked"},
+   stage_summary:{...(receipts.stage_summary??{}),accuracy_gate:"blocked"},
  }),now).reason,"canonical_evidence_gate_incomplete");
  assert.equal(postResearchEligibility(run, slot({
    ...receipts,health_state:"degraded",
