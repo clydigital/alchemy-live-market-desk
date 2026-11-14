@@ -32,8 +32,8 @@
  animation:seesawSettle 1.25s cubic-bezier(.16,1,.28,1) both}
 @keyframes seesawSettle{
  0%{transform:rotate(0deg)}
- 65%{transform:rotate(var(--seesaw-angle,0deg))}
- 82%{transform:rotate(calc(var(--seesaw-angle,0deg) * .92))}
+ 65%{transform:rotate(var(--seesaw-overshoot,0deg))}
+ 82%{transform:rotate(var(--seesaw-angle,0deg))}
  100%{transform:rotate(var(--seesaw-angle,0deg))}
 }
 .summary{display:flex;flex-wrap:wrap;gap:5px 13px;border:1px solid var(--bb-card-border);
