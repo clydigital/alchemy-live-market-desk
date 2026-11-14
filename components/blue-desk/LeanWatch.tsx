@@ -63,7 +63,7 @@ export default async function LeanWatch({stories,host,now}:{
         </nav>
         </div>
         <div className={ui.heroRadar} aria-hidden="true">
-          <span className={ui.radarRing}><span className={ui.radarCore}>B<span>B</span></span></span>
+          <span className={ui.radarRing}><span className={ui.radarSweep} aria-hidden="true"/><span className={ui.radarCore}>B<span>B</span></span></span>
           <span className={ui.radarCaption}>THESIS / EVIDENCE / NEXT TEST</span>
         </div>
       </header>

@@ -172,6 +172,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
             </div>
             <div className={marketHome.heroVisual} aria-hidden="true">
               <div className={marketHome.orbit}>
+                <span className={marketHome.orbitSweep} aria-hidden="true"/>
                 <span className={marketHome.orbitNodeA}>MARKETS</span>
                 <span className={marketHome.orbitNodeB}>CATALYSTS</span>
                 <span className={marketHome.orbitNodeC}>WATCH</span>
