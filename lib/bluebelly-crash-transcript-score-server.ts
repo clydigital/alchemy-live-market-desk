@@ -14,7 +14,7 @@ export async function getCrashTranscriptScore(
  view:CrashWatchView,compass:MarketCompassSummary,now=new Date(),
 ):Promise<CrashTranscriptScore>{
  try{
-  const reviews=await getPrivateReviewedCreatorArguments(now);
+  const reviews=await getPrivateReviewedCreatorArguments(now,10);
   return scoreReviewedCrashTranscripts(reviews,view,compass,now);
  }catch{
   return emptyCrashTranscriptScore("UNAVAILABLE");
