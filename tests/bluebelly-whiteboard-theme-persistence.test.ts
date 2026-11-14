@@ -36,7 +36,9 @@ test("dashboard whiteboard reuses canonical existing source data and market dire
  const home=read("app/blue-desk/page.tsx");
  const board=read("components/blue-desk/DeskWhiteboard.tsx");
  const css=read("components/blue-desk/DeskWhiteboard.module.css");
- assert.match(home,/buildMarketCompassSummary\(buildMarketDivergenceWatch\(marketRows,"1D"\),now\)/);
+ assert.match(home,/const marketComparisons=buildMarketDivergenceWatch\(marketRows,"1D"\)/);
+ assert.match(home,/buildMarketCompassSummary\(marketComparisons,now\)/);
+ assert.match(home,/buildInvestorMindsetSnapshot\(marketRows,marketComparisons,marketCompass,verifiedNews,now\)/);
  assert.match(home,/<DeskWhiteboard compass=\{marketCompass\} news=\{verifiedNews\} theses=\{theses\}/);
  for(const lane of ["market","release","thesis","catalyst"])assert.ok(board.includes('data-whiteboard-cell="'+lane+'"'));
  assert.match(board,/MarketCompassSummary/);
