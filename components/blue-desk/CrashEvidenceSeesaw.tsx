@@ -27,9 +27,8 @@ function pan(x:number,side:"opportunity"|"crash",units:number){
 
 export default function CrashEvidenceSeesaw({balance}:{balance:CrashEvidenceBalance}){
  const angle=`${balance.angle}deg`;
- const style={"--seesaw-angle":angle} as CSSProperties;
+ const style={"--seesaw-angle":angle,"--seesaw-overshoot":`${(balance.angle*1.12).toFixed(2)}deg`} as CSSProperties;
  const label=`${balance.verdict}. Opportunity ${balance.opportunityUnits.toFixed(1)} research units. Crash risk ${balance.crashUnits.toFixed(1)} research units. Neutral ${balance.neutralUnits.toFixed(1)}, unavailable ${balance.unknownUnits.toFixed(1)}. ${balance.eligibleCount} of three indicators observed. Not a probability.`;
- const blockWord=(v:number)=>v===1?"block":"blocks";
  return <section className={s.wrap} style={style} data-crash-evidence-seesaw="source-dated-v1"
     data-seesaw-lean={balance.lean} data-eligible-inputs={balance.eligibleCount}
     aria-labelledby="evidence-seesaw-title">
