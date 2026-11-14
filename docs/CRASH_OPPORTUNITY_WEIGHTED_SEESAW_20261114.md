@@ -92,3 +92,9 @@ leaves broader creator claims about cash generation, bankruptcies,
 government decisions, CEO events or CDS constituents unscored unless the
 required verification data become available. That is an explicit coverage
 gap rather than a false green or red reading.
+
+## Neutral-state and visual-refresh clarification (14 November hotfix)
+
+When every dated input is MIXED, the balance shows **NO DIRECTIONAL SIGNAL** rather than **BALANCED**: zero qualified weight on both pans is not opposing bullish/bearish evidence. The measured neutral units remain visible in the legend; the seesaw intentionally stays level. By contrast, equal nonzero weights are BALANCED counterweights. Missing inputs remain UNMEASURED. No threshold or market/admission logic changes.
+
+The physical pans counter-rotate while the beam settles so weights remain upright. A small client-only 10-minute refresh triggers the existing dynamic server read whenever the page is visible; no background task, source ingestion, or new API is created. Only changes in a qualified score produce a different settled angle; reduced-motion preference is honoured. Dates and the absence of verified directional support remain explicit.

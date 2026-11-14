@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {buildCrashEvidenceBalance} from "../lib/bluebelly-crash-evidence-balance.ts";
+import {emptyCrashTranscriptScore} from "../lib/bluebelly-crash-transcript-score.ts";
 import type {CrashSignal,CrashWatchView} from "../lib/bluebelly-crash-opportunity.ts";
 import type {MarketCompassSummary,CompassState} from "../lib/bluebelly-market-compass.ts";
 
@@ -65,6 +66,22 @@ test("neutral credit and missing inputs cannot falsely load opportunity or crash
  assert.equal(y.unknownUnits,4.5);
  assert.equal(y.latestSession,null);
 });
+test("three neutral readings are not described as counterbalanced directional evidence",()=>{
+ const x=buildCrashEvidenceBalance(...fixture("MIXED","MIXED","MIXED"));
+ assert.equal(x.eligibleCount,3);
+ assert.equal(x.neutralUnits,4.5);
+ assert.equal(x.crashUnits,0);
+ assert.equal(x.opportunityUnits,0);
+ assert.equal(x.angle,0);
+ assert.equal(x.lean,"NEUTRAL");
+ assert.match(x.verdict,/neutral/);
+ const [v,c]=fixture("BULL","BEAR","RISK_ON");
+ const counterweight={...emptyCrashTranscriptScore(),crashUnits:0.5};
+ const y=buildCrashEvidenceBalance(v,c,counterweight);
+ assert.equal(y.opportunityUnits,2.5);
+ assert.equal(y.crashUnits,2.5);
+ assert.equal(y.lean,"BALANCED");
+});
 test("credit observation must be date-aligned to its own qualified FRED reading",()=>{
  const [v,c]=fixture("BULL","BEAR","RISK_ON");
  const changed:CrashWatchView={...v,
@@ -79,13 +96,20 @@ test("page shows accessible, animating two-sided instrument and clear provenance
  const component=read("components/blue-desk/CrashEvidenceSeesaw.tsx");
  const css=read("components/blue-desk/CrashEvidenceSeesaw.module.css");
  assert.match(page,/buildCrashEvidenceBalance\(watch,compass,transcriptScore\)/);
- assert.match(page,/<CrashEvidenceSeesaw balance=\{balance\}/);
+ assert.match(page,/<CrashEvidenceSeesaw key=\{balance.angle/);
+ assert.match(page,/<CrashEvidenceAutoRefresh\/>/);
+ const refresh=read("components/blue-desk/CrashEvidenceAutoRefresh.tsx");
+ assert.match(refresh,/router.refresh\(\)/);
+ assert.match(refresh,/document.visibilityState/);
  assert.match(component,/data-crash-evidence-seesaw="source-dated-v1"/);
  assert.match(component,/role="img" aria-label=\{label\}/);
  assert.match(component,/data-pan=\{side\}/);
+ assert.match(component,/NO DIRECTIONAL SIGNAL/);
+ assert.match(component,/s.panCounter/);
  assert.match(component,/data-weight-source=\{w.id\}/);
  assert.match(component,/not calibrated probabilities/);
  assert.match(css,/@keyframes seesawSettle/);
+ assert.match(css,/@keyframes panCounterSettle/);
  assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
  assert.doesNotMatch(page,/\.upsert\(|\.insert\(|schedule\(/);
 });

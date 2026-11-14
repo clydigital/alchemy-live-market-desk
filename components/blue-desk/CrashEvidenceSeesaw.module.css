@@ -11,7 +11,7 @@
  border:1px solid var(--state);padding:9px 12px;min-width:148px}
 .status[data-balance-state="OPPORTUNITY"]{--state:var(--opp)}
 .status[data-balance-state="CRASH_RISK"]{--state:var(--risk)}
-.status[data-balance-state="BALANCED"]{--state:var(--neutral)}
+.status[data-balance-state="BALANCED"],.status[data-balance-state="NEUTRAL"]{--state:var(--neutral)}
 .status span{display:block;font:800 9px/1.5 var(--bb-mono);color:var(--bb-muted)}
 .status strong{display:block;font:900 16px/1.3 var(--bb-display);color:var(--bb-text)}
 .panHeads{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin:19px 0 0}
@@ -30,6 +30,16 @@
 .arm{transform-box:view-box;transform-origin:480px 155px;
  transform:rotate(var(--seesaw-angle,0deg));
  animation:seesawSettle 1.25s cubic-bezier(.16,1,.28,1) both}
+.panCounter{transform-box:view-box;transform:rotate(var(--seesaw-counter-angle,0deg));
+ animation:panCounterSettle 1.25s cubic-bezier(.16,1,.28,1) both}
+.panLeft{transform-origin:170px 155px}
+.panRight{transform-origin:790px 155px}
+@keyframes panCounterSettle{
+ 0%{transform:rotate(0deg)}
+ 65%{transform:rotate(var(--seesaw-counter-overshoot,0deg))}
+ 82%{transform:rotate(var(--seesaw-counter-angle,0deg))}
+ 100%{transform:rotate(var(--seesaw-counter-angle,0deg))}
+}
 @keyframes seesawSettle{
  0%{transform:rotate(0deg)}
  65%{transform:rotate(var(--seesaw-overshoot,0deg))}
@@ -61,7 +71,7 @@
  .panHeads{gap:7px}.panHeads>div{padding:8px}
  .panHeads>div>small{font-size:9px}
 }
-@media(prefers-reduced-motion:reduce){.arm{animation:none}}
+@media(prefers-reduced-motion:reduce){.arm,.panCounter{animation:none}}
 
 /* Transcripts remain a bounded, secondary agreement lane. Source-date and
    market-matched coverage travel with the score; never a trading verdict. */

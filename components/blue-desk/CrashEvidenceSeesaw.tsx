@@ -15,7 +15,7 @@ function WeightBlocks({x,units,side}:{x:number;units:number;side:"opportunity"|"
 }
 function pan(x:number,side:"opportunity"|"crash",units:number){
  const stroke=side==="opportunity"?"#36c49b":"#fa7479";
- return <g data-pan={side}>
+ return <g className={`${s.panCounter} ${side==="opportunity"?s.panLeft:s.panRight}`} data-pan={side}>
   <path d={`M ${x} 162 L ${x-70} 262 M ${x} 162 L ${x+70} 262`}
    fill="none" stroke={stroke} strokeWidth="3" opacity=".85"/>
   <path d={`M ${x-78} 262 Q ${x} 279 ${x+78} 262`} fill="none"
@@ -27,7 +27,10 @@ function pan(x:number,side:"opportunity"|"crash",units:number){
 
 export default function CrashEvidenceSeesaw({balance}:{balance:CrashEvidenceBalance}){
  const angle=`${balance.angle}deg`;
- const style={"--seesaw-angle":angle,"--seesaw-overshoot":`${(balance.angle*1.12).toFixed(2)}deg`} as CSSProperties;
+ const style={"--seesaw-angle":angle,
+  "--seesaw-overshoot":`${(balance.angle*1.12).toFixed(2)}deg`,
+  "--seesaw-counter-angle":`${(-balance.angle).toFixed(2)}deg`,
+  "--seesaw-counter-overshoot":`${(-balance.angle*1.12).toFixed(2)}deg`} as CSSProperties;
  const label=`${balance.verdict}. Opportunity ${balance.opportunityUnits.toFixed(2)} research units, including ${balance.transcript.opportunityUnits.toFixed(2)} transcript corroboration. Crash risk ${balance.crashUnits.toFixed(2)} research units, including ${balance.transcript.crashUnits.toFixed(2)} transcript corroboration. Neutral ${balance.neutralUnits.toFixed(1)}, unavailable ${balance.unknownUnits.toFixed(1)}. ${balance.eligibleCount} of three indicators observed. Not a probability.`;
  return <section className={s.wrap} style={style} data-crash-evidence-seesaw="source-dated-v1"
     data-seesaw-lean={balance.lean} data-eligible-inputs={balance.eligibleCount}
@@ -36,13 +39,16 @@ export default function CrashEvidenceSeesaw({balance}:{balance:CrashEvidenceBala
    <div>
     <span className={s.kicker}>EVIDENCE BALANCE · SOURCE-DATED</span>
     <h3 id="evidence-seesaw-title">The market seesaw</h3>
-    <p>{balance.verdict}. As new qualified data arrive, the heavier side tilts down.</p>
+    <p>{balance.verdict}. {balance.lean==="NEUTRAL"
+     ?"The empty pans and level beam are expected: all available signals remain inside their neutral bands."
+     :"New source readings change the heavier side when their directional thresholds are crossed."}</p>
    </div>
    <div className={s.status} data-balance-state={balance.lean}>
     <span>HEAVIER SIDE</span>
     <strong>{balance.lean==="CRASH_RISK"?"CRASH RISK":
       balance.lean==="OPPORTUNITY"?"OPPORTUNITY":
-      balance.lean==="BALANCED"?"BALANCED":"UNMEASURED"}</strong>
+      balance.lean==="BALANCED"?"BALANCED":
+      balance.lean==="NEUTRAL"?"NO DIRECTIONAL SIGNAL":"UNMEASURED"}</strong>
    </div>
   </div>
 
@@ -50,12 +56,12 @@ export default function CrashEvidenceSeesaw({balance}:{balance:CrashEvidenceBala
    <div className={s.opportunityHead}>
     <span>OPPORTUNITY</span>
     <strong>{balance.opportunityUnits.toFixed(2)} <small>units</small></strong>
-    <small>Evidence of durable recovery</small>
+    <small>Qualifying recovery evidence</small>
    </div>
    <div className={s.crashHead}>
     <span>CRASH RISK</span>
     <strong>{balance.crashUnits.toFixed(2)} <small>units</small></strong>
-    <small>Evidence of systemic pressure</small>
+    <small>Qualifying stress evidence</small>
    </div>
   </div>
 
@@ -86,8 +92,8 @@ export default function CrashEvidenceSeesaw({balance}:{balance:CrashEvidenceBala
    </svg>
   </div>
   <div className={s.summary}>
-   <span><b>{balance.eligibleCount}/3</b> source-qualified market observations</span>
-   <span><b>{balance.neutralUnits.toFixed(1)}</b> neutral units</span>
+   <span><b>{balance.eligibleCount}/3</b> dated market observations</span>
+   <span><b>{balance.neutralUnits.toFixed(1)}</b> neutral units (not loaded on either pan)</span>
    <span><b>{balance.unknownUnits.toFixed(1)}</b> unavailable units</span>
    <span>Latest eligible market session: <b>{balance.latestSession??"NONE"}</b></span>
   </div>

@@ -22,7 +22,7 @@ export type CrashEvidenceBalance=Readonly<{
  marketOpportunityUnits:number;marketCrashUnits:number;
  opportunityUnits:number;crashUnits:number;neutralUnits:number;unknownUnits:number;
  eligibleCount:number;maximumUnits:4.5;
- angle:number;lean:"OPPORTUNITY"|"CRASH_RISK"|"BALANCED"|"UNMEASURED";
+ angle:number;lean:"OPPORTUNITY"|"CRASH_RISK"|"BALANCED"|"NEUTRAL"|"UNMEASURED";
  verdict:string;
  latestSession:string|null;
 }>;
@@ -79,10 +79,12 @@ export function buildCrashEvidenceBalance(
  // Maximum ±13° even when all three observations agree.
  const angle=eligibleCount===0?0:Number(Math.max(-13,Math.min(13,13*difference/4.5)).toFixed(2));
  const lean:CrashEvidenceBalance["lean"]=eligibleCount===0?"UNMEASURED":
+  crashUnits===0&&opportunityUnits===0?"NEUTRAL":
   difference>0?"CRASH_RISK":difference<0?"OPPORTUNITY":"BALANCED";
  const verdict=lean==="CRASH_RISK"?"Crash-risk evidence weighs more":
   lean==="OPPORTUNITY"?"Opportunity evidence weighs more":
-  lean==="BALANCED"?"Directional evidence is evenly balanced":
+  lean==="BALANCED"?"Opposing directional evidence is evenly balanced":
+  lean==="NEUTRAL"?"All measured indicators are neutral; neither side has qualifying weight":
   "Insufficient dated inputs to tilt the balance";
  const latestSession=[...weights.map(w=>w.observedAt).filter((x):x is string=>x!==null)]
   .sort().at(-1)??null;

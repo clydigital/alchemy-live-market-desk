@@ -11,6 +11,7 @@ import {buildCrashDecisionLayer,recentCrashResearch} from "@/lib/bluebelly-crash
 import {buildCrashEvidenceBalance} from "@/lib/bluebelly-crash-evidence-balance";
 import {getCrashTranscriptScore} from "@/lib/bluebelly-crash-transcript-score-server";
 import CrashEvidenceSeesaw from "@/components/blue-desk/CrashEvidenceSeesaw";
+import CrashEvidenceAutoRefresh from "@/components/blue-desk/CrashEvidenceAutoRefresh";
 import {getPublicSourceObservations} from "@/lib/blue-desk-source-observations";
 import {getRegimeShadowHealth} from "@/lib/regime-engine";
 import RegimeResearchClocks from "@/components/blue-desk/RegimeResearchClocks";
@@ -54,6 +55,7 @@ export default async function CrashOpportunityPage(){
     watch.position==="BEAR_LEAN"?"Crash-risk lean":"Contested";
   return <main className={desk.page} data-crash-opportunity="source-dated-research-view" data-gauge={watch.position}>
     <BlueDeskHeader activePath="/blue-desk/regime-watch"/>
+    <CrashEvidenceAutoRefresh/>
     <div className={desk.content}>
       <nav className={styles.breadcrumb} aria-label="Research breadcrumb">
         <Link href={href("/regime-watch")}>All regime watches</Link><span aria-hidden="true">/</span><span>Market Crash vs Opportunity</span>
@@ -87,10 +89,10 @@ export default async function CrashOpportunityPage(){
             <h2 id="crash-live-title">What does the evidence support <em>now?</em></h2>
             <p>{decision.strongest}</p></div>
           <div className={styles.liveSync}>READ-ONLY · REBUILT ON PAGE REQUEST
-            <small>New admitted market data and published research are reflected automatically. No new task or forecast is created.</small>
+            <small>New admitted market data and published research appear on page load or while this page is open (10-minute refresh). No new task or forecast is created.</small>
           </div>
         </div>
-        <CrashEvidenceSeesaw balance={balance}/>
+        <CrashEvidenceSeesaw key={balance.angle+"-"+balance.lean} balance={balance}/>
         <div className={styles.liveStats}>
           <div data-live-market-state={compass.state}><span>1D / EQUITY RISK TAPE</span>
             <strong>{compass.state==="RISK_ON"?"RISK-ON":compass.state==="RISK_OFF"?"RISK-OFF":compass.state==="MIXED"?"MIXED":"UNMEASURED"}</strong>
