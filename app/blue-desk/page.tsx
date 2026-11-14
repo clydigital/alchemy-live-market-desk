@@ -6,6 +6,8 @@ import DeskWhiteboard from "@/components/blue-desk/DeskWhiteboard";
 import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
 import {buildMarketCompassSummary} from "@/lib/bluebelly-market-compass";
 import {buildInvestorMindsetSnapshot} from "@/lib/bluebelly-investor-mindset";
+import {projectInvestorAssessment} from "@/lib/bluebelly-investor-assessment";
+import {getDossierV2PresentationSelection} from "@/lib/dossier-v2/presentation-reader";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
 import {calculateBreadthRow} from "@/lib/bluebelly-breadth-dated";
 import {readPublicUsJobs} from "@/lib/bluebelly-us-jobs-reader";
@@ -86,7 +88,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   const now = new Date();
   const host = (await headers()).get("host");
   const publicHost = isBlueDeskPublicReaderHost(host);
-  const [macro, earnings, monitor, verifiedMotions, observations, theses, originalPress, digestBriefs, breadthFeed, jobs] = await Promise.all([
+  const [macro, earnings, monitor, verifiedMotions, observations, theses, originalPress, digestBriefs, breadthFeed, jobs, dossierSelection] = await Promise.all([
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({ now }).catch(() => ({
       events: [], coverage: "unavailable" as const, warning: "Earnings source unavailable",
@@ -104,6 +106,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
     getPublishedMacroPulseBriefs(2).catch(() => []),
     getSourceDatedBreadth().catch(() => ({series:[],retrievalStatus:"fallback" as const})),
     readPublicUsJobs().catch(() => null),
+    publicHost?getDossierV2PresentationSelection().catch(()=>null):Promise.resolve(null),
   ]);
   const absorptionHealth = await getBluebellyAbsorptionHealth(now);
   const motionNews = selectVerifiedNewsBriefs(verifiedMotions, now, 18);
@@ -134,6 +137,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   const marketComparisons=buildMarketDivergenceWatch(marketRows,"1D");
   const marketCompass=buildMarketCompassSummary(marketComparisons,now);
   const investorMindset=buildInvestorMindsetSnapshot(marketRows,marketComparisons,marketCompass,verifiedNews,now);
+  const investorAssessment=projectInvestorAssessment(dossierSelection,now);
   const breadth50=calculateBreadthRow("S5FI","S&P 500 above 50-day MA",breadthFeed.series.find(s=>s.symbol==="S5FI"),now);
   const marketTypes=["Major Index","Rates","FX","Energy","Metal","AI / Semis"] as const;
   // A stored last price is not a fresh quote. Allow a weekend/holiday window,
@@ -178,7 +182,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
           </header>
           <DeskWhiteboard compass={marketCompass} news={verifiedNews} theses={theses}
             upcoming={upcoming} now={now} host={host}/>
-          <InvestorMindsetBoard snapshot={investorMindset} host={host}/>
+          <InvestorMindsetBoard snapshot={investorMindset} assessment={investorAssessment} host={host}/>
            <MarketConditionsBoard market={marketRows} breadth={breadth50} jobs={jobs}
             health={absorptionHealth} now={now} host={host}/>
           <div className={marketHome.overview}>
