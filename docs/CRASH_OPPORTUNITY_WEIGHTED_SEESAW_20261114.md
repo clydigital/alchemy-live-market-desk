@@ -129,3 +129,47 @@ Example using the verified 12–13 Nov values: HY OAS -12bp contributes
 units, and mixed 1D tape contributes 1.00 neutral unit. Total opportunity
 1.20, risk 0.21, neutral capacity 3.09; seesaw angle approximately -2.86°.
 This must display "EARLY OPPORTUNITY TILT," not "confirmed recovery."
+
+## Transcript gate audit and realised-drawdown phase · 14 November follow-up
+
+A public panel previously displayed 8 reviewed creator videos beside two unexplained
+zero corroboration totals. **This was an epistemic distinction being poorly communicated**:
+the 14 November market tape, five-session breadth and HY spreads were all
+`MIXED` under their **strong directional** gates. The creator overlay required
+those gates to be `BULL` or `BEAR`, so positive or negative creator hypotheses
+could never score regardless of the amount of reviewed material. The narrow
+matcher additionally recognises only a subset of sentence structures; e.g.
+an observational issuer CDS claim is NOT the same as a five-observation ICE
+BofA HY OAS change.
+
+The public view now exposes separate, bounded aggregate diagnostics: reviewed
+videos/distinct publishers, structured cited facts or market observations,
+matcher-recognised directional statements, confirmed market gates out of 3,
+and independent publisher corroborations. When no gate is open the numerical
+addition displays **GATED**, not an unexplained `+0.00`. A few
+keyword-classified creator research leads (AI/credit, flows, issuer cash and
+price action) are displayed as **UNVERIFIED**, counting distinct publishers
+rather than repeated video mentions. No claims, video titles, author names
+or raw transcripts are published. Two reviewed videos per author are
+inspected before deciding whether the author has a source-correlated claim;
+the author still receives a maximum of one 0.25-unit contribution.
+
+Separately the page now presents a **126-completed-session realised price path**
+for the S&P 500 cash index, Nasdaq Composite and SMH ETF. At least 90
+matched daily source-history observations are required, with latest point/date
+matching the official/qualified monitor row. Source-unavailable, stale,
+non-HTTPS, future or truncated data fail closed. Every market shows its
+worst rolling peak-to-trough drawdown within the lookback, latest gap below
+its lookback high, peak/trough dates, duration in completed sessions and
+percentage of the worst decline subsequently recovered.
+
+At least 10% decline is labelled a *price correction*; 20% a *bear-market
+drawdown*. Neither establishes systemic crash, default, forced liquidation
+or a causal mechanism. Recovery classification is provisional: less than
+15% of a 10%+ fall recovered remains a continuing selloff; 15–65% is a
+rebound; 65%+ a recovery test; close within 0.5% of the earlier peak marks
+a **price** reclaim, not a confirmed fundamental recovery. The window can
+miss older shocks. SPX, Nasdaq and SMH are displayed separately to prevent
+an AI/semiconductor sell-off from being incorrectly declared a whole-market
+crash. This phase panel does not modify the signed current-risk-pressure
+seesaw or any canonical regime verdict.

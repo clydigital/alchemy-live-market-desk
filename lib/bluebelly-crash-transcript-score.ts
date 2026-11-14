@@ -14,8 +14,12 @@ export type CrashTranscriptStatus="AVAILABLE"|"EMPTY"|"UNAVAILABLE";
 export type CrashTranscriptScore=Readonly<{
  status:CrashTranscriptStatus;
  reviewedVideos:number;
+ reviewedPublishers:number;
+ observationalClaims:number;
  eligibleClaims:number;
+ confirmingMarketGates:number;
  corroboratedPublishers:number;
+ researchThemes:readonly Readonly<{id:"AI_CREDIT"|"FLOWS"|"ISSUER_CASH"|"PRICE_ACTION";label:string;publishers:number}>[];
  crashUnits:number;
  opportunityUnits:number;
  maximumUnits:1;
@@ -69,7 +73,13 @@ const DOMAIN_PATTERNS:Readonly<Record<CrashTranscriptTopic,Readonly<Record<Crash
   ]
  }
 };
-const EMPTY_NOTE="The transcript ledger contributes only clearly dated, independently market-corroborated observations. Creator conviction, repetition and unverified causal explanations receive zero weight.";
+const EMPTY_NOTE="Reviewed creator research is distinct from verified market corroboration. Candidate claims and research themes are leads, not independently confirmed facts or votes. Only source-dated strong market gates may add to the seesaw.";
+const RESEARCH_THEMES=[
+ {id:"AI_CREDIT",label:"AI / corporate credit",pattern:/\b(?:cds|credit[- ]default swaps?|credit spreads?|hyperscalers?\s+debt|corporate spreads?)\b/i},
+ {id:"FLOWS",label:"ETF / positioning flows",pattern:/\b(?:etf\s+(?:flows?|inflows?|outflows?)|fund\s+(?:flows?|inflows?|outflows?)|short[- ]covering|positioning|forced selling)\b/i},
+ {id:"ISSUER_CASH",label:"AI capex / issuer cash",pattern:/\b(?:capex|cash[- ]flow|free cash|fcf|capital expenditure|interest expense|customer prepayments?)\b/i},
+ {id:"PRICE_ACTION",label:"Price action / sell-off",pattern:/\b(?:correction|drawdown|sell[- ]off|selling pressure|rall(?:y|ied|ying)|rebound|nasdaq|nvidia|qqq|smh|200[- ]day)\b/i}
+] as const;
 
 function creatorKey(name:string):string{
  return name.toLowerCase().replace(/[’']/g,"").replace(/[^a-z0-9]+/g," ").trim();
@@ -127,7 +137,8 @@ function marketGates(view:CrashWatchView,compass:MarketCompassSummary):Record<Cr
  };
 }
 export function emptyCrashTranscriptScore(status:CrashTranscriptStatus="EMPTY"):CrashTranscriptScore{
- return {status,reviewedVideos:0,eligibleClaims:0,corroboratedPublishers:0,
+ return {status,reviewedVideos:0,reviewedPublishers:0,observationalClaims:0,
+  eligibleClaims:0,confirmingMarketGates:0,corroboratedPublishers:0,researchThemes:[],
   crashUnits:0,opportunityUnits:0,maximumUnits:1,
   lastVideoPublished:null,dataAsOf:null,topics:[],note:EMPTY_NOTE};
 }
@@ -142,13 +153,28 @@ export function scoreReviewedCrashTranscripts(
   return t!==null&&t<=now.getTime()&&now.getTime()-t<=MAX_AGE&&
    ALLOWED_CREATORS.has(creatorKey(r.publisher))&&/^[A-Za-z0-9_-]{11}$/.test(r.videoId);
  }).sort((a,b)=>Date.parse(b.publishedAt)-Date.parse(a.publishedAt));
- const uniques=new Set<string>(),topics=new Map<CrashTranscriptTopic,{side:CrashTranscriptSide;publishers:Set<string>;sourceDate:string}>();
- let eligibleClaims=0;
+ const reviewedPublishers=new Set(sorted.map(v=>creatorKey(v.publisher)));
+ const creditedPublishers=new Set<string>();
+ const themes=new Map<string,Set<string>>();
+ const topics=new Map<CrashTranscriptTopic,{side:CrashTranscriptSide;publishers:Set<string>;sourceDate:string}>();
+ const confirmingMarketGates=Object.values(gates).filter(g=>g.side!==null).length;
+ let eligibleClaims=0,observationalClaims=0;
  for(const video of sorted){
   const author=creatorKey(video.publisher);
-  if(uniques.has(author))continue;
+  observationalClaims+=video.claimChecks.slice(0,8).filter(
+   c=>c.kind==="market_observation"||c.kind==="cited_fact").length;
+  for(const theme of RESEARCH_THEMES){
+   // Private claim text becomes only a bounded aggregate topic count.
+   if(video.claimChecks.slice(0,8).some(c=>theme.pattern.test(c.claim))){
+    const authors=themes.get(theme.id)??new Set<string>();
+    authors.add(author);themes.set(theme.id,authors);
+   }
+  }
   const matches=matchingClaim(video);
   eligibleClaims+=matches.length;
+  // Inspect up to two reviewed videos per publisher, while allowing no
+  // more than one confirmed contribution from that publisher in total.
+  if(creditedPublishers.has(author))continue;
   // A creator may cover several topics, but contributes to only ONE of
   // them. Otherwise a single transcript could be mistaken for multiple
   // independent corroborating perspectives.
@@ -166,9 +192,9 @@ export function scoreReviewedCrashTranscripts(
    if(!existing||existing.side===chosen.side){
     if(existing)existing.publishers.add(author);
     else topics.set(chosen.topic,{side:chosen.side,publishers:new Set([author]),sourceDate:gate.sourceDate!});
+    creditedPublishers.add(author);
    }
   }
-  uniques.add(author);
  }
  const candidateTopics=[...topics.entries()].map(([id,entry])=>({
   id,side:entry.side,sourceDate:entry.sourceDate,
@@ -183,8 +209,12 @@ export function scoreReviewedCrashTranscripts(
  const opportunityUnits=selected.filter(x=>x.side==="OPPORTUNITY").reduce((n,x)=>n+x.units,0);
  const publishers=new Set<string>();
  for(const t of topics.values())for(const name of t.publishers)publishers.add(name);
+ const researchThemes=RESEARCH_THEMES.map(theme=>({
+  id:theme.id,label:theme.label,publishers:themes.get(theme.id)?.size??0
+ })).filter(t=>t.publishers>0).sort((a,b)=>b.publishers-a.publishers).slice(0,3);
  return {status:sorted.length?"AVAILABLE":"EMPTY",reviewedVideos:sorted.length,
-  eligibleClaims,corroboratedPublishers:publishers.size,
+  reviewedPublishers:reviewedPublishers.size,observationalClaims,eligibleClaims,
+  confirmingMarketGates,corroboratedPublishers:publishers.size,researchThemes,
   crashUnits:Number(riskUnits.toFixed(2)),opportunityUnits:Number(opportunityUnits.toFixed(2)),
   maximumUnits:1,lastVideoPublished:sorted[0]?.publishedAt??null,
   dataAsOf:selected.map(x=>x.sourceDate).sort().at(-1)??null,

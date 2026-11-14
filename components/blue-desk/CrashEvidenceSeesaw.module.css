@@ -109,3 +109,17 @@
    BULL/BEAR direction. The dashed border makes that distinction visible. */
 .weight[data-weight-signal="MIXED"][data-weight-side="CRASH_RISK"],
 .weight[data-weight-signal="MIXED"][data-weight-side="OPPORTUNITY"]{border-style:dashed}
+
+/* Creator hypotheses are visible as research coverage even when strict
+   directional gates are closed. Never present topic counts as evidence. */
+.transcriptLead{font:650 11px/1.55 var(--bb-mono);color:var(--bb-muted);
+ margin:9px 0;border-left:3px solid #718d9b;padding:9px 11px;background:var(--bb-card-bg)}
+.transcriptLead b{color:var(--bb-text)}
+.themeGrid{display:grid;gap:7px;padding:10px 0}
+.themeGrid>span{font:800 10px/1.4 var(--bb-mono);color:var(--bb-muted)}
+.themeGrid>div{display:flex;gap:7px;flex-wrap:wrap}
+.themeGrid>div>span{font:750 10px/1.4 var(--bb-mono);
+ color:var(--bb-text);border:1px dashed #647f8d;padding:5px 8px;
+ background:var(--bb-card-bg)}
+.transcriptStats [data-transcript-market-gates="0"]{color:#eab65b}
+.transcriptStats strong[data-transcript-side]{font-size:clamp(15px,1.4vw,21px)}
