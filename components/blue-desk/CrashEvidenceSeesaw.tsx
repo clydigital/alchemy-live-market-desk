@@ -3,11 +3,14 @@ import type {CrashEvidenceBalance} from "@/lib/bluebelly-crash-evidence-balance"
 import s from "./CrashEvidenceSeesaw.module.css";
 
 function WeightBlocks({x,units,side}:{x:number;units:number;side:"opportunity"|"crash"}){
- const count=Math.round(units*4); // one small block is exactly 0.25 research unit
+ // Fractional final blocks represent less than 0.25; exact totals remain text.
+ const count=Math.ceil(units*4-0.000001);
+ const full=Math.floor(units*4+0.000001);
  return <g data-weight-blocks={side} aria-hidden="true">
   {Array.from({length:count},(_,i)=>{
    const col=i%6,row=Math.floor(i/6);
-   return <rect key={i} x={x-64+col*22} y={241-row*21} rx="3" width="19" height="17"
+   return <rect key={i} x={x-64+col*22} y={241-row*21} rx="3"
+    width={i<full?19:Math.max(0,19*(units*4-full))} height="17"
     fill={side==="opportunity"?"#36c49b":"#fa7479"}
     stroke={side==="opportunity"?"#b0ffdf":"#ffbec5"} strokeWidth="1.4"/>;
   })}
@@ -40,8 +43,8 @@ export default function CrashEvidenceSeesaw({balance}:{balance:CrashEvidenceBala
     <span className={s.kicker}>EVIDENCE BALANCE · SOURCE-DATED</span>
     <h3 id="evidence-seesaw-title">The market seesaw</h3>
     <p>{balance.verdict}. {balance.lean==="NEUTRAL"
-     ?"The empty pans and level beam are expected: all available signals remain inside their neutral bands."
-     :"New source readings change the heavier side when their directional thresholds are crossed."}</p>
+     ?"There is no measurable signed pressure in the dated inputs."
+     :"The beam responds proportionally to signed, dated market changes. A small tilt below thresholds is not a confirmed regime change."}</p>
    </div>
    <div className={s.status} data-balance-state={balance.lean}>
     <span>HEAVIER SIDE</span>
@@ -93,8 +96,8 @@ export default function CrashEvidenceSeesaw({balance}:{balance:CrashEvidenceBala
   </div>
   <div className={s.summary}>
    <span><b>{balance.eligibleCount}/3</b> dated market observations</span>
-   <span><b>{balance.neutralUnits.toFixed(1)}</b> neutral units (not loaded on either pan)</span>
-   <span><b>{balance.unknownUnits.toFixed(1)}</b> unavailable units</span>
+   <span><b>{balance.neutralUnits.toFixed(2)}</b> unallocated/neutral units</span>
+   <span><b>{balance.unknownUnits.toFixed(2)}</b> unavailable units</span>
    <span>Latest eligible market session: <b>{balance.latestSession??"NONE"}</b></span>
   </div>
 
@@ -128,15 +131,18 @@ export default function CrashEvidenceSeesaw({balance}:{balance:CrashEvidenceBala
   </section>
   <div className={s.weightList} aria-label="Evidence sources and weight assignments">
    {balance.weights.map(w=><div key={w.id} className={s.weight} data-weight-source={w.id}
-     data-weight-side={w.side}>
+     data-weight-side={w.side} data-weight-signal={w.signal}
+     data-weight-contribution={w.units.toFixed(2)}>
      <div className={s.weightTitle}><strong>{w.label}</strong>
-      <span>{w.maximum.toFixed(1)} research {w.maximum===1?"unit":"units"}</span></div>
-     <p>{w.side==="CRASH_RISK"?"WEIGHS TOWARD CRASH":
-       w.side==="OPPORTUNITY"?"WEIGHS TOWARD OPPORTUNITY":
+      <span>{w.units.toFixed(2)} / {w.maximum.toFixed(1)} units</span></div>
+     <p>{w.signal==="MIXED"&&w.units>0?
+        (w.side==="CRASH_RISK"?"EARLY RISK PRESSURE":"EARLY OPPORTUNITY PRESSURE")+" · BELOW THRESHOLD":
+       w.side==="CRASH_RISK"?"QUALIFIED CRASH PRESSURE":
+       w.side==="OPPORTUNITY"?"QUALIFIED OPPORTUNITY PRESSURE":
        w.side==="NEUTRAL"?"NEITHER SIDE · MIXED":"NOT COUNTED · SOURCE MISSING"}</p>
      <small>{w.observedAt? "Source session "+w.observedAt+" · ":""}{w.observation}</small>
     </div>)}
   </div>
-  <p className={s.caveat}>Primary market weighting: HY credit <b>2.0</b>, five-session breadth <b>1.5</b>, one-day equity tape <b>1.0</b>. Independently market-matched, reviewed creator observations can add <b>up to 1.0</b> secondary research unit (0.25 per creator; 0.5 per topic), never more than the primary measurements. Mixed/missing signals carry no directional weight. Creator agreement with those SAME market observations is not independent confirmation, and does not validate forecasts or mechanisms. These units are <b>not calibrated probabilities</b>, backtested risk estimates or trade instructions. Issuer cash flow and forced-selling evidence remain separate confirmation gates.</p>
+  <p className={s.caveat}>Primary market weighting: HY credit <b>2.0</b>, five-session breadth <b>1.5</b>, one-day equity tape <b>1.0</b>. Independently market-matched, reviewed creator observations can add <b>up to 1.0</b> secondary research unit (0.25 per creator; 0.5 per topic), never more than the primary measurements. A MIXED reading with qualified, dated signed magnitude can contribute a proportional <b>early</b> weight, without satisfying the stronger directional threshold. Missing observations contribute zero. The mixed four-ETF tape remains unweighted until a comparable directional magnitude is available. Creator agreement with those SAME market observations is not independent confirmation, and does not validate forecasts or mechanisms. These units are <b>not calibrated probabilities</b>, backtested risk estimates or trade instructions. Issuer cash flow and forced-selling evidence remain separate confirmation gates.</p>
  </section>;
 }
