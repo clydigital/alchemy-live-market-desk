@@ -33,6 +33,7 @@ const MAX_AGE=7*DAY;
 const MATCH_WINDOW=4*DAY;
 const ALLOWED_CREATORS=new Set([
  "stockedup","wall street truthbombs","wall street truth bombs",
+ "wall street truth bombs mark malek","wall street truthbombs mark malek",
  "fx evolution","fxevolution","tradernick",
  "traders reality","meetkevin","meet kevin"
 ]);
