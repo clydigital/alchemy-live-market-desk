@@ -104,3 +104,8 @@
 @media(max-width:390px){.transcriptStats{grid-template-columns:1fr 1fr}
  .transcriptStats strong{font-size:17px}
  .transcriptHeader h4{font-size:15px}}
+
+/* Subthreshold source-qualified observations are provisional, not confirmed
+   BULL/BEAR direction. The dashed border makes that distinction visible. */
+.weight[data-weight-signal="MIXED"][data-weight-side="CRASH_RISK"],
+.weight[data-weight-signal="MIXED"][data-weight-side="OPPORTUNITY"]{border-style:dashed}
