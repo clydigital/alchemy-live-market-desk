@@ -81,11 +81,11 @@ function classify(row:MarketMonitorRow|undefined,spec:typeof ASSETS[number],now:
   return missing(spec,"Too few matched, fresh daily price closes for a 126-session lookback.");
  let runningPeak=entries[0].close,runningPeakIndex=0;
  let maxDepth=0,drawPeakIndex=0,drawTroughIndex=0;
- let high=entries[0].close;
+ let high=entries[0].close,latestHighIndex=0;
  for(let i=1;i<entries.length;i++){
   const close=entries[i].close;
   if(close>runningPeak){runningPeak=close;runningPeakIndex=i}
-  if(close>high)high=close;
+  if(close>high){high=close;latestHighIndex=i}
   const depth=(runningPeak-close)/runningPeak*100;
   if(depth>maxDepth){maxDepth=depth;drawPeakIndex=runningPeakIndex;drawTroughIndex=i}
  }
@@ -93,11 +93,19 @@ function classify(row:MarketMonitorRow|undefined,spec:typeof ASSETS[number],now:
  const currentDrawdown=(last.close/high-1)*100;
  const recoveredFraction=maxDepth>0?
   (last.close-trough.close)/(peak.close-trough.close)*100:0;
+ // After a *new* high, an old correction does not define the latest swing.
+ // Compute today's rebound against the trough since the latest window high.
+ const episodeLows=entries.slice(latestHighIndex);
+ const episodeTrough=Math.min(...episodeLows.map(x=>x.close));
+ const episodeDepth=(high-episodeTrough)/high*100;
+ const episodeRecovered=episodeDepth>0?
+  (last.close-episodeTrough)/(high-episodeTrough)*100:0;
  const severity=maxDepth>=20?"BEAR_DRAWDOWN":maxDepth>=10?"CORRECTION":"NO_CORRECTION";
- const phase:MarketPhaseState=maxDepth>=10&&last.close>=peak.close*0.995?
-  "RECLAIMED":maxDepth>=10&&recoveredFraction>=65?
-  "RECOVERY_TEST":maxDepth>=10&&recoveredFraction>=15?
-  "REBOUND":maxDepth>=10?"SELLOFF":
+ const episodeIsCorrection=episodeDepth>=10;
+ const phase:MarketPhaseState=maxDepth>=10&&currentDrawdown>=-0.5?
+  "RECLAIMED":episodeIsCorrection&&episodeRecovered>=65?
+  "RECOVERY_TEST":episodeIsCorrection&&episodeRecovered>=15?
+  "REBOUND":episodeIsCorrection?"SELLOFF":
   currentDrawdown<=-5?"PULLBACK":"NEAR_HIGH";
  const explanation=severity==="BEAR_DRAWDOWN"?
   "A 20%+ peak-to-trough price drawdown occurred in this window; this alone does not prove systemic financial contagion.":
@@ -108,7 +116,7 @@ function classify(row:MarketMonitorRow|undefined,spec:typeof ASSETS[number],now:
   state:phase,asOf,observedSessions:entries.length,last:last.close,
   currentDrawdownPercent:round(currentDrawdown),
   worstDrawdownPercent:round(-maxDepth),
-  recoveryOfLossPercent:round(Math.max(0,recoveredFraction)),
+  recoveryOfLossPercent:round(Math.max(0,Math.min(100,recoveredFraction))),
   peakAt:maxDepth>0?peak.date:null,troughAt:maxDepth>0?trough.date:null,
   peakToTroughSessions:maxDepth>0?drawTroughIndex-drawPeakIndex:null,
   severity,explanation};
