@@ -711,7 +711,10 @@ function makeRows(rawSeries: RawSeries[]): MarketMonitorRow[] {
       sourceUrl: raw.sourceUrl,
       ...(raw.currency?{currency:raw.currency}:{}),
       ...(raw.sourceUpdatedAt ? { sourceUpdatedAt: raw.sourceUpdatedAt } : {}),
-      points: points.slice(-64).map((point) => ({ time: point.time, close: point.close })),
+      // Crash phase needs ~6 months of genuine closes for these three public
+      // series only; other monitors retain the compact 64-point payload.
+      points: points.slice(["spx","nasdaq-comp","smh"].includes(raw.id)?-126:-64)
+        .map((point) => ({ time: point.time, close: point.close })),
     } satisfies Omit<MarketMonitorRow, "attentionScore" | "hot" | "contradiction" | "tags">;
     return row;
   });
