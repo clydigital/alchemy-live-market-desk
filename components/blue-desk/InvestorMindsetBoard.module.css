@@ -1,0 +1,102 @@
+/* Compact, high-contrast decision table; source-dated, no fake real-time ticker. */
+.board{
+ --mind-edge:#296171;--mind-blue:#64e1ff;
+ margin:0;min-width:0;overflow:hidden;
+ color:#ecf7fb;border:1px solid #317e90;
+ background:linear-gradient(135deg,#0a202b 0%,#07151d 56%,#091d29 100%);
+ box-shadow:inset 0 1px 0 rgba(119,226,240,.12),0 14px 38px rgba(0,0,0,.17);
+}
+.heading{display:flex;align-items:center;justify-content:space-between;gap:20px;
+ padding:19px clamp(15px,2vw,25px) 17px;border-bottom:1px solid var(--mind-edge);
+ background:radial-gradient(ellipse at 83% 0%,rgba(27,159,183,.14),transparent 50%)}
+.headCopy{min-width:0}
+.kicker{display:flex;align-items:center;gap:8px;color:#76dfea;letter-spacing:.15em;
+ font:800 10px/1.3 var(--bb-mono,monospace);margin:0 0 7px}
+.diamond{width:9px;height:9px;background:#64dfe7;transform:rotate(45deg);flex:none}
+.heading h2{font-size:clamp(22px,2vw,29px);line-height:1.15;letter-spacing:-.04em;
+ margin:0;font-weight:850}
+.heading h2 em{font-style:normal;color:var(--mind-blue)}
+.subtitle{color:#b8d0db;font-size:12px;line-height:1.45;margin:7px 0 0}
+.tape{padding:10px 13px;min-width:180px;max-width:220px;
+ border:1px solid #48616c;background:#122831;display:grid;gap:3px}
+.tape span{font:750 9px/1.2 var(--bb-mono,monospace);color:#aecbd4;letter-spacing:.08em}
+.tape strong{font-size:12px;line-height:1.2;letter-spacing:.02em}
+.tape small{font-size:10px;line-height:1.35;color:#c2d5db}
+.tape[data-investor-tape="RISK_ON"]{border-color:#259678;background:#103d37}
+.tape[data-investor-tape="RISK_ON"] strong{color:#7bf4c0}
+.tape[data-investor-tape="RISK_OFF"]{border-color:#a85860;background:#44252d}
+.tape[data-investor-tape="RISK_OFF"] strong{color:#ff989d}
+.tape[data-investor-tape="MIXED"]{border-color:#aa8540;background:#433522}
+.tape[data-investor-tape="MIXED"] strong{color:#ffda92}
+.tableWrap{overflow-x:auto}
+.table{border-collapse:collapse;table-layout:fixed;width:100%;font-size:12px}
+.table thead{background:#091923}
+.table thead th{text-align:left;color:#99beca;font:780 10px/1.3 var(--bb-mono,monospace);
+ letter-spacing:.09em;padding:12px 13px;border-bottom:1px solid var(--mind-edge)}
+.table thead th:nth-child(1){width:16%}
+.table thead th:nth-child(2){width:23%}
+.table thead th:nth-child(3){width:30%}
+.table thead th:nth-child(4){width:31%}
+.row{--tone:#758995;--tone-glow:rgba(117,137,149,.08)}
+.row[data-mindset-tone="positive"]{--tone:#42cfa4;--tone-glow:rgba(66,207,164,.075)}
+.row[data-mindset-tone="negative"]{--tone:#fa8189;--tone-glow:rgba(250,129,137,.072)}
+.row[data-mindset-tone="mixed"]{--tone:#f4c36a;--tone-glow:rgba(244,195,106,.065)}
+.row[data-mindset-tone="watch"]{--tone:#75cde8;--tone-glow:rgba(117,205,232,.06)}
+.row[data-mindset-tone="unmeasured"]{--tone:#94a6b3;--tone-glow:rgba(148,166,179,.03)}
+.row th,.row td{border-bottom:1px solid #224354;padding:12px 13px;vertical-align:top;overflow-wrap:anywhere}
+.row th{box-shadow:inset 3px 0 var(--tone);background:var(--tone-glow)}
+.row:hover th,.row:hover td{background:rgba(91,170,196,.065)}
+.lensText{display:block;font:850 11px/1.45 var(--bb-mono,monospace);letter-spacing:.035em;color:#f1faff}
+.rowLink{display:inline-flex;margin-top:10px;gap:4px;color:#81dcf1!important;
+ font-size:10px;text-decoration:none;border-bottom:1px dotted #49778a}
+.signalCell{background:var(--tone-glow)}
+.signal{display:inline-flex;align-items:center;gap:6px;max-width:100%;
+ font:800 11px/1.3 var(--bb-mono,monospace);letter-spacing:.03em;color:var(--tone)}
+.signal::before{content:"";height:7px;width:7px;flex:none;background:var(--tone)}
+.measurement{display:block;margin-top:7px;font:750 12px/1.45 var(--font-figtree),sans-serif;color:#f0f9fb}
+.asOf{display:block;margin-top:7px;color:#a3becb;font-size:10px}
+.questionCell p,.testCell p{font-size:12px;line-height:1.45;margin:0;color:#e2f0f4}
+.testCell p{color:#c7dfe8}
+.sources{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px}
+.sources a{color:#70d5e9!important;font-size:10px;text-underline-offset:3px}
+.noSource{display:block;margin-top:7px;font-size:10px;color:#a9b6c1}
+.footer{display:flex;align-items:center;justify-content:space-between;gap:13px;
+ padding:13px clamp(15px,2vw,25px);background:#06141d}
+.footer p{margin:0;max-width:720px;font-size:10px;line-height:1.5;color:#a8c4ce}
+.footer p strong{color:#d4ebf2}
+.links{display:flex;gap:8px;flex-wrap:wrap}
+.links a{border:1px solid #366f80;color:#a5eaff!important;
+ font-size:10px;font-weight:750;padding:7px 9px;text-decoration:none;white-space:nowrap}
+.links a:hover,.rowLink:hover{color:white!important;border-color:#8ce9fa}
+.board a:focus-visible{outline:2px solid #b4eeff;outline-offset:2px}
+.srOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:930px){
+ .table thead th:nth-child(1){width:18%}
+ .table thead th:nth-child(2){width:24%}
+ .table thead th:nth-child(3){width:29%}
+ .table thead th:nth-child(4){width:29%}
+ .row th,.row td{padding:11px 9px}
+ .footer{align-items:flex-start;flex-direction:column}
+}
+@media(max-width:680px){
+ .heading{align-items:flex-start;flex-direction:column;gap:12px}
+ .tape{width:100%;max-width:none;min-width:0}
+ .table thead{display:none}
+ .table tbody{display:grid;gap:8px;padding:9px}
+ .table .row{display:grid;grid-template-columns:1fr 1fr;border:1px solid #2c5262}
+ .row th,.row td{border:0}
+ .row th{grid-column:1 / -1;border-bottom:1px solid #244959;padding:10px 11px}
+ .row th .rowLink{margin:0;float:right}
+ .row td{padding:9px 11px}
+ .signalCell{grid-column:1 / -1;border-bottom:1px solid #234555!important}
+ .questionCell,.testCell{min-width:0}
+ .questionCell::before,.testCell::before{content:attr(data-column);display:block;
+  margin-bottom:5px;color:#93b1c1;font:760 9px/1.2 var(--bb-mono,monospace);
+  letter-spacing:.05em;text-transform:uppercase}
+}
+@media(max-width:390px){
+ .table .row{grid-template-columns:1fr}
+ .questionCell,.testCell{grid-column:1 / -1}
+ .questionCell{border-bottom:1px solid #234555!important}
+}
+@media(prefers-reduced-motion:reduce){.board *{scroll-behavior:auto}}
