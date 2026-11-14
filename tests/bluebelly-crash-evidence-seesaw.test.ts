@@ -78,7 +78,7 @@ test("page shows accessible, animating two-sided instrument and clear provenance
  const page=read("app/blue-desk/crash-opportunity/page.tsx");
  const component=read("components/blue-desk/CrashEvidenceSeesaw.tsx");
  const css=read("components/blue-desk/CrashEvidenceSeesaw.module.css");
- assert.match(page,/buildCrashEvidenceBalance\(watch,compass\)/);
+ assert.match(page,/buildCrashEvidenceBalance\(watch,compass,transcriptScore\)/);
  assert.match(page,/<CrashEvidenceSeesaw balance=\{balance\}/);
  assert.match(component,/data-crash-evidence-seesaw="source-dated-v1"/);
  assert.match(component,/role="img" aria-label=\{label\}/);

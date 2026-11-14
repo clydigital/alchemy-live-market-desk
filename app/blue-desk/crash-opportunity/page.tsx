@@ -9,6 +9,7 @@ import {buildMarketCompassSummary} from "@/lib/bluebelly-market-compass";
 import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
 import {buildCrashDecisionLayer,recentCrashResearch} from "@/lib/bluebelly-crash-decision-live";
 import {buildCrashEvidenceBalance} from "@/lib/bluebelly-crash-evidence-balance";
+import {getCrashTranscriptScore} from "@/lib/bluebelly-crash-transcript-score-server";
 import CrashEvidenceSeesaw from "@/components/blue-desk/CrashEvidenceSeesaw";
 import {getPublicSourceObservations} from "@/lib/blue-desk-source-observations";
 import {getRegimeShadowHealth} from "@/lib/regime-engine";
@@ -45,7 +46,8 @@ export default async function CrashOpportunityPage(){
   const matchedTape=buildMarketDivergenceWatch(publicMarketObservations(monitor?.rows??[],"all"),"1D");
   const compass=buildMarketCompassSummary(matchedTape,now);
   const decision=buildCrashDecisionLayer(watch,compass);
-  const balance=buildCrashEvidenceBalance(watch,compass);
+  const transcriptScore=await getCrashTranscriptScore(watch,compass,now);
+  const balance=buildCrashEvidenceBalance(watch,compass,transcriptScore);
   const freshResearch=recentCrashResearch(publishedPulse,now,3);
   const href=(path:string)=>blueDeskPublicHref("/blue-desk"+path,host);
   const position=watch.position==="BULL_LEAN"?"Opportunity lean":

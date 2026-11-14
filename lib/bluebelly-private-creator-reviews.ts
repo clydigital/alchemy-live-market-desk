@@ -8,7 +8,7 @@ export type PrivateCreatorReview={
 };
 /** Read-only, owner-only existing transcript reviews. No raw transcript output
  * and no creator claim is promoted to canonical evidence. */
-export async function getPrivateReviewedCreatorArguments(now:Date):Promise<PrivateCreatorReview[]>{
+export async function getPrivateReviewedCreatorArguments(now:Date,claimLimit=3):Promise<PrivateCreatorReview[]>{
  const db=createSupabaseAdminClient();
  const cutoff=new Date(now.getTime()-12*86400_000).toISOString();
  const {data,error}=await db.from("research_intake_items")
@@ -33,7 +33,7 @@ export async function getPrivateReviewedCreatorArguments(now:Date):Promise<Priva
     u.protocol!=="https:")continue;
    url=u.toString();
   }catch{continue;}
-  const claims=Array.isArray(item.claim_checks)?item.claim_checks.slice(0,3).flatMap((c:unknown)=>{
+  const claims=Array.isArray(item.claim_checks)?item.claim_checks.slice(0,Math.max(1,Math.min(10,Math.trunc(claimLimit)||3))).flatMap((c:unknown)=>{
    if(!c||typeof c!=="object"||Array.isArray(c))return [];
    const d=c as Record<string,unknown>;
    if(typeof d.claim!=="string"||!d.claim.trim())return [];
