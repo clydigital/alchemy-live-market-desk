@@ -98,3 +98,34 @@ gap rather than a false green or red reading.
 When every dated input is MIXED, the balance shows **NO DIRECTIONAL SIGNAL** rather than **BALANCED**: zero qualified weight on both pans is not opposing bullish/bearish evidence. The measured neutral units remain visible in the legend; the seesaw intentionally stays level. By contrast, equal nonzero weights are BALANCED counterweights. Missing inputs remain UNMEASURED. No threshold or market/admission logic changes.
 
 The physical pans counter-rotate while the beam settles so weights remain upright. A small client-only 10-minute refresh triggers the existing dynamic server read whenever the page is visible; no background task, source ingestion, or new API is created. Only changes in a qualified score produce a different settled angle; reduced-motion preference is honoured. Dates and the absence of verified directional support remain explicit.
+
+## Graded early-pressure weights · 14 November correction
+
+The binary scoring design made the pans permanently empty during normal mixed
+sessions, despite nonzero source movements. That was correct for a *strong signal
+filter* but unsuitable for an instrument intended to show a moving balance. The
+same original thresholds and qualified source dates remain decisive for BULL or
+BEAR classification. A separately labelled **EARLY / BELOW THRESHOLD** lane now
+uses magnitude from those same qualified source measurements:
+
+- HY OAS source-matched five-observation change: for narrowing, opportunity
+  units = up to 2.0 × absolute bp / 20bp; for widening, crash units = up to
+  2.0 × bp / 30bp. Values below thresholds are visibly provisional.
+- RSP versus SPX matched five-session relative change: absolute percentage-point
+  gap × 1.5, capped at 1.5 units. Underperformance adds proportional risk,
+  outperformance adds proportional opportunity.
+- The one-day four-ETF tape retains its strict full-direction qualification.
+  When MIXED, it is not invented into a directional magnitude; its 1.0 weight
+  remains neutral. Missing and stale observations also remain unscored.
+- Each market pillar allocates at most its original 2.0/1.5/1.0 capacity.
+  The unused portion stays in **unallocated/neutral** and remains visible,
+  so total market weights still reconcile exactly to 4.5 units.
+- Creator corroboration rules do **not** change. Creator interpretations cannot
+  validate an early market reading, and these units remain heuristics rather
+  than empirical crash probabilities.
+
+Example using the verified 12–13 Nov values: HY OAS -12bp contributes
+1.20 early-opportunity units, RSP/SPX -0.14pp contributes 0.21 early-risk
+units, and mixed 1D tape contributes 1.00 neutral unit. Total opportunity
+1.20, risk 0.21, neutral capacity 3.09; seesaw angle approximately -2.86°.
+This must display "EARLY OPPORTUNITY TILT," not "confirmed recovery."
