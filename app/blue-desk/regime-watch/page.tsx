@@ -1,4 +1,5 @@
 import CurrentMarketUpdates from "@/components/blue-desk/CurrentMarketUpdates";
+import {Nov14ResearchTeaser} from "@/components/blue-desk/Nov14MarketInvestigation";
 import Link from "next/link";
 import {headers} from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
@@ -63,6 +64,7 @@ export default async function RegimeWatchPage(){
    <MarketCompass summary={compassSummary} readings={meterReadings} host={host}/>
    <p style={{margin:"10px 0 14px",fontSize:"12px",color:"var(--bb-muted)"}}>The directional reading summarises one matched equity session. Deeper research, nine regime lenses and evidence follow below; no tape signal automatically changes a fundamental thesis.</p>
    <RegimeResearchClocks sources={observations} editorialReviewedOn={LENS_OUTLOOK_REVIEWED_ON} shadow={shadowHealth}/>
+   <Nov14ResearchTeaser host={host} compact/>
    <RegimeSignalRadar entries={signalRadar}/>
    <details className={styles.archivedOverview} data-regime-overview-editorial="collapsed-by-default">
     <summary><strong>Previously reviewed cross-asset interpretation · 11 November 2026</strong>
