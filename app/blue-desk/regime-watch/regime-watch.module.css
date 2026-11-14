@@ -518,3 +518,18 @@
  .lensStatus{padding:7px 8px;margin:3px 0}
  .lensStatusLabel{font-size:12px;flex-basis:150px}
 }
+
+/* Numbering occupies its own right-hand lane, not the illustration.
+   Preserve the motif/icon on the left at all non-mobile card sizes. */
+.card .art>div{width:calc(100% - 58px)}
+.artSerial{
+  right:0;top:0;bottom:0;transform:none;
+  width:58px;display:flex;align-items:center;justify-content:center;
+  padding:0 4px;border-left:1px solid var(--bb-command-edge);
+  background:linear-gradient(90deg,color-mix(in srgb,var(--bb-canvas) 91%,transparent),var(--bb-canvas));
+  font-size:clamp(23px,2vw,31px);line-height:1;letter-spacing:-.065em;text-shadow:none;
+}
+@media(max-width:680px){
+  .card .art>div{width:calc(100% - 52px)}
+  .artSerial{width:52px;font-size:26px}
+}
