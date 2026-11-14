@@ -75,7 +75,9 @@ test("homepage reader is source-only and labels its reasoning honestly",()=>{
  const component=readFileSync(new URL("../components/blue-desk/InvestorMindsetBoard.tsx",import.meta.url),"utf8");
  const css=readFileSync(new URL("../components/blue-desk/InvestorMindsetBoard.module.css",import.meta.url),"utf8");
  assert.match(page,/buildInvestorMindsetSnapshot\(marketRows,marketComparisons,marketCompass,verifiedNews,now\)/);
- assert.match(page,/<InvestorMindsetBoard snapshot=\{investorMindset\} host=\{host\}/);
+ assert.match(page,/<InvestorMindsetBoard snapshot=\{investorMindset\} assessment=\{investorAssessment\} host=\{host\}/);
+ assert.match(page,/projectInvestorAssessment\(dossierSelection,now\)/);
+ assert.match(page,/getDossierV2PresentationSelection\(\)/);
  assert.match(component,/Signals are dated observations, not proof of institutional flows/);
  assert.match(component,/data-home-investor-mindset="source-dated-v1"/);
  assert.match(css,/@media\(max-width:680px\)/);
