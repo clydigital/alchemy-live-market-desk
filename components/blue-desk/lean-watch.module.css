@@ -197,3 +197,23 @@
  .shortcuts a{flex-basis:100px}
  .card h3{font-size:18px}
 }
+
+/* Same theme-reactive, decorative scanner as the market-first homepage.
+   Historical Watch lenses do not turn the sweep into a live research status. */
+.radarSweep{
+  position:absolute;inset:1px;z-index:0;border-radius:50%;pointer-events:none;
+  background:conic-gradient(from -90deg,
+    transparent 0deg 270deg,
+    color-mix(in srgb,var(--bb-command-accent) 3%,transparent) 281deg,
+    color-mix(in srgb,var(--bb-command-accent) 24%,transparent) 334deg,
+    color-mix(in srgb,var(--bb-command-alt) 70%,transparent) 357deg,
+    transparent 360deg);
+  -webkit-mask-image:radial-gradient(circle,transparent 0 23%,#000 25% 100%);
+  mask-image:radial-gradient(circle,transparent 0 23%,#000 25% 100%);
+  opacity:.83;animation:bb-watch-radar-sweep 8s linear infinite;
+}
+.radarCore{position:relative;z-index:1}
+@keyframes bb-watch-radar-sweep{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){
+  .radarSweep{animation:none;opacity:0}
+}
