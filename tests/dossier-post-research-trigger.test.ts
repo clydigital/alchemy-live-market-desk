@@ -49,6 +49,37 @@ test("Dossier handoff starts only after completed, healthy, evidence-gated Live 
   assert.equal(postResearchEligibility(run, slot({ research_run_id: "other" }), now).eligible, false);
 });
 
+test("completed source-only intake can schedule ONE evidence-gated Dossier assessment without restoring Story/Hybrid publication", () => {
+ const receipts = slot({
+   live_publication_status: "not_required",
+   hybrid_handoff_status: "not_required",
+   stage_summary: {
+     source_only: true,
+     source_only_contract: "BLUEBELLY_SOURCE_ONLY_V1",
+     evidence_gate_passed: true,
+     required_sources_complete: true,
+     accuracy_gate: "open",
+   },
+ });
+ assert.deepEqual(postResearchEligibility(run, receipts, now),{
+   eligible:true,reason:"ready",previous:null,
+ });
+ assert.equal(postResearchEligibility(run, slot({
+   ...receipts,
+   stage_summary:{...receipts.stage_summary, source_only_contract:"INVALID"},
+ }),now).reason,"canonical_publication_incomplete");
+ assert.equal(postResearchEligibility(run, slot({
+   ...receipts,
+   stage_summary:{...receipts.stage_summary,accuracy_gate:"blocked"},
+ }),now).reason,"canonical_evidence_gate_incomplete");
+ assert.equal(postResearchEligibility(run, slot({
+   ...receipts,health_state:"degraded",
+ }),now).eligible,false);
+ assert.equal(postResearchEligibility(run, slot({
+   ...receipts,live_publication_status:"complete",
+ }),now).reason,"canonical_publication_incomplete");
+});
+
 test("previous NO_CHANGE and persistence are durable decisions, not fresh model work", () => {
   const state = (outcome: "NO_CHANGE" | "PERSISTED") => slot({
     stage_summary: {
