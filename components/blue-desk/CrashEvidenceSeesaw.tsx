@@ -106,7 +106,7 @@ export default function CrashEvidenceSeesaw({balance}:{balance:CrashEvidenceBala
    <div className={s.transcriptStats}>
     <div><span>Opportunity corroboration</span><strong data-transcript-side="opportunity">+{balance.transcript.opportunityUnits.toFixed(2)}</strong></div>
     <div><span>Crash corroboration</span><strong data-transcript-side="crash">+{balance.transcript.crashUnits.toFixed(2)}</strong></div>
-    <div><span>Reviewed videos in window</span><strong>{balance.transcript.reviewedVideos}</strong></div>
+    <div><span>Reviewed videos sampled (max 8)</span><strong>{balance.transcript.reviewedVideos}</strong></div>
     <div><span>Matched creator perspectives</span><strong>{balance.transcript.corroboratedPublishers}</strong></div>
    </div>
    {balance.transcript.topics.length?
