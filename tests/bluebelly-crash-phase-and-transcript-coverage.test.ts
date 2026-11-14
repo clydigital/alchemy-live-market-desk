@@ -57,6 +57,14 @@ test("reclaimed price level differs from a rebound and cannot erase prior 20% da
  assert.equal(p.assets[0].severity,"BEAR_DRAWDOWN");
  assert.equal(p.assets[0].worstDrawdownPercent,-25);
 });
+test("an older recovered crash cannot hide a newer selloff from a new high",()=>{
+ const x=base();x[15]=120;x[50]=90;x[85]=135;x[125]=111;
+ const p=buildCrashMarketPhase([row("spx",x)],now);
+ assert.equal(p.assets[0].severity,"BEAR_DRAWDOWN");
+ assert.equal(p.assets[0].state,"SELLOFF");
+ assert.equal(p.assets[0].currentDrawdownPercent,-17.78);
+ assert.equal(p.assets[0].worstDrawdownPercent,-25);
+});
 test("missing, stale, mismatched and short price histories fail closed",()=>{
  const short=row("spx",base());
  short.points=short.points.slice(-25);
