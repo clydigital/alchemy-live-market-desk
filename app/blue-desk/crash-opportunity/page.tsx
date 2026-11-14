@@ -1,4 +1,5 @@
 import Link from "next/link";
+import {Nov14ResearchTeaser} from "@/components/blue-desk/Nov14MarketInvestigation";
 import {headers} from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
@@ -81,6 +82,7 @@ export default async function CrashOpportunityPage(){
       </header>
 
 
+      <Nov14ResearchTeaser host={host} compact/>
       <section id="live-decision" className={styles.live} aria-labelledby="crash-live-title"
         data-crash-live="existing-source-feeds-v1" data-decision-tape={compass.state}
         data-research-count={freshResearch.length}>
