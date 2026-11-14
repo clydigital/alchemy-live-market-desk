@@ -1,4 +1,5 @@
 import CurrentMarketUpdates, {EditorialUpdatedToday} from "@/components/blue-desk/CurrentMarketUpdates";
+import Nov14MarketInvestigation from "@/components/blue-desk/Nov14MarketInvestigation";
 import LeanWatch from "@/components/blue-desk/LeanWatch";
 import CurrentKeyStoryArticle from "@/components/blue-desk/CurrentKeyStoryArticle";
 import NovemberDeskStory from "@/components/blue-desk/NovemberDeskStory";
@@ -67,6 +68,13 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
   const params=await searchParams;
   const now = new Date();
   const host = (await headers()).get("host");
+  // Exact, manually source-reviewed special edition. The query key cannot select
+  // private research or fabricate a canonical Story, Motion or Regime update.
+  if(params?.feature==="nov14-market-reset") return <main className={desk.page}
+    data-bluebelly-editorial-reader="2026-11-14-source-reviewed">
+    <BlueDeskHeader activePath="/blue-desk/key-stories"/>
+    <div className={desk.content}><Nov14MarketInvestigation host={host}/></div>
+  </main>;
   // The default Watch page is intentionally compact and read-only.
   // Exact existing Story/feature/news/brief filters still use the historical
   // reader below: bookmarked research and original-source context stay intact.
