@@ -1,4 +1,5 @@
 import AbsorptionHealth from "@/components/blue-desk/AbsorptionHealth";
+import {Nov14ResearchTeaser} from "@/components/blue-desk/Nov14MarketInvestigation";
 import MarketWindowBars from "@/components/blue-desk/MarketWindowBars";
 import MarketConditionsBoard from "@/components/blue-desk/MarketConditionsBoard";
 import InvestorMindsetBoard from "@/components/blue-desk/InvestorMindsetBoard";
@@ -181,6 +182,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
               <span className={marketHome.orbitCaption}>OBSERVE / COMPARE / INVESTIGATE</span>
             </div>
           </header>
+          <Nov14ResearchTeaser host={host} compact/>
           <DeskWhiteboard compass={marketCompass} news={verifiedNews} theses={theses}
             upcoming={upcoming} now={now} host={host}/>
           <InvestorMindsetBoard snapshot={investorMindset} assessment={investorAssessment} host={host}/>
