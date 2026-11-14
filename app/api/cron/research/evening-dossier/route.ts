@@ -16,7 +16,9 @@ export async function GET(request: Request) {
    acceptsResearchAuthorization(request.headers.get("authorization"),[process.env.CRON_SECRET!]);
  if(scheduledSourceOnlyEnabled(process.env)){
    if(!authorised)return Response.json({status:"unauthorized"},{status:401,headers:{"Cache-Control":"private, no-store"}});
-   return Response.json({status:"not_required",mode:"SOURCE_ONLY",slot:"evening",message:"Scheduled Dossier and report generation disabled; source collection remains active."},{headers:{"Cache-Control":"private, no-store"}});
+   // Reuse this existing post-intake cron for Dossier V2 assessment only.
+   // Legacy Story intelligence and private PDF generation remain disabled.
+   return handleScheduledPostResearchDossier(request, "evening");
  }
  const reportWindow=isAutomaticReportFinalisationWindow(now,"evening");
  const scheduleEnabled=process.env.NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED==="true";
