@@ -11,6 +11,26 @@ One canonical analytical brain: **Dossier V2**. The Investor Mindset homepage bo
 - After an eligible source-only intake finishes, the existing `research_slot_runs.stage_summary.postResearchDossier` checkpoint is claimed once via compare-and-swap. It permits at most two bounded attempts, records `PERSISTED`, `NO_CHANGE` or `ALREADY_CURRENT`, and persists an existing Dossier V2 when there is material evidence. Legacy Story/Hybrid publication still remains `not_required` in source-only mode.
 - Dossier failures must **not** turn source acquisition into an apparent failure or silently substitute an older thesis. Readiness is independent.
 
+## Tino / Traders Reality: standing investor reasoning standard
+Reference video: [Why You Keep Getting the Market Wrong (And How to Fix It)](https://www.youtube.com/watch?v=HyDqyK671sU). The user requested that Bluebelly adopt the following source-attributed questions; this is a project analytical standard, not proof of participant intent.
+
+- **What gives market participants a reason to buy or sell?**
+- **For how long might that buying/selling motivation be sustained?**
+- **Before inspecting the chart: what is the investor thinking?**
+
+Apply the questions as a conditional, game-theory sequence, not as an unsupported psychological claim:
+
+1. **Prior belief:** What outcome and policy/earnings path were expected *before* the event? Preserve original forecast vintage and note where expectations cannot be sourced.
+2. **Incentives / constraints:** Which holders or business models benefit, are harmed, or might need to sell, hedge, hold cash, or rotate? What would make a preference binding? Do not claim executed flows without evidence.
+3. **Catalyst / surprise:** What new information differs from the priced-in baseline, and what is *not* a surprise?
+4. **Likely reactions:** What are the plausible bullish, bearish and absorption/rotation countercases? What horizon could sustain each reaction—minutes, sessions, weeks or quarters?
+5. **Reality check:** Compare priced cross-asset reactions, forward revisions, actual issuer cash flow, credit/funding, breadth and physical supply on appropriately matched windows. Divergence is a research question, not proof of a cause.
+6. **Confirmation / invalidation:** Name the next observable event or threshold that would strengthen or overturn the preferred explanation; mark unresolved evidence explicitly and retain a prior defensible view if nothing material changed.
+
+Maintain **three distinct clocks**: market information and surprise; positioning/liquidity; fundamentals and financing. The resulting homepage output must separate dated tape measurements from the latest accepted Dossier research vintage. No numeric probabilities, fictitious investor positioning, automatic trade orders, or retrospective claims of an unsourced forecast.
+
+**Implementation boundary as of 14 November 2026:** Dossier V2 is the sole reasoning writer. Its existing Market Verdict lenses, Investigations, prior thesis ledger and provenance rules carry this perspective. The source-only morning/evening sweep is authorized to hand qualified receipts into the existing scheduled Dossier continuation; manual `dossier_v2_persist` uses that same brain. Board rows are source dated, Dossier reasoning is rendered only when latest, healthy, evidence-referenced and within 30 hours. The existence of deployed code is **not proof of a successful refreshed Dossier**; verify the next scheduled completion separately.
+
 ## Game-theory reasoning
 The existing `buildResearchBrainSystemInstructions()` adds bounded investor-incentive questions within current `market_verdict.lenses` and `investigations` fields: buying/selling/holding incentives, expected-vs-actual surprise, capital rotation, likely persistence, cross-asset confirmation, competing explanations and falsifier. This is **not** a new schema or separate writer. Explanations remain an epistemically labelled inference grounded in admitted observations.
 
