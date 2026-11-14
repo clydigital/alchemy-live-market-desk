@@ -58,7 +58,8 @@ test("reclaimed price level differs from a rebound and cannot erase prior 20% da
  assert.equal(p.assets[0].worstDrawdownPercent,-25);
 });
 test("an older recovered crash cannot hide a newer selloff from a new high",()=>{
- const x=base();x[15]=120;x[50]=90;x[85]=135;x[125]=111;
+ const x=base();x[15]=120;x[50]=90;x[85]=135;
+ x.fill(112,86,125);x[125]=111; // no rebound from the latest trough
  const p=buildCrashMarketPhase([row("spx",x)],now);
  assert.equal(p.assets[0].severity,"BEAR_DRAWDOWN");
  assert.equal(p.assets[0].state,"SELLOFF");
