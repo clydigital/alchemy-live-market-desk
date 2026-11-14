@@ -60,12 +60,21 @@ export function postResearchEligibility(
 ): { eligible: boolean; reason: string; previous: PostResearchCheckpoint | null } {
   if (!run || !slot || run.id !== slot.research_run_id)
     return { eligible: false, reason: "completed_run_unavailable", previous: null };
-  if (run.status !== "completed" || slot.status !== "completed"
-    || slot.health_state !== "healthy"
-    || slot.live_publication_status !== "complete"
-    || slot.hybrid_handoff_status !== "complete")
-    return { eligible: false, reason: "canonical_publication_incomplete", previous: null };
+  // The source-only acquisition cutover intentionally marks legacy publication
+  // as not_required. Its independently qualified receipts may still feed the
+  // existing Dossier V2 System-2 brain AFTER intake, without reviving legacy
+  // Story/Hybrid publication or making the acquisition run wait for the model.
   const gate = object(slot.stage_summary);
+  const sourceOnly = gate.source_only === true
+    && gate.source_only_contract === "BLUEBELLY_SOURCE_ONLY_V1";
+  const publicationReady = sourceOnly
+    ? slot.live_publication_status === "not_required"
+      && slot.hybrid_handoff_status === "not_required"
+    : slot.live_publication_status === "complete"
+      && slot.hybrid_handoff_status === "complete";
+  if (run.status !== "completed" || slot.status !== "completed"
+    || slot.health_state !== "healthy" || !publicationReady)
+    return { eligible: false, reason: "canonical_publication_incomplete", previous: null };
   if (gate.evidence_gate_passed !== true || gate.required_sources_complete !== true
     || gate.accuracy_gate === "blocked")
     return { eligible: false, reason: "canonical_evidence_gate_incomplete", previous: null };
