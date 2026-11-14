@@ -149,15 +149,24 @@ export function scoreReviewedCrashTranscripts(
   if(uniques.has(author))continue;
   const matches=matchingClaim(video);
   eligibleClaims+=matches.length;
-  for(const m of matches){
+  // A creator may cover several topics, but contributes to only ONE of
+  // them. Otherwise a single transcript could be mistaken for multiple
+  // independent corroborating perspectives.
+  const matching=matches.filter(m=>{
    const gate=gates[m.topic];
    const sourceTime=dayMillis(gate.sourceDate),videoTime=dayMillis(video.publishedAt);
-   if(!gate.side||gate.side!==m.side||sourceTime===null||videoTime===null||
-       Math.abs(videoTime-sourceTime)>MATCH_WINDOW)continue;
-   const existing=topics.get(m.topic);
-   if(existing&&existing.side!==m.side)continue;
-   if(existing)existing.publishers.add(author);
-   else topics.set(m.topic,{side:m.side,publishers:new Set([author]),sourceDate:gate.sourceDate!});
+   return gate.side===m.side&&sourceTime!==null&&videoTime!==null&&
+     Math.abs(videoTime-sourceTime)<=MATCH_WINDOW;
+  }).sort((a,b)=>(["credit","breadth","tape"].indexOf(a.topic)-
+                  ["credit","breadth","tape"].indexOf(b.topic)));
+  const chosen=matching[0];
+  if(chosen){
+   const gate=gates[chosen.topic];
+   const existing=topics.get(chosen.topic);
+   if(!existing||existing.side===chosen.side){
+    if(existing)existing.publishers.add(author);
+    else topics.set(chosen.topic,{side:chosen.side,publishers:new Set([author]),sourceDate:gate.sourceDate!});
+   }
   }
   uniques.add(author);
  }
