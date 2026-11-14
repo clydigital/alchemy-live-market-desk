@@ -59,12 +59,12 @@ export default function CrashEvidenceSeesaw({balance}:{balance:CrashEvidenceBala
    <div className={s.opportunityHead}>
     <span>OPPORTUNITY</span>
     <strong>{balance.opportunityUnits.toFixed(2)} <small>units</small></strong>
-    <small>Qualifying recovery evidence</small>
+    <small>Current pressure · not a confirmed recovery</small>
    </div>
    <div className={s.crashHead}>
     <span>CRASH RISK</span>
     <strong>{balance.crashUnits.toFixed(2)} <small>units</small></strong>
-    <small>Qualifying stress evidence</small>
+    <small>Current pressure · not past drawdown</small>
    </div>
   </div>
 
@@ -110,20 +110,28 @@ export default function CrashEvidenceSeesaw({balance}:{balance:CrashEvidenceBala
       <h4>Reviewed transcripts versus market data</h4></div>
     <strong>{balance.transcript.status==="UNAVAILABLE"?"FEED UNAVAILABLE":
       balance.transcript.status==="EMPTY"?"NO RECENT REVIEWS":
-      balance.transcript.corroboratedPublishers?"MARKET-MATCHED CLAIMS":"NO QUALIFIED MATCHES"}</strong>
+      balance.transcript.corroboratedPublishers?"MARKET-MATCHED CLAIMS":
+      balance.transcript.confirmingMarketGates===0?"MARKET CONFIRMATION GATES CLOSED":"NO VERIFIED MATCHES"}</strong>
    </div>
    <div className={s.transcriptStats}>
-    <div><span>Opportunity corroboration</span><strong data-transcript-side="opportunity">+{balance.transcript.opportunityUnits.toFixed(2)}</strong></div>
-    <div><span>Crash corroboration</span><strong data-transcript-side="crash">+{balance.transcript.crashUnits.toFixed(2)}</strong></div>
-    <div><span>Reviewed videos sampled (max 8)</span><strong>{balance.transcript.reviewedVideos}</strong></div>
-    <div><span>Matched creator perspectives</span><strong>{balance.transcript.corroboratedPublishers}</strong></div>
+    <div><span>Opportunity corroboration</span><strong data-transcript-side="opportunity">{balance.transcript.status==="AVAILABLE"&&balance.transcript.confirmingMarketGates===0?"GATED":"+"+balance.transcript.opportunityUnits.toFixed(2)}</strong></div>
+    <div><span>Crash corroboration</span><strong data-transcript-side="crash">{balance.transcript.status==="AVAILABLE"&&balance.transcript.confirmingMarketGates===0?"GATED":"+"+balance.transcript.crashUnits.toFixed(2)}</strong></div>
+    <div><span>Reviewed videos / distinct publishers</span><strong data-transcript-coverage="video-publisher">{balance.transcript.reviewedVideos} / {balance.transcript.reviewedPublishers}</strong></div>
+    <div><span>Directional market confirmation gates</span><strong data-transcript-market-gates={balance.transcript.confirmingMarketGates}>{balance.transcript.confirmingMarketGates} / 3</strong></div>
    </div>
+   <p className={s.transcriptLead}>Research is present: <b>{balance.transcript.observationalClaims}</b> structured observations or cited facts sampled; <b>{balance.transcript.eligibleClaims}</b> precise directional statements recognised by this narrow matcher; <b>{balance.transcript.corroboratedPublishers}</b> independent publisher matches. These are different stages, not interchangeable measures of signal strength.</p>
+   {balance.transcript.researchThemes.length?<div className={s.themeGrid} aria-label="Topics in reviewed creator claims, unverified">
+    <span>UNVERIFIED RESEARCH LEADS · distinct publishers mentioning each topic</span>
+    <div>{balance.transcript.researchThemes.map(t=><span key={t.id} data-creator-theme={t.id}>{t.label} · {t.publishers}</span>)}</div>
+   </div>:null}
    {balance.transcript.topics.length?
      <div className={s.transcriptTopics}>{balance.transcript.topics.map(t=>
       <span key={t.id} data-transcript-topic={t.id} data-transcript-direction={t.side}>
        {t.id.toUpperCase()} · {t.side==="CRASH_RISK"?"CRASH":"OPPORTUNITY"} · {t.units.toFixed(2)}u · {t.sourceDate}
       </span>)}</div>:
-     <p className={s.transcriptEmpty}>No independently market-matched directional creator statements qualify for extra weight. This does not imply creators are bullish, bearish or silent.</p>}
+     <p className={s.transcriptEmpty}>{balance.transcript.confirmingMarketGates===0&&balance.transcript.status==="AVAILABLE"?
+      "The three strong directional market gates are all mixed or unavailable. No reviewed creator claim can earn extra pan weight under this rule—even if the review contains useful research. Creator views remain tracked as unverified leads above.":
+      "No independently market-matched directional creator statements qualify for extra weight. This does not imply creators are bullish, bearish or silent."}</p>}
    <p className={s.transcriptNote}>{balance.transcript.note}
      {" "}Published video age: {balance.transcript.lastVideoPublished?.slice(0,10)??"none in window"};
      {" "}validated market session: {balance.transcript.dataAsOf??"none"}.
