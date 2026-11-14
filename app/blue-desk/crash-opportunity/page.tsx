@@ -11,6 +11,8 @@ import {buildCrashDecisionLayer,recentCrashResearch} from "@/lib/bluebelly-crash
 import {buildCrashEvidenceBalance} from "@/lib/bluebelly-crash-evidence-balance";
 import {getCrashTranscriptScore} from "@/lib/bluebelly-crash-transcript-score-server";
 import CrashEvidenceSeesaw from "@/components/blue-desk/CrashEvidenceSeesaw";
+import {buildCrashMarketPhase} from "@/lib/bluebelly-crash-market-phase";
+import CrashMarketPhasePanel from "@/components/blue-desk/CrashMarketPhasePanel";
 import CrashEvidenceAutoRefresh from "@/components/blue-desk/CrashEvidenceAutoRefresh";
 import {getPublicSourceObservations} from "@/lib/blue-desk-source-observations";
 import {getRegimeShadowHealth} from "@/lib/regime-engine";
@@ -49,6 +51,7 @@ export default async function CrashOpportunityPage(){
   const decision=buildCrashDecisionLayer(watch,compass);
   const transcriptScore=await getCrashTranscriptScore(watch,compass,now);
   const balance=buildCrashEvidenceBalance(watch,compass,transcriptScore);
+  const marketPhase=buildCrashMarketPhase(monitor?.rows??null,now);
   const freshResearch=recentCrashResearch(publishedPulse,now,3);
   const href=(path:string)=>blueDeskPublicHref("/blue-desk"+path,host);
   const position=watch.position==="BULL_LEAN"?"Opportunity lean":
@@ -93,6 +96,7 @@ export default async function CrashOpportunityPage(){
           </div>
         </div>
         <CrashEvidenceSeesaw key={balance.angle+"-"+balance.lean} balance={balance}/>
+        <CrashMarketPhasePanel phase={marketPhase}/>
         <div className={styles.liveStats}>
           <div data-live-market-state={compass.state}><span>1D / EQUITY RISK TAPE</span>
             <strong>{compass.state==="RISK_ON"?"RISK-ON":compass.state==="RISK_OFF"?"RISK-OFF":compass.state==="MIXED"?"MIXED":"UNMEASURED"}</strong>
