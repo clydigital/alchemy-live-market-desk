@@ -5,6 +5,7 @@ import {headers} from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import HormuzCrossings from "@/components/blue-desk/HormuzCrossings";
 import HormuzSituationBrief from "@/components/blue-desk/HormuzSituationBrief";
+import AutoRefreshMacroData from "@/components/live-desk/AutoRefreshMacroData";
 import EnergyAcceleratorDashboard from "@/components/blue-desk/EnergyAcceleratorDashboard";
 import {getTopicInfluence} from "@/lib/bluebelly-topic-influence-server";
 import {readBluebellyQualifiedNews} from "@/lib/bluebelly-verified-event-server";
@@ -45,7 +46,7 @@ export default async function HormuzTracker(){
  const [raw,incidents,researchDigests,wire,qualifiedNews]=await Promise.all([getGlobalFlowMonitor().catch(async()=>({
   hormuz:await getHormuzMonitor().catch(()=>({snapshot:null,checkedAt:now.toISOString(),nextAttemptAt:null,refreshFailed:true})),
   updatedAt:now.toISOString(),oil:[],gold:[],researchTriggers:[],coverageGaps:[]
- } satisfies GlobalFlowMonitor)),getHormuzIncidents(now),getPublishedMacroPulseBriefs(6).catch(()=>[]),getTopicInfluence("hormuz",now),readBluebellyQualifiedNews(now,18)]);
+ } satisfies GlobalFlowMonitor)),getHormuzIncidents(now),getPublishedMacroPulseBriefs(6,"hormuz").catch(()=>[]),getTopicInfluence("hormuz",now),readBluebellyQualifiedNews(now,18,"hormuz")]);
  const watch=projectHormuzPublicWatch(raw,now);
  const reviewedResearch=researchForPublicLens(projectPublishedResearchFocus(researchDigests,now,6),"hormuz");
  const pick=(ids:string[])=>ids.map(id=>watch.tiles.find(x=>x.id===id)).filter((x):x is HormuzWatchTile=>!!x);
@@ -54,6 +55,7 @@ export default async function HormuzTracker(){
  const physical=pick(["hormuz-insurance"]);
  const balance=pick(["us-distillate-stocks","us-refinery-utilisation","us-crude-stocks","us-spr"]);
  return <main className={desk.page} data-bluebelly-hormuz="public-source-dated-physical-first">
+  <AutoRefreshMacroData/>
   <BlueDeskHeader activePath="/blue-desk/hormuz"/>
   <div className={desk.content}>
    <header className={`${s.hero} ${s.compactHero}`}>
@@ -64,6 +66,7 @@ export default async function HormuzTracker(){
      <div className={s.metaLine}>
       <span>Checked <time dateTime={now.toISOString()}>{formatHormuzET(now)}</time></span>
       <span>{watch.available}/{watch.tiles.length} source-dated market and fuel indicators</span>
+      <span>Refreshes every 5 minutes when visible; shared source cache retained</span>
      </div>
      <nav className={s.actions} aria-label="Related market research">
       <Link href="#mediation">Negotiations ↓</Link>

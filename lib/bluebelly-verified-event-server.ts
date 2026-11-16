@@ -5,16 +5,17 @@ import {getOriginalPressNews} from "./blue-desk-original-press-news-server";
 import {getCompletedOfficialMacroNews} from "./blue-desk-canonical-macro-news-server";
 import {combineQualifiedNews} from "./blue-desk-qualified-news";
 import {projectVerifiedMarketEvents,type EventSource,type SourceReadState} from "./bluebelly-verified-event-read-model";
+import {isHormuzRelevant} from "./bluebelly-hormuz-relevance";
 
 /**
  * Reads three EXISTING independently source-qualified news paths. It never
  * consumes unverified intake/creator leads or changes their publication state.
  * A provider failure is visible as degraded coverage, not an empty news day.
  */
-export async function readBluebellyQualifiedNews(now=new Date(),limit=18) {
+export async function readBluebellyQualifiedNews(now=new Date(),limit=18,topic?:"hormuz") {
   const [motion,press,macro]=await Promise.allSettled([
-    getCurrentVerifiedMarketMotion({limit:24}),
-    getOriginalPressNews(now,18,7),
+    getCurrentVerifiedMarketMotion({limit:24,topic}),
+    getOriginalPressNews(now,18,7,topic),
     getCompletedOfficialMacroNews(now,18,7),
   ]);
   const sourceReads:Record<EventSource,SourceReadState>={
@@ -26,7 +27,8 @@ export async function readBluebellyQualifiedNews(now=new Date(),limit=18) {
     ? selectVerifiedNewsBriefs(motion.value,now,18):[];
   const verifiedOriginal=press.status==="fulfilled"?press.value:[];
   const verifiedMacro=macro.status==="fulfilled"?macro.value:[];
-  const qualified=combineQualifiedNews(verifiedMotion,[...verifiedOriginal,...verifiedMacro],Math.max(1,Math.min(18,limit)));
+  const matches=(item:{headline:string;summary:string})=>!topic||isHormuzRelevant(item.headline+" "+item.summary);
+  const qualified=combineQualifiedNews(verifiedMotion.filter(matches),[...verifiedOriginal,...verifiedMacro].filter(matches),Math.max(1,Math.min(18,limit)));
   return {news:qualified,sourceReads};
 }
 
