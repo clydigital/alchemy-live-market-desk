@@ -48,10 +48,10 @@ test("flat, missing, stale or unmeasured lens cannot acquire a bright directiona
  assert.match(breadth.readout,/^5D/);
 });
 
-test("Regime grid reads semantic signals from the five existing market checks without rewriting archive opinions",()=>{
+test("Regime grid reads semantic signals from the shared live lens projection without rewriting archive opinions",()=>{
  const page=read("app/blue-desk/regime-watch/page.tsx");
  const css=read("app/blue-desk/regime-watch/regime-watch.module.css");
- assert.match(page,/lensCardSignal\(lens.id,meterReadings\)/);
+ assert.match(page,/liveLensSignal\(lens.id,meterReadings,rows,now\)/);
  assert.match(page,/data-lens-tone=\{signal.tone\}/);
  assert.match(page,/data-lens-status=\{signal.tone\}/);
  assert.match(page,/signal.sourceDate/);

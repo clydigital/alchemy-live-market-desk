@@ -12,6 +12,15 @@ import {REGIME_LENS_WORKBOOKS,matchRecentLensObservations} from "@/lib/bluebelly
 import {quickViewsForLens} from "@/lib/bluebelly-fundamental-quickview";
 import {matchAssetSourceEvents,projectAssetTape} from "@/lib/bluebelly-regime-asset-context";
 import {getMarketMonitor} from "@/lib/market-monitor-public";
+import {readBluebellyQualifiedNews} from "@/lib/bluebelly-verified-event-server";
+import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
+import {projectLiveLensResearch,liveLensSignal} from "@/lib/bluebelly-regime-live-research";
+import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
+import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
+import {calculateBreadthRow} from "@/lib/bluebelly-breadth-dated";
+import {projectRegimeMeterReadings} from "@/lib/bluebelly-regime-market-meter";
+import RegimeLiveEvidence from "@/components/blue-desk/RegimeLiveEvidence";
+import CrashEvidenceAutoRefresh from "@/components/blue-desk/CrashEvidenceAutoRefresh";
 import {getLensOutlook} from "@/lib/bluebelly-regime-lens-outlook";
 import {getRegimeEditorialUpdate} from "@/lib/bluebelly-regime-verified-crossasset";
 import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
@@ -51,12 +60,15 @@ export default async function ResearchLensPage({params}:Props){
  const definition=EDITORIAL_REGIME_LENSES.find(item=>item.id===lensId);
  if(!definition)notFound();
  const now=new Date(),host=(await headers()).get("host");
- const [publicTheses,sourceObservations,marketMonitor,influence,shadowHealth]=await Promise.all([
+ const [publicTheses,sourceObservations,marketMonitor,influence,shadowHealth,qualified,briefs,breadthFeed]=await Promise.all([
   getPublicThesisLedger(now,38).catch(()=>null),
   getPublicSourceObservations(now,24).catch(()=>null),
   getMarketMonitor().catch(()=>null),
   getTopicInfluence(lensId as InfluenceTopic,now).catch(()=>null),
   getRegimeShadowHealth().catch(()=>null),
+  readBluebellyQualifiedNews(now,18).catch(()=>null),
+  getPublishedMacroPulseBriefs(8).catch(()=>[]),
+  getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
  ]);
  const lens=groupPublicResearch(publicTheses||[]).find(item=>item.id===lensId)!;
  const lensNumber=String(EDITORIAL_REGIME_LENSES.findIndex(item=>item.id===lensId)+1).padStart(2,"0");
@@ -72,7 +84,12 @@ export default async function ResearchLensPage({params}:Props){
  const recent=matchRecentLensObservations(lens.id,sourceObservations||[],now);
  const newest=lens.stories.find(story=>workbook.leadHeadlinePattern.test(story.title))||null;
  const base=blueDeskPublicHref("/blue-desk/regime-watch",host);
+ const rows=publicMarketObservations(marketMonitor?.rows??[],"all");
+ const breadth=calculateBreadthRow("S5FI","S&P 500 above 50-day MA",breadthFeed.series.find(row=>row.symbol==="S5FI"),now);
+ const readings=projectRegimeMeterReadings(rows,breadth,bondPressure??projectBondPressure(marketMonitor?.rows??null,now),now);
+ const liveRead=projectLiveLensResearch(lens.id,qualified?.news??[],sourceObservations,briefs,influence,now,!qualified||Object.values(qualified.sourceReads).includes("UNAVAILABLE"));
  return <main className={desk.page} data-public-research-lens={lens.id} data-evidence-scope="public-historical-story-snapshots">
+  <CrashEvidenceAutoRefresh/>
   <BlueDeskHeader activePath="/blue-desk/regime-watch"/>
   <div className={desk.content}>
    <nav className={styles.breadcrumb} aria-label="Research breadcrumb">
@@ -84,7 +101,7 @@ export default async function ResearchLensPage({params}:Props){
      <h1>{lens.name}</h1>
      <p className={styles.question}>{lens.question}</p>
      <p className={styles.scope}>{workbook.lead}</p>
-     <div className={styles.heroActions}><a href={bondPressure?"#bond-pressure":direction?"#quick-direction":"#editorial-archive"}>LATEST READING <span aria-hidden="true">↗</span></a><a href="#decision-fork">WHAT WOULD CHANGE IT <span aria-hidden="true">↗</span></a></div>
+     <div className={styles.heroActions}><a href="#live-evidence">LATEST READING <span aria-hidden="true">↗</span></a><a href="#decision-fork">WHAT WOULD CHANGE IT <span aria-hidden="true">↗</span></a></div>
      <div className={styles.meta}>
       <span>{publicTheses===null?"Stored Story read unavailable":lens.stories.length+" associated public Story record"+(lens.stories.length===1?"":"s")}</span>
       <span>Page viewed <DualTimestamp value={now.toISOString()}/></span>
@@ -97,6 +114,7 @@ export default async function ResearchLensPage({params}:Props){
      <span className={styles.artFootnote}>MONITOR / CHALLENGE / REVISE</span>
     </div>
    </header>
+   <RegimeLiveEvidence read={liveRead} signal={liveLensSignal(lens.id,readings,rows,now)}/>
    {lens.id==="ai"?<section id="ai-question-verdicts" data-ai-question-verdicts="source-reviewed-subsector-decisions" aria-label="AI direction questions and evidence">
      {questionVerdicts.slice(0,1).map(read=><QuestionVerdictCard key={read.id} read={read}/>)}
      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,300px),1fr))",gap:12}}>
