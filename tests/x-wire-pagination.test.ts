@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { X_WIRE_PROVIDER_PAGE_SIZE, parseFxTimeline, xWireRequestWindow, xWireRecoveryAnchor } from "../lib/x-wire-pagination.ts";
+import { X_WIRE_PROVIDER_PAGE_SIZE, parseFxTimeline, xWireRequestWindow, xWireRecoveryAnchor, xWireFreshCheckComplete, xWireNeedsRetry, X_WIRE_HISTORICAL_GAP_ERROR, xWireSearchFallbackUrl } from "../lib/x-wire-pagination.ts";
 import { blueDeskHostAccess } from "../lib/blue-desk-host.ts";
 
 const now="2026-10-23T06:00:00.000Z";
@@ -170,14 +170,12 @@ test("ambiguous FxEmbed continuation 404 resets the poisoned cursor but retains 
 
 
 
-test("a filtered first-page 404 gets exactly one same-host unfiltered retry",()=>{
+test("unfiltered head preserves boundary observations and 404 retries stay on the same host",()=>{
  const source=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
- assert.match(source,/if\(response\.status===404 && !cursor\)/);
- assert.match(source,/const fallback=new URL\(url\.toString\(\)\)/);
- assert.match(source,/fallback\.searchParams\.delete\("since"\)/);
- assert.match(source,/response=await fetchImpl\(fallback\.toString\(\)/);
+ assert.doesNotMatch(source,/searchParams\.set\("since"/);
+ assert.match(source,/if\(response\.status===404 && Date\.now\(\)-startedAt<MAX_SCAN_MS-1500\)/);
+ assert.match(source,/parseFxTimeline\(JSON\.parse\(body\),handle,window\.startAt,now\)/);
  assert.match(source,/const recentlyActive404=message==="HTTP 404"/);
- assert.doesNotMatch(source,/fallback\.hostname\s*=/);
 });
 test("repeating a provider cursor cannot permanently trap an account",()=>{
  const source=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
@@ -198,7 +196,7 @@ test("later-page provider failure preserves partial X data and continuation curs
 
 test("transient continuation 404 receives one same-cursor budgeted retry before gap handling",()=>{
  const code=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
- assert.match(code,/if\(response\.status===404 && cursor && Date\.now\(\)-startedAt<MAX_SCAN_MS-1500\)/);
+ assert.match(code,/if\(response\.status===404 && Date\.now\(\)-startedAt<MAX_SCAN_MS-1500\)/);
  assert.match(code,/signal:AbortSignal\.timeout\(Math\.min\(5000,remaining\)\)/);
  assert.match(code,/response=await fetchImpl\(url\.toString\(\),\{/);
  const sameCursorRetry=code.indexOf("An attributed timeline can intermittently return 404");
@@ -207,6 +205,53 @@ test("transient continuation 404 receives one same-cursor budgeted retry before 
  // A repeated 404 still falls through to the retained historical gap path.
  assert.match(code,/uncovered_before:missingBefore\|\|window\.startAt/);
  assert.match(code,/health:"partial",last_error:"HTTP 404 on continuation/);
+});
+
+test("retry selection separates fresh successful checks from unresolved historical-only gaps",()=>{
+ const clock=new Date(now);
+ const row={health:"healthy",last_completed_at:now,last_error:null,page_cursor:null};
+ assert.equal(xWireFreshCheckComplete(row,clock),true);
+ const historic={...row,health:"partial",last_error:X_WIRE_HISTORICAL_GAP_ERROR};
+ assert.equal(xWireFreshCheckComplete(historic,clock),true);
+ assert.equal(xWireNeedsRetry(historic,clock),false);
+ for(const bad of [
+   {...historic,last_error:"HTTP 404 on continuation"},
+   {...row,health:"unavailable",last_error:"HTTP 404"},
+   {...row,page_cursor:"pending"},
+   {...row,last_completed_at:"2026-10-22T06:00:00Z"},
+   {...row,last_completed_at:"2026-10-24T06:00:00Z"},
+ ])assert.equal(xWireNeedsRetry(bad,clock),true);
+ assert.equal(xWireNeedsRetry(undefined,clock),true);
+});
+
+test("existing authorised source-only continuation slots retry only due incomplete sources",()=>{
+ const handler=readFileSync(new URL("../lib/cron-research-intelligence-handler.ts",import.meta.url),"utf8");
+ const retry=handler.indexOf("getXWireDurable({retryOnly:true})");
+ assert.ok(retry>handler.indexOf("if (!authorised(request))"));
+ assert.ok(retry>handler.indexOf("if (scheduledSourceOnlyEnabled(process.env))"));
+ assert.ok(retry<handler.indexOf('status: "not_required"'));
+ const wire=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
+ assert.match(wire,/opts\.retryOnly\?X_CORE_ROSTER\.filter/);
+ assert.match(wire,/claim_x_wire_account/);
+ assert.match(wire,/ignoreDuplicates:true/);
+});
+
+test("failure-only search fallback is restricted to attributed discovery, not coverage proof",()=>{
+ const url=new URL(xWireSearchFallbackUrl("HormuzReport","2026-10-23T03:30:00Z"));
+ assert.equal(url.origin,"https://api.fxtwitter.com");
+ assert.equal(url.pathname,"/2/search");
+ assert.equal(url.searchParams.get("q"),"from:HormuzReport since:2026-10-23");
+ assert.equal(url.searchParams.get("feed"),"latest");
+ assert.equal(url.searchParams.get("count"),"20");
+ assert.throws(()=>xWireSearchFallbackUrl("GordianKnotDev",now));
+ assert.throws(()=>xWireSearchFallbackUrl("evil OR from:other",now));
+ const wire=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
+ const fallback=wire.slice(wire.indexOf("async function recoverSearchLeads"),wire.indexOf("for(let page=0;"));
+ assert.match(fallback,/parseFxTimeline/);
+ assert.match(fallback,/persistPage\(parsed\)/);
+ assert.doesNotMatch(fallback,/last_completed_at:|uncovered_before:|original_verified:true/);
+ assert.match(wire,/const rescued=message==="HTTP 404"\?await recoverSearchLeads\(\):0/);
+ assert.match(wire,/const rescued=await recoverSearchLeads\(\)/);
 });
 
 test("documented 100-status FxEmbed page is accepted, oversized 101-status page is rejected",()=>{

@@ -1,7 +1,7 @@
 import "server-only";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
 import { X_CORE_ROSTER, X_SWEEP_DEFAULTS, isExcludedXWireHandle, normaliseXPostUrl, xSourceHealth, type XAccountAttempt } from "./x-sweep-core.ts";
-import { X_WIRE_PROVIDER_PAGE_SIZE, parseFxTimeline, xWireRequestWindow, xWireRecoveryAnchor } from "./x-wire-pagination.ts";
+import { X_WIRE_PROVIDER_PAGE_SIZE, parseFxTimeline, xWireRequestWindow, xWireRecoveryAnchor, xWireNeedsRetry, xWireSearchFallbackUrl, type FxPage } from "./x-wire-pagination.ts";
 import type { XWirePost } from "./x-wire-provider.ts";
 
 const ORIGIN = "https://api.fxtwitter.com";
@@ -73,34 +73,63 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
   let cursor:string|null=window.cursor, fetched=0, kept=0;
   const seenCursors=new Set<string>();
   const startedAt=Date.now();
+  async function persistPage(parsed:FxPage){
+    fetched+=parsed.total;
+    const writes=parsed.posts.map(post=>{
+      const active=kept<X_SWEEP_DEFAULTS.softLimitPerAccount &&
+        quota.total<X_SWEEP_DEFAULTS.maxCandidatesPerRun;
+      if(active){kept++;quota.total++;}
+      return {
+        post_id:post.id,handle,original_url:post.url,published_at:post.publishedAt,
+        retrieved_at:new Date().toISOString(),body:post.text,media_urls:post.images,
+        quote_url:post.quoteUrl,intake_status:active?"discovery":"deferred",
+        original_verified:false,
+      };
+    });
+    if(writes.length){
+      const {error:saveErr}=await db.from("x_wire_posts").upsert(writes,{
+        onConflict:"post_id",ignoreDuplicates:true,
+      });
+      if(saveErr)throw new Error("Post backlog persistence failed");
+      for(const post of parsed.posts)latest=Math.max(latest,Date.parse(post.publishedAt));
+    }
+  }
+  // One bounded alternate endpoint only when a timeline is inaccessible.
+  // Search ranking is not exhaustive. Do not use its cursor/date boundary
+  // to update last_completed_at, clear historical gaps, or verify claims.
+  async function recoverSearchLeads(){
+    try{
+      const response=await fetchImpl(xWireSearchFallbackUrl(handle,window.startAt),{
+        headers:{Accept:"application/json"},cache:"no-store",redirect:"error",
+        signal:AbortSignal.timeout(5000),
+      });
+      if(!response.ok||!(response.headers.get("content-type")||"").includes("json"))return 0;
+      const body=await response.text();
+      if(body.length>1_000_000)return 0;
+      const parsed=parseFxTimeline(JSON.parse(body),handle,window.startAt,now);
+      await persistPage(parsed);
+      return parsed.posts.length;
+    }catch{return 0;}
+  }
   try {
     for(let page=0;page<PAGE_LIMIT;page++) {
       if(page>0 && Date.now()-startedAt>=MAX_SCAN_MS)break;
       const url=new URL(ORIGIN+"/2/profile/"+handle+"/statuses");
       url.searchParams.set("count",String(PAGE_SIZE));
       if(cursor)url.searchParams.set("cursor",cursor);
-      else url.searchParams.set("since",String(Math.floor(Date.parse(window.startAt)/1000)));
+      // Always start with the unfiltered timeline: a provider-side since
+      // filter can return 404 for quiet accounts and remove the older
+      // same-author boundary observation that proves our window was covered.
+      // parseFxTimeline still filters all stored posts against window.startAt.
       let response=await fetchImpl(url.toString(), {
         headers:{Accept:"application/json"},cache:"no-store",redirect:"error",
         signal:AbortSignal.timeout(7000),
       });
-      // FxEmbed sometimes returns 404 for a time-filtered first page even
-      // while the same original account timeline is available without since.
-      // One bounded same-host retry, then validate every row and the original
-      // observation window exactly as before. No extra provider or login.
-      if(response.status===404 && !cursor){
-        const fallback=new URL(url.toString());
-        fallback.searchParams.delete("since");
-        response=await fetchImpl(fallback.toString(), {
-          headers:{Accept:"application/json"},cache:"no-store",redirect:"error",
-          signal:AbortSignal.timeout(7000),
-        });
-      }
       // An attributed timeline can intermittently return 404 for the very same
       // provider cursor that was just issued. Retry that exact continuation
       // once while the per-source budget permits. Never strip the cursor,
       // switch hosts or mark a failed continuation as covered.
-      if(response.status===404 && cursor && Date.now()-startedAt<MAX_SCAN_MS-1500) {
+      if(response.status===404 && Date.now()-startedAt<MAX_SCAN_MS-1500) {
         const remaining=MAX_SCAN_MS-(Date.now()-startedAt);
         response=await fetchImpl(url.toString(),{
           headers:{Accept:"application/json"},cache:"no-store",redirect:"error",
@@ -119,8 +148,10 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
         // It does not prove that the cursor was exhausted. Drop the poisoned
         // continuation token, retain the historical uncertainty, and retry the
         // fresh head after cooldown. Already saved posts remain immutable.
+        const rescued=await recoverSearchLeads();
         await finish(db,handle,token,{...gapMarker,uncovered_before:missingBefore||window.startAt,
-          health:"partial",last_error:"HTTP 404 on continuation; incomplete coverage, restarting fresh head",
+          health:"partial",last_error:"HTTP 404 on continuation; incomplete coverage, restarting fresh head"+
+            (rescued?"; search fallback retained "+rescued+" attributed lead(s)":""),
           page_cursor:null,window_start_at:null,next_attempt_at:plus(now,5),last_fetched:fetched,
           last_observed_post_at:latest?new Date(latest).toISOString():null});
         return;
@@ -131,27 +162,9 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
       const body=await response.text();
       if(body.length>1_000_000)throw new Error("Oversized provider response");
       const parsed=parseFxTimeline(JSON.parse(body),handle,window.startAt,now);
-      fetched+=parsed.total;
       // Save every retrieved valid candidate, even if beyond the active work budget.
       // Deferred items are durable, not dropped or quietly counted as reviewed.
-      const writes=parsed.posts.map(post=>{
-        const active=kept<X_SWEEP_DEFAULTS.softLimitPerAccount &&
-          quota.total<X_SWEEP_DEFAULTS.maxCandidatesPerRun;
-        if(active){kept++;quota.total++;}
-        latest=Math.max(latest,Date.parse(post.publishedAt));
-        return {
-          post_id:post.id,handle,original_url:post.url,published_at:post.publishedAt,
-          retrieved_at:new Date().toISOString(),body:post.text,media_urls:post.images,
-          quote_url:post.quoteUrl,intake_status:active?"discovery":"deferred",
-          original_verified:false,
-        };
-      });
-      if(writes.length){
-        const {error:saveErr}=await db.from("x_wire_posts").upsert(writes,{
-          onConflict:"post_id",ignoreDuplicates:true,
-        });
-        if(saveErr)throw new Error("Post backlog persistence failed");
-      }
+      await persistPage(parsed);
       const next=parsed.nextCursor;
       if(next && (next===cursor || seenCursors.has(next)))throw new Error("Repeated pagination cursor");
       if(next)seenCursors.add(next);
@@ -181,6 +194,7 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
   } catch(e) {
     const message=safeError(e);
     try {
+      const rescued=message==="HTTP 404"?await recoverSearchLeads():0;
       // If one page was durably stored before a later provider 404/429,
       // report PARTIAL and keep the cursor. The historical response showed
       // KobeissiLetter had 15 genuine posts but was labelled UNAVAILABLE.
@@ -193,14 +207,15 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
         ...(invalidCursor?{uncovered_before:missingBefore||window.startAt}:{}),
         health:invalidCursor||hadPartialData?"partial":
           message.startsWith("HTTP 429")||message.startsWith("HTTP 403")?"blocked":"unavailable",
-        last_error:message,
+        last_error:message+(rescued?"; search fallback retained "+rescued+" attributed lead(s)":""),
         // Use the *validated* request window, not the raw claimed cursor. An
         // expired (>72h) token was intentionally discarded by xWireRequestWindow;
         // restoring claim.resume_cursor here would re-poison the next retry.
         page_cursor:invalidCursor?null:hadPartialData?cursor:window.cursor,
         window_start_at:invalidCursor?null:hadPartialData?window.startAt:
           window.cursor?window.startAt:null,
-        next_attempt_at:plus(now,invalidCursor||hadPartialData||recentlyActive404?5:30),last_fetched:fetched});
+        next_attempt_at:plus(now,invalidCursor||hadPartialData||recentlyActive404?5:30),last_fetched:fetched,
+        last_observed_post_at:latest?new Date(latest).toISOString():null});
     } catch{ /* Preserve the original lease and unfinished cursor; never pretend success */ }
   }
 }
@@ -209,25 +224,28 @@ export type XWireDurable = {
   accounts:XAccountAttempt[]; health:ReturnType<typeof xSourceHealth>;
   deferredCount:number; pendingCount:number; notice:string;
 };
-/** Invoked only from authenticated owner SSR route. No new cron / research writer. */
-export async function getXWireDurable(opts:{now?:Date;fetchImpl?:typeof fetch;db?:Db}={}):Promise<XWireDurable> {
+/** Existing authenticated acquisition and retry slots share the same ledger. */
+export async function getXWireDurable(opts:{now?:Date;fetchImpl?:typeof fetch;db?:Db;retryOnly?:boolean}={}):Promise<XWireDurable> {
   const now=(opts.now||new Date()).toISOString(), fetchImpl=opts.fetchImpl||fetch;
   const unavailable=(reason:string):XWireDurable=>{
     const accounts=X_CORE_ROSTER.map(x=>emptyAccount(x.handle,now,reason));
     return {storageHealthy:false,retrievedAt:now,posts:[],accounts,health:xSourceHealth(accounts),
       deferredCount:0,pendingCount:0,notice:"Durable source ledger unavailable; no provider freshness or successful ingestion is asserted."};
   };
-  let db:Db;
-  try{ db=opts.db||createSupabaseAdminClient();await loadAccounts(db); }
+  let db:Db,initial:StoredAccount[];
+  try{ db=opts.db||createSupabaseAdminClient();initial=await loadAccounts(db); }
   catch(e){return unavailable(safeError(e));}
+  const initialByHandle=new Map(initial.map(x=>[x.handle.toLowerCase(),x]));
+  const roster=opts.retryOnly?X_CORE_ROSTER.filter(x=>
+    xWireNeedsRetry(initialByHandle.get(x.handle.toLowerCase()),new Date(now))):X_CORE_ROSTER;
   const quota={total:0};
   const failures=new Map<string,string>();
   let next=0;
   await Promise.all(Array.from({length:CONCURRENT_ACCOUNTS},async()=>{
-    while(next<X_CORE_ROSTER.length){
+    while(next<roster.length){
       const i=next++;
-      try{await scanOne(db,X_CORE_ROSTER[i].handle,now,fetchImpl,quota);}
-      catch(e){failures.set(X_CORE_ROSTER[i].handle,safeError(e)); /* Failure is shown in source health */ }
+      try{await scanOne(db,roster[i].handle,now,fetchImpl,quota);}
+      catch(e){failures.set(roster[i].handle,safeError(e)); /* Failure is shown in source health */ }
     }
   }));
   try{

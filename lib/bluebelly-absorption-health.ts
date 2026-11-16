@@ -1,9 +1,10 @@
 import "server-only";
 import {createSupabaseAdminClient} from "./supabase/admin.ts";
 import {X_CORE_ROSTER} from "./x-sweep-core.ts";
+import {xWireFreshCheckComplete} from "./x-wire-pagination.ts";
 
 export type BluebellyAbsorptionHealth={
-  checkedAt:string;monitored:number;healthy:number;historicalGaps:number;
+  checkedAt:string;lastSourceAttemptAt:string|null;monitored:number;healthy:number;freshCompleted:number;historicalGaps:number;
   posts24h:number;handedToResearch48h:number;completedRuns7d:number;
   failedRuns7d:number;publishedUpdates7d:number;lastResearchRun:string|null;
 };
@@ -15,7 +16,7 @@ export async function getBluebellyAbsorptionHealth(now=new Date()):Promise<Blueb
     const h48=new Date(now.getTime()-48*3600000).toISOString();
     const d7=new Date(now.getTime()-7*86400000).toISOString();
     const [source,posts,handed,runs]=await Promise.all([
-      db.from("x_wire_accounts").select("handle,health,last_completed_at,last_error,uncovered_before,page_cursor"),
+      db.from("x_wire_accounts").select("handle,health,last_attempt_at,last_completed_at,last_error,uncovered_before,page_cursor"),
       db.from("x_wire_posts").select("post_id",{head:true,count:"exact"})
         .gte("retrieved_at",h24).not("handle","ilike","gordianknotdev"),
       db.from("research_intake_items").select("id",{head:true,count:"exact"})
@@ -26,12 +27,13 @@ export async function getBluebellyAbsorptionHealth(now=new Date()):Promise<Blueb
     if(source.error||posts.error||handed.error||runs.error)return null;
     const roster=new Set(X_CORE_ROSTER.map(x=>x.handle.toLowerCase()));
     const rows=(source.data||[]).filter(a=>roster.has(a.handle.toLowerCase()));
-    const healthy=rows.filter(a=>a.health==="healthy"&&!a.last_error&&!a.uncovered_before&&
-      !a.page_cursor&&a.last_completed_at&&
-      now.getTime()-Date.parse(a.last_completed_at)<15*3600000).length;
+    const fresh=rows.filter(a=>xWireFreshCheckComplete(a,now));
+    const healthy=fresh.filter(a=>!a.uncovered_before&&a.health==="healthy").length;
     const completions=(runs.data||[]).filter(r=>r.status==="completed");
     return {
-      checkedAt:now.toISOString(),monitored:X_CORE_ROSTER.length,healthy,
+      checkedAt:now.toISOString(),lastSourceAttemptAt:rows.map(a=>a.last_attempt_at)
+        .filter((t):t is string=>Boolean(t)).sort().at(-1)||null,
+      monitored:X_CORE_ROSTER.length,healthy,freshCompleted:fresh.length,
       historicalGaps:rows.filter(a=>Boolean(a.uncovered_before)).length,
       posts24h:posts.count??0,handedToResearch48h:handed.count??0,
       completedRuns7d:completions.length,

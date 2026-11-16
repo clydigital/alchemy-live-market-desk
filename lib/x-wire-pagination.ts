@@ -11,6 +11,30 @@ const TIMELINE_ORDER_JITTER_MS = 60_000;
 // FxEmbed documents up to 100 statuses per timeline page. A larger bounded
 // head reduces continuation calls and the chance of an ambiguous cursor 404.
 export const X_WIRE_PROVIDER_PAGE_SIZE = 100;
+export const X_WIRE_HISTORICAL_GAP_ERROR = "Unrecovered historical coverage gap";
+type SourceCheckpoint = {
+  health:string; last_completed_at:string|null; last_error:string|null; page_cursor:string|null;
+};
+/** A completed recent window can coexist with an older, explicitly unresolved gap. */
+export function xWireFreshCheckComplete(row:SourceCheckpoint,now:Date,maxAgeHours=15) {
+  const age=now.getTime()-Date.parse(row.last_completed_at||"");
+  return Number.isFinite(age)&&age>=0&&age<maxAgeHours*3_600_000&&!row.page_cursor&&
+    ((row.health==="healthy"&&!row.last_error)||
+     (row.health==="partial"&&row.last_error===X_WIRE_HISTORICAL_GAP_ERROR));
+}
+export function xWireNeedsRetry(row:SourceCheckpoint|undefined,now:Date){
+  return !row||!xWireFreshCheckComplete(row,now);
+}
+/** Search is a bounded alternate discovery route, NEVER timeline coverage proof. */
+export function xWireSearchFallbackUrl(handle:string,startAt:string){
+  if(!/^[A-Za-z0-9_]{1,15}$/.test(handle)||isExcludedXWireHandle(handle)||
+    !Number.isFinite(Date.parse(startAt)))throw new Error("Invalid X search fallback");
+  const url=new URL("https://api.fxtwitter.com/2/search");
+  url.searchParams.set("q","from:"+handle+" since:"+new Date(startAt).toISOString().slice(0,10));
+  url.searchParams.set("feed","latest");
+  url.searchParams.set("count","20");
+  return url.toString();
+}
 function published(x: Rec) {
   const t = Date.parse(text(x.created_at, 100));
   if (Number.isFinite(t)) return new Date(t).toISOString();

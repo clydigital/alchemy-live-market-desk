@@ -31,6 +31,7 @@ import {
 } from "@/lib/scheduled-intelligence-continuation";
 import { resolveScheduledResearchIdentity } from "@/lib/scheduled-research-identity";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getXWireDurable } from "@/lib/x-wire-durable";
 
 function response(body: unknown, status = 200) {
   return NextResponse.json(body, {
@@ -296,11 +297,17 @@ export async function handleScheduledResearchIntelligence(
   // In source-only mode the collector owns terminalisation; this route must
   // never launch a model, freeze a Story, or write a Daily Brief.
   if (scheduledSourceOnlyEnabled(process.env)) {
+    // Existing five-minute continuation slots are idle in source-only mode.
+    // Reuse them for due failed/incomplete X checks; the DB claim and cooldown
+    // prevent races with acquisition. No new schedule or canonical writer.
+    const wire=scheduledResearchEnabled()?await getXWireDurable({retryOnly:true}):null;
     return response({
       status: "not_required",
       mode: "SOURCE_ONLY",
       slot,
       message: "Scheduled intelligence continuation retired; source acquisition owns completion.",
+      xWireRetry:wire?{storageHealthy:wire.storageHealthy,healthy:wire.health.healthy,
+        inaccessible:wire.health.inaccessible}:null,
     });
   }
   if (!scheduledResearchEnabled()) {
