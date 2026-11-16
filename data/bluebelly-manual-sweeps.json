@@ -2,6 +2,148 @@
   "version": 1,
   "sweeps": [
     {
+      "id": "2026-11-16-ai-anthropic-ipo-capital-test",
+      "topic": "ai",
+      "date": "2026-11-16",
+      "researchAt": "2026-11-16T05:27:11.910Z",
+      "title": "Anthropic's IPO and Nvidia earnings test AI capital absorption",
+      "findings": [
+        {
+          "reason": "Anthropic's 10 Nov roadshow announcement gives an indicative $70–78 IPO range and proposed Nasdaq symbol ANT. This is a financing proposal, not a completed listing or confirmed cash inflow.",
+          "sourceName": "Anthropic — original IPO roadshow announcement",
+          "sourceUrl": "https://www.anthropic.com/news/roadshow-launch",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Check final pricing, shares sold, actual proceeds and first-session trade; compare Nvidia's 17 Nov earnings and subsequent SMH/QQQ leadership."
+        },
+        {
+          "reason": "The preliminary prospectus describes agreements for an aggregate $26bn private placement by seven major AI ecosystem companies. The proposed capital commitments may support demand but do not prove end-user cash conversion or completed funding.",
+          "sourceName": "Anthropic — preliminary prospectus",
+          "sourceUrl": "https://ipo.anthropic.com/documents/us/prospectus.pdf",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Reconcile closing conditions, related-party commitments, revenue concentration and cash burn against the final prospectus and subsequent filings."
+        },
+        {
+          "reason": "Friday's Nasdaq-100 ETF fell 1.20% as chips underperformed and the Dow held up. Asia's technology selloff extended Monday; this supports a sector-specific stress hypothesis, not proof of forced selling or systemic contagion.",
+          "sourceName": "AP — 16 Nov Asian market report",
+          "sourceUrl": "https://apnews.com/article/35786b8f539ec95f16ae0500f71cfcc7",
+          "sourcePublishedAt": "2026-11-16",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Compare matched 1/3/5-session SMH versus QQQ, credit spreads and issuer guidance before revising the AI regime."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-16-breadth-qqq-positioning-rotation",
+      "topic": "breadth",
+      "date": "2026-11-16",
+      "researchAt": "2026-11-16T05:27:11.910Z",
+      "title": "QQQ short positioning creates squeeze risk, not proof of a bottom",
+      "findings": [
+        {
+          "reason": "Two secondary displays agree on 82,794,708 QQQ shares short at the 30 Oct settlement, up from 82,001,618 on 15 Oct. MarketBeat and ChartExchange show different float ratios (12.22% and 12.27%); neither measures the Nasdaq-100 cash index itself.",
+          "sourceName": "MarketBeat — QQQ short-interest history",
+          "sourceUrl": "https://www.marketbeat.com/stocks/NASDAQ/QQQ/short-interest/",
+          "sourcePublishedAt": "2026-11-13",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Verify the exchange/FINRA issue-level settlement data and same-date ETF denominator. Compare a like-for-like historical series; do not assume 14% is a hard ceiling."
+        },
+        {
+          "reason": "Nasdaq reports open short positions twice monthly; settlement dates lag dissemination. A rally while measured short interest is elevated is a squeeze candidate, not evidence that those positions actually closed.",
+          "sourceName": "Nasdaq Trader — reporting methodology",
+          "sourceUrl": "https://www.nasdaqtrader.com/trader.aspx?id=ShortInterest",
+          "sourcePublishedAt": "2026-11-10",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Require next published short-position reduction alongside sustained QQQ strength and participation in SMH, RSP and Nasdaq breadth."
+        },
+        {
+          "reason": "QQQ fell 1.20% on Friday while the Dow was marginally positive; separate defensive rotation from a broad liquidity crisis. The equity tape cannot establish short closing activity on its own.",
+          "sourceName": "Stock Titan — 13 November session close",
+          "sourceUrl": "https://www.stocktitan.net/articles/stock-market-today-live-november-13-2026",
+          "sourcePublishedAt": "2026-11-13",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Compare 3–5 completed sessions, Nasdaq breadth and HY/CCC spreads. Treat positive price with falling reported SI as compatible with covering, not causal proof."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-16-fed-ppi-official-confirmation",
+      "topic": "fed",
+      "date": "2026-11-16",
+      "researchAt": "2026-11-16T05:27:11.910Z",
+      "title": "PPI slows monthly, but underlying cost pressures persist",
+      "findings": [
+        {
+          "reason": "The archived BLS release confirms October final-demand PPI +0.3% m/m after revised +1.4% September; +6.5% y/y. Ex food, energy and trade services +0.5% m/m and +4.9% y/y. Monthly moderation coexists with elevated underlying cost pressures.",
+          "sourceName": "BLS — October 2026 PPI original release",
+          "sourceUrl": "https://www.bls.gov/news.release/archives/ppi_11132026.htm",
+          "sourcePublishedAt": "2026-11-13",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Compare the frozen consensus and Fed minutes due 18 Nov; track two-year yields, real yields and subsequent CPI before inferring a policy pivot."
+        },
+        {
+          "reason": "The Fed's official November calendar lists FOMC minutes on 18 November. The minutes are retrospective, not a fresh policy decision.",
+          "sourceName": "Federal Reserve — November 2026 calendar",
+          "sourceUrl": "https://www.federalreserve.gov/newsevents/2026-November.htm",
+          "sourcePublishedAt": "2026-11-16",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Compare October meeting discussion against subsequent CPI, PPI and current rates; identify any actual change in future policy expectations."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-16-bonds-friday-yield-curve",
+      "topic": "bonds",
+      "date": "2026-11-16",
+      "researchAt": "2026-11-16T05:27:11.910Z",
+      "title": "Friday Treasury yields remain restrictive despite softer monthly PPI",
+      "findings": [
+        {
+          "reason": "Treasury's 13 Nov par curve shows 2Y 4.88%, 5Y 4.98%, 10Y 5.15% and 30Y 5.47%. Shorter and longer yields remain elevated; this does not establish whether changes come from inflation expectations, real rates or term premium.",
+          "sourceName": "US Treasury — November 2026 daily par yield curve",
+          "sourceUrl": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?field_tdr_date_value_month=202611&type=daily_treasury_yield_curve",
+          "sourcePublishedAt": "2026-11-13",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Check 2Y/10Y/30Y matched changes, 10Y real yield, breakevens and credit spreads; test whether growth equities absorb restrictive rates."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-16-hormuz-monday-crude-relief-safety",
+      "topic": "hormuz",
+      "date": "2026-11-16",
+      "researchAt": "2026-11-16T05:27:11.910Z",
+      "title": "Oil prices ease as supply recovers; safety remains unproven",
+      "findings": [
+        {
+          "reason": "Reuters reports Monday Brent near $95.30 and WTI $88.34 as traders reassess the IEA's Q4 surplus forecast. Shipping costs remain elevated; Iran's reported mine strike was not independently verified by Reuters.",
+          "sourceName": "Reuters — 16 Nov oil market report",
+          "sourceUrl": "https://www.reuters.com/business/energy/oil-prices-fall-expectations-coming-supply-surplus-2026-11-16/",
+          "sourcePublishedAt": "2026-11-16",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Check UKMTO incident ID, ship/crew status and verified crossings. Separate export normalisation, risk premium and actual diplomatic agreement."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-16-energy-crude-versus-food-freight",
+      "topic": "energy",
+      "date": "2026-11-16",
+      "researchAt": "2026-11-16T05:27:11.910Z",
+      "title": "Crude relief does not eliminate food and freight inflation",
+      "findings": [
+        {
+          "reason": "October BLS producer prices show final-demand foods +1.3% m/m and transport/warehousing services +2.0% while energy goods edged down 0.1%. This challenges a crude-price-only disinflation thesis.",
+          "sourceName": "BLS — October 2026 PPI component detail",
+          "sourceUrl": "https://www.bls.gov/news.release/archives/ppi_11132026.htm",
+          "sourcePublishedAt": "2026-11-13",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Compare subsequent food price indices, fertiliser input prices, diesel cracks and freight before inferring a persistent food inflation or fertiliser equity tailwind."
+        }
+      ]
+    },
+    {
       "id": "2026-11-14-ai-nvidia-ceo-earnings-governance",
       "topic": "ai",
       "date": "2026-11-14",
