@@ -7,9 +7,11 @@ const read=unstable_cache(async():Promise<{rows:ShortPosition[];checkedAt:string
  const checkedAt=new Date().toISOString();
  try{
   const response=await fetch(endpoint,{headers:{accept:"application/json"},signal:AbortSignal.timeout(5000),cache:"no-store"});
-  if(!response.ok)return {rows:[],checkedAt};
-  return {rows:decodeNasdaqQqqShortInterest(await response.json(),new Date(checkedAt)),checkedAt};
- }catch{return {rows:[],checkedAt};}
+  if(!response.ok)throw new Error("QQQ short-interest source unavailable");
+  const rows=decodeNasdaqQqqShortInterest(await response.json(),new Date(checkedAt));
+  if(!rows.length)throw new Error("QQQ short-interest source returned no valid rows");
+  return {rows,checkedAt};
+ }catch{throw new Error("QQQ short-interest refresh failed");}
 },["bluebelly-qqq-short-interest-v1"],{revalidate:21600});
 export async function readQqqPositioning(){
  try{return await read();}catch{return {rows:[],checkedAt:new Date().toISOString()};}
