@@ -1,3 +1,5 @@
+import QqqPositioningPanel from "@/components/blue-desk/QqqPositioningPanel";
+import {readQqqPositioning} from "@/lib/bluebelly-qqq-positioning";
 import AbsorptionHealth from "@/components/blue-desk/AbsorptionHealth";
 import {Nov14ResearchTeaser} from "@/components/blue-desk/Nov14MarketInvestigation";
 import MarketWindowBars from "@/components/blue-desk/MarketWindowBars";
@@ -109,7 +111,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
     readPublicUsJobs().catch(() => null),
     publicHost?getDossierV2PresentationSelection().catch(()=>null):Promise.resolve(null),
   ]);
-  const absorptionHealth = await getBluebellyAbsorptionHealth(now);
+  const [absorptionHealth,qqqPosition] = await Promise.all([getBluebellyAbsorptionHealth(now),publicHost?readQqqPositioning():Promise.resolve({rows:[],checkedAt:now.toISOString()})]);
   const motionNews = selectVerifiedNewsBriefs(verifiedMotions, now, 18);
   const recentNews = combineQualifiedNews(motionNews,originalPress,18);
   const verifiedNews = recentNews.filter(n=>Date.parse(n.occurredAt)<=+now && +now-Date.parse(n.occurredAt)<=48*3600000);
@@ -185,6 +187,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
           <Nov14ResearchTeaser host={host} compact/>
           <DeskWhiteboard compass={marketCompass} news={verifiedNews} theses={theses}
             upcoming={upcoming} now={now} host={host}/>
+          <QqqPositioningPanel rows={qqqPosition.rows} checkedAt={qqqPosition.checkedAt} market={marketRows} now={now} host={host}/>
           <InvestorMindsetBoard snapshot={investorMindset} assessment={investorAssessment} host={host}/>
            <MarketConditionsBoard market={marketRows} breadth={breadth50} jobs={jobs}
             health={absorptionHealth} now={now} host={host}/>
