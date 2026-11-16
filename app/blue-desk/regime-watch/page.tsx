@@ -21,7 +21,11 @@ import {getMarketMonitor} from "@/lib/market-monitor-public";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
 import {calculateBreadthRow} from "@/lib/bluebelly-breadth-dated";
 import {projectRegimeMeterReadings} from "@/lib/bluebelly-regime-market-meter";
-import {lensCardSignal} from "@/lib/bluebelly-regime-lens-card-signal";
+import {liveLensSignal,projectLiveLensResearch} from "@/lib/bluebelly-regime-live-research";
+import {readBluebellyQualifiedNews} from "@/lib/bluebelly-verified-event-server";
+import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
+import {RegimeLiveCardEvidence} from "@/components/blue-desk/RegimeLiveEvidence";
+import CrashEvidenceAutoRefresh from "@/components/blue-desk/CrashEvidenceAutoRefresh";
 import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
 import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
 import {projectBondPressure} from "@/lib/bluebelly-bond-pressure";
@@ -41,13 +45,15 @@ export const metadata={
 
 export default async function RegimeWatchPage(){
  const now=new Date(),host=(await headers()).get("host");
- const [theses,observations,topicReasons,shadowHealth,monitor,breadthFeed]=await Promise.all([
+ const [theses,observations,topicReasons,shadowHealth,monitor,breadthFeed,qualified,briefs]=await Promise.all([
   getPublicThesisLedger(now,38).catch(()=>null),
   getPublicSourceObservations(now,12).catch(()=>null),
   getTopicInfluences(EDITORIAL_REGIME_LENSES.map(lens=>lens.id),now).catch(()=>[]),
   getRegimeShadowHealth().catch(()=>null),
   getMarketMonitor().catch(()=>null),
   getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
+  readBluebellyQualifiedNews(now,18).catch(()=>null),
+  getPublishedMacroPulseBriefs(8).catch(()=>[]),
  ]);
  const lenses=groupPublicResearch(theses||[]);
  const scans=lenses.map(lens=>scanRegimeViews(lens.id,getLensOutlook(lens.id).reviewedAt,theses,observations,now));
@@ -58,7 +64,10 @@ export default async function RegimeWatchPage(){
  const breadth50=calculateBreadthRow("S5FI","S&P 500 above 50-day MA",breadthFeed.series.find(row=>row.symbol==="S5FI"),now);
  const meterReadings=projectRegimeMeterReadings(publicMarketObservations(monitor?.rows??[],"all"),breadth50,bondPressure,now);
  const compassSummary=buildMarketCompassSummary(measuredMarket,now);
+ const rows=publicMarketObservations(monitor?.rows??[],"all");
+ const liveReads=lenses.map(lens=>projectLiveLensResearch(lens.id,qualified?.news??[],observations,briefs,topicReasons.find(item=>item.topic===lens.id)??null,now,!qualified||Object.values(qualified.sourceReads).includes("UNAVAILABLE")));
  return <main className={desk.page} data-public-regime-watch="dated-editorial-lens-outlooks">
+  <CrashEvidenceAutoRefresh/>
   <BlueDeskHeader activePath="/blue-desk/regime-watch"/>
   <div className={desk.content}>
    <MarketCompass summary={compassSummary} readings={meterReadings} host={host}/>
@@ -87,7 +96,7 @@ export default async function RegimeWatchPage(){
     <div><span className={styles.kicker}>01 / THE NINE RESEARCH FILES</span><h2>Choose the <em>pressure point.</em></h2></div>
     <span><span className={styles.reviewDate}>Reviewed {LENS_OUTLOOK_REVIEWED_ON} MYT</span><span className={styles.reviewMeta}> · {theses===null?"Story coverage unavailable":theses.length+" public Story snapshots"} · Viewed <DualTimestamp value={now.toISOString()}/></span></span>
    </div>
-   <p className={styles.lensIntro}>Explore a research lens using colour-coded, dated market proxies where available. Colours describe price or yield direction, not a fundamental Regime verdict or trade recommendation.</p>
+   <p className={styles.lensIntro}>Explore a research lens automatically refreshed from existing research and dated market proxies every 10 minutes while open. Colours describe price or yield direction, not a fundamental Regime verdict or trade recommendation.</p>
    <div className={styles.lensLegend} aria-label="Regime lens market-signal colour key">
     <span data-legend-tone="improving"><i aria-hidden="true"/> Easing pressure / strengthening proxy</span>
     <span data-legend-tone="pressure"><i aria-hidden="true"/> Rising pressure / weakening proxy</span>
@@ -95,7 +104,7 @@ export default async function RegimeWatchPage(){
     <span data-legend-tone="unknown"><i aria-hidden="true"/> Missing or stale</span>
    </div>
    <div className={styles.cards}>{lenses.map((lens,index)=>{
-    const signal=lensCardSignal(lens.id,meterReadings);
+    const signal=liveLensSignal(lens.id,meterReadings,rows,now);
     return <Link key={lens.id} className={styles.card} data-research-lens={lens.id} data-lens-tone={signal.tone}
      href={blueDeskPublicHref("/blue-desk/regime-watch/"+lens.id,host)}
      aria-label={"Explore "+lens.name+" research · "+signal.label}>
@@ -109,6 +118,7 @@ export default async function RegimeWatchPage(){
         <span className={styles.lensStatusDetail}>{signal.readout}</span>
         <small>{signal.sourceDate?signal.dateNote+" "+signal.sourceDate:signal.dateNote} · {signal.scope}</small>
        </div>
+       <RegimeLiveCardEvidence read={liveReads[index]}/>
        <small className={styles.archivedContext}>HISTORICAL 30 OCT EDITORIAL · NOT THE CURRENT MARKET PROXY</small>
        <div className={styles.lensActivity} aria-label={
         scans[index].newViews.length+" new views, "+scans[index].updatedRecords.length+
@@ -145,14 +155,14 @@ export default async function RegimeWatchPage(){
      <span className={styles.pulseStatus}>{topicReasons.filter(item=>item.x.length+item.creators.length>0||getManualSweeps(item.topic,now,1).length>0).length} / 09 ACTIVE LENSES</span>
     </div>
     <div className={styles.pulsePreview} data-regime-pulse-preview="three-sourced-highlights">
-     {topicReasons.filter(item=>getManualSweeps(item.topic,now,1).length>0).slice(0,3).map(item=>{
-      const sweep=getManualSweeps(item.topic,now,1)[0];
-      const name=EDITORIAL_REGIME_LENSES.find(lens=>lens.id===item.topic)?.name||item.topic;
-      return <Link key={item.topic} className={styles.pulseHighlight}
-       href={blueDeskPublicHref("/blue-desk/regime-watch/"+item.topic,host)+"#influence-"+item.topic}>
-       <span>{name} · {sweep.date} MANUAL SWEEP</span>
-       <strong>{sweep.title}</strong>
-       <small>{sweep.findings.length} dated source findings · Open evidence ↗</small>
+     {lenses.map((lens,index)=>({lens,read:liveReads[index]})).filter(item=>item.read.facts.length||item.read.briefs.length||item.read.leads.length).slice(0,3).map(item=>{
+      const latest=item.read.facts[0]??item.read.briefs[0]??item.read.leads[0];
+      const label=item.read.facts.length?"SOURCE-QUALIFIED":item.read.briefs.length?"PUBLISHED RESEARCH":"UNVERIFIED LEAD";
+      return <Link key={item.lens.id} className={styles.pulseHighlight}
+       href={blueDeskPublicHref("/blue-desk/regime-watch/"+item.lens.id,host)+"#live-evidence"}>
+       <span>{item.lens.name} · {latest.at.slice(0,10)} · {label}</span>
+       <strong>{latest.title.slice(0,240)}</strong>
+       <small>{latest.source} · Open evidence ↗</small>
       </Link>;
      })}
     </div>
@@ -164,7 +174,7 @@ export default async function RegimeWatchPage(){
      const sweep=getManualSweeps(item.topic,now,1)[0];
      return <Link key={item.topic} className={styles.path} href={blueDeskPublicHref("/blue-desk/regime-watch/"+item.topic,host)+"#influence-"+item.topic}>
       <span>{name} · {sweep?sweep.date+" MANUAL SWEEP FINDINGS":leads.length+" live source reasons"}</span>
-      <strong>{sweep?.findings[0]?.reason||leads[0]?.reason||"Review the newest source-linked research"}</strong>
+      <strong>{leads[0]?.reason||sweep?.findings[0]?.reason||"Review the newest source-linked research"}</strong>
       <small>{sweep?"Read original-source manual findings + "+leads.length+" current X / video leads":"Most recent source "+leads[0]?.publishedAt.slice(0,10)} →</small>
      </Link>;
     })}</div>
