@@ -124,10 +124,10 @@ export default function MarketConditionsBoard({market,breadth,jobs,health,now,ho
         available={jobsReady} date={jobsReady?jobs!.period+" · released "+jobs!.releasedAt:null}
         caption={jobsReady?jobs!.shrinking+" sectors contracting · net payroll "+(jobs!.headlineChangeK===null?"unavailable":sign(jobs!.headlineChangeK,"K")):""}
         href={go("/blue-desk/markets#jobs-monitor")}/>
-      <FractionCard name="SOURCE HEALTH" scope="X Wire · complete fresh source checks" metric="source"
+      <FractionCard name="SOURCE HEALTH" scope="X Wire · fresh checks without historical gaps" metric="source"
         value={healthReady?health!.healthy:0} total={healthReady?health!.monitored:0}
-        available={healthReady} date={healthReady?"Checked "+health!.checkedAt.slice(0,16).replace("T"," ")+" UTC":null}
-        caption={healthReady?health!.historicalGaps+" accounts with historical gaps":""}
+        available={healthReady} date={healthReady&&health!.lastSourceAttemptAt?"Last attempt "+health!.lastSourceAttemptAt.slice(0,16).replace("T"," ")+" UTC":null}
+        caption={healthReady?health!.freshCompleted+" recent completed · "+health!.historicalGaps+" historical gaps":""}
         href="/owner/x-wire"/>
     </div>
     <footer className={s.foot}>Breadth uses the provider's 5-session percentage-point move, not a 1-day price change. Jobs breadth is a cross-section, not a monthly acceleration. Source coverage measures successful retrieval, not verification of X claims. Older reviews do not automatically refresh.</footer>
