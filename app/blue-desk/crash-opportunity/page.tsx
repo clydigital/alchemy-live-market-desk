@@ -86,6 +86,7 @@ export default async function CrashOpportunityPage(){
 
 
       <Nov14ResearchTeaser host={host} compact/>
+      <p><Link href={href("/qqq-positioning")} style={{color:"var(--bb-accent)",fontWeight:700}}>QQQ short-interest &amp; reversal watch →</Link> · Dated positioning is separate from the crash/opportunity gauge.</p>
       <section id="live-decision" className={styles.live} aria-labelledby="crash-live-title"
         data-crash-live="existing-source-feeds-v1" data-decision-tape={compass.state}
         data-research-count={freshResearch.length}>
