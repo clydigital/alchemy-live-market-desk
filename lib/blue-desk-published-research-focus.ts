@@ -1,4 +1,5 @@
 import type {PublicMacroPulseBrief,MacroPulseLink} from "./blue-desk-macropulse-brief.ts";
+import {isHormuzRelevant} from "./bluebelly-hormuz-relevance.ts";
 
 /** Discovery of explicitly owner-published research; NOT source verification.
  * This projection NEVER feeds canonical NewsBrief, Hot Picks, Dossier or Regime.
@@ -24,7 +25,7 @@ function safeHttps(value:string):boolean{
 function navigationTags(text:string):PublicResearchFocus["navigationTags"]{
  const tags:PublicResearchFocus["navigationTags"]=[];
  // Search/navigation ONLY: no assertion that these markets moved.
- if(/\b(?:hormuz|strait of hormuz|persian gulf)\b/i.test(text)){tags.push("hormuz","energy");}
+ if(isHormuzRelevant(text)){tags.push("hormuz","energy");}
  else if(/\b(?:oil|brent|opec|crude|lng|diesel|gasoil|refinery|tanker)\b/i.test(text))tags.push("energy");
  if(/\b(?:ai capex|artificial intelligence|nvidia|semiconductor|ai infrastructure|hyperscaler|gpu)\b/i.test(text))tags.push("ai");
  if(/\b(?:bond yields?|treasur(?:y|ies)|central banks?|monetary policy|fed funds|fomc|interest rates?)\b/i.test(text))tags.push("rates");

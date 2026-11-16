@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Story } from "./data.ts";
 import { routeTextToRegimes, type RegimeSlug } from "./regimes.ts";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
+import {hormuzTopicFilter} from "./bluebelly-hormuz-relevance.ts";
 
 export const MARKET_MOTION_CONTRACT_VERSION = "market-motion/v1" as const;
 export const MARKET_MOTION_FRESHNESS_HOURS = 48;
@@ -477,15 +478,16 @@ export async function persistMarketMotion(
  * never canonical evidence or a Story/Regime adjudication.
  */
 export async function getCurrentVerifiedMarketMotion(
-  options: { limit?: number; client?: SupabaseClient } = {},
+  options: { limit?: number; client?: SupabaseClient; topic?:"hormuz" } = {},
 ): Promise<MarketMotionRecord[]> {
   const db = options.client ?? createSupabaseAdminClient();
-  const { data, error } = await db
+  let query = db
     .from("current_market_motion_items")
     .select("*")
     .eq("verification_state", "VERIFIED")
-    .neq("effective_state", "EXPIRED")
-    .order("occurred_at", { ascending: false })
+    .neq("effective_state", "EXPIRED");
+  if(options.topic==="hormuz")query=query.or(hormuzTopicFilter(["headline","what_happened"]));
+  const { data, error } = await query.order("occurred_at", { ascending: false })
     .limit(Math.max(1, Math.min(24, options.limit ?? 12)));
   if (error) throw new Error("Verified Market Motion read failed");
   return (data || []) as MarketMotionRecord[];

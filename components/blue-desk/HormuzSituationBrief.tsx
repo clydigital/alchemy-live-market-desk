@@ -9,6 +9,7 @@ import QuestionVerdictCard from "./QuestionVerdictCard";
 import {getReviewedQuestions} from "@/lib/bluebelly-question-assessment-reviewed";
 import {buildDirectionQuickRead,type DirectionEvidence} from "@/lib/bluebelly-direction-quick-read";
 import directionData from "@/data/bluebelly-hormuz-peace-signals.json";
+import {isHormuzRelevant} from "@/lib/bluebelly-hormuz-relevance";
 
 type Props={
   newsroomHref:string;
@@ -23,7 +24,8 @@ type Props={
   reportedIncidents:number|null;
   incidentAt:string|null;
 };
-const NEGOTIATIONS=/\b(?:iran|iranian|tehran|hormuz|persian gulf|doha|qatar|ceasefire|diplomac\w*|negotiat\w*|peace talks)\b/i;
+const RECENT_MS=48*60*60*1000;
+const stamp=(value:string)=>value.slice(0,16).replace("T"," ")+" UTC";
 
 /** Source-dated situation quick read, not a frozen geopolitical Key Story. */
 export default function HormuzSituationBrief({
@@ -33,9 +35,14 @@ export default function HormuzSituationBrief({
   const now=new Date();
   const peace=buildDirectionQuickRead(directionData.signals as DirectionEvidence[],now);
   const verdicts=getReviewedQuestions(["hormuz-peace","hormuz-shipping"],now);
-  const verified=news.find(item=>NEGOTIATIONS.test(item.headline+" "+item.summary));
-  const latest=reviewed.find(item=>NEGOTIATIONS.test(
-    [item.headline,item.standfirst,item.whatChanged].join(" ")));
+  const verified=news.filter(item=>isHormuzRelevant(item.headline+" "+item.summary))
+   .filter(item=>Date.parse(item.occurredAt)<=+now&&+now-Date.parse(item.occurredAt)<RECENT_MS)
+   .sort((a,b)=>Date.parse(b.occurredAt)-Date.parse(a.occurredAt));
+  const latest=reviewed.find(item=>isHormuzRelevant(
+    [item.headline,item.standfirst,item.whatChanged,item.whyItMatters].join(" ")));
+  const latestX=wire.x.filter(item=>isHormuzRelevant(item.excerpt))
+   .sort((a,b)=>Date.parse(b.publishedAt)-Date.parse(a.publishedAt))[0];
+  const latestResearchIsRecent=!!latest&&Date.parse(latest.sourcePublishedAt)<=+now&&+now-Date.parse(latest.sourcePublishedAt)<RECENT_MS;
   return <section id="mediation" className={s.brief}
     aria-label="Iran conflict, negotiations and Hormuz situation quick read"
     data-hormuz-situation="source-dated-quick-read">
@@ -45,30 +52,32 @@ export default function HormuzSituationBrief({
         <p className={s.intro}>Negotiations and conflict developments first. Verify against vessel crossings and original-source reports.</p></div>
       <Link href={newsroomHref+"?q=hormuz"}>More verified news and research →</Link>
     </div>
-    <div data-hormuz-question-verdicts="peace-and-shipping" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,320px),1fr))",gap:12}}>
-      {verdicts.map(item=><QuestionVerdictCard key={item.id} read={item} compact/>)}
-    </div>
-    <DirectionQuickRead question="Are we getting closer to peace?"
-      summary="Recent public positions and restraint signals, grouped by 1/3/5 source-publication days."
-      read={peace}/>
     <div className={s.columns}>
       <article>
         <h3>Negotiations & conflict</h3>
-        {verified ? <>
-          <strong>{verified.headline}</strong>
-          <p>{verified.summary}</p>
-          <p className={s.caution}>Source-verified reporting · Event time <time dateTime={verified.occurredAt}>{verified.occurredAt.slice(0,16).replace("T"," ")} UTC</time>. Does not establish an implemented agreement or verified shipping recovery.</p>
-          <a href={verified.sourceUrl} target="_blank" rel="noopener noreferrer">{verified.sourceName} · Original report ↗</a>
-        </> : latest ? <>
+        <p className={s.caution} data-hormuz-research-freshness={verified.length?"recent-verified":latestResearchIsRecent?"recent-reviewed":"no-recent-qualified"}>
+          {verified.length?`${verified.length} recent source-qualified update(s)` : latestResearchIsRecent?"Recent published research; no recent verified news receipt":"No recent source-qualified update · assessment requires fresh review"} · checked {stamp(wire.checkedAt)}.
+          {newsCoverageDegraded?" Verified-news coverage degraded.":""}</p>
+        {verified.slice(0,3).map(item=><div key={item.id} className={s.post}>
+          <strong>{item.headline}</strong>
+          <p>{item.summary}</p>
+          <p className={s.caution}>Source-verified reporting · Event time <time dateTime={item.occurredAt}>{stamp(item.occurredAt)}</time>. Does not establish an implemented agreement or verified shipping recovery.</p>
+          <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">{item.sourceName} · Original report ↗</a>
+        </div>)}
+        {latest ? <div className={s.post}>
+          <p className={s.caution}>{latestResearchIsRecent?"Published research context":"Older published research · not a current assessment"}</p>
           <strong>{latest.headline}</strong>
           <p>{latest.standfirst}</p>
           <p className={s.caution}>Owner-reviewed research, not independently confirmed breaking news. Source edition: <time dateTime={latest.sourcePublishedAt}>{latest.sourcePublishedAt.slice(0,10)}</time>.</p>
           <a href={latest.sourcePageUrl} target="_blank" rel="noopener noreferrer">Read dated research and sources ↗</a>
-        </> : <>
+        </div> : !verified.length ? <>
           <strong>Current negotiation outcome not established here</strong>
           <p>{newsCoverageDegraded?"Current verified-news coverage is degraded. ":""}No recent source-qualified Iran/Hormuz update was found in the available public reading window. Older proposals must not be reported as today's diplomatic position.</p>
           <Link href={newsroomHref+"?q=iran"}>Check recent Iran reporting →</Link>
-        </>}
+        </> : null}
+        {latestX?<div className={s.post} data-hormuz-latest-lead="unverified"><p className={s.postMeta}>LATEST X LEAD · UNVERIFIED · {stamp(latestX.publishedAt)}</p>
+          <p>{latestX.excerpt}</p><a href={latestX.url} target="_blank" rel="noopener noreferrer">{latestX.sourceName} · Original post ↗</a>
+          <p className={s.caution}>A research lead, not an established event or diplomatic position.</p></div>:<p className={s.caution}>X lead coverage: {wire.xState.toLowerCase()}; absence is not proof of no events.</p>}
       </article>
       <article>
         <h3>What is moving?</h3>
@@ -93,5 +102,16 @@ export default function HormuzSituationBrief({
         </div>
       </details>
     </div>
+    <details className={s.wireDisclosure} data-hormuz-reviewed-history="dated-only">
+      <summary><strong>Reviewed peace and shipping assessments</strong><span>Last source-reviewed judgement; not automatically inferred from headlines · Expand</span></summary>
+      <div className={s.wireBody}>
+        <div data-hormuz-question-verdicts="peace-and-shipping" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,320px),1fr))",gap:12}}>
+          {verdicts.map(item=><QuestionVerdictCard key={item.id} read={item} compact/>)}
+        </div>
+        <DirectionQuickRead question="Are we getting closer to peace?"
+          summary="Reviewed public positions and restraint signals, grouped by 1/3/5 source-publication days. Stale reviews expire; live source receipts above are separate."
+          read={peace}/>
+      </div>
+    </details>
   </section>;
 }
