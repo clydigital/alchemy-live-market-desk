@@ -22,6 +22,8 @@ export default function QqqPositioningPanel({rows,market,now,host,checkedAt,deta
  const shown=lead?.settlement??RESEARCH_SNAPSHOT.settlement;
  const clock=qqqReleaseClock(shown,now);
  const shares=lead?.shares??RESEARCH_SNAPSHOT.shares;
+ const recent=lead?rows.filter(r=>r.settlement<=lead.settlement&&Date.parse(lead.settlement+"T00:00:00Z")-Date.parse(r.settlement+"T00:00:00Z")<=366*86400000):[];
+ const rank=recent.length>=12?1+recent.filter(r=>r.shares>shares).length:null;
  const change=lead?read.change:(RESEARCH_SNAPSHOT.shares/RESEARCH_SNAPSHOT.previousShares-1)*100;
  const label=!lead?"ATTRIBUTED SNAPSHOT · EXCHANGE SOURCE NOT VERIFIED":clock.state==="NEW REPORT DUE"?"SOURCE-DATED · NEW REPORT DUE":read.state;
  const tapeAge=one.session?Math.floor((+now-Date.parse(one.session+"T00:00:00Z"))/86400000):null;
@@ -35,6 +37,7 @@ export default function QqqPositioningPanel({rows,market,now,host,checkedAt,deta
    <div><small>Days to cover</small><br/><strong style={{fontSize:25}}>{fmt(lead?lead.daysToCover:RESEARCH_SNAPSHOT.daysToCover)}</strong></div>
    <div><small>Latest matched QQQ session</small><br/><strong style={{fontSize:25}}>{pct(one.qqq)}</strong><br/><small>{one.session??"Unavailable"}</small></div>
   </div>
+  <p style={{fontSize:13}}>{rank!==null?<><strong>Raw short-share rank: {rank} of {recent.length}</strong> (1 = highest, available past-year settlements). Not a cap; ETF shares outstanding can change.</>:null} {shown===RESEARCH_SNAPSHOT.settlement?<>Reported float estimate {RESEARCH_SNAPSHOT.floatRange} (dated secondary sources; not an automated ratio).</>:null}</p>
   <p><strong>{tape}</strong> · SMH {pct(one.smh)} · RSP {pct(one.rsp)} · SPY {pct(one.spy)}.</p>
   <p style={{fontSize:13}}><strong>Positioning release: {clock.state}</strong> · {clock.nextRelease?"Next publication "+clock.nextRelease+" (US ET), settlement "+clock.nextSettlement:"Check official FINRA calendar"} · <a href={RELEASE_CALENDAR_SOURCE}>Calendar</a></p>
   <p style={{fontSize:13}}>Positioning and price evidence are independent; a rebound does not prove that shorts covered.</p>
