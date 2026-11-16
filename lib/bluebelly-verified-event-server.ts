@@ -15,7 +15,7 @@ import {isHormuzRelevant} from "./bluebelly-hormuz-relevance";
 export async function readBluebellyQualifiedNews(now=new Date(),limit=18,topic?:"hormuz") {
   const [motion,press,macro]=await Promise.allSettled([
     getCurrentVerifiedMarketMotion({limit:24,topic}),
-    getOriginalPressNews(now,18,7,topic),
+    topic?getOriginalPressNews(now,18,7,topic):getOriginalPressNews(now,18,7),
     getCompletedOfficialMacroNews(now,18,7),
   ]);
   const sourceReads:Record<EventSource,SourceReadState>={
