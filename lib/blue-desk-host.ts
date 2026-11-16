@@ -47,6 +47,7 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   if (pathname === "/newsroom/week-ahead") return "/blue-desk/newsroom/week-ahead";
   if (pathname === "/hormuz") return "/blue-desk/hormuz";
   if (pathname === "/regime-watch") return "/blue-desk/regime-watch";
+  if (pathname === "/qqq-positioning") return "/blue-desk/qqq-positioning";
   if (pathname === "/crash-opportunity") return "/blue-desk/crash-opportunity";
   if (pathname.startsWith("/regime-watch/") && PUBLIC_REGIME_LENS_PATH.test(pathname)) return "/blue-desk" + pathname;
   if (pathname === "/features/asia-equities" || pathname === "/features/global-bonds") return "/blue-desk" + pathname;
@@ -152,6 +153,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     pathname === "/newsroom/week-ahead" || pathname === "/blue-desk/newsroom/week-ahead" ||
     pathname === "/hormuz" || pathname === "/blue-desk/hormuz" ||
     pathname === "/regime-watch" || pathname === "/blue-desk/regime-watch" ||
+    pathname === "/qqq-positioning" || pathname === "/blue-desk/qqq-positioning" ||
     pathname === "/crash-opportunity" || pathname === "/blue-desk/crash-opportunity" ||
     PUBLIC_REGIME_LENS_PATH.test(pathname) ||
     pathname === "/features/asia-equities" ||

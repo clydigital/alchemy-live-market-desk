@@ -1,3 +1,5 @@
+import QqqPositioningPanel from "@/components/blue-desk/QqqPositioningPanel";
+import {readQqqPositioning} from "@/lib/bluebelly-qqq-positioning";
 import CurrentMarketUpdates from "@/components/blue-desk/CurrentMarketUpdates";
 import {Nov14ResearchTeaser} from "@/components/blue-desk/Nov14MarketInvestigation";
 import Link from "next/link";
@@ -65,6 +67,7 @@ export default async function RegimeWatchPage(){
  const meterReadings=projectRegimeMeterReadings(publicMarketObservations(monitor?.rows??[],"all"),breadth50,bondPressure,now);
  const compassSummary=buildMarketCompassSummary(measuredMarket,now);
  const rows=publicMarketObservations(monitor?.rows??[],"all");
+ const qqqPosition=await readQqqPositioning();
  const liveReads=lenses.map(lens=>projectLiveLensResearch(lens.id,qualified?.news??[],observations,briefs,topicReasons.find(item=>item.topic===lens.id)??null,now,!qualified||Object.values(qualified.sourceReads).includes("UNAVAILABLE")));
  return <main className={desk.page} data-public-regime-watch="dated-editorial-lens-outlooks">
   <CrashEvidenceAutoRefresh/>
@@ -72,6 +75,7 @@ export default async function RegimeWatchPage(){
   <div className={desk.content}>
    <MarketCompass summary={compassSummary} readings={meterReadings} host={host}/>
    <p style={{margin:"10px 0 14px",fontSize:"12px",color:"var(--bb-muted)"}}>The directional reading summarises one matched equity session. Deeper research, nine regime lenses and evidence follow below; no tape signal automatically changes a fundamental thesis.</p>
+   <QqqPositioningPanel rows={qqqPosition.rows} checkedAt={qqqPosition.checkedAt} market={rows} now={now} host={host}/>
    <RegimeResearchClocks sources={observations} editorialReviewedOn={LENS_OUTLOOK_REVIEWED_ON} shadow={shadowHealth}/>
    <Nov14ResearchTeaser host={host} compact/>
    <RegimeSignalRadar entries={signalRadar}/>
