@@ -50,3 +50,11 @@ test("missing or non-comparable evidence fails closed",()=>{
  const future=inputs(1,2,3,4).map(r=>({...r,sourceSession:"2026-11-15"}));
  assert.equal(buildMarketCompassSummary(future,NOW).state,"UNMEASURED");
 });
+
+test("Friday tape cannot describe Monday after Monday's close",()=>{
+ const rows=inputs(1,2,1,2);
+ assert.equal(buildMarketCompassSummary(rows,new Date("2026-11-16T22:00:00Z")).state,"UNMEASURED");
+ assert.equal(buildMarketCompassSummary(rows,new Date("2026-11-16T20:00:00Z")).state,"RISK_ON");
+ const fresh=rows.map(row=>({...row,sourceSession:"2026-11-16"}));
+ assert.equal(buildMarketCompassSummary(fresh,new Date("2026-11-16T22:00:00Z")).state,"RISK_ON");
+});
