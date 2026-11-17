@@ -9,6 +9,7 @@ import {recentBankDecisions} from "./bluebelly-bank-decision-snapshots.ts";
 import {recentReportedEditorial} from "./bluebelly-reported-editorial.ts";
 import {selectPostEventRecaps} from "./bluebelly-post-event-recap.ts";
 import {weekAheadNewsroomEditorial} from "./bluebelly-week-ahead-newsroom.ts";
+import {nvidiaCrisisNewsroomItem} from "./bluebelly-nvidia-crisis-editorial.ts";
 import {currentReviewedPublicFocus} from "./bluebelly-reviewed-public-focus.ts";
 import {OCT30_SELL_OFF,oct30SelloffIsLead} from "./bluebelly-oct30-tech-selloff.ts";
 import {getRecentVerifiedEarningsScorecards,getImmutableChartWatchEarningsEdition} from "./blue-desk-earnings-results.ts";
@@ -27,6 +28,8 @@ export function publicNewsroomEditorials(
   selectPostEventRecaps(news,now,8),reader,now,
  );
  result.push(...weekAheadNewsroomEditorial(now,blueDeskPublicHref("/blue-desk/newsroom/week-ahead",host)));
+ const nvidiaCrisis=nvidiaCrisisNewsroomItem(now,reader);
+ if(nvidiaCrisis)result.push(nvidiaCrisis);
  // A completed original issuer or official macro release should not disappear
  // from the Newsroom merely because no new verified canonical Motion exists.
  // Reuse the already source-reviewed and time-gated public scorecards; never
