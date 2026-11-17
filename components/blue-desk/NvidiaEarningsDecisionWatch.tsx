@@ -79,7 +79,7 @@ export default function NvidiaEarningsDecisionWatch({
      <a href={watch.transition.originalUrl} target="_blank" rel="noopener noreferrer">NVIDIA · CEO-transition release ↗</a>
      <a href={watch.previousQuarter.originalUrl} target="_blank" rel="noopener noreferrer">NVIDIA · Q2 FY27 results and Q3 outlook ↗</a>
      <a href={watch.calendar.originalUrl} target="_blank" rel="noopener noreferrer">NVIDIA · earnings date and webcast ↗</a>
-     <Link href="/newsroom#newsroom-jensen-watch">Newsroom governance developments</Link>
+     <Link href="/key-stories?feature=nvidia-crisis-november-2026">Read the NVIDIA crisis news story</Link>
      <Link href="/regime-watch/ai">AI Regime research</Link>
     </nav>
    </details>
