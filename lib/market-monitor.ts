@@ -1,4 +1,5 @@
 import { unstable_cache } from "next/cache";
+import {expectedHomeEtfSession,fetchHomeEtfHistory,type HomeEtf} from "./bluebelly-home-etf-history";
 import {ADDITIONAL_US_STOCKS,EUROPE_STOCKS} from "./bluebelly-equity-universe";
 import {fetchEuropeanStockHistory} from "./bluebelly-europe-stock-history";
 import { evaluateMarketSignals, type MarketSignalSnapshot } from "./bluebelly-signal-scan";
@@ -860,7 +861,29 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   
   // Combine base (from getMarketData) and extras (from loadExtras)
   // If both branches failed, rows will be empty but not crash.
-  let rows = makeRows([...base, ...extras, ...cashAnchors, ...europeanStocks]);
+  const rawRows=[...base,...extras,...cashAnchors,...europeanStocks];
+  const now=new Date(),expected=expectedHomeEtfSession(now);
+  const homeTape=[{id:"spx-proxy",symbol:"SPY"},{id:"rsp",symbol:"RSP"},
+    {id:"ndx",symbol:"QQQ"},{id:"smh",symbol:"SMH"},{id:"soxx",symbol:"SOXX"}] as const;
+  await Promise.all(homeTape.map(async spec=>{
+    const index=rawRows.findIndex(row=>row.id===spec.id);
+    const current=index<0?null:rawRows[index];
+    const last=current?.points.at(-1)?.time;
+    const day=last?new Date(last*1000).toISOString().slice(0,10):null;
+    if(!expected||(day&&day>=expected))return;
+    try{
+      const fallback=await fetchHomeEtfHistory(spec.symbol as HomeEtf,now);
+      const replacement:RawSeries={
+        id:spec.id,symbol:spec.symbol,label:current?.label??spec.symbol,
+        type:current?.type??(["SMH","SOXX"].includes(spec.symbol)?"AI / Semis":"Major Index"),
+        benchmark:current?.benchmark??null,frequency:"daily",...fallback,
+      };
+      if(index<0)rawRows.push(replacement);else rawRows[index]=replacement;
+    }catch{
+      coverageGaps.push(spec.symbol+" daily history is behind expected US session "+expected+".");
+    }
+  }));
+  let rows = makeRows(rawRows);
   const contradictions = buildContradictions(rows);
   const contradictionIds = new Set(contradictions.flatMap((item) => item.assets));
   rows = rows.map((row) => {
