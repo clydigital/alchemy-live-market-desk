@@ -10,6 +10,8 @@ import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watc
 import {buildMarketCompassSummary} from "@/lib/bluebelly-market-compass";
 import {buildInvestorMindsetSnapshot} from "@/lib/bluebelly-investor-mindset";
 import {projectInvestorAssessment} from "@/lib/bluebelly-investor-assessment";
+import {buildInvestorResearchThemes} from "@/lib/bluebelly-investor-mindset";
+import {getInvestorReviewReceipt} from "@/lib/bluebelly-investor-review-receipt";
 import {getDossierV2PresentationSelection} from "@/lib/dossier-v2/presentation-reader";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
 import {calculateBreadthRow} from "@/lib/bluebelly-breadth-dated";
@@ -141,6 +143,8 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   const marketCompass=buildMarketCompassSummary(marketComparisons,now);
   const investorMindset=buildInvestorMindsetSnapshot(marketRows,marketComparisons,marketCompass,verifiedNews,now);
   const investorAssessment=projectInvestorAssessment(dossierSelection,now);
+  const investorThemes=buildInvestorResearchThemes(recentNews,observations,now);
+  const investorReceipt=await getInvestorReviewReceipt(dossierSelection?.latestDossierId??null,now).catch(()=>null);
   const breadth50=calculateBreadthRow("S5FI","S&P 500 above 50-day MA",breadthFeed.series.find(s=>s.symbol==="S5FI"),now);
   const marketTypes=["Major Index","Rates","FX","Energy","Metal","AI / Semis"] as const;
   // A stored last price is not a fresh quote. Allow a weekend/holiday window,
@@ -188,7 +192,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
           <DeskWhiteboard compass={marketCompass} news={verifiedNews} theses={theses}
             upcoming={upcoming} now={now} host={host}/>
           <QqqPositioningPanel rows={qqqPosition.rows} checkedAt={qqqPosition.checkedAt} market={marketRows} now={now} host={host}/>
-          <InvestorMindsetBoard snapshot={investorMindset} assessment={investorAssessment} host={host}/>
+          <InvestorMindsetBoard snapshot={investorMindset} assessment={investorAssessment} host={host} themes={investorThemes} receipt={investorReceipt}/>
            <MarketConditionsBoard market={marketRows} breadth={breadth50} jobs={jobs}
             health={absorptionHealth} now={now} host={host}/>
           <div className={marketHome.overview}>

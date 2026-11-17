@@ -135,10 +135,10 @@ function newObservedEvidenceCount(
   if (!previousAsOf) return packet.observed_evidence.length;
   const cutoff = Date.parse(previousAsOf);
   if (!Number.isFinite(cutoff)) return packet.observed_evidence.length;
-  return packet.observed_evidence.filter((item) => {
+  return new Set([...packet.observed_evidence, ...(packet.rate_context?.evidence ?? [])].filter((item) => {
     const availableAt = Date.parse(item.available_at);
-    return Number.isFinite(availableAt) && availableAt > cutoff;
-  }).length;
+    return Number.isFinite(availableAt) && availableAt > cutoff && availableAt <= Date.parse(packet.as_of);
+  }).map(item => item.evidence_id)).size;
 }
 
 function previousMajorStoryIds(output: ResearchBrainOutputV1 | null): Set<string> {
@@ -383,6 +383,23 @@ export function decideDossierDelta({
   const changedStoryIds = relevant.map((state) => state.story_id);
 
   if (relevant.length === 0) {
+    // A quiet Story ledger is not proof that today's market/lens evidence has
+    // been assessed. Bound the extra synthesis to one per 24 hours, and only
+    // when the canonical packet contains genuinely newer observed evidence.
+    // No fabricated Story transition, no extra scheduler, no timestamp-only
+    // refresh when sources are unchanged or absent.
+    const reviewAge = Date.parse(packet.as_of) - Date.parse(previousDossier.as_of);
+    if (reviewAge >= 24 * 3_600_000 && newEvidence > 0) {
+      return {
+        action: "REBASE",
+        reason: "Bounded daily investor-lens reassessment: newer observed evidence requires review even without a material canonical Story transition.",
+        previousDossierId: previousDossier.id,
+        previousAsOf: previousDossier.as_of,
+        changedStoryIds: [],
+        newObservedEvidence: newEvidence,
+        postIntelligenceModelCallBudget: 2,
+      };
+    }
     return {
       action: "NO_CHANGE",
       reason: newEvidence > 0

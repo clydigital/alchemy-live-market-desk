@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {buildInvestorMindsetSnapshot} from "../lib/bluebelly-investor-mindset.ts";
+import {buildInvestorMindsetSnapshot,buildInvestorResearchThemes} from "../lib/bluebelly-investor-mindset.ts";
 import type {PublicMarketObservation} from "../lib/blue-desk-public-markets.ts";
 import type {MarketDivergenceRead} from "../lib/bluebelly-market-divergence-watch.ts";
 import type {MarketCompassSummary} from "../lib/bluebelly-market-compass.ts";
@@ -82,4 +82,11 @@ test("homepage reader is source-only and labels its reasoning honestly",()=>{
  assert.match(component,/data-home-investor-mindset="source-dated-v1"/);
  assert.match(css,/@media\(max-width:680px\)/);
  assert.doesNotMatch(component,/createSupabaseAdminClient|service_role|\.upsert\(|\.insert\(|createTask\(/);
+});
+test("additional themes consume qualified BB records without a PS dependency",()=>{
+ const event={...news(),headline:"USDA grain inventories release"};
+ const rows=buildInvestorResearchThemes([event],[],now);
+ assert.equal(rows.find(r=>r.id==="food")?.signal,"SOURCE-VERIFIED CONTEXT");
+ assert.equal(rows.find(r=>r.id==="power")?.signal,"UNMEASURED");
+ assert.equal(buildInvestorResearchThemes([{...event,occurredAt:"2026-10-01T00:00:00Z"}],[],now).find(r=>r.id==="food")?.signal,"UNMEASURED");
 });

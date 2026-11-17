@@ -1,4 +1,10 @@
 import QqqPositioningPanel from "@/components/blue-desk/QqqPositioningPanel";
+import InvestorMindsetBoard from "@/components/blue-desk/InvestorMindsetBoard";
+import {buildInvestorMindsetSnapshot,buildInvestorResearchThemes} from "@/lib/bluebelly-investor-mindset";
+import {projectInvestorAssessment} from "@/lib/bluebelly-investor-assessment";
+import {getInvestorReviewReceipt} from "@/lib/bluebelly-investor-review-receipt";
+import {getDossierV2PresentationSelection} from "@/lib/dossier-v2/presentation-reader";
+import {isBlueDeskPublicReaderHost} from "@/lib/blue-desk-host";
 import {readQqqPositioning} from "@/lib/bluebelly-qqq-positioning";
 import CurrentMarketUpdates from "@/components/blue-desk/CurrentMarketUpdates";
 import {Nov14ResearchTeaser} from "@/components/blue-desk/Nov14MarketInvestigation";
@@ -49,7 +55,7 @@ export const metadata={
 
 export default async function RegimeWatchPage(){
  const now=new Date(),host=(await headers()).get("host");
- const [theses,observations,topicReasons,shadowHealth,monitor,breadthFeed,qualified,briefs]=await Promise.all([
+ const [theses,observations,topicReasons,shadowHealth,monitor,breadthFeed,qualified,briefs,dossierSelection]=await Promise.all([
   getPublicThesisLedger(now,38).catch(()=>null),
   getPublicSourceObservations(now,12).catch(()=>null),
   getTopicInfluences(EDITORIAL_REGIME_LENSES.map(lens=>lens.id),now).catch(()=>[]),
@@ -58,6 +64,7 @@ export default async function RegimeWatchPage(){
   getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
   readBluebellyQualifiedNews(now,18).catch(()=>null),
   getPublishedMacroPulseBriefs(8).catch(()=>[]),
+  isBlueDeskPublicReaderHost(host)?getDossierV2PresentationSelection().catch(()=>null):Promise.resolve(null),
  ]);
  const lenses=groupPublicResearch(theses||[]);
  const scans=lenses.map(lens=>scanRegimeViews(lens.id,getLensOutlook(lens.id).reviewedAt,theses,observations,now));
@@ -69,7 +76,10 @@ export default async function RegimeWatchPage(){
  const meterReadings=projectRegimeMeterReadings(publicMarketObservations(monitor?.rows??[],"all"),breadth50,bondPressure,now);
  const compassSummary=buildMarketCompassSummary(measuredMarket,now);
  const rows=publicMarketObservations(monitor?.rows??[],"all");
- const qqqPosition=await readQqqPositioning();
+ const [qqqPosition,investorReceipt]=await Promise.all([readQqqPositioning(),getInvestorReviewReceipt(dossierSelection?.latestDossierId??null,now).catch(()=>null)]);
+ const investorSnapshot=buildInvestorMindsetSnapshot(rows,measuredMarket,compassSummary,qualified?.news??[],now);
+ const investorAssessment=projectInvestorAssessment(dossierSelection,now);
+ const investorThemes=buildInvestorResearchThemes(qualified?.news??[],observations??[],now);
  const liveReads=lenses.map(lens=>projectLiveLensResearch(lens.id,qualified?.news??[],observations,briefs,topicReasons.find(item=>item.topic===lens.id)??null,now,!qualified||Object.values(qualified.sourceReads).includes("UNAVAILABLE")));
  return <main className={desk.page} data-public-regime-watch="dated-editorial-lens-outlooks">
   <CrashEvidenceAutoRefresh/>
@@ -79,6 +89,7 @@ export default async function RegimeWatchPage(){
    <p style={{margin:"10px 0 14px",fontSize:"12px",color:"var(--bb-muted)"}}>The directional reading summarises one matched equity session. Deeper research, nine regime lenses and evidence follow below; no tape signal automatically changes a fundamental thesis.</p>
    <QqqPositioningPanel rows={qqqPosition.rows} checkedAt={qqqPosition.checkedAt} market={rows} now={now} host={host}/>
    <RegimeResearchClocks sources={observations} editorialReviewedOn={LENS_OUTLOOK_REVIEWED_ON} shadow={shadowHealth}/>
+   <InvestorMindsetBoard snapshot={investorSnapshot} assessment={investorAssessment} host={host} themes={investorThemes} receipt={investorReceipt}/>
    <Nov14ResearchTeaser host={host} compact/>
    <RegimeSignalRadar entries={signalRadar}/>
    <details className={styles.archivedOverview} data-regime-overview-editorial="collapsed-by-default">

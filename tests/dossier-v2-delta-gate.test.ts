@@ -292,6 +292,18 @@ test("Dossier delta gate returns NO_CHANGE when evidence changes but canonical S
   assert.equal(decision.newObservedEvidence, 2);
 });
 
+test("daily investor review reassesses newly observed evidence even without Story changes",()=>{
+ const currentPacket=packet();
+ currentPacket.as_of="2026-09-27T09:00:00.000Z";
+ const context={available:true,states:[],stories:[],warning:null};
+ const decision=decideDossierDelta({packet:currentPacket,previousDossier:previousDossier(),context});
+ assert.equal(decision.action,"REBASE");
+ assert.equal(decision.postIntelligenceModelCallBudget,2);
+ assert.deepEqual(decision.changedStoryIds,[]);
+ currentPacket.observed_evidence=[];
+ assert.equal(decideDossierDelta({packet:currentPacket,previousDossier:previousDossier(),context}).action,"NO_CHANGE");
+});
+
 test("A2 forces full System 2 synthesis for unadjudicated bounded Motion context", () => {
   const currentPacket = packet();
   currentPacket.motion_context = {

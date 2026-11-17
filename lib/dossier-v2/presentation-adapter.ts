@@ -72,6 +72,7 @@ export type DossierPresentationLens = {
   interpretation: string;
   evidenceRefs: string[];
   unresolvedSignals: string[];
+  previousInterpretation?: string | null;
 };
 
 export type DossierRateRegime = {
@@ -1381,7 +1382,7 @@ function calibrationSummary(
   };
 }
 
-function lensEntries(output: ResearchBrainOutputV1): DossierPresentationLens[] {
+function lensEntries(output: ResearchBrainOutputV1, previous?: ResearchBrainOutputV1 | null): DossierPresentationLens[] {
   const source = output.market_verdict.lenses ?? {};
   const known = new Set<string>();
   const result: DossierPresentationLens[] = [];
@@ -1397,6 +1398,7 @@ function lensEntries(output: ResearchBrainOutputV1): DossierPresentationLens[] {
       interpretation: lens.interpretation,
       evidenceRefs: [...lens.observed_reaction_evidence_refs],
       unresolvedSignals: [...lens.unresolved_signals],
+      previousInterpretation: previous?.market_verdict?.lenses?.[key]?.interpretation?.slice(0,350) ?? null,
     });
   };
 
@@ -1599,7 +1601,7 @@ export function buildDossierV2Presentation(
     Boolean(output.diagnostics.degraded)
     || gaps.some((gap) => gap.severity === "MATERIAL")
     || rateCoverage.state === "INSUFFICIENT";
-  const lenses = lensEntries(output);
+  const lenses = lensEntries(output, previousOutput);
   const outlook = policyOutlook(dossier);
   const reactionAssessments = system1ReactionAssessments(dossier);
   const journey = investigationJourney(output, previousOutput);

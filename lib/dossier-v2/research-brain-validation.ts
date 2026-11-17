@@ -974,7 +974,8 @@ export function validateResearchBrainOutput(
     const diagnosticsObj = isPlainObject(brainOutput.diagnostics) ? (brainOutput.diagnostics as Record<string, unknown>) : null;
     const isDegraded = Boolean(diagnosticsObj?.degraded);
 
-    for (const lensName of REQUIRED_VERDICT_LENSES) {
+    // Optional topical lenses must satisfy exactly the same evidence contract.
+    for (const lensName of new Set([...REQUIRED_VERDICT_LENSES, ...Object.keys(lenses)])) {
       const lens = lenses[lensName];
       if (!lens || !isPlainObject(lens)) {
         errors.push(`market_verdict missing required lens "${lensName}".`);

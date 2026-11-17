@@ -11,6 +11,7 @@ function selection(overrides:Record<string,unknown>={}):DossierPresentationSelec
   latestDossierId:"dossier-one",selectedAsOf:"2026-11-14T02:30:00Z",
   presentation:{
    health:{degraded:false},
+   evidenceGovernance:{items:["rate-1","chip-1"].map(evidenceId=>({evidenceId,temporalState:"ACTIVE",independentLineageCount:1,occurrenceTime:"2026-11-13T21:00:00Z",availableAt:"2026-11-13T21:01:00Z",publishedAt:[]})),conflictGroups:[]},
    header:{
     epistemicLabel:"SUPPORTED",headline:"Rates have risen while chip stocks hold up",
     whatWouldChangeMind:"Broad credit deterioration would challenge this interpretation."
@@ -50,6 +51,22 @@ test("no stale, degraded, historical or unselected reasoning is recycled as curr
   assert.deepEqual(out.rows,{});
  }
  assert.equal(projectInvestorAssessment(null,now).status,"UNAVAILABLE");
+});
+test("a rate-data coverage gap does not suppress a qualified independent chip lens",()=>{
+ const input=selection();
+ input.status="degraded_latest";
+ input.presentation!.health.degraded=true;
+ input.presentation!.evidenceGovernance!.items[0].temporalState="SUPERSEDED";
+ const out=projectInvestorAssessment(input,now);
+ assert.equal(out.status,"DEGRADED");
+ assert.equal(out.lensReviews.rates?.status,"UNRESOLVED");
+ assert.equal(out.lensReviews.chips?.status,"RESEARCHED");
+ assert.match(out.rows.chips||"",/real chip orders/);
+});
+test("a new assessment timestamp does not refresh stale underlying source dates",()=>{
+ const input=selection();
+ input.presentation!.evidenceGovernance!.items[0].occurrenceTime="2026-10-01T21:00:00Z";
+ assert.equal(projectInvestorAssessment(input,now).lensReviews.rates?.status,"UNRESOLVED");
 });
 test("Tino-style game-theory questions reuse canonical research brain and existing manual action",()=>{
  const prompt=readFileSync(new URL("../lib/dossier-v2/research-brain-prompt.ts",import.meta.url),"utf8");

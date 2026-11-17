@@ -2,6 +2,7 @@ import type {PublicMarketObservation} from "./blue-desk-public-markets";
 import type {MarketDivergenceRead} from "./bluebelly-market-divergence-watch";
 import type {MarketCompassSummary} from "./bluebelly-market-compass";
 import type {NewsBriefV1} from "./market-brief-news";
+import type {PublicSourceObservation} from "./blue-desk-source-observations-projector";
 
 /**
  * Read-only cross-asset decision prompts for the public homepage.
@@ -11,7 +12,7 @@ import type {NewsBriefV1} from "./market-brief-news";
 export type InvestorMindsetTone = "positive" | "negative" | "mixed" | "watch" | "unmeasured";
 export type InvestorMindsetSource = Readonly<{name:string;url:string}>;
 export type InvestorMindsetRow = Readonly<{
-  id:"rates"|"chips"|"breadth"|"oil"|"catalyst";
+  id:"rates"|"chips"|"breadth"|"oil"|"catalyst"|"monetisation"|"china"|"food"|"cyber"|"power"|"positioning";
   label:string;
   signal:string;
   measurement:string;
@@ -139,7 +140,7 @@ export function buildInvestorMindsetSnapshot(
   }else rows.push(missing("oil","04 / OIL & INFLATION","Is energy changing the outlook for inflation and interest rates?",
     "Confirm dated crude, physical supply and refined-product observations.","/blue-desk/regime-watch/energy"));
 
-  const latest=news.filter(x=>sourceOk(x.sourceUrl)&&sourceDate(x.occurredAt,now,2))
+  const latest=news.filter(x=>x.verification==="SOURCE_VERIFIED"&&sourceOk(x.sourceUrl)&&sourceDate(x.occurredAt,now,2)&&sourceDate(x.observedAt,now,2)&&Date.parse(x.observedAt)>=Date.parse(x.occurredAt))
     .sort((a,b)=>Date.parse(b.occurredAt)-Date.parse(a.occurredAt))[0];
   rows.push(latest?{
     id:"catalyst",label:"05 / FRESH CATALYST",signal:"SOURCE-VERIFIED EVENT",
@@ -157,4 +158,24 @@ export function buildInvestorMindsetSnapshot(
     compass.state:"UNMEASURED",
     tapeSession:compass.sourceSession&&completedUsSession(compass.sourceSession,now)?
       compass.sourceSession:null,rows};
+}
+
+// These are research questions, never source-level direction or canonical regime promotion.
+// The existing BB ingestion rails supply facts; PS need not be reachable at runtime.
+const THEMES:readonly {id:InvestorMindsetRow["id"];label:string;pattern:RegExp;question:string;test:string;href:string}[]=[
+ {id:"monetisation",label:"AI MONETISATION",pattern:/\b(?:AI|Anthropic|OpenAI|hyperscaler|cloud)\b.{0,180}\b(?:capex|capital expenditure|cash flow|revenue|IPO|funding|margin|earnings)\b/i,question:"Is capital access turning into profitable paid AI demand, or simply financing more capacity?",test:"Compare issuer capex, realised revenue, operating cash flow and debt terms; IPO demand is not profitability.",href:"/blue-desk/regime-watch/ai"},
+ {id:"china",label:"CHINA DEMAND",pattern:/\b(?:China|Chinese)\b.{0,180}\b(?:imports|refin\w+|industrial|stimulus|consumption|demand)\b/i,question:"Is China drawing down inventories temporarily, or facing weaker end demand?",test:"Compare customs import volumes, NBS refinery throughput, inventories and industrial activity.",href:"/blue-desk/regime-watch/china"},
+ {id:"food",label:"FOOD & FERTILISER",pattern:/\b(?:urea|fertili[sz]er|WASDE|grain|crop inventories|potash|phosphate)\b/i,question:"Is a real supply shortage developing, or are feedstock costs and regional spreads driving the headlines?",test:"Track nitrogen versus gas margins, phosphate input costs, actual crop inventories and realised yields; distinguish forecasts.",href:"/blue-desk/regime-watch/energy"},
+ {id:"cyber",label:"CYBER RESILIENCE",pattern:/\b(?:cyberattack|cybersecurity|malware|ransomware|Optimizely|network outage|data breach|ground stop)\b/i,question:"Are unrelated operational failures becoming systemic risk, or is resilience spending the durable opportunity?",test:"Check individual incident root causes, common indicators, duration, actual disruption and procurement; no assumed common attacker.",href:"/blue-desk/newsroom"},
+ {id:"power",label:"AI POWER INFRASTRUCTURE",pattern:/\b(?:geothermal|nuclear|power purchase|grid connection|megawatt|data cent(?:er|re) power|electricity supply)\b/i,question:"Is contracted power opening real compute capacity, or will permitting, cost and delivery delay it?",test:"Compare binding delivery dates, financed projects, commissioned MW and realised power costs.",href:"/blue-desk/regime-watch/ai"},
+ {id:"positioning",label:"MARKET REVERSAL",pattern:/\b(?:short interest|short covering|credit spreads|positioning|breadth)\b/i,question:"Is the market approaching forced covering, or is downside pressure still supported by fundamentals?",test:"Check dated exchange short-interest settlement, borrow, credit and matched breadth/SMH/QQQ closes; short volume is not short interest.",href:"/blue-desk/crash-opportunity"},
+];
+export function buildInvestorResearchThemes(news:readonly NewsBriefV1[],observations:readonly PublicSourceObservation[],now:Date):InvestorMindsetRow[]{
+ const facts=[...news.filter(n=>n.verification==="SOURCE_VERIFIED"&&sourceOk(n.sourceUrl)&&sourceDate(n.occurredAt,now,7)&&sourceDate(n.observedAt,now,7)&&Date.parse(n.observedAt)>=Date.parse(n.occurredAt)).map(n=>({title:n.headline,body:n.summary,at:n.occurredAt,name:n.sourceName,url:n.sourceUrl})),
+ ...observations.filter(o=>sourceOk(o.sourceUrl)&&sourceDate(o.eventAt,now,2)&&sourceDate(o.recordedAt,now,2)&&Date.parse(o.recordedAt)>=Date.parse(o.eventAt)).map(o=>({title:o.description,body:"",at:o.eventAt,name:o.sourceName,url:o.sourceUrl}))].sort((a,b)=>Date.parse(b.at)-Date.parse(a.at));
+ return THEMES.map(theme=>{
+  const fact=facts.find(f=>theme.pattern.test(f.title+" "+f.body));
+  if(!fact)return missing(theme.id,theme.label,theme.question,theme.test,theme.href);
+  return {id:theme.id,label:theme.label,signal:"SOURCE-VERIFIED CONTEXT",measurement:fact.title,question:theme.question,nextTest:theme.test,tone:"watch",asOf:fact.at,sources:[{name:fact.name,url:fact.url}],href:theme.href};
+ });
 }
