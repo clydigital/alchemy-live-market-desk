@@ -73,7 +73,7 @@ export const REGIME_LENS_WORKBOOKS:Record<EditorialRegimeId,LensWorkbook>={
   ],
   related:[{id:"bonds",why:"Credit conditions can raise build-out costs"},{id:"china",why:"Compute competition changes pricing power"}],
   leadHeadlinePattern:/\b(?:ai|artificial intelligence|semiconductor|nvidia|hyperscaler|gpu|capex|compute|data.cent)\b/i,
-  sourcePattern:/\b(?:artificial intelligence|ai infrastruc|hyperscaler|semiconductor|gpu|nvidia|microsoft|alphabet|google cloud|amazon web services|meta platforms|data cent(?:re|er)|capex)\b/i,
+  sourcePattern:/\b(?:artificial intelligence|ai infrastruc|hyperscaler|semiconductor|gpu|nvidia|microsoft|alphabet|google cloud|amazon web services|meta platforms|data cent(?:re|er)|capex|anthropic|openai|quaise|fervo|geothermal|optimizely|cybersecurity)\b/i,
  },
  china:{
   lead:"Lower-cost compute can expand AI use while compressing the margins of incumbents. The key is whether capability, access and actual revenue all change.",
@@ -103,7 +103,7 @@ export const REGIME_LENS_WORKBOOKS:Record<EditorialRegimeId,LensWorkbook>={
   ],
   related:[{id:"fed",why:"Energy inflation can alter the policy path"},{id:"bonds",why:"Inflation expectations affect long yields"}],
   leadHeadlinePattern:/\b(?:oil|brent|crude|diesel|distillate|lng|refining|hormuz|shipping|energy)\b/i,
-  sourcePattern:/\b(?:eia|petroleum|crude oil|distillate|diesel|refiner|refinery|brent|wti|lng|natural gas|tanker|hormuz|opec|pipeline)\b/i,
+  sourcePattern:/\b(?:eia|petroleum|crude oil|distillate|diesel|refiner|refinery|brent|wti|western canada select|lng|natural gas|tanker|hormuz|opec|pipeline|urea|ammonia|fertilisers?|fertilizers?|geothermal|quaise)\b/i,
  },
  yen:{
   lead:"Japan's policy path can alter the cost of yen funding abroad. The currency moving is only the first clue; actual carry unwinds require funding or positioning evidence.",
@@ -133,7 +133,7 @@ export const REGIME_LENS_WORKBOOKS:Record<EditorialRegimeId,LensWorkbook>={
   ],
   related:[{id:"ai",why:"Megacap technology can dominate index weighting"},{id:"bonds",why:"Financing pressure can reveal weaker businesses"}],
   leadHeadlinePattern:/\b(?:breadth|equal.weight|market participation|equity leadership|small.cap|narrow leadership)\b/i,
-  sourcePattern:/\b(?:equity breadth|equal.weight|advance.decline|s&p 500|nasdaq|small.cap|financial sector|earnings breadth|credit spread|bank provisions?)\b/i,
+  sourcePattern:/\b(?:equity breadth|equal.weight|advance.decline|s&p 500|nasdaq|small.cap|financial sector|earnings breadth|credit spread|bank provisions?|anthropic ipo|optimizely|critical infrastructure|nationwide ground stop)\b/i,
  },
  gold:{
   lead:"Gold may respond to lower real yields, central-bank reserve buying or a separate geopolitical premium. These explanations require different evidence.",

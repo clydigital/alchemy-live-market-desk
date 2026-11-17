@@ -30,6 +30,7 @@ import NvidiaEarningsDecisionWatch from "@/components/blue-desk/NvidiaEarningsDe
 import DirectionQuickRead from "@/components/blue-desk/DirectionQuickRead";
 import QuestionVerdictCard from "@/components/blue-desk/QuestionVerdictCard";
 import {getReviewedQuestions} from "@/lib/bluebelly-question-assessment-reviewed";
+import {getRegimeResearchRevisions} from "@/lib/bluebelly-regime-research-revisions";
 import BondPressureMonitor from "@/components/blue-desk/BondPressureMonitor";
 import {projectBondPressure} from "@/lib/bluebelly-bond-pressure";
 import {getRegimeDirectionPacket} from "@/lib/bluebelly-regime-direction-reads";
@@ -76,6 +77,7 @@ export default async function ResearchLensPage({params}:Props){
  const outlook=getLensOutlook(lens.id);
  const direction=getRegimeDirectionPacket(lens.id,now);
  const questionVerdicts=lens.id==="ai"?getReviewedQuestions(["ai-overall","ai-hardware","ai-cash-returns","ai-financing"],now):[];
+ const researchRevisions=getRegimeResearchRevisions(now,lens.id);
  const bondPressure=lens.id==="bonds"?projectBondPressure(marketMonitor?.rows??null,now):null;
  const viewScan=scanRegimeViews(lens.id,outlook.reviewedAt,publicTheses,sourceObservations,now);
  const latestEditorial=getRegimeEditorialUpdate(lens.id);
@@ -115,6 +117,15 @@ export default async function ResearchLensPage({params}:Props){
     </div>
    </header>
    <RegimeLiveEvidence read={liveRead} signal={liveLensSignal(lens.id,readings,rows,now)}/>
+   {researchRevisions.length?<section id="current-research-revisions" data-regime-research-revisions="source-reviewed-provisional" aria-label="Latest reviewed research and conditional watch ideas" style={{margin:"18px 0"}}>
+     <span className={styles.kicker}>17 NOV US / 18 NOV MYT · DATED RESEARCH REVISION</span>
+     <h2>What changed, and what could benefit?</h2>
+     <p>These source-reviewed questions sit alongside the live market reading. Watch ideas are conditional research, not confirmed trades or a canonical Regime change.</p>
+     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,340px),1fr))",gap:12}}>
+      {researchRevisions.map(({read,ideas})=><div key={read.id}><QuestionVerdictCard read={read} compact/>
+       <p style={{padding:"0 12px",fontSize:13}}><strong>{read.freshness==="current"?"Conditional ideas":"Historical watch ideas — recheck"}:</strong> {ideas}</p></div>)}
+     </div>
+   </section>:null}
    {lens.id==="ai"?<section id="ai-question-verdicts" data-ai-question-verdicts="source-reviewed-subsector-decisions" aria-label="AI direction questions and evidence">
      {questionVerdicts.slice(0,1).map(read=><QuestionVerdictCard key={read.id} read={read}/>)}
      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,300px),1fr))",gap:12}}>

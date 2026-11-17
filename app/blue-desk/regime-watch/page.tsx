@@ -14,6 +14,8 @@ import {groupPublicResearch,EDITORIAL_REGIME_LENSES} from "@/lib/bluebelly-edito
 import {getTopicInfluences} from "@/lib/bluebelly-topic-influence-server";
 import {getManualSweeps} from "@/lib/bluebelly-manual-sweeps";
 import {getLensOutlook,LENS_OUTLOOK_REVIEWED_ON} from "@/lib/bluebelly-regime-lens-outlook";
+import {getRegimeResearchRevisions} from "@/lib/bluebelly-regime-research-revisions";
+import {QUESTION_VERDICT_LABELS} from "@/lib/bluebelly-question-assessment";
 import {getRegimeEditorialUpdate} from "@/lib/bluebelly-regime-verified-crossasset";
 import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
 import RegimeResearchClocks from "@/components/blue-desk/RegimeResearchClocks";
@@ -109,6 +111,7 @@ export default async function RegimeWatchPage(){
    </div>
    <div className={styles.cards}>{lenses.map((lens,index)=>{
     const signal=liveLensSignal(lens.id,meterReadings,rows,now);
+    const revisions=getRegimeResearchRevisions(now,lens.id);
     return <Link key={lens.id} className={styles.card} data-research-lens={lens.id} data-lens-tone={signal.tone}
      href={blueDeskPublicHref("/blue-desk/regime-watch/"+lens.id,host)}
      aria-label={"Explore "+lens.name+" research · "+signal.label}>
@@ -123,6 +126,14 @@ export default async function RegimeWatchPage(){
         <small>{signal.sourceDate?signal.dateNote+" "+signal.sourceDate:signal.dateNote} · {signal.scope}</small>
        </div>
        <RegimeLiveCardEvidence read={liveReads[index]}/>
+       {revisions.length?<div data-regime-current-research="source-reviewed-provisional" style={{borderTop:"1px solid var(--bb-card-border)",marginTop:12,paddingTop:10}}>
+        <small className={styles.kicker}>17 NOV US / 18 NOV MYT · RESEARCH CHECK</small>
+        {revisions.map(({read})=><div key={read.id} style={{margin:"8px 0"}}>
+         <strong style={{fontSize:13}}>{read.freshness==="current"?QUESTION_VERDICT_LABELS[read.verdict]:"Needs fresh review"} · {read.question}</strong>
+         <p className={styles.lensReason}>{read.condition}</p>
+        </div>)}
+        <small>Open lens for source links, countercase, triggers and conditional ideas.</small>
+       </div>:null}
        <small className={styles.archivedContext}>HISTORICAL 30 OCT EDITORIAL · NOT THE CURRENT MARKET PROXY</small>
        <div className={styles.lensActivity} aria-label={
         scans[index].newViews.length+" new views, "+scans[index].updatedRecords.length+
