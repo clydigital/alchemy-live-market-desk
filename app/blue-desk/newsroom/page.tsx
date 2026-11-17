@@ -28,6 +28,8 @@ import {currentReviewedPublicFocus} from "@/lib/bluebelly-reviewed-public-focus"
 import desk from "../blue-desk.module.css";
 import ui from "./newsroom.module.css";
 export const dynamic="force-dynamic";
+// Keep the reviewed evidence available, but do not publish a standalone Jensen watch panel.
+const showJensenGovernanceWatch=false;
 export const metadata={title:"Newsroom | Bluebelly",description:"Source-verified markets, central-bank, AI, energy and corporate developments."};
 type Props={searchParams:Promise<{q?:string|string[];category?:string|string[];signal?:string|string[];page?:string|string[];divergence?:string|string[]}>};
 export default async function NewsroomPage({searchParams}:Props){
@@ -81,7 +83,7 @@ export default async function NewsroomPage({searchParams}:Props){
       <Link href={readerHref}>Deep Dives · Key Stories</Link>
       <a href="#newsroom-manual-sweeps">Manual research checks</a>
     </nav>
-    {isJensenGovernanceWatchWindow(now)?<JensenGovernanceWatch host={host}/>:null}
+    {showJensenGovernanceWatch&&isJensenGovernanceWatchWindow(now)?<JensenGovernanceWatch host={host}/>:null}
     {Object.values(sourceFeed.sourceReads).includes("UNAVAILABLE")?
       <p role="status">Verified-news coverage is degraded: at least one original-source reader is unavailable. This is not a confirmed quiet market.</p>:
       !news.length?<p role="status">No source-qualified news events in this reader window. This does not establish that markets are quiet.</p>:null}
