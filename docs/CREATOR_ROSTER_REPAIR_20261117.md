@@ -14,3 +14,7 @@ This patch shares the eleven approved identities between discovery, selection an
 6. The scheduled canonical desk source contract and public score readers keep their existing narrower approval scope. This PR does not expand canonical/public source admission or equate eleven discovery entries with eleven healthy/admitted feeds. Verify any later consumer expansion separately.
 
 The current local executor is unavailable. The staged SQL, source checks and tests are reviewable in this branch; no production database change, provider call, new automation or automatic publication is performed by this patch. Do not merge/deploy as an end-to-end eleven-creator repair before these gates are satisfied.
+
+## Additional legacy-claim defect verified read-only
+
+With production `standard_conforming_strings=on`, the inherited double-backslash YouTube URL regular expression does not match an ordinary valid watch URL. A read-only SQL comparison returned inherited=false and correctly escaped=true. The proposed SQL corrects only that literal's escaping while retaining the same anchored HTTPS host, exact eleven-character ID and query-tail rules. This correction is not applied to production in this PR. Current pending/retryable claims are distinct from the legacy-blocked-placeholder branch; do not assume this defect explains all missing videos.

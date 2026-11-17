@@ -81,7 +81,7 @@ begin
           and intake.video_review_status is null
           and intake.summary = 'New monitored creator video discovered; transcript collection and claim verification are pending.'
           and intake.external_id ~ '^[A-Za-z0-9_-]{11}$'
-          and intake.url ~ '^https://(www\\.)?youtube\\.com/watch\\?v=[A-Za-z0-9_-]{11}([&#].*)?$'
+          and intake.url ~ '^https://(www\.)?youtube\.com/watch\?v=[A-Za-z0-9_-]{11}([&#].*)?$'
         )
       )
     order by

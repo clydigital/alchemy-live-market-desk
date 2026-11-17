@@ -52,3 +52,14 @@ test("proposed SQL allowlist matches the TS publishers without weakening the lea
   assert.match(sql, /revoke all[\s\S]*from public, anon, authenticated/i);
   assert.match(sql, /grant execute[\s\S]*to service_role/i);
 });
+
+test("proposed legacy URL literal accepts canonical watch URLs and rejects malformed identities", () => {
+  const sql = readFileSync(new URL("../docs/sql/creator-roster-claim-repair.sql", import.meta.url), "utf8");
+  const pattern = sql.match(/intake.url ~ '([^']+)'/)?.[1];
+  assert.ok(pattern);
+  const matcher = new RegExp(pattern);
+  assert.equal(matcher.test("https://www.youtube.com/watch?v=abcdefghijk"), true);
+  assert.equal(matcher.test("https://youtube.com/watch?v=abcdefghijk&t=1s"), true);
+  assert.equal(matcher.test("https://youtube.com.evil.example/watch?v=abcdefghijk"), false);
+  assert.equal(matcher.test("https://youtube.com/watch?v=short"), false);
+});
