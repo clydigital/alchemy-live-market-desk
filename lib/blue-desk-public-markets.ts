@@ -111,6 +111,8 @@ function publicRow(row: MarketMonitorRow): PublicMarketObservation {
     changeUnit: row.type === "Rates" ? "bp" : "%",
     asOf: row.asOf,
     frequency: row.frequency,
+    ...(row.sourceName==="Yahoo Finance public daily chart (secondary; delayed)"
+      ?{dataStatus:"SOURCE_DATED_SECONDARY" as const}:{}),
     sourceName: row.sourceName,
     sourceUrl: originalSourceUrl(row.sourceUrl),
     currency: row.currency ?? null,
