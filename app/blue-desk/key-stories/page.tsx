@@ -2,6 +2,8 @@ import CurrentMarketUpdates, {EditorialUpdatedToday} from "@/components/blue-des
 import Nov14MarketInvestigation from "@/components/blue-desk/Nov14MarketInvestigation";
 import LeanWatch from "@/components/blue-desk/LeanWatch";
 import CurrentKeyStoryArticle from "@/components/blue-desk/CurrentKeyStoryArticle";
+import NvidiaCrisisStory from "@/components/blue-desk/NvidiaCrisisStory";
+import {NVIDIA_CRISIS_ID} from "@/lib/bluebelly-nvidia-crisis-editorial";
 import NovemberDeskStory from "@/components/blue-desk/NovemberDeskStory";
 import Oct30TechSelloffFeature from "@/components/blue-desk/Oct30TechSelloffFeature";
 import MidtermRallyFeature from "@/components/blue-desk/MidtermRallyFeature";
@@ -74,6 +76,11 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     data-bluebelly-editorial-reader="2026-11-14-source-reviewed">
     <BlueDeskHeader activePath="/blue-desk/key-stories"/>
     <div className={desk.content}><Nov14MarketInvestigation host={host}/></div>
+  </main>;
+  // Permanent, explicitly commissioned public editorial; no new canonical admission.
+  if(params?.feature===NVIDIA_CRISIS_ID)return <main className={desk.page} data-bluebelly-editorial-reader="nvidia-crisis-november-2026">
+    <BlueDeskHeader activePath="/blue-desk/newsroom"/>
+    <div className={desk.content}><NvidiaCrisisStory backHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/></div>
   </main>;
   // The default Watch page is intentionally compact and read-only.
   // Exact existing Story/feature/news/brief filters still use the historical
