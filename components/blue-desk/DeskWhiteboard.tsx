@@ -40,7 +40,7 @@ export default function DeskWhiteboard({
   <header className={styles.heading}>
    <div><p className={styles.kicker}>DECISION DESK / SOURCE-DATED WHITEBOARD</p>
     <h2 id="desk-whiteboard-title">What matters now?</h2></div>
-   <small>Checked <DualTimestamp value={now.toISOString()}/> · No simulated live calls</small>
+   <small>Page rendered <DualTimestamp value={now.toISOString()}/> · Source dates shown per reading</small>
   </header>
   <div className={styles.grid}>
    <article className={styles.cell} data-whiteboard-cell="market" data-compass-state={compass.state}>

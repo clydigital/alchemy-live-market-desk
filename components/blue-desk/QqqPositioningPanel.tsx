@@ -1,4 +1,5 @@
 import Link from "next/link";
+import {expectedHomeEtfSession} from "@/lib/bluebelly-home-etf-history";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
 import type {PublicMarketObservation} from "@/lib/blue-desk-public-markets";
@@ -27,7 +28,7 @@ export default function QqqPositioningPanel({rows,market,now,host,checkedAt,deta
  const change=lead?read.change:(RESEARCH_SNAPSHOT.shares/RESEARCH_SNAPSHOT.previousShares-1)*100;
  const label=!lead?"ATTRIBUTED SNAPSHOT · EXCHANGE SOURCE NOT VERIFIED":clock.state==="NEW REPORT DUE"?"SOURCE-DATED · NEW REPORT DUE":read.state;
  const tapeAge=one.session?Math.floor((+now-Date.parse(one.session+"T00:00:00Z"))/86400000):null;
- const tape=tapeAge!==null&&tapeAge>5?"TAPE DELAYED · NO CURRENT SIGNAL":qqqTapeState(one,three,five);
+ const tape=(one.session!==expectedHomeEtfSession(now)||(tapeAge!==null&&tapeAge>5))?"TAPE DELAYED · NO CURRENT SIGNAL":qqqTapeState(one,three,five);
  return <section id="qqq-positioning" data-qqq-positioning={lead?"source-dated":"attributed-fallback"} aria-label="QQQ short-interest and reversal watch" style={card}>
   <div style={{fontSize:12,color:"var(--bb-muted)",letterSpacing:1}}>POSITIONING / NASDAQ-100 ETF · {label}</div>
   <h2 style={{fontSize:"clamp(20px,3vw,28px)",margin:"7px 0"}}>QQQ short-interest &amp; reversal watch</h2>

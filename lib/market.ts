@@ -68,7 +68,7 @@ type SeriesSpec = {
 
 const HISTORY_DAYS = 470;
 const CLIENT_HISTORY_SESSIONS = 280;
-const NASDAQ_REVALIDATE = 60 * 60 * 12;
+const NASDAQ_REVALIDATE = 15 * 60;
 const OFFICIAL_REVALIDATE = 60 * 60 * 6;
 
 const CORE_NASDAQ: SeriesSpec[] = [
