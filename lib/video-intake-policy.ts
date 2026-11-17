@@ -1,12 +1,6 @@
-// Fixed creator universe for creator intelligence. Keep this list aligned with
-// discovery, the transcript worker and the creator-research workflow.
-export const TRANSCRIPT_CHANNEL_PRIORITY = [
-  "stockedup",
-  "wall-street-truth-bombs",
-  "fx-evolution",
-  "tradernick",
-  "casual-finance",
-] as const;
+import { CREATOR_CHANNEL_PRIORITY } from "./creator-roster.ts";
+
+export const TRANSCRIPT_CHANNEL_PRIORITY = CREATOR_CHANNEL_PRIORITY;
 
 const TRANSCRIPT_CHANNEL_KEYS = new Set<string>(TRANSCRIPT_CHANNEL_PRIORITY);
 

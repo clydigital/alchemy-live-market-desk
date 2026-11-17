@@ -249,9 +249,9 @@ test("only the fixed creator universe enters the browser/manual work list", () =
   assert.equal(isTranscriptChannel("fx-evolution"), true);
   assert.equal(isTranscriptChannel("tradernick"), true);
   assert.equal(isTranscriptChannel("casual-finance"), true);
-  assert.equal(isTranscriptChannel("traders-reality"), false);
+  assert.equal(isTranscriptChannel("traders-reality"), true);
   assert.equal(isTranscriptChannel("kevin-gerrity"), false);
-  assert.equal(isTranscriptChannel("clearvalue-tax"), false);
+  assert.equal(isTranscriptChannel("clearvalue-tax"), true);
 });
 
 test("YouTube ISO durations support the conservative three-minute Shorts guard", () => {

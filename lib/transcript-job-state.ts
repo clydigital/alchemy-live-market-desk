@@ -1,12 +1,8 @@
+import { CREATOR_PUBLISHERS } from "./creator-roster.ts";
+
 export const LEGACY_TRANSCRIPT_PLACEHOLDER = "New monitored creator video discovered; transcript collection and claim verification are pending.";
 
-export const TRANSCRIPT_WORKER_CREATORS = new Set([
-  "StockedUp",
-  "Wall Street Truthbombs",
-  "FX Evolution",
-  "TraderNick",
-  "Casual Finance",
-]);
+export const TRANSCRIPT_WORKER_CREATORS = new Set<string>(CREATOR_PUBLISHERS);
 
 export type TranscriptJobStatus = "pending" | "running" | "retryable" | "blocked" | "completed" | "failed";
 

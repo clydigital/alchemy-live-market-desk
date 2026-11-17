@@ -9,9 +9,15 @@ test("production discovery uses only the fixed creator universe and active FX Ev
     "stockedup",
     "wall-street-truth-bombs",
     "fx-evolution",
+    "traders-reality",
     "tradernick",
+    "real-eisman-playbook",
+    "meetkevin",
     "casual-finance",
-  ]);
+    "fireship",
+    "thewhyx",
+    "clearvalue-tax"
+]);
   assert.equal(
     XWADA_VIDEO_CHANNELS.find((channel) => channel.key === "fx-evolution")?.handle,
     "@fxevolutionvideo",
