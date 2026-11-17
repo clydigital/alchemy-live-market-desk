@@ -731,6 +731,7 @@ export async function executeAndPersistDossierV2(
     }
   }
 
+  const performedInvestorReview=!analyticalOutput;
   if (!analyticalOutput) {
     analyticalOutput = await executeResearchBrain(
       {
@@ -746,6 +747,12 @@ export async function executeAndPersistDossierV2(
     packet,
     analyticalOutput,
   );
+  const priorReview=previousDossier?.payload?.investor_lens_review as {reviewed_at?:string|null}|undefined;
+  dossierInput.payload.investor_lens_review={
+    contract_version:"investor-lens-review/1",
+    reviewed_at:performedInvestorReview?packet.as_of:priorReview?.reviewed_at??previousDossier?.as_of??null,
+    mode:performedInvestorReview?"SYNTHESIS":"CARRY_FORWARD",
+  };
 
   const propagationPlan = options.client
     ? await prepareDossierReevaluationPropagationPlan({

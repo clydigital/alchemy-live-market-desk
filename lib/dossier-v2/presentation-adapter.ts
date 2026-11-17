@@ -363,6 +363,7 @@ export type DossierPresentationV1 = {
   previousDossierId: string | null;
   asOf: string;
   createdAt: string;
+  investorReviewedAt?: string | null;
 
   health: DossierPresentationHealth;
   memory: DossierPresentationMemory;
@@ -1632,6 +1633,7 @@ export function buildDossierV2Presentation(
   return {
     contractVersion: DOSSIER_PRESENTATION_V1,
     dossierId: dossier.id,
+    investorReviewedAt: typeof (dossier.payload.investor_lens_review as {reviewed_at?:unknown}|undefined)?.reviewed_at==="string"?(dossier.payload.investor_lens_review as {reviewed_at:string}).reviewed_at:dossier.as_of,
     previousDossierId: dossier.previous_dossier_id,
     asOf: dossier.as_of,
     createdAt: dossier.created_at,

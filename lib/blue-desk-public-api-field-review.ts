@@ -62,6 +62,7 @@ export const DOSSIER_PRESENTATION_FIELD_REVIEW = {
   previousDossierId: "REVIEW_REQUIRED",
   asOf: "PUBLIC_CANDIDATE",
   createdAt: "PUBLIC_CANDIDATE",
+  investorReviewedAt: "PUBLIC_CANDIDATE",
   health: "OWNER_ONLY_TARGET",
   memory: "OWNER_ONLY_TARGET",
   header: "REVIEW_REQUIRED",

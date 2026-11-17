@@ -382,24 +382,16 @@ export function decideDossierDelta({
   const relevant = changedRelevantStates(context, priorStoryIds);
   const changedStoryIds = relevant.map((state) => state.story_id);
 
+  // A deterministic patch can advance the edition clock without running the
+  // Research Brain. Use the last actual reasoning clock, not that patch date.
+  const marker=previousDossier.payload.investor_lens_review as {reviewed_at?:string|null}|undefined;
+  const reviewedAt=marker?.reviewed_at??previousDossier.as_of;
+  const reviewAge=Date.parse(packet.as_of)-Date.parse(reviewedAt);
+  if(reviewAge>=24*3_600_000 && newObservedEvidenceCount(packet,reviewedAt)>0){
+    return {action:"REBASE",reason:"Bounded daily investor-lens reassessment: newer observed evidence requires review even without a material canonical Story transition.",previousDossierId:previousDossier.id,previousAsOf:previousDossier.as_of,changedStoryIds,newObservedEvidence:newEvidence,postIntelligenceModelCallBudget:2};
+  }
+
   if (relevant.length === 0) {
-    // A quiet Story ledger is not proof that today's market/lens evidence has
-    // been assessed. Bound the extra synthesis to one per 24 hours, and only
-    // when the canonical packet contains genuinely newer observed evidence.
-    // No fabricated Story transition, no extra scheduler, no timestamp-only
-    // refresh when sources are unchanged or absent.
-    const reviewAge = Date.parse(packet.as_of) - Date.parse(previousDossier.as_of);
-    if (reviewAge >= 24 * 3_600_000 && newEvidence > 0) {
-      return {
-        action: "REBASE",
-        reason: "Bounded daily investor-lens reassessment: newer observed evidence requires review even without a material canonical Story transition.",
-        previousDossierId: previousDossier.id,
-        previousAsOf: previousDossier.as_of,
-        changedStoryIds: [],
-        newObservedEvidence: newEvidence,
-        postIntelligenceModelCallBudget: 2,
-      };
-    }
     return {
       action: "NO_CHANGE",
       reason: newEvidence > 0

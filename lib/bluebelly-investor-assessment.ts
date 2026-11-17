@@ -33,10 +33,10 @@ export function projectInvestorAssessment(
  if(!selection?.presentation||!selection.selectedAsOf||
    selection.status==="unavailable"||selection.usingFallback||
    selection.selectedDossierId!==selection.latestDossierId)return EMPTY;
- const asOf=selection.selectedAsOf;
- const age=now.getTime()-Date.parse(asOf);
- if(!Number.isFinite(age)||age<0)return EMPTY;
  const present=selection.presentation;
+ const asOf=present.investorReviewedAt??selection.selectedAsOf;
+ const age=now.getTime()-Date.parse(asOf);
+ if(!Number.isFinite(age)||age<0||Date.parse(asOf)>Date.parse(selection.selectedAsOf))return EMPTY;
  const status:InvestorAssessmentStatus=selection.status==="degraded_latest"||present.health.degraded?
    "DEGRADED":age>30*3_600_000?"STALE":"RESEARCHED";
  const rows:Partial<Record<InvestorMindsetRow["id"],string>>={};

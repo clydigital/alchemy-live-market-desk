@@ -68,6 +68,14 @@ test("a new assessment timestamp does not refresh stale underlying source dates"
  input.presentation!.evidenceGovernance!.items[0].occurrenceTime="2026-10-01T21:00:00Z";
  assert.equal(projectInvestorAssessment(input,now).lensReviews.rates?.status,"UNRESOLVED");
 });
+test("a deterministic edition refresh cannot advance the actual reasoning clock",()=>{
+ const input=selection();
+ input.presentation!.investorReviewedAt="2026-11-12T02:30:00Z";
+ const out=projectInvestorAssessment(input,now);
+ assert.equal(out.status,"STALE");
+ assert.equal(out.asOf,"2026-11-12T02:30:00Z");
+ assert.deepEqual(out.rows,{});
+});
 test("Tino-style game-theory questions reuse canonical research brain and existing manual action",()=>{
  const prompt=readFileSync(new URL("../lib/dossier-v2/research-brain-prompt.ts",import.meta.url),"utf8");
  const handoff=readFileSync(new URL("../lib/dossier-post-research-trigger.ts",import.meta.url),"utf8");
