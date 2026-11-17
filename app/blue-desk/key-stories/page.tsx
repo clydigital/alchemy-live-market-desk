@@ -4,6 +4,8 @@ import LeanWatch from "@/components/blue-desk/LeanWatch";
 import CurrentKeyStoryArticle from "@/components/blue-desk/CurrentKeyStoryArticle";
 import NvidiaCrisisStory from "@/components/blue-desk/NvidiaCrisisStory";
 import {NVIDIA_CRISIS_ID} from "@/lib/bluebelly-nvidia-crisis-editorial";
+import FaaCrisisStory from "@/components/blue-desk/FaaCrisisStory";
+import {FAA_CRISIS_ID} from "@/lib/bluebelly-faa-crisis-editorial";
 import NovemberDeskStory from "@/components/blue-desk/NovemberDeskStory";
 import Oct30TechSelloffFeature from "@/components/blue-desk/Oct30TechSelloffFeature";
 import MidtermRallyFeature from "@/components/blue-desk/MidtermRallyFeature";
@@ -81,6 +83,11 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
   if(params?.feature===NVIDIA_CRISIS_ID)return <main className={desk.page} data-bluebelly-editorial-reader="nvidia-crisis-november-2026">
     <BlueDeskHeader activePath="/blue-desk/newsroom"/>
     <div className={desk.content}><NvidiaCrisisStory backHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/></div>
+  </main>;
+  // Permanent, explicitly commissioned public editorial; no canonical admission.
+  if(params?.feature===FAA_CRISIS_ID)return <main className={desk.page} data-bluebelly-editorial-reader="faa-crisis-november-2026">
+    <BlueDeskHeader activePath="/blue-desk/newsroom"/>
+    <div className={desk.content}><FaaCrisisStory backHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/></div>
   </main>;
   // The default Watch page is intentionally compact and read-only.
   // Exact existing Story/feature/news/brief filters still use the historical
