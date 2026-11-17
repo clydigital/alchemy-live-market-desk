@@ -1,3 +1,4 @@
+import {expectedHomeEtfSession} from "./bluebelly-home-etf-history.ts";
 import type {MarketDivergenceRead} from "./bluebelly-market-divergence-watch.ts";
 
 export type CompassState="RISK_ON"|"MIXED"|"RISK_OFF"|"UNMEASURED";
@@ -31,7 +32,7 @@ function usableSession(date:string|null,now:Date):boolean{
  const time=Date.parse(date+"T00:00:00Z");
  if(!Number.isFinite(time)||new Date(time).toISOString().slice(0,10)!==date)return false;
  const age=now.getTime()-time;
- return age>=0&&age<=6*DAY&&completedUSSession(date,now);
+ return age>=0&&age<=6*DAY&&completedUSSession(date,now)&&date===expectedHomeEtfSession(now);
 }
 
 /** An observed 1D ETF-tape summary, NOT a fundamental or canonical Regime verdict.
