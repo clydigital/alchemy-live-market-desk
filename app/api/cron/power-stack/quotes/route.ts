@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { trackedFromSnapshot } from "@/lib/power-stack-quote-routing";
+import { fetchStooqDailyClose, type DailyClose } from "@/lib/providers/stooq-daily-close";
 import { readISahamQuote, readISahamUsage, type ISahamQuote } from "@/lib/providers/isaham";
 
 export const dynamic = "force-dynamic";
@@ -83,6 +84,16 @@ export async function GET(request: Request) {
       .filter(row => row.last !== null && row.last > 0 && row.asOf
         && row.frequency === "daily" && row.sourceName && row.sourceUrl)
       .map(row => [row.symbol.toUpperCase(), row]));
+    // Low-cost fallback: US-listed candidates absent from the primary daily monitor.
+    // Limit concurrency to avoid hammering a public historical-data endpoint.
+    const missingUs = [...new Set(ownerItems.flatMap(({tracked}) => tracked
+      .filter(item => !item.bursaSymbol && !indexed.has(item.ticker) && /^[A-Z][A-Z0-9-]{0,11}$/.test(item.ticker))
+      .map(item => item.ticker)))].slice(0,50);
+    const fallback = new Map<string,DailyClose>();
+    for(let i=0;i<missingUs.length;i+=4) {
+      const batch=await Promise.all(missingUs.slice(i,i+4).map(async ticker => ({ticker,quote:await fetchStooqDailyClose(ticker)})));
+      for(const {ticker,quote} of batch) if(quote) fallback.set(ticker,quote);
+    }
     let written=0, missing=0, bursaSaved=0, bursaSkippedRecently=0;
     const missingTickers = new Set<string>();
     const staleTickers = new Set<string>();
@@ -103,7 +114,13 @@ export async function GET(request: Request) {
           }];
         }
         const row=indexed.get(item.ticker);
-        if(!row || row.last===null || !row.asOf){missing++;missingTickers.add(item.ticker);return [];}
+        if(!row || row.last===null || !row.asOf){
+          const alt=fallback.get(item.ticker);
+          if(alt) return [{owner_user_id:owner,ticker:item.ticker,observed_on:alt.observedOn,
+            price:alt.price,currency:"USD",source_name:alt.sourceName,source_url:alt.sourceUrl,
+            timestamp_basis:"source_observation",source_recorded_at:null}];
+          missing++;missingTickers.add(item.ticker);return [];
+        }
         const observedOn=row.asOf.slice(0,10);
         if(!/^\d{4}-\d{2}-\d{2}$/.test(observedOn)){missing++;missingTickers.add(item.ticker);return [];}
         if (Date.parse(observedOn + "T00:00:00Z") < freshThreshold) staleTickers.add(item.ticker);
@@ -127,6 +144,8 @@ export async function GET(request: Request) {
       bursaProviderStatus:usage?.status??(bursa.length?"cached":"no_eligible_symbols"),
       bursaProviderFailureCode:usage?.failureCode??null,
       bursaTokenDiagnostic:usage?.tokenDiagnostic??(bursa.length?"NOT_CHECKED":"NO_BURSA_SYMBOLS"),
+      fallbackCandidatesChecked:missingUs.length,
+      fallbackQuotesRecovered:fallback.size,
       symbolsWithoutSupportedQuotes:missing,
       missingTickers:[...missingTickers].sort(),
       staleTickers:[...staleTickers].sort(),
