@@ -84,11 +84,15 @@ export async function GET(request: Request) {
         && row.frequency === "daily" && row.sourceName && row.sourceUrl)
       .map(row => [row.symbol.toUpperCase(), row]));
     let written=0, missing=0, bursaSaved=0, bursaSkippedRecently=0;
+    const missingTickers = new Set<string>();
+    const staleTickers = new Set<string>();
+    const freshThreshold = Date.now() - 4 * 86400000;
     for (const {owner,tracked} of ownerItems) {
       const observations = tracked.flatMap<QuoteObservation>(item => {
         if(item.bursaSymbol) {
           const quote=cachedBursa.get(item.bursaSymbol);
-          if(!quote){ missing++; return []; }
+          if(!quote){ missing++; missingTickers.add(item.ticker); return []; }
+          if (Date.parse(quote.observedOn + 'T00:00:00Z') < freshThreshold) staleTickers.add(item.ticker);
           if(recentForOwner.has(owner+"/"+item.ticker)){bursaSkippedRecently++;return [];}
           bursaSaved++;
           return [{
@@ -99,9 +103,10 @@ export async function GET(request: Request) {
           }];
         }
         const row=indexed.get(item.ticker);
-        if(!row || row.last===null || !row.asOf){missing++;return [];}
+        if(!row || row.last===null || !row.asOf){missing++;missingTickers.add(item.ticker);return [];}
         const observedOn=row.asOf.slice(0,10);
-        if(!/^\d{4}-\d{2}-\d{2}$/.test(observedOn)){missing++;return [];}
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(observedOn)){missing++;missingTickers.add(item.ticker);return [];}
+        if (Date.parse(observedOn + "T00:00:00Z") < freshThreshold) staleTickers.add(item.ticker);
         return [{
           owner_user_id:owner,ticker:item.ticker,observed_on:observedOn,
           price:row.last,currency:"USD",source_name:row.sourceName,
@@ -122,7 +127,11 @@ export async function GET(request: Request) {
       bursaProviderStatus:usage?.status??(bursa.length?"cached":"no_eligible_symbols"),
       bursaProviderFailureCode:usage?.failureCode??null,
       bursaTokenDiagnostic:usage?.tokenDiagnostic??(bursa.length?"NOT_CHECKED":"NO_BURSA_SYMBOLS"),
-      symbolsWithoutSupportedQuotes:missing,providerSnapshotAt:monitor.updatedAt,
+      symbolsWithoutSupportedQuotes:missing,
+      missingTickers:[...missingTickers].sort(),
+      staleTickers:[...staleTickers].sort(),
+      quoteFreshnessPolicy:'source observation within 4 calendar days (weekends/holidays may require review)',
+      providerSnapshotAt:monitor.updatedAt,
       note:"iSaham timestamps are upstream refresh batches, NOT last trade times. Free-tier quota is checked before calls."
     });
   } catch {
