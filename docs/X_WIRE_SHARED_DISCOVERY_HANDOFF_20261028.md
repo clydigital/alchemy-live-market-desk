@@ -37,3 +37,7 @@ The user requested **@BeginnerTrades** (https://x.com/BeginnerTrades/) as a 13th
 ## 6 November 2026 roster addition
 
 The user requested **@OddStats** (https://x.com/OddStats) as a 14th attributed discovery account. Add it to the existing private X Wire and public-safe MacroPulse discovery roster with a `statistics` focus, plus an idempotent `unconfigured` registration in `x_wire_accounts`. Preserve the existing source budgets, excluded handle, checkpoints, privacy and no-new-scheduler boundary. The user-provided profile URL is not proof of live FxEmbed retrieval or the accuracy of any post's statistics. Confirm provider identity, exact original post IDs, dated metrics and external primary evidence before interpreting or publishing a claim; separately verify migration application, production scan, and downstream handoff.
+
+## 18 November 2026 roster addition
+
+The user requested [@DrJStrategy](https://x.com/DrJStrategy) as the 15th attributed X Wire discovery account. Register it idempotently in `x_wire_accounts` and add it to `X_CORE_ROSTER` under the ordinary markets focus. Existing collector, retry policy, source budgets, private ledger and public-safe MacroPulse handoff remain unchanged. Social posts are unverified leads; initial registration is not proof of live provider retrieval, source health or claim accuracy. No new scheduler.
