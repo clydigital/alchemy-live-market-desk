@@ -1,0 +1,28 @@
+name: Supabase daily keepalive
+on:
+  schedule:
+    # Daily 03:20 UTC (11:20 MYT). External to Supabase.
+    - cron: '20 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-daily-keepalive
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Verify live database read
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 25 \
+            --retry 2 --retry-delay 10 \
+            --header 'Cache-Control: no-cache' \
+            'https://bluebelly-desk.vercel.app/api/health/supabase-keepalive' \
+            | grep -q '"database":"reachable"'
