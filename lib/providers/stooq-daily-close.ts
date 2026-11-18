@@ -6,7 +6,9 @@ export type DailyClose = {price:number;observedOn:string;sourceUrl:string;source
 export async function fetchStooqDailyClose(ticker:string, now=new Date()):Promise<DailyClose|null> {
   if(!/^[A-Z][A-Z0-9.-]{0,11}$/.test(ticker) || ticker.includes(".")) return null;
   const symbol=ticker.toLowerCase()+".us";
-  const url="https://stooq.com/q/d/l/?s="+encodeURIComponent(symbol)+"&i=d";
+  const from=new Date(now.getTime()-9*86400000).toISOString().slice(0,10).replace(/-/g,"");
+  const to=now.toISOString().slice(0,10).replace(/-/g,"");
+  const url="https://stooq.com/q/d/l/?s="+encodeURIComponent(symbol)+"&i=d&d1="+from+"&d2="+to;
   try {
     const res=await fetch(url,{headers:{"Accept":"text/csv","User-Agent":"BluebellyResearch/1.0 (daily historical close)"},signal:AbortSignal.timeout(7000),cache:"no-store"});
     if(!res.ok) return null;
