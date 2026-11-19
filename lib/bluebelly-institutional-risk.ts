@@ -73,7 +73,9 @@ export function buildInstitutionalRisk(volatility: readonly (Series | null)[], m
       label: spec.label, symbol: spec.symbol, asOf, expected, state, sourceUrl,
       var95: value === null ? null : impliedVar(value), var99: value === null ? null : impliedVar(value, Z99),
       change1d: relative(previous), change5d: relative(week),
-      percentile: value !== null && consecutive(history, 252) ? 100 * history.filter(p => p.value <= value).length / history.length : null,
+      // Exactly 252 genuine source observations. Older years may predate our
+      // verified exchange holiday calendar; do not mistake holidays for gaps.
+      percentile: value !== null && history.length === 252 ? 100 * history.filter(p => p.value <= value).length / history.length : null,
       capacity5d: value !== null && week !== null ? 100 * (week / value - 1) : null,
       realised: eligible ? realised20(market.find(row => row.id === spec.asset), expected, asOf) : null,
       realisedLabel: spec.realisedLabel,

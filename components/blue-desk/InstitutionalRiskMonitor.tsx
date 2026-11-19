@@ -19,7 +19,7 @@ export default function InstitutionalRiskMonitor({ rows }: { rows: readonly Inst
           <dl className={s.metrics}>
             <div><dt>1-session VaR change</dt><dd>{signed(row.change1d)}</dd></div>
             <div><dt>5-session VaR change</dt><dd>{signed(row.change5d)}</dd></div>
-            <div><dt>252-session risk percentile</dt><dd>{number(row.percentile, 0)}</dd></div>
+            <div><dt>252-observation risk percentile</dt><dd>{number(row.percentile, 0)}</dd></div>
             <div><dt>5D fixed-risk exposure capacity</dt><dd>{signed(row.capacity5d)}</dd></div>
             <div><dt>20-session realised VaR</dt><dd>{number(row.realised?.var95 ?? null)}</dd></div>
           </dl>
@@ -29,6 +29,6 @@ export default function InstitutionalRiskMonitor({ rows }: { rows: readonly Inst
         </article>;
       })}
     </div>
-    <details className={s.method}><summary>How to interpret this</summary><p>Implied VaR uses the 30-day option-implied annual volatility index × 1.645 (95%) or 2.326 (99%) ÷ √252. Realised VaR uses the standard deviation of 20 completed daily log returns × 1.645. Both are zero-drift normal-distribution approximations. The 252-session percentile compares implied risk with its preceding year of source observations, including the latest close.</p><p>Fixed-risk capacity = prior volatility ÷ latest volatility − 1. A negative number is the theoretical exposure reduction needed to maintain the same VaR budget with unchanged composition and hedging. A positive number is theoretical additional capacity, not an estimate of actual flows. Firm holdings, leverage, correlations, hedges and risk limits are unknown; this is not any firm's reported VaR, a maximum loss, or a trade signal.</p></details>
+    <details className={s.method}><summary>How to interpret this</summary><p>Implied VaR uses the 30-day option-implied annual volatility index × 1.645 (95%) or 2.326 (99%) ÷ √252. Realised VaR uses the standard deviation of 20 completed daily log returns × 1.645. Both are zero-drift normal-distribution approximations. The percentile ranks implied risk across the latest 252 available daily source observations (approximately one trading year), including the latest close.</p><p>Fixed-risk capacity = prior volatility ÷ latest volatility − 1. A negative number is the theoretical exposure reduction needed to maintain the same VaR budget with unchanged composition and hedging. A positive number is theoretical additional capacity, not an estimate of actual flows. Firm holdings, leverage, correlations, hedges and risk limits are unknown; this is not any firm's reported VaR, a maximum loss, or a trade signal.</p></details>
   </section>;
 }

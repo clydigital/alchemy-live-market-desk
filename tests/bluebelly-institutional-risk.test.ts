@@ -30,6 +30,11 @@ test("historical risk percentile uses 252 completed observations; realised risk 
   assert.ok(sp.realised && sp.realised.var95>0);
   assert.equal(sp.realised?.day,sp.asOf);
 });
+test("percentile ranks available source observations without requiring unverified older holiday schedules",()=>{
+  const vix=series("vix",[...Array(252).fill(20),24.56]);
+  vix.points.splice(5,1); // holiday beyond the verified calendar, or missing older observation
+  assert.equal(buildInstitutionalRisk([vix],[],NOW)[0].percentile,100);
+});
 test("behind and stale histories are explicit; unavailable cannot become zero or current signal",()=>{
   const [behind,missing] = buildInstitutionalRisk([series("vix",[20,24],"2026-11-17")],[],NOW);
   assert.equal(behind.state,"behind");assert.equal(behind.asOf,"2026-11-17");assert.equal(behind.expected,"2026-11-18");
