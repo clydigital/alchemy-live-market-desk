@@ -35,3 +35,12 @@ test("owner pagination has read-only server-backed selection; homepage only rece
  assert.match(aggregate,/head:true,count:"exact"/);
  assert.doesNotMatch(aggregate,/\.select\("body|\.select\("original_url|\.update\(|\.rpc\(/);
 });
+
+test("owner health distinguishes recent-window completion from archival gaps",()=>{
+ const owner=readFileSync(new URL("../lib/x-wire-owner-view.ts",import.meta.url),"utf8");
+ const page=readFileSync(new URL("../app/owner/x-wire/page.tsx",import.meta.url),"utf8");
+ assert.match(owner,/xWireFreshCheckComplete\(a,now\)\?"healthy"/);
+ assert.match(owner,/historicalGap:gap,resumePending:resume/);
+ assert.match(page,/Healthy current source checks/);
+ assert.match(page,/Historical coverage gap remains unresolved/);
+});

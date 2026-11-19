@@ -40,7 +40,7 @@ export default async function OwnerXWirePage({searchParams}:{
         </nav>
       </header>
       <div className={styles.stats}>
-        <div><strong>{wire.error?"—":wire.sourceHealthy+"/"+wire.sourceMonitored}</strong><span>Complete, fresh source checks</span></div>
+        <div><strong>{wire.error?"—":wire.sourceHealthy+"/"+wire.sourceMonitored}</strong><span>Healthy current source checks</span></div>
         <div><strong>{wire.error?"—":wire.total.toLocaleString("en-GB")}</strong><span>Posts matching the filters</span></div>
         <div><strong>{absorption?.handedToResearch48h??"—"}</strong><span>X leads handed to research · 48h</span></div>
         <div><strong>{absorption?.historicalGaps??"—"}</strong><span>Unresolved source-history gaps</span></div>
@@ -79,13 +79,13 @@ export default async function OwnerXWirePage({searchParams}:{
           </nav>:null}
         </div>
         <aside id="wire-accounts" className={styles.healthLane}>
-          <h2>Source health · {wire.accounts.length} accounts</h2>
+          <h2>Current source health · {wire.accounts.length} accounts</h2>
           <div className={styles.accounts}>{wire.accounts.map(a=><article className={styles.account} key={a.handle}>
             <div className={styles.accountTop}><strong>@{a.handle}</strong><span data-health={a.status}>{a.status.toUpperCase()}</span></div>
             <div className={styles.accountMeta}>Attempt: {clock(a.attemptedAt)} · fetched {a.lastFetched}</div>
             <div className={styles.accountMeta}>Last complete check: {clock(a.completedAt)}</div>
             <div className={styles.accountMeta}>Latest observed post: {clock(a.observedAt)}</div>
-            {a.historicalGap?<p className={styles.error}>Historical gap remains unverified. Recent posts may still be arriving.</p>:null}
+            {a.historicalGap?<p className={styles.error}>Historical coverage gap remains unresolved; this is separate from current source health.</p>:null}
             {a.resumePending?<p className={styles.accountMeta}>Continuation pending on next eligible scan</p>:null}
             {a.error?<p className={styles.error}>{a.error}</p>:null}
           </article>)}</div>
