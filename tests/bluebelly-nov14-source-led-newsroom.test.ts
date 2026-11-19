@@ -42,5 +42,8 @@ test("source-specific categories and cautions survive Newsroom projection",()=>{
 
 test("short-lived reportage does not remain in evergreen newsroom windows",()=>{
  assert.equal(reportedEditorialById("nvidia-ceo-transition-sec-2026-11-12",new Date("2026-11-20T00:00:00Z")),null);
- assert.equal(recentReportedEditorial(new Date("2026-11-21T00:00:00Z"),48).length,0);
+ assert.deepEqual(recentReportedEditorial(new Date("2026-11-21T00:00:00Z"),48).map(r=>r.id),[
+  "anthropic-ipo-pricing-debut-2026-11-19","freddie-mac-mortgage-rate-2026-11-19",
+ ]);
+ assert.equal(recentReportedEditorial(new Date("2026-11-21T18:24:01Z"),48).length,0);
 });
