@@ -2,6 +2,57 @@
   "version": 1,
   "sweeps": [
     {
+      "id": "2026-11-20-ai-amd-reported-scrutiny-lead",
+      "topic": "ai",
+      "date": "2026-11-20",
+      "researchAt": "2026-11-19T20:39:00Z",
+      "title": "AMD: reported China-link scrutiny remains an unverified lead",
+      "findings": [
+        {
+          "reason": "Reuters reported AMD shares were down about 8% intraday after a short-seller report alleged China-related links that could invite US scrutiny. Reuters could not independently verify the allegations; AMD had not immediately commented. The report's affiliated fund disclosed a short position. No wrongdoing or official inquiry is established.",
+          "sourceName": "Reuters · syndicated 19 November intraday reporting",
+          "sourceUrl": "https://www.streetinsider.com/Reuters/AMD%2Bshares%2Bslide%2Bas%2Breport%2Bsays%2BChina%2Blinks%2Bcould%2Binvite%2BUS%2Bscrutiny/27375288.html",
+          "sourcePublishedAt": "2026-11-19T17:04:00Z",
+          "status": "RESEARCH_LEAD",
+          "nextCheck": "Seek AMD's response, independently corroborated evidence and any official regulator announcement; check matched AMD/SMH returns. Do not treat the allegations, investigation or price causality as verified."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-20-ai-anthropic-priced-debut",
+      "topic": "ai",
+      "date": "2026-11-20",
+      "researchAt": "2026-11-19T20:38:00Z",
+      "title": "Anthropic IPO pricing supersedes roadshow proposal",
+      "findings": [
+        {
+          "reason": "SEC final pricing gives $83 for 980m base shares ($81.34bn gross total; $79.377bn gross primary), plus a separate $26bn committed private placement. Closing was scheduled for 20 Nov subject to conditions; this is not net cash received.",
+          "sourceName": "SEC · Anthropic final pricing communication",
+          "sourceUrl": "https://www.sec.gov/Archives/edgar/data/2130357/000162828026074937/anthropicpbc-fwppricing.htm",
+          "sourcePublishedAt": "2026-11-18",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Verify settlement, net proceeds, placement closing, option exercise and cash conversion in subsequent issuer filings."
+        }
+      ]
+    },
+    {
+      "id": "2026-11-20-housing-pmms-weekly-rate",
+      "topic": "housing",
+      "date": "2026-11-20",
+      "researchAt": "2026-11-19T20:39:00Z",
+      "title": "US mortgage rates reverse four weeks of declines",
+      "findings": [
+        {
+          "reason": "Freddie Mac's 19 November PMMS records the average 30-year fixed mortgage rate at 7.28%, up 17bp from 7.11% the previous week. This is a weekly survey average, not a live quote or Fed policy-rate change.",
+          "sourceName": "Freddie Mac · weekly PMMS",
+          "sourceUrl": "https://www.freddiemac.com/pmms",
+          "sourcePublishedAt": "2026-11-19",
+          "status": "SOURCE_CORROBORATED",
+          "nextCheck": "Compare next PMMS release, Treasury yields, mortgage spreads, purchase applications and housing activity."
+        }
+      ]
+    },
+    {
       "id": "2026-11-16-ai-anthropic-ipo-capital-test",
       "topic": "ai",
       "date": "2026-11-16",

@@ -14,6 +14,39 @@ export type ReportedEditorial={
 };
 const REPORTS:readonly ReportedEditorial[]=[
  {
+ id:"anthropic-ipo-pricing-debut-2026-11-19",
+ headline:"Anthropic prices at $83; first trade jumps, then AI risk appetite cools",
+ // Conservative availability gate: dated 19 Nov intraday reporting, not an exchange execution clock.
+ publishedAt:"2026-11-19T18:24:00.000Z",
+ publisher:"Anthropic · SEC final pricing communication · 18 November 2026",
+ sourceUrl:"https://www.sec.gov/Archives/edgar/data/2130357/000162828026074937/anthropicpbc-fwppricing.htm",
+ secondarySourceUrl:"https://www.stocktitan.net/articles/stock-market-today-live-november-19-2026",
+ secondarySourceName:"Stock Titan · 19 November intraday market reporting",
+ verificationLabel:"SEC OFFER PRICING · REPORTED INTRADAY TAPE",
+ topics:["ai","earnings"],
+ reporting:"Anthropic priced 980m base shares at $83, implying $81.34bn of gross offering value, of which $79.377bn is gross primary issuance. A separate $26bn committed private placement brings the combined gross base offering and placement to $107.34bn before fees; this is not net cash received. Closing was scheduled for 20 November subject to conditions. Reported first trade was $111.50 (+34.3% versus offer); at the 13:04 ET observation ANT was $95.80 (+15.4% versus offer) and QQQ was down 1.14% versus prior close. These are dated intraday reports, not closing prices or matched event returns.",
+ why:"The offering tests whether public capital can absorb AI-model development and compute funding at scale. An above-offer debut alongside fading intraday gains and weaker technology equities points to a useful research question about the breadth of investor appetite, not an established causal transmission from Anthropic to QQQ.",
+ countercase:"A first-day reversal from the opening trade does not erase the premium to the offer; QQQ's prior-close comparison has a different base. Financing size is not operating profitability or evidence that settlement happened. The 147m-share underwriter option remains contingent.",
+ nextTest:"Verify closing and actual net proceeds from issuer filings, option exercise and private placement completion. Compare final session and subsequent dated ANT, QQQ and SMH returns on comparable bases; revisit compute commitments and cash conversion.",
+ assetNames:["ANT","QQQ","SMH","AI INFRASTRUCTURE"],
+ },
+ {
+ id:"freddie-mac-mortgage-rate-2026-11-19",
+ headline:"US 30-year mortgage rate rises to 7.28%, ending four weeks of declines",
+ // Date-qualified weekly survey; conservative publication availability gate.
+ publishedAt:"2026-11-19T18:24:00.000Z",
+ publisher:"Freddie Mac · Primary Mortgage Market Survey · week of 19 November 2026",
+ sourceUrl:"https://www.freddiemac.com/pmms",
+ verificationLabel:"OFFICIAL FREDDIE MAC RELEASE · WEEKLY RATE",
+ topics:["bonds"],
+ reporting:"Freddie Mac's 19 November weekly survey puts the average US 30-year fixed mortgage rate at 7.28%, up from 7.11% the preceding week (17 basis points). This ends four consecutive weekly declines. The survey is a national weekly average, not a live mortgage quote or a Federal Reserve policy-rate change.",
+ why:"Higher borrowing costs can strain housing affordability and slow mortgage demand and housing-related spending. The transmission depends on long Treasury yields, mortgage spreads, household income and purchase prices; monitor those independently.",
+ countercase:"One weekly increase does not establish a new rate trend or an immediate fall in housing activity. Mortgage rates can move differently from the federal funds rate.",
+ nextTest:"Compare the next PMMS observation, dated Treasury yields and mortgage spreads, purchase applications and housing activity. Do not infer a same-day asset-price cause from this weekly survey.",
+ assetNames:["XHB","TLT","XLF"],
+ },
+
+ {
  id:"nvidia-ceo-transition-sec-2026-11-12",
  headline:"Nvidia confirms Huang exit; Kress takes interim CEO role ahead of earnings",
  // SEC 8-K accepted 12 Nov 08:52:41 UTC; underlying resignation effective 11 Nov.

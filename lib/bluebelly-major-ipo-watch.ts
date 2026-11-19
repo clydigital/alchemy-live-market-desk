@@ -81,6 +81,19 @@ export function projectMajorIpoWatch({
 }: {now?:Date;anthropicFiling?:IpoFilingObservation|null}={}): CatalystCard[] {
   const on=now.toISOString().slice(0,10);
   return WATCHLIST.filter(record=>record.milestoneDate<=on).map(record=>{
+    // Historical milestone, gated by the reviewed public debut report, never a future appointment.
+    if(record.id==="anthropic" && now.getTime()>=Date.parse("2026-11-19T18:24:00Z")){
+      return {
+        id:"ipo:anthropic",lane:"ipo",title:"Anthropic · ANT",
+        date:null,startAt:null,timePrecision:"tbc",timeLabel:"Trading debut reported 19 Nov · historical milestone",
+        sourceUrl:"https://www.sec.gov/Archives/edgar/data/2130357/000162828026074937/anthropicpbc-fwppricing.htm",
+        sourceName:"SEC EDGAR · final offer pricing (18 Nov)",
+        certainty:"reported",status:"IPO priced $83 · 18 Nov; first trade reported $111.50 · 19 Nov",
+        ticker:null,country:null,affectedAssets:record.affectedAssets,
+        why:"Pricing is SEC-filed; first trade is attributed to 19 November market reporting. Closing was scheduled for 20 Nov subject to conditions, not confirmed here. Next check: actual closing, net proceeds and subsequent session returns.",
+        priority:record.priority,signalOnly:true,callTimeOnly:false,
+      };
+    }
     const observed=record.id==="anthropic" && verifiedFiling(anthropicFiling,now)
       ? anthropicFiling! : null;
     const milestone=observed

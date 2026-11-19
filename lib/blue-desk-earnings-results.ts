@@ -35,6 +35,49 @@ export type VerifiedEarningsScorecard = {
 };
 
 const PRIMARY_RESULTS: readonly VerifiedEarningsScorecard[] = [
+  {
+    id:"wmt-fy2027q3",ticker:"WMT",company:"Walmart",fiscalPeriod:"FY2027 Q3",
+    releaseDay:"2026-11-19",availableNotBefore:"2026-11-19T18:24:00Z",
+    sourceName:"Walmart · SEC-filed FY2027 Q3 earnings release",
+    sourceUrl:"https://www.sec.gov/Archives/edgar/data/104169/000010416926000168/earningsreleasefy27q3.htm",
+    additionalSourceUrl:"https://www.sec.gov/Archives/edgar/data/104169/000010416926000168/earningspresentationfy27.htm",
+    basis:"Issuer quarterly results; GAAP reported revenue and operating income; separately labelled constant-currency and adjusted measures",
+    headline:"Walmart grows revenue 5.2% and raises its full-year outlook",
+    beatMiss:"Enterprise constant-currency net sales growth of 4.4% exceeded management's 3–3.75% guidance range; this is company guidance, not a frozen pre-release analyst consensus. Revenue growth is a separate measure.",
+    beatSource:"company_guidance",
+    metrics:[
+      {name:"Revenue",value:"+5.2% YoY",comparison:"+4.5% constant currency; global eCommerce +17%",state:"measured"},
+      {name:"Operating profit / margin",value:"+16% YoY operating income",comparison:"Adjusted operating income +5.5% constant currency",state:"measured",note:"Reported and adjusted constant-currency growth are distinct measures."},
+      {name:"Free cash flow",value:null,comparison:null,state:"not_verified",note:"Matched standalone quarterly cash flow not reconciled in this scorecard."},
+      {name:"Capital expenditure",value:null,comparison:null,state:"not_verified",note:"Matched standalone quarterly cash capex not reconciled; do not substitute year-to-date figures."},
+    ],
+    outlook:"FY2027 adjusted EPS guidance $2.84–2.89 and constant-currency net sales growth 4.9–5.2%. Q3 GAAP EPS $0.62; adjusted EPS $0.65.",
+    conclusion:"US comparable sales excluding fuel grew 2.9%, versus 2.6% in Q2, with transactions +1.5% and average ticket +1.4%. This adds evidence on consumer spending, but one retailer's share gains are not a whole-economy consumption measure.",
+    nextTest:"Compare next quarter's US traffic, ticket, gross and operating margins, eCommerce economics and matched quarterly cash generation.",
+    preliminary:false,
+  },
+  {
+    id:"panw-fy2027q1",ticker:"PANW",company:"Palo Alto Networks",fiscalPeriod:"FY2027 Q1",
+    releaseDay:"2026-11-18",availableNotBefore:"2026-11-19T00:00:00Z",
+    sourceName:"Palo Alto Networks · FY2027 Q1 issuer earnings release",
+    sourceUrl:"https://investors.paloaltonetworks.com/news-releases/news-release-details/palo-alto-networks-reports-fiscal-first-quarter-2027-financial",
+    additionalSourceUrl:"https://investors.paloaltonetworks.com/news-releases/news-release-details/palo-alto-networks-acquire-applied-compute-bringing-secure-open",
+    basis:"Issuer quarterly results; GAAP revenue and operating income; issuer-defined adjusted free cash flow",
+    headline:"Palo Alto Networks revenue jumps 39%, while GAAP operating income falls",
+    beatMiss:"No frozen, same-basis pre-release analyst consensus verified; the growth comparisons are issuer-reported year-on-year results.",
+    beatSource:"unavailable",
+    metrics:[
+      {name:"Revenue",value:"$3.445bn",comparison:"vs $2.474bn a year earlier · +39.2%",state:"measured"},
+      {name:"Operating profit / margin",value:"$96m GAAP operating income",comparison:"vs $309m a year earlier",state:"measured"},
+      {name:"Free cash flow",value:"$1.9bn adjusted FCF",comparison:"vs $1.7bn a year earlier",state:"measured",note:"Issuer-defined adjusted measure; not unadjusted GAAP cash flow."},
+      {name:"Capital expenditure",value:null,comparison:null,state:"not_verified",note:"Matched quarterly cash capex not separately reconciled."},
+    ],
+    outlook:"FY2027 revenue guidance $14.52–14.57bn; quarterly non-GAAP EPS $1.05 versus $0.93. The separately announced Applied Compute acquisition is proposed, not a completed transaction.",
+    conclusion:"Rapid top-line growth and adjusted cash generation coexist with a decline in GAAP operating profit. Separate acquisition effects, integration costs and underlying organic profitability before inferring durable operating leverage.",
+    nextTest:"Reconcile GAAP and adjusted expenses, organic growth and cash-flow adjustments; verify acquisition closing and subsequent results.",
+    preliminary:false,
+  },
+
   // Original AMD 3 Nov after-close issuer release and SEC 8-K; editor-reviewed
   // Chart Watch context is kept outside this canonical scorecard source list.
   {
