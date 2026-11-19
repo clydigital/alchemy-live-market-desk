@@ -14,14 +14,18 @@
 @keyframes bb-radar-sweep{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.sweep{animation:none;opacity:0}}
 
-/* Independent horizontal scan: a single solid line, clipped to the circle. */
-.scanline{position:absolute;inset:1px;z-index:0;border-radius:50%;overflow:hidden;pointer-events:none}
+/* Independent horizontal scan: above the entire radar, with sidebar-style fading edges. */
+.scanline{position:absolute;inset:1px;z-index:3;border-radius:50%;overflow:hidden;pointer-events:none}
 .scanline::before{
   content:"";position:absolute;left:0;right:0;top:-1px;height:1px;
-  background:var(--bb-command-alt);opacity:.65;
+  background:linear-gradient(90deg,transparent,var(--bb-command-alt),transparent);opacity:.45;
   animation:bb-radar-scanline 12s linear infinite;
 }
-@keyframes bb-radar-scanline{from{top:-1px}to{top:100%}}
+@keyframes bb-radar-scanline{
+  0%{top:-1px;opacity:0}
+  10%,80%{opacity:.45}
+  100%{top:100%;opacity:0}
+}
 @media(prefers-reduced-motion:reduce){.scanline{display:none}}
 
 /* Blips are physically hidden until the actual sweep clock detects them. */
