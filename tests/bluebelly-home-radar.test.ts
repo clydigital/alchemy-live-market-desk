@@ -36,3 +36,10 @@ test("shortcut pulses peak at the sweep head and lead to their respective pages"
   assert.match(css, /\.orbitNodeA,\.orbitNodeB,\.orbitNodeC\{[^}]+bb-home-radar-contact var\(--radar-period\) linear infinite/);
   assert.doesNotMatch(css.match(/\.orbitNodeA:hover,\.orbitNodeB:hover,\.orbitNodeC:hover\{([^}]+)\}/)![1], /animation/);
 });
+
+test("radar highlights share the scanner head colour and linger twice as long after contact", () => {
+  const scanner = readFileSync("components/blue-desk/radar-sweep.module.css", "utf8");
+  assert.match(scanner, /color-mix\(in srgb,var\(--bb-command-alt\) 70%,transparent\) 357deg/);
+  assert.match(css, /0%,14%,100%\{background:#071922/);
+  assert.match(css, /2%,8%\{background:var\(--bb-command-alt\);color:#071017;border-color:var\(--bb-command-alt\);box-shadow:[^}]+var\(--bb-command-alt\)/);
+});
