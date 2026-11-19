@@ -48,6 +48,7 @@ function realised20(series: Series | null | undefined, expected: string | null, 
 export type InstitutionalRiskRow = {
   label: string; symbol: string; asOf: string | null; expected: string | null;
   state: "current" | "behind" | "unavailable"; sourceUrl: string;
+  volatility: number | null; volatilityChange1d: number | null;
   var95: number | null; var99: number | null; change1d: number | null; change5d: number | null;
   percentile: number | null; capacity5d: number | null;
   realised: ReturnType<typeof realised20>; realisedLabel: string;
@@ -71,6 +72,7 @@ export function buildInstitutionalRisk(volatility: readonly (Series | null)[], m
     const relative = (prior: number | null) => value !== null && prior !== null ? 100 * (value / prior - 1) : null;
     return {
       label: spec.label, symbol: spec.symbol, asOf, expected, state, sourceUrl,
+      volatility: value, volatilityChange1d: value !== null && previous !== null ? value - previous : null,
       var95: value === null ? null : impliedVar(value), var99: value === null ? null : impliedVar(value, Z99),
       change1d: relative(previous), change5d: relative(week),
       // Exactly 252 genuine source observations. Older years may predate our

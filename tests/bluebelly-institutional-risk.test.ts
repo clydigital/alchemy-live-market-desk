@@ -22,6 +22,8 @@ test("known VIX and VXN closes produce the stated daily VaR estimates",()=>{
   assert.equal(sp.change5d?.toFixed(1),"40.4");
   assert.equal(sp.capacity5d?.toFixed(1),"-28.8");
   assert.equal(sp.change1d?.toFixed(1),"-3.5");
+  assert.equal(sp.volatility,24.56);
+  assert.equal(sp.volatilityChange1d?.toFixed(2),"-0.90");
   assert.equal(sp.percentile,null);
 });
 test("historical risk percentile uses 252 completed observations; realised risk uses matched 20-return history",()=>{

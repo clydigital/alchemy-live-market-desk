@@ -7,6 +7,7 @@ import MarketConditionsBoard from "@/components/blue-desk/MarketConditionsBoard"
 import InstitutionalRiskMonitor from "@/components/blue-desk/InstitutionalRiskMonitor";
 import {loadVolatilityAnchors} from "@/lib/market-monitor";
 import {buildInstitutionalRisk} from "@/lib/bluebelly-institutional-risk";
+import {buildFedRateWatch,nextFomcDecision} from "@/lib/bluebelly-next-rate-decision";
 import InvestorMindsetBoard from "@/components/blue-desk/InvestorMindsetBoard";
 import DeskWhiteboard from "@/components/blue-desk/DeskWhiteboard";
 import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
@@ -195,7 +196,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
           <Nov14ResearchTeaser host={host} compact/>
           <DeskWhiteboard compass={marketCompass} news={verifiedNews} theses={theses}
             upcoming={upcoming} now={now} host={host}/>
-          <InstitutionalRiskMonitor rows={buildInstitutionalRisk(volatility,monitor?.rows??[],now)}/>
+          <InstitutionalRiskMonitor rows={buildInstitutionalRisk(volatility,monitor?.rows??[],now)} rates={buildFedRateWatch(monitor?.rows??[],now)} nextDecision={nextFomcDecision(calendar.events,now)}/>
           <CreatorIntelligencePanel rows={qqqPosition.rows} market={marketRows} now={now} host={host}/>
           <InvestorMindsetBoard snapshot={investorMindset} assessment={investorAssessment} host={host} themes={investorThemes} receipt={investorReceipt}/>
            <MarketConditionsBoard market={marketRows} breadth={breadth50} jobs={jobs}

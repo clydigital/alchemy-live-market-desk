@@ -14,3 +14,23 @@
 .source{display:block;overflow-wrap:anywhere}.source a{color:var(--bb-accent)}
 .method{margin-top:10px;color:var(--bb-muted);font-size:11px;line-height:1.5}.method summary{cursor:pointer;color:var(--bb-accent);font-weight:800}.method p{margin:8px 0 0}
 @media(max-width:650px){.grid{grid-template-columns:1fr}.shell{padding:10px}.primary strong{font-size:28px}}
+
+/* Risk radar: the ring is a historical percentile, not a loss-probability scale. */
+.shell{padding:clamp(14px,2vw,24px);border-color:var(--bb-command-edge);background:radial-gradient(ellipse at 14% 0%,#12303a 0%,transparent 48%),linear-gradient(145deg,#0a1a23,#071219);color:var(--bb-text)}
+.head{padding-bottom:14px;border-color:var(--bb-command-edge);margin-bottom:16px}.kicker{color:var(--bb-command-accent);font-size:11px}.head h2{font-size:clamp(19px,2.2vw,29px);letter-spacing:-.035em}
+.note,.source{color:#a9c3ce}.note{display:flex;align-items:center;gap:7px}.note i{background:var(--bb-command-alt);width:6px;height:6px;border-radius:50%;box-shadow:0 0 9px var(--bb-command-alt)}
+.grid{gap:1px;background:var(--bb-command-edge);border:1px solid var(--bb-command-edge)}
+.card{--risk-tone:#8ca6b2;background:#0b1c25;padding:clamp(12px,1.6vw,20px);border:0}
+.card[data-risk-tone="pressure"]{--risk-tone:#f8b05a}.card[data-risk-tone="easing"]{--risk-tone:#36c49b}.card[data-risk-tone="flat"]{--risk-tone:#a5cbd8}
+.card h3{font-size:18px}.card h3 small{color:var(--bb-command-alt)}.status{letter-spacing:.04em}
+.primary{display:grid;grid-template-columns:minmax(100px,150px) minmax(0,1fr);align-items:center;gap:clamp(10px,1.4vw,20px);margin:18px 0}
+.dial{position:relative;aspect-ratio:1;min-width:0;display:grid;place-items:center}.dial svg{position:absolute;inset:0;width:100%;height:100%;fill:none;overflow:visible}.ticks{stroke:#42616f;stroke-width:2;stroke-dasharray:1 4}.track{stroke:#294652;stroke-width:9}.arc{stroke:var(--risk-tone);stroke-width:9;stroke-linecap:butt;filter:drop-shadow(0 0 4px color-mix(in srgb,var(--risk-tone) 45%,transparent))}
+.dialValue{display:grid;justify-items:center;gap:5px;position:relative}.dialValue strong{font:900 clamp(22px,3vw,36px)/1 var(--bb-display);letter-spacing:-.04em;font-variant-numeric:tabular-nums}.dialValue span{font:800 9px/1.4 var(--bb-mono);color:#bfd4e0;text-align:center}
+.reading{min-width:0}.percentile{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.percentile strong{font:900 23px/1 var(--bb-display);color:var(--risk-tone)}.percentile span{font:650 10px/1.4 var(--bb-mono);color:#b3cad6}.reading p{font-size:13px;line-height:1.5;color:#cadce5;margin:10px 0 0}.reading .take{color:var(--risk-tone);font-weight:800}
+.volatility{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:9px 0;border-top:1px solid var(--bb-command-edge);border-bottom:1px solid var(--bb-command-edge)}.volatility a,.rate a{color:var(--bb-command-alt);font:800 10px/1.4 var(--bb-mono);text-decoration:none}.volatility strong{font:900 18px var(--bb-display);font-variant-numeric:tabular-nums}.volatility span{margin-left:auto;font:750 11px/1.4 var(--bb-mono);color:#c6dce6}
+.metrics{gap:12px;margin:12px 0}.metrics>div{border:0;padding:0}.metrics dt{color:#a9c3ce}
+.source a,.policyHead a{color:var(--bb-command-accent);text-decoration:none}
+.policy{margin-top:16px;padding-top:14px;border-top:1px solid var(--bb-command-edge)}.policyHead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.policyHead h3{font:850 19px/1.3 var(--bb-display);margin:5px 0}.policyHead a{font-size:12px;font-weight:800}.fedwatch{border:1px solid var(--bb-command-edge);padding:8px 10px}.rateGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--bb-command-edge);border:1px solid var(--bb-command-edge);margin-top:12px}.rate{background:#0b1c25;padding:12px;min-width:0}.rate>div{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:5px 0}.rate strong{font:850 23px/1.2 var(--bb-display)}.rate span{font:750 12px/1.3 var(--bb-mono);color:#d5e5ed}.rate small,.policyNote{font-size:11px;line-height:1.5;color:#a9c3ce}.policyNote{margin:9px 0 0}
+.method{margin-top:14px;padding-top:12px;border-top:1px solid var(--bb-command-edge);color:#a9c3ce}.method summary{color:var(--bb-command-accent)}
+@media(max-width:850px){.grid{grid-template-columns:1fr}.primary{grid-template-columns:132px minmax(0,1fr)}}
+@media(max-width:480px){.rateGrid{grid-template-columns:1fr}.primary{grid-template-columns:112px minmax(0,1fr)}.dialValue strong{font-size:25px}.dialValue span{font-size:8px}.reading p{font-size:12px}.volatility span{margin-left:0}}
