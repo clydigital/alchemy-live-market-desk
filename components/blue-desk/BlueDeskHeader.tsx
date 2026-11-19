@@ -28,7 +28,7 @@ const PUBLIC_NAV = [
 
 // Retained as source and historical reference tools, not parallel news products.
 const PUBLIC_MORE = [
-  ["Source Feed", "/newsroom"],
+  ["Newsroom", "/newsroom"],
   ["Research Archive", "/research"],
   ["Regime Lenses", "/regime-watch"],
   ["Hormuz Data", "/hormuz"],
@@ -38,8 +38,7 @@ const PUBLIC_MORE = [
 const NAV_ICONS: Record<string, MarketIconName> = {
   "Live Market": "market",
   "Today": "market",
-  "Newsroom": "layers",
-  "Source Feed": "research",
+  "Newsroom": "research",
   "Watch": "layers",
   "Research Archive": "library",
   "Regime Lenses": "divergence",
@@ -137,7 +136,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
           <span className={chrome.brandText}>MARKET INTELLIGENCE</span>
         </Link>
         <div className={chrome.mastRight}><ThemePreferences/><span>Markets, without the noise.</span>
-          <Link className={chrome.micro} href={blueDeskPublicHref("/blue-desk/newsroom",host)}>Source feed</Link>
+          <Link className={chrome.micro} href={blueDeskPublicHref("/blue-desk/newsroom",host)}>Newsroom</Link>
           <Link className={chrome.micro} href="/my-reports">My Desk ↗</Link>
         </div>
       </div></div>
@@ -161,7 +160,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
           </details>:null}
         </nav>
         <form action={publicHost?"/newsroom":"/blue-desk/newsroom"} method="get" className={chrome.search} role="search">
-          <input name="q" type="search" maxLength={100} aria-label="Search source feed" placeholder="Search releases, issuers, themes"/>
+          <input name="q" type="search" maxLength={100} aria-label="Search Newsroom" placeholder="Search releases, issuers, themes"/>
           <button type="submit" aria-label="Search Newsroom">⌕</button>
         </form>
       </div></div>

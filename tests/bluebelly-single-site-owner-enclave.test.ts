@@ -83,7 +83,7 @@ test("public reader links include dated Research, omit duplicate Daily Report an
  assert.match(header,/href="\/my-reports">My Desk/);
  const more=header.split("const PUBLIC_MORE = [")[1]?.split("] as const;")[0]||"";
  for(const [label,href] of [
-  ["Source Feed","/newsroom"],["Research Archive","/research"],["Hormuz Data","/hormuz"],
+  ["Newsroom","/newsroom"],["Research Archive","/research"],["Hormuz Data","/hormuz"],
   ["Regime Lenses","/regime-watch"],["Learn","/learn"],
  ]) assert.ok(more.includes('["'+label+'", "'+href+'"]'),label);
  assert.match(header,/className=\{chrome\.moreNav\}/);

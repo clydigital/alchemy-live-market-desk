@@ -16,7 +16,7 @@ test("Unstacked Bluebelly exposes three market-first utilities with owner CTA ou
   {label:"Calendar",href:"/calendar"},
   {label:"Watch",href:"/key-stories"},
  ]);
- assert.ok(navLinks("PUBLIC_MORE").some(x=>x.label==="Source Feed"&&x.href==="/newsroom"));
+ assert.ok(navLinks("PUBLIC_MORE").some(x=>x.label==="Newsroom"&&x.href==="/newsroom"));
  assert.ok(navLinks("PUBLIC_MORE").some(x=>x.label==="Research Archive"&&x.href==="/research"));
  assert.match(header,/href="\/my-reports">My Desk/);
  for(const link of navLinks("PUBLIC_NAV")){
