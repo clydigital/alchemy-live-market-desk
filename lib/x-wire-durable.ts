@@ -3,6 +3,8 @@ import { createSupabaseAdminClient } from "./supabase/admin.ts";
 import { X_CORE_ROSTER, X_SWEEP_DEFAULTS, isExcludedXWireHandle, normaliseXPostUrl, xSourceHealth, type XAccountAttempt } from "./x-sweep-core.ts";
 import { X_WIRE_PROVIDER_PAGE_SIZE, parseFxTimeline, xWireRequestWindow, xWireRecoveryAnchor, xWireNeedsRetry, xWireSearchFallbackUrl, type FxPage } from "./x-wire-pagination.ts";
 import type { XWirePost } from "./x-wire-provider.ts";
+import { permitsXResearch,xWireSourcePolicy } from "./x-wire-source-policy.ts";
+import { readXWireResearchPool } from "./x-wire-research-pool.ts";
 
 const ORIGIN = "https://api.fxtwitter.com";
 const PAGE_LIMIT = 6; // high-output accounts may need several 20-post provider pages
@@ -57,12 +59,13 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
   const claim=Array.isArray(claimRows)?claimRows[0]:null;
   if(!claim)return; // fresh lease or cooldown held by another view
   const token=String(claim.claimed_token);
+  const policy=xWireSourcePolicy(handle);
   const {data:existing}=await db.from("x_wire_accounts")
     .select("last_observed_post_at,uncovered_before").eq("handle",handle).maybeSingle();
   const anchor=xWireRecoveryAnchor(now,claim.checkpoint_at,existing?.uncovered_before ?? null,
-    X_SWEEP_DEFAULTS.recoveryLookbackHours,existing?.last_observed_post_at ?? null);
+    policy.recoveryHours,existing?.last_observed_post_at ?? null);
   const window=xWireRequestWindow(now,anchor,claim.resume_cursor,claim.resume_start_at,
-    X_SWEEP_DEFAULTS.lookbackHours,X_SWEEP_DEFAULTS.overlapMinutes,X_SWEEP_DEFAULTS.recoveryLookbackHours);
+    X_SWEEP_DEFAULTS.lookbackHours,X_SWEEP_DEFAULTS.overlapMinutes,policy.recoveryHours);
   let latest=ms(existing?.last_observed_post_at);
   const missingBefore = existing?.uncovered_before ?? (window.gap ? claim.checkpoint_at ?? window.startAt : null);
   const gapMarker = missingBefore ? {uncovered_before:missingBefore} : {};
@@ -76,13 +79,15 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
   async function persistPage(parsed:FxPage){
     fetched+=parsed.total;
     const writes=parsed.posts.map(post=>{
-      const active=kept<X_SWEEP_DEFAULTS.softLimitPerAccount &&
+      // Preserve all retrieved posts in the archive; routine squawks are not backlog work.
+      const relevant=permitsXResearch(handle,post.text);
+      const active=relevant&&kept<policy.activeCap &&
         quota.total<X_SWEEP_DEFAULTS.maxCandidatesPerRun;
       if(active){kept++;quota.total++;}
       return {
         post_id:post.id,handle,original_url:post.url,published_at:post.publishedAt,
         retrieved_at:new Date().toISOString(),body:post.text,media_urls:post.images,
-        quote_url:post.quoteUrl,intake_status:active?"discovery":"deferred",
+        quote_url:post.quoteUrl,intake_status:!relevant?"rejected":active?"discovery":"deferred",
         original_verified:false,
       };
     });
@@ -202,7 +207,7 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
       const hadPartialData=fetched>0;
       const invalidCursor=message==="Repeated pagination cursor";
       const recentlyActive404=message==="HTTP 404" && latest>0 &&
-        ms(now)-latest<=X_SWEEP_DEFAULTS.recoveryLookbackHours*3_600_000;
+        ms(now)-latest<=policy.recoveryHours*3_600_000;
       await finish(db,handle,token,{...gapMarker,
         ...(invalidCursor?{uncovered_before:missingBefore||window.startAt}:{}),
         health:invalidCursor||hadPartialData?"partial":
@@ -251,12 +256,11 @@ export async function getXWireDurable(opts:{now?:Date;fetchImpl?:typeof fetch;db
   try{
     const [source,postsRead,deferredRead,pendingRead]=await Promise.all([
       loadAccounts(db),
-      db.from("x_wire_posts").select("post_id,handle,original_url,published_at,retrieved_at,body,media_urls,quote_url,intake_status")
-        .not("handle","ilike","gordianknotdev").order("published_at",{ascending:false}).limit(250),
+      readXWireResearchPool(db,new Date(now)),
       db.from("x_wire_posts").select("post_id",{count:"exact",head:true}).eq("intake_status","deferred").not("handle","ilike","gordianknotdev"),
       db.from("x_wire_posts").select("post_id",{count:"exact",head:true}).eq("intake_status","discovery").not("handle","ilike","gordianknotdev"),
     ]);
-    if(postsRead.error||deferredRead.error||pendingRead.error)throw new Error("Backlog readback failed");
+    if(deferredRead.error||pendingRead.error)throw new Error("Backlog readback failed");
     const byHandle=new Map(source.map(x=>[x.handle.toLowerCase(),x]));
     const accounts:XAccountAttempt[]=X_CORE_ROSTER.map(x=>{
       const found=byHandle.get(x.handle.toLowerCase());
@@ -272,7 +276,7 @@ export async function getXWireDurable(opts:{now?:Date;fetchImpl?:typeof fetch;db
           found.uncovered_before ? "Unresolved historical source coverage. "+(found.last_error||"") : found.last_error)};
     });
     const posts: (XWirePost & {intakeStatus:string})[] =
-      ((postsRead.data||[]) as StoredPost[]).filter(x=>!isExcludedXWireHandle(x.handle)).map(x=>({
+      (postsRead as StoredPost[]).filter(x=>!isExcludedXWireHandle(x.handle)).map(x=>({
         id:x.post_id,url:x.original_url,handle:x.handle,publishedAt:x.published_at,
         text:x.body,images:Array.isArray(x.media_urls)?x.media_urls:[],
         quoteUrl:eligibleQuoteUrl(x.quote_url),attribution:"THIRD_PARTY_ONLY",intakeStatus:x.intake_status,
@@ -282,3 +286,4 @@ export async function getXWireDurable(opts:{now?:Date;fetchImpl?:typeof fetch;db
       notice:"Stored candidate backlog only. Complete checkpoints require exhausted pagination; 'healthy' is provider coverage, not independent X or market-claim verification."};
   }catch(e){return unavailable(safeError(e));}
 }
+

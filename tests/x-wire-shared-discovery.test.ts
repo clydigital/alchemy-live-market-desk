@@ -80,10 +80,13 @@ test("public reader is narrowly whitelisted; raw owner Wire stays private",()=>{
  assert.equal(blueDeskHostAccess("/owner/x-wire","bluebelly-desk.vercel.app"),"private");
  const route=readFileSync(new URL("../app/api/x-wire/discovery/route.ts",import.meta.url),"utf8");
  assert.match(route,/sourceQuality|discoveryOnly:true|verifiedMarketClaims:0/);
- assert.match(route,/\.select\("post_id,handle,original_url,published_at,retrieved_at,body,intake_status"\)/);
- assert.match(route,/\.limit\(250\)/);
- assert.match(route,/gordianknotdev/);
+ const pool=readFileSync(new URL("../lib/x-wire-research-pool.ts",import.meta.url),"utf8");
+ assert.match(route,/readXWireResearchPool\(db,now\)/);
+ assert.match(pool,/\.limit\(250\)/);
+ assert.match(pool,/GordianKnotDev/);
+ assert.match(route,/sourceMaterial:xWireSourceMaterial\(post\)/);
  assert.match(route,/\.slice\(0,240\)/);
  assert.match(route,/blueDeskHostAccess\(request\.nextUrl\.pathname,host\)/);
  assert.doesNotMatch(route,/getXWireDurable\(|\.rpc\(|\.upsert\(|\.insert\(|\.update\(|story_thesis_versions/);
 });
+

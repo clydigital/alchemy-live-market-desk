@@ -5,7 +5,7 @@ import { applyOfficialPressNewsIntake } from "@/lib/official-press-news-intake";
 import {applyIssuerResultsPressIntake} from "@/lib/issuer-results-press-intake";
 import { applyMaterialSecProspectusIntake } from "@/lib/material-sec-prospectus-intake";
 import {getXWireDurable} from "@/lib/x-wire-durable";
-import {getDeferredXWireResearchPosts} from "@/lib/x-wire-deferred-research";
+import {getDeferredXWireResearchPosts,getPreviouslyHandedXWireUrls} from "@/lib/x-wire-deferred-research";
 import {attachXWireResearchLeads} from "@/lib/x-wire-scheduled-research-leads";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { selectStockMoveResearchTargets, type StockMoveResearchTarget } from "@/lib/stock-move-research-targets";
@@ -45,8 +45,9 @@ export async function buildScheduledResearchInputWithFirecrawl(
       // Reserve up to three of the existing twelve X research slots for
       // eligible deferred posts that have never reached a research intake.
       // Do not convert their durable ledger status into a verified/reviewed fact.
-      xEnrichedInput=attachXWireResearchLeads(originalFilings,wire,now,9);
-      const deferredPosts=await getDeferredXWireResearchPosts(now);
+      const prior=await getPreviouslyHandedXWireUrls();
+      xEnrichedInput=attachXWireResearchLeads(originalFilings,{...wire,posts:wire.posts.filter(p=>!prior.has(p.url))},now,9);
+      const deferredPosts=await getDeferredXWireResearchPosts(now,prior);
       if(deferredPosts.length){
         xEnrichedInput=attachXWireResearchLeads(xEnrichedInput,{
           posts:deferredPosts,accounts:wire.accounts,storageHealthy:wire.storageHealthy,
@@ -104,3 +105,4 @@ export async function buildScheduledResearchInputWithFirecrawl(
   }));
   return {...recovered,automationCoverageAlerts};
 }
+

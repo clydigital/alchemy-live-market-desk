@@ -4,14 +4,14 @@ import {createSupabaseAdminClient} from "@/lib/supabase/admin";
 import {X_CORE_ROSTER} from "@/lib/x-sweep-core";
 import {rankXWireMarketCandidates} from "@/lib/x-wire-market-candidates";
 import type {XWireDurable} from "@/lib/x-wire-durable";
+import {readXWireResearchPool,type XWireResearchRow} from "@/lib/x-wire-research-pool";
+import {xWireSourceMaterial} from "@/lib/x-wire-source-material";
 
 export const dynamic="force-dynamic";
 export const runtime="nodejs";
 export const maxDuration=15;
 type SourceRecord={handle:string;health:string;last_completed_at:string|null;
   uncovered_before:string|null;page_cursor:string|null;last_error:string|null};
-type PostRecord={post_id:string;handle:string;original_url:string;published_at:string;
-  retrieved_at:string;body:string;intake_status:string};
 
 /** MacroPulse reads only this bounded public-source digest, NEVER the
  * private operational X Wire or the service-role client itself. GET does
@@ -24,27 +24,24 @@ export async function GET(request:NextRequest){
  try{
   const now=new Date();
   const db=createSupabaseAdminClient();
-  const from=new Date(now.getTime()-48*3_600_000).toISOString();
   const [items,accounts]=await Promise.all([
-   db.from("x_wire_posts")
-    .select("post_id,handle,original_url,published_at,retrieved_at,body,intake_status")
-    .eq("intake_status","discovery").not("handle","ilike","gordianknotdev")
-    .gte("published_at",from).order("published_at",{ascending:false}).limit(250),
+   readXWireResearchPool(db,now),
    db.from("x_wire_accounts")
     .select("handle,health,last_completed_at,uncovered_before,page_cursor,last_error")
   ]);
-  if(items.error||accounts.error)throw new Error("X source ledger not readable");
-  const posts=((items.data||[]) as PostRecord[]).map(p=>({
+  if(accounts.error)throw new Error("X source ledger not readable");
+  const posts=(items as XWireResearchRow[]).map(p=>({
    id:p.post_id,handle:p.handle,url:p.original_url,
    publishedAt:p.published_at,retrievedAt:p.retrieved_at,text:p.body,
-   images:[],quoteUrl:null,attribution:"THIRD_PARTY_ONLY" as const,
+   images:p.media_urls||[],quoteUrl:p.quote_url,attribution:"THIRD_PARTY_ONLY" as const,
    intakeStatus:p.intake_status
   })) as (XWireDurable["posts"][number]&{retrievedAt:string})[];
   const leads=rankXWireMarketCandidates(posts,now,12).map(({post,theme,priority})=>{
    const p=posts.find(x=>x.id===post.id);
    return {postId:post.id,handle:post.handle,url:post.url,
     publishedAt:post.publishedAt,retrievedAt:p?.retrievedAt||null,
-    theme,priority,excerpt:post.text.slice(0,240),verification:"UNVERIFIED_SOCIAL_LEAD" as const};
+    theme,priority,excerpt:post.text.slice(0,240),sourceMaterial:xWireSourceMaterial(post),
+    verification:"UNVERIFIED_SOCIAL_LEAD" as const};
   });
   const roster=new Set(X_CORE_ROSTER.map(x=>x.handle.toLowerCase()));
   const checked=((accounts.data||[]) as SourceRecord[]).filter(a=>roster.has(a.handle.toLowerCase()));
@@ -66,3 +63,4 @@ export async function GET(request:NextRequest){
    {status:503,headers:{"Cache-Control":"no-store"}});
  }
 }
+

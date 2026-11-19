@@ -7,7 +7,7 @@ import type {ResearchRunInput} from "../lib/research-update.ts";
 
 const now=new Date("2026-11-08T00:00:00Z");
 const post=(id:string,status:string,publishedAt:string)=>({
- id,handle:"FirstSquawk",url:"https://x.com/FirstSquawk/status/"+id,
+ id,handle:"Bluekurtic",url:"https://x.com/Bluekurtic/status/"+id,
  publishedAt,text:"Treasury bond yields and the Federal Reserve policy decision may affect equity valuations today.",
  images:[],quoteUrl:null,attribution:"THIRD_PARTY_ONLY",intakeStatus:status,
 });
@@ -37,12 +37,12 @@ test("seven-day deferred lane is opt-in, capped, never market verification",()=>
 test("existing schedule reserves 9 fresh plus 3 deferred; persisted X URLs are excluded",()=>{
  const sched=readFileSync(new URL("../lib/firecrawl-scheduled-research.ts",import.meta.url),"utf8");
  const reader=readFileSync(new URL("../lib/x-wire-deferred-research.ts",import.meta.url),"utf8");
- assert.match(sched,/attachXWireResearchLeads\(originalFilings,wire,now,9\)/);
+ assert.match(sched,/attachXWireResearchLeads\(originalFilings,\{\.\.\.wire,posts:wire\.posts\.filter/);
  assert.match(sched,/now,3,\{allowDeferred:true,maxAgeHours:168\}/);
- assert.match(reader,/\.eq\("intake_status","deferred"\)/);
- assert.match(reader,/\.order\("published_at",\{ascending:false\}\)\.limit\(500\)/);
- assert.doesNotMatch(reader,/\.order\("published_at",\{ascending:false\}\)\.limit\(250\)/);
+ assert.match(reader,/readXWireResearchPool\(db,now,"deferred"\)/);
+ assert.match(reader,/X_ANALYST_HANDLES/);
  assert.match(reader,/\.ilike\("publisher","X\/@%"\)/);
  assert.match(reader,/!prior\.has\(p\.original_url\)/);
  assert.doesNotMatch(reader,/\.update\(|\.upsert\(|\.rpc\(|story_thesis_versions/);
 });
+
