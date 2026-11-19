@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { RADAR_BLIPS, radarBlipPosition } from "../lib/bluebelly-radar-blips.ts";
+import { randomRadarBlips, radarBlipPosition, radarSweepFrame, radarBlipOpacity, MAX_RADAR_BLIPS } from "../lib/bluebelly-radar-blips.ts";
 
 const css = readFileSync("app/blue-desk/market-first-home.module.css", "utf8");
 const page = readFileSync("app/blue-desk/page.tsx", "utf8");
@@ -46,24 +46,52 @@ test("radar highlights share the scanner head colour and linger twice as long af
   assert.match(css, /2%,8%\{background:var\(--bb-command-alt\);color:#071017;border-color:var\(--bb-command-alt\);box-shadow:[^}]+var\(--bb-command-alt\)/);
 });
 
-test("seven complementary neon blips are individually aligned with the shared scanner", () => {
-  assert.equal(RADAR_BLIPS.length, 7);
-  assert.equal(new Set(RADAR_BLIPS.map(blip => blip.angle)).size, 7);
-  for (const {angle, radius} of RADAR_BLIPS) {
-    const {x, y, delay} = radarBlipPosition(angle);
-    assert.ok(radius > 23 / 2 && radius < 47);
-    assert.ok(Math.abs(Math.hypot(x,y) - 1) < 1e-10);
-    const firstPeak = 1.02 + delay;
-    assert.ok(firstPeak > 0 && firstPeak < 1, "First flash must follow a real first-revolution scan");
-    const headAtPeak = -93 + firstPeak * 360;
-    const error = ((headAtPeak - angle + 540) % 360) - 180;
-    assert.ok(Math.abs(error) < 1e-6, `Blip at ${angle}°: ${error}°`);
+test("three to five randomly positioned neon blips align with the shared scanner", () => {
+  const counts = new Set<number>();
+  const layouts = new Set<string>();
+  for (let seed = 1; seed <= 100; seed++) {
+    let state = seed * 1009;
+    const blips = randomRadarBlips(() => ((state = (Math.imul(state, 1664525) + 1013904223) >>> 0) / 2 ** 32));
+    counts.add(blips.length);
+    layouts.add(JSON.stringify(blips));
+    assert.ok(blips.length >= 3 && blips.length <= MAX_RADAR_BLIPS);
+    for (const [i, {angle, radius}] of blips.entries()) {
+      const {x, y, contactPhase} = radarBlipPosition(angle);
+      assert.ok(radius >= 30 && radius <= 45);
+      assert.ok(Math.abs(Math.hypot(x,y) - 1) < 1e-10);
+      assert.ok(contactPhase >= 0 && contactPhase < 1);
+      const error = ((-93 + contactPhase * 360 - angle + 540) % 360) - 180;
+      assert.ok(Math.abs(error) < 1e-6);
+      for (const other of blips.slice(0, i)) assert.ok(Math.abs(((angle - other.angle + 540) % 360) - 180) >= 18);
+    }
   }
+  assert.deepEqual([...counts].sort(), [3, 4, 5]);
+  assert.equal(layouts.size, 100);
+});
+
+test("blip layouts relocate only every three turns and never glow ahead of contact", () => {
+  for (let cycle = 0; cycle < 10; cycle++) {
+    for (const phase of [0, .1, .5, .99]) {
+      const frame = radarSweepFrame((cycle + phase) * 8000, 8000);
+      assert.equal(frame.group, Math.floor(cycle / 3));
+      assert.equal(frame.cycle, cycle);
+      assert.ok(Math.abs(frame.phase - phase) < 1e-10);
+    }
+  }
+  assert.equal(radarBlipOpacity(0, .4), 0);
+  assert.equal(radarBlipOpacity(.399999, .4), 0);
+  assert.equal(radarBlipOpacity(.4, .4), 1);
+  assert.equal(radarBlipOpacity(.44, .4), 1);
+  assert.ok(radarBlipOpacity(.49, .4) > 0 && radarBlipOpacity(.49, .4) < 1);
+  assert.equal(radarBlipOpacity(.56, .4), 0);
+  assert.equal(radarBlipOpacity(0, .98), 0);
   const shared = readFileSync("components/blue-desk/radar-sweep.module.css", "utf8");
   assert.match(shared, /\.blip\{[^}]+background:var\(--bb-command-accent\);opacity:0/);
-  assert.match(shared, /animation-delay:calc\(var\(--radar-period,8s\) \* \(1 \+ var\(--blip-phase\)\)\)/);
-  assert.match(shared, /0%\{opacity:0;[^}]+animation-timing-function:steps\(1,end\)/);
-  assert.match(shared, /17%,100%\{opacity:0/);
-  assert.match(shared, /2%,7%\{opacity:1;box-shadow:[^}]+var\(--bb-command-accent\)/);
-  assert.match(shared, /prefers-reduced-motion:reduce\)\{\.blip\{animation:none;opacity:0\}/);
+  assert.match(shared, /\.blip\[hidden\]\{display:none!important\}/);
+  assert.match(shared, /prefers-reduced-motion:reduce\)\{\.blip\{display:none!important\}/);
+  const scanner = readFileSync("components/blue-desk/RadarSweep.tsx", "utf8");
+  assert.match(scanner, /className=\{ui\.blip\} hidden/);
+  assert.match(scanner, /getAnimations\(\)\[0\]/);
+  assert.match(scanner, /animation\?\.currentTime/);
+  assert.match(scanner, /next\.cycle === layoutStartCycle && position\.contactPhase < layoutStartPhase/);
 });

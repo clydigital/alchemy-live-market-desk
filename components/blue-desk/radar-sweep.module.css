@@ -14,8 +14,7 @@
 @keyframes bb-radar-sweep{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.sweep{animation:none;opacity:0}}
 
-/* Blips are stationary; only their glow changes as the scanner passes.
-   Use the other command accent, distinct from the scanner's leading edge. */
+/* Blips are physically hidden until the actual sweep clock detects them. */
 .blips{position:absolute;inset:1px;z-index:1;border-radius:50%;pointer-events:none}
 .blip{
   --visible-radius:max(var(--blip-radius),var(--radar-blip-min-radius,0%));
@@ -23,15 +22,8 @@
   left:calc(50% + var(--visible-radius) * var(--blip-x));
   top:calc(50% + var(--visible-radius) * var(--blip-y));
   width:clamp(3px,3.2%,6px);aspect-ratio:1;border-radius:50%;
-  transform:translate(-50%,-50%);background:var(--bb-command-accent);opacity:0;
-  animation:bb-radar-blip var(--radar-period,8s) linear infinite;
-  /* Start hidden on the first revolution too, rather than simulating an
-     already completed scan with the equivalent negative phase offset. */
-  animation-delay:calc(var(--radar-period,8s) * (1 + var(--blip-phase)));
+  transform:translate(-50%,-50%) scale(1.15);background:var(--bb-command-accent);opacity:0;
+  box-shadow:0 0 5px 1px var(--bb-command-accent),0 0 13px 3px color-mix(in srgb,var(--bb-command-accent) 55%,transparent);
 }
-@keyframes bb-radar-blip{
-  0%{opacity:0;box-shadow:none;transform:translate(-50%,-50%) scale(.82);animation-timing-function:steps(1,end)}
-  17%,100%{opacity:0;box-shadow:none;transform:translate(-50%,-50%) scale(.82)}
-  2%,7%{opacity:1;box-shadow:0 0 5px 1px var(--bb-command-accent),0 0 13px 3px color-mix(in srgb,var(--bb-command-accent) 55%,transparent);transform:translate(-50%,-50%) scale(1.15)}
-}
-@media(prefers-reduced-motion:reduce){.blip{animation:none;opacity:0}}
+.blip[hidden]{display:none!important}
+@media(prefers-reduced-motion:reduce){.blip{display:none!important}}

@@ -1,23 +1,43 @@
-/** Seven decorative Dragon Radar-style blips, not market observations. */
-export const RADAR_BLIPS = [
-  {angle: 12, radius: 34},
-  {angle: 57, radius: 43},
-  {angle: 111, radius: 32},
-  {angle: 162, radius: 44},
-  {angle: 210, radius: 35},
-  {angle: 260, radius: 42},
-  {angle: 307, radius: 32},
-] as const;
+/** Decorative radar blips, not market observations. */
+export const MAX_RADAR_BLIPS = 5;
+export const RADAR_RELOCATION_CYCLES = 3;
+export type RadarBlip = {angle: number; radius: number};
 
-/** The shared scanner's bright leading edge starts at -93 degrees.
- * The blip's glow peaks at 2% of its cycle, so offset the animation
- * to meet the rotating edge without introducing a second sweep. */
+export function randomRadarBlips(random: () => number = Math.random): RadarBlip[] {
+  const count = 3 + Math.floor(random() * 3);
+  const blips: RadarBlip[] = [];
+  for (let i = 0; i < count; i++) {
+    let angle = random() * 360;
+    // Avoid overlapping dots, including on the compact Learn ring.
+    for (let attempt = 0; attempt < 64 && blips.some(b => Math.abs(((angle - b.angle + 540) % 360) - 180) < 18); attempt++) {
+      angle = random() * 360;
+    }
+    while (blips.some(b => Math.abs(((angle - b.angle + 540) % 360) - 180) < 18)) angle = (angle + 19) % 360;
+    blips.push({angle, radius: 30 + random() * 15});
+  }
+  return blips;
+}
+
+/** The scanner's brightest leading edge starts at -93 degrees. */
 export function radarBlipPosition(angle: number) {
   const radians = angle * Math.PI / 180;
-  const contactPhase = (((angle + 93) % 360 + 360) % 360) / 360;
   return {
     x: Math.sin(radians),
     y: -Math.cos(radians),
-    delay: -((1.02 - contactPhase) % 1),
+    contactPhase: (((angle + 93) % 360 + 360) % 360) / 360,
   };
+}
+
+/** Read group and revolution phase from the actual CSS sweep clock. */
+export function radarSweepFrame(elapsed: number, duration: number) {
+  const turns = Math.max(0, elapsed) / duration;
+  return {group: Math.floor(turns / RADAR_RELOCATION_CYCLES), cycle: Math.floor(turns), phase: turns % 1};
+}
+
+/** Strictly hidden before contact, a brief full-strength hold, then fade.
+ * Each revolution resets visibility before its next scan. */
+export function radarBlipOpacity(phase: number, contactPhase: number): number {
+  const age = phase - contactPhase;
+  if (age < 0 || age >= .15) return 0;
+  return age <= .05 ? 1 : Math.max(0, 1 - (age - .05) / .10);
 }
