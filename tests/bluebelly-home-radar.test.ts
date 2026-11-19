@@ -40,6 +40,7 @@ test("shortcut pulses peak at the sweep head and lead to their respective pages"
 
 test("radar highlights share the scanner head colour and linger twice as long after contact", () => {
   const scanner = readFileSync("components/blue-desk/radar-sweep.module.css", "utf8");
+  assert.match(scanner, /transparent 0deg 256\.5deg/); // 103.5°: 15% wider than 90°.
   assert.match(scanner, /color-mix\(in srgb,var\(--bb-command-alt\) 70%,transparent\) 357deg/);
   assert.match(css, /0%,14%,100%\{background:#071922/);
   assert.match(css, /2%,8%\{background:var\(--bb-command-alt\);color:#071017;border-color:var\(--bb-command-alt\);box-shadow:[^}]+var\(--bb-command-alt\)/);
