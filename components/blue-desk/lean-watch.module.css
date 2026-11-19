@@ -70,8 +70,7 @@
   position:relative;display:grid;place-items:center;width:161px;height:161px;
   border-radius:50%;border:1px solid var(--bb-command-alt);
   background:
-    radial-gradient(circle,transparent 0 41%,rgba(30,178,199,.18) 41.5% 42.3%,transparent 43%),
-    conic-gradient(from 28deg,transparent 0 31deg,color-mix(in srgb,var(--bb-command-accent) 29%,transparent) 32deg 41deg,transparent 42deg 113deg,color-mix(in srgb,var(--bb-command-alt) 23%,transparent) 114deg 119deg,transparent 120deg);
+    radial-gradient(circle,transparent 0 41%,rgba(30,178,199,.18) 41.5% 42.3%,transparent 43%);
   box-shadow:0 0 24px color-mix(in srgb,var(--bb-command-alt) 8%,transparent),inset 0 0 29px rgba(14,103,133,.18);
 }
 .radarRing::before{content:"";position:absolute;inset:13px;border:1px dashed color-mix(in srgb,var(--bb-command-alt) 50%,transparent);border-radius:50%}
@@ -198,22 +197,4 @@
  .card h3{font-size:18px}
 }
 
-/* Same theme-reactive, decorative scanner as the market-first homepage.
-   Historical Watch lenses do not turn the sweep into a live research status. */
-.radarSweep{
-  position:absolute;inset:1px;z-index:0;border-radius:50%;pointer-events:none;
-  background:conic-gradient(from -90deg,
-    transparent 0deg 270deg,
-    color-mix(in srgb,var(--bb-command-accent) 3%,transparent) 281deg,
-    color-mix(in srgb,var(--bb-command-accent) 24%,transparent) 334deg,
-    color-mix(in srgb,var(--bb-command-alt) 70%,transparent) 357deg,
-    transparent 360deg);
-  -webkit-mask-image:radial-gradient(circle,transparent 0 23%,#000 25% 100%);
-  mask-image:radial-gradient(circle,transparent 0 23%,#000 25% 100%);
-  opacity:.83;animation:bb-watch-radar-sweep 8s linear infinite;
-}
 .radarCore{position:relative;z-index:1}
-@keyframes bb-watch-radar-sweep{to{transform:rotate(360deg)}}
-@media(prefers-reduced-motion:reduce){
-  .radarSweep{animation:none;opacity:0}
-}

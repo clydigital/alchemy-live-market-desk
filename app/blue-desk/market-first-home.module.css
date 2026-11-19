@@ -166,26 +166,10 @@
 @media(max-width:360px){.quoteGrid{grid-template-columns:1fr}.quote{min-height:158px}}
 @media(prefers-reduced-motion:reduce){.quote,.actions a,.panelFooter a{transition:none}}
 
-/* Presentation-only scanner: the BB mark and labels stay still; colours follow
-   the selected --bb-command-* theme, not market data or signal status. */
-.orbitSweep{
-  position:absolute;inset:1px;z-index:0;border-radius:50%;pointer-events:none;
-  background:conic-gradient(from -90deg,
-    transparent 0deg 270deg,
-    color-mix(in srgb,var(--bb-command-accent) 3%,transparent) 281deg,
-    color-mix(in srgb,var(--bb-command-accent) 24%,transparent) 334deg,
-    color-mix(in srgb,var(--bb-command-alt) 70%,transparent) 357deg,
-    transparent 360deg);
-  -webkit-mask-image:radial-gradient(circle,transparent 0 23%,#000 25% 100%);
-  mask-image:radial-gradient(circle,transparent 0 23%,#000 25% 100%);
-  opacity:.83;animation:bb-home-radar-sweep var(--radar-period) linear infinite;
-}
-@keyframes bb-home-radar-sweep{to{transform:rotate(360deg)}}
 @keyframes bb-home-radar-contact{
   0%,8%,100%{background:#071922;color:#e2f4fa;border-color:var(--bb-command-edge);box-shadow:none}
   2%{background:var(--bb-command-accent);color:#071017;border-color:var(--bb-command-accent);box-shadow:0 0 15px var(--bb-command-glow),0 0 5px var(--bb-command-accent)}
 }
 @media(prefers-reduced-motion:reduce){
-  .orbitSweep{animation:none;opacity:0}
   .orbitNodeA,.orbitNodeB,.orbitNodeC{animation:none}
 }

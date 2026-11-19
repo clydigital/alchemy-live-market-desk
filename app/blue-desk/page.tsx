@@ -31,6 +31,7 @@ import { headers } from "next/headers";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import RadarSweep from "@/components/blue-desk/RadarSweep";
 import BluebellyNewsfront from "@/components/blue-desk/BluebellyNewsfront";
 import EditorialStoryArt from "@/components/blue-desk/EditorialStoryArt";
 import { EntityMark, ScopeStrip } from "@/components/blue-desk/EntityIdentity";
@@ -183,7 +184,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
             </div>
             <div className={marketHome.heroVisual}>
               <nav className={marketHome.orbit} aria-label="Radar shortcuts">
-                <span className={marketHome.orbitSweep} aria-hidden="true"/>
+                <RadarSweep/>
                 <Link className={marketHome.orbitNodeA} href="/markets">MARKETS</Link>
                 <Link className={marketHome.orbitNodeB} href="/calendar">CATALYSTS</Link>
                 <Link className={marketHome.orbitNodeC} href="/key-stories">WATCH</Link>

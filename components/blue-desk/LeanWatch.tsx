@@ -1,5 +1,6 @@
 import Link from "next/link";
 import StoryStatusStrip from "./StoryStatusStrip";
+import RadarSweep from "./RadarSweep";
 import CurrentKeyStoriesShelf from "./CurrentKeyStoriesShelf";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
@@ -63,7 +64,7 @@ export default async function LeanWatch({stories,host,now}:{
         </nav>
         </div>
         <div className={ui.heroRadar} aria-hidden="true">
-          <span className={ui.radarRing}><span className={ui.radarSweep} aria-hidden="true"/><span className={ui.radarCore}>B<span>B</span></span></span>
+          <span className={ui.radarRing}><RadarSweep/><span className={ui.radarCore}>B<span>B</span></span></span>
           <span className={ui.radarCaption}>THESIS / EVIDENCE / NEXT TEST</span>
         </div>
       </header>

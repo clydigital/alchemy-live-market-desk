@@ -128,8 +128,6 @@
 .diagramTop,.diagramBottom{position:absolute;font:700 11px/1.1 var(--bb-mono);letter-spacing:.1em;color:var(--bb-accent);z-index:2}
 .diagramTop{top:12px;right:15px}.diagramBottom{bottom:12px;left:25px}
 .orbitOuter{width:clamp(190px,23vw,310px);aspect-ratio:1;display:grid;place-items:center;border:2px solid var(--bb-accent);border-radius:50%;box-shadow:0 0 0 15px var(--bb-canvas),0 0 0 16px var(--bb-card-border),0 0 45px color-mix(in srgb,var(--bb-accent) 12%,transparent);background:var(--bb-canvas);position:relative;z-index:1}
-.orbitOuter::before,.orbitOuter::after{content:"";position:absolute;background:var(--bb-accent)}
-.orbitOuter::before{width:130%;height:1px}.orbitOuter::after{height:130%;width:1px}
 .orbitInner{background:var(--bb-canvas);border:7px solid var(--bb-canvas);outline:1px solid var(--bb-accent);width:74%;height:74%;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;z-index:2;font:900 clamp(22px,2.7vw,37px)/1 var(--bb-display);letter-spacing:-.05em;color:var(--bb-text)}
 .orbitInner span{color:var(--bb-accent)}
 .diagramIndex{position:absolute;right:5px;bottom:53px;color:var(--bb-muted);font:800 11px var(--bb-mono);letter-spacing:.11em}

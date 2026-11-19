@@ -5,11 +5,20 @@ import { readFileSync } from "node:fs";
 const css = readFileSync("app/blue-desk/market-first-home.module.css", "utf8");
 const page = readFileSync("app/blue-desk/page.tsx", "utf8");
 
-test("home radar has concentric rings and exactly one moving sweep", () => {
-  assert.doesNotMatch(css.match(/\.orbit\{([^}]+)\}/)![1], /conic-gradient/);
-  assert.equal((css.match(/conic-gradient\(/g) ?? []).length, 1);
-  assert.match(css, /\.orbitSweep\{[^}]+bb-home-radar-sweep var\(--radar-period\) linear infinite/);
-  assert.match(css, /prefers-reduced-motion:reduce\)\{\s*\.orbitSweep\{animation:none;opacity:0\}\s*\.orbitNodeA,\.orbitNodeB,\.orbitNodeC\{animation:none\}/);
+test("all three Bluebelly header radars share exactly one moving sweep and no fixed spokes", () => {
+  const shared = readFileSync("components/blue-desk/radar-sweep.module.css", "utf8");
+  const watch = readFileSync("components/blue-desk/lean-watch.module.css", "utf8");
+  const learn = readFileSync("app/blue-desk/learn/learn.module.css", "utf8");
+  assert.doesNotMatch(css, /conic-gradient/);
+  assert.doesNotMatch(watch, /conic-gradient/);
+  assert.doesNotMatch(learn, /\.orbitOuter::(?:before|after)/);
+  assert.equal((shared.match(/conic-gradient\(/g) ?? []).length, 1);
+  assert.match(shared, /\.sweep\{[^}]+bb-radar-sweep var\(--radar-period,8s\) linear infinite/);
+  assert.match(shared, /prefers-reduced-motion:reduce\)\{\.sweep\{animation:none;opacity:0\}/);
+  assert.match(css, /prefers-reduced-motion:reduce\)\{\s*\.orbitNodeA,\.orbitNodeB,\.orbitNodeC\{animation:none\}/);
+  for (const source of [page, readFileSync("components/blue-desk/LeanWatch.tsx", "utf8"), readFileSync("app/blue-desk/learn/page.tsx", "utf8")]) {
+    assert.equal((source.match(/<RadarSweep\/>/g) ?? []).length, 1);
+  }
 });
 
 test("shortcut pulses peak at the sweep head and lead to their respective pages", () => {

@@ -1,4 +1,5 @@
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import RadarSweep from "@/components/blue-desk/RadarSweep";
 import BlueDeskLearnExplorer from "@/components/blue-desk/BlueDeskLearnExplorer";
 import { assembleLearnGlossary } from "@/lib/bluebelly-learn-glossary";
 import { BLUEBELLY_LEARN_RESOURCES } from "@/lib/bluebelly-learn-resources";
@@ -44,7 +45,7 @@ export default async function BlueDeskLearnPage() {
           </div>
           <div className={ui.heroDiagram} aria-hidden="true">
             <span className={ui.diagramTop}>// EDUCATION PROTOCOL</span>
-            <div className={ui.orbitOuter}><div className={ui.orbitInner}>BB<span>/</span>LEARN</div></div>
+            <div className={ui.orbitOuter}><RadarSweep/><div className={ui.orbitInner}>BB<span>/</span>LEARN</div></div>
             <span className={ui.diagramBottom}>READ. DECODE. VERIFY.</span>
             <div className={ui.diagramIndex}>REFERENCE</div>
           </div>
