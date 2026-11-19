@@ -1,6 +1,5 @@
 import Link from "next/link";
 import StoryStatusStrip from "./StoryStatusStrip";
-import {Nov14ResearchTeaser} from "./Nov14MarketInvestigation";
 import CurrentKeyStoriesShelf from "./CurrentKeyStoriesShelf";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
@@ -69,7 +68,6 @@ export default async function LeanWatch({stories,host,now}:{
         </div>
       </header>
 
-      <Nov14ResearchTeaser host={host}/>
       <CurrentKeyStoriesShelf now={now} host={host}/>
       <section aria-labelledby="tracked-theses" className={ui.section}>
         <div className={ui.sectionHeading}>

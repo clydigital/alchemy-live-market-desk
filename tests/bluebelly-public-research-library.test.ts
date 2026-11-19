@@ -10,20 +10,30 @@ import {blueDeskHostAccess,blueDeskPresentationTarget} from "../lib/blue-desk-ho
 const read=(p:string)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 
 test("Public Research only indexes finite, previously available dated editorial readers",()=>{
- assert.equal(PUBLIC_RESEARCH_INDEX.length,9);
+ assert.equal(PUBLIC_RESEARCH_INDEX.length,10);
  const ids=new Set<string>();
  for(const entry of PUBLIC_RESEARCH_INDEX){
    assert.ok(!ids.has(entry.id),"duplicate edition "+entry.id);
    ids.add(entry.id);
-   assert.match(entry.asOf,/^2026-10-(?:27|28|29|30)$|^2026-11-0[124]$/);
+   assert.match(entry.asOf,/^2026-10-(?:27|28|29|30)$|^2026-11-(?:0[124]|14)$/);
    assert.ok(entry.href.startsWith("/features/")||entry.href.startsWith("/key-stories?feature=")||entry.href==="/earnings-week");
    assert.ok(!/owner|api|notion|pdf|draft|reports\/|https?:/i.test(entry.href));
    assert.ok(entry.summary.length>35);
  }
- assert.equal(PUBLIC_RESEARCH_INDEX[0].id,"market-desk-4-nov");
+ assert.equal(PUBLIC_RESEARCH_INDEX[0].id,"nov14-market-reset");
  assert.ok(PUBLIC_RESEARCH_INDEX.some(x=>x.id==="midterm-seasonality"&&x.asOf==="2026-11-02"&&x.editorialUpdatedAt));
  assert.equal(PUBLIC_RESEARCH_INDEX.at(-1)?.asOf,"2026-10-27");
  assert.equal(MANUAL_RESEARCH_AUTOPROMOTION_ENABLED,false);
+});
+
+test("November 14 edition remains searchable in Research without stale promotion on live pages",()=>{
+ const edition=selectPublicResearch("FAA","All").find(x=>x.id==="nov14-market-reset");
+ assert.equal(edition?.asOf,"2026-11-14");
+ assert.equal(edition?.href,"/key-stories?feature=nov14-market-reset");
+ assert.match(read("app/blue-desk/key-stories/page.tsx"),/feature==="nov14-market-reset"/);
+ for(const file of ["app/blue-desk/page.tsx","app/blue-desk/regime-watch/page.tsx","app/blue-desk/crash-opportunity/page.tsx","components/blue-desk/LeanWatch.tsx"]){
+  assert.doesNotMatch(read(file),/Nov14ResearchTeaser/);
+ }
 });
 
 test("Public Research searches real title, categories, topics and historical context",()=>{

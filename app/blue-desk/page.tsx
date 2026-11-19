@@ -1,7 +1,6 @@
 import CreatorIntelligencePanel from "@/components/blue-desk/CreatorIntelligencePanel";
 import {readQqqPositioning} from "@/lib/bluebelly-qqq-positioning";
 import AbsorptionHealth from "@/components/blue-desk/AbsorptionHealth";
-import {Nov14ResearchTeaser} from "@/components/blue-desk/Nov14MarketInvestigation";
 import MarketWindowBars from "@/components/blue-desk/MarketWindowBars";
 import MarketConditionsBoard from "@/components/blue-desk/MarketConditionsBoard";
 import InstitutionalRiskMonitor from "@/components/blue-desk/InstitutionalRiskMonitor";
@@ -193,7 +192,6 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
               <span className={marketHome.orbitCaption}>OBSERVE / COMPARE / INVESTIGATE</span>
             </div>
           </header>
-          <Nov14ResearchTeaser host={host} compact/>
           <DeskWhiteboard compass={marketCompass} news={verifiedNews} theses={theses}
             upcoming={upcoming} now={now} host={host}/>
           <InstitutionalRiskMonitor rows={buildInstitutionalRisk(volatility,monitor?.rows??[],now)} rates={buildFedRateWatch(monitor?.rows??[],now)} nextDecision={nextFomcDecision(calendar.events,now)}/>

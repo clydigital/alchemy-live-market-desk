@@ -27,6 +27,14 @@ export type PublicResearchEdition = {
 
 const INDEX: readonly PublicResearchEdition[] = [
   {
+    id:"nov14-market-reset",title:"14 November: NVIDIA, FAA and the AI funding divide",
+    summary:"Five source-reviewed investigations into NVIDIA's leadership and earnings test, AI chip access, sector dispersion, FAA infrastructure and inflation-adjusted borrowing costs.",
+    href:"/key-stories?feature=nov14-market-reset",category:"Markets & Policy",
+    asOf:"2026-11-14",type:"Manual investigation",
+    context:"Archived pre-earnings research edition; not current market conditions or a live regime signal",
+    keywords:["nvidia","faa","aviation","ai","funding","semiconductors","bonds","credit","earnings"],
+  },
+  {
     id:"market-desk-4-nov",title:"The Midterm Shock Faded. Why Are Bonds, AI and Central Banks Disagreeing?",
     summary:"4 November source-led post-election reversal, AMD cash conversion, the Riksbank hike and tomorrow’s BoE/BNM policy tests.",
     href:"/key-stories?feature=market-desk-4-nov-2026",category:"Markets & Policy",

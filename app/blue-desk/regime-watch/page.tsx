@@ -7,7 +7,6 @@ import {getDossierV2PresentationSelection} from "@/lib/dossier-v2/presentation-r
 import {isBlueDeskPublicReaderHost} from "@/lib/blue-desk-host";
 import {readQqqPositioning} from "@/lib/bluebelly-qqq-positioning";
 import CurrentMarketUpdates from "@/components/blue-desk/CurrentMarketUpdates";
-import {Nov14ResearchTeaser} from "@/components/blue-desk/Nov14MarketInvestigation";
 import Link from "next/link";
 import {headers} from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
@@ -90,7 +89,6 @@ export default async function RegimeWatchPage(){
    <QqqPositioningPanel rows={qqqPosition.rows} checkedAt={qqqPosition.checkedAt} market={rows} now={now} host={host}/>
    <RegimeResearchClocks sources={observations} editorialReviewedOn={LENS_OUTLOOK_REVIEWED_ON} shadow={shadowHealth}/>
    <InvestorMindsetBoard snapshot={investorSnapshot} assessment={investorAssessment} host={host} themes={investorThemes} receipt={investorReceipt}/>
-   <Nov14ResearchTeaser host={host} compact/>
    <RegimeSignalRadar entries={signalRadar}/>
    <details className={styles.archivedOverview} data-regime-overview-editorial="collapsed-by-default">
     <summary><strong>Previously reviewed cross-asset interpretation · 11 November 2026</strong>
