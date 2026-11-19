@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
 import {readFileSync} from "node:fs";
-import {parseCreatorDigest,orderCreatorSignals,creatorMarketMatch} from "../lib/bluebelly-creator-signals.ts";
+import {parseCreatorDigest,parseCreatorDigestHtml,orderCreatorSignals,creatorMarketMatch} from "../lib/bluebelly-creator-signals.ts";
 import type {PublicMarketObservation} from "../lib/blue-desk-public-markets.ts";
 
 const now=new Date("2026-11-19T10:30:00Z");
@@ -28,9 +28,16 @@ test("never substitute ETF proxy or future/uncompleted price for cash index",()=
 });
 test("private digest reader and fallback are guarded; homepage response is private/no-store",()=>{
  const reader=readFileSync(new URL("../lib/bluebelly-creator-signals-server.ts",import.meta.url),"utf8");
- assert.ok(reader.indexOf("if(!await isCreatorDigestOwner())")<reader.indexOf("await fetch("));
+ assert.ok(reader.indexOf("if(!ownerId)")<reader.indexOf('from("blue_desk_work_html_editions")'));
+ assert.match(reader,/\.eq\("owner_user_id",ownerId\)/);
  assert.match(reader,/app_access_allowlist/);assert.match(reader,/cache:"no-store"/);
  const panel=readFileSync(new URL("../components/blue-desk/CreatorIntelligencePanel.tsx",import.meta.url),"utf8");
  assert.ok(panel.indexOf('read.status==="unauthorised"')<panel.indexOf('await getPrivateReviewedCreatorArguments'));
  const middleware=readFileSync(new URL("../middleware.ts",import.meta.url),"utf8");assert.match(middleware,/target==="\/blue-desk".*"private, no-store"/);
+});
+test("immutable Work HTML envelope safely round-trips literal markup",()=>{
+ const value=sample();value.overview.headline="Watch <100 & >90";
+ const html='<html><pre id="creator-signals-v1">'+JSON.stringify(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')+'</pre></html>';
+ assert.equal(parseCreatorDigestHtml(html,now)?.overview.headline,value.overview.headline);
+ assert.equal(parseCreatorDigestHtml('<pre id="creator-signals-v1"><b>invalid</b></pre>',now),null);
 });

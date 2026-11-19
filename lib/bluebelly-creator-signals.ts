@@ -4,6 +4,13 @@ import {expectedHomeEtfSession} from "./bluebelly-home-etf-history.ts";
 export type CreatorSignal={asset:string;bias:"Bullish"|"Bearish"|"Neutral";horizon:string;signals:string[];sources:string[]};
 export type CreatorTake={publisher:string;videoId:string|null;title:string;publishedAt:string|null;sourceStatus:"reviewed"|"handoff_reviewed"|"supplied";news:string[];views:CreatorSignal[];fundamentals:string[];opinions:string[];changed:string};
 export type CreatorDigest={version:"creator-signals-v1";generatedAt:string;marketSession:string|null;coverage:string;overview:{headline:string;news:string[];signals:CreatorSignal[];divergences:string[]};creators:CreatorTake[]};
+export const CREATOR_DIGEST_TITLE="Creator Market Intelligence — Current Signal Digest";
+export function parseCreatorDigestHtml(html:string,now:Date):CreatorDigest|null{
+ if(html.length>400_000)return null;
+ const match=html.match(/<pre id="creator-signals-v1">([\s\S]*?)<\/pre>/);
+ if(!match||match[1].includes('<'))return null;
+ try{return parseCreatorDigest(JSON.parse(match[1].replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&')),now);}catch{return null;}
+}
 const obj=(v:unknown)=>v&&typeof v==="object"&&!Array.isArray(v)?v as Record<string,unknown>:null;
 const str=(v:unknown,max=1000):v is string=>typeof v==="string"&&v.trim().length>0&&v.length<=max;
 const list=(v:unknown,max=30):v is string[]=>Array.isArray(v)&&v.length<=max&&v.every(x=>str(x));

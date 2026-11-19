@@ -3,6 +3,7 @@ import {createSupabaseServerClient} from "@/lib/supabase/server";
 import {createSupabaseAdminClient} from "@/lib/supabase/admin";
 import {uniquePrivateDailyIntelligence,type PrivateDailyIntelligenceEdition} from "./bluebelly-private-edition-dedupe";
 import {classifyPrivateDailyIntelligenceSessions} from "./bluebelly-private-daily-session-selection";
+import {CREATOR_DIGEST_TITLE} from "./bluebelly-creator-signals";
 
 export type PrivateDailyIntelligenceIndex={
  editions:PrivateDailyIntelligenceEdition[];
@@ -39,7 +40,7 @@ export async function getOwnerDailyIntelligenceIndex(limit=30):Promise<PrivateDa
  const [work,owner]=await Promise.all([
   admin.from("blue_desk_work_html_editions")
    .select("id,report_day,title,created_at,html_sha256,review_status,delivery_type")
-   .eq("owner_user_id",user.id).order("created_at",{ascending:false}).limit(size),
+   .eq("owner_user_id",user.id).neq("title",CREATOR_DIGEST_TITLE).order("created_at",{ascending:false}).limit(size),
   admin.from("blue_desk_private_html_editions")
    .select("id,report_day,title,created_at,html_sha256,review_status")
    .eq("owner_user_id",user.id).order("created_at",{ascending:false}).limit(size),

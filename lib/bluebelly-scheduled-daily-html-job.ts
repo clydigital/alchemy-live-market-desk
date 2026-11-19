@@ -56,7 +56,7 @@ export async function runPrivateDailyHtmlFallback(
   const ownerId=eligible[0].id;
   const [work,owner]=await Promise.all([
    db.from("blue_desk_work_html_editions").select("id,delivery_type,created_at,report_day")
-    .eq("owner_user_id",ownerId).eq("report_day",day)
+    .eq("owner_user_id",ownerId).eq("report_day",day).neq("title","Creator Market Intelligence — Current Signal Digest")
     .order("created_at",{ascending:false}).limit(20),
    db.from("blue_desk_private_html_editions").select("id,created_at,report_day")
     .eq("owner_user_id",ownerId).eq("report_day",day)

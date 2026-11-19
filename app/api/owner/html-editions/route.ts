@@ -101,7 +101,7 @@ export async function GET(req:NextRequest){
    .eq("owner_user_id",identity.userId).order("created_at",{ascending:false}).limit(40),
   db.from("blue_desk_work_html_editions")
    .select("id,report_day,title,created_at,html_sha256,content_sha256,review_status,source_manifest,delivery_type")
-   .eq("owner_user_id",identity.userId).order("created_at",{ascending:false}).limit(40),
+   .eq("owner_user_id",identity.userId).neq("title","Creator Market Intelligence — Current Signal Digest").order("created_at",{ascending:false}).limit(40),
  ]);
  if(stored.error||fromWork.error)return error(503,"Private HTML edition index unavailable");
  const entries=[
