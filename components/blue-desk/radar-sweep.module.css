@@ -23,12 +23,15 @@
   left:calc(50% + var(--visible-radius) * var(--blip-x));
   top:calc(50% + var(--visible-radius) * var(--blip-y));
   width:clamp(3px,3.2%,6px);aspect-ratio:1;border-radius:50%;
-  transform:translate(-50%,-50%);background:var(--bb-command-accent);opacity:.18;
+  transform:translate(-50%,-50%);background:var(--bb-command-accent);opacity:0;
   animation:bb-radar-blip var(--radar-period,8s) linear infinite;
-  animation-delay:calc(var(--radar-period,8s) * var(--blip-phase));
+  /* Start hidden on the first revolution too, rather than simulating an
+     already completed scan with the equivalent negative phase offset. */
+  animation-delay:calc(var(--radar-period,8s) * (1 + var(--blip-phase)));
 }
 @keyframes bb-radar-blip{
-  0%,17%,100%{opacity:.18;box-shadow:none;transform:translate(-50%,-50%) scale(.82)}
+  0%{opacity:0;box-shadow:none;transform:translate(-50%,-50%) scale(.82);animation-timing-function:steps(1,end)}
+  17%,100%{opacity:0;box-shadow:none;transform:translate(-50%,-50%) scale(.82)}
   2%,7%{opacity:1;box-shadow:0 0 5px 1px var(--bb-command-accent),0 0 13px 3px color-mix(in srgb,var(--bb-command-accent) 55%,transparent);transform:translate(-50%,-50%) scale(1.15)}
 }
-@media(prefers-reduced-motion:reduce){.blip{animation:none;opacity:.18}}
+@media(prefers-reduced-motion:reduce){.blip{animation:none;opacity:0}}

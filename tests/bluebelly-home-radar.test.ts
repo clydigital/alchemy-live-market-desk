@@ -53,13 +53,17 @@ test("seven complementary neon blips are individually aligned with the shared sc
     const {x, y, delay} = radarBlipPosition(angle);
     assert.ok(radius > 23 / 2 && radius < 47);
     assert.ok(Math.abs(Math.hypot(x,y) - 1) < 1e-10);
-    const headAtPeak = -93 + (1.02 + delay) % 1 * 360;
+    const firstPeak = 1.02 + delay;
+    assert.ok(firstPeak > 0 && firstPeak < 1, "First flash must follow a real first-revolution scan");
+    const headAtPeak = -93 + firstPeak * 360;
     const error = ((headAtPeak - angle + 540) % 360) - 180;
     assert.ok(Math.abs(error) < 1e-6, `Blip at ${angle}°: ${error}°`);
   }
   const shared = readFileSync("components/blue-desk/radar-sweep.module.css", "utf8");
-  assert.match(shared, /\.blip\{[^}]+background:var\(--bb-command-accent\)/);
-  assert.match(shared, /animation-delay:calc\(var\(--radar-period,8s\) \* var\(--blip-phase\)\)/);
+  assert.match(shared, /\.blip\{[^}]+background:var\(--bb-command-accent\);opacity:0/);
+  assert.match(shared, /animation-delay:calc\(var\(--radar-period,8s\) \* \(1 \+ var\(--blip-phase\)\)\)/);
+  assert.match(shared, /0%\{opacity:0;[^}]+animation-timing-function:steps\(1,end\)/);
+  assert.match(shared, /17%,100%\{opacity:0/);
   assert.match(shared, /2%,7%\{opacity:1;box-shadow:[^}]+var\(--bb-command-accent\)/);
-  assert.match(shared, /prefers-reduced-motion:reduce\)\{\.blip\{animation:none;opacity:\.18\}/);
+  assert.match(shared, /prefers-reduced-motion:reduce\)\{\.blip\{animation:none;opacity:0\}/);
 });
