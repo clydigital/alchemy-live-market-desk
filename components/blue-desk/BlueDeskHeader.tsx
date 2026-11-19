@@ -11,19 +11,17 @@ import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-
 import styles from "@/app/blue-desk/blue-desk.module.css";
 import chrome from "./bluebelly-chrome.module.css";
 
-// Three market utilities + owner CTA (outside public navigation).
+// Market utilities + owner CTA (outside public navigation).
 // The brand opens the compact market overview. Historical URLs remain valid.
 const PRIVATE_NAV = [
   ["Markets", "/markets"],
   ["Calendar", "/blue-desk/calendar"],
-  ["Watch", "/blue-desk/key-stories"],
   ["My Desk", "/my-reports"],
 ] as const;
 
 const PUBLIC_NAV = [
   ["Markets", "/markets"],
   ["Calendar", "/calendar"],
-  ["Watch", "/key-stories"],
 ] as const;
 
 // Retained as source and historical reference tools, not parallel news products.
@@ -39,7 +37,6 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Live Market": "market",
   "Today": "market",
   "Newsroom": "research",
-  "Watch": "layers",
   "Research Archive": "library",
   "Regime Lenses": "divergence",
   "Hormuz Data": "oil",
@@ -78,7 +75,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
   const ownerWorkspace = activePath === "/power-stack" || activePath === "/my-reports" || activePath === "/owner/editorial" || activePath === "/owner/presenter" || activePath === "/owner/research" || activePath === "/owner/publications" || activePath === "/owner/daily-report" || activePath === "/owner/daily-articles" || activePath === "/owner/x-wire" || activePath === "/market-tools";
   const nav = publicHost && !ownerWorkspace ? PUBLIC_NAV : PRIVATE_NAV;
   const more = publicHost && !ownerWorkspace ? PUBLIC_MORE : [];
-  const current=blueDeskPublicHref(activePath,host);
+  const current=blueDeskPublicHref(activePath==="/blue-desk/key-stories"?"/blue-desk/newsroom":activePath,host);
   // v7 reuses the existing host-aware routes: this is navigation, not a
   // client-side router or an alternative source of market/owner data.
   const commandLinks: ReadonlyArray<readonly [string,string]> = [

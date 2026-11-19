@@ -61,7 +61,7 @@ export default function ShortNewsRecap({recap,backHref,coverage}:{recap:Recap;ba
   </div><StoryHeroAside headline={recap.title} summary={recap.fact}
     category={checkedRelease?"SOURCE-CHECKED COMPARISON · ASSET SCENARIOS":"SOURCE-VERIFIED REPORT · RESEARCH DEPTH INCOMPLETE"}
     sourceName={recap.sourceName} eventAt={recap.asOf}
-    backHref={backHref} backLabel="Key Stories"/>
+    backHref={backHref} backLabel="Newsroom"/>
   </header>
   <div className={ui.chapters}>
     {checkedRelease?<ReleaseComparisonDisruption brief={checkedRelease}/>:
@@ -110,7 +110,7 @@ export default function ShortNewsRecap({recap,backHref,coverage}:{recap:Recap;ba
     category={recap.label} sourceName={recap.sourceName}
     eventAt={hasInstant?recap.asOf:null} sourceDate={recap.asOf}
     secondary={recap.ticker||null}
-    backHref={backHref} backLabel="Key Stories"/>
+    backHref={backHref} backLabel="Newsroom"/>
   </header>
   {consequence?<div className={ui.chapters} data-market-consequence="separate-business-price-evidence">
     <section><p className={ui.kicker}>MARKET CONSEQUENCE / ECONOMICS ARE NOT THE SHARE PRICE</p>

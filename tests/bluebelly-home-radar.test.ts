@@ -23,7 +23,7 @@ test("all three Bluebelly header radars share exactly one moving sweep and no fi
 });
 
 test("shortcut pulses peak at the sweep head and lead to their respective pages", () => {
-  const entries = [["A", "/markets", "MARKETS"], ["B", "/calendar", "CATALYSTS"], ["C", "/key-stories", "WATCH"]] as const;
+  const entries = [["A", "/markets", "MARKETS"], ["B", "/calendar", "CATALYSTS"], ["C", "/newsroom", "NEWSROOM"]] as const;
   for (const [node, href, label] of entries) {
     const rule = css.match(new RegExp(`\\.orbitNode${node}\\{left:([\\d.]+)%;top:([\\d.]+)%;animation-delay:calc\\(var\\(--radar-period\\) \\* (-[\\d.]+)\\)\\}`));
     assert.ok(rule, label);

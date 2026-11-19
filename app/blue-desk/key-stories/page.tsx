@@ -1,6 +1,5 @@
 import CurrentMarketUpdates, {EditorialUpdatedToday} from "@/components/blue-desk/CurrentMarketUpdates";
 import Nov14MarketInvestigation from "@/components/blue-desk/Nov14MarketInvestigation";
-import LeanWatch from "@/components/blue-desk/LeanWatch";
 import CurrentKeyStoryArticle from "@/components/blue-desk/CurrentKeyStoryArticle";
 import NvidiaCrisisStory from "@/components/blue-desk/NvidiaCrisisStory";
 import {NVIDIA_CRISIS_ID} from "@/lib/bluebelly-nvidia-crisis-editorial";
@@ -89,18 +88,11 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     <BlueDeskHeader activePath="/blue-desk/newsroom"/>
     <div className={desk.content}><FaaCrisisStory backHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/></div>
   </main>;
-  // The default Watch page is intentionally compact and read-only.
-  // Exact existing Story/feature/news/brief filters still use the historical
-  // reader below: bookmarked research and original-source context stay intact.
+  // Retire the duplicate landing page before doing any source/thesis reads.
+  // Keep exact article, Story, category and pagination selectors on this route.
   const isFocusedStoryReader=(["story","category","catalyst","feature","page","news","brief","policy","reported","postEvent"] as const)
     .some(key=>Boolean(params?.[key]));
-  if(!isFocusedStoryReader){
-    const tracked=await getPublicThesisLedger(now,24).catch(()=>[]);
-    const linkedMotion=tracked.length
-      ?await getStoryMotionRecency(tracked.map(story=>story.id),now).catch(()=>[])
-      :[];
-    return <LeanWatch stories={orderStoriesByLatestMotion(tracked,linkedMotion,now).slice(0,8)} host={host} now={now}/>;
-  }
+  if(!isFocusedStoryReader) redirect(blueDeskPublicHref("/blue-desk/newsroom",host));
   // Immutable, allowlisted and dated editorial Key Story editions. These do
   // NOT require an arbitrary new news ID, a private Notion row or canonical writer.
   const currentEdition=params?.feature==="nvidia-ceo-earnings-november-2026"?"nvidia":
@@ -110,7 +102,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     <BlueDeskHeader activePath="/blue-desk/key-stories"/>
     <div className={desk.content}>
       <CurrentKeyStoryArticle kind={currentEdition} now={now}
-        backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}/>
+        backHref={blueDeskPublicHref("/blue-desk/newsroom",host)} readerHref={blueDeskPublicHref("/blue-desk/key-stories",host)}/>
     </div>
   </main>;
   // Public, allowlisted post-event recaps reuse previously reviewed source
@@ -124,7 +116,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     return <main className={desk.page} data-key-story="post-event-source-reviewed">
       <BlueDeskHeader activePath="/blue-desk/key-stories"/>
       <div className={desk.content}><PostEventRecapArticle recap={postEvent} socialPosts={commentary}
-        backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}/></div>
+        backHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/></div>
     </main>;
   }
   // User-approved newsroom feature: a dated intraday market report, not a
@@ -132,7 +124,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
   if(params?.feature==="ai-cash-selloff-october-2026")return <main className={desk.page} data-key-story="oct30-selloff-dated-editorial">
     <BlueDeskHeader activePath="/blue-desk/key-stories"/>
     <div className={desk.content}>
-      <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link>
+      <Link href={blueDeskPublicHref("/blue-desk/newsroom",host)}>← Newsroom</Link>
       <Oct30TechSelloffFeature host={host}/>
     </div>
   </main>;
@@ -142,14 +134,14 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     data-key-story="midterms-2026-frozen-editorial">
     <BlueDeskHeader activePath="/blue-desk/key-stories"/>
     <div className={desk.content}>
-      <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link>
+      <Link href={blueDeskPublicHref("/blue-desk/newsroom",host)}>← Newsroom</Link>
       <MidtermRallyFeature host={host}/>
     </div>
   </main>;
   if(params?.feature==="market-desk-4-nov-2026")return <main className={desk.page} data-key-story="4nov2026-cross-market-edition">
    <BlueDeskHeader activePath="/blue-desk/key-stories"/>
    <div className={desk.content}>
-    <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link>
+    <Link href={blueDeskPublicHref("/blue-desk/newsroom",host)}>← Newsroom</Link>
     <NovemberDeskStory host={host}/>
    </div>
   </main>;
@@ -157,14 +149,14 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
   if(params?.feature==="hormuz-mediation-november-2026")
     redirect(blueDeskPublicHref("/blue-desk/hormuz",host));
   const editorialKind=params?.feature==="amazon-cash-test-october-2026"?"amazon":params?.feature==="fomc-october-2026"?"fomc":null;
-  if(editorialKind)return <main className={desk.page}><BlueDeskHeader activePath="/blue-desk/key-stories"/><div className={desk.content}><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link><AmazonFomcFeatures kind={editorialKind}/></div></main>;
+  if(editorialKind)return <main className={desk.page}><BlueDeskHeader activePath="/blue-desk/key-stories"/><div className={desk.content}><Link href={blueDeskPublicHref("/blue-desk/newsroom",host)}>← Newsroom</Link><AmazonFomcFeatures kind={editorialKind}/></div></main>;
   // This known public October FOMC edition has a separately reviewed source
   // packet. Its permanent bookmark must not expire with the seven-day news tape.
   // A query cannot select other editorial or private records.
   if(params?.news==="e378d91d-deb9-4148-88c5-ab6bf5ef367f")return <main className={desk.page} data-bluebelly-news="depth-reviewed-original-event">
     <BlueDeskHeader activePath="/blue-desk/key-stories"/>
     <div className={desk.content}><KeyStoryDeepArticle depth={OCTOBER_FED_DEPTH}
-      backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}
+      backHref={blueDeskPublicHref("/blue-desk/newsroom",host)}
       relatedHref={blueDeskPublicHref("/blue-desk/key-stories",host)+"?feature=fomc-october-2026"}/></div>
   </main>;
   // Dated and bounded on-site editor-verified policy / reported-rumour readers.
@@ -192,7 +184,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({now}).catch(() => ({events:[],coverage:"unavailable" as const,warning:"Earnings coverage unavailable"})),
   ]);
-  if(params?.feature === "rbnz-october-2026") return <main className={desk.page}><BlueDeskHeader activePath="/blue-desk/key-stories"/><div className={desk.content}><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link><RbnzDecisionFeature /></div></main>;
+  if(params?.feature === "rbnz-october-2026") return <main className={desk.page}><BlueDeskHeader activePath="/blue-desk/key-stories"/><div className={desk.content}><Link href={blueDeskPublicHref("/blue-desk/newsroom",host)}>← Newsroom</Link><RbnzDecisionFeature /></div></main>;
   const motionRecency=await getStoryMotionRecency(theses.map(x=>x.id),now).catch(()=>[]);
   const orderedTheses=orderStoriesByLatestMotion(theses,motionRecency,now);
   // Query-only reader: the existing /key-stories host rule applies unchanged.
@@ -203,11 +195,11 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
       <BlueDeskHeader activePath="/blue-desk/key-stories"/>
       <div className={desk.content}>
         {selected?<StoryEditorialArticle story={selected}
-          backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}/>:
+          backHref={blueDeskPublicHref("/blue-desk/key-stories",host)+"?category=All#persistent-theses"}/>:
           <section className={ui.empty} data-article-not-found="true">
             <h1>Story unavailable</h1>
             <p>The requested Story is not in the approved public research index.</p>
-            <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>Return to all Stories</Link>
+            <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"?category=All#persistent-theses"}>Browse historical theses</Link>
           </section>}
       </div>
     </main>;
@@ -247,7 +239,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     if(reviewed)return <main className={desk.page} data-bluebelly-news="matched-reviewed-post-event">
       <BlueDeskHeader activePath="/blue-desk/key-stories"/>
       <div className={desk.content}><PostEventRecapArticle recap={reviewed}
-        backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}/></div>
+        backHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/></div>
     </main>;
     // Reuse a reviewed packet for any matching original, clock-qualified
     // public news receipt. No on-page research or trust in arbitrary IDs.
@@ -255,16 +247,16 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     if(event&&researched)return <main className={desk.page} data-bluebelly-news="depth-reviewed-original-event">
       <BlueDeskHeader activePath="/blue-desk/key-stories"/>
       <div className={desk.content}><KeyStoryDeepArticle receipt={event} depth={researched}
-        backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}
+        backHref={blueDeskPublicHref("/blue-desk/newsroom",host)}
         relatedHref={blueDeskPublicHref("/blue-desk/key-stories",host)+(researched.relatedHref||"")}/></div>
     </main>;
     return <main className={desk.page} data-bluebelly-news="single-receipt-reader">
       <BlueDeskHeader activePath="/blue-desk/key-stories"/>
       <div className={desk.content}>{event?
-        <ShortNewsRecap recap={recapFromNews(event)} coverage={storyCoverageForNews(event)} backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}/>:
+        <ShortNewsRecap recap={recapFromNews(event)} coverage={storyCoverageForNews(event)} backHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/>:
         <section className={ui.empty}><h1>Report unavailable</h1>
          <p>That report is outside the verified public news window.</p>
-         <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>All Key Stories</Link></section>}</div>
+         <Link href={blueDeskPublicHref("/blue-desk/newsroom",host)}>Newsroom</Link></section>}</div>
     </main>;
   }
   const briefId=typeof params?.brief==="string"&&/^[a-z0-9_:-]{1,150}$/i.test(params.brief)?params.brief:null;
@@ -273,7 +265,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
   if(briefId==="earnings:mev_146cecdc376b7290256b1a81")return <main className={desk.page} data-earnings-bookmark="immutable-dated-preview">
     <BlueDeskHeader activePath="/blue-desk/key-stories"/>
     <div className={desk.content}>
-      <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link>
+      <Link href={blueDeskPublicHref("/blue-desk/newsroom",host)}>← Newsroom</Link>
       <AmazonFomcFeatures kind="amazon"/>
       <p><Link href={blueDeskPublicHref("/blue-desk/markets",host)+"?view=earnings&ticker=AMZN"}>Read the full Amazon business model, cash-flow bridge and balance-sheet investor investigation →</Link></p>
     </div>
@@ -293,7 +285,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
       return <main className={desk.page} data-bluebelly-chart-watch="amd-2026q3-source-reviewed">
        <BlueDeskHeader activePath="/blue-desk/key-stories"/>
        <div className={desk.content}>
-        <ChartWatchArticle scorecard={earningsReceipt} backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}/>
+        <ChartWatchArticle scorecard={earningsReceipt} backHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/>
        </div>
       </main>;
     }
@@ -327,7 +319,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
       return <main className={desk.page} data-bluebelly-earnings-preview="dated-primary-source-research">
         <BlueDeskHeader activePath="/blue-desk/key-stories"/>
         <div className={desk.content}>
-          <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← All Key Stories</Link>
+          <Link href={blueDeskPublicHref("/blue-desk/newsroom",host)}>← Newsroom</Link>
           <AmazonFomcFeatures kind="amazon" />
           <p>Read the <Link href={blueDeskPublicHref("/blue-desk/markets",host)+"?view=earnings&ticker=AMZN"}>complete Amazon financial investigation →</Link> or the <Link href={blueDeskPublicHref("/blue-desk/markets",host)+"#earnings-fundamentals"}>seven-company investor tests</Link>. Financial figures are dated; no forthcoming Q3 result is inferred.</p>
         </div>
@@ -348,10 +340,10 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
       <BlueDeskHeader activePath="/blue-desk/key-stories"/>
       <div className={desk.content}>{selected?
         <ShortNewsRecap recap={recapFromDecision(selected,earningsReceipt)}
-           backHref={blueDeskPublicHref("/blue-desk/key-stories",host)}/>:
+           backHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/>:
         <section className={ui.empty}><h1>Decision brief unavailable</h1>
          <p>The requested event is not in the current approved source-qualified slate.</p>
-         <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>All Key Stories</Link></section>}</div>
+         <Link href={blueDeskPublicHref("/blue-desk/newsroom",host)}>Newsroom</Link></section>}</div>
     </main>;
   }
   // The dated event explainer is rolling public news, not a thesis revision.
@@ -362,12 +354,12 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     return <main className={desk.page} data-bluebelly-stories="verified-catalyst-reading-mode">
       <BlueDeskHeader activePath="/blue-desk/key-stories"/>
       <div className={desk.content}>
-        {selected?<VerifiedCatalystArticle topic={selected} backHref={indexHref}/>:
+        {selected?<VerifiedCatalystArticle topic={selected} backHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/>:
           <section className={ui.empty} data-catalyst-unavailable="true">
             <h1>Verified event coverage unavailable</h1>
             <p>The requested event theme is not in the current source-verified news window.
               Historical Story research remains separate from fresh news.</p>
-            <Link href={indexHref}>Return to Key Stories</Link>
+            <Link href={blueDeskPublicHref("/blue-desk/newsroom",host)}>Return to Newsroom</Link>
           </section>}
       </div>
     </main>;
@@ -534,7 +526,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
            Fresh source-verified developments appear separately below.</p>
         <p data-stories-page-range>Showing {storyPage.firstItem}–{storyPage.lastItem} of {storyPage.totalItems} available market themes.</p>
         <nav className={ui.categoryFilters} aria-label="Filter Key Stories by market category">
-          <Link href={indexHref} aria-current={activeCategory==="All"?"page":undefined}
+          <Link href={indexHref+"?category=All#persistent-theses"} aria-current={activeCategory==="All"?"page":undefined}
             className={activeCategory==="All"?ui.categorySelected:ui.categoryLink}>All Stories</Link>
           {PUBLIC_STORY_CATEGORIES.map(category=><Link key={category}
             href={indexHref+"?category="+encodeURIComponent(category)}
@@ -565,7 +557,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
       </section>
       <ReaderPagination label="Key Stories" page={storyPage.page} totalPages={storyPage.totalPages}
         totalItems={storyPage.totalItems} firstItem={storyPage.firstItem} lastItem={storyPage.lastItem}
-        getHref={number=>indexHref+(activeCategory!=="All"?"?category="+encodeURIComponent(activeCategory)+(number>1?"&page="+number:""):(number>1?"?page="+number:""))+"#persistent-theses"}/>
+        getHref={number=>indexHref+"?category="+encodeURIComponent(activeCategory)+(number>1?"&page="+number:"")+"#persistent-theses"}/>
       {upcomingDecisionSection}
       <details><summary>Research tools, source observations and further reading</summary>
       {investorTest ? <InvestorTest view={investorTest}/> : null}

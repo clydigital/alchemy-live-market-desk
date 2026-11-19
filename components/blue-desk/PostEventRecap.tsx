@@ -66,7 +66,7 @@ export function PostEventRecapArticle({recap,backHref,socialPosts=[]}:{
     sourceName={recap.eventName}
     eventAt={recap.releaseAt.includes("T")?recap.releaseAt:null}
     sourceDate={recap.releaseAt}
-    backHref={backHref} backLabel="Key Stories"
+    backHref={backHref} backLabel="Newsroom"
    />
   </header>
   <StorySummaryBoxes items={[

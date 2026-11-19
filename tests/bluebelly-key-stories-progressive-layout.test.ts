@@ -6,7 +6,7 @@ const page=read("components/blue-desk/LeanWatch.tsx");
 const style=read("components/blue-desk/lean-watch.module.css");
 const route=read("app/blue-desk/key-stories/page.tsx");
 
-test("default Watch shows three leading recorded theses and collapses the rest without changing source reads",()=>{
+test("Retained historical Watch component renders its original disclosure layout",()=>{
  assert.match(page,/data-bluebelly-watch="lean-readonly-v1"/);
  assert.match(page,/data-key-stories-reading="three-leading-then-expand"/);
  assert.match(page,/data-key-stories-leading="recorded-research-not-news"/);
@@ -16,8 +16,8 @@ test("default Watch shows three leading recorded theses and collapses the rest w
  assert.match(page,/data-key-stories-more="collapsed-by-default"/);
  assert.match(page,/cards\.slice\(3\)/);
  assert.doesNotMatch(page,/<details[^>]+\sopen(?:\s|>|=)/);
- assert.match(route,/orderStoriesByLatestMotion\(tracked,linkedMotion,now\)\.slice\(0,8\)/);
- assert.match(route,/if\(!isFocusedStoryReader\)/);
+ assert.doesNotMatch(route,/<LeanWatch/);
+ assert.match(route,/if\(!isFocusedStoryReader\) redirect/);
 });
 test("each Story preserves its dated status, source context, countercase and original article URL",()=>{
  for(const marker of [

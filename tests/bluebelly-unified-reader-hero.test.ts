@@ -21,12 +21,12 @@ test("Key Stories and Newsroom use the same right-side illustrated metadata and 
  for(const p of ["components/blue-desk/PostEventRecap.tsx","components/blue-desk/ShortNewsRecap.tsx"]){
   const body=src(p);
   assert.match(body,/<StoryHeroAside/);
-  assert.match(body,/backHref=\{backHref\} backLabel="Key Stories"/);
+  assert.match(body,/backHref=\{backHref\} backLabel="Newsroom"/);
   assert.ok(body.includes("The full story")||body.includes("WHAT WE CAN VERIFY"));
  }
  const deep=src("components/blue-desk/KeyStoryDeepArticle.tsx");
  assert.match(deep,/data-key-story-meta="under-illustration"/);
- assert.match(deep,/Return to Key Stories/);
+ assert.match(deep,/Return to Newsroom/);
  assert.doesNotMatch(src("components/blue-desk/NewsroomEventReader.module.css"),/\.art\{display:none/);
 });
 test("Shared hero is only presentation, not a new editorial or publication source",()=>{

@@ -34,12 +34,13 @@ test("homepage is a source-dated market utility before archived Today reading",(
 test("navigation demotes reporting, protects owner, and retains source and historical deep links",()=>{
   const nav=header.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0]||"";
   const more=header.split("const PUBLIC_MORE = [")[1]?.split("] as const;")[0]||"";
-  for(const [label,href] of [["Markets","/markets"],["Calendar","/calendar"],["Watch","/key-stories"]]){
+  for(const [label,href] of [["Markets","/markets"],["Calendar","/calendar"]]){
     assert.ok(nav.includes('["'+label+'", "'+href+'"]'),label);
     assert.equal(blueDeskHostAccess(href,"bluebelly-desk.vercel.app"),"public");
   }
   assert.ok(!nav.includes("Today")&&!nav.includes("Newsroom")&&!nav.includes("Daily Report"));
   assert.match(more,/Newsroom/);
+  assert.doesNotMatch(nav,/Watch|key-stories/);
   assert.match(more,/Research Archive/);
   for(const p of ["/newsroom","/research","/regime-watch","/hormuz","/learn"])
     assert.equal(blueDeskHostAccess(p,"bluebelly-desk.vercel.app"),"public",p);

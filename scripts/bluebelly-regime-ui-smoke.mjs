@@ -187,7 +187,6 @@ try{
  const publicPages=[
   ["/","market-home",'data-home-market-first="source-dated-terminal"'],
   ["/newsroom","newsroom",'data-public-newsroom="original-source-only"'],
-  ["/key-stories","key-stories",'data-bluebelly-watch="lean-readonly-v1"'],
   ["/hormuz","hormuz",'data-bluebelly-hormuz="public-source-dated-physical-first"'],
   ["/markets","markets",'data-blue-desk-markets="public-observations"'],
   ["/calendar","calendar",'data-blue-desk-calendar="ET-primary"'],
@@ -203,6 +202,12 @@ try{
  const historical=await waitResponse("/daily-report?edition=legacy",code=>code===404);
  if(historical.status!==404)throw Error("Retired historical selector incorrectly forwarded to today's Newsroom");
  console.log("Retired duplicate Daily Report redirects 307 · historical selector fails closed");
+ for(const path of ["/key-stories","/blue-desk/key-stories"]){
+  const retired=await waitResponse(path,code=>code===307);
+  if(new URL(retired.location,"https://bluebelly-desk.vercel.app").pathname!=="/newsroom")
+   throw new Error("Retired Watch did not lead to Newsroom: "+path+" -> "+retired.location);
+ }
+ console.log("Retired Watch redirects 307 to Newsroom; exact readers checked below");
 
  for(const [path,id,marker] of publicPages){
   const view=await waitResponse(path);
@@ -215,20 +220,6 @@ try{
    assertHtml(view.html,'data-v7-newsroom-command="source-qualified"');
    assertHtml(view.html,'data-editorial-newsroom="verified-only"');
    if(view.html.includes('data-newsroom-release-rail='))throw Error("Duplicate release rail still rendered in public Newsroom");
-  }
-  if(id==="key-stories"){
-   assertHtml(view.html,'data-v7-watch-graphic="decorative-research-radar"');
-   assertHtml(view.html,"What is moving the market?","The stories the market is trying to price",
-    'data-key-stories-current="source-reviewed-featured-not-canonical"',
-    'data-key-story-lead="nvidia-leadership-q3"',
-    "Market narratives","Browse complete historical Story library");
-   if(!view.html.includes("No approved public thesis snapshot"))
-    assertHtml(view.html,"Evidence and counterargument",
-      "Read full thesis and source context",
-      'data-key-stories-reading="three-leading-then-expand"',
-      'data-key-stories-leading="recorded-research-not-news"');
-   if(view.html.includes('data-key-stories-more="collapsed-by-default"'))
-    assertHtml(view.html,"MORE TRACKED QUESTIONS","Same dated research records");
   }
   if(id==="calendar"||id==="research"){
    if(id==="calendar")assertHtml(view.html,
@@ -339,7 +330,7 @@ try{
  }
 
  // The full historical Story index remains accessible via an explicit
- // category selector, even though default Watch is now a compact projection.
+ // category selector, even though the bare Watch route now redirects to Newsroom.
  const archive=await waitResponse("/key-stories?category=All");
  assertHtml(archive.html,'data-bluebelly-stories="catalyst-led"',
    'data-persistent-thesis-ledger="source-identity"');

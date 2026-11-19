@@ -34,7 +34,7 @@ export default function DeskWhiteboard({
  const open=(path:string)=>blueDeskPublicHref(path,host);
  const stories=open("/blue-desk/key-stories");
  const newsHref=latest?stories+"?news="+encodeURIComponent(latest.id):open("/blue-desk/newsroom");
- const thesisHref=story?stories+"?story="+encodeURIComponent(story.slug):stories;
+ const thesisHref=story?stories+"?story="+encodeURIComponent(story.slug):open("/blue-desk/regime-watch");
  return <section className={styles.board} data-bluebelly-desk-whiteboard="existing-evidence-v1"
    aria-labelledby="desk-whiteboard-title">
   <header className={styles.heading}>
@@ -66,7 +66,7 @@ export default function DeskWhiteboard({
     <p>{story?shortened(story.nextTest||story.contradiction||"Review the original evidence and next test.",165):
       "Open a dated research lens before adopting an investment conclusion."}</p>
     <small>{story?<>Story updated <DualTimestamp value={story.updatedAt}/> · historical interpretation</>:"No eligible public Story record"}</small>
-    <Link href={thesisHref}>{story?"Open thesis &amp; countercase":"Browse Key Stories"} <span aria-hidden="true">↗</span></Link>
+    <Link href={thesisHref}>{story?"Open thesis &amp; countercase":"Browse Regime Lenses"} <span aria-hidden="true">↗</span></Link>
    </article>
    <article className={styles.cell} data-whiteboard-cell="catalyst">
     <span className={styles.label}>04 / NEXT CATALYST</span>

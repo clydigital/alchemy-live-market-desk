@@ -5,11 +5,12 @@ import {getManualSweeps} from "../lib/bluebelly-manual-sweeps.ts";
 import {NVIDIA_EARNINGS_WATCH,nvidiaEventState} from "../lib/bluebelly-nvidia-earnings-watch.ts";
 const read=(path:string)=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 
-test("Key Stories default now leads with reviewed current stories, not only old thesis memory",()=>{
+test("Archived reviewed story content remains intact after retiring the default Watch page",()=>{
  const page=read("app/blue-desk/key-stories/page.tsx");
  const lean=read("components/blue-desk/LeanWatch.tsx");
  const shelf=read("components/blue-desk/CurrentKeyStoriesShelf.tsx");
- assert.match(page,/return <LeanWatch stories=\{orderStoriesByLatestMotion\(tracked,linkedMotion,now\).slice\(0,8\)\} host=\{host\} now=\{now\}\/>/);
+ assert.match(page,/if\(!isFocusedStoryReader\) redirect/);
+ assert.doesNotMatch(page,/<LeanWatch/);
  assert.match(lean,/<CurrentKeyStoriesShelf now=\{now\} host=\{host\}\/>/);
  assert.ok(lean.indexOf("<CurrentKeyStoriesShelf")<lean.indexOf('id="tracked-theses"'));
  assert.match(shelf,/data-key-story-lead="nvidia-leadership-q3"/);

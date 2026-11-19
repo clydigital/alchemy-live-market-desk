@@ -57,6 +57,7 @@ export default async function PublicResearchPage({
        <div className={ui.heroMeta}>
          <strong>Dated, not frozen in the homepage.</strong>
          <p>Each article retains its original research date. Fresh announcements and live market changes belong in the <Link href={blueDeskPublicHref("/blue-desk/newsroom",host)}>Newsroom</Link>.</p>
+         <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+"?category=All#persistent-theses"}>Historical thesis ledger and countercases →</Link>
        </div>
      </header>
 

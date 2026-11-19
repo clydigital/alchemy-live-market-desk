@@ -80,7 +80,7 @@ export default async function NewsroomPage({searchParams}:Props){
     </header>
     <nav className={ui.newsroomDepthNav} aria-label="Newsroom reading depth" data-newsroom-deep-dives="single-editorial-destination">
       <span aria-current="page">Latest verified news</span>
-      <Link href={readerHref}>Deep Dives · Key Stories</Link>
+      <Link href={blueDeskPublicHref("/blue-desk/research",host)}>Deep Dives · Research Archive</Link>
       <a href="#newsroom-manual-sweeps">Manual research checks</a>
     </nav>
     {showJensenGovernanceWatch&&isJensenGovernanceWatchWindow(now)?<JensenGovernanceWatch host={host}/>:null}

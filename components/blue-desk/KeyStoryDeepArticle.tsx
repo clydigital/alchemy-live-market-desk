@@ -29,7 +29,7 @@ export default function KeyStoryDeepArticle({
            <DualTimestamp className={styles.eventTime} value={receipt?.occurredAt||depth.eventAt}/>
            <p className={styles.edition}>Editorial {depth.edition}</p>
          </div>
-         <Link className={styles.backButton} href={backHref}>← Return to Key Stories</Link>
+         <Link className={styles.backButton} href={backHref}>← Return to Newsroom</Link>
        </div>
      </aside>
    </header>

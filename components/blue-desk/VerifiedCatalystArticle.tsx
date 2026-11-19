@@ -14,7 +14,7 @@ export default function VerifiedCatalystArticle({topic,backHref}:Props){
  return <article className={styles.article}
    data-catalyst-reader="verified-source-timeline" data-catalyst-topic={topic.id}>
    <nav className={styles.back} aria-label="Story breadcrumbs">
-     <Link href={backHref}>All Key Stories</Link><span aria-hidden="true">/</span>
+     <Link href={backHref}>Newsroom</Link><span aria-hidden="true">/</span>
      <span>{topic.title}</span>
    </nav>
    <header className={styles.hero}>
@@ -77,7 +77,7 @@ export default function VerifiedCatalystArticle({topic,backHref}:Props){
        <p>{updates.length} distinct source-verified report{updates.length===1?"":"s"} in this rolling topic.
          The article does not carry forward expired news as a new event. No unverified X post,
          creator commentary, scheduled announcement or opinion substitutes for a reported fact.</p>
-       <Link href={backHref}>Return to all stories</Link>
+       <Link href={backHref}>Return to Newsroom</Link>
      </footer>
    </div>
  </article>;

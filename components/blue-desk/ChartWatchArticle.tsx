@@ -11,7 +11,7 @@ export default function ChartWatchArticle({scorecard,backHref}:{scorecard:Verifi
  if(scorecard.id!=="amd-2026q3"||scorecard.preliminary||
     !scorecard.sourceUrl.startsWith("https://newsroom.amd.com/"))return null;
  return <article className={s.article} data-chart-watch-article="amd-2026q3" data-original-source-qualified="true">
-   <nav className={s.back}><Link href={backHref}>← Key Stories</Link><span> / Chart Watch / AMD</span></nav>
+   <nav className={s.back}><Link href={backHref}>← Newsroom</Link><span> / Chart Watch / AMD</span></nav>
    <header className={s.hero}>
      <p className={s.eyebrow}>BLUEBELLY · CHART WATCH · 3 NOVEMBER 2026 ET · AMD</p>
      <h1>AMD's AI Sales Soar 97%. Why Did Cash Flow Fall 64%?</h1>
@@ -54,7 +54,7 @@ export default function ChartWatchArticle({scorecard,backHref}:{scorecard:Verifi
     {" "}{scorecard.additionalSourceUrl?<a href={scorecard.additionalSourceUrl} target="_blank" rel="noopener noreferrer">SEC-filed earnings presentation (8-K accession 0000002488-26-000188)</a>:null}.
     The charts are original Bluebelly visualisations of reported financial facts, not redistributed vendor graphics.</p>
     <p>All chart values cover the fiscal third quarters ended 27 September 2025 and 26 September 2026. The release is dated 3 November 2026 ET; no subsequent regular-session closing reaction or independently frozen analyst consensus is claimed. Free cash flow uses the issuer's continuing-operations reconciliation.</p>
-    <Link href={backHref}>Return to Key Stories</Link>
+    <Link href={backHref}>Return to Newsroom</Link>
    </footer>
  </article>;
 }

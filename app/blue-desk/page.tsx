@@ -178,7 +178,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
               <nav className={marketHome.actions} aria-label="Market terminal shortcuts">
                 <Link href="/markets">Explore markets</Link>
                 <Link href="/calendar">Economic &amp; earnings calendar</Link>
-                <Link href="/key-stories">Research watch</Link>
+                <Link href="/newsroom">Newsroom</Link>
                 <Link href="/my-reports">My Desk · private</Link>
               </nav>
             </div>
@@ -187,7 +187,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
                 <RadarSweep/>
                 <Link className={marketHome.orbitNodeA} href="/markets">MARKETS</Link>
                 <Link className={marketHome.orbitNodeB} href="/calendar">CATALYSTS</Link>
-                <Link className={marketHome.orbitNodeC} href="/key-stories">WATCH</Link>
+                <Link className={marketHome.orbitNodeC} href="/newsroom">NEWSROOM</Link>
                 <span className={marketHome.orbitCore} aria-hidden="true">B<span>B</span><small>COMMAND</small></span>
               </nav>
               <span className={marketHome.orbitCaption} aria-hidden="true">OBSERVE / COMPARE / INVESTIGATE</span>
@@ -247,7 +247,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
                   <p>Last researched <DualTimestamp value={thesis.updatedAt}/></p>
                 </article>)}
               </div>:<p className={styles.coverage}>No source-dated public theses available.</p>}
-              <div className={marketHome.panelFooter}><Link href="/key-stories">View evidence and next tests</Link></div>
+              <div className={marketHome.panelFooter}><Link href="/regime-watch">View regime evidence and next tests</Link></div>
             </section>
             <section className={marketHome.panel} aria-labelledby="market-sources-title">
               <div className={marketHome.panelHead}><h2 id="market-sources-title">Latest verified sources</h2><small>Original-source facts · not inferred market causes</small></div>
@@ -257,7 +257,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
                   <p><DualTimestamp value={item.occurredAt}/> · {item.sourceName}</p>
                 </article>)}
               </div>:<p className={styles.coverage}>No new verified headline in the past 48 hours. Older sources remain searchable.</p>}
-              <div className={marketHome.panelFooter}><Link href="/newsroom">Search source feed</Link><Link href="/research">Research archive</Link></div>
+              <div className={marketHome.panelFooter}><Link href="/newsroom">Search Newsroom</Link><Link href="/research">Research archive</Link></div>
             </section>
           </div>
           <p className={marketHome.note}>1D/3D/5D changes use available source trading sessions. Nominal yield changes are basis points; equity and currency moves are percentages. Every reading must retain its own source timestamp. The window bars compare cumulative changes within one instrument; they do not represent historical price paths or comparable moves across assets.</p>
@@ -273,7 +273,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
           <summary style={{cursor:"pointer",color:"var(--bb-accent)",fontWeight:700}}>Explore detailed news, earnings and event analysis</summary>
           <nav aria-label="Detailed market analysis" style={{display:"flex",flexWrap:"wrap",gap:"14px",padding:"16px 0 4px"}}>
             <Link href={blueDeskPublicHref("/blue-desk/newsroom",host)}>Full news explanations →</Link>
-            <Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>Ongoing stories and evidence →</Link>
+            <Link href={blueDeskPublicHref("/blue-desk/regime-watch",host)}>Ongoing narratives and evidence →</Link>
             <Link href={blueDeskPublicHref("/blue-desk/calendar",host)}>Earnings and economic calendar →</Link>
           </nav>
         </details>:null}
@@ -363,8 +363,8 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
               <h2 id="ongoing-stories-head"><MarketIcon name="layers" size={24} /> Key stories</h2>
               <p>Four current research perspectives. These are dated interpretations, not a list of today's verified headlines.</p>
             </div>
-            <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/key-stories",host)}>
-              Explore evidence and countercases →
+            <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/key-stories",host)+"?category=All#persistent-theses"}>
+              Explore historical evidence and countercases →
             </Link>
           </div>
           {theses.length ? <div className={tracked.grid} data-home-stories="editorial-lead-four">
@@ -394,7 +394,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
                 <p className={styles.kicker}>SOURCE-VERIFIED HEADLINES</p>
                 <h2 id="headline-context-title"><MarketIcon name="divergence" size={24} /> In the news</h2>
               </div>
-              <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/key-stories",host)+"#newsroom-title"}>Explore sourced stories →</Link>
+              <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/newsroom",host)}>Explore sourced stories →</Link>
             </div>
             {verifiedNews.length ? verifiedNews.slice(0,4).map(news => (
               <article key={news.id} className={styles.motionRow}>
@@ -463,7 +463,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
           <div className={styles.quickLinks}>
             {publicHost ? (
               <>
-                <Link href="/key-stories">Key market stories and research watch →</Link>
+                <Link href="/newsroom">Newsroom and market analysis →</Link>
                 <Link href="/markets?group=rates">Observed Treasury yields and history →</Link>
                 <Link href="/markets">Public markets →</Link>
                 <Link href="/calendar">Public calendar →</Link>
