@@ -78,6 +78,7 @@ export default function RadarSweep() {
 
   return <>
     <span ref={sweepRef} className={ui.sweep} aria-hidden="true"/>
+    <span className={ui.scanline} aria-hidden="true"/>
     <span ref={blipsRef} className={ui.blips} aria-hidden="true">
       {Array.from({length: MAX_RADAR_BLIPS}, (_, i) => <span key={i} className={ui.blip} hidden/>)}
     </span>

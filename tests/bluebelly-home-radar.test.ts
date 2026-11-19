@@ -46,6 +46,22 @@ test("radar highlights share the scanner head colour and linger twice as long af
   assert.match(css, /2%,8%\{background:var\(--bb-command-alt\);color:#071017;border-color:var\(--bb-command-alt\);box-shadow:[^}]+var\(--bb-command-alt\)/);
 });
 
+test("horizontal scanner is a solid line clipped to the circle and cannot detect blips", () => {
+  const shared = readFileSync("components/blue-desk/radar-sweep.module.css", "utf8");
+  const scanner = readFileSync("components/blue-desk/RadarSweep.tsx", "utf8");
+  assert.match(shared, /\.scanline\{[^}]+border-radius:50%;overflow:hidden;pointer-events:none/);
+  const line = shared.match(/\.scanline::before\{([^}]+)\}/)![1];
+  assert.match(line, /height:1px/);
+  assert.match(line, /background:var\(--bb-command-alt\)/);
+  assert.match(line, /animation:bb-radar-scanline 12s linear infinite/);
+  assert.doesNotMatch(line, /gradient|box-shadow|filter/);
+  assert.match(shared, /@keyframes bb-radar-scanline\{from\{top:-1px\}to\{top:100%\}\}/);
+  assert.match(shared, /prefers-reduced-motion:reduce\)\{\.scanline\{display:none\}/);
+  assert.match(scanner, /<span className=\{ui\.scanline\} aria-hidden="true"\/>/);
+  assert.equal((scanner.match(/getAnimations\(/g) ?? []).length, 1);
+  assert.match(scanner, /sweep!\.getAnimations\(\)\[0\]/);
+});
+
 test("three to five randomly positioned neon blips align with the shared scanner", () => {
   const counts = new Set<number>();
   const layouts = new Set<string>();
