@@ -34,3 +34,11 @@
 .method{margin-top:14px;padding-top:12px;border-top:1px solid var(--bb-command-edge);color:#a9c3ce}.method summary{color:var(--bb-command-accent)}
 @media(max-width:850px){.grid{grid-template-columns:1fr}.primary{grid-template-columns:132px minmax(0,1fr)}}
 @media(max-width:480px){.rateGrid{grid-template-columns:1fr}.primary{grid-template-columns:112px minmax(0,1fr)}.dialValue strong{font-size:25px}.dialValue span{font-size:8px}.reading p{font-size:12px}.volatility span{margin-left:0}}
+
+/* Separate the historical level (ring) from the recent direction (badge). */
+.riskIntro{font-size:13px;line-height:1.5;color:#cadae5;margin:0 0 10px}.riskIntro strong{color:#f1f7fa}
+.legend{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-bottom:14px}.legend span{border-top:3px solid var(--level);padding:6px 4px;font:650 10px/1.4 var(--bb-mono);color:#b9cdd8}.legend b{display:block;color:var(--level);font-size:10px}
+.card,.legend span{--level:#8ca6b2}.card[data-risk-level="low"],.legend [data-level="low"]{--level:#79dbb4}.card[data-risk-level="normal"],.legend [data-level="normal"]{--level:#95c9e5}.card[data-risk-level="high"],.legend [data-level="high"]{--level:#f5bd68}.card[data-risk-level="extreme"],.legend [data-level="extreme"]{--level:#ff888f}
+.arc{stroke:var(--level);filter:drop-shadow(0 0 4px color-mix(in srgb,var(--level) 35%,transparent))}.dialValue strong{color:var(--level)}.percentile strong{color:#f0f7fa}.reading .divergence{color:#f3d095;font-size:11px}
+.action{border:1px solid #365461;border-left:3px solid var(--risk-tone);background:#102833;padding:12px;margin:0 0 12px}.action>span{display:block;color:#b7d0dc;font:750 10px/1.4 var(--bb-mono);letter-spacing:.04em}.action>strong{display:block;font:850 17px/1.25 var(--bb-display);color:var(--risk-tone);margin:5px 0}.action p{color:#d2e4eb;font-size:12px;line-height:1.5;margin:5px 0 0}.action .capacity{border-top:1px solid #365461;padding-top:8px;margin-top:8px}.capacity b{color:var(--risk-tone)}.method a{color:var(--bb-command-alt)}
+@media(max-width:480px){.legend{grid-template-columns:repeat(2,minmax(0,1fr))}.action{padding:10px}.action>strong{font-size:16px}.dialValue span{font-size:8px}}

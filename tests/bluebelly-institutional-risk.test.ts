@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {buildInstitutionalRisk, impliedVar} from "../lib/bluebelly-institutional-risk.ts";
+import {buildInstitutionalRisk, impliedVar, interpretInstitutionalRisk} from "../lib/bluebelly-institutional-risk.ts";
 import {scheduledUsEquityCloseHourET} from "../lib/bluebelly-us-equity-trading-calendar.ts";
 
 const NOW = new Date("2026-11-19T10:00:00Z");
@@ -53,4 +53,18 @@ test("rejects conflicting dates, gaps and unfinished observations",()=>{
   assert.equal(future.asOf,"2026-11-18");assert.equal(future.var95,impliedVar(21));
   vix.points.push({...vix.points.at(-1)!,close:50});
   assert.equal(buildInstitutionalRisk([vix],[],NOW)[0].state,"unavailable");
+});
+
+test("interpretation separates absolute historical risk from direction and suppresses stale signals",()=>{
+  const base = {state:"current" as const, percentile:90, change1d:-3, change5d:10, capacity5d:-9.09};
+  const rising = interpretInstitutionalRisk(base);
+  assert.equal(rising.level,"extreme");assert.equal(rising.direction,"pressure");assert.ok(rising.divergence);
+  const easing = interpretInstitutionalRisk({...base,change5d:-10,capacity5d:11.11});
+  assert.equal(easing.action,"Cautious re-risking possible");assert.equal(easing.level,"extreme");
+  assert.equal(interpretInstitutionalRisk({...base,percentile:75}).level,"high");
+  assert.equal(interpretInstitutionalRisk({...base,percentile:25}).level,"normal");
+  assert.equal(interpretInstitutionalRisk({...base,percentile:24.9,change5d:-10}).action,"Room to rebuild exposure");
+  assert.equal(interpretInstitutionalRisk({...base,change5d:0.8}).direction,"flat");
+  assert.equal(interpretInstitutionalRisk({...base,state:"behind"}).direction,"unknown");
+  assert.equal(interpretInstitutionalRisk({...base,percentile:null,change5d:null}).direction,"unknown");
 });

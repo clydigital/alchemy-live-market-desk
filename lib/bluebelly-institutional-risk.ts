@@ -54,6 +54,19 @@ export type InstitutionalRiskRow = {
   realised: ReturnType<typeof realised20>; realisedLabel: string;
 };
 
+// Editorial bands, not regulatory or institution-specific VaR limits.
+export function interpretInstitutionalRisk(row: Pick<InstitutionalRiskRow, "state" | "percentile" | "change1d" | "change5d" | "capacity5d">) {
+  const rank = row.percentile;
+  const level = rank === null ? "unknown" : rank >= 90 ? "extreme" : rank >= 75 ? "high" : rank < 25 ? "low" : "normal";
+  const levelLabel = {unknown: "Unranked", extreme: "Extreme", high: "High", low: "Low", normal: "Normal"}[level];
+  const direction = row.state !== "current" || row.change5d === null ? "unknown" : row.change5d > 1 ? "pressure" : row.change5d < -1 ? "easing" : "flat";
+  const elevated = level === "high" || level === "extreme";
+  const action = direction === "unknown" ? "No current positioning inference" : direction === "pressure" ? "Reduce risk / hedge pressure" : direction === "easing" ? elevated ? "Cautious re-risking possible" : "Room to rebuild exposure" : elevated ? "Maintain defensive sizing" : "Little mechanical change";
+  const explanation = direction === "unknown" ? "Wait for a current close and five matched sessions. Historical readings do not establish today's pressure." : direction === "pressure" ? elevated ? "Risk is elevated and still rising. Funds near fixed risk limits may cut positions or add hedges." : "Risk is rising. Fixed-risk funds may trim exposure or hedge, even if the market has not reached stressed levels." : direction === "easing" ? elevated ? "The squeeze is easing, but risk remains historically elevated. Some funds may reduce hedges or rebuild slowly; others may wait for calmer realised volatility." : "Lower implied risk frees up theoretical exposure capacity. Risk-targeting funds may rebuild positions if their own limits and other conditions permit." : elevated ? "Risk is still elevated. Little recent change in risk does not mean selling pressure has fully cleared." : "Implied risk has changed little over five sessions. There is little mechanical reason to resize on this proxy alone.";
+  const divergence = direction === "pressure" && row.change1d !== null && row.change1d < -1 ? "Latest day eased, but the five-session risk increase remains." : direction === "easing" && row.change1d !== null && row.change1d > 1 ? "Latest day rose against the five-session easing trend." : null;
+  return {level, levelLabel, direction, action, explanation, divergence};
+}
+
 export function buildInstitutionalRisk(volatility: readonly (Series | null)[], market: readonly Series[], now: Date): InstitutionalRiskRow[] {
   const expected = expectedHomeEtfSession(now);
   return ([{ id: "vix", symbol: "VIX", label: "S&P 500", asset: "spx", realisedLabel: "SPX cash" },
