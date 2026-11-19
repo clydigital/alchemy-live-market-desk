@@ -334,8 +334,8 @@ async function fetchNasdaqHistory(spec: ExtraSpec): Promise<RawSeries> {
 async function fetchFredSeries(spec: FredSpec): Promise<RawSeries> {
   // The authenticated endpoint is preferred for Treasury yields; other series
   // retain the existing public CSV reader. Never log an API key or request URL.
-  if (spec.id in NOMINAL_TREASURY_TENORS) {
-    const api = await readFredSeries(spec.seriesId, { limit: 260 });
+  if (spec.id in NOMINAL_TREASURY_TENORS || ["VIXCLS", "VXNCLS"].includes(spec.seriesId)) {
+    const api = await readFredSeries(spec.seriesId, { limit: ["VIXCLS", "VXNCLS"].includes(spec.seriesId) ? 320 : 260 });
     if (api.state === "ready" && api.observations.length) {
       const points = api.observations.map((observation) => ({
         time: Date.parse(observation.date + "T00:00:00Z") / 1000,
@@ -351,7 +351,7 @@ async function fetchFredSeries(spec: FredSpec): Promise<RawSeries> {
     }
   }
   const endpoint = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=" + encodeURIComponent(spec.seriesId);
-  const response = await fetch(endpoint, { next: { revalidate: 60 * 60 * 6 }, headers: { "user-agent": "Alchemy Live Desk" } });
+  const response = await fetch(endpoint, { next: { revalidate: 60 * 60 * 6 }, headers: { "user-agent": "Alchemy Live Desk" }, signal: AbortSignal.timeout(12000) });
   if (!response.ok) throw new Error("FRED " + spec.seriesId + " " + response.status);
   const lines = (await response.text()).split(/\r?\n/).slice(1);
   const points = lines.flatMap((line) => {
@@ -368,6 +368,15 @@ async function fetchFredSeries(spec: FredSpec): Promise<RawSeries> {
     frequency: "daily",
   };
 }
+
+/** Two official volatility histories, cached independently of the large market tape.
+ * No new scheduler, premium entitlement, canonical write or public raw history. */
+export const loadVolatilityAnchors = unstable_cache(async () => {
+  return Promise.all([
+    fetchFredSeries({ id: "vix", seriesId: "VIXCLS", label: "S&P 500 implied volatility", type: "Credit / Risk", sourceName: "Cboe via FRED" }).catch(() => null),
+    fetchFredSeries({ id: "vxn", seriesId: "VXNCLS", label: "Nasdaq-100 implied volatility", type: "Credit / Risk", sourceName: "Cboe via FRED" }).catch(() => null),
+  ]);
+}, ["bluebelly-institutional-volatility-anchors-v1"], { revalidate: 3600 });
 async function fetchGoldSpotSeries(): Promise<RawSeries> {
   const historyResponse = await fetch("https://xaus.com/api/v1/history", {
     headers: { accept: "application/json", "user-agent": "Alchemy Live Desk" },

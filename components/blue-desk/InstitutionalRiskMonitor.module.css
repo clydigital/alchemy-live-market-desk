@@ -1,0 +1,16 @@
+.shell{margin:14px 0;padding:15px;border:1px solid var(--bb-card-border);background:var(--bb-card-quiet);min-width:0}
+.head,.cardHead,.primary{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.head{padding-bottom:10px;border-bottom:1px solid var(--bb-card-border);margin-bottom:10px}
+.kicker{color:var(--bb-accent);font:800 10px var(--bb-mono);letter-spacing:.1em}
+.head h2{font:900 clamp(19px,2vw,27px)/1.15 var(--bb-display);color:var(--bb-text);margin:5px 0 0;letter-spacing:-.02em}
+.note,.source{color:var(--bb-muted);font:650 10px/1.5 var(--bb-mono)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.card{--risk-tone:#8795a3;border:1px solid var(--bb-card-border);border-left:4px solid var(--risk-tone);background:var(--bb-card-bg);padding:12px;min-width:0;color:var(--bb-text)}
+.card[data-risk-tone="pressure"]{--risk-tone:#fa7479}.card[data-risk-tone="easing"]{--risk-tone:#36c49b}.card[data-risk-tone="flat"]{--risk-tone:#eab65b}
+.card h3{font:850 16px var(--bb-display);margin:0}.card h3 small{font:650 11px var(--bb-mono);color:var(--bb-muted)}
+.status{border:1px solid var(--risk-tone);color:var(--risk-tone);font:800 9px var(--bb-mono);padding:4px 6px}
+.primary{justify-content:flex-start;margin:12px 0;align-items:center}.primary strong{font:900 32px/1 var(--bb-display);font-variant-numeric:tabular-nums}.primary span{font:650 11px/1.5 var(--bb-mono);color:var(--bb-muted)}
+.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0 0 12px}.metrics>div{border-top:1px solid var(--bb-card-border);padding-top:8px}.metrics dt{font:650 10px/1.4 var(--bb-mono);color:var(--bb-muted)}.metrics dd{font:800 15px var(--bb-display);margin:4px 0 0;font-variant-numeric:tabular-nums}
+.source{display:block;overflow-wrap:anywhere}.source a{color:var(--bb-accent)}
+.method{margin-top:10px;color:var(--bb-muted);font-size:11px;line-height:1.5}.method summary{cursor:pointer;color:var(--bb-accent);font-weight:800}.method p{margin:8px 0 0}
+@media(max-width:650px){.grid{grid-template-columns:1fr}.shell{padding:10px}.primary strong{font-size:28px}}
