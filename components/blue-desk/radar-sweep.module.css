@@ -13,3 +13,22 @@
 }
 @keyframes bb-radar-sweep{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.sweep{animation:none;opacity:0}}
+
+/* Blips are stationary; only their glow changes as the scanner passes.
+   Use the other command accent, distinct from the scanner's leading edge. */
+.blips{position:absolute;inset:1px;z-index:1;border-radius:50%;pointer-events:none}
+.blip{
+  --visible-radius:max(var(--blip-radius),var(--radar-blip-min-radius,0%));
+  position:absolute;
+  left:calc(50% + var(--visible-radius) * var(--blip-x));
+  top:calc(50% + var(--visible-radius) * var(--blip-y));
+  width:clamp(3px,3.2%,6px);aspect-ratio:1;border-radius:50%;
+  transform:translate(-50%,-50%);background:var(--bb-command-accent);opacity:.18;
+  animation:bb-radar-blip var(--radar-period,8s) linear infinite;
+  animation-delay:calc(var(--radar-period,8s) * var(--blip-phase));
+}
+@keyframes bb-radar-blip{
+  0%,17%,100%{opacity:.18;box-shadow:none;transform:translate(-50%,-50%) scale(.82)}
+  2%,7%{opacity:1;box-shadow:0 0 5px 1px var(--bb-command-accent),0 0 13px 3px color-mix(in srgb,var(--bb-command-accent) 55%,transparent);transform:translate(-50%,-50%) scale(1.15)}
+}
+@media(prefers-reduced-motion:reduce){.blip{animation:none;opacity:.18}}
