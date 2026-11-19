@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
 import {readFileSync} from "node:fs";
-import {parseCreatorDigest,parseCreatorDigestHtml,orderCreatorSignals,creatorMarketMatch} from "../lib/bluebelly-creator-signals.ts";
+import {parseCreatorDigest,parseCreatorDigestHtml,orderCreatorSignals,creatorMarketMatch,creatorSignalGroup} from "../lib/bluebelly-creator-signals.ts";
 import type {PublicMarketObservation} from "../lib/blue-desk-public-markets.ts";
 
 const now=new Date("2026-11-19T10:30:00Z");
@@ -18,6 +18,7 @@ test("rejects future timestamps or missing reviewed video identifiers",()=>{
 });
 test("indices first, then XL sectors, then technology, then other instruments",()=>{
  assert.deepEqual(orderCreatorSignals(["XAUUSD","AMD","XLK","SPY","QQQ","XLE"].map(row)).map(r=>r.asset),["SPY","QQQ","XLK","XLE","AMD","XAUUSD"]);
+ assert.deepEqual(["SPY","XLK","AMD","XAUUSD"].map(creatorSignalGroup),["Indices & broad market","XL sector ETFs","Technology & semiconductors","Other assets"]);
 });
 const market=(symbol:string,asOf="2026-11-18"):PublicMarketObservation=>({id:symbol,label:symbol,symbol,type:"Major Index",frequency:"daily",asOf,last:100,change:1,change3d:2,change5d:3,changeUnit:"%",sourceName:"Test",sourceUrl:null});
 test("never substitute ETF proxy or future/uncompleted price for cash index",()=>{

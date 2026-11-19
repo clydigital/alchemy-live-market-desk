@@ -41,7 +41,10 @@ export function parseCreatorDigest(v:unknown,now=new Date()):CreatorDigest|null{
 const indices=['SPX','SPY','NDX','QQQ','IWM','RUT','DJI','DJIA','DIA','RSP','VIX'];
 const tech=['SMH','SOXX','NVDA','AMD','AVGO','MSFT','AAPL','META','GOOGL','GOOG','AMZN','TSLA','ANET','PLTR','MU','ORCL'];
 function assetKey(s:string){return s.trim().toUpperCase().replace(/^\^/, '');}
-export function orderCreatorSignals(rows:readonly CreatorSignal[]){const rank=(a:string)=>{const k=assetKey(a);return indices.includes(k)?0:/^XL[A-Z]$/.test(k)?1:tech.includes(k)?2:3;};return [...rows].sort((a,b)=>rank(a.asset)-rank(b.asset));}
+const groupLabels=["Indices & broad market","XL sector ETFs","Technology & semiconductors","Other assets"] as const;
+function creatorSignalRank(asset:string){const k=assetKey(asset);return indices.includes(k)?0:/^XL[A-Z]$/.test(k)?1:tech.includes(k)?2:3;}
+export function creatorSignalGroup(asset:string){return groupLabels[creatorSignalRank(asset)];}
+export function orderCreatorSignals(rows:readonly CreatorSignal[]){return [...rows].sort((a,b)=>creatorSignalRank(a.asset)-creatorSignalRank(b.asset));}
 // Identity-based only: a cash index must never silently inherit its ETF's return.
 const alias:Record<string,string[]>={SPX:['SPX','GSPC','SP500'],NDX:['NDX'],DJI:['DJI','DJIA'],DJIA:['DJI','DJIA'],RUT:['RUT'],XAUUSD:['XAUUSD','XAU/USD'],BTCUSD:['BTCUSD','BTC-USD']};
 export function creatorMarketMatch(asset:string,market:readonly PublicMarketObservation[],now:Date){
