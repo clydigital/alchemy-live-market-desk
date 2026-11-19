@@ -1,4 +1,4 @@
-import QqqPositioningPanel from "@/components/blue-desk/QqqPositioningPanel";
+import CreatorIntelligencePanel from "@/components/blue-desk/CreatorIntelligencePanel";
 import {readQqqPositioning} from "@/lib/bluebelly-qqq-positioning";
 import AbsorptionHealth from "@/components/blue-desk/AbsorptionHealth";
 import {Nov14ResearchTeaser} from "@/components/blue-desk/Nov14MarketInvestigation";
@@ -191,7 +191,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
           <Nov14ResearchTeaser host={host} compact/>
           <DeskWhiteboard compass={marketCompass} news={verifiedNews} theses={theses}
             upcoming={upcoming} now={now} host={host}/>
-          <QqqPositioningPanel rows={qqqPosition.rows} checkedAt={qqqPosition.checkedAt} market={marketRows} now={now} host={host}/>
+          <CreatorIntelligencePanel rows={qqqPosition.rows} market={marketRows} now={now} host={host}/>
           <InvestorMindsetBoard snapshot={investorMindset} assessment={investorAssessment} host={host} themes={investorThemes} receipt={investorReceipt}/>
            <MarketConditionsBoard market={marketRows} breadth={breadth50} jobs={jobs}
             health={absorptionHealth} now={now} host={host}/>

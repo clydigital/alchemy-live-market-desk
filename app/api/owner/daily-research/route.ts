@@ -19,6 +19,7 @@ import {calculateBreadthRow,marketParticipationResearch} from "@/lib/bluebelly-b
 import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
 import {getOwnerDeliveredResearchBriefs} from "@/lib/blue-desk-delivered-research-server";
 import {getPrivateReviewedCreatorArguments} from "@/lib/bluebelly-private-creator-reviews";
+import {getOwnerCreatorSignalDigest} from "@/lib/bluebelly-creator-signals-server";
 
 export const dynamic="force-dynamic";
 export const runtime="nodejs";
@@ -39,7 +40,7 @@ export async function GET(req:NextRequest){
   if(accessError||!access)return fail(403,"Owner account not authorised");
 
   const now=new Date();
-  const [notion,rawNews,originalPress,monitor,macro,earnings,delivery,creatorDelivery,breadthSource]=await Promise.all([
+  const [notion,rawNews,originalPress,monitor,macro,earnings,delivery,creatorDelivery,breadthSource,creatorSignalDigest]=await Promise.all([
     fetchTodayNotionResearch(now),
     getCurrentVerifiedMarketMotion({limit:24}).catch(()=>[]),
     getOriginalPressNews(now,12).catch(()=>[]),
@@ -55,6 +56,7 @@ export async function GET(req:NextRequest){
       .then(reviews=>({status:"AVAILABLE" as const,reviews}))
       .catch(()=>({status:"UNAVAILABLE" as const,reviews:[]})),
     getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
+    getOwnerCreatorSignalDigest(now),
   ]);
   const motionNews=selectVerifiedNewsBriefs(rawNews,now,12);
   const news=combineQualifiedNews(motionNews,originalPress,12);
@@ -87,7 +89,7 @@ export async function GET(req:NextRequest){
   });
   const health=assessDailyResearchHealth({now,notion,packet,news});
   return NextResponse.json({
-    ...packet,health,
+    ...packet,health,creatorSignalDigest,
     creatorReviewCoverage:{status:creatorDelivery.status,count:creatorDelivery.reviews.length,
       caveat:"Reviews have original video dates and attributed mechanisms; their claims have not been independently source-verified."},
     deliveredResearch:{status:delivery.status,count:delivery.briefs.length,

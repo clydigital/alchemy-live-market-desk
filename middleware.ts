@@ -48,10 +48,16 @@ function apiFailure(status: number, error: string) {
 function presentationResponse(request: NextRequest) {
   const host = request.headers.get("host") || request.nextUrl.hostname;
   const target = blueDeskPresentationTarget(request.nextUrl.pathname, host);
-  if (!target) return NextResponse.next();
+  if (!target) {
+    const response=NextResponse.next();
+    if(request.nextUrl.pathname==="/blue-desk")response.headers.set("Cache-Control","private, no-store");
+    return response;
+  }
   const destination = request.nextUrl.clone();
   destination.pathname = target;
-  return NextResponse.rewrite(destination);
+  const response=NextResponse.rewrite(destination);
+  if(target==="/blue-desk")response.headers.set("Cache-Control","private, no-store");
+  return response;
 }
 
 export async function middleware(request: NextRequest) {
