@@ -86,7 +86,8 @@ test("Support view smoke maintains source-real DOM and captures both responsive 
  assert.match(script,/data-v7-calendar="source-dated-catalyst-command"/);
  assert.match(script,/data-v7-research-command="dated-archive"/);
  assert.match(script,/data-v7-newsroom-command="source-qualified"/);
- assert.match(script,/data-v7-watch-graphic="decorative-research-radar"/);
+ assert.match(script,/Retired Watch redirects 307 to Newsroom; exact readers checked below/);
+ assert.match(script,/\["\/key-stories","\/blue-desk\/key-stories"\]/);
  assert.match(script,/\["desktop",1440,1200\]/);
  assert.match(script,/\["mobile",390,1200\]/);
 });
