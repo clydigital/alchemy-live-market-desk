@@ -53,13 +53,13 @@
 }
 .heroVisual{justify-self:center;position:relative;display:grid;place-items:center;width:min(100%,246px);min-height:205px;pointer-events:none}
 .orbit{
+  --radar-period:8s;
   width:195px;height:195px;border:1px solid color-mix(in srgb,var(--bb-command-alt) 54%,transparent);
   border-radius:50%;position:relative;display:grid;place-items:center;
   box-shadow:0 0 24px color-mix(in srgb,var(--bb-command-alt) 9%,transparent),inset 0 0 38px rgba(0,202,247,.06);
   background:
     radial-gradient(circle at 50% 50%,rgba(4,19,27,.95) 0 23%,transparent 24%),
-    radial-gradient(circle at 50% 50%,transparent 0 50%,rgba(66,192,226,.21) 50.5% 51%,transparent 52%),
-    conic-gradient(from 44deg,transparent 0 30deg,color-mix(in srgb,var(--bb-command-accent) 18%,transparent) 30deg 37deg,transparent 37deg 100deg,color-mix(in srgb,var(--bb-command-alt) 22%,transparent) 100deg 106deg,transparent 106deg 220deg,color-mix(in srgb,var(--bb-command-alt) 15%,transparent) 220deg 228deg,transparent 228deg 360deg);
+    radial-gradient(circle at 50% 50%,transparent 0 50%,rgba(66,192,226,.21) 50.5% 51%,transparent 52%);
 }
 .orbit::before,.orbit::after{content:"";position:absolute;border-radius:50%;pointer-events:none}
 .orbit::before{inset:18px;border:1px dashed color-mix(in srgb,var(--bb-command-alt) 38%,transparent)}
@@ -67,8 +67,25 @@
 .orbitCore{position:relative;z-index:1;font:italic 950 51px/1 var(--bb-display);letter-spacing:-.1em;color:var(--bb-text);text-shadow:0 0 25px var(--bb-command-glow)}
 .orbitCore>span{color:var(--bb-command-accent)}
 .orbitCore small{display:block;text-align:center;margin:3px 0 0;font:850 8px/1 var(--bb-mono);letter-spacing:.2em;color:var(--bb-command-alt)}
-.orbitNodeA,.orbitNodeB,.orbitNodeC{position:absolute;z-index:2;padding:4px 6px;border:1px solid var(--bb-command-edge);background:#071922;font:800 8px/1 var(--bb-mono);letter-spacing:.08em;color:#e2f4fa}
-.orbitNodeA{top:10px;left:-22px}.orbitNodeB{right:-36px;top:83px}.orbitNodeC{bottom:13px;left:4px}
+.orbitNodeA,.orbitNodeB,.orbitNodeC{
+  position:absolute;z-index:2;transform:translate(-50%,-50%);padding:4px 6px;
+  border:1px solid var(--bb-command-edge);background:#071922;
+  font:800 8px/1 var(--bb-mono);letter-spacing:.08em;color:#e2f4fa;
+  text-decoration:none;pointer-events:auto;white-space:nowrap;
+  animation:bb-home-radar-contact var(--radar-period) linear infinite;
+}
+/* Button centres and phase offsets follow the scanner's clockwise path.
+   Each glow peaks when the bright leading edge reaches that button. */
+.orbitNodeA{left:2%;top:10%;animation-delay:calc(var(--radar-period) * -.9025)}
+.orbitNodeB{left:104%;top:47%;animation-delay:calc(var(--radar-period) * -.52125)}
+.orbitNodeC{left:12%;top:88%;animation-delay:calc(var(--radar-period) * -.13625)}
+/* Hover must not restart or pause the pulse, which would desynchronise it. */
+.orbitNodeA:hover,.orbitNodeB:hover,.orbitNodeC:hover{
+  outline:1px solid var(--bb-command-accent);outline-offset:2px;
+}
+.orbitNodeA:focus-visible,.orbitNodeB:focus-visible,.orbitNodeC:focus-visible{
+  outline:2px solid var(--bb-command-accent);outline-offset:3px;
+}
 .orbitCaption{position:absolute;bottom:-7px;color:var(--bb-muted);font:750 8px/1 var(--bb-mono);letter-spacing:.16em;white-space:nowrap}
 .overview{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;min-width:0}
 .panel{
@@ -161,9 +178,14 @@
     transparent 360deg);
   -webkit-mask-image:radial-gradient(circle,transparent 0 23%,#000 25% 100%);
   mask-image:radial-gradient(circle,transparent 0 23%,#000 25% 100%);
-  opacity:.83;animation:bb-home-radar-sweep 8s linear infinite;
+  opacity:.83;animation:bb-home-radar-sweep var(--radar-period) linear infinite;
 }
 @keyframes bb-home-radar-sweep{to{transform:rotate(360deg)}}
+@keyframes bb-home-radar-contact{
+  0%,8%,100%{background:#071922;color:#e2f4fa;border-color:var(--bb-command-edge);box-shadow:none}
+  2%{background:var(--bb-command-accent);color:#071017;border-color:var(--bb-command-accent);box-shadow:0 0 15px var(--bb-command-glow),0 0 5px var(--bb-command-accent)}
+}
 @media(prefers-reduced-motion:reduce){
   .orbitSweep{animation:none;opacity:0}
+  .orbitNodeA,.orbitNodeB,.orbitNodeC{animation:none}
 }

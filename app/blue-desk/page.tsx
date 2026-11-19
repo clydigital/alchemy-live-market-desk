@@ -181,15 +181,15 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
                 <Link href="/my-reports">My Desk · private</Link>
               </nav>
             </div>
-            <div className={marketHome.heroVisual} aria-hidden="true">
-              <div className={marketHome.orbit}>
+            <div className={marketHome.heroVisual}>
+              <nav className={marketHome.orbit} aria-label="Radar shortcuts">
                 <span className={marketHome.orbitSweep} aria-hidden="true"/>
-                <span className={marketHome.orbitNodeA}>MARKETS</span>
-                <span className={marketHome.orbitNodeB}>CATALYSTS</span>
-                <span className={marketHome.orbitNodeC}>WATCH</span>
-                <span className={marketHome.orbitCore}>B<span>B</span><small>COMMAND</small></span>
-              </div>
-              <span className={marketHome.orbitCaption}>OBSERVE / COMPARE / INVESTIGATE</span>
+                <Link className={marketHome.orbitNodeA} href="/markets">MARKETS</Link>
+                <Link className={marketHome.orbitNodeB} href="/calendar">CATALYSTS</Link>
+                <Link className={marketHome.orbitNodeC} href="/key-stories">WATCH</Link>
+                <span className={marketHome.orbitCore} aria-hidden="true">B<span>B</span><small>COMMAND</small></span>
+              </nav>
+              <span className={marketHome.orbitCaption} aria-hidden="true">OBSERVE / COMPARE / INVESTIGATE</span>
             </div>
           </header>
           <DeskWhiteboard compass={marketCompass} news={verifiedNews} theses={theses}
