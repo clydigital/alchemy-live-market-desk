@@ -108,8 +108,8 @@ test("only fixed-universe legacy placeholders are claimable", () => {
     })),
   });
 
-  assert.equal(status.summary.transcriptsPending, 4);
-  assert.equal(status.summary.transcriptsBlocked, 2);
+  assert.equal(status.summary.transcriptsPending, 5);
+  assert.equal(status.summary.transcriptsBlocked, 1);
   assert.equal(status.summary.transcriptsRunning, 0);
   assert.equal(status.summary.transcriptsCompleted, 0);
 });
