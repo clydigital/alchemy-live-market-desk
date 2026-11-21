@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import StoryVisual from "@/components/blue-desk/StoryVisual";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { ScopeStrip } from "@/components/blue-desk/EntityIdentity";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
@@ -125,6 +126,11 @@ export default async function BlueDeskStoryPage({
             <span>Edition {article.editionId}</span>
           </div>
         </header>
+        <StoryVisual
+          storyId={normalizedArticleId.slice(articlePrefix.length)}
+          editionId={article.editionId}
+          category={article.category}
+        />
         <nav className={styles.storyJumpNav} aria-label="Navigate this Story">
           {navigation.map(section => (
             <a key={section.id} href={`#${section.id}`} className={styles.storyJumpLink}>

@@ -1,0 +1,29 @@
+.figure {
+  width: 100%;
+  max-width: 1100px;
+  margin: 18px 0 4px;
+}
+.illustration {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1040 / 315;
+  border-radius: 12px;
+  border: 1px solid #2b6783;
+  background: #03243a;
+  overflow: hidden;
+}
+.caption {
+  padding: 8px 3px 0;
+  color: #a8c7d6;
+  font-size: 11px;
+  line-height: 1.45;
+}
+@media (max-width: 620px) {
+  .figure { margin-top: 13px; }
+  .illustration { aspect-ratio: 16 / 7; }
+  .caption { font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .figure *, .illustration * { animation: none !important; transition: none !important; }
+}
