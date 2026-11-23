@@ -9,7 +9,7 @@ export function isReboundCapitalArticleUrl(value: string): boolean {
     return url.protocol === "https:"
       && url.hostname === "reboundcapital.substack.com"
       && !url.username && !url.password && !url.port
-      && /^\\/p\\/[a-z0-9][a-z0-9-]*\\/?$/i.test(url.pathname);
+      && new RegExp("^/p/[a-z0-9][a-z0-9-]*/?$", "i").test(url.pathname);
   } catch {
     return false;
   }
