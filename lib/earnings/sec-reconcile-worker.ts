@@ -3,6 +3,7 @@
  * AI interpretations, quarter-4 annual totals, or management guidance.
  */
 import {createSupabaseAdminClient} from "../supabase/admin.ts";
+import {parseSecSubmissionsPayload} from "../providers/sec-edgar.ts";
 import {extractSecEarningsQuarter,parseFiscalQuarter} from "./sec-quarter-facts.ts";
 import {extractSecQuarterCashFlows,SEC_D1_ISSUERS,type SecCashflowIssuerTicker} from "../dossier-v2/issuer-sec-quarterly-cashflow.ts";
 
@@ -73,9 +74,9 @@ export async function reconcileDueSecEarnings(options:{
    if(error)throw new Error("SEC_EARNINGS_QUEUE_WRITE_FAILED: "+error.code);
   };
   out.checked++;
-  if(!period||period.quarter===4){
-   await setState("review_required","Q4 requires quarter-specific issuer financial statement or FY-minus-9M reconciliation; annual totals are not quarter results",null);
-   out.reviewRequired++;out.details.push(item.ticker+":Q4_OR_PERIOD_REQUIRES_REVIEW");
+  if(!period){
+   await setState("review_required","Could not identify exact fiscal quarter from issuer schedule",null);
+   out.reviewRequired++;out.details.push(item.ticker+":PERIOD_REQUIRES_REVIEW");
    continue;
   }
   const cik=cikOf(registry,item.ticker);
@@ -86,6 +87,42 @@ export async function reconcileDueSecEarnings(options:{
   }
   try{
    const cik10=String(cik).padStart(10,"0");
+   const resultId=item.ticker+"|"+item.fiscal_period;
+   // Item 2.02 in a recent company-matched SEC 8-K can establish that an
+   // original financial-results disclosure was filed. It does NOT establish
+   // the quarter's actual EPS, guidance or analyst surprise by itself.
+   const submissions=await secJson("https://data.sec.gov/submissions/CIK"+cik10+".json",agent,fetchImpl);
+   const registryCompany=parseSecSubmissionsPayload(submissions,cik);
+   const dueMs=Date.parse(item.event_at.slice(0,10)+"T00:00:00Z");
+   const notice=registryCompany.filings.find(filing=>{
+    const filedMs=Date.parse(filing.filingDate+"T00:00:00Z");
+    return filing.form==="8-K" && /(?:^|[,\\s])2\\.02(?:$|[,\\s])/.test(filing.items||"")
+      && filedMs>=dueMs-3*86400000&&filedMs<=now.getTime()
+      && Boolean(filing.primaryDocumentUrl);
+   });
+   if(notice){
+    const {data:oldResult,error:oldError}=await db.from("issuer_earnings_results")
+      .select("verification_status").eq("id",resultId).maybeSingle();
+    if(oldError)throw new Error("8K_RESULT_READ: "+oldError.code);
+    if(!oldResult){
+     const {error:noticeError}=await db.from("issuer_earnings_results").insert({
+      id:resultId,ticker:item.ticker,fiscal_period:item.fiscal_period,
+      company_name:registryCompany.entityName||item.ticker,
+      source_url:notice.primaryDocumentUrl,source_retrieved_at:asOf,
+      filing_day:notice.filingDate,verification_status:"source_detected",
+      verification_notes:"Matching SEC issuer Item 2.02 original filing found near scheduled event; reporting period, earnings figures and guidance await reconciliation.",
+      updated_at:asOf,
+     });
+     if(noticeError)throw new Error("8K_RESULT_WRITE: "+noticeError.code);
+     out.details.push(item.ticker+":SEC_8K_RESULTS_NOTICE_FOUND");
+    }
+   }
+   if(period.quarter===4){
+    await setState("review_required","SEC 8-K results notice "+
+      (notice?"found":"not yet found")+"; Q4 requires FY-minus-9M reconciliation or issuer quarter-specific release; annual financials cannot be treated as Q4",null);
+    out.reviewRequired++;out.details.push(item.ticker+":Q4_QUARTER_FINANCIALS_NEED_REVIEW");
+    continue;
+   }
    const facts=await secJson("https://data.sec.gov/api/xbrl/companyfacts/CIK"+cik10+".json",agent,fetchImpl);
    const extract=extractSecEarningsQuarter({
     payload:facts,cik,ticker:item.ticker,fiscalPeriod:item.fiscal_period,
@@ -126,7 +163,6 @@ export async function reconcileDueSecEarnings(options:{
      );
     }
    }
-   const resultId=item.ticker+"|"+item.fiscal_period;
    const {data:existing,error:readError}=await db.from("issuer_earnings_results")
     .select("source_url,verification_status").eq("id",resultId).maybeSingle();
    if(readError)throw new Error("RESULT_READ: "+readError.code);
