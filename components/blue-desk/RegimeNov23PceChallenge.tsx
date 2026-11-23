@@ -1,4 +1,5 @@
 import type {ReactNode} from "react";
+import type {PceReadout} from "@/lib/bluebelly-pce-event-readout";
 
 /** Source-dated, public-safe editorial fork; never a live price or canonical regime decision.
  * Private creator transcripts and user-specific FX signals never flow into this surface.
@@ -45,7 +46,7 @@ const SOURCES=[
 ] as const;
 
 export function getNov23PceFork(scope:Scope):Fork{return FORKS[scope];}
-export default function RegimeNov23PceChallenge({scope,now=new Date()}:{scope:Scope;now?:Date}):ReactNode{
+export default function RegimeNov23PceChallenge({scope,now=new Date(),event}:{scope:Scope;now?:Date;event?:PceReadout}):ReactNode{
  const view=FORKS[scope];
  const eventPassed=Number.isFinite(now.getTime())&&now.getTime()>=Date.parse("2026-11-25T13:30:00Z");
  return <section id="nov24-dxy-pce" data-regime-pce-research="2026-11-23-research-only"
@@ -64,6 +65,45 @@ export default function RegimeNov23PceChallenge({scope,now=new Date()}:{scope:Sc
    <p style={{fontSize:13}}><strong>Event clock:</strong> BEA October PCE, 25 November 2026, 08:30 ET.
      {eventPassed?" The scheduled release time has passed: this historical research note MUST NOT be read as a fresh post-release verdict. Check a verified BEA release and current market tape.":" Release not yet observed in this dated research note."}
    </p>
+   {event?<div data-pce-event-state={event.state} aria-label="Original-source PCE release status"
+     style={{margin:"16px 0",padding:"16px",border:"1px solid var(--bb-card-border)",borderRadius:8}}>
+     <strong>October PCE · verified event receipt</strong>
+     <p style={{fontSize:13,margin:"6px 0"}}><b>{event.state.replaceAll("_"," ")}</b> — {event.note}</p>
+     <div style={{overflowX:"auto"}}>
+       <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,textAlign:"left"}}>
+         <thead><tr><th scope="col">Measure</th><th scope="col">Previous / revised</th>
+           <th scope="col">Forecast</th><th scope="col">Official actual</th>
+           <th scope="col">Surprise</th></tr></thead>
+         <tbody>{event.metrics.map(metric=><tr key={metric.key} data-pce-metric={metric.key}>
+           <th scope="row" style={{padding:"6px 8px 6px 0"}}>{metric.label}</th>
+           <td>{metric.revisedPrevious===null?(metric.previous===null?"Not sourced":metric.previous.toFixed(1)+"%")
+             :(metric.previous===null?"Revised "+metric.revisedPrevious.toFixed(1)+"%":
+             metric.previous.toFixed(1)+"% → "+metric.revisedPrevious.toFixed(1)+"%")}</td>
+           <td>{metric.consensusVerified&&metric.consensus!==null?
+              <span>{metric.consensus.toFixed(1)}% <a href={metric.consensusUrl!}
+                target="_blank" rel="noopener noreferrer" title={"Captured "+metric.consensusCapturedAt+
+                " · "+metric.consensusSource}>source</a></span>:"Unverified"}</td>
+           <td>{metric.actual===null?"Pending verification":metric.actual.toFixed(1)+"%"}</td>
+           <td>{metric.surprisePp===null?"Unresolved":
+             (metric.surprisePp>0?"+":"")+metric.surprisePp.toFixed(1)+" pp"}</td>
+         </tr>)}</tbody>
+       </table>
+     </div>
+     <p style={{fontSize:12,opacity:.9,marginTop:9}}>
+       {event.validConsensusCount}/4 forecast components have dated source provenance.
+       Official release: <a href={event.releaseSource} target="_blank" rel="noopener noreferrer">BEA</a>.
+       {event.actualRetrievedAt?" Actual retrieved "+event.actualRetrievedAt+".":""}
+       {" "}Consensus is not provided by BEA. Rounded surprises are percentage-point differences,
+       not evidence of the FX or equity response.
+     </p>
+     <p style={{fontSize:12,marginBottom:0}}>
+       <strong>Cross-asset verification:</strong> CME FedWatch intraday and timestamped
+       Treasury-yield reaction feeds are not integrated. DXY 4H/Daily EMA-band
+       rejection, relative US/Europe/Japan rates, gold, credit and equity breadth
+       still require independent dated measurements and analyst review.
+       <strong> No automatic canonical Regime or investment decision.</strong>
+     </p>
+   </div>:<p style={{fontSize:12}}>October PCE event-source reader has not returned a verified receipt.</p>}
    <p style={{fontSize:12,opacity:.85}}>A bearish DXY technical read is a conditional test, not a measured signal in this module. No inferred institutional flows,
      fabricated probabilities, trade entries, private creator data, portfolio information or automatic canonical Story/Regime changes.</p>
    <div style={{fontSize:12,paddingTop:10,borderTop:"1px solid var(--bb-card-border)"}}>
