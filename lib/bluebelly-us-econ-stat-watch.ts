@@ -223,8 +223,17 @@ export function projectUsEconStatWatch(input:{
      warnings.push("COMPONENT_METRICS_NOT_AVAILABLE:"+event.id);
  }
  if(accepted.length===0)warnings.push("NO_US_ECON_SOURCE_COVERAGE");
- const lastMetricRetrievedAt=metrics.map(m=>instant(m.retrieved_at)).filter((n):n is number=>n!==null)
-   .sort((a,b)=>b-a)[0];
+ // The metric ledger defaults retrieved_at to now() even for *empty*
+ // pre-release templates. A schema/forecast template is not an observation.
+ // Only an actual from a verified original release can advance this clock.
+ const verifiedReleaseById=new Map(releases.filter(r=>verifiedRelease(r,t)).map(r=>[r.id,r]));
+ const lastMetricRetrievedAt=metrics.flatMap(m=>{
+   const release=verifiedReleaseById.get(m.release_id);
+   const observed=instant(m.retrieved_at);
+   const released=release?instant(release.release_date):null;
+   return release&&num(m.actual)!==null&&originalUrl(m.source_url)!==null&&
+     observed!==null&&released!==null&&observed>=released&&observed<=t?[observed]:[];
+ }).sort((a,b)=>b-a)[0];
  const countPending=latest.length-countVerified;
  const status=sourceUnavailable?"SOURCE_UNAVAILABLE":accepted.length?"OK":"NO_COVERAGE";
  const next=upcoming[0];
