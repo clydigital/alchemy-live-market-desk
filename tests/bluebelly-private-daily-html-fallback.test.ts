@@ -50,7 +50,7 @@ test("HTML renderer escapes untrusted publisher text and rejects missing coverag
  assert.match(r.html,/&lt;img/);
  assert.throws(()=>renderScheduledDailyHtml({day,now,evidence:{...evidence,sources:[evidence.sources[0]]}}),/INSUFFICIENT_REPORT_SOURCES/);
 });
-test("existing cron calls authorised private generator without new schedules or public publication",()=>{
+test("existing private cron unchanged with isolated calendar discovery schedule",()=>{
  const route=read("app/api/cron/research-gap/handoff/route.ts");
  const job=read("lib/bluebelly-scheduled-daily-html-job.ts");
  const migration=read("supabase/migrations/20261101095000_scheduled_private_daily_html_fallback.sql");
@@ -60,7 +60,7 @@ test("existing cron calls authorised private generator without new schedules or 
  // three independent release-window checks.
  const original=vercel.crons.filter(item=>item.path!=="/api/cron/research/official-actuals");
  const actuals=vercel.crons.filter(item=>item.path==="/api/cron/research/official-actuals");
- assert.equal(original.length,43);
+ assert.equal(original.length,44);\n assert.deepEqual(vercel.crons.filter(item=>item.path==="/api/cron/calendar/discover").map(item=>item.schedule),["0 1 * * *"]);
  assert.deepEqual(actuals.map(item=>item.schedule),["42 12 * * *","12 14 * * *","12 15 * * *"]);
  assert.match(route,/runPrivateDailyHtmlFallback\(request,now\)/);
  assert.match(route,/handleScheduledResearchGapHandoff\(request\)/);
