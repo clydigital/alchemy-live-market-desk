@@ -91,7 +91,7 @@ export default function IssuerEarningsBoard({now,host,reviewedResults,automation
        return {
         ...prior,
         resultTone:prior.resultTone,
-        resultLabel:prior.resultTone==="unverified"&&measured.length>0?"SEC figures verified":prior.resultLabel,
+        resultLabel:prior.resultTone==="unverified"&&measured.length>0?"Financial facts reviewed":prior.resultLabel,
         guidanceTone:prior.guidanceTone,
         guidanceLabel:prior.guidanceTone==="unverified"&&hasOutlook?"Outlook documented":prior.guidanceLabel,
         interpretation:prior.resultTone==="unverified"&&measured.length>0?reviewed.conclusion:prior.interpretation,
