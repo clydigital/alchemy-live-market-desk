@@ -7,6 +7,7 @@ import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import css from "./IssuerEarningsBoard.module.css";
 import EarningsResultRail from "./EarningsResultRail";
 import { earningsQuickRead } from "@/lib/bluebelly-earnings-quick-read";
+import type {EarningsCoverageHealth} from "@/lib/earnings/coverage-health";
 
 function easternDay(now:Date){
  const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(now);
@@ -22,7 +23,7 @@ function isFuture(row:OfficialEarning,now:Date,etToday:string){
  const at=Date.parse(row.at);
  return Number.isFinite(at)&&at>=+now;
 }
-export default function IssuerEarningsBoard({now,host,reviewedResults}:{now:Date;host:string|null;reviewedResults?:readonly VerifiedEarningsScorecard[]}){
+export default function IssuerEarningsBoard({now,host,reviewedResults,automationHealth}:{now:Date;host:string|null;reviewedResults?:readonly VerifiedEarningsScorecard[];automationHealth?:EarningsCoverageHealth}){
  const etDay=easternDay(now);
  const official=getIssuerEarningsSchedule(now,3,30);
  const originals=recentOriginalIssuerReleases(now,8);
@@ -63,6 +64,11 @@ export default function IssuerEarningsBoard({now,host,reviewedResults}:{now:Date
    <span>{results.length} original-source results / reviews</span>
    <span>{upcoming.length} upcoming issuer-confirmed events</span>
    <span>Source date on each report · scheduled calls in ET / MYT</span>
+   {automationHealth?.state==="ok"?<span data-issuer-earnings-health="persisted">
+    Pipeline: {automationHealth.scheduled} scheduled · {automationHealth.due} awaiting filing ·
+    {automationHealth.detected} source found · {automationHealth.partial} partial/verified ·
+    {automationHealth.reviewRequired} need review
+   </span>:<span data-issuer-earnings-health="unavailable">Earnings processing health not available</span>}
   </div>
   <div className={css.lanes}>
    <section className={css.section} aria-label="Verified recent issuer releases">
