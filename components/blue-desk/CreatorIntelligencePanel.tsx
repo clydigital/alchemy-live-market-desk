@@ -3,6 +3,7 @@ import {Fragment} from "react";
 import Link from "next/link";
 import {getOwnerCreatorSignalDigest,CREATOR_DIGEST_URL,type CreatorDigestRead} from "@/lib/bluebelly-creator-signals-server";
 import {getPrivateReviewedCreatorArguments} from "@/lib/bluebelly-private-creator-reviews";
+import {expectedHomeEtfSession} from "@/lib/bluebelly-home-etf-history";
 import {creatorMarketMatch,creatorSignalGroup,creatorSourceKey,orderCreatorSignals,type CreatorSignal,type CreatorTake} from "@/lib/bluebelly-creator-signals";
 import type {PublicMarketObservation} from "@/lib/blue-desk-public-markets";
 import {positioningRead,qqqReleaseClock,RESEARCH_SNAPSHOT,type ShortPosition} from "@/lib/bluebelly-qqq-positioning-core";
@@ -43,10 +44,17 @@ export default async function CreatorIntelligencePanel({rows,market,now,host,rea
  const read=readOverride??await getOwnerCreatorSignalDigest(now);
  if(read.status==="unauthorised")return <section className={styles.panel} data-creator-intelligence="private-locked" aria-label="Creator market intelligence"><header className={styles.heading}><div><p className={styles.kicker}>PRIVATE RESEARCH / CREATOR INTELLIGENCE</p><h2>What are the creators watching?</h2></div></header><div className={styles.locked}><p>Sign in to My Desk to access the transcript-based market overview and individual technical takes.</p><Link href="https://bluebelly-desk.vercel.app/my-reports">My Desk · sign in ↗</Link></div><SignalTable rows={[]} creators={[]} market={market} now={now} session={null} positioning={{rows,host}}/></section>;
  const digest=read.digest;
- // The fallback is only reached after the reader has passed its own owner gate.
- const fallback=!digest?await getPrivateReviewedCreatorArguments(now).catch(()=>[]):[];
+ // This query is deliberately AFTER the owner gate. A digest may be one or
+ // more video-review cycles behind: surface source-reviewed intake receipts
+ // WITHOUT modifying its published claims or silently treating opinions as facts.
+ const recentReviewed=await getPrivateReviewedCreatorArguments(now).catch(()=>[]);
+ const digestVideoIds=new Set((digest?.creators??[]).map(c=>c.videoId).filter(Boolean));
+ const notYetCompiled=digest?recentReviewed.filter(c=>!digestVideoIds.has(c.videoId)).slice(0,4):[];
+ const fallback=digest?[]:recentReviewed;
+ const lastCompletedSession=expectedHomeEtfSession(now);
+ const sessionBehind=Boolean(digest?.marketSession&&lastCompletedSession&&digest.marketSession<lastCompletedSession);
  return <section className={styles.panel} data-creator-intelligence={digest?"owner-digest":"owner-fallback"} aria-label="Private creator market intelligence">
-  <header className={styles.heading}><div><p className={styles.kicker}>CREATOR INTELLIGENCE / OWNER RESEARCH</p><h2>What are the creators watching?</h2></div>{digest?<div className={styles.stamp}>Digest updated <DualTimestamp value={digest.generatedAt}/><span>Market session {digest.marketSession??"unverified"}{+now-Date.parse(digest.generatedAt)>48*3600_000?" · older digest; recency caution":""}</span></div>:null}</header>
+  <header className={styles.heading}><div><p className={styles.kicker}>CREATOR INTELLIGENCE / OWNER RESEARCH</p><h2>What are the creators watching?</h2></div>{digest?<div className={styles.stamp}>Digest assembled <DualTimestamp value={digest.generatedAt}/><span>Market session {digest.marketSession??"unverified"}{sessionBehind?" · older than latest completed tape":""}{+now-Date.parse(digest.generatedAt)>48*3600_000?" · older digest; recency caution":""}</span></div>:null}</header>
   {digest?<>
    <div className={styles.overviewGrid} aria-label="Consolidated overview">
     <article className={`${styles.overviewCell} ${styles.overviewLead}`}><span className={styles.label}>01 / Consolidated market view</span><h3 className={styles.headline}>{digest.overview.headline}</h3><p className={styles.overviewCounts}>{digest.creators.length} creator takes · {digest.overview.signals.length} consolidated signal rows</p></article>
@@ -54,6 +62,19 @@ export default async function CreatorIntelligencePanel({rows,market,now,host,rea
     <article className={styles.overviewCell}><span className={styles.label}>03 / Relative strength &amp; divergence</span>{bullets(digest.overview.divergences)}</article>
    </div>
    <div className={styles.coverage}><strong>Source coverage</strong><span>{digest.coverage}</span></div>
+   {notYetCompiled.length?<section aria-label="Recent reviewed creator receipts not yet compiled" data-creator-uncompiled="source-reviewed">
+     <header className={styles.sectionHead}><h3>New reviews not yet in this digest</h3><span className={styles.sectionLabel}>VERIFIED RECEIPT · NOT CONSOLIDATED</span></header>
+     <p className={styles.muted}>These original-video reviews are newer than, or absent from, this digest's roster. Their opinions have not yet been reconciled into its cross-creator conclusion, the VaR model or the canonical Regime.</p>
+     {notYetCompiled.map(c=><details className={styles.creator} key={c.videoId}>
+       <summary><strong className={styles.creatorName}>{c.publisher}</strong><span className={styles.creatorMeta}>Source published {c.publishedAt.slice(0,10)} · reviewed intake</span></summary>
+       <div className={styles.creatorBody}>
+        <p><a href={c.url} target="_blank" rel="noopener noreferrer">{c.title} ↗</a></p>
+        {c.summary?<p>{c.summary}</p>:null}
+        {c.logic?<p><b>Creator's causal explanation:</b> {c.logic}</p>:null}
+        {c.claimChecks.length?<div><h4 className={styles.label}>Claims still requiring verification</h4>{bullets(c.claimChecks.map(item=>item.claim))}</div>:null}
+       </div>
+      </details>)}
+    </section>:null}
    <header className={styles.sectionHead}><h3>Structural signals &amp; market tape</h3><span className={styles.sectionLabel}>Indices / XLs / Tech / Other</span></header>
    <SignalTable rows={digest.overview.signals} creators={digest.creators} market={market} now={now} session={digest.marketSession} positioning={{rows,host}}/>
    <p className={styles.muted}>Day changes are independently sourced; same-session percentage-point spread is shown versus SPY when available. These are creator views, not verified price levels or canonical regime signals.</p>
