@@ -26,15 +26,18 @@ export default function IssuerEarningsBoard({now,host}:{now:Date;host:string|nul
  const etDay=easternDay(now);
  const official=getIssuerEarningsSchedule(now,3,30);
  const originals=recentOriginalIssuerReleases(now,8);
- const resultTickers=new Set(originals.map(item=>item.ticker));
+ const reviewed=getRecentVerifiedEarningsScorecards(now,14);
+ // Prefer the fully reviewed issuer-quarter scorecard over the older release
+ // receipt. This avoids showing "Not assessed" when verified metrics exist.
+ const reviewedKeys=new Set(reviewed.map(item=>item.ticker+"|"+item.releaseDay));
  const results=[
-  ...originals.map(item=>({ticker:item.ticker,name:item.company,period:item.fiscalPeriod,
-   day:item.sourceDay,fact:item.confirmed,test:item.nextTest,sourceUrl:item.sourceUrl,
-   sourceName:item.sourceName,kind:"original" as const})),
-  ...getRecentVerifiedEarningsScorecards(now,14).filter(item=>!resultTickers.has(item.ticker))
-   .map(item=>({ticker:item.ticker,name:item.company,period:item.fiscalPeriod,day:item.releaseDay,
-    fact:item.headline+" "+item.conclusion,test:item.nextTest,sourceUrl:item.sourceUrl,
-    sourceName:item.sourceName,kind:"scorecard" as const})),
+  ...reviewed.map(item=>({ticker:item.ticker,name:item.company,period:item.fiscalPeriod,day:item.releaseDay,
+   fact:item.headline+" "+item.conclusion,test:item.nextTest,sourceUrl:item.sourceUrl,
+   sourceName:item.sourceName,kind:"scorecard" as const,scorecard:item})),
+  ...originals.filter(item=>!reviewedKeys.has(item.ticker+"|"+item.sourceDay))
+   .map(item=>({ticker:item.ticker,name:item.company,period:item.fiscalPeriod,
+    day:item.sourceDay,fact:item.confirmed,test:item.nextTest,sourceUrl:item.sourceUrl,
+    sourceName:item.sourceName,kind:"original" as const,scorecard:null})),
  ].sort((a,b)=>b.day.localeCompare(a.day)||a.ticker.localeCompare(b.ticker)).slice(0,12);
  const posted=new Set(results.map(item=>item.ticker));
  const upcoming=official.filter(item=>!posted.has(item.ticker)&&isFuture(item,now,etDay));
@@ -68,7 +71,25 @@ export default function IssuerEarningsBoard({now,host}:{now:Date;host:string|nul
       ticker: item.ticker, name: item.name, period: item.period,
       day: item.day, fact: item.fact, test: item.test,
       sourceUrl: item.sourceUrl, sourceName: item.sourceName,
-      ...earningsQuickRead(item.ticker, item.day),
+      ...(() => {
+       const reviewed=item.scorecard;
+       const prior=earningsQuickRead(item.ticker,item.day);
+       if(!reviewed)return prior;
+       // A reviewed scorecard is the canonical fact source. Preserve a
+       // previously source-reviewed assessment, but never fall back to
+       // "Not assessed" for results whose verified metrics are present.
+       const measured=reviewed.metrics.filter(metric=>metric.state==="measured");
+       const hasOutlook=reviewed.outlook.trim().length>0;
+       return {
+        ...prior,
+        resultTone:prior.resultTone==="unverified"&&measured.length>0?"mixed" as const:prior.resultTone,
+        resultLabel:prior.resultTone==="unverified"&&measured.length>0?"Financials reviewed":prior.resultLabel,
+        guidanceTone:prior.guidanceTone==="unverified"&&hasOutlook?"mixed" as const:prior.guidanceTone,
+        guidanceLabel:prior.guidanceTone==="unverified"&&hasOutlook?"Outlook documented":prior.guidanceLabel,
+        interpretation:prior.resultTone==="unverified"&&measured.length>0?reviewed.conclusion:prior.interpretation,
+        guidanceDetail:prior.guidanceTone==="unverified"&&hasOutlook?reviewed.outlook:prior.guidanceDetail,
+       };
+      })(),
     }))} />
    </section>
    <section className={css.section} aria-label="Upcoming issuer-confirmed earnings calendar">
