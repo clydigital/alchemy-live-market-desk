@@ -82,9 +82,9 @@ export default function IssuerEarningsBoard({now,host}:{now:Date;host:string|nul
        const hasOutlook=reviewed.outlook.trim().length>0;
        return {
         ...prior,
-        resultTone:prior.resultTone==="unverified"&&measured.length>0?"mixed" as const:prior.resultTone,
-        resultLabel:prior.resultTone==="unverified"&&measured.length>0?"Financials reviewed":prior.resultLabel,
-        guidanceTone:prior.guidanceTone==="unverified"&&hasOutlook?"mixed" as const:prior.guidanceTone,
+        resultTone:prior.resultTone,
+        resultLabel:prior.resultTone==="unverified"&&measured.length>0?"Facts reviewed":prior.resultLabel,
+        guidanceTone:prior.guidanceTone,
         guidanceLabel:prior.guidanceTone==="unverified"&&hasOutlook?"Outlook documented":prior.guidanceLabel,
         interpretation:prior.resultTone==="unverified"&&measured.length>0?reviewed.conclusion:prior.interpretation,
         guidanceDetail:prior.guidanceTone==="unverified"&&hasOutlook?reviewed.outlook:prior.guidanceDetail,
