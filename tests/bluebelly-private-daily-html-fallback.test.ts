@@ -55,12 +55,12 @@ test("existing private cron unchanged with isolated calendar discovery schedule"
  const job=read("lib/bluebelly-scheduled-daily-html-job.ts");
  const migration=read("supabase/migrations/20261101095000_scheduled_private_daily_html_fallback.sql");
  const vercel=JSON.parse(read("vercel.json")) as {crons:{path:string;schedule:string}[]};
- // Preserve all 43 pre-existing Vercel slots (including every private
- // report trigger). Only the source-only government Actual collector adds
- // three independent release-window checks.
+ // Preserve 43 pre-existing non-actual slots, plus the one isolated discovery slot.
+ // The three independent official macro-actual checks stay unchanged.
  const original=vercel.crons.filter(item=>item.path!=="/api/cron/research/official-actuals");
  const actuals=vercel.crons.filter(item=>item.path==="/api/cron/research/official-actuals");
- assert.equal(original.length,44);\n assert.deepEqual(vercel.crons.filter(item=>item.path==="/api/cron/calendar/discover").map(item=>item.schedule),["0 1 * * *"]);
+ assert.equal(original.length,44);
+ assert.deepEqual(vercel.crons.filter(item=>item.path==="/api/cron/calendar/discover").map(item=>item.schedule),["0 1 * * *"]);
  assert.deepEqual(actuals.map(item=>item.schedule),["42 12 * * *","12 14 * * *","12 15 * * *"]);
  assert.match(route,/runPrivateDailyHtmlFallback\(request,now\)/);
  assert.match(route,/handleScheduledResearchGapHandoff\(request\)/);
