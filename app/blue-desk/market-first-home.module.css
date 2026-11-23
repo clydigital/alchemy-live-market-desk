@@ -174,3 +174,24 @@
 @media(prefers-reduced-motion:reduce){
   .orbitNodeA,.orbitNodeB,.orbitNodeC{animation:none}
 }
+
+/* The centre of the existing decorative radar is now a real control; outer
+ * shortcut pulses and their single shared sweep remain unchanged. */
+.orbitCore{
+ border:0;background:transparent;padding:0;cursor:pointer;pointer-events:auto;
+ appearance:none;text-align:center;min-width:100px;min-height:78px;
+ transition:filter .2s ease;
+}
+.orbitCore:hover{filter:brightness(1.3)}
+.orbitCore:focus-visible{outline:2px solid var(--bb-command-accent);outline-offset:4px;border-radius:50%}
+.orbitCore[aria-expanded="true"]{text-shadow:0 0 22px var(--bb-command-accent)}
+.actions .quickRadar{
+ display:inline-flex;align-items:center;justify-content:center;min-height:36px;
+ padding:8px 12px;border:1px solid var(--bb-command-alt);background:#0c3240;
+ color:#b9f8ff;text-decoration:none;cursor:pointer;
+ font:820 11px/1.3 var(--font-figtree),sans-serif;
+}
+.actions .quickRadar:hover,.actions .quickRadar:focus-visible{
+ outline:2px solid var(--bb-command-accent);outline-offset:2px;
+}
+@media(prefers-reduced-motion:reduce){.orbitCore{transition:none}}
