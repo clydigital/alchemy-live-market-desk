@@ -177,7 +177,7 @@ export function validateResearchRun(input: ResearchRunInput): ValidationResult {
   } else {
     if (sourceMap.size !== sourceChecks.length) errors.push("sourceChecks contains a duplicate source.");
     if (sourceChecks.length < REQUIRED_RESEARCH_SOURCES.length || sourceChecks.length > REQUIRED_RESEARCH_SOURCES.length + OPTIONAL_RESEARCH_SOURCES.length) {
-      errors.push(`sourceChecks must contain all ${REQUIRED_RESEARCH_SOURCES.length} required sources and at most ${OPTIONAL_RESEARCH_SOURCES.length} optional sources.`);
+      errors.push(`sourceChecks must contain exactly ${REQUIRED_RESEARCH_SOURCES.length} required sources, plus at most ${OPTIONAL_RESEARCH_SOURCES.length} optional sources.`);
     }
     const allowedSources: readonly string[] = [...REQUIRED_RESEARCH_SOURCES, ...OPTIONAL_RESEARCH_SOURCES];
     for (const check of sourceChecks) {
