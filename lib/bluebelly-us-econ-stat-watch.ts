@@ -173,7 +173,7 @@ export function projectUsEconStatWatch(input:{
   // Scheduled-only entries can name a date without pretending the exact intraday
   // publication clock is known. On the due date, the actual must still be ingested.
   const day=Date.parse(row.date+"T00:00:00Z");
-  if(!Number.isFinite(day)||day<t-86400000||day>upcomingMax)continue;
+  if(!Number.isFinite(day)||day<recentMin||day>upcomingMax)continue;
   const verifiedClock=originalUsReleaseClock(row);
   const eventDue=verifiedClock!==null&&Date.parse(verifiedClock)<=t;
   accepted.push({id:row.id,name:row.event,family:f,referencePeriod:row.referencePeriod,
