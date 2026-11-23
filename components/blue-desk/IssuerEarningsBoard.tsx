@@ -73,7 +73,7 @@ export default function IssuerEarningsBoard({now,host}:{now:Date;host:string|nul
       sourceUrl: item.sourceUrl, sourceName: item.sourceName,
       ...(() => {
        const reviewed=item.scorecard;
-       const prior=earningsQuickRead(item.ticker,item.day);
+       const prior=earningsQuickRead(item.ticker, item.day);
        if(!reviewed)return prior;
        // A reviewed scorecard is the canonical fact source. Preserve a
        // previously source-reviewed assessment, but never fall back to
