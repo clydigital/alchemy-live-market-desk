@@ -19,7 +19,9 @@ export const REQUIRED_RESEARCH_SOURCES = [
   "alchemy-market-insights",
 ] as const;
 
-export type ResearchSourceKey = typeof REQUIRED_RESEARCH_SOURCES[number];
+/** Independent opinion/research feeds are checked in production but do not gate the canonical macro/news publisher. */
+export const OPTIONAL_RESEARCH_SOURCES = ["rebound-capital"] as const;
+export type ResearchSourceKey = typeof REQUIRED_RESEARCH_SOURCES[number] | typeof OPTIONAL_RESEARCH_SOURCES[number];
 export type ResearchScheduleSlot = "video_midnight" | "morning" | "video_late_morning" | "evening" | "manual";
 export type SourceCheckStatus = "checked" | "no_new_items" | "blocked";
 export type IntakeItemType = "video" | "news" | "alchemy_article";
@@ -174,11 +176,12 @@ export function validateResearchRun(input: ResearchRunInput): ValidationResult {
     if (!items.length) errors.push("Research Gap handoffs require at least one underlying source item, including NO_CHANGE outcomes.");
   } else {
     if (sourceMap.size !== sourceChecks.length) errors.push("sourceChecks contains a duplicate source.");
-    if (sourceChecks.length !== REQUIRED_RESEARCH_SOURCES.length) {
-      errors.push(`sourceChecks must contain exactly ${REQUIRED_RESEARCH_SOURCES.length} required sources.`);
+    if (sourceChecks.length < REQUIRED_RESEARCH_SOURCES.length || sourceChecks.length > REQUIRED_RESEARCH_SOURCES.length + OPTIONAL_RESEARCH_SOURCES.length) {
+      errors.push(`sourceChecks must contain all ${REQUIRED_RESEARCH_SOURCES.length} required sources and at most ${OPTIONAL_RESEARCH_SOURCES.length} optional sources.`);
     }
+    const allowedSources: readonly string[] = [...REQUIRED_RESEARCH_SOURCES, ...OPTIONAL_RESEARCH_SOURCES];
     for (const check of sourceChecks) {
-      if (!(REQUIRED_RESEARCH_SOURCES as readonly string[]).includes(check.source)) {
+      if (!allowedSources.includes(check.source)) {
         errors.push(`Unknown source check: ${check.source}.`);
       }
     }
@@ -202,6 +205,16 @@ export function validateResearchRun(input: ResearchRunInput): ValidationResult {
       }
       if (required === "alchemy-market-insights" && check.itemCount > 30) errors.push("Alchemy Market Insights may scan at most the 30 most recent dated articles.");
       if (check.status === "blocked") warnings.push(`${required} was blocked: ${check.note || "no reason supplied"}.`);
+    }
+    for (const optional of OPTIONAL_RESEARCH_SOURCES) {
+      const check = sourceMap.get(optional);
+      if (!check) continue;
+      if (!["checked", "no_new_items", "blocked"].includes(check.status)) errors.push(`Invalid status for ${optional}.`);
+      if (!Number.isInteger(check.itemCount) || check.itemCount < 0) errors.push(`Invalid itemCount for ${optional}.`);
+      if (check.retryable !== undefined && typeof check.retryable !== "boolean") errors.push(`Invalid retryable state for ${optional}.`);
+      if (check.status === "checked" && check.itemCount < 1) errors.push(`${optional} cannot be checked with zero retained items.`);
+      if (check.status !== "checked" && check.itemCount !== 0) errors.push(`${optional} cannot have retained items when unavailable or without new items.`);
+      if (check.status === "blocked") warnings.push(`${optional} research feed was blocked: ${check.note || "no reason supplied"}.`);
     }
   }
   const directFeeds: readonly ResearchSourceKey[] = ["zerohedge", "axios", "investing-com", "fxstreet"];
