@@ -66,7 +66,8 @@ function forecastUrl(row:PceMetricInput):string|null{
 }
 function officialRelease(row:PceReleaseInput|null,now:number):boolean{
  if(!row)return false;
- if(row.release_name!=="Personal Income and Outlays"||
+ if(row.id!=="us-bea-2026-11-25-personal-income-outlays-oct-2026"||
+  row.release_name!=="Personal Income and Outlays"||
   row.reference_period!==OCTOBER_PCE_PERIOD||
   row.agency!=="U.S. Bureau of Economic Analysis"||
   row.source_classification!=="official_government"||
@@ -86,7 +87,7 @@ export function projectOctoberPceReadout(
  sourceUnavailable=false,
 ):PceReadout{
  const t=now.getTime(),start=Date.parse(OCTOBER_PCE_AT);
- const actualVerified=Number.isFinite(t)&&t>=start&&officialRelease(release,t);
+ const actualVerified=!sourceUnavailable&&Number.isFinite(t)&&t>=start&&officialRelease(release,t);
  const official=actualVerified?parseOfficialBeaPceMetricRows(release!.actual as string):[];
  const covered=new Set<string>();
  let conflict=false;
