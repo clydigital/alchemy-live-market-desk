@@ -10,6 +10,7 @@ import PowerStackResearchFocus from "@/components/blue-desk/PowerStackResearchFo
 import {getTopicInfluences} from "@/lib/bluebelly-topic-influence-server";
 import {powerStackResearchTopics,projectPowerStackResearch,type PowerStackTracked} from "@/lib/power-stack-research-links";
 import PowerStackResearchImpact from "@/components/blue-desk/PowerStackResearchImpact";
+import { getReboundCapitalResearchLeads } from "@/lib/power-stack-rebound-research";
 import NvidiaEarningsDecisionWatch from "@/components/blue-desk/NvidiaEarningsDecisionWatch";
 import PowerStackDecisionHub from "@/components/blue-desk/PowerStackDecisionHub";
 import PowerStackMeasuredSignals from "@/components/blue-desk/PowerStackMeasuredSignals";
@@ -234,9 +235,10 @@ export default async function PrivatePowerStack() {
 
   // Both reads happen only after owner/allowlist gating. Run in parallel to
   // avoid slowing the private terminal by sequential source collection.
-  const [researchReads,publicTape]=await Promise.all([
+  const [researchReads,publicTape,reboundCapitalLeads]=await Promise.all([
    researchTopics.length?getTopicInfluences(researchTopics,researchedAt):Promise.resolve([]),
    ready?getMarketMonitor().catch(()=>null):Promise.resolve(null),
+   ready?getReboundCapitalResearchLeads(researchedAt):Promise.resolve(null),
   ]);
   const researchGroups=ready?projectPowerStackResearch(researchAssets,researchReads,researchedAt):[];
   const tapeComparisons=buildMarketDivergenceWatch(publicMarketObservations(publicTape?.rows??[],"all"),"1D");
@@ -289,6 +291,21 @@ export default async function PrivatePowerStack() {
           <>
 
             <PowerStackResearchImpact groups={researchGroups}/>
+            <section className={portfolio.section} data-power-stack-rebound-capital="private-opinion-research-leads">
+              <h2>Rebound Capital · independent fundamental research</h2>
+              <p>Tier 1 investment-idea reading queue from its public Substack RSS. These are analyst opinions, not verified issuer financials, trade recommendations or Power Stack valuation approvals. Check each thesis against original filings, market prices and dated catalysts before acting.</p>
+              <details className={portfolio.assetDetails}>
+                <summary>Inspect {reboundCapitalLeads?.length ?? 0} recent Rebound Capital research leads</summary>
+                {reboundCapitalLeads === null
+                  ? <p>Research intake store unavailable; source coverage cannot be verified here.</p>
+                  : reboundCapitalLeads.length === 0
+                    ? <p>No Rebound Capital article has been collected in the last 30 days. The next canonical research cycle will attempt the RSS feed; an empty queue is not a feed-health check.</p>
+                    : <ul>{reboundCapitalLeads.map(lead=><li key={lead.url}>
+                        <a href={lead.url} target="_blank" rel="noopener noreferrer">{lead.title}</a>
+                        {" · Published "+lead.publishedAt.slice(0,10)}
+                      </li>)}</ul>}
+              </details>
+            </section>
             <section className={portfolio.section} data-power-stack-quotes="dated-manual-observations">
               <h2>Source-dated prices · {latestQuotes.size}/{trackedTickers.length}</h2>
               <p>Last verified observations from manual research sweeps and optional scheduled sources, not streaming prices.
