@@ -29,7 +29,15 @@ function dayInZone(item:CatalystCard,zone:DisplayZone){
   return value("year")+"-"+value("month")+"-"+value("day");
 }
 function displayClock(item:CatalystCard,zone:DisplayZone) {
-  if(!item.startAt) return item.lane==="ipo"?"IPO date TBC":item.date?"Date only · time TBC":"Timing not established";
+  if(!item.startAt) {
+    if(item.lane==="ipo") return "IPO date TBC";
+    if(item.date) {
+      if(/after (?:us )?close|after market/i.test(item.timeLabel)) return "After US close · time TBC";
+      if(/before (?:us )?open|pre.market/i.test(item.timeLabel)) return "Before US open · time TBC";
+      return "Date confirmed · time TBC";
+    }
+    return "Timing not established";
+  }
   const formatted=new Intl.DateTimeFormat("en-GB",{timeZone:zone,hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date(item.startAt));
   return formatted+" "+(zone==="UTC"?"UTC":"MYT");
 }
@@ -83,7 +91,7 @@ export default function CatalystCalendar({items,sourceCoverage,nowISO}:{
 }){
   const [lane,setLane]=useState<CatalystLane|"all">("all");
   const [q,setQ]=useState("");const [focus,setFocus]=useState(false);
-  const [weekShift,setWeekShift]=useState(0);const [zone,setZone]=useState<DisplayZone>("UTC");
+  const [weekShift,setWeekShift]=useState(0);const [zone,setZone]=useState<DisplayZone>("Asia/Kuala_Lumpur");
   const [view,setView]=useState<ViewMode>("week");const [selectedId,setSelectedId]=useState<string|null>(null);
   const start=useMemo(()=>plusDays(mondayOf(nowISO),weekShift*7),[nowISO,weekShift]);
   const week=useMemo(()=>Array.from({length:7},(_,i)=>({day:ymd(plusDays(start,i)),date:plusDays(start,i)})),[start]);
@@ -141,7 +149,7 @@ export default function CatalystCalendar({items,sourceCoverage,nowISO}:{
       <span><strong>{leads.length}</strong> off-calendar leads</span>
       <span><strong>{ipos.length}</strong> major IPOs watched</span>
       <span><strong>{unavailable.length+stale.length}</strong> feeds needing review</span>
-      <span className={styles.overviewNote}>Monday–Sunday · UTC default · missing times stay unknown</span>
+      <span className={styles.overviewNote}>Monday–Sunday · MYT default · unknown event times stay unknown</span>
     </div>
     <div className={styles.contentGrid}>
       <div className={styles.primary}>
