@@ -78,7 +78,45 @@ export async function GET(request: Request) {
       if (error) throw new Error("issuer_calendar_write_failed: " + error.code);
       insertedOrUpdated++;
     }
-    return Response.json({ status: "ok", checkedAt: now.toISOString(), macro: events.length, issuerEarnings: issuerEvents.length, upserted: insertedOrUpdated });
+    // Persist an issuer-quarter obligation alongside calendar discovery. An
+    // elapsed call is not proof of a published financial statement: it merely
+    // becomes due for source verification. Never downgrade a verified result.
+    let obligationsCreated = 0;
+    for (const event of issuerEvents) {
+      const ticker = event.affectedAssets[0];
+      const fiscalPeriod = event.title.match(/(?:Q[1-4]\\s*(?:FY)?20\\d{2}|(?:FY)?20\\d{2}\\s*Q[1-4])/i)?.[0] || "";
+      if (!ticker || !fiscalPeriod) continue;
+      const { data: existing, error: readError } = await db.from("issuer_earnings_ingestion_state")
+        .select("state").eq("ticker", ticker).eq("fiscal_period", fiscalPeriod).maybeSingle();
+      if (readError) throw new Error("issuer_obligation_read_failed: " + readError.code);
+      if (existing) continue;
+      const isDue = Date.parse(event.startAt!) <= now.getTime();
+      const { error: writeError } = await db.from("issuer_earnings_ingestion_state")
+        .upsert({
+          ticker, fiscal_period: fiscalPeriod, source_url: event.sourceUrl,
+          state: isDue ? "due" : "scheduled",
+          next_retry_at: isDue ? now.toISOString() : event.startAt,
+          gap_reason: isDue ? "Original issuer results not yet independently verified" : null,
+        }, { onConflict: "ticker,fiscal_period", ignoreDuplicates: true });
+      if (writeError) throw new Error("issuer_obligation_write_failed: " + writeError.code);
+      obligationsCreated++;
+    }
+    // Advance expired scheduled obligations without treating the webcast as
+    // a financial release; bounded source retries are handled separately.
+    const { data: scheduled, error: dueReadError } = await db.from("issuer_earnings_ingestion_state")
+      .select("ticker,fiscal_period,next_retry_at")
+      .eq("state", "scheduled").lte("next_retry_at", now.toISOString()).limit(100);
+    if (dueReadError) throw new Error("issuer_due_read_failed: " + dueReadError.code);
+    for (const item of scheduled || []) {
+      const { error } = await db.from("issuer_earnings_ingestion_state")
+        .update({ state: "due", gap_reason: "Original issuer results awaiting verification",
+          next_retry_at: now.toISOString(), updated_at: now.toISOString() })
+        .eq("ticker", item.ticker).eq("fiscal_period", item.fiscal_period).eq("state", "scheduled");
+      if (error) throw new Error("issuer_due_write_failed: " + error.code);
+    }
+    return Response.json({ status: "ok", checkedAt: now.toISOString(), macro: events.length,
+      issuerEarnings: issuerEvents.length, upserted: insertedOrUpdated,
+      obligationsCreated, obligationsDue: (scheduled || []).length });
   } catch (error) {
     console.error("calendar_discovery_failed", error instanceof Error ? error.message : "unknown");
     return Response.json({ status: "source_or_database_unavailable" }, { status: 503 });
