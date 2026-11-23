@@ -105,6 +105,26 @@ function metricOf(row:EconMetricInput,release:EconInput,verified:boolean,now:num
   forecastCapturedAt:forecast!==null?new Date(captured!).toISOString():null,
   surprise:actual!==null&&forecast!==null?Number((actual-forecast).toFixed(4)):null};
 }
+/**
+ * A date-only schedule is not a reliable intraday clock. For original 08:30
+ * Eastern releases, derive the real UTC instant with IANA DST offset. Unknown
+ * publication times remain date-only rather than using a guessed time.
+ */
+export function originalUsReleaseClock(row:EconScheduleInput):string|null{
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(row.date)||row.timeLabel!=="08:30 ET")return null;
+ const mid=Date.parse(row.date+"T12:00:00Z");
+ if(!Number.isFinite(mid))return null;
+ const zone=new Intl.DateTimeFormat("en-US",{
+  timeZone:"America/New_York",timeZoneName:"shortOffset",
+ }).formatToParts(new Date(mid)).find(p=>p.type==="timeZoneName")?.value??"";
+ const m=/^GMT([+-])(\d{1,2})(?::(\d{2}))?$/.exec(zone);
+ if(!m)return null;
+ const offset=(m[1]==="+"?1:-1)*(Number(m[2])*60+Number(m[3]??0));
+ const t=Date.parse(row.date+"T08:30:00Z")-offset*60_000;
+ const d=new Date(t);
+ return Number.isFinite(d.getTime())?d.toISOString():null;
+}
+
 export function projectUsEconStatWatch(input:{
  releases:readonly EconInput[];metrics:readonly EconMetricInput[];
  schedule?:readonly EconScheduleInput[];now:Date;sourceUnavailable?:boolean;
@@ -153,10 +173,12 @@ export function projectUsEconStatWatch(input:{
   // Scheduled-only entries can name a date without pretending the exact intraday
   // publication clock is known. On the due date, the actual must still be ingested.
   const day=Date.parse(row.date+"T00:00:00Z");
-  if(!Number.isFinite(day)||day<t-86400000||day>upcomingMax)continue;
+  if(!Number.isFinite(day)||day<recentMin||day>upcomingMax)continue;
+  const verifiedClock=originalUsReleaseClock(row);
+  const eventDue=verifiedClock!==null&&Date.parse(verifiedClock)<=t;
   accepted.push({id:row.id,name:row.event,family:f,referencePeriod:row.referencePeriod,
-   releaseAt:row.date+"T00:00:00Z",sourceUrl:url,agency:row.sourceName,
-   sourceClock:null,status:"SCHEDULED",actualText:null,metrics:[]});
+   releaseAt:verifiedClock??row.date+"T00:00:00Z",sourceUrl:url,agency:row.sourceName,
+   sourceClock:null,status:eventDue?"AWAITING_ACTUAL":"SCHEDULED",actualText:null,metrics:[]});
   dedup.add(row.id);
  }
  const latest=accepted.filter(e=>Date.parse(e.releaseAt)<=t&&e.status!=="SCHEDULED")
