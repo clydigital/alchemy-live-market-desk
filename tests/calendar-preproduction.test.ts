@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {readFileSync} from "node:fs";
 import {OFFICIAL_BLS_RELEASE_SCHEDULES,parseOfficialBlsScheduleHtml} from "../lib/calendar-official-bls-schedule.ts";
-import {futureCpiMetricSeedRows,preReleaseConsensusCandidates,futureOfficialBlsPersistenceGaps} from "../lib/calendar-preproduction.ts";
+import {futureCpiMetricSeedRows,futurePceMetricSeedRows,preReleaseConsensusCandidates,futureOfficialBlsPersistenceGaps} from "../lib/calendar-preproduction.ts";
 import {verifiedNovember2026BlsSchedules} from "../lib/calendar-verified-november-bls.ts";
 import {buildOfficialMacroReleaseSeedRows} from "../lib/macro/official-actuals.ts";
 import type {TradingEconomicsCalendarEvent} from "../lib/providers/trading-economics-calendar.ts";
@@ -176,4 +176,49 @@ test("preproduction does not silently report healthy on missing future BLS relea
   const check=readFileSync(new URL("../lib/calendar-preproduction.ts",import.meta.url),"utf8");
   assert.match(handler,/event: "scheduled_calendar_preproduction"/);
   assert.match(check,/warnings\.push\(\.\.\.futureOfficialBlsPersistenceGaps\(official, ids, now\)\)/);
+});
+
+
+test("upcoming BEA PCE is preseeded with four empty immutable metric identities",()=>{
+ const pce={...release,id:"us-bea-2026-11-25-personal-income-outlays-oct-2026",
+  release_name:"Personal Income and Outlays",release_date:"2026-11-25T13:30:00Z"};
+ const candidates=futurePceMetricSeedRows([pce],[],now);
+ assert.deepEqual(candidates.map(x=>x.metric_key),
+  ["pce_headline_mom","pce_headline_yoy","pce_core_mom","pce_core_yoy"]);
+ assert.ok(candidates.every(x=>x.unit==="%"&&x.source_url==="https://www.bea.gov/news/schedule"
+   &&x.metadata.forecastStatus==="NOT_CAPTURED"));
+ const existing=candidates.map(x=>({...x,consensus:null,consensus_captured_at:null}));
+ assert.deepEqual(futurePceMetricSeedRows([pce],existing,now),[]);
+ assert.deepEqual(futurePceMetricSeedRows([pce],[],"2026-11-25T14:00:00Z"),[]);
+ assert.deepEqual(futurePceMetricSeedRows([{...pce,reference_period:null}],[],now),[]);
+});
+
+test("PCE calendar consensus matches exact four BEA rate metrics and rejects index/QoQ ambiguities",()=>{
+ const pce={...release,id:"us-bea-2026-11-25-personal-income-outlays-oct-2026",
+  release_name:"Personal Income and Outlays",release_date:"2026-11-25T13:30:00Z"};
+ const metrics=futurePceMetricSeedRows([pce],[],"2026-11-24T00:00:00Z")
+  .map(x=>({release_id:x.release_id,metric_key:x.metric_key,
+    consensus:null,consensus_captured_at:null}));
+ const event=(label:string,forecast:string)=>({
+  ...row(label,"Oct/26"),event:label,category:"Personal Consumption Expenditures",
+  date:"2026-11-25T13:30:00Z",consensus:forecast,parsedConsensus:Number(forecast.replace("%","")),
+  lastUpdate:"2026-11-24T08:00:00Z",
+ });
+ const provider=[
+  event("PCE Price Index MoM","0.3%"),event("PCE Price Index YoY","3.8%"),
+  event("Core PCE Price Index MoM","0.3%"),event("Core PCE Price Index YoY","3.2%"),
+  event("Core PCE Prices QoQ","2.6%"),event("Personal Spending MoM","0.5%"),
+ ];
+ const captured="2026-11-24T20:00:00Z";
+ const found=preReleaseConsensusCandidates({releases:[pce],metrics,provider,capturedAt:captured});
+ assert.deepEqual(found.map(x=>x.metricKey),metrics.map(x=>x.metric_key));
+ assert.deepEqual(found.map(x=>x.value),[0.3,3.8,0.3,3.2]);
+ assert.ok(found.every(x=>x.forecastUrl.startsWith("https://")&&x.calendarId&&x.capturedAt===captured));
+ assert.deepEqual(preReleaseConsensusCandidates({releases:[pce],metrics,
+  provider:[...provider,event("Core PCE Price Index MoM","0.4%")],capturedAt:captured})
+  .map(x=>x.metricKey),["pce_headline_mom","pce_headline_yoy","pce_core_yoy"]);
+ assert.deepEqual(preReleaseConsensusCandidates({releases:[pce],metrics,provider,
+  capturedAt:"2026-11-25T13:27:00Z"}),[]);
+ assert.deepEqual(preReleaseConsensusCandidates({releases:[pce],metrics,provider:
+  provider.map(x=>({...x,reference:"Sep/26"})),capturedAt:captured}),[]);
 });

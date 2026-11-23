@@ -123,6 +123,18 @@ export default function RegimeNov23PceChallenge({scope,watch}:{
      {" "}· {watch.countVerified} verified recent releases · {watch.countPending} awaiting complete verification.
     </p>
     {watch.status!=="OK"?<p style={{fontSize:13}}>{watch.sourceStatus}</p>:null}
+    <div data-us-econ-operational-health={watch.operationalHealth}
+      style={{padding:"10px 12px",border:"1px solid var(--bb-card-border)",borderRadius:8,margin:"8px 0 14px",fontSize:12}}>
+      <strong>Automation health: {watch.operationalHealth}</strong>
+      <p style={{margin:"4px 0"}}>Consensus provider: {watch.consensusProvider}.
+        Latest verified component-retrieval clock: {watch.lastMetricRetrievedAt?
+          when(watch.lastMetricRetrievedAt):"Unavailable"}.</p>
+      {watch.warnings.length?<div><b>Unresolved source gaps</b>
+        <ul style={{margin:"4px 0 0",paddingLeft:20}}>
+          {watch.warnings.slice(0,8).map(item=><li key={item}>{item.replaceAll("_"," ")}</li>)}
+        </ul>
+      </div>:<p style={{margin:0}}>No missing source receipts detected in the current observation window.</p>}
+    </div>
     <p style={{fontSize:12}}><b>Next calendar test:</b> {watch.nextTest}</p>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,280px),1fr))",gap:16}}>
       <div><h3 style={{fontSize:16,margin:"6px 0 12px"}}>Upcoming · 21 days</h3>

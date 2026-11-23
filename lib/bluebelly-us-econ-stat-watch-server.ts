@@ -12,7 +12,9 @@ import {projectUsEconStatWatch,type EconInput,type EconMetricInput,type EconSche
 export async function getUsEconStatWatch(now=new Date()){
  const from=new Date(now.getTime()-35*86400000).toISOString();
  const to=new Date(now.getTime()+21*86400000).toISOString();
- const calendarPromise=getEconomicCalendar(now).catch(()=>[]);
+ const calendarPromise=getEconomicCalendar(now)
+  .then(events=>({events,available:true}))
+  .catch(()=>({events:[] as Awaited<ReturnType<typeof getEconomicCalendar>>,available:false}));
  let releases:EconInput[]=[],metrics:EconMetricInput[]=[],sourceUnavailable=false;
  try{
   const db=createSupabaseAdminClient();
@@ -33,11 +35,14 @@ export async function getUsEconStatWatch(now=new Date()){
    }
   }
  }catch{sourceUnavailable=true;}
- const schedule:(EconScheduleInput[])=(await calendarPromise)
+ const calendar=await calendarPromise;
+ const schedule:(EconScheduleInput[])=calendar.events
   .filter(event=>event.country==="United States"&&event.status==="Scheduled")
   .map(row=>({id:row.id,event:row.event,date:row.date,timeLabel:row.timeLabel,
    country:row.country,referencePeriod:row.referencePeriod,sourceName:row.sourceName,
    sourceUrl:row.sourceUrl,sourceKind:row.sourceKind}));
  return projectUsEconStatWatch({releases:sourceUnavailable?[]:releases,
-  metrics:sourceUnavailable?[]:metrics,schedule,now,sourceUnavailable});
+  metrics:sourceUnavailable?[]:metrics,schedule,now,sourceUnavailable,
+  calendarUnavailable:!calendar.available,
+  consensusProviderConfigured:Boolean(process.env.TRADING_ECONOMICS_API_KEY?.trim())});
 }

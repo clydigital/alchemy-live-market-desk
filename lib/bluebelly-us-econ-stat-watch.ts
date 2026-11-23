@@ -32,6 +32,9 @@ export type UsEconStatWatch={
  status:"OK"|"SOURCE_UNAVAILABLE"|"NO_COVERAGE";generatedAt:string;
  latest:EconEvent[];upcoming:EconEvent[];countVerified:number;countPending:number;
  nextTest:string;researchOnly:true;sourceStatus:string;
+ operationalHealth:"HEALTHY"|"DEGRADED";warnings:string[];
+ consensusProvider:"CONFIGURED"|"UNCONFIGURED"|"UNKNOWN";
+ lastMetricRetrievedAt:string|null;
 };
 
 export function family(name:string):EconFamily|null{
@@ -111,7 +114,9 @@ function metricOf(row:EconMetricInput,release:EconInput,verified:boolean,now:num
  * publication times remain date-only rather than using a guessed time.
  */
 export function originalUsReleaseClock(row:EconScheduleInput):string|null{
- if(!/^\d{4}-\d{2}-\d{2}$/.test(row.date)||row.timeLabel!=="08:30 ET")return null;
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(row.date))return null;
+ const clock=/^(\d{1,2}):([0-5]\d) ET$/.exec(row.timeLabel);
+ if(!clock||Number(clock[1])>23)return null;
  const mid=Date.parse(row.date+"T12:00:00Z");
  if(!Number.isFinite(mid))return null;
  const zone=new Intl.DateTimeFormat("en-US",{
@@ -120,7 +125,7 @@ export function originalUsReleaseClock(row:EconScheduleInput):string|null{
  const m=/^GMT([+-])(\d{1,2})(?::(\d{2}))?$/.exec(zone);
  if(!m)return null;
  const offset=(m[1]==="+"?1:-1)*(Number(m[2])*60+Number(m[3]??0));
- const t=Date.parse(row.date+"T08:30:00Z")-offset*60_000;
+ const t=Date.parse(row.date+"T"+clock[1].padStart(2,"0")+":"+clock[2]+":00Z")-offset*60_000;
  const d=new Date(t);
  return Number.isFinite(d.getTime())?d.toISOString():null;
 }
@@ -128,11 +133,13 @@ export function originalUsReleaseClock(row:EconScheduleInput):string|null{
 export function projectUsEconStatWatch(input:{
  releases:readonly EconInput[];metrics:readonly EconMetricInput[];
  schedule?:readonly EconScheduleInput[];now:Date;sourceUnavailable?:boolean;
+ calendarUnavailable?:boolean;consensusProviderConfigured?:boolean;
 }):UsEconStatWatch{
  const {releases,metrics,now,sourceUnavailable=false}=input;
  const t=now.getTime();
  const upcomingMax=t+21*86400000,recentMin=t-35*86400000;
  const dedup=new Set<string>();
+ const warnings:string[]=[];
  const accepted:EconEvent[]=[];
  for(const row of releases){
   const at=instant(row.release_date),id=typeof row.id==="string"?row.id:"";
@@ -175,7 +182,9 @@ export function projectUsEconStatWatch(input:{
   const day=Date.parse(row.date+"T00:00:00Z");
   if(!Number.isFinite(day)||day<recentMin||day>upcomingMax)continue;
   const verifiedClock=originalUsReleaseClock(row);
-  const eventDue=verifiedClock!==null&&Date.parse(verifiedClock)<=t;
+  const lastPossible=originalUsReleaseClock({...row,timeLabel:"23:59 ET"});
+  const eventDue=verifiedClock!==null?Date.parse(verifiedClock)<=t:
+    lastPossible!==null&&Date.parse(lastPossible)<=t;
   accepted.push({id:row.id,name:row.event,family:f,referencePeriod:row.referencePeriod,
    releaseAt:verifiedClock??row.date+"T00:00:00Z",sourceUrl:url,agency:row.sourceName,
    sourceClock:null,status:eventDue?"AWAITING_ACTUAL":"SCHEDULED",actualText:null,metrics:[]});
@@ -186,6 +195,36 @@ export function projectUsEconStatWatch(input:{
  const upcoming=accepted.filter(e=>Date.parse(e.releaseAt)>t||e.status==="SCHEDULED")
   .sort((a,b)=>a.releaseAt.localeCompare(b.releaseAt)).slice(0,8);
  const countVerified=latest.filter(e=>e.status==="VERIFIED_ACTUAL").length;
+ if(sourceUnavailable)warnings.push("CANONICAL_MACRO_SOURCE_UNAVAILABLE");
+ if(input.calendarUnavailable)warnings.push("OFFICIAL_CALENDAR_FETCH_UNAVAILABLE");
+ const nextPce=accepted.find(e=>e.family==="PCE"&&e.status==="SCHEDULED"&&
+   Date.parse(e.releaseAt)>=t&&Date.parse(e.releaseAt)-t<=72*3600000);
+ if(nextPce){
+   const stored=releases.find(row=>row.id===nextPce.id);
+   const required=["pce_headline_mom","pce_headline_yoy","pce_core_mom","pce_core_yoy"];
+   const eligible=metrics.filter(m=>m.release_id===nextPce.id);
+   if(!stored)warnings.push("PCE_RELEASE_NOT_PERSISTED");
+   if(stored&&required.some(key=>!eligible.some(m=>m.metric_key===key)))
+     warnings.push("PCE_METRIC_TEMPLATES_MISSING");
+   if(input.consensusProviderConfigured===false)warnings.push("PRE_RELEASE_CONSENSUS_PROVIDER_UNCONFIGURED");
+   const due=Date.parse(nextPce.releaseAt);
+   if(due-t<=24*3600000&&required.some(key=>!eligible.some(m=>m.metric_key===key&&
+     m.consensus!==null&&m.consensus!==undefined&&
+     typeof m.consensus_captured_at==="string"&&Date.parse(m.consensus_captured_at)<due-5*60000&&
+     sourceForecastUrl(m)!==null)))
+     warnings.push("PCE_PRE_RELEASE_CONSENSUS_INCOMPLETE");
+ }
+ for(const event of latest) {
+   if(["PCE","CPI","PPI","JOBS"].includes(event.family)&&
+     event.status==="AWAITING_ACTUAL"&&t-Date.parse(event.releaseAt)>90*60000)
+     warnings.push("OVERDUE_HIGH_IMPACT_ACTUAL:"+event.id);
+   if(event.status==="SOURCE_CONFLICT")warnings.push("OFFICIAL_RELEASE_CONFLICT:"+event.id);
+   if(event.status==="VERIFIED_ACTUAL"&&event.metrics.length===0)
+     warnings.push("COMPONENT_METRICS_NOT_AVAILABLE:"+event.id);
+ }
+ if(accepted.length===0)warnings.push("NO_US_ECON_SOURCE_COVERAGE");
+ const lastMetricRetrievedAt=metrics.map(m=>instant(m.retrieved_at)).filter((n):n is number=>n!==null)
+   .sort((a,b)=>b-a)[0];
  const countPending=latest.length-countVerified;
  const status=sourceUnavailable?"SOURCE_UNAVAILABLE":accepted.length?"OK":"NO_COVERAGE";
  const next=upcoming[0];
@@ -194,6 +233,10 @@ export function projectUsEconStatWatch(input:{
   nextTest:next?next.name+" · "+next.referencePeriod+" · "+next.releaseAt.slice(0,10):
    "No source-confirmed upcoming US release in the current 21-day window.",
   researchOnly:true,
+  operationalHealth:warnings.length?"DEGRADED":"HEALTHY",warnings,
+  consensusProvider:input.consensusProviderConfigured===true?"CONFIGURED":
+    input.consensusProviderConfigured===false?"UNCONFIGURED":"UNKNOWN",
+  lastMetricRetrievedAt:lastMetricRetrievedAt===undefined?null:new Date(lastMetricRetrievedAt).toISOString(),
   sourceStatus:sourceUnavailable?
    "Canonical release/metric read unavailable: scheduled-only discovery is not a verified actual.":
    "Server reads existing scheduled macro ingestion and original government release records on each page refresh; source clocks are not page clocks."};
