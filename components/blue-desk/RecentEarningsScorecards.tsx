@@ -56,7 +56,7 @@ export default function RecentEarningsScorecards({
             <h3>{record.company}</h3>
             <p className={styles.headline}>{record.headline}</p>
           </div>
-          <span className={styles.sourceTag}>{record.preliminary?"Preliminary issuer results":"Issuer results"}</span>
+          <span className={styles.sourceTag}>{record.preliminary?"Partial financial verification":"Issuer results"}</span>
         </div>
         <div className={styles.beat} data-beat-comparator={record.beatSource}>
           <strong>Beat or miss?</strong>
