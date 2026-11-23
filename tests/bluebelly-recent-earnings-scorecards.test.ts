@@ -64,7 +64,11 @@ test("new released earnings panel is in visible Calendar, outside collapsed lega
  const open=source.indexOf("<details style=");
  const scoreboard=source.indexOf("<RecentEarningsScorecards records=");
  assert.ok(scoreboard>0 && scoreboard<open);
- assert.match(source,/getRecentVerifiedEarningsScorecards\(now\)/);
+ assert.match(source,/getCalendarEarningsScorecards\(now\)/);
+ const reader=readFileSync(new URL("../lib/earnings/calendar-read-model.ts",import.meta.url),"utf8");
+ assert.match(reader,/getRecentVerifiedEarningsScorecards\(now,30\)/);
+ assert.match(reader,/issuer_earnings_metrics/);
+ assert.match(reader,/no matching, frozen pre-release consensus snapshot/i);
  const component=readFileSync(new URL("../components/blue-desk/RecentEarningsScorecards.tsx",import.meta.url),"utf8");
  assert.match(component,/data-bluebelly-released-earnings="issuer-source-verified"/);
  assert.match(component,/Not yet verified/);
