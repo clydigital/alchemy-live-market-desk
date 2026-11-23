@@ -130,8 +130,16 @@ export function projectUsEconStatWatch(input:{
   const items=parsed.slice(0,8);
   const actualText=verified?String(row.actual).trim():null;
   const published=verified?new Date(instant(row.actual_retrieved_at)!).toISOString():null;
+  const pceComponents=verified&&f==="PCE"?parseOfficialBeaPceMetricRows(String(row.actual)):[];
+  const pceMismatch=pceComponents.some(item=>{
+   const matches=parsed.filter(metric=>metric.key===item.metric_key&&metric.actual!==null);
+   return matches.length>0&&matches.some(metric=>Math.abs(metric.actual!-item.actual)>0.000001);
+  });
+  const pceIncomplete=pceComponents.some(item=>!parsed.some(metric=>
+   metric.key===item.metric_key&&metric.actual!==null));
   const status:EconStatus=at>t?"SCHEDULED":verified
-   ? conflict?"SOURCE_CONFLICT":relevant.length&&parsed.every(m=>m.actual===null)?"PARTIAL_METRICS":"VERIFIED_ACTUAL"
+   ? conflict||pceMismatch?"SOURCE_CONFLICT":
+     pceIncomplete||relevant.length&&parsed.every(m=>m.actual===null)?"PARTIAL_METRICS":"VERIFIED_ACTUAL"
    :complete?"SOURCE_CONFLICT":"AWAITING_ACTUAL";
   accepted.push({id,name,family:f,referencePeriod:typeof row.reference_period==="string"?row.reference_period:null,
    releaseAt:new Date(at).toISOString(),sourceUrl:url,agency:String(row.agency),
