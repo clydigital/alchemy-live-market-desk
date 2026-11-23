@@ -7,6 +7,7 @@ import EarningsWeekGrid from "@/components/blue-desk/EarningsWeekGrid";
 import IssuerEarningsBoard from "@/components/blue-desk/IssuerEarningsBoard";
 import RecentEarningsScorecards from "@/components/blue-desk/RecentEarningsScorecards";
 import { getCalendarEarningsScorecards } from "@/lib/earnings/calendar-read-model";
+import { getIssuerEarningsCoverageHealth } from "@/lib/earnings/coverage-health";
 import CatalystCalendar from "@/components/blue-desk/CatalystCalendar";
 import { getBluebellyCatalystSources } from "@/lib/bluebelly-catalyst-sources";
 import { projectBluebellyCatalysts } from "@/lib/bluebelly-catalyst-calendar";
@@ -132,7 +133,9 @@ export default async function BlueDeskCalendarPage({
   // quiet 7-day windows; 24h/7d remain explicit, narrower reader choices.
   const windowName: WindowName = raw === "24h" || raw === "7d" || raw === "released" ? raw : "30d";
   const now = new Date();
-  const recentEarningsResults=await getCalendarEarningsScorecards(now);
+  const [recentEarningsResults, earningsAutomationHealth] = await Promise.all([
+    getCalendarEarningsScorecards(now), getIssuerEarningsCoverageHealth(now),
+  ]);
 
   const [macroResult, earningsResult, catalystResult, ipoResult] = await Promise.allSettled([
     getEconomicCalendar(),
@@ -212,7 +215,7 @@ export default async function BlueDeskCalendarPage({
           <CatalystCalendar items={catalysts} sourceCoverage={sourceCoverage} nowISO={now.toISOString()} />
         </div>
 
-        <IssuerEarningsBoard now={now} host={host} reviewedResults={recentEarningsResults}/>
+        <IssuerEarningsBoard now={now} host={host} reviewedResults={recentEarningsResults} automationHealth={earningsAutomationHealth}/>
         <RecentEarningsScorecards records={recentEarningsResults} />
 
 
