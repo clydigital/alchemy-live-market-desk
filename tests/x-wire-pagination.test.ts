@@ -311,3 +311,28 @@ test("recent completed checkpoints remain the preferred anchor over partial newe
  assert.equal(xWireRecoveryAnchor(nowIso,"2026-10-27T22:49:14.003Z",oldGap,72,
   "2026-11-05T01:00:00.000Z"),"2026-10-27T22:49:14.003Z");
 });
+
+
+test("head 404 alternate page-size probe is bounded and never weakens coverage proof",()=>{
+ const source=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
+ const alternate=source.indexOf('url.searchParams.set("count","20")');
+ const originalRetry=source.indexOf("An attributed timeline can intermittently return 404");
+ const continuation=source.indexOf("if(response.status===404 && cursor) {");
+ assert.ok(originalRetry>0 && alternate>originalRetry && continuation>alternate);
+ assert.match(source,/response.status===404 && !cursor && Date.now\(\)-startedAt<MAX_SCAN_MS-2500/);
+ assert.match(source,/if\(smaller.status===200\)\{response=smaller;requestedPageSize=20;\}/);
+ assert.match(source,/parsed.total<requestedPageSize/);
+ assert.match(source,/parsed.total>=requestedPageSize/);
+ assert.doesNotMatch(source,/if\(smaller.status===200\)[^\n]+last_completed_at/);
+});
+
+test("existing authorised Research Gap handoff slots also perform due-only X retries in source-only mode",()=>{
+ const source=readFileSync(new URL("../app/api/cron/research-gap/handoff/route.ts",import.meta.url),"utf8");
+ const handoff=source.indexOf("const result=await handleScheduledResearchGapHandoff(request)");
+ const retry=source.indexOf("await getXWireDurable({retryOnly:true})");
+ assert.ok(handoff>0 && retry>handoff);
+ assert.match(source,/scheduledSourceOnlyEnabled\(process.env\)/);
+ assert.match(source,/body.status==="completed"/);
+ assert.match(source,/x_wire_extra_due_retry/);
+ assert.doesNotMatch(source,/runXWireDurable\(/);
+});
