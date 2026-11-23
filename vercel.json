@@ -192,22 +192,6 @@
       "schedule": "12 15 * * *"
     },
     {
-      "path": "/api/cron/research/official-actuals",
-      "schedule": "15 0 * * *"
-    },
-    {
-      "path": "/api/cron/research/official-actuals",
-      "schedule": "15 6 * * *"
-    },
-    {
-      "path": "/api/cron/research/official-actuals",
-      "schedule": "15 18 * * *"
-    },
-    {
-      "path": "/api/cron/research/official-actuals",
-      "schedule": "15 21 * * *"
-    },
-    {
       "path": "/api/cron/calendar/discover",
       "schedule": "0 1 * * *"
     }
