@@ -114,7 +114,9 @@ function metricOf(row:EconMetricInput,release:EconInput,verified:boolean,now:num
  * publication times remain date-only rather than using a guessed time.
  */
 export function originalUsReleaseClock(row:EconScheduleInput):string|null{
- if(!/^\d{4}-\d{2}-\d{2}$/.test(row.date)||!/^\d{1,2}:[0-5]\d ET$/.test(row.timeLabel))return null;
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(row.date))return null;
+ const clock=/^(\d{1,2}):([0-5]\d) ET$/.exec(row.timeLabel);
+ if(!clock||Number(clock[1])>23)return null;
  const mid=Date.parse(row.date+"T12:00:00Z");
  if(!Number.isFinite(mid))return null;
  const zone=new Intl.DateTimeFormat("en-US",{
@@ -123,7 +125,7 @@ export function originalUsReleaseClock(row:EconScheduleInput):string|null{
  const m=/^GMT([+-])(\d{1,2})(?::(\d{2}))?$/.exec(zone);
  if(!m)return null;
  const offset=(m[1]==="+"?1:-1)*(Number(m[2])*60+Number(m[3]??0));
- const t=Date.parse(row.date+"T"+row.timeLabel.slice(0,5).padStart(5,"0")+":00Z")-offset*60_000;
+ const t=Date.parse(row.date+"T"+clock[1].padStart(2,"0")+":"+clock[2]+":00Z")-offset*60_000;
  const d=new Date(t);
  return Number.isFinite(d.getTime())?d.toISOString():null;
 }
