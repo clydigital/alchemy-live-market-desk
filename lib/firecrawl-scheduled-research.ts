@@ -4,6 +4,7 @@ import { applyHighImpactMarketDiscovery } from "@/lib/high-impact-market-discove
 import { applyOfficialPressNewsIntake } from "@/lib/official-press-news-intake";
 import {applyIssuerResultsPressIntake} from "@/lib/issuer-results-press-intake";
 import {persistIssuerReleaseDetections} from "@/lib/issuer-earnings-persistence";
+import {reconcileDueSecEarnings} from "@/lib/earnings/sec-reconcile-worker";
 import { applyMaterialSecProspectusIntake } from "@/lib/material-sec-prospectus-intake";
 import {getXWireDurable} from "@/lib/x-wire-durable";
 import {getDeferredXWireResearchPosts,getPreviouslyHandedXWireUrls} from "@/lib/x-wire-deferred-research";
@@ -34,6 +35,19 @@ export async function buildScheduledResearchInputWithFirecrawl(
     console.error("issuer_release_persistence_failed", error instanceof Error ? error.message : "unknown");
   }
   const originalFilings = await applyMaterialSecProspectusIntake(issuerResults, { now });
+  // Reuse the already-scheduled morning/evening research cycle. Do not create
+  // another cron or publish unmatched issuer/consensus claims.
+  if ((slot==="morning" || slot==="evening")
+    && process.env.SEC_USER_AGENT && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      const sec=await reconcileDueSecEarnings({now,maxCompanies:2});
+      if (sec.reviewRequired || sec.unavailable || sec.status!=="ok")
+        console.warn(JSON.stringify({event:"issuer_earnings_reconciliation_gaps",...sec}));
+    } catch(error) {
+      console.error("issuer_earnings_sec_reconciliation_failed",error instanceof Error?error.message:"unknown");
+    }
+  }
+
 
   // Preserve the desk's source hierarchy:
   // 1) deterministic first-party/direct acquisition,
