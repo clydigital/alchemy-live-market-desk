@@ -10,7 +10,6 @@ import { getHybridExactDailyBriefEdition } from "@/lib/hybrid-publication";
 import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
 import { formatBlueDeskSourceObservation } from "@/lib/blue-desk-source-copy";
 import { describePublicEvidenceClaim } from "@/lib/blue-desk-evidence-preview";
-import { blueDeskStorySections } from "@/lib/blue-desk-story-sections";
 import { readerParagraphSources, readerVerifiedReaction } from "@/lib/blue-desk-reader-evidence";
 import {
   projectMarketBriefArticles,
@@ -38,11 +37,9 @@ const SECTIONS: ReadonlyArray<{
   name: string;
   roles: ReadonlyArray<MarketBriefParagraphV1["role"]>;
 }> = [
-  { name: "What happened", roles: ["opening"] },
-  { name: "How it works", roles: ["mechanism"] },
-  { name: "Market impact", roles: ["reaction"] },
-  { name: "Countercase", roles: ["contradiction"] },
-  { name: "Background", roles: ["context"] },
+  { name: "What happened", roles: ["opening", "context"] },
+  { name: "Why it matters", roles: ["mechanism", "reaction"] },
+  { name: "What could change", roles: ["contradiction"] },
 ];
 
 export default async function BlueDeskStoryPage({
@@ -102,13 +99,7 @@ export default async function BlueDeskStoryPage({
   });
   const unmatched = supportedParagraphs.filter(p => !covered.has(p.text));
   if (unmatched.length) blocks.push({ name: "Additional context", text: unmatched });
-  const navigation = blueDeskStorySections({
-    originalObservations: article.editorial.evidenceClaims.length,
-    causalLinks: article.editorial.causalLinks.length,
-    narrativeBlocks: blocks.length,
-    missingVerifiedReaction: !verifiedReaction,
-    watchAvailable: hasStructuredWatch || Boolean(article.conditionalOutlook),
-  });
+
 
   return (
     <main className={styles.page}>
@@ -116,50 +107,92 @@ export default async function BlueDeskStoryPage({
       <div className={styles.content}>
         <Link href={back} className={styles.textLink}>← Live Market</Link>
         <header className={styles.deepHero}>
-          <p className={styles.kicker}>{article.category} · {article.interpretationStatus}</p>
+          <p className={styles.kicker}>{article.category} · {article.interpretationStatus === "UNRESOLVED" ? "Still developing" : article.interpretationStatus.replaceAll("_"," ").toLowerCase()}</p>
           <h1>{article.title}</h1>
-          <p className={styles.heroDeck}>{article.deck}</p>
-          <ScopeStrip assets={article.affectedAssets || []} label="Story scope · not evidence"/>
+          <ScopeStrip assets={article.affectedAssets || []} label="Related markets"/>
           <div className={styles.deepMeta}>
             <DualTimestamp value={article.generatedAt} />
             <span>Edition {article.editionId}</span>
           </div>
         </header>
-        <nav className={styles.storyJumpNav} aria-label="Navigate this Story">
-          {navigation.map(section => (
-            <a key={section.id} href={`#${section.id}`} className={styles.storyJumpLink}>
-              {section.label}
-            </a>
-          ))}
-        </nav>
         <div className={styles.deepLayout}>
           <article className={styles.deepArticle}>
             <section id="story-overview" className={styles.storyAtGlance} aria-labelledby="story-overview-title">
-              <p className={styles.kicker}>EDITION-PINNED BRIEF</p>
-              <h2 id="story-overview-title">At a glance</h2>
-              <div className={styles.storyMetricGrid}>
-                <div>
-                  <span>Interpretation</span>
-                  <strong>{article.interpretationStatus}</strong>
-                </div>
-                <div>
-                  <span>Original-source observations</span>
-                  <strong>{article.editorial.evidenceClaims.length}</strong>
-                </div>
-                <div>
-                  <span>Evidence-linked mechanism steps</span>
-                  <strong>{article.editorial.causalLinks.length}</strong>
-                </div>
-                <div>
-                  <span>Observed market reaction</span>
-                  <strong>{verifiedReaction ? "Source-linked" : "Not verified"}</strong>
-                </div>
-              </div>
-              <p className={styles.storySummaryNote}>
-                This view is fixed to the publication shown above. Source observations
-                do not, on their own, prove a causal explanation or a new Story verdict.
-              </p>
+              <p className={styles.kicker}>QUICK READ · ABOUT ONE MINUTE</p>
+              <h2 id="story-overview-title">The bottom line</h2>
+              <p>{article.deck}</p>
+              <p><strong>What to watch:</strong> {confirmations[0]||article.conditionalOutlook||"No specific confirmation test is recorded in this edition."}</p>
+              <p><strong>Did markets react?</strong> {verifiedReaction
+                ?"Source-linked market observations are included in the analysis below."
+                :"Not independently verified for this edition."}</p>
             </section>
+            {blocks.length ? <div id="story-analysis" className={styles.storyAnalysis}>
+              {blocks.map(block => (
+              <section key={block.name} className={styles.deepSection}>
+                <h2>{block.name}</h2>
+                {block.text.map((paragraph, index) => (
+                  <div key={index}>
+                    <p>{readerFacingMarketText(paragraph.text)}</p>
+                    {readerParagraphSources(paragraph, article.editorial.evidenceClaims).length ? (
+                      <div className={styles.deepParagraphSources}>
+                        <small className={styles.deepEvidence}>Original-source records linked to this exact upstream claim:</small>
+                        {readerParagraphSources(paragraph, article.editorial.evidenceClaims).map(source => (
+                          <a key={source.evidenceId} href={source.sourceUrl} target="_blank" rel="noreferrer">
+                            {source.sourceName} · original report ↗
+                          </a>
+                        ))}
+                      </div>
+                    ) : (
+                      <small className={styles.deepEvidence}>
+                        Lesson-level evidence only; this particular statement is not independently verified by an original-source record.
+                      </small>
+                    )}
+                  </div>
+                ))}
+              </section>
+              ))}
+            </div> : null}
+            {!verifiedReaction ? (
+              <section id="story-reaction-gap" className={styles.deepSection}>
+                <h2>Market reaction</h2>
+                <p className={styles.deepSourceContext}>
+                  No independently source-linked price, yield or futures reaction is available in this frozen edition.
+                  The available observations do not establish how traded markets responded at the time.
+                </p>
+              </section>
+            ) : null}
+            {hasStructuredWatch ? (
+              <section id="story-watch" className={styles.deepSection}>
+                <h2>What to watch</h2>
+                {confirmations.length ? (
+                  <div className={styles.deepWatchGroup}>
+                    <h3>What strengthens this view</h3>
+                    <ul className={styles.deepWatchList}>
+                      {confirmations.map((condition, index) => <li key={index}>{condition}</li>)}
+                    </ul>
+                  </div>
+                ) : null}
+                {invalidations.length ? (
+                  <div className={styles.deepWatchGroup}>
+                    <h3>What would weaken it</h3>
+                    <ul className={styles.deepWatchList}>
+                      {invalidations.map((condition, index) => <li key={index}>{condition}</li>)}
+                    </ul>
+                  </div>
+                ) : null}
+              </section>
+            ) : article.conditionalOutlook ? (
+              <section id="story-watch" className={styles.deepSection}>
+                <h2>What to watch</h2>
+                <p>{article.conditionalOutlook}</p>
+              </section>
+            ) : null}
+            {!blocks.length && !article.conditionalOutlook ? (
+              <p className={styles.empty}>No source-supported narrative is available for this Story.</p>
+            ) : null}
+            <details className={styles.simpleEvidenceDetails} data-article-extra-evidence="collapsed-by-default">
+              <summary>More detail: original data, how the argument works and evidence checks</summary>
+              <div className={styles.simpleEvidenceBody}>
             {!article.editorial.evidenceClaims.length ? (
               <section className={styles.deepSection}>
                 <h2>Evidence status</h2>
@@ -254,72 +287,9 @@ export default async function BlueDeskStoryPage({
                 </ol>
               </section>
             ) : null}
-            {blocks.length ? <div id="story-analysis" className={styles.storyAnalysis}>
-              {blocks.map(block => (
-              <section key={block.name} className={styles.deepSection}>
-                <h2>{article.interpretationStatus === "UNRESOLVED" && block.name === "How it works"
-                  ? "Working explanation" : article.interpretationStatus === "UNRESOLVED" && block.name === "What happened"
-                  ? "Current assessment" : block.name}</h2>
-                {block.text.map((paragraph, index) => (
-                  <div key={index}>
-                    <p>{readerFacingMarketText(paragraph.text)}</p>
-                    {readerParagraphSources(paragraph, article.editorial.evidenceClaims).length ? (
-                      <div className={styles.deepParagraphSources}>
-                        <small className={styles.deepEvidence}>Original-source records linked to this exact upstream claim:</small>
-                        {readerParagraphSources(paragraph, article.editorial.evidenceClaims).map(source => (
-                          <a key={source.evidenceId} href={source.sourceUrl} target="_blank" rel="noreferrer">
-                            {source.sourceName} · original report ↗
-                          </a>
-                        ))}
-                      </div>
-                    ) : (
-                      <small className={styles.deepEvidence}>
-                        Lesson-level evidence only; this particular statement is not independently verified by an original-source record.
-                      </small>
-                    )}
-                  </div>
-                ))}
-              </section>
-              ))}
-            </div> : null}
-            {!verifiedReaction ? (
-              <section id="story-reaction-gap" className={styles.deepSection}>
-                <h2>Market reaction</h2>
-                <p className={styles.deepSourceContext}>
-                  No independently source-linked price, yield or futures reaction is available in this frozen edition.
-                  The available observations do not establish how traded markets responded at the time.
-                </p>
-              </section>
-            ) : null}
-            {hasStructuredWatch ? (
-              <section id="story-watch" className={styles.deepSection}>
-                <h2>What to watch</h2>
-                {confirmations.length ? (
-                  <div className={styles.deepWatchGroup}>
-                    <h3>What strengthens this view</h3>
-                    <ul className={styles.deepWatchList}>
-                      {confirmations.map((condition, index) => <li key={index}>{condition}</li>)}
-                    </ul>
-                  </div>
-                ) : null}
-                {invalidations.length ? (
-                  <div className={styles.deepWatchGroup}>
-                    <h3>What would weaken it</h3>
-                    <ul className={styles.deepWatchList}>
-                      {invalidations.map((condition, index) => <li key={index}>{condition}</li>)}
-                    </ul>
-                  </div>
-                ) : null}
-              </section>
-            ) : article.conditionalOutlook ? (
-              <section id="story-watch" className={styles.deepSection}>
-                <h2>What to watch</h2>
-                <p>{article.conditionalOutlook}</p>
-              </section>
-            ) : null}
-            {!blocks.length && !article.conditionalOutlook ? (
-              <p className={styles.empty}>No source-supported narrative is available for this Story.</p>
-            ) : null}
+
+              </div>
+            </details>
           </article>
           <aside className={styles.deepAside}>
             <section>
@@ -329,28 +299,6 @@ export default async function BlueDeskStoryPage({
                   {source.title} ↗
                 </a>
               )) : <p className={styles.muted}>Source links unavailable. See attached evidence references.</p>}
-            </section>
-            <section id="story-evidence" className={styles.storyEvidencePanel}>
-              <h2>Evidence explorer</h2>
-              {article.editorial.evidenceClaims.length ? (
-                <>
-                  <p className={styles.evidenceIndexNote}>Jump to each source's compact facts and optional full audit record. Raw filing text is not repeated here.</p>
-                  <ol className={styles.evidenceIndexList}>
-                    {article.editorial.evidenceClaims.map(claim => (
-                      <li key={claim.evidenceId}>
-                        <a href={"#evidence-" + claim.evidenceId}>
-                          {describePublicEvidenceClaim(claim.claimText).title} ↗
-                        </a>
-                        <small>{claim.sourceName} · {claim.evidenceClass}</small>
-                      </li>
-                    ))}
-                  </ol>
-                </>
-              ) : <p className={styles.muted}>
-                No edition-pinned primary-source claims are available for this article.
-                Interpretations above are not independently verified by this panel.
-              </p>}
-              <p className={styles.muted}>These sources support individual observations; they do not independently establish the causal explanation or a System 2 thesis change.</p>
             </section>
             <section>
               <h2>Publication</h2>
