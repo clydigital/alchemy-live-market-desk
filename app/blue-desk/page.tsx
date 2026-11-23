@@ -211,7 +211,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
           </RadarIntelligenceShell>
           <DeskWhiteboard compass={marketCompass} news={verifiedNews} theses={theses}
             upcoming={upcoming} now={now} host={host}/>
-          <InstitutionalRiskMonitor rows={buildInstitutionalRisk(volatility,monitor?.rows??[],now)} rates={buildFedRateWatch(monitor?.rows??[],now)} nextDecision={nextFomcDecision(calendar.events,now)}/>
+          <InstitutionalRiskMonitor rows={buildInstitutionalRisk(volatility,monitor?.rows??[],now)} equityTape={marketCompass} rates={buildFedRateWatch(monitor?.rows??[],now)} nextDecision={nextFomcDecision(calendar.events,now)}/>
           <CreatorIntelligencePanel rows={qqqPosition.rows} market={marketRows} now={now} host={host} readOverride={creatorRadarRead??undefined}/>
           <InvestorMindsetBoard snapshot={investorMindset} assessment={investorAssessment} host={host} themes={investorThemes} receipt={investorReceipt}/>
            <MarketConditionsBoard market={marketRows} breadth={breadth50} jobs={jobs}

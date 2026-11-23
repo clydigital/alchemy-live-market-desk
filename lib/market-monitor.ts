@@ -351,7 +351,10 @@ async function fetchFredSeries(spec: FredSpec): Promise<RawSeries> {
     }
   }
   const endpoint = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=" + encodeURIComponent(spec.seriesId);
-  const response = await fetch(endpoint, { next: { revalidate: 60 * 60 * 6 }, headers: { "user-agent": "Alchemy Live Desk" }, signal: AbortSignal.timeout(12000) });
+  // Volatility is published with a daily source lag; minimise *additional*
+  // reader cache lag when the next VIX/VXN close actually becomes available.
+  const volSeries=spec.seriesId==="VIXCLS"||spec.seriesId==="VXNCLS";
+  const response = await fetch(endpoint, { next: { revalidate: volSeries ? 30 * 60 : 60 * 60 * 6 }, headers: { "user-agent": "Alchemy Live Desk" }, signal: AbortSignal.timeout(12000) });
   if (!response.ok) throw new Error("FRED " + spec.seriesId + " " + response.status);
   const lines = (await response.text()).split(/\r?\n/).slice(1);
   const points = lines.flatMap((line) => {
@@ -372,11 +375,18 @@ async function fetchFredSeries(spec: FredSpec): Promise<RawSeries> {
 /** Two official volatility histories, cached independently of the large market tape.
  * No new scheduler, premium entitlement, canonical write or public raw history. */
 export const loadVolatilityAnchors = unstable_cache(async () => {
+  const warning=(seriesId:string,error:unknown):null=>{
+    // Failure is visible as unavailable on the card; emit diagnosable metadata
+    // without exposing API credentials or falsely promoting stale values.
+    console.warn(JSON.stringify({event:"bluebelly_volatility_source_unavailable",seriesId,
+      reason:error instanceof Error?error.name:"UNKNOWN"}));
+    return null;
+  };
   return Promise.all([
-    fetchFredSeries({ id: "vix", seriesId: "VIXCLS", label: "S&P 500 implied volatility", type: "Credit / Risk", sourceName: "Cboe via FRED" }).catch(() => null),
-    fetchFredSeries({ id: "vxn", seriesId: "VXNCLS", label: "Nasdaq-100 implied volatility", type: "Credit / Risk", sourceName: "Cboe via FRED" }).catch(() => null),
+    fetchFredSeries({ id: "vix", seriesId: "VIXCLS", label: "S&P 500 implied volatility", type: "Credit / Risk", sourceName: "Cboe via FRED" }).catch(err => warning("VIXCLS",err)),
+    fetchFredSeries({ id: "vxn", seriesId: "VXNCLS", label: "Nasdaq-100 implied volatility", type: "Credit / Risk", sourceName: "Cboe via FRED" }).catch(err => warning("VXNCLS",err)),
   ]);
-}, ["bluebelly-institutional-volatility-anchors-v1"], { revalidate: 3600 });
+}, ["bluebelly-institutional-volatility-anchors-v2"], { revalidate: 3600 });
 async function fetchGoldSpotSeries(): Promise<RawSeries> {
   const historyResponse = await fetch("https://xaus.com/api/v1/history", {
     headers: { accept: "application/json", "user-agent": "Alchemy Live Desk" },

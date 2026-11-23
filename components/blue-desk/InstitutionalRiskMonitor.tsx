@@ -1,4 +1,5 @@
-import { interpretInstitutionalRisk, type InstitutionalRiskRow } from "@/lib/bluebelly-institutional-risk";
+import { interpretInstitutionalRisk, reconcileRiskWithEquityTape, type InstitutionalRiskRow } from "@/lib/bluebelly-institutional-risk";
+import type {MarketCompassSummary} from "@/lib/bluebelly-market-compass";
 import { FEDWATCH_URL, FOMC_URL, type buildFedRateWatch, type nextFomcDecision } from "@/lib/bluebelly-next-rate-decision";
 import DualTimestamp from "./DualTimestamp";
 import s from "./InstitutionalRiskMonitor.module.css";
@@ -8,15 +9,26 @@ const signed = (v: number | null) => v === null ? "—" : (v > 0 ? "+" : "") + v
 
 const points = (v: number | null, unit: string) => v === null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(2)} ${unit}`;
 
-export default function InstitutionalRiskMonitor({ rows, rates, nextDecision }: {
+export default function InstitutionalRiskMonitor({ rows, rates, nextDecision, equityTape }: {
   rows: readonly InstitutionalRiskRow[]; rates: ReturnType<typeof buildFedRateWatch>; nextDecision: ReturnType<typeof nextFomcDecision>;
+  equityTape: MarketCompassSummary;
 }) {
+  const reconciliation=reconcileRiskWithEquityTape(rows,equityTape);
   return <section className={s.shell} aria-labelledby="institutional-risk-heading" data-institutional-risk="implied-var-v1">
     <header className={s.head}>
       <div><span className={s.kicker}>RISK RADAR / SOURCE-DATED CLOSE</span><h2 id="institutional-risk-heading">How much risk is the market pricing?</h2></div>
       <span className={s.note}><i/> AUTOMATIC · DAILY SOURCE OBSERVATIONS</span>
     </header>
     <div className={s.riskIntro}><strong>Read the level, then the direction.</strong> The ring tells you how unusual risk is versus the last year; the five-session change tells you whether the risk squeeze is building or easing. Neither shows actual institutional positions.</div>
+    <div className={s.tapeBridge} data-var-equity-alignment={reconciliation.state} role="status">
+      <div className={s.tapeHead}>
+        <span>DAILY VaR × EQUITY TAPE / MATCHED-SOURCE CHECK</span>
+        <strong>{reconciliation.label}</strong>
+      </div>
+      <p>{reconciliation.explanation}</p>
+      <p><b>Next test:</b> {reconciliation.nextTest}</p>
+      <small>Equity session: {reconciliation.equitySession??"unavailable"} · VIX/VXN earliest close: {reconciliation.volatilitySession??"unavailable"}. Volatility closes are published by Cboe via FRED with their own release lag. This panel does not infer actual institutional trades or modify the Regime score.</small>
+    </div>
     <div className={s.legend} aria-label="One-year risk percentile guide">
       <span data-level="low"><b>LOW</b> 0–&lt;25</span><span data-level="normal"><b>NORMAL</b> 25–&lt;75</span><span data-level="high"><b>HIGH</b> 75–&lt;90</span><span data-level="extreme"><b>EXTREME</b> 90–100</span>
     </div>

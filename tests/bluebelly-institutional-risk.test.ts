@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {buildInstitutionalRisk, impliedVar, interpretInstitutionalRisk} from "../lib/bluebelly-institutional-risk.ts";
+import {buildInstitutionalRisk, impliedVar, interpretInstitutionalRisk, reconcileRiskWithEquityTape} from "../lib/bluebelly-institutional-risk.ts";
 import {scheduledUsEquityCloseHourET} from "../lib/bluebelly-us-equity-trading-calendar.ts";
+import type {MarketCompassSummary} from "../lib/bluebelly-market-compass.ts";
+import {readFileSync} from "node:fs";
 
 const NOW = new Date("2026-11-19T10:00:00Z");
 function series(id: string, values: number[], end = "2026-11-18") {
@@ -67,4 +69,53 @@ test("interpretation separates absolute historical risk from direction and suppr
   assert.equal(interpretInstitutionalRisk({...base,change5d:0.8}).direction,"flat");
   assert.equal(interpretInstitutionalRisk({...base,state:"behind"}).direction,"unknown");
   assert.equal(interpretInstitutionalRisk({...base,percentile:null,change5d:null}).direction,"unknown");
+});
+
+
+const SESSION_NOW=new Date("2026-11-24T04:00:00Z");
+const riskOnTape:MarketCompassSummary={
+ state:"RISK_ON",title:"Risk appetite improving",explanation:"Four-ETF positive session",
+ contradiction:"Some relative gaps",nextTest:"Check credit",sourceSession:"2026-11-23",
+ evidenceCount:4,note:"Observed completed-session ETFs only",
+};
+test("Friday VIX cannot disprove a later Monday risk-on tape",()=>{
+ const rows=buildInstitutionalRisk([
+  series("vix",[25,35.89],"2026-11-20"),
+  series("vxn",[36,45.25],"2026-11-20"),
+ ],[],SESSION_NOW);
+ const read=reconcileRiskWithEquityTape(rows,riskOnTape);
+ assert.equal(read.state,"VOLATILITY_DATA_PENDING");
+ assert.equal(read.equitySession,"2026-11-23");
+ assert.equal(read.volatilitySession,"2026-11-20");
+ assert.match(read.explanation,/not a contradiction/);
+ assert.equal(rows[0].state,"behind");
+});
+
+test("matching Monday equity/volatility relief can coexist with high absolute VaR",()=>{
+ const rows=buildInstitutionalRisk([
+  series("vix",[...Array(250).fill(18),35.89,27.5],"2026-11-23"),
+  series("vxn",[...Array(250).fill(25),45.25,34],"2026-11-23"),
+ ],[],SESSION_NOW);
+ assert.ok(rows[0].var95!>2);
+ assert.equal(rows[0].state,"current");
+ assert.equal(reconcileRiskWithEquityTape(rows,riskOnTape).state,"RELIEF_ALIGNED");
+ const opposite=buildInstitutionalRisk([
+  series("vix",[...Array(250).fill(18),25,31],"2026-11-23"),
+  series("vxn",[...Array(250).fill(25),33,39],"2026-11-23"),
+ ],[],SESSION_NOW);
+ assert.equal(reconcileRiskWithEquityTape(opposite,riskOnTape).state,"EQUITY_VIX_CONTRADICTION");
+});
+
+test("missing VXN or unverified stock session cannot manufacture matched confirmation",()=>{
+ const partial=buildInstitutionalRisk([series("vix",[30,24],"2026-11-23")],[],SESSION_NOW);
+ assert.equal(reconcileRiskWithEquityTape(partial,riskOnTape).state,"UNMEASURED");
+ assert.equal(reconcileRiskWithEquityTape(partial,{...riskOnTape,state:"UNMEASURED",sourceSession:null}).state,"UNMEASURED");
+});
+
+test("volatility fallback refreshes faster than general FRED price histories without bypassing source dates",()=>{
+ const source=readFileSync("lib/market-monitor.ts","utf8");
+ assert.match(source,/revalidate: volSeries \? 30 \* 60 : 60 \* 60 \* 6/);
+ assert.match(source,/bluebelly_volatility_source_unavailable/);
+ const home=readFileSync("app/blue-desk/page.tsx","utf8");
+ assert.match(home,/equityTape=\{marketCompass\}/);
 });

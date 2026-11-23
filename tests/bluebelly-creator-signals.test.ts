@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
 import {readFileSync} from "node:fs";
-import {parseCreatorDigest,parseCreatorDigestHtml,orderCreatorSignals,creatorMarketMatch,creatorSignalGroup} from "../lib/bluebelly-creator-signals.ts";
+import {parseCreatorDigest,parseCreatorDigestHtml,orderCreatorSignals,creatorMarketMatch,creatorSignalGroup,type CreatorDigest} from "../lib/bluebelly-creator-signals.ts";
 import type {PublicMarketObservation} from "../lib/blue-desk-public-markets.ts";
 
 const now=new Date("2026-11-19T10:30:00Z");
 const row=(asset:string)=>({asset,bias:"Neutral" as const,horizon:"daily",signals:["Potential higher low", "Watch 100 reclaim"],sources:["abcdefghijk"]});
-const sample=()=>({version:"creator-signals-v1",generatedAt:"2026-11-19T09:40:00Z",marketSession:"2026-11-18",coverage:"partial",overview:{headline:"Review",news:["Main event"],signals:[row("SPY")],divergences:[]},creators:[{publisher:"Creator",videoId:"abcdefghijk",title:"Review",publishedAt:"2026-11-18T00:00:00Z",sourceStatus:"reviewed",news:[],views:[row("SPY")],fundamentals:[],opinions:[],changed:"Prior review unavailable"}]});
+const sample=():CreatorDigest=>({version:"creator-signals-v1",generatedAt:"2026-11-19T09:40:00Z",marketSession:"2026-11-18",coverage:"partial",overview:{headline:"Review",news:["Main event"],signals:[row("SPY")],divergences:[]},creators:[{publisher:"Creator",videoId:"abcdefghijk",title:"Review",publishedAt:"2026-11-18T00:00:00Z",sourceStatus:"reviewed",news:[],views:[row("SPY")],fundamentals:[],opinions:[],changed:"Prior review unavailable"}]});
 test("preserves exact levels and multiline structural bullets, rejects unknown overview attribution",()=>{
  const d=sample();assert.deepEqual(parseCreatorDigest(d,now)?.overview.signals[0].signals,row("SPY").signals);
  d.overview.signals[0].sources=["unknown"];assert.equal(parseCreatorDigest(d,now),null);
@@ -41,4 +41,55 @@ test("immutable Work HTML envelope safely round-trips literal markup",()=>{
  const html='<html><pre id="creator-signals-v1">'+JSON.stringify(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')+'</pre></html>';
  assert.equal(parseCreatorDigestHtml(html,now)?.overview.headline,value.overview.headline);
  assert.equal(parseCreatorDigestHtml('<pre id="creator-signals-v1"><b>invalid</b></pre>',now),null);
+});
+
+
+test("latest mixed digest accepts handoff-reviewed exact video IDs without invented original dates",()=>{
+ const d=sample();
+ d.creators.push({
+  publisher:"TraderNick",videoId:"N5Ee5JLBBls",title:"Market Crash, 2026",
+  publishedAt:null,sourceStatus:"handoff_reviewed",news:[],views:[row("QQQ")],
+  fundamentals:[],opinions:[],changed:"Authentic handoff; exact publish time not verified"
+ });
+ d.generatedAt="2026-11-19T10:00:00Z";
+ const parsed=parseCreatorDigest(d,now);
+ assert.equal(parsed?.creators.length,2);
+ assert.equal(parsed?.creators[1].sourceStatus,"handoff_reviewed");
+ assert.equal(parsed?.creators[1].publishedAt,null);
+ // Production-reviewed original videos still MUST carry exact publication time.
+ d.creators[1].sourceStatus="reviewed";
+ assert.equal(parseCreatorDigest(d,now),null);
+ d.creators[1].sourceStatus="handoff_reviewed";
+ d.creators[1].videoId="not-a-valid-video-id";
+ assert.equal(parseCreatorDigest(d,now),null);
+});
+
+test("private digest with a handoff and supplied video preserves unknown dates and source-key linkage",()=>{
+ const d=sample();
+ d.creators.push({
+  publisher:"Truthbombs",videoId:"RifmW9r45mQ",title:"AI trade",
+  publishedAt:null,sourceStatus:"handoff_reviewed",news:[],views:[row("SMH")],
+  fundamentals:[],opinions:[],changed:"Pending original metadata"
+ });
+ d.creators.push({
+  publisher:"Trade Brigade",videoId:null,title:"User-supplied research",
+  publishedAt:null,sourceStatus:"supplied",news:[],views:[],
+  fundamentals:[],opinions:[],changed:"Original not confirmed"
+ });
+ d.overview.signals.push({...row("SMH"),sources:["RifmW9r45mQ"]});
+ const received=parseCreatorDigest(d,now);
+ assert.equal(received?.creators.length,3);
+ assert.equal(received?.overview.signals.at(-1)?.sources[0],"RifmW9r45mQ");
+ d.overview.signals[1].sources=["unknown-video"];
+ assert.equal(parseCreatorDigest(d,now),null);
+});
+
+test("latest read-only creator panel shows unmatched reviewed receipts and session lag separately",()=>{
+ const panel=readFileSync(new URL("../components/blue-desk/CreatorIntelligencePanel.tsx",import.meta.url),"utf8");
+ assert.match(panel,/data-creator-uncompiled="source-reviewed"/);
+ assert.match(panel,/older than latest completed tape/);
+ assert.match(panel,/digestVideoIds/);
+ const gate=panel.indexOf('read.status==="unauthorised"');
+ const intake=panel.indexOf('recentReviewed=await getPrivateReviewedCreatorArguments(now)');
+ assert.ok(gate>=0&&intake>gate,"private ingestion must only happen after owner gate");
 });

@@ -1,5 +1,6 @@
 import { expectedHomeEtfSession } from "./bluebelly-home-etf-history.ts";
 import { scheduledUsEquityCloseHourET } from "./bluebelly-us-equity-trading-calendar.ts";
+import type {MarketCompassSummary} from "./bluebelly-market-compass.ts";
 
 type Point = { time: number; close: number };
 type Series = { id: string; points: readonly Point[]; sourceName: string; sourceUrl: string; frequency: "daily" | "monthly" };
@@ -53,6 +54,61 @@ export type InstitutionalRiskRow = {
   percentile: number | null; capacity5d: number | null;
   realised: ReturnType<typeof realised20>; realisedLabel: string;
 };
+
+/**
+ * Read-only same-session reconciliation: implied VaR is a risk-level model,
+ * never a directional stock forecast. Creator arguments are NOT input data.
+ * Do not compare a Friday volatility close with Monday equity returns as if
+ * both were observed at the same time.
+ */
+export type RiskTapeAlignment = {
+ state:"VOLATILITY_DATA_PENDING"|"RELIEF_ALIGNED"|"EQUITY_VIX_CONTRADICTION"|"RISK_PRESSURE_ALIGNED"|"MIXED"|"UNMEASURED";
+ label:string; explanation:string; nextTest:string;
+ equitySession:string|null;volatilitySession:string|null;
+};
+export function reconcileRiskWithEquityTape(
+ rows:readonly InstitutionalRiskRow[],
+ tape:MarketCompassSummary,
+):RiskTapeAlignment {
+ const two=rows.filter(row=>row.symbol==="VIX"||row.symbol==="VXN");
+ const times=two.map(row=>row.asOf).filter((x):x is string=>!!x).sort();
+ const vday=times.at(0)??null;
+ const base={equitySession:tape.sourceSession,volatilitySession:vday};
+ if(tape.state==="UNMEASURED"||!tape.sourceSession){
+  return {...base,state:"UNMEASURED",label:"Cross-asset comparison unavailable",
+   explanation:"No four-ETF same-session equity reading passed the source gate. Volatility levels cannot establish today's equity direction.",
+   nextTest:"Verify same-session SMH/QQQ and RSP/SPY closes before comparing the two lenses."};
+ }
+ if(two.length!==2||two.some(r=>r.asOf!==tape.sourceSession||r.state!=="current"||r.change1d===null)){
+  const behind=times.length===2&&times.every(t=>t<tape.sourceSession!);
+  return {...base,state:behind?"VOLATILITY_DATA_PENDING":"UNMEASURED",
+   label:behind?"Equities updated · VaR waiting on volatility close":"Risk/equity timestamps not comparable",
+   explanation:behind
+    ?"The equity tape reflects "+tape.sourceSession+", while the VIX/VXN VaR estimate remains based on "+vday+". A rebound after that volatility snapshot is not a contradiction of the older VaR calculation."
+    :"VIX/VXN and the equity tape do not share a verified completed session. Do not infer a mechanical institutional risk change.",
+   nextTest:"Wait for source-published VIXCLS and VXNCLS daily closes for the equity session; then check both 1D and 5D changes."};
+ }
+ const easing=two.every(r=>r.change1d! < -1);
+ const rising=two.every(r=>r.change1d! > 1);
+ if(tape.state==="RISK_ON"&&easing){
+  return {...base,state:"RELIEF_ALIGNED",label:"Equity rebound + lower implied volatility",
+   explanation:"Same-session broad equity gains and declines in both VIX and VXN are consistent with short-horizon risk relief. High absolute VaR can persist while its direction eases.",
+   nextTest:"Confirm 3–5 sessions of breadth, credit and volatility follow-through. Neither a short squeeze nor real institutional buying is proven."};
+ }
+ if(tape.state==="RISK_ON"&&rising){
+  return {...base,state:"EQUITY_VIX_CONTRADICTION",label:"Equities higher, but option fear rising",
+   explanation:"Both volatility indices increased on the same completed risk-on equity session. This is a measurable cross-asset tension, not a bullish or bearish verdict.",
+   nextTest:"Check options hedging, credit spreads and subsequent volatility closes before inferring a reversal."};
+ }
+ if(tape.state==="RISK_OFF"&&rising){
+  return {...base,state:"RISK_PRESSURE_ALIGNED",label:"Equity selloff + higher implied volatility",
+   explanation:"Matched losses across equity proxies and rises in both volatility indices support a risk-pressure reading, without proving forced institutional selling.",
+   nextTest:"Check credit and multi-session price absorption."};
+ }
+ return {...base,state:"MIXED",label:"No clean risk/volatility alignment",
+  explanation:"Same-session volatility and equity observations do not jointly meet a simple relief or stress pattern. A high VaR level alone does not settle the direction.",
+  nextTest:"Inspect the next matched session, credit, positioning and breadth."};
+}
 
 // Editorial bands, not regulatory or institution-specific VaR limits.
 export function interpretInstitutionalRisk(row: Pick<InstitutionalRiskRow, "state" | "percentile" | "change1d" | "change5d" | "capacity5d">) {
