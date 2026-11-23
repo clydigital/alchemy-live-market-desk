@@ -105,3 +105,20 @@ test("source-only keeps legacy writers and PDFs off while existing Dossier cron 
   assert.match(handoff,/!scheduledSourceOnlyEnabled\(process\.env\) && scheduledDailyHtmlFallbackEnabled/);
   assert.match(handoff,/handleScheduledResearchGapHandoff\(request\)/);
 });
+
+test("manual GitHub source-only flow accepts only a completed nested acquisition receipt",()=>{
+  const flow=read(".github/workflows/run-live-research.yml");
+  const begin=flow.indexOf("      - name: Run canonical production pipeline");
+  const end=flow.indexOf("      - name: Run token-aware Dossier V2 handoff");
+  const run=flow.slice(begin,end);
+  assert.match(run,/id: canonical_pipeline/);
+  assert.match(run,/\.publication\.mode \/\/ empty/);
+  assert.match(run,/\.publication\.accepted == true/);
+  assert.match(run,/\.publication\.status == "completed"/);
+  assert.match(run,/\.publication\.sourceChecksPresent == true/);
+  assert.match(run,/\.acquisition\.sourceChecks/);
+  assert.match(run,/source_only_complete=true/);
+  assert.ok(run.indexOf("source_mode=")<run.indexOf("for attempt in {1..8}"));
+  assert.match(flow,/steps\.canonical_pipeline\.outputs\.source_only_complete != 'true'/);
+  assert.match(run,/Source-only acquisition did not provide a completed durable coverage receipt/);
+});
