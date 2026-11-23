@@ -91,7 +91,7 @@ export function projectOctoberPceReadout(
  const official=actualVerified?parseOfficialBeaPceMetricRows(release!.actual as string):[];
  const covered=new Set<string>();
  let conflict=false;
- const metrics=PceReadoutMetric[]=SPECS.map(spec=>{
+ const metrics:PceReadoutMetric[]=SPECS.map(spec=>{
   const matches=rows?.filter(row=>row.metric_key===spec.key)??[];
   if(matches.length>1)conflict=true;
   const row=matches.length===1?matches[0]:{};
