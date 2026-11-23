@@ -7,7 +7,7 @@ export function isReboundCapitalArticleUrl(value: string): boolean {
   try {
     const url = new URL(value);
     return url.protocol === "https:"
-      && url.hostname === "reboundcapital.substack.com"
+      && ["reboundcapital.substack.com", "www.rebound.capital", "rebound.capital"].includes(url.hostname)
       && !url.username && !url.password && !url.port
       && new RegExp("^/p/[a-z0-9][a-z0-9-]*/?$", "i").test(url.pathname);
   } catch {
