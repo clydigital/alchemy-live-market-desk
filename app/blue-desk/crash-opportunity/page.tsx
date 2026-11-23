@@ -18,7 +18,7 @@ import {getPublicSourceObservations} from "@/lib/blue-desk-source-observations";
 import {getRegimeShadowHealth} from "@/lib/regime-engine";
 import RegimeResearchClocks from "@/components/blue-desk/RegimeResearchClocks";
 import RegimeNov23PceChallenge from "@/components/blue-desk/RegimeNov23PceChallenge";
-import {getOctoberPceEventReadout} from "@/lib/bluebelly-pce-event-server";
+import {getUsEconStatWatch} from "@/lib/bluebelly-us-econ-stat-watch-server";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import {buildCrashWatchView,CRASH_HISTORY,CRASH_LINKS} from "@/lib/bluebelly-crash-opportunity";
 import desk from "../blue-desk.module.css";
@@ -41,12 +41,12 @@ function numberWithSign(value:number|null,unit:string){
 export default async function CrashOpportunityPage(){
   const now=new Date();
   const host=(await headers()).get("host");
-  const [monitor,sourceObservations,shadowHealth,publishedPulse,pceEvent]=await Promise.all([
+  const [monitor,sourceObservations,shadowHealth,publishedPulse,usWatch]=await Promise.all([
     getMarketMonitor().catch(()=>null),
     getPublicSourceObservations(now,12).catch(()=>null),
     getRegimeShadowHealth().catch(()=>null),
     getPublishedMacroPulseBriefs(8).catch(()=>[]),
-    getOctoberPceEventReadout(now).catch(()=>null),
+    getUsEconStatWatch(now).catch(()=>null),
   ]);
   const watch=buildCrashWatchView(monitor?.rows??null,now);
   const matchedTape=buildMarketDivergenceWatch(publicMarketObservations(monitor?.rows??[],"all"),"1D");
@@ -87,7 +87,7 @@ export default async function CrashOpportunityPage(){
       </header>
 
 
-      <RegimeNov23PceChallenge scope="cross" now={now} event={pceEvent??undefined}/>
+      <RegimeNov23PceChallenge scope="cross" now={now} watch={usWatch??undefined}/>
       <p><Link href={href("/qqq-positioning")} style={{color:"var(--bb-accent)",fontWeight:700}}>QQQ short-interest &amp; reversal watch →</Link> · Dated positioning is separate from the crash/opportunity gauge.</p>
       <section id="live-decision" className={styles.live} aria-labelledby="crash-live-title"
         data-crash-live="existing-source-feeds-v1" data-decision-tape={compass.state}
