@@ -17,6 +17,7 @@ import CrashEvidenceAutoRefresh from "@/components/blue-desk/CrashEvidenceAutoRe
 import {getPublicSourceObservations} from "@/lib/blue-desk-source-observations";
 import {getRegimeShadowHealth} from "@/lib/regime-engine";
 import RegimeResearchClocks from "@/components/blue-desk/RegimeResearchClocks";
+import RegimeNov23PceChallenge from "@/components/blue-desk/RegimeNov23PceChallenge";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import {buildCrashWatchView,CRASH_HISTORY,CRASH_LINKS} from "@/lib/bluebelly-crash-opportunity";
 import desk from "../blue-desk.module.css";
@@ -84,6 +85,7 @@ export default async function CrashOpportunityPage(){
       </header>
 
 
+      <RegimeNov23PceChallenge scope="cross" now={now}/>
       <p><Link href={href("/qqq-positioning")} style={{color:"var(--bb-accent)",fontWeight:700}}>QQQ short-interest &amp; reversal watch →</Link> · Dated positioning is separate from the crash/opportunity gauge.</p>
       <section id="live-decision" className={styles.live} aria-labelledby="crash-live-title"
         data-crash-live="existing-source-feeds-v1" data-decision-tape={compass.state}
