@@ -30,7 +30,7 @@ test("new challenger is visible on relevant lenses and Crash page outside the hi
  const archive=regime.indexOf('id="editorial-archive"');
  assert.ok(lensMount>0&&archive>lensMount);
  for(const s of ['"fed"','"bonds"','"ai"','"breadth"'])assert.match(regime,new RegExp(s));
- assert.match(crash,/<RegimeNov23PceChallenge scope="cross" now={now}\/>/);
+ assert.ok(crash.includes('<RegimeNov23PceChallenge scope="cross" now={now} event={pceEvent??undefined}/>'));
  const first=crash.indexOf("<RegimeNov23PceChallenge");
  const live=crash.indexOf('id="live-decision"');
  assert.ok(first>0&&live>first);
