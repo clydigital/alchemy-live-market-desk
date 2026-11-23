@@ -141,6 +141,23 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
           signal:AbortSignal.timeout(Math.min(5000,remaining)),
         });
       }
+      // A provider head can intermittently reject one query shape while a
+      // smaller unfiltered page is available. Do one bounded alternate probe
+      // after the ordinary same-request 404 retry. Never alter a continuation
+      // cursor: its recovery boundary remains explicitly uncertain.
+      let requestedPageSize=PAGE_SIZE;
+      if(response.status===404 && !cursor && Date.now()-startedAt<MAX_SCAN_MS-2500) {
+        url.searchParams.set("count","20");
+        const remaining=MAX_SCAN_MS-(Date.now()-startedAt);
+        const smaller=await fetchImpl(url.toString(),{
+          headers:{Accept:"application/json"},cache:"no-store",redirect:"error",
+          signal:AbortSignal.timeout(Math.min(4000,remaining)),
+        });
+        if(smaller.status===200){response=smaller;requestedPageSize=20;}
+        // Rate limiting/access refusal must fail closed; no further alternate
+        // scraping or retry storm against the upstream provider.
+        else if(smaller.status===429 || smaller.status===403)response=smaller;
+      }
       if(response.status===204 && !cursor) {
         await finish(db,handle,token,{...completeGapMarker,health:unresolvedGap?"partial":"healthy",
           last_error:unresolvedGap?"Unrecovered historical coverage gap":null,last_fetched:fetched,
@@ -174,9 +191,9 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
       if(next && (next===cursor || seenCursors.has(next)))throw new Error("Repeated pagination cursor");
       if(next)seenCursors.add(next);
       cursor=next;
-      const complete=parsed.reachedWindowStart || (next===null && parsed.total<PAGE_SIZE);
+      const complete=parsed.reachedWindowStart || (next===null && parsed.total<requestedPageSize);
       // A missing cursor on a full page is ambiguous, never a completed checkpoint.
-      if(!next && parsed.total===PAGE_SIZE && !parsed.reachedWindowStart)throw new Error("Full page without continuation cursor");
+      if(!next && parsed.total>=requestedPageSize && !parsed.reachedWindowStart)throw new Error("Full page without continuation cursor");
       if(complete){
         await finish(db,handle,token,{...completeGapMarker,
           health:parsed.malformed||unresolvedGap?"partial":"healthy",
