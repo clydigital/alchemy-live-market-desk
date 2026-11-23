@@ -35,11 +35,11 @@ test("rejects an issuer CIK mismatch, future filing, old comparatives and wrong 
  assert.equal(extractSecEarningsQuarter({...input,cik:4567,payload:fixture()}),null);
  const future=fixture();
  const gaap=(future.facts as Record<string,unknown>)["us-gaap"] as Record<string,any>;
- for(const item of Object.values(gaap))for(const unit of Object.values(item.units))for(const fact of unit)fact.filed="2026-11-25";
+ for(const item of Object.values(gaap))for(const unit of Object.values(item.units) as Array<Array<Record<string,unknown>>>)for(const fact of unit)fact.filed="2026-11-25";
  assert.equal(extractSecEarningsQuarter({...input,payload:future}),null);
  const old=fixture();
  const oldGaap=(old.facts as Record<string,unknown>)["us-gaap"] as Record<string,any>;
- for(const item of Object.values(oldGaap))for(const unit of Object.values(item.units))for(const fact of unit)fact.fy=2026;
+ for(const item of Object.values(oldGaap))for(const unit of Object.values(item.units) as Array<Array<Record<string,unknown>>>)for(const fact of unit)fact.fy=2026;
  assert.equal(extractSecEarningsQuarter({...input,payload:old}),null);
 });
 test("refuses conflicting same-accession financial values",()=>{
