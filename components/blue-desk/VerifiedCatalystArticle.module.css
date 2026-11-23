@@ -24,3 +24,13 @@
 
 .story p,.chapters p,.body p,.chapter p,.section p,.lead,.reader p{font-size:17px;line-height:1.75;color:#d4dadb;max-width:68ch}.story section,.sourceCard{background:var(--bb-surface);border-color:var(--bb-line);border-radius:0;box-shadow:none}.hero{border-radius:0;background:var(--bb-surface);border-top-color:var(--bb-accent)}.story h2,.chapters h2,.chapter h2{font-size:24px;text-transform:none}.eyebrow,.kicker,.topicInfo p,.sourceCard span,.rateStrip span{font-size:12px!important}.sourceCard p{font-size:16px;line-height:1.7}.header{padding-top:8px}.header h1{margin:10px 0 16px}.meta{margin:12px 0}.chapter{padding:22px 0}
 @media(max-width:650px){.story p,.chapters p,.body p,.chapter p,.section p,.lead,.reader p{font-size:16px;line-height:1.75}.hero{padding:16px;gap:10px}.art{display:none}.header h1,.hero h1{font-size:30px;line-height:1.15}.topicLine{margin-bottom:10px}.countryBall{width:42px!important;height:42px!important}.story h2,.chapters h2{font-size:22px}}
+
+/* Progressive disclosure for source timelines; the quick read remains above the fold. */
+.sourceLead a{color:#9fe1ff;font-size:14px;font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.moreDetails{border:1px solid var(--bb-line);border-radius:12px;background:var(--bb-surface);margin:22px 0 0}
+.moreDetails>summary{cursor:pointer;padding:17px 21px;color:var(--bb-text);font-size:16px;font-weight:750}
+.moreDetails>summary:focus-visible{outline:3px solid var(--bb-accent);outline-offset:2px}
+.moreBody{padding:0 21px 21px}
+.moreBody h3{font-size:20px;color:var(--bb-text);margin-top:24px}
+.moreBody>p{font-size:16px;line-height:1.7;color:#d4dadb}
+@media(max-width:640px){.moreDetails>summary{padding:14px}.moreBody{padding:0 14px 14px}}
