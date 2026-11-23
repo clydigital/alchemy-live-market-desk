@@ -29,14 +29,15 @@ function label(value:number,unit:string){
 function metric(
  facts:Fact[],key:string,name:EarningsScorecardMetric["name"],
 ):EarningsScorecardMetric{
- const found=facts.find(f=>f.metric_key===key&&f.accounting_basis==="SEC_US_GAAP"
+ const found=facts.find(f=>f.metric_key===key
+  &&(f.accounting_basis==="SEC_US_GAAP"||f.accounting_basis==="SEC_US_GAAP_DERIVED")
   &&f.period_basis==="fiscal_quarter");
  if(!found)return {name,value:null,comparison:null,state:"not_verified",
   note:"A matched SEC-filed quarter-specific amount has not been established."};
  const value=Number(found.value_numeric);
  if(!Number.isFinite(value))return {name,value:null,comparison:null,state:"not_verified"};
  return {name,value:label(value,found.unit),comparison:null,state:"measured",
-  note:"SEC US-GAAP XBRL filing; not an analyst estimate. "+(found.source_excerpt||"")};
+  note:"SEC US-GAAP XBRL filing"+(found.accounting_basis==="SEC_US_GAAP_DERIVED"?" · derived using separately verified YTD cash-flow periods":"")+"; not an analyst estimate. "+(found.source_excerpt||"")};
 }
 function fiscalId(ticker:string,period:string){
  const parsed=parseFiscalQuarter(period);
