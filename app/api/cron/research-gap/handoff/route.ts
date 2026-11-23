@@ -1,4 +1,5 @@
 import {handleScheduledResearchGapHandoff} from "@/lib/research-gap-cron";
+import {getXWireDurable} from "@/lib/x-wire-durable";
 import {scheduledSourceOnlyEnabled} from "@/lib/bluebelly-source-only-research";
 import {runPrivateDailyHtmlFallback} from "@/lib/bluebelly-scheduled-daily-html-job";
 import {scheduledDailyHtmlFallbackEnabled} from "@/lib/bluebelly-daily-html-fallback-gate";
@@ -32,6 +33,27 @@ export async function GET(request:Request){
  // Start all independent private work concurrently. A slow/partial Research Gap result must not make
  // the PDF miss the same pre-existing Vercel cron window.
  const result=await handleScheduledResearchGapHandoff(request);
+ // Reuse the existing 03:30/03:45 and 15:30/15:45 UTC Research Gap handoff
+ // invocations for due-only X retries in source-only mode. The handoff's own
+ // CRON_SECRET authentication and live-research concurrency gate run first.
+ // Never launch a new cron, writer, or canonical claim verification.
+ if(scheduledSourceOnlyEnabled(process.env) &&
+    process.env.NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED==="true" && result.ok){
+  try {
+   const body=await result.clone().json() as Record<string,unknown>;
+   if(body.status==="completed"){
+    const wire=await getXWireDurable({retryOnly:true});
+    const retry={storageHealthy:wire.storageHealthy,healthy:wire.health.healthy,
+     inaccessible:wire.health.inaccessible,checkedAt:wire.retrievedAt};
+    console.info(JSON.stringify({event:"x_wire_extra_due_retry",...retry}));
+    return Response.json({...body,xWireRetry:retry},{
+     status:result.status,headers:{"Cache-Control":"private, no-store"}});
+   }
+  } catch(error){
+   // Optional X recovery must not fail an otherwise successful Research Gap.
+   console.error("x_wire_extra_due_retry_failed",error instanceof Error?error.message:"unknown");
+  }
+ }
  const html=htmlTask?await htmlTask:null;
  if(!reportTask&&!html)return result;
  if(!reportTask){
