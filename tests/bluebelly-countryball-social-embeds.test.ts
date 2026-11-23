@@ -39,15 +39,16 @@ test("wrong accounts, forged domains, unsupported events, unverified topic and f
  assert.deepEqual(selectEventSocialContext([good],"other-event",at,now),[]);
  assert.deepEqual(selectEventSocialContext([good],"fed-2026-10-28",at,new Date("2026-10-28T17:00:00Z")),[]);
 });
-test("policy reader restores countryballs and keeps all original explanatory sections",()=>{
+test("policy reader retains countryballs and evidence while using three plain-English questions",()=>{
  const banks=recentBankDecisions(now);
  assert.deepEqual(banks.map(b=>b.countryCode),["US","CA","NZ"]);
  const reader=src("components/blue-desk/NewsroomEventReader.tsx");
  const css=src("components/blue-desk/NewsroomEventReader.module.css");
  const news=src("components/blue-desk/Newsroom48hTimeline.tsx");
  const page=src("app/blue-desk/key-stories/page.tsx");
- for(const heading of ["THE SCENE","THE NEW INFORMATION","THE MONEY QUESTION","THE CATCH","THE NEXT TEST"])
+ for(const heading of ["What happened?","Why does it matter?","What should I watch next?"])
   assert.ok(reader.includes(heading),"missing "+heading);
+ assert.match(reader,/<details className=\{s\.moreDetails\}>/);
  assert.match(reader,/<BankCountryBall code=\{bank.countryCode\}/);
  const ball=src("components/blue-desk/BankCountryBall.tsx");
  assert.match(ball,/data-countryball-svg=\{code\}/);
