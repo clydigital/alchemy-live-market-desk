@@ -89,13 +89,25 @@ export async function GET(request: Request) {
       const { data: existing, error: readError } = await db.from("issuer_earnings_ingestion_state")
         .select("state").eq("ticker", ticker).eq("fiscal_period", fiscalPeriod).maybeSingle();
       if (readError) throw new Error("issuer_obligation_read_failed: " + readError.code);
-      if (existing) continue;
-      const isDue = Date.parse(event.startAt!) <= now.getTime();
+      const dueAt = event.timePrecision === "date"
+        ? event.startAt!.slice(0, 10) + "T23:59:59Z"
+        : new Date(Date.parse(event.startAt!) + 2 * 3600000).toISOString();
+      if (existing) {
+        if (existing.state === "scheduled") {
+          const { error } = await db.from("issuer_earnings_ingestion_state")
+            .update({event_at:dueAt,source_url:event.sourceUrl,
+              next_retry_at:dueAt,updated_at:now.toISOString()})
+            .eq("ticker",ticker).eq("fiscal_period",fiscalPeriod).eq("state","scheduled");
+          if (error) throw new Error("issuer_schedule_refresh_failed: " + error.code);
+        }
+        continue;
+      }
+      const isDue = Date.parse(dueAt) <= now.getTime();
       const { error: writeError } = await db.from("issuer_earnings_ingestion_state")
         .upsert({
           ticker, fiscal_period: fiscalPeriod, source_url: event.sourceUrl,
-          state: isDue ? "due" : "scheduled",
-          next_retry_at: isDue ? now.toISOString() : event.startAt,
+          event_at:dueAt,state: isDue ? "due" : "scheduled",
+          next_retry_at: isDue ? now.toISOString() : dueAt,
           gap_reason: isDue ? "Original issuer results not yet independently verified" : null,
         }, { onConflict: "ticker,fiscal_period", ignoreDuplicates: true });
       if (writeError) throw new Error("issuer_obligation_write_failed: " + writeError.code);
