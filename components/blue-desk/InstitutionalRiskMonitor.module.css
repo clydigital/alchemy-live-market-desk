@@ -42,3 +42,24 @@
 .arc{stroke:var(--level);filter:drop-shadow(0 0 4px color-mix(in srgb,var(--level) 35%,transparent))}.dialValue strong{color:var(--level)}.percentile strong{color:#f0f7fa}.reading .divergence{color:#f3d095;font-size:11px}
 .action{border:1px solid #365461;border-left:3px solid var(--risk-tone);background:#102833;padding:12px;margin:0 0 12px}.action>span{display:block;color:#b7d0dc;font:750 10px/1.4 var(--bb-mono);letter-spacing:.04em}.action>strong{display:block;font:850 17px/1.25 var(--bb-display);color:var(--risk-tone);margin:5px 0}.action p{color:#d2e4eb;font-size:12px;line-height:1.5;margin:5px 0 0}.action .capacity{border-top:1px solid #365461;padding-top:8px;margin-top:8px}.capacity b{color:var(--risk-tone)}.method a{color:var(--bb-command-alt)}
 @media(max-width:480px){.legend{grid-template-columns:repeat(2,minmax(0,1fr))}.action{padding:10px}.action>strong{font-size:16px}.dialValue span{font-size:8px}}
+
+/* Match source clocks before comparing a high VaR risk level to an equity bounce. */
+.tapeBridge{
+ border:1px solid color-mix(in srgb,var(--bb-command-accent) 46%,var(--bb-command-edge));
+ border-left:3px solid var(--bb-command-accent);background:#09242e;
+ padding:12px 15px;margin:11px 0 15px;color:#d6eaf1;
+}
+.tapeBridge[data-var-equity-alignment="VOLATILITY_DATA_PENDING"]{
+ border-left-color:#e6c06f;
+}
+.tapeBridge[data-var-equity-alignment="RELIEF_ALIGNED"]{
+ border-left-color:#54d6a3;
+}
+.tapeBridge[data-var-equity-alignment="EQUITY_VIX_CONTRADICTION"]{
+ border-left-color:#f3aa7f;
+}
+.tapeHead{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.tapeHead>span{font:800 10px/1.4 var(--bb-mono);color:#86cfdc;letter-spacing:.045em}
+.tapeHead>strong{font:850 14px/1.25 var(--bb-display);color:#f2fbff}
+.tapeBridge p{font-size:12px;line-height:1.56;margin:9px 0 0}
+.tapeBridge small{display:block;font-size:10px;line-height:1.5;color:#a3c0ca;margin-top:10px}
