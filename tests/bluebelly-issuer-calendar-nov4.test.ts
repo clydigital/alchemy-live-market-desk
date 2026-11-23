@@ -52,7 +52,7 @@ test("existing presenter and official source contracts remain intact; results ar
  assert.doesNotMatch(source,/2026-11-18T17:00:00-05:00/);
  const page=read("app/blue-desk/calendar/page.tsx");
  const board=read("components/blue-desk/IssuerEarningsBoard.tsx");
- assert.match(page,/<IssuerEarningsBoard now=\{now\} host=\{host\}\/>/);
+ assert.match(page,/<IssuerEarningsBoard now=\{now\} host=\{host\} reviewedResults=\{recentEarningsResults\} automationHealth=\{earningsAutomationHealth\}\/>/);
  assert.ok(page.indexOf("<CatalystCalendar")<page.indexOf("<IssuerEarningsBoard"),
    "the interactive calendar must lead the earnings board");
  assert.ok(page.indexOf("<IssuerEarningsBoard")<page.indexOf("<details style="),
