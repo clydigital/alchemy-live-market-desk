@@ -166,8 +166,13 @@ export function directFeedRequestHeaders(source: DirectFeedSource["source"]): Re
 
 function feedItem(source: DirectFeedSource, entry: FeedEntry): IntakeItemInput {
   const summary = entry.summary || entry.title;
-  const triage = scoreDirectFeedHeadline(entry.title, summary);
+  const baseTriage = scoreDirectFeedHeadline(entry.title, summary);
   const opinion = source.source === "rebound-capital";
+  const triage = opinion ? {
+    ...baseTriage,
+    relevance: Math.max(78, baseTriage.relevance),
+    materiality: Math.max(62, baseTriage.materiality),
+  } : baseTriage;
   return {
     itemKey: itemKey(source.source, entry.url),
     itemType: "news",
@@ -178,9 +183,9 @@ function feedItem(source: DirectFeedSource, entry: FeedEntry): IntakeItemInput {
     publishedAt: entry.publishedAt,
     summary,
     sourceQuality: source.sourceQuality,
-    relevance: opinion ? Math.max(78, triage.relevance) : triage.relevance,
+    relevance: triage.relevance,
     novelty: 72,
-    materiality: opinion ? Math.max(62, triage.materiality) : triage.materiality,
+    materiality: triage.materiality,
     recommendedAction: "collect_evidence",
     newsSignal: opinion ? `Independent fundamental equity research from ${source.publisher}; not primary-source confirmation.` : `Direct ${source.publisher} feed acquisition.`, 
     divergenceKind: "none",
