@@ -43,16 +43,16 @@ test("ordinary text gets bounded preview without being rewritten or mistaken for
  assert.ok(result.summary.endsWith("…"));
  assert.deepEqual(result.facts,[]);
 });
-test("Story reader contains exactly one raw evidence view behind details; sidebar is a short index",()=>{
+test("Story reader hides full evidence behind an accessible details control without dropping source records",()=>{
  const source=read("app/blue-desk/stories/[articleId]/page.tsx");
- const sidebar=source.slice(source.indexOf('id="story-evidence"'));
- assert.match(source,/describePublicEvidenceClaim\(claim\.claimText\)/);
+ assert.match(source,/data-article-extra-evidence="collapsed-by-default"/);
+ assert.match(source,/describePublicEvidenceClaim\(claim\.claimText,/);
  assert.match(source,/<details className=\{styles\.rawEvidenceDetails\}>/);
  assert.match(source,/<pre>\{claim\.claimText\}<\/pre>/);
- assert.doesNotMatch(sidebar,/<p>\{claim\.claimText\}<\/p>/);
- assert.doesNotMatch(source,/title=\{claim\.claimText\}/);
  assert.match(source,/id=\{"evidence-" \+ claim\.evidenceId\}/);
- assert.match(sidebar,/href=\{"#evidence-" \+ claim\.evidenceId\}/);
+ assert.match(source,/article\.editorial\.evidenceClaims\.map\(claim =>/);
+ assert.doesNotMatch(source,/title=\{claim\.claimText\}/);
+ assert.doesNotMatch(source,/id="story-evidence"/);
 });
 
 

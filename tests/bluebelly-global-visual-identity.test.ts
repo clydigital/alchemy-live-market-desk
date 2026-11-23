@@ -71,5 +71,5 @@ test("frozen Story editions expose only explicitly authored asset identity metad
   const projection=root("lib/market-brief-articles.ts");
   assert.match(projection,/affectedAssets\?: string\[\]/);
   assert.match(projection,/candidate\.assets\.length \? \{ affectedAssets: candidate\.assets\.slice\(0,8\) \}/);
-  assert.match(root("app/blue-desk/stories/[articleId]/page.tsx"),/Story scope · not evidence/);
+  assert.match(root("app/blue-desk/stories/[articleId]/page.tsx"),/ScopeStrip assets=\{article\.affectedAssets \|\| \[\]\} label="Related markets"/);
 });

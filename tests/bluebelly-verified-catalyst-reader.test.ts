@@ -26,9 +26,10 @@ test("verified news themes preserve actual original source order rather than inf
  assert.match(reader,/event\.sourceUrl/);
  assert.match(reader,/event\.sourceName/);
  assert.match(reader,/event\.occurredAt/);
- assert.match(reader,/One source-verified event is available/);
- assert.match(reader,/not a complete historical timeline/);
- assert.match(reader,/matched/);
+ assert.match(reader,/updates\.length===1/);
+ assert.match(reader,/verified update/);
+ assert.match(reader,/not a complete market history/);
+ assert.match(reader,/how prices reacted after the news/);
  assert.doesNotMatch(reader,/generateContent|story_thesis_versions|createSupabaseAdminClient|fetch\(/);
 });
 test("Key Stories drilldown reuses exact approved public path, with expired theme unavailable",()=>{
@@ -46,15 +47,18 @@ test("Key Stories drilldown reuses exact approved public path, with expired them
  assert.equal(blueDeskPresentationTarget("/key-stories","bluebelly-desk.vercel.app"),"/blue-desk/key-stories");
  assert.equal(blueDeskHostAccess("/catalyst/internal","bluebelly-desk.vercel.app"),"blocked");
 });
-test("five-act catalyst reader preserves true event/interpretation distinction",()=>{
+test("catalyst reader leads with impact and keeps dated original events expandable",()=>{
  const reader=read("components/blue-desk/VerifiedCatalystArticle.tsx");
  const css=read("components/blue-desk/VerifiedCatalystArticle.module.css");
- for(const act of ["THE REAL EVENTS","THE LEARNING MOMENT","FOLLOW THE MONEY","THE COMPLICATION","THE NEXT DECIDING QUESTION"])
-  assert.ok(reader.includes(act));
+ for(const heading of ["Why does this matter?","What should I watch next?"])
+  assert.ok(reader.includes(heading));
+ assert.match(reader,/\<details className=\{styles\.moreDetails\}>/);
+ assert.ok(reader.indexOf("Why does this matter?")<reader.indexOf("<details className={styles.moreDetails}>"));
  assert.match(reader,/topic\.humanStake/);
  assert.match(reader,/topic\.marketMechanism/);
  assert.match(reader,/topic\.guidingQuestion/);
- assert.match(reader,/not a complete historical timeline/);
- assert.match(reader,/plausible mechanism is not a measured reaction/i);
+ assert.match(reader,/not a complete market history/);
+ assert.match(reader,/not a confirmed market-price reaction/i);
+ assert.match(reader,/event\.sourceUrl/);
  assert.match(css,/@media\(max-width:640px\)/);
 });

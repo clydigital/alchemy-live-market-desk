@@ -172,13 +172,14 @@ test("Deep Dive renders direct issuer facts before unresolved commentary, not po
   const route = readFileSync(new URL("../app/blue-desk/stories/[articleId]/page.tsx", import.meta.url), "utf8");
   assert.match(route, /What the original sources report/);
   assert.match(route, /article\.editorial\.evidenceClaims\.map\(claim => \{/);
-  assert.match(route, /describePublicEvidenceClaim\(claim\.claimText\)/);
+  assert.match(route, /describePublicEvidenceClaim\(claim\.claimText,/);
   assert.match(route, /filingMetricList/);
   assert.match(route, /readerFacingMarketText\(paragraph\.text\)/);
   assert.match(route, /readerParagraphSources\(paragraph, article\.editorial\.evidenceClaims\)/);
   assert.match(route, /Lesson-level evidence only; this particular statement is not independently verified/);
   assert.match(route, /No independently source-linked price, yield or futures reaction is available/);
-  assert.match(route, /Working explanation/);
+  assert.match(route, /Why it matters/);
+  assert.match(route, /data-article-extra-evidence="collapsed-by-default"/);
   assert.match(route, /getHybridExactDailyBriefEdition\(edition\)/);
 });
 

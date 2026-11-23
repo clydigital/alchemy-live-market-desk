@@ -107,6 +107,7 @@ test("Newsroom uses two evidence categories and never calls unconfirmed events c
  assert.match(keyStories,/reportedEditorialById\(params.reported,now\)/);
  assert.match(reader,/SECONDARY REPORTING · NOT INDEPENDENTLY CONFIRMED/);
  assert.match(reader,/WHAT|What would prove this interpretation wrong\?/i);
- assert.match(reader,/THE MONEY QUESTION/);
+ assert.match(reader,/Why does it matter\?/);
+ assert.match(reader,/Read more: risks, evidence and original sources/);
  assert.doesNotMatch(timeline,/createSupabaseAdminClient|service_role|secretKey|story_thesis_versions/);
 });

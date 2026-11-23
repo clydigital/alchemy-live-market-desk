@@ -22,61 +22,38 @@ export default function VerifiedCatalystArticle({topic,backHref}:Props){
      <h1>{lead.headline}</h1>
      <p className={styles.deck}>{lead.summary}</p>
      <p className={styles.date}>Latest verified event <DualTimestamp value={topic.latestObservedAt}/></p>
-     <p className={styles.disclosure}>
-       This is a rolling news explainer, separate from the permanent Story research record.
-       It uses only qualifying dated reports in the current public news window.
-       It is not a complete historical timeline or proof that market prices reacted.
-     </p>
+     <p className={styles.sourceLead}><a href={lead.sourceUrl} rel="noopener noreferrer" target="_blank">Read the latest original report · {lead.sourceName} ↗</a></p>
    </header>
    <div className={styles.body}>
-     <section className={styles.chapter} aria-labelledby="what-happened">
-       <p className={styles.kicker}>01 · THE REAL EVENTS</p>
-       <h2 id="what-happened">How the reported developments unfolded</h2>
-       <p className={styles.hint}>{updates.length===1?
-        "One source-verified event is available. Further developments must not be implied.":
-        updates.length+" source-verified updates are ordered by their reported event timestamps, oldest first."}</p>
-       <ol className={styles.timeline}>
-         {updates.map((event,index)=><li className={styles.event} key={event.id}>
-           <p className={styles.eventNumber}>RECORDED EVENT {index+1}</p>
-           <p className={styles.eventClock}><DualTimestamp value={event.occurredAt}/></p>
-           <h3>{event.headline}</h3>
-           <p>{event.summary}</p>
-           <a href={event.sourceUrl} rel="noopener noreferrer" target="_blank">
-             {event.sourceName} · original source
-           </a>
-         </li>)}
-       </ol>
-     </section>
      <section className={styles.chapter} aria-labelledby="why-care">
-       <p className={styles.kicker}>02 · THE LEARNING MOMENT</p>
-       <h2 id="why-care">Who could feel the consequences?</h2>
+       <h2 id="why-care">Why does this matter?</h2>
        <p>{topic.humanStake}</p>
-       <p className={styles.hint}>This illustrates exposure; it does not establish that the cost or earnings impact has already occurred.</p>
-     </section>
-     <section className={styles.chapter} aria-labelledby="market-mechanism">
-       <p className={styles.kicker}>03 · FOLLOW THE MONEY</p>
-       <h2 id="market-mechanism">How this could reach financial markets</h2>
        <p>{topic.marketMechanism}</p>
-     </section>
-     <section className={styles.chapter} aria-labelledby="missing-piece">
-       <p className={styles.kicker}>04 · THE COMPLICATION</p>
-       <h2 id="missing-piece">What the evidence still cannot tell us</h2>
-       <p>The reported events are source-attributed, but this page does not contain a matched
-         pre-event market expectation, completed-session price comparison, or a verified
-         explanation of why an asset moved. A plausible mechanism is not a measured reaction.</p>
-       <p className={styles.hint}>Topic grouping is editorial navigation. It must never create a canonical Story version or accept a research thesis automatically.</p>
+       <p className={styles.hint}>These are possible consequences, not a confirmed market-price reaction.</p>
      </section>
      <section className={styles.chapter} aria-labelledby="what-next">
-       <p className={styles.kicker}>05 · THE NEXT DECIDING QUESTION</p>
-       <h2 id="what-next">What should investors check next?</h2>
+       <h2 id="what-next">What should I watch next?</h2>
        <p>{topic.guidingQuestion}</p>
-       <p className={styles.hint}>Watch for a new original release and dated observations before drawing a directional conclusion.</p>
      </section>
+     <details className={styles.moreDetails}>
+       <summary>See all {updates.length} verified update{updates.length===1?"":"s"} and source links</summary>
+       <div className={styles.moreBody}>
+         <p className={styles.hint}>These are dated original-source reports, oldest first. The timeline is not a complete market history.</p>
+         <ol className={styles.timeline}>
+           {updates.map((event,index)=><li className={styles.event} key={event.id}>
+             <p className={styles.eventNumber}>REPORTED UPDATE {index+1}</p>
+             <p className={styles.eventClock}><DualTimestamp value={event.occurredAt}/></p>
+             <h3>{event.headline}</h3>
+             <p>{event.summary}</p>
+             <a href={event.sourceUrl} rel="noopener noreferrer" target="_blank">{event.sourceName} · original source</a>
+           </li>)}
+         </ol>
+         <h3>What is still unknown?</h3>
+         <p>The reports show what was announced. They do not establish what investors expected beforehand, how prices reacted after the news, or whether this event caused the move.</p>
+         <p>{updates.length} source-verified report{updates.length===1?"":"s"}. Unverified social posts and opinions are not treated as confirmed facts.</p>
+       </div>
+     </details>
      <footer className={styles.footer}>
-       <h2>Original sources and coverage</h2>
-       <p>{updates.length} distinct source-verified report{updates.length===1?"":"s"} in this rolling topic.
-         The article does not carry forward expired news as a new event. No unverified X post,
-         creator commentary, scheduled announcement or opinion substitutes for a reported fact.</p>
        <Link href={backHref}>Return to Newsroom</Link>
      </footer>
    </div>
