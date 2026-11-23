@@ -88,7 +88,7 @@ function fromMarketEvent(row: MarketEventV1): CatalystCard | null {
   const lane = laneOf(row), startAt = row.timePrecision === "exact" && row.startAt ? row.startAt : null;
   const day = dateKey(row.startAt);
   if (lane === "other") return null;
-  const ticker = row.affectedAssets.find(a => MEGACAP.has(a)) || null;
+  const ticker = lane === "earnings" ? row.affectedAssets.find(a => /^[A-Z][A-Z0-9.-]{0,11}$/.test(a)) || null : row.affectedAssets.find(a => MEGACAP.has(a)) || null;
   const country = row.geography.includes("Germany") ? "DE" : row.geography.includes("Euro Area") ? "EU"
     : row.geography.includes("Japan") ? "JP" : row.geography.includes("United Kingdom") ? "GB"
     : row.geography.includes("Australia") ? "AU" : row.geography.includes("New Zealand") ? "NZ"
@@ -128,7 +128,9 @@ export function projectBluebellyCatalysts(
   ].filter((e): e is CatalystCard => !!e);
   const byKey = new Map<string,CatalystCard>();
   for(const event of all) {
-    const identity = event.lane+":"+event.title.trim().toLowerCase()+":"+(event.date || "undated");
+    const identity = event.lane === "earnings" && event.ticker
+      ? "earnings:"+event.ticker+":"+(event.date || "undated")
+      : event.lane+":"+event.title.trim().toLowerCase()+":"+(event.date || "undated");
     const previous=byKey.get(identity);
     const rank=(e:CatalystCard)=> (e.certainty==="official"?4:e.certainty==="desk_record"?3:e.certainty==="reported"?2:1)+(e.startAt?1:0);
     if(!previous || rank(event)>rank(previous)) byKey.set(identity,event);
