@@ -1,4 +1,5 @@
 import { getEconomicCalendar } from "@/lib/calendar";
+import { getForwardEarningsEvents } from "@/lib/forward-earnings-sources";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
 
@@ -50,7 +51,34 @@ export async function GET(request: Request) {
       if (error) throw new Error("event_registry_write_failed: " + error.code);
       insertedOrUpdated++;
     }
-    return Response.json({ status: "ok", checkedAt: now.toISOString(), discovered: events.length, upserted: insertedOrUpdated });
+    // Admit only issuer-confirmed dates. Provider estimates never become official
+    // appointments and a call clock never becomes an asserted earnings release clock.
+    const forward = await getForwardEarningsEvents({ now });
+    const issuerEvents = forward.events.filter(event =>
+      event.eventType === "earnings" && event.verificationState === "official" &&
+      event.startAt && event.startAt.slice(0, 10) >= lower &&
+      event.startAt.slice(0, 10) <= upper
+    );
+    for (const event of issuerEvents) {
+      const { error } = await db.from("market_events").upsert({
+        event_key: event.id, occurrence_key: event.occurrenceKey,
+        event_type: "earnings", title: event.title,
+        start_at: event.timePrecision === "date"
+          ? event.startAt!.slice(0, 10) + "T12:00:00Z" : event.startAt,
+        time_label: event.timeLabel,
+        time_precision: event.timePrecision,
+        status: event.status, verification_state: "official",
+        source_name: event.sourceName, source_url: event.sourceUrl,
+        decisive_variable: event.decisiveVariable,
+        affected_assets: event.affectedAssets,
+        geography: event.geography,
+        expected_stage: event.expectedStage,
+        last_verified_at: now.toISOString(),
+      }, { onConflict: "event_key" });
+      if (error) throw new Error("issuer_calendar_write_failed: " + error.code);
+      insertedOrUpdated++;
+    }
+    return Response.json({ status: "ok", checkedAt: now.toISOString(), macro: events.length, issuerEarnings: issuerEvents.length, upserted: insertedOrUpdated });
   } catch (error) {
     console.error("calendar_discovery_failed", error instanceof Error ? error.message : "unknown");
     return Response.json({ status: "source_or_database_unavailable" }, { status: 503 });
