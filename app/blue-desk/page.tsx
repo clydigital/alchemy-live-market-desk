@@ -203,7 +203,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
                 <Link className={marketHome.orbitNodeA} href="/markets">MARKETS</Link>
                 <Link className={marketHome.orbitNodeB} href="/calendar">CATALYSTS</Link>
                 <Link className={marketHome.orbitNodeC} href="/newsroom">NEWSROOM</Link>
-                <RadarIntelligenceTrigger className={marketHome.orbitCore}>B<span>B</span><small>OPEN RADAR</small></RadarIntelligenceTrigger>
+                <RadarIntelligenceTrigger className={marketHome.orbitCore}><span className={marketHome.orbitBrand}>B<span>B</span></span><small>OPEN RADAR</small></RadarIntelligenceTrigger>
               </nav>
               <span className={marketHome.orbitCaption} aria-hidden="true">OBSERVE / COMPARE / INVESTIGATE</span>
             </div>
