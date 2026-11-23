@@ -48,12 +48,12 @@ async function sourceSignals(feed:Feed,now:Date,fetchImpl:typeof fetch) {
 }
 /** Never project private/editorial market-event rows to the public calendar. */
 function isOfficialPublicEvent(event:MarketEventV1){
-  if(event.verificationState!=="official")return false;
+  if(event.verificationState!=="official" && event.verificationState!=="corroborated")return false;
   try {
     const u=new URL(event.sourceUrl),host=u.hostname.toLowerCase();
     if(u.protocol!=="https:"||u.username||u.password)return false;
     const publicDomain = /(?:^|\\.)(?:gov|gov\\.uk|gov\\.au|gc\\.ca|federalreserve\\.gov|un\\.org|opec\\.org|ecb\\.europa\\.eu|boj\\.or\\.jp|bankofengland\\.co\\.uk|bankofcanada\\.ca|rba\\.gov\\.au|rbnz\\.govt\\.nz|tesla\\.com|apple\\.com|nvidia\\.com|microsoft\\.com|google\\.com|abc\\.xyz|amazon\\.com|aboutamazon\\.com|meta\\.com|atmeta\\.com)$/.test(host);
-    return publicDomain;
+    const calendarPublisher = /(?:^|\\.)(?:pmi.spglobal.com|ifo.de|conference-board.org|nyse.com|treasurydirect.gov|census.gov|bea.gov|bls.gov|eia.gov|dol.gov|stat.go.jp|abs.gov.au)$/.test(host);\n    return publicDomain || (event.verificationState==="corroborated" && calendarPublisher);
   }catch{return false;}
 }
 async function storedEvents(now:Date):Promise<MarketEventV1[]>{
