@@ -53,7 +53,20 @@ function isOfficialPublicEvent(event:MarketEventV1){
     const u=new URL(event.sourceUrl),host=u.hostname.toLowerCase();
     if(u.protocol!=="https:"||u.username||u.password)return false;
     const publicDomain = /(?:^|\\.)(?:gov|gov\\.uk|gov\\.au|gc\\.ca|federalreserve\\.gov|un\\.org|opec\\.org|ecb\\.europa\\.eu|boj\\.or\\.jp|bankofengland\\.co\\.uk|bankofcanada\\.ca|rba\\.gov\\.au|rbnz\\.govt\\.nz|tesla\\.com|apple\\.com|nvidia\\.com|microsoft\\.com|google\\.com|abc\\.xyz|amazon\\.com|aboutamazon\\.com|meta\\.com|atmeta\\.com)$/.test(host);
-    const calendarPublisher = /(?:^|\\.)(?:pmi.spglobal.com|ifo.de|conference-board.org|nyse.com|treasurydirect.gov|census.gov|bea.gov|bls.gov|eia.gov|dol.gov|stat.go.jp|abs.gov.au)$/.test(host);\n    return publicDomain || (event.verificationState==="corroborated" && calendarPublisher);
+    const calendarPublisher = /(?:^|\\.)(?:pmi\\.spglobal\\.com|ifo\\.de|conference-board\\.org|nyse\\.com|treasurydirect\\.gov|census\\.gov|bea\\.gov|bls\\.gov|eia\\.gov|dol\\.gov|stat\\.go\\.jp|abs\\.gov\\.au)$/.test(host);
+    // Official earnings schedules are admitted only from known issuer-controlled
+    // investor relations/newsroom hosts. Never promote provider estimates to official.
+    const issuerHosts = new Set([
+      "www.hpe.com", "investors.hpe.com", "www.agilent.com", "www.investor.agilent.com",
+      "investors.zoom.us", "www.analog.com", "investor.analog.com",
+      "investors.delltechnologies.com", "investor.hp.com", "investor.workday.com",
+      "investors.autodesk.com", "www.investors.bestbuy.com",
+      "news.medtronic.com", "investorrelations.medtronic.com",
+      "www.deere.com", "investor.deere.com",
+    ]);
+    return publicDomain ||
+      (event.verificationState==="corroborated" && calendarPublisher) ||
+      (event.verificationState==="official" && event.eventType==="earnings" && issuerHosts.has(host));
   }catch{return false;}
 }
 async function storedEvents(now:Date):Promise<MarketEventV1[]>{
