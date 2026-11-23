@@ -3,6 +3,7 @@ import {expectedIssuerReceiptGaps} from "@/lib/scheduled-issuer-receipt-coverage
 import { applyHighImpactMarketDiscovery } from "@/lib/high-impact-market-discovery";
 import { applyOfficialPressNewsIntake } from "@/lib/official-press-news-intake";
 import {applyIssuerResultsPressIntake} from "@/lib/issuer-results-press-intake";
+import {persistIssuerReleaseDetections} from "@/lib/issuer-earnings-persistence";
 import { applyMaterialSecProspectusIntake } from "@/lib/material-sec-prospectus-intake";
 import {getXWireDurable} from "@/lib/x-wire-durable";
 import {getDeferredXWireResearchPosts,getPreviouslyHandedXWireUrls} from "@/lib/x-wire-deferred-research";
@@ -25,6 +26,13 @@ export async function buildScheduledResearchInputWithFirecrawl(
   // Bounded material original SEC S-1/F-1 prospectus discovery uses the same
   // existing scheduled research run. No new cron, source table or Story writer.
   const issuerResults = await applyIssuerResultsPressIntake(originalSourceInput,{now});
+  // Persist only independently detected original releases. A failed optional
+  // earnings ledger write must not stop the primary scheduled research run.
+  try {
+    await persistIssuerReleaseDetections(originalSourceInput, issuerResults, now);
+  } catch (error) {
+    console.error("issuer_release_persistence_failed", error instanceof Error ? error.message : "unknown");
+  }
   const originalFilings = await applyMaterialSecProspectusIntake(issuerResults, { now });
 
   // Preserve the desk's source hierarchy:
