@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {projectUsEconStatWatch} from "../lib/bluebelly-us-econ-stat-watch.ts";
+import {originalUsReleaseClock,projectUsEconStatWatch} from "../lib/bluebelly-us-econ-stat-watch.ts";
 
 const releaseAt="2026-11-25T13:30:00.000Z";
 const retrieved="2026-11-25T13:38:00.000Z";
@@ -93,4 +93,44 @@ test("public US macro reader uses scheduled official releases without owner data
  assert.match(crash,/getUsEconStatWatch/);
  assert.match(cron,/\/api\/cron\/research\/official-actuals/);
  assert.doesNotMatch(server,/\.insert\(|\.upsert\(|\.update\(|getPrivateReviewedCreatorArguments|portfolio_positions/);
+});
+
+
+test("operational watch flags missing PCE template and provider without inventing actual or consensus",()=>{
+ const scheduled={...pce,actual:null,status:"scheduled",ingestion_attempt_status:null,
+  released_at:null,actual_retrieved_at:null,
+  source_url:"https://www.bea.gov/news/schedule"};
+ const watch=projectUsEconStatWatch({releases:[scheduled],metrics:[],
+  now:new Date("2026-11-24T18:00:00Z"),consensusProviderConfigured:false});
+ assert.equal(watch.operationalHealth,"DEGRADED");
+ assert.equal(watch.consensusProvider,"UNCONFIGURED");
+ assert.ok(watch.warnings.includes("PCE_METRIC_TEMPLATES_MISSING"));
+ assert.ok(watch.warnings.includes("PCE_PRE_RELEASE_CONSENSUS_INCOMPLETE"));
+ assert.ok(watch.warnings.includes("PRE_RELEASE_CONSENSUS_PROVIDER_UNCONFIGURED"));
+ assert.equal(watch.upcoming[0].actualText,null);
+ const late=projectUsEconStatWatch({releases:[scheduled],metrics:[],
+  now:new Date("2026-11-25T15:10:00Z"),consensusProviderConfigured:false});
+ assert.ok(late.warnings.some(x=>x.startsWith("OVERDUE_HIGH_IMPACT_ACTUAL:")));
+ assert.equal(late.latest[0].status,"AWAITING_ACTUAL");
+});
+test("official 10:00 ET calendars use real daylight-saving clock, not midnight UTC",()=>{
+ const schedule={...calendar[0],id:"us-bls-2026-11-03-jolts",
+  event:"Job Openings and Labor Turnover Survey",date:"2026-11-03",
+  timeLabel:"10:00 ET"};
+ assert.equal(originalUsReleaseClock(schedule),"2026-11-03T15:00:00.000Z");
+ assert.equal(originalUsReleaseClock({...schedule,date:"2026-07-03"}),"2026-07-03T14:00:00.000Z");
+ assert.equal(originalUsReleaseClock({...schedule,timeLabel:"Unconfirmed"}),null);
+ const before=projectUsEconStatWatch({releases:[],metrics:[],schedule:[schedule],
+  now:new Date("2026-11-03T14:59:00Z")});
+ assert.equal(before.upcoming[0].status,"SCHEDULED");
+ const after=projectUsEconStatWatch({releases:[],metrics:[],schedule:[schedule],
+  now:new Date("2026-11-03T15:01:00Z")});
+ assert.equal(after.latest[0].status,"AWAITING_ACTUAL");
+});
+test("official calendar outage and source outage are visible even with scheduled fallback rows",()=>{
+ const w=projectUsEconStatWatch({releases:[],metrics:[],schedule:calendar,
+  now:new Date("2026-11-24T18:00:00Z"),calendarUnavailable:true,sourceUnavailable:true});
+ assert.equal(w.operationalHealth,"DEGRADED");
+ assert.ok(w.warnings.includes("OFFICIAL_CALENDAR_FETCH_UNAVAILABLE"));
+ assert.ok(w.warnings.includes("CANONICAL_MACRO_SOURCE_UNAVAILABLE"));
 });
