@@ -91,7 +91,7 @@ export default function CatalystCalendar({items,sourceCoverage,nowISO}:{
 }){
   const [lane,setLane]=useState<CatalystLane|"all">("all");
   const [q,setQ]=useState("");const [focus,setFocus]=useState(false);
-  const [weekShift,setWeekShift]=useState(0);const [zone,setZone]=useState<DisplayZone>("Asia/Kuala_Lumpur");
+  const [weekShift,setWeekShift]=useState(0);const [zone,setZone]=useState<DisplayZone>("UTC");
   const [view,setView]=useState<ViewMode>("week");const [selectedId,setSelectedId]=useState<string|null>(null);
   const start=useMemo(()=>plusDays(mondayOf(nowISO),weekShift*7),[nowISO,weekShift]);
   const week=useMemo(()=>Array.from({length:7},(_,i)=>({day:ymd(plusDays(start,i)),date:plusDays(start,i)})),[start]);
@@ -149,7 +149,7 @@ export default function CatalystCalendar({items,sourceCoverage,nowISO}:{
       <span><strong>{leads.length}</strong> off-calendar leads</span>
       <span><strong>{ipos.length}</strong> major IPOs watched</span>
       <span><strong>{unavailable.length+stale.length}</strong> feeds needing review</span>
-      <span className={styles.overviewNote}>Monday–Sunday · MYT default · unknown event times stay unknown</span>
+      <span className={styles.overviewNote}>Monday–Sunday · UTC default; select MYT to view local times · missing event times stay unknown</span>
     </div>
     <div className={styles.contentGrid}>
       <div className={styles.primary}>
