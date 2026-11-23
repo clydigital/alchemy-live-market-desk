@@ -79,6 +79,7 @@ function laneOf(row: MarketEventV1): CatalystLane {
   if (row.eventType === "geopolitical_meeting" || row.eventType === "sanctions_or_policy_deadline") return "diplomacy";
   if (row.eventType === "energy_policy_meeting" || (row.eventType === "economic_release" && /\b(?:eia|petroleum|oil inventories|crude inventories|natural gas storage)\b/i.test(row.title))) return "energy";
   if (row.eventType === "earnings") return "earnings";
+  if (row.eventType === "other_verified_market_event" && /\b(?:beige book|thanksgiving|market closure|market holiday|early close)\b/i.test(row.title)) return "macro";
   if (row.eventType === "central_bank_decision" || row.eventType === "economic_release" || row.eventType === "treasury_or_fiscal_event") return "macro";
   if (row.eventType === "conference_or_symposium" || /\b(unveil|keynote|launch|ai day|robotaxi|investor day|gtc|re:invent|product reveal|roadshow)\b/i.test(row.title)) return "technology";
   return "other";
