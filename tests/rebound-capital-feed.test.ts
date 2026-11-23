@@ -8,6 +8,8 @@ test("Rebound Capital is a real, optional, separately identified opinion source"
   assert.deepEqual(OPTIONAL_RESEARCH_SOURCES, ["rebound-capital"]);
   assert.equal(REBOUND_CAPITAL_FEED_URL, "https://reboundcapital.substack.com/feed");
   assert.equal(isReboundCapitalArticleUrl("https://reboundcapital.substack.com/p/top-rebound-stocks-for-nov26"), true);
+  assert.equal(isReboundCapitalArticleUrl("https://www.rebound.capital/p/top-rebound-stocks-for-nov-26"), true);
+  assert.equal(isReboundCapitalArticleUrl("https://rebound.capital/p/top-rebound-stocks-for-nov-26"), true);
   for (const unsafe of ["https://reboundcapital.substack.com.evil.org/p/article", "https://evil.example/p/article", "http://reboundcapital.substack.com/p/article", "https://reboundcapital.substack.com/archive", "not-a-url"]) {
     assert.equal(isReboundCapitalArticleUrl(unsafe), false, unsafe);
   }
