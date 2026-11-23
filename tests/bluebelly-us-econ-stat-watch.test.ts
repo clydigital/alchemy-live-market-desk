@@ -134,3 +134,22 @@ test("official calendar outage and source outage are visible even with scheduled
  assert.ok(w.warnings.includes("OFFICIAL_CALENDAR_FETCH_UNAVAILABLE"));
  assert.ok(w.warnings.includes("CANONICAL_MACRO_SOURCE_UNAVAILABLE"));
 });
+
+
+test("empty official metric templates cannot masquerade as freshly retrieved actual evidence",()=>{
+ const templates=metrics.map(row=>({
+  ...row,actual:null,consensus:null,
+  source_url:"https://www.bea.gov/news/schedule",
+  retrieved_at:"2026-11-24T21:27:42Z",
+ }));
+ const future={...pce,actual:null,status:"scheduled",
+  actual_retrieved_at:null,released_at:null,
+  source_url:"https://www.bea.gov/news/schedule"};
+ const watch=projectUsEconStatWatch({releases:[future],metrics:templates,
+  now:new Date("2026-11-24T22:00:00Z")});
+ assert.equal(watch.lastMetricRetrievedAt,null);
+ assert.equal(watch.countVerified,0);
+ const verified=projectUsEconStatWatch({releases:[pce],metrics,
+  now:new Date("2026-11-25T15:00:00Z")});
+ assert.equal(verified.lastMetricRetrievedAt,retrieved);
+});
