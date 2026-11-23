@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
 import {readFileSync} from "node:fs";
-import {parseCreatorDigest,parseCreatorDigestHtml,orderCreatorSignals,creatorMarketMatch,creatorSignalGroup} from "../lib/bluebelly-creator-signals.ts";
+import {parseCreatorDigest,parseCreatorDigestHtml,orderCreatorSignals,creatorMarketMatch,creatorSignalGroup,type CreatorDigest} from "../lib/bluebelly-creator-signals.ts";
 import type {PublicMarketObservation} from "../lib/blue-desk-public-markets.ts";
 
 const now=new Date("2026-11-19T10:30:00Z");
 const row=(asset:string)=>({asset,bias:"Neutral" as const,horizon:"daily",signals:["Potential higher low", "Watch 100 reclaim"],sources:["abcdefghijk"]});
-const sample=()=>({version:"creator-signals-v1",generatedAt:"2026-11-19T09:40:00Z",marketSession:"2026-11-18",coverage:"partial",overview:{headline:"Review",news:["Main event"],signals:[row("SPY")],divergences:[]},creators:[{publisher:"Creator",videoId:"abcdefghijk",title:"Review",publishedAt:"2026-11-18T00:00:00Z",sourceStatus:"reviewed",news:[],views:[row("SPY")],fundamentals:[],opinions:[],changed:"Prior review unavailable"}]});
+const sample=():CreatorDigest=>({version:"creator-signals-v1",generatedAt:"2026-11-19T09:40:00Z",marketSession:"2026-11-18",coverage:"partial",overview:{headline:"Review",news:["Main event"],signals:[row("SPY")],divergences:[]},creators:[{publisher:"Creator",videoId:"abcdefghijk",title:"Review",publishedAt:"2026-11-18T00:00:00Z",sourceStatus:"reviewed",news:[],views:[row("SPY")],fundamentals:[],opinions:[],changed:"Prior review unavailable"}]});
 test("preserves exact levels and multiline structural bullets, rejects unknown overview attribution",()=>{
  const d=sample();assert.deepEqual(parseCreatorDigest(d,now)?.overview.signals[0].signals,row("SPY").signals);
  d.overview.signals[0].sources=["unknown"];assert.equal(parseCreatorDigest(d,now),null);
