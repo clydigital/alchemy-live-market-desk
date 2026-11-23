@@ -1,7 +1,7 @@
 import Link from "next/link";
 import DualTimestamp from "./DualTimestamp";
 import {getIssuerEarningsSchedule,type OfficialEarning} from "@/lib/forward-earnings-sources";
-import {getRecentVerifiedEarningsScorecards} from "@/lib/blue-desk-earnings-results";
+import {getRecentVerifiedEarningsScorecards,type VerifiedEarningsScorecard} from "@/lib/blue-desk-earnings-results";
 import {recentOriginalIssuerReleases} from "@/lib/bluebelly-issuer-release-receipts";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import css from "./IssuerEarningsBoard.module.css";
@@ -22,19 +22,21 @@ function isFuture(row:OfficialEarning,now:Date,etToday:string){
  const at=Date.parse(row.at);
  return Number.isFinite(at)&&at>=+now;
 }
-export default function IssuerEarningsBoard({now,host}:{now:Date;host:string|null}){
+export default function IssuerEarningsBoard({now,host,reviewedResults}:{now:Date;host:string|null;reviewedResults?:readonly VerifiedEarningsScorecard[]}){
  const etDay=easternDay(now);
  const official=getIssuerEarningsSchedule(now,3,30);
  const originals=recentOriginalIssuerReleases(now,8);
- const reviewed=getRecentVerifiedEarningsScorecards(now,14);
+ const reviewed=(reviewedResults??getRecentVerifiedEarningsScorecards(now,14))
+  .filter(record=>Date.parse(record.releaseDay+"T00:00:00Z")>=now.getTime()-14*86400000);
  // Prefer the fully reviewed issuer-quarter scorecard over the older release
  // receipt. This avoids showing "Not assessed" when verified metrics exist.
  const reviewedKeys=new Set(reviewed.map(item=>item.ticker+"|"+item.releaseDay));
+ const reviewedTickers=new Set(reviewed.map(item=>item.ticker));
  const results=[
   ...reviewed.map(item=>({ticker:item.ticker,name:item.company,period:item.fiscalPeriod,day:item.releaseDay,
    fact:item.headline+" "+item.conclusion,test:item.nextTest,sourceUrl:item.sourceUrl,
    sourceName:item.sourceName,kind:"scorecard" as const,scorecard:item})),
-  ...originals.filter(item=>!reviewedKeys.has(item.ticker+"|"+item.sourceDay))
+  ...originals.filter(item=>!reviewedKeys.has(item.ticker+"|"+item.sourceDay)&&!reviewedTickers.has(item.ticker))
    .map(item=>({ticker:item.ticker,name:item.company,period:item.fiscalPeriod,
     day:item.sourceDay,fact:item.confirmed,test:item.nextTest,sourceUrl:item.sourceUrl,
     sourceName:item.sourceName,kind:"original" as const,scorecard:null})),
@@ -79,11 +81,11 @@ export default function IssuerEarningsBoard({now,host}:{now:Date;host:string|nul
        // previously source-reviewed assessment, but never fall back to
        // "Not assessed" for results whose verified metrics are present.
        const measured=reviewed.metrics.filter(metric=>metric.state==="measured");
-       const hasOutlook=reviewed.outlook.trim().length>0;
+       const hasOutlook=!reviewed.preliminary && reviewed.outlook.trim().length>0;
        return {
         ...prior,
         resultTone:prior.resultTone,
-        resultLabel:prior.resultTone==="unverified"&&measured.length>0?"Facts reviewed":prior.resultLabel,
+        resultLabel:prior.resultTone==="unverified"&&measured.length>0?"SEC figures verified":prior.resultLabel,
         guidanceTone:prior.guidanceTone,
         guidanceLabel:prior.guidanceTone==="unverified"&&hasOutlook?"Outlook documented":prior.guidanceLabel,
         interpretation:prior.resultTone==="unverified"&&measured.length>0?reviewed.conclusion:prior.interpretation,
