@@ -131,7 +131,7 @@ export async function reconcileDueSecEarnings(options:{
     id:resultId,ticker:item.ticker,fiscal_period:item.fiscal_period,
     company_name:extract.company,
     source_url:existing?.source_url||item.source_url||extract.filingUrl,
-    source_retrieved_at:asOf,
+    source_retrieved_at:asOf,filing_day:extract.filed,
     verification_status:"partial",
     verification_notes:"SEC 10-Q income-statement facts checked by CIK, fiscal year, quarter, accession and period. Guidance, consensus and cash flow remain separate.",
     published_at:asOf,updated_at:asOf,
