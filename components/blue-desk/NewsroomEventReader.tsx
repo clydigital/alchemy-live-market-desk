@@ -1,4 +1,3 @@
-import StorySummaryBoxes from "./StorySummaryBoxes";
 import StoryHeroAside from "./StoryHeroAside";
 import {ScopeStrip} from "./EntityIdentity";
 import BankCountryBall from "./BankCountryBall";
@@ -44,43 +43,46 @@ export default function NewsroomEventReader({event,backHref,socialPosts=[]}:{
    />
   </header>
   {bank||incident?<div className={s.assetLine}><ScopeStrip assets={bank?bank.affectedAssets:story?.assetNames||[]} label="Markets to monitor"/></div>:null}
-  <StorySummaryBoxes items={[
-   {label:"What changed",text:bank?.observedStatement||story?.reporting||""},
-   {label:"How it spreads",text:bank?.financialMechanism||story?.why||""},
-   {label:"Market check",text:bank?
-    "The official policy outcome is confirmed. This source alone does not establish a price reaction or its cause.":
-    serviceIncident?"No outage-specific MSFT market reaction is established without matched-price and benchmark observations.":incident?"Market quotes are dated observations, not a controlled price-causality test.":
-    "The reported discussions are not an agreement, and their market effect has not been independently established."},
-   {label:"What comes next",text:bank?.nextTest||story?.nextTest||""},
-  ]} sourceNote="Original-source facts and conditional interpretations are distinct. The full account and direct evidence links follow."/>
-  <h2 className={s.fullStoryTitle}>The full story</h2>
-  <div className={s.layout}>
+  <div className={s.pageSummary} aria-label="Short market explanation">
+   <p className={s.readingHint}>THE SHORT VERSION</p>
    <div className={s.story}>
-    <section><span>01 / THE SCENE</span><h2>What was the question?</h2>
-     <p>{bank?"Traders were watching whether policymakers would keep borrowing costs steady or change rates. A decision needs to be compared with expectations; the headline action is only the starting point.":serviceIncident?"When many organisations depend on the same hosted mailbox service, one shared routing failure can disrupt work across regions. The disruption is confirmed, but its precise triggering change and lasting commercial cost are not yet established.":incident?"An exchange security incident can trigger immediate worries over customer funds and forced selling. That is different from proving that every Bitcoin move was caused by the breach.": "A possible acquisition was being discussed in financial reporting, but deal talks, a signed agreement, regulatory approval and a completed acquisition are four different milestones."}</p></section>
-    <section><span>02 / THE NEW INFORMATION</span><h2>What the evidence actually says</h2>
+    <section>
+     <h2>What happened?</h2>
      <p>{bank?.observedStatement||story?.reporting}</p>
-     <p className={s.boundary}>{bank?.expectedStatus||(serviceIncident?"Microsoft’s EX1550543 service-health notices confirm the incident and describe mitigation, but not a final root-cause determination. The institutional mirror reproduces the notices. No malicious cause, chip expiry, certificate expiry, lost revenue or outage-driven share-price attribution has been established.":incident?"Binance is the primary source for its initial impact estimate and assurance to customers; Reuters is the source for the dated market quotes. The final net loss, full forensic account, actual recoveries and event-window price causation are not yet established.":"This is a reported, unconfirmed transaction discussion. No signed purchase agreement, completion, official valuation or deal certainty is established.")}</p></section>
-    <section><span>03 / THE MONEY QUESTION</span><h2>Who wins or loses if this changes?</h2>
+    </section>
+    <section>
+     <h2>Why does it matter?</h2>
      <p>{bank?.financialMechanism||story?.why}</p>
-     <p>Related markets and issuers are observation candidates, not instructions to trade and not evidence that prices reacted to this particular report.</p></section>
-    <section><span>04 / THE CATCH</span><h2>What would prove this interpretation wrong?</h2>
-     <p>{bank?.alternative||story?.countercase}</p></section>
-    <section><span>05 / THE NEXT TEST</span><h2>What do I check before presenting?</h2>
+     <p className={s.boundary}>This is a possible market impact, not proof that prices moved because of this news.</p>
+    </section>
+    <section>
+     <h2>What should I watch next?</h2>
      <p>{bank?.nextTest||story?.nextTest}</p>
-     <p className={s.source}><a href={url} target="_blank" rel="noopener noreferrer">Read the dated {bank?"original bank statement":serviceIncident?"Microsoft service-health advisory":incident?"official exchange statement":"attributed reporter account"} · {source} ↗</a>{incident&&story?.secondarySourceUrl?<a href={story.secondarySourceUrl} target="_blank" rel="noopener noreferrer"> · {story.secondarySourceName||"Independent reporting"} ↗</a>:null}</p>
     </section>
    </div>
-   <aside className={s.sidebar} aria-label="Supporting source and social context">
-    <div className={s.sourceCard}>
-     <span>REPORTING STANDARD</span>
-     <h3>{bank?"Official action confirmed":serviceIncident?"Service incident confirmed; root cause pending":incident?"Initial incident statement confirmed":"Deal talks not confirmed"}</h3>
-     <p>{bank?"The policy action and statement are sourced from the bank itself. This does not establish whether the market expected it or how prices moved.":serviceIncident?"Microsoft confirmed the outage and reported mitigation progress. A post-incident analysis, full service restoration and any customer or financial consequences require new evidence.":incident?"Binance confirms its own initial investigation and estimated impact; Reuters separately reports the crypto price snapshot. Neither establishes the precise causal contribution of this incident or the final money recovered.":"The original reporting describes discussions, not a signed or completed transaction. The headline valuation is not a confirmed purchase price."}</p>
-     <a href={url} target="_blank" rel="noopener noreferrer">Read dated original evidence ↗</a>
-    </div>
-    {bank?<SourceTweetEmbeds posts={socialPosts} sourceLink={bank.sourceUrl}/>:null}
-   </aside>
   </div>
-  <p className={s.disclaimer}>{serviceIncident?"Microsoft service updates are dated, and a full post-incident report is pending. This editorial does not establish an outage-driven stock-price move or a buy recommendation.":incident?"Binance figures are initial company statements; Reuters prices are dated observations, not live quotes or a controlled event study. Do not confuse frozen funds with fully recovered funds.":"No verified pre-release consensus comparison, event-window market move or causal price attribution is supplied by this short reader. Recheck the original release and market timestamps before broadcasting a trading conclusion."}</p>
+  <details className={s.moreDetails}>
+   <summary>Read more: risks, evidence and original sources</summary>
+   <div className={s.moreBody}>
+    <h3>What might change the picture?</h3>
+    <p>{bank?.alternative||story?.countercase}</p>
+    <h3>What has not been confirmed?</h3>
+    <p>{bank?.expectedStatus||(serviceIncident?
+     "Microsoft confirms the service disruption and its mitigation updates, but the final root cause, full restoration and financial effects remain unverified.":
+     incident?
+     "Binance gives its initial estimate; Reuters supplies dated prices. The final net loss, recoveries and the reason for any market move are not established.":
+     "The acquisition discussions are reported, not a signed or completed agreement. The purchase price and outcome remain unconfirmed.")}</p>
+    <aside className={s.sourceCard}>
+     <h3>{bank?"Official bank decision":serviceIncident?"Official service advisory":incident?"Official incident report":"Attributed transaction report"}</h3>
+     <p>Use the dated original report below for the figures and wording. Any reaction in stocks, bonds or crypto requires separate price and timing checks.</p>
+     <p className={s.source}>
+      <a href={url} target="_blank" rel="noopener noreferrer">Original report · {source} ↗</a>
+      {incident&&story?.secondarySourceUrl?<a href={story.secondarySourceUrl} target="_blank" rel="noopener noreferrer"> · {story.secondarySourceName||"Independent reporting"} ↗</a>:null}
+     </p>
+    </aside>
+    {bank?<SourceTweetEmbeds posts={socialPosts} sourceLink={bank.sourceUrl}/>:null}
+    <p className={s.disclaimer}>This page separates confirmed reports from possible effects. It does not verify that markets reacted because of this event or provide a trading recommendation.</p>
+   </div>
+  </details>
  </article>;
 }
