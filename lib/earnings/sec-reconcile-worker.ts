@@ -4,6 +4,7 @@
  */
 import {createSupabaseAdminClient} from "../supabase/admin.ts";
 import {extractSecEarningsQuarter,parseFiscalQuarter} from "./sec-quarter-facts.ts";
+import {extractSecQuarterCashFlows,SEC_D1_ISSUERS,type SecCashflowIssuerTicker} from "../dossier-v2/issuer-sec-quarterly-cashflow.ts";
 
 const SEC_TICKERS="https://www.sec.gov/files/company_tickers.json";
 function validAgent(value:string){
@@ -100,6 +101,31 @@ export async function reconcileDueSecEarnings(options:{
     }
     out.details.push(item.ticker+":SEC_PERIOD_NOT_VERIFIED");continue;
    }
+   // Use the existing independently tested SEC year-to-date cash-flow
+   // subtraction for four supported hyperscalers. Quarter 2/3 cash flow is
+   // NEVER the year-to-date XBRL amount.
+   type CandidateMetric={key:string;value:number;unit:string;accounting:string;source:string;note:string};
+   const financialMetrics:CandidateMetric[]=extract.metrics.map(metric=>({
+    key:metric.key,value:metric.value,unit:metric.unit,
+    accounting:"SEC_US_GAAP",source:extract.filingUrl,
+    note:"XBRL us-gaap:"+metric.tag+"; accession "+metric.accession+
+      "; filed "+metric.filed+"; quarter "+metric.start+" to "+metric.end,
+   }));
+   if(item.ticker in SEC_D1_ISSUERS){
+    const cash=extractSecQuarterCashFlows(facts,asOf,item.ticker as SecCashflowIssuerTicker).items
+     .find(row=>row.fiscalYear===period.year&&row.fiscalQuarter===period.quarter
+       &&row.periodEnd===extract.periodEnd&&row.currentAccession===extract.accession);
+    if(cash){
+     const note="SEC filing "+cash.currentAccession+"; quarter "+cash.periodStart+
+       " to "+cash.periodEnd+"; YTD amounts reconciled against "+(cash.predecessorAccession||"Q1 opening")+
+       ". FCF is operating cash flow minus cash PP&E, not company adjusted FCF or AI-only cash generation.";
+     financialMetrics.push(
+      {key:"operating_cash_flow",value:cash.cfoUsd,unit:"USD",accounting:"SEC_US_GAAP_DERIVED",source:cash.filingIndexUrl,note},
+      {key:"capital_expenditure",value:cash.cashPpeUsd,unit:"USD",accounting:"SEC_US_GAAP_DERIVED",source:cash.filingIndexUrl,note},
+      {key:"free_cash_flow",value:cash.simpleFcfUsd,unit:"USD",accounting:"SEC_US_GAAP_DERIVED",source:cash.filingIndexUrl,note},
+     );
+    }
+   }
    const resultId=item.ticker+"|"+item.fiscal_period;
    const {data:existing,error:readError}=await db.from("issuer_earnings_results")
     .select("source_url,verification_status").eq("id",resultId).maybeSingle();
@@ -109,12 +135,12 @@ export async function reconcileDueSecEarnings(options:{
     out.reviewRequired++;continue;
    }
    const {data:prior,error:metricError}=await db.from("issuer_earnings_metrics")
-    .select("metric_key,value_numeric,unit,source_url")
-    .eq("result_id",resultId).eq("accounting_basis","SEC_US_GAAP")
+    .select("metric_key,value_numeric,unit,source_url,accounting_basis")
+    .eq("result_id",resultId)
     .eq("period_basis","fiscal_quarter");
    if(metricError)throw new Error("METRIC_READ: "+metricError.code);
-   const conflicts=extract.metrics.filter(metric=>{
-    const before=(prior||[]).find(x=>x.metric_key===metric.key);
+   const conflicts=financialMetrics.filter(metric=>{
+    const before=(prior||[]).find(x=>x.metric_key===metric.key&&x.accounting_basis===metric.accounting);
     return before&&(Number(before.value_numeric)!==metric.value||before.unit!==metric.unit);
    });
    if(conflicts.length){
@@ -137,14 +163,13 @@ export async function reconcileDueSecEarnings(options:{
     published_at:asOf,updated_at:asOf,
    },{onConflict:"id"});
    if(resultError)throw new Error("RESULT_WRITE: "+resultError.code);
-   for(const metric of extract.metrics){
-    if((prior||[]).some(p=>p.metric_key===metric.key))continue;
+   for(const metric of financialMetrics){
+    if((prior||[]).some(p=>p.metric_key===metric.key&&p.accounting_basis===metric.accounting))continue;
     const {error}=await db.from("issuer_earnings_metrics").insert({
-     result_id:resultId,metric_key:metric.key,accounting_basis:"SEC_US_GAAP",
+     result_id:resultId,metric_key:metric.key,accounting_basis:metric.accounting,
      period_basis:"fiscal_quarter",value_numeric:metric.value,
-     unit:metric.unit,source_url:extract.filingUrl,
-     source_excerpt:"XBRL us-gaap:"+metric.tag+"; accession "+metric.accession+
-      "; filed "+metric.filed+"; quarter "+metric.start+" to "+metric.end,
+     unit:metric.unit,source_url:metric.source,
+     source_excerpt:metric.note,
      verification_status:"verified",captured_at:asOf,
     });
     if(error)throw new Error("METRIC_WRITE: "+error.code);
@@ -153,7 +178,7 @@ export async function reconcileDueSecEarnings(options:{
     attempts>=4?"Income-statement facts published; cash flow / guidance require separate verified source":
      "SEC income-statement facts verified; awaiting separate CFO, capex and guidance reconciliation",
     attempts>=4?null:24);
-   out.partial++;out.details.push(item.ticker+":SEC_FINANCIAL_FACTS_"+extract.metrics.length);
+   out.partial++;out.details.push(item.ticker+":SEC_FINANCIAL_FACTS_"+financialMetrics.length);
   }catch(error){
    const detail=error instanceof Error?error.message:"unknown";
    // A failed external request may be retried, but a database integrity error
