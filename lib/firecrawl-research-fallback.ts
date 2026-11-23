@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { isReboundCapitalArticleUrl, REBOUND_CAPITAL_FEED_URL, REBOUND_CAPITAL_OPINION_NOTICE } from "./rebound-capital-feed.ts";
 
 import { firecrawlConfigured, scrapePublicUrlWithFirecrawl } from "./firecrawl.ts";
 import { parseFxStreetNewsFeedPage, parseFxStreetNewsFeedMarkdown } from "./fxstreet-feed.ts";
@@ -13,6 +14,7 @@ type ResearchSourceKey =
   | "axios"
   | "investing-com"
   | "fxstreet"
+  | "rebound-capital"
   | "alchemy-market-insights";
 
 type SourceCheckInput = {
@@ -68,7 +70,7 @@ type ResearchRunInput = {
   dryRun?: boolean;
 };
 
-type SupportedFallbackSource = Extract<ResearchSourceKey, "zerohedge" | "axios" | "investing-com" | "fxstreet" | "alchemy-market-insights">;
+type SupportedFallbackSource = Extract<ResearchSourceKey, "zerohedge" | "axios" | "investing-com" | "fxstreet" | "rebound-capital" | "alchemy-market-insights">;
 
 type FallbackSpec = {
   publisher: string;
@@ -103,6 +105,12 @@ const FALLBACK_SOURCES: Record<SupportedFallbackSource, FallbackSpec> = {
     publisher: "FXStreet",
     urls: ["https://www.fxstreet.com/news/feed", "https://www.fxstreet.com/rss", "https://www.fxstreet.com/rss/news"],
     sourceQuality: 72,
+    itemType: "news",
+  },
+  "rebound-capital": {
+    publisher: "Rebound Capital",
+    urls: [REBOUND_CAPITAL_FEED_URL],
+    sourceQuality: 70,
     itemType: "news",
   },
   "alchemy-market-insights": {
@@ -244,6 +252,7 @@ function parseFeed(raw: string, source: SupportedFallbackSource, now: Date): Int
       return [];
     }
     if (!url.startsWith("https://")) return [];
+    if (source === "rebound-capital" && !isReboundCapitalArticleUrl(url)) return [];
 
     const summary = clean(rawSummary) || title;
     const itemKey = `feed:${source}:${createHash("sha256").update(url).digest("hex").slice(0, 24)}`;
@@ -259,11 +268,13 @@ function parseFeed(raw: string, source: SupportedFallbackSource, now: Date): Int
       publishedAt,
       summary: summary.slice(0, 2_000),
       sourceQuality: spec.sourceQuality,
-      relevance: alchemy ? 74 : 68,
+      relevance: alchemy ? 74 : source === "rebound-capital" ? 78 : 68,
       novelty: alchemy ? 70 : 72,
-      materiality: alchemy ? 70 : 64,
+      materiality: alchemy ? 70 : source === "rebound-capital" ? 62 : 64,
       recommendedAction: alchemy ? "review_article" : "collect_evidence",
-      newsSignal: `Firecrawl fallback recovered the public ${spec.publisher} feed after direct acquisition failed.`,
+      newsSignal: source === "rebound-capital"
+        ? "Independent fundamental equity research recovered from the public Rebound Capital feed; not primary-source confirmation."
+        : `Firecrawl fallback recovered the public ${spec.publisher} feed after direct acquisition failed.`,
       divergenceKind: "none",
       evidence: [{
         title: title.slice(0, 500),
@@ -274,7 +285,9 @@ function parseFeed(raw: string, source: SupportedFallbackSource, now: Date): Int
       }],
       reviewReason: alchemy
         ? `Firecrawl recovered the public Alchemy Market Insights feed; original article URL and publisher provenance are preserved. Category: ${categoryFromUrl(url)}.`
-        : "Firecrawl recovered the publisher's public feed after direct acquisition failed; the original article URL remains the canonical provenance URL.",
+        : source === "rebound-capital"
+          ? REBOUND_CAPITAL_OPINION_NOTICE
+          : "Firecrawl recovered the publisher's public feed after direct acquisition failed; the original article URL remains the canonical provenance URL.",
     }];
   });
 

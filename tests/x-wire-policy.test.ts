@@ -4,7 +4,7 @@ import {classifyXFlash,xWireSourcePolicy,xWireNearDuplicate} from "../lib/x-wire
 import {rankXWireMarketCandidates} from "../lib/x-wire-market-candidates.ts";
 import {xWireSourceMaterial} from "../lib/x-wire-source-material.ts";
 const now=new Date("2026-11-19T21:52:37Z");
-const post=(handle:string,id:number,text:string,age=8,images:string[]=[])=>({handle,id:String(2123400000000000000n+BigInt(id)),url:`https://x.com/${handle}/status/${2123400000000000000n+BigInt(id)}`,text,publishedAt:new Date(now.getTime()-age*3600000).toISOString(),intakeStatus:"discovery",images,quoteUrl:null,attribution:"THIRD_PARTY_ONLY" as const});
+const post=(handle:string,id:number,text:string,age=8,images:string[]=[])=>({handle,id:String(BigInt("2123400000000000000")+BigInt(id)),url:`https://x.com/${handle}/status/${BigInt("2123400000000000000")+BigInt(id)}`,text,publishedAt:new Date(now.getTime()-age*3600000).toISOString(),intakeStatus:"discovery",images,quoteUrl:null,attribution:"THIRD_PARTY_ONLY" as const});
 test("squawk gate retains actual surprises, rejects repetitive commentary",()=>{
  assert.equal(classifyXFlash("US INITIAL JOBLESS CLAIMS: 203K (EST 198K)"),"macro_data");
  assert.equal(classifyXFlash("ECB RAISES INTEREST RATES 25 BPS"),"policy_decision");

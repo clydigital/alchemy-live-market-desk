@@ -1,5 +1,6 @@
 import { normaliseDirectFeedText, scoreDirectFeedHeadline } from "./direct-news-evidence-triage.ts";
 import { createHash } from "node:crypto";
+import { isReboundCapitalArticleUrl, REBOUND_CAPITAL_FEED_URL, REBOUND_CAPITAL_OPINION_NOTICE } from "./rebound-capital-feed.ts";
 
 import { getFreshAlchemyArticles } from "@/lib/alchemy";
 import { parseFxStreetNewsFeedPage } from "@/lib/fxstreet-feed";
@@ -27,7 +28,7 @@ const SOURCE_WINDOW_MS = 36 * 60 * 60 * 1_000;
 const MAX_FEED_ITEMS_PER_SOURCE = 12;
 
 type DirectFeedSource = {
-  source: Extract<ResearchSourceKey, "zerohedge" | "axios" | "investing-com" | "fxstreet">;
+  source: Extract<ResearchSourceKey, "zerohedge" | "axios" | "investing-com" | "fxstreet" | "rebound-capital">;
   publisher: string;
   urls: string[];
   sourceQuality: number;
@@ -71,6 +72,12 @@ const DIRECT_FEEDS: DirectFeedSource[] = [
     // Keep the older RSS aliases as secondary compatibility paths.
     urls: ["https://www.fxstreet.com/news/feed", "https://www.fxstreet.com/rss", "https://www.fxstreet.com/rss/news"],
     sourceQuality: 72,
+  },
+  {
+    source: "rebound-capital",
+    publisher: "Rebound Capital",
+    urls: [REBOUND_CAPITAL_FEED_URL],
+    sourceQuality: 70,
   },
 ];
 
@@ -159,7 +166,13 @@ export function directFeedRequestHeaders(source: DirectFeedSource["source"]): Re
 
 function feedItem(source: DirectFeedSource, entry: FeedEntry): IntakeItemInput {
   const summary = entry.summary || entry.title;
-  const triage = scoreDirectFeedHeadline(entry.title, summary);
+  const baseTriage = scoreDirectFeedHeadline(entry.title, summary);
+  const opinion = source.source === "rebound-capital";
+  const triage = opinion ? {
+    ...baseTriage,
+    relevance: Math.max(78, baseTriage.relevance),
+    materiality: Math.max(62, baseTriage.materiality),
+  } : baseTriage;
   return {
     itemKey: itemKey(source.source, entry.url),
     itemType: "news",
@@ -174,7 +187,7 @@ function feedItem(source: DirectFeedSource, entry: FeedEntry): IntakeItemInput {
     novelty: 72,
     materiality: triage.materiality,
     recommendedAction: "collect_evidence",
-    newsSignal: `Direct ${source.publisher} feed acquisition.`,
+    newsSignal: opinion ? `Independent fundamental equity research from ${source.publisher}; not primary-source confirmation.` : `Direct ${source.publisher} feed acquisition.`, 
     divergenceKind: "none",
     evidence: [{
       title: entry.title,
@@ -183,7 +196,9 @@ function feedItem(source: DirectFeedSource, entry: FeedEntry): IntakeItemInput {
       publishedAt: entry.publishedAt,
       claim: summary.slice(0, 1_000),
     }],
-    reviewReason: `Automatically acquired from the publisher's direct feed; provisional topic triage: ${triage.reason}. Ranking is not source verification; canonical runtime must verify and contextualise every claim.`,
+    reviewReason: opinion
+      ? `${REBOUND_CAPITAL_OPINION_NOTICE} Provisional topic triage: ${triage.reason}.`
+      : `Automatically acquired from the publisher's direct feed; provisional topic triage: ${triage.reason}. Ranking is not source verification; canonical runtime must verify and contextualise every claim.`,
   };
 }
 
@@ -204,6 +219,7 @@ async function acquireDirectFeed(source: DirectFeedSource, windowStart: number, 
           ? parseFxStreetNewsFeedPage(raw)
           : (() => { throw new Error("The response was not an RSS or Atom feed."); })();
       const fresh = entries
+        .filter((entry) => source.source !== "rebound-capital" || isReboundCapitalArticleUrl(entry.url))
         .filter((entry) => {
           const publishedAt = Date.parse(entry.publishedAt);
           return publishedAt >= windowStart && publishedAt <= now + 5 * 60_000;
@@ -356,12 +372,13 @@ export async function buildScheduledResearchInput(
   const scheduledFor = scheduledForMalaysiaSlot(slot, now);
   const windowEnd = now.getTime();
   const windowStart = windowEnd - SOURCE_WINDOW_MS;
-  const [videoChecks, zerohedge, axios, investing, fxstreet, alchemy] = await Promise.all([
+  const [videoChecks, zerohedge, axios, investing, fxstreet, reboundCapital, alchemy] = await Promise.all([
     loadDedicatedVideoSourceChecks(slot, new Date(scheduledFor)),
     acquireDirectFeed(DIRECT_FEEDS[0], windowStart, windowEnd),
     acquireDirectFeed(DIRECT_FEEDS[1], windowStart, windowEnd),
     acquireDirectFeed(DIRECT_FEEDS[2], windowStart, windowEnd),
     acquireDirectFeed(DIRECT_FEEDS[3], windowStart, windowEnd),
+    acquireDirectFeed(DIRECT_FEEDS[4], windowStart, windowEnd),
     acquireAlchemy(windowStart, windowEnd),
   ]);
   const sourceChecks: SourceCheckInput[] = [
@@ -370,6 +387,7 @@ export async function buildScheduledResearchInput(
     axios.check,
     investing.check,
     fxstreet.check,
+    reboundCapital.check,
     alchemy.check,
   ];
   const items = [
@@ -377,6 +395,7 @@ export async function buildScheduledResearchInput(
     ...axios.items,
     ...investing.items,
     ...fxstreet.items,
+    ...reboundCapital.items,
     ...alchemy.items,
   ];
 
