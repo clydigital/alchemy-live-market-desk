@@ -7,7 +7,7 @@ const file=(path:string)=>readFileSync(new URL("../"+path,import.meta.url),"utf8
 test("Bluebelly full readers show simple boxes before the normal full story",()=>{
  const paths=[
   "components/blue-desk/PostEventRecap.tsx",
-  "components/blue-desk/NewsroomEventReader.tsx",
+  // Newsroom events use an even shorter three-question reading flow.
   "components/blue-desk/KeyStoryDeepArticle.tsx",
   "components/blue-desk/StoryEditorialArticle.tsx",
  ];
@@ -18,7 +18,11 @@ test("Bluebelly full readers show simple boxes before the normal full story",()=
   const full=body.indexOf("The full story",start);
   assert.ok(full>start,path+" must put full prose below boxes");
  }
- assert.match(file("components/blue-desk/NewsroomEventReader.module.css"),/\.story section\{[^}]*background:transparent/);
+ const newsroom=file("components/blue-desk/NewsroomEventReader.tsx");
+ assert.match(newsroom,/What happened\?/);
+ assert.match(newsroom,/Why does it matter\?/);
+ assert.match(newsroom,/What should I watch next\?/);
+ assert.match(newsroom,/<details className=\{s\.moreDetails\}>/);
  const css=file("components/blue-desk/StorySummaryBoxes.module.css");
  assert.match(css,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
  assert.match(css,/@media\(max-width:640px\)/);
