@@ -174,3 +174,46 @@
 @media(prefers-reduced-motion:reduce){
   .orbitNodeA,.orbitNodeB,.orbitNodeC{animation:none}
 }
+
+/* The centre of the existing decorative radar is now a real control; outer
+ * shortcut pulses and their single shared sweep remain unchanged. */
+.orbitCore{
+ /* The full circular surface is the opener; shortcut labels remain above it. */
+ position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;
+ align-items:center;justify-content:center;width:100%;height:100%;
+ border:0;border-radius:50%;background:transparent;padding:0;cursor:pointer;
+ pointer-events:auto;appearance:none;text-align:center;
+ transition:filter .2s ease;
+}
+.orbitBrand{display:block;white-space:nowrap;line-height:1}
+.orbitCore>.orbitBrand{color:var(--bb-text)}
+.orbitBrand>span{color:var(--bb-command-accent)}
+.orbitCore:hover{filter:brightness(1.15)}
+.orbitCore:focus-visible{outline:2px solid var(--bb-command-accent);outline-offset:4px}
+.orbitCore[aria-expanded="true"]{text-shadow:0 0 22px var(--bb-command-accent)}
+/* Visible full-circle affordance, theme-driven: yellow in yellow-black,
+ * turquoise in turquoise, blue in neon-blue, etc. */
+.orbit{
+ transition:border-color .22s ease,box-shadow .22s ease;
+}
+.orbit:hover,.orbit:focus-within,.orbit:has(.orbitCore[aria-expanded="true"]){
+ border-color:var(--bb-command-accent);
+ box-shadow:
+  0 0 0 2px var(--bb-command-accent),
+  0 0 13px 3px color-mix(in srgb,var(--bb-command-accent) 46%,transparent),
+  0 0 38px 7px color-mix(in srgb,var(--bb-command-accent) 23%,transparent),
+  inset 0 0 24px color-mix(in srgb,var(--bb-command-accent) 15%,transparent);
+}
+.orbit:hover::before,.orbit:focus-within::before{
+ border-color:color-mix(in srgb,var(--bb-command-accent) 72%,transparent);
+}
+.actions .quickRadar{
+ display:inline-flex;align-items:center;justify-content:center;min-height:36px;
+ padding:8px 12px;border:1px solid var(--bb-command-alt);background:#0c3240;
+ color:#b9f8ff;text-decoration:none;cursor:pointer;
+ font:820 11px/1.3 var(--font-figtree),sans-serif;
+}
+.actions .quickRadar:hover,.actions .quickRadar:focus-visible{
+ outline:2px solid var(--bb-command-accent);outline-offset:2px;
+}
+@media(prefers-reduced-motion:reduce){.orbitCore,.orbit{transition:none}}

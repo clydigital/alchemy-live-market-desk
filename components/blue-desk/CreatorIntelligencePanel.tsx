@@ -1,7 +1,7 @@
 import "server-only";
 import {Fragment} from "react";
 import Link from "next/link";
-import {getOwnerCreatorSignalDigest,CREATOR_DIGEST_URL} from "@/lib/bluebelly-creator-signals-server";
+import {getOwnerCreatorSignalDigest,CREATOR_DIGEST_URL,type CreatorDigestRead} from "@/lib/bluebelly-creator-signals-server";
 import {getPrivateReviewedCreatorArguments} from "@/lib/bluebelly-private-creator-reviews";
 import {creatorMarketMatch,creatorSignalGroup,creatorSourceKey,orderCreatorSignals,type CreatorSignal,type CreatorTake} from "@/lib/bluebelly-creator-signals";
 import type {PublicMarketObservation} from "@/lib/blue-desk-public-markets";
@@ -34,8 +34,13 @@ function SignalTable({rows,creators,market,now,session,positioning}:{rows:Creato
  if(!rows.length&&!positioning)return <p className={styles.muted}>No explicit asset direction recorded.</p>;
  return <div className={styles.scroll} role="region" aria-label="Creator signal comparison table" tabIndex={0}><table className={styles.table}><thead><tr><th scope="col">Views on asset</th><th scope="col">Bias</th><th scope="col">Signal · structure / levels</th><th scope="col">Day change</th></tr></thead>{groups.map(group=><tbody key={group.label}><tr className={styles.groupRow}><th scope="rowgroup" colSpan={4}><span className={styles.groupLabel}>{group.label}</span></th></tr>{group.rows.map((row,i)=><tr key={`${row.asset}-${i}`}><th scope="row">{row.asset}<small>{row.horizon}</small></th><td><span className={styles.bias} data-bias={row.bias}>{row.bias}</span></td><td>{bullets(row.signals)}{row.sources.length?<small className={styles.muted}>Source: {row.sources.map(s=>names.get(s)??s).join(" · ")}</small>:null}</td><MarketCell asset={row.asset} market={market} now={now} session={session}/></tr>)}</tbody>)}{positioning?<tbody><tr className={styles.groupRow}><th scope="rowgroup" colSpan={4}><span className={styles.groupLabel}>Longer-term positioning</span></th></tr><Positioning rows={positioning.rows} now={now} host={positioning.host}/></tbody>:null}</table></div>;
 }
-export default async function CreatorIntelligencePanel({rows,market,now,host}:{rows:ShortPosition[];market:PublicMarketObservation[];now:Date;host:string|null}){
- const read=await getOwnerCreatorSignalDigest(now);
+export default async function CreatorIntelligencePanel({rows,market,now,host,readOverride}:{
+ rows:ShortPosition[];market:PublicMarketObservation[];now:Date;host:string|null;
+ readOverride?:CreatorDigestRead;
+}){
+ // Reuse the SAME owner-gated read used for the homepage radar; no second
+ // private fetch, and no standalone public bypass.
+ const read=readOverride??await getOwnerCreatorSignalDigest(now);
  if(read.status==="unauthorised")return <section className={styles.panel} data-creator-intelligence="private-locked" aria-label="Creator market intelligence"><header className={styles.heading}><div><p className={styles.kicker}>PRIVATE RESEARCH / CREATOR INTELLIGENCE</p><h2>What are the creators watching?</h2></div></header><div className={styles.locked}><p>Sign in to My Desk to access the transcript-based market overview and individual technical takes.</p><Link href="https://bluebelly-desk.vercel.app/my-reports">My Desk · sign in ↗</Link></div><SignalTable rows={[]} creators={[]} market={market} now={now} session={null} positioning={{rows,host}}/></section>;
  const digest=read.digest;
  // The fallback is only reached after the reader has passed its own owner gate.

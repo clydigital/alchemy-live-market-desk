@@ -32,6 +32,9 @@ import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import RadarSweep from "@/components/blue-desk/RadarSweep";
+import RadarIntelligenceShell, {RadarIntelligenceTrigger} from "@/components/blue-desk/HomeRadarIntelligence";
+import {projectHomeRadar} from "@/lib/bluebelly-home-radar-intelligence";
+import {getOwnerCreatorSignalDigest} from "@/lib/bluebelly-creator-signals-server";
 import BluebellyNewsfront from "@/components/blue-desk/BluebellyNewsfront";
 import EditorialStoryArt from "@/components/blue-desk/EditorialStoryArt";
 import { EntityMark, ScopeStrip } from "@/components/blue-desk/EntityIdentity";
@@ -145,6 +148,16 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   // Reuse the existing source-dated monitor; no new provider call or inferred prices.
   const marketRows=publicMarketObservations(monitor?.rows||[],"all");
   const marketComparisons=buildMarketDivergenceWatch(marketRows,"1D");
+  // The private transcript reader enforces current Supabase owner session +
+  // allowlist before returning ANY creator data. Public visitors get no digest.
+  const creatorRadarRead=publicHost
+    ?await getOwnerCreatorSignalDigest(now).catch(()=>({status:"unavailable" as const,digest:null}))
+    :null;
+  const radarIntel=publicHost?projectHomeRadar({
+    now,news:recentNews,market:marketRows,divergences:marketComparisons,
+    creatorDigest:creatorRadarRead?.digest??null,
+    creatorIsAuthorised:Boolean(creatorRadarRead&&creatorRadarRead.status!=="unauthorised"),
+  }):null;
   const marketCompass=buildMarketCompassSummary(marketComparisons,now);
   const investorMindset=buildInvestorMindsetSnapshot(marketRows,marketComparisons,marketCompass,verifiedNews,now);
   const investorAssessment=projectInvestorAssessment(dossierSelection,now);
@@ -170,6 +183,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
       {!publicHost?<AbsorptionHealth health={absorptionHealth}/>:null}
       <div className={styles.content}>
         {publicHost?<section className={marketHome.terminal} data-home-market-first="source-dated-terminal" aria-label="Bluebelly market overview">
+          <RadarIntelligenceShell read={radarIntel!}>
           <header className={marketHome.hero} data-v7-graphical-hero="source-dated">
             <div className={marketHome.heroCopy}>
               <p className={marketHome.eyebrow}><span className={marketHome.heroSignal} aria-hidden="true"/> SOURCE-DATED MARKET TERMINAL</p>
@@ -180,6 +194,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
                 <Link href="/calendar">Economic &amp; earnings calendar</Link>
                 <Link href="/newsroom">Newsroom</Link>
                 <Link href="/my-reports">My Desk · private</Link>
+                <RadarIntelligenceTrigger className={marketHome.quickRadar}>RADAR · What matters now</RadarIntelligenceTrigger>
               </nav>
             </div>
             <div className={marketHome.heroVisual}>
@@ -188,15 +203,16 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
                 <Link className={marketHome.orbitNodeA} href="/markets">MARKETS</Link>
                 <Link className={marketHome.orbitNodeB} href="/calendar">CATALYSTS</Link>
                 <Link className={marketHome.orbitNodeC} href="/newsroom">NEWSROOM</Link>
-                <span className={marketHome.orbitCore} aria-hidden="true">B<span>B</span><small>COMMAND</small></span>
+                <RadarIntelligenceTrigger className={marketHome.orbitCore}><span className={marketHome.orbitBrand}>B<span>B</span></span><small>OPEN RADAR</small></RadarIntelligenceTrigger>
               </nav>
               <span className={marketHome.orbitCaption} aria-hidden="true">OBSERVE / COMPARE / INVESTIGATE</span>
             </div>
           </header>
+          </RadarIntelligenceShell>
           <DeskWhiteboard compass={marketCompass} news={verifiedNews} theses={theses}
             upcoming={upcoming} now={now} host={host}/>
           <InstitutionalRiskMonitor rows={buildInstitutionalRisk(volatility,monitor?.rows??[],now)} rates={buildFedRateWatch(monitor?.rows??[],now)} nextDecision={nextFomcDecision(calendar.events,now)}/>
-          <CreatorIntelligencePanel rows={qqqPosition.rows} market={marketRows} now={now} host={host}/>
+          <CreatorIntelligencePanel rows={qqqPosition.rows} market={marketRows} now={now} host={host} readOverride={creatorRadarRead??undefined}/>
           <InvestorMindsetBoard snapshot={investorMindset} assessment={investorAssessment} host={host} themes={investorThemes} receipt={investorReceipt}/>
            <MarketConditionsBoard market={marketRows} breadth={breadth50} jobs={jobs}
             health={absorptionHealth} now={now} host={host}/>
