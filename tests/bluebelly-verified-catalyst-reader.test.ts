@@ -57,7 +57,7 @@ test("catalyst reader leads with impact and keeps dated original events expandab
  assert.match(reader,/topic\.humanStake/);
  assert.match(reader,/topic\.marketMechanism/);
  assert.match(reader,/topic\.guidingQuestion/);
- assert.match(reader,/not a complete historical timeline/);
+ assert.match(reader,/not a complete market history/);
  assert.match(reader,/not a confirmed market-price reaction/i);
  assert.match(reader,/event\.sourceUrl/);
  assert.match(css,/@media\(max-width:640px\)/);
