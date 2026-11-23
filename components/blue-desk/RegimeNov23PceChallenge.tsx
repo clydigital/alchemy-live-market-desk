@@ -1,5 +1,6 @@
 import type {ReactNode} from "react";
 import type {EconEvent,EconMetric,UsEconStatWatch} from "@/lib/bluebelly-us-econ-stat-watch";
+import {assessPceEvent} from "@/lib/bluebelly-pce-event-assessment";
 
 /** Research-only reader: dynamic official dates/results, no private positioning
  * and no automated change to the canonical Regime or any portfolio. */
@@ -65,6 +66,7 @@ function metrics(event:EconEvent):ReactNode{
  </div>;
 }
 function eventCard(e:EconEvent):ReactNode{
+ const pce=e.family==="PCE"?assessPceEvent(e,new Date()):null;
  return <article key={e.id} data-us-econ-event={e.id} data-us-econ-status={e.status}
   style={{border:"1px solid var(--bb-card-border)",borderRadius:8,padding:"14px",minWidth:0}}>
   <div style={{display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
@@ -78,6 +80,21 @@ function eventCard(e:EconEvent):ReactNode{
     "Scheduled "+when(e.releaseAt)}
   </p>
   {e.actualText?<p style={{fontSize:13,margin:"6px 0"}}><b>Official actual:</b> {e.actualText}</p>:null}
+  {pce?<div data-pce-event-assessment={pce.status} data-pce-research-only="true"
+    style={{borderLeft:"3px solid var(--bb-accent)",padding:"6px 10px",margin:"8px 0",
+     background:"var(--bb-surface-muted,transparent)",fontSize:12}}>
+    <b>Source-governed PCE read: {pce.status.replaceAll("_"," ")}</b>
+    <p style={{margin:"5px 0"}}>{pce.explanation}</p>
+    {pce.coreSurprisePp!==null?<p style={{margin:"5px 0"}}>
+      Core m/m vs locked forecast: <strong>{number(pce.coreSurprisePp,"%","surprise")}</strong>.
+      This is a release surprise, not evidence of a completed FX/yield reaction.
+     </p>:null}
+    {pce.missing.length?<p style={{margin:"5px 0"}}>Missing verification: {pce.missing.join(", ")}</p>:null}
+    <p style={{margin:"5px 0"}}><b>Competing explanation:</b> {pce.strongestCountercase}</p>
+    <p style={{margin:"5px 0"}}><b>Next decisive test:</b> {pce.nextTest}</p>
+    <small>CME intraday FedWatch and intraday Treasury feeds are not integrated.
+      This is RESEARCH ONLY; no canonical regime or portfolio decisions are changed.</small>
+   </div>:null}
   {metrics(e)}
   <small style={{display:"block",marginTop:8}}><a href={e.sourceUrl}
    target="_blank" rel="noopener noreferrer">{e.agency} · original source</a>
