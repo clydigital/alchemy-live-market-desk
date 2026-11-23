@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { assessPceEvent, type PceMarketObservation } from "../lib/bluebelly-pce-event-assessment.ts";
-import { originalUsReleaseClock, type EconEvent } from "../lib/bluebelly-us-econ-stat-watch.ts";
+import { originalUsReleaseClock, projectUsEconStatWatch, type EconEvent } from "../lib/bluebelly-us-econ-stat-watch.ts";
 
 const releaseAt = "2026-11-25T13:30:00.000Z";
 const now = new Date("2026-11-25T15:00:00.000Z");
@@ -97,4 +97,26 @@ test("EST and EDT official schedule use their actual UTC release clocks",()=>{
 test("read-only public reader has no authority to write canon, private creator or holdings",()=>{
  const source=readFileSync("lib/bluebelly-pce-event-assessment.ts","utf8");
  assert.doesNotMatch(source,/createSupabaseAdminClient|service_role|portfolio_positions|story_thesis_versions|market_regime_current|upsert\(|insert\(/);
+});
+
+test("past-due official PCE calendar remains visible as awaiting an actual, not a future event",()=>{
+ const row={id:"us-bea-2026-11-25-personal-income-outlays-oct-2026",
+  event:"Personal Income and Outlays",date:"2026-11-25",timeLabel:"08:30 ET",
+  country:"United States",referencePeriod:"October 2026",
+  sourceName:"U.S. Bureau of Economic Analysis",
+  sourceUrl:"https://www.bea.gov/news/schedule",sourceKind:"official-live"};
+ const pre=projectUsEconStatWatch({releases:[],metrics:[],schedule:[row],now:new Date("2026-11-25T12:00:00Z")});
+ assert.equal(pre.upcoming[0].releaseAt,releaseAt);
+ assert.equal(pre.upcoming[0].status,"SCHEDULED");
+ const due=projectUsEconStatWatch({releases:[],metrics:[],schedule:[row],now:new Date("2026-11-26T09:00:00Z")});
+ assert.equal(due.latest[0].status,"AWAITING_ACTUAL");
+ assert.equal(due.upcoming.length,0);
+ assert.equal(assessPceEvent(due.latest[0],new Date("2026-11-26T09:00:00Z"))?.status,"AWAITING_VERIFIED_ACTUAL");
+});
+test("public PCE readout surfaces a causal gate rather than an invented FedWatch forecast",()=>{
+ const component=readFileSync("components/blue-desk/RegimeNov23PceChallenge.tsx","utf8");
+ assert.match(component,/data-pce-event-assessment/);
+ assert.match(component,/assessPceEvent/);
+ assert.match(component,/RESEARCH ONLY/);
+ assert.match(component,/intraday Treasury feeds are not integrated/);
 });
