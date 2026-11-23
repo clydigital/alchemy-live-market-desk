@@ -42,3 +42,54 @@ test("immutable Work HTML envelope safely round-trips literal markup",()=>{
  assert.equal(parseCreatorDigestHtml(html,now)?.overview.headline,value.overview.headline);
  assert.equal(parseCreatorDigestHtml('<pre id="creator-signals-v1"><b>invalid</b></pre>',now),null);
 });
+
+
+test("latest mixed digest accepts handoff-reviewed exact video IDs without invented original dates",()=>{
+ const d=sample();
+ d.creators.push({
+  publisher:"TraderNick",videoId:"N5Ee5JLBBls",title:"Market Crash, 2026",
+  publishedAt:null,sourceStatus:"handoff_reviewed",news:[],views:[row("QQQ")],
+  fundamentals:[],opinions:[],changed:"Authentic handoff; exact publish time not verified"
+ });
+ d.generatedAt="2026-11-19T10:00:00Z";
+ const parsed=parseCreatorDigest(d,now);
+ assert.equal(parsed?.creators.length,2);
+ assert.equal(parsed?.creators[1].sourceStatus,"handoff_reviewed");
+ assert.equal(parsed?.creators[1].publishedAt,null);
+ // Production-reviewed original videos still MUST carry exact publication time.
+ d.creators[1].sourceStatus="reviewed";
+ assert.equal(parseCreatorDigest(d,now),null);
+ d.creators[1].sourceStatus="handoff_reviewed";
+ d.creators[1].videoId="not-a-valid-video-id";
+ assert.equal(parseCreatorDigest(d,now),null);
+});
+
+test("private digest with a handoff and supplied video preserves unknown dates and source-key linkage",()=>{
+ const d=sample();
+ d.creators.push({
+  publisher:"Truthbombs",videoId:"RifmW9r45mQ",title:"AI trade",
+  publishedAt:null,sourceStatus:"handoff_reviewed",news:[],views:[row("SMH")],
+  fundamentals:[],opinions:[],changed:"Pending original metadata"
+ });
+ d.creators.push({
+  publisher:"Trade Brigade",videoId:null,title:"User-supplied research",
+  publishedAt:null,sourceStatus:"supplied",news:[],views:[],
+  fundamentals:[],opinions:[],changed:"Original not confirmed"
+ });
+ d.overview.signals.push({...row("SMH"),sources:["RifmW9r45mQ"]});
+ const received=parseCreatorDigest(d,now);
+ assert.equal(received?.creators.length,3);
+ assert.equal(received?.overview.signals.at(-1)?.sources[0],"RifmW9r45mQ");
+ d.overview.signals[1].sources=["unknown-video"];
+ assert.equal(parseCreatorDigest(d,now),null);
+});
+
+test("latest read-only creator panel shows unmatched reviewed receipts and session lag separately",()=>{
+ const panel=readFileSync(new URL("../components/blue-desk/CreatorIntelligencePanel.tsx",import.meta.url),"utf8");
+ assert.match(panel,/data-creator-uncompiled="source-reviewed"/);
+ assert.match(panel,/older than latest completed tape/);
+ assert.match(panel,/digestVideoIds/);
+ const gate=panel.indexOf('read.status==="unauthorised"');
+ const intake=panel.indexOf('recentReviewed=await getPrivateReviewedCreatorArguments(now)');
+ assert.ok(gate>=0&&intake>gate,"private ingestion must only happen after owner gate");
+});
