@@ -29,8 +29,17 @@ export function parseCreatorDigest(v:unknown,now=new Date()):CreatorDigest|null{
  const overviewSignals=signals(o.signals);if(!overviewSignals)return null;
  const creators:CreatorTake[]=[];const keys=new Set<string>();
  for(const item of r.creators){const c=obj(item);if(!c||!str(c.publisher,120)||!str(c.title,300)||!['reviewed','handoff_reviewed','supplied'].includes(String(c.sourceStatus))||!list(c.news)||!list(c.fundamentals,3)||!list(c.opinions,3)||!str(c.changed)||!(c.publishedAt===null||date(c.publishedAt,now)))return null;
-  if(c.sourceStatus==='supplied'){if(c.videoId!==null&&!(typeof c.videoId==='string'&&/^[\w-]{11}$/.test(c.videoId)))return null;}
-  else if(typeof c.videoId!=='string'||!(/^[\w-]{11}$/).test(c.videoId)||c.publishedAt===null)return null;
+  if(c.sourceStatus==='supplied'){
+   // Owner-supplied transcript: no invented original video identity or date.
+   if(c.videoId!==null&&!(typeof c.videoId==='string'&&/^[\w-]{11}$/.test(c.videoId)))return null;
+  }else{
+   // Authentic handoff reviews may have an exact video ID but lack a verified
+   // original publication time. Do not reject the whole newer digest for this:
+   // the UI labels that date as unverified and the Radar excludes the video
+   // until a source-dated original is available.
+   if(typeof c.videoId!=='string'||!(/^[\w-]{11}$/).test(c.videoId))return null;
+   if(c.sourceStatus==='reviewed'&&c.publishedAt===null)return null;
+  }
   const views=signals(c.views);if(!views)return null;
   const take={publisher:c.publisher,title:c.title,videoId:c.videoId as string|null,publishedAt:c.publishedAt as string|null,sourceStatus:c.sourceStatus as CreatorTake['sourceStatus'],news:c.news,views,fundamentals:c.fundamentals,opinions:c.opinions,changed:c.changed};
   const key=creatorSourceKey(take);if(keys.has(key))return null;keys.add(key);creators.push(take);
