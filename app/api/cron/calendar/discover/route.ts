@@ -84,7 +84,7 @@ export async function GET(request: Request) {
     let obligationsCreated = 0;
     for (const event of issuerEvents) {
       const ticker = event.affectedAssets[0];
-      const fiscalPeriod = event.title.match(/(?:Q[1-4]\\s*(?:FY)?20\\d{2}|(?:FY)?20\\d{2}\\s*Q[1-4])/i)?.[0] || "";
+      const fiscalPeriod = event.title.match(/(?:Q[1-4]\s*(?:FY)?(?:20)?\d{2}|(?:FY)?(?:20)?\d{2}\s*Q[1-4])/i)?.[0] || "";
       if (!ticker || !fiscalPeriod) continue;
       const { data: existing, error: readError } = await db.from("issuer_earnings_ingestion_state")
         .select("state").eq("ticker", ticker).eq("fiscal_period", fiscalPeriod).maybeSingle();
