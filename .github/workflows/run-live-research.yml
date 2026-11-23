@@ -144,6 +144,7 @@ jobs:
           echo "Production research identity: slot=$SLOT retry=$RETRY_KEY schedule=${CRON_SCHEDULE:-manual}"
 
       - name: Run canonical production pipeline
+        id: canonical_pipeline
         if: ${{ env.MODE == 'research' }}
         shell: bash
         run: |
@@ -194,6 +195,24 @@ jobs:
             exit 0
           fi
 
+          # In SOURCE_ONLY mode the authenticated acquisition terminalises the
+          # durable run itself. There is no intelligence stage to continue.
+          # Check the nested publisher's exact receipt, not HTTP 2xx alone.
+          source_mode="$(jq -r '.publication.mode // empty' "$RESPONSE_FILE")"
+          if [[ "$source_mode" == "SOURCE_ONLY" ]]; then
+            if ! jq -e '.publication.accepted == true
+              and .publication.status == "completed"
+              and .publication.sourceChecksPresent == true
+              and (.runKey | type == "string" and length > 0)
+              and (.acquisition.sourceChecks | type == "array" and length > 0)' "$RESPONSE_FILE" >/dev/null; then
+              echo "Source-only acquisition did not provide a completed durable coverage receipt." >&2
+              exit 1
+            fi
+            echo "Source-only research acquisition completed and persisted. Intelligence continuation not required."
+            echo "source_only_complete=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           for attempt in {1..8}; do
             echo "Intelligence continuation attempt $attempt"
             invoke_stage intelligence
@@ -220,7 +239,7 @@ jobs:
           exit 1
 
       - name: Run token-aware Dossier V2 handoff
-        if: ${{ env.MODE == 'research' }}
+        if: ${{ env.MODE == 'research' && steps.canonical_pipeline.outputs.source_only_complete != 'true' }}
         shell: bash
         run: |
           set -euo pipefail
