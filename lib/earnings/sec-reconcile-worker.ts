@@ -138,13 +138,24 @@ export async function reconcileDueSecEarnings(options:{
     }
     out.details.push(item.ticker+":SEC_PERIOD_NOT_VERIFIED");continue;
    }
+   const matchedTenQ=registryCompany.filings.find(filing=>
+    filing.accessionNumber===extract.accession&&filing.form==="10-Q"
+    &&filing.filingDate===extract.filed
+    &&filing.reportDate===extract.periodEnd
+    &&Boolean(filing.primaryDocumentUrl));
+   if(!matchedTenQ){
+    await setState("review_required","SEC XBRL quarter could not be matched to an original 10-Q filing accession, report date and issuer",null);
+    out.reviewRequired++;out.details.push(item.ticker+":SEC_FILING_ACCESSION_MISMATCH");
+    continue;
+   }
+   const originalTenQUrl=matchedTenQ.primaryDocumentUrl!;
    // Use the existing independently tested SEC year-to-date cash-flow
    // subtraction for four supported hyperscalers. Quarter 2/3 cash flow is
    // NEVER the year-to-date XBRL amount.
    type CandidateMetric={key:string;value:number;unit:string;accounting:string;source:string;note:string};
    const financialMetrics:CandidateMetric[]=extract.metrics.map(metric=>({
     key:metric.key,value:metric.value,unit:metric.unit,
-    accounting:"SEC_US_GAAP",source:extract.filingUrl,
+    accounting:"SEC_US_GAAP",source:originalTenQUrl,
     note:"XBRL us-gaap:"+metric.tag+"; accession "+metric.accession+
       "; filed "+metric.filed+"; quarter "+metric.start+" to "+metric.end,
    }));
@@ -192,7 +203,7 @@ export async function reconcileDueSecEarnings(options:{
    const {error:resultError}=await db.from("issuer_earnings_results").upsert({
     id:resultId,ticker:item.ticker,fiscal_period:item.fiscal_period,
     company_name:extract.company,
-    source_url:existing?.source_url||item.source_url||extract.filingUrl,
+    source_url:existing?.source_url||item.source_url||originalTenQUrl,
     source_retrieved_at:asOf,filing_day:extract.filed,
     verification_status:"partial",
     verification_notes:"SEC 10-Q income-statement facts checked by CIK, fiscal year, quarter, accession and period. Guidance, consensus and cash flow remain separate.",
