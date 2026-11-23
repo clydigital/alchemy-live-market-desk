@@ -200,6 +200,10 @@
       "schedule": "40 15 * * *"
     },
     {
+      "path": "/api/cron/research/us-econ-watch-audit",
+      "schedule": "25 2 * * *"
+    },
+    {
       "path": "/api/cron/calendar/discover",
       "schedule": "0 1 * * *"
     }

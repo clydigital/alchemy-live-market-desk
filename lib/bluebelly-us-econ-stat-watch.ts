@@ -164,9 +164,14 @@ export function projectUsEconStatWatch(input:{
   });
   const pceIncomplete=pceComponents.some(item=>!parsed.some(metric=>
    metric.key===item.metric_key&&metric.actual!==null));
+  // A source-confirmed monthly CPI release is still incomplete when BLS did
+  // not publish its y/y series; never imply four measured rates are present.
+  const cpiIncomplete=verified&&f==="CPI"&&
+   ["cpi_headline_mom","cpi_headline_yoy","cpi_core_mom","cpi_core_yoy"]
+    .some(key=>!parsed.some(metric=>metric.key===key&&metric.actual!==null));
   const status:EconStatus=at>t?"SCHEDULED":verified
    ? conflict||pceMismatch?"SOURCE_CONFLICT":
-     pceIncomplete||relevant.length&&parsed.every(m=>m.actual===null)?"PARTIAL_METRICS":"VERIFIED_ACTUAL"
+     pceIncomplete||cpiIncomplete||(relevant.length>0&&parsed.every(m=>m.actual===null))?"PARTIAL_METRICS":"VERIFIED_ACTUAL"
    :complete?"SOURCE_CONFLICT":"AWAITING_ACTUAL";
   accepted.push({id,name,family:f,referencePeriod:typeof row.reference_period==="string"?row.reference_period:null,
    releaseAt:new Date(at).toISOString(),sourceUrl:url,agency:String(row.agency),
@@ -219,6 +224,7 @@ export function projectUsEconStatWatch(input:{
      event.status==="AWAITING_ACTUAL"&&t-Date.parse(event.releaseAt)>90*60000)
      warnings.push("OVERDUE_HIGH_IMPACT_ACTUAL:"+event.id);
    if(event.status==="SOURCE_CONFLICT")warnings.push("OFFICIAL_RELEASE_CONFLICT:"+event.id);
+   if(event.status==="PARTIAL_METRICS")warnings.push("PARTIAL_OFFICIAL_METRICS:"+event.id);
    if(event.status==="VERIFIED_ACTUAL"&&event.metrics.length===0)
      warnings.push("COMPONENT_METRICS_NOT_AVAILABLE:"+event.id);
  }

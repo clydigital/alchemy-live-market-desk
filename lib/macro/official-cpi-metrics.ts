@@ -15,7 +15,22 @@ export type CpiPreviousValues = Partial<Record<CpiMetricKey, number>>;
 
 const PATTERN = /^Headline CPI\s+([+-]?\d+(?:\.\d+)?)%\s+m\/m;\s*([+-]?\d+(?:\.\d+)?)%\s+y\/y;\s*Core\s+([+-]?\d+(?:\.\d+)?)%\s+m\/m;\s*([+-]?\d+(?:\.\d+)?)%\s+y\/y$/i;
 
+/** Official BLS October 2026 annual CPI rates are unavailable because most October
+ * 2025 comparison indexes were not published. Never infer or fill these values. */
+const PUBLISHED_MONTHLY_ONLY = /^Headline CPI\s+([+-]?\d+(?:\.\d+)?)%\s+m\/m;\s+y\/y unavailable \(BLS\);\s*Core\s+([+-]?\d+(?:\.\d+)?)%\s+m\/m;\s+y\/y unavailable \(BLS\)$/i;
+
 export function parseOfficialCpiMetricRows(summary: string, previous: CpiPreviousValues = {}): OfficialCpiMetric[] {
+  const partial = PUBLISHED_MONTHLY_ONLY.exec(summary.trim());
+  if (partial) {
+    const monthly = [Number(partial[1]),Number(partial[2])];
+    if(monthly.some(value=>!Number.isFinite(value)||Math.abs(value)>20))return [];
+    return [
+      {metric_key:"cpi_headline_mom",label:"Headline CPI m/m",transformation:"mom",unit:"%",actual:monthly[0],
+        previous:typeof previous.cpi_headline_mom==="number"?previous.cpi_headline_mom:null},
+      {metric_key:"cpi_core_mom",label:"Core CPI m/m",transformation:"mom",unit:"%",actual:monthly[1],
+        previous:typeof previous.cpi_core_mom==="number"?previous.cpi_core_mom:null},
+    ];
+  }
   const match = PATTERN.exec(summary.trim());
   if (!match) return [];
   const actuals = match.slice(1).map(Number);

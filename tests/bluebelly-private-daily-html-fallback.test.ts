@@ -59,7 +59,7 @@ test("private cron isolation retained with additional first-party US macro check
  // The three prior checks are retained and a winter 08:42 ET official retry added.
  const original=vercel.crons.filter(item=>item.path!=="/api/cron/research/official-actuals");
  const actuals=vercel.crons.filter(item=>item.path==="/api/cron/research/official-actuals");
- assert.equal(original.length,45);
+ assert.equal(original.length,46);
  assert.deepEqual(vercel.crons.filter(item=>item.path==="/api/cron/calendar/discover").map(item=>item.schedule),["0 1 * * *"]);
  assert.deepEqual(actuals.map(item=>item.schedule),["42 12 * * *","42 13 * * *","12 14 * * *","12 15 * * *"]);
  assert.match(route,/runPrivateDailyHtmlFallback\(request,now\)/);

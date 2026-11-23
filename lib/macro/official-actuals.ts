@@ -5,6 +5,7 @@ import {getOriginalBeaPceSchedule} from "./official-bea-pce-schedule.ts";
 import { getEconomicCalendar, type EconomicCalendarEvent } from "../calendar.ts";
 import { createSupabaseAdminClient } from "../supabase/admin.ts";
 import { parseOfficialCpiMetricRows, type CpiPreviousValues } from "./official-cpi-metrics.ts";
+import {parseBlsMonthlyOnlyCpiOriginal,isSameOriginalBlsArchive} from "./bls-cpi-monthly-only.ts";
 import {isRbaDecision,sourceForRbaDecision,resolveOfficialRbaDecision,rbaScheduledReleaseTimestamp} from "./official-rba-rate-decision.ts";
 
 export type OfficialMacroRelease = {
@@ -479,13 +480,57 @@ async function resolveBeaPceActual(release:OfficialMacroRelease,fetcher:typeof f
   ":"+(reader.ok?"reader_reference_or_metric_unmatched":reader.errorCode||"recovery_unavailable"));
 }
 
+/**
+ * Only BLS can attest that an annual rate was not published. The fallback
+ * consumes the exact publisher archive when the regular BLS API misses the
+ * prior-year comparison series; it never guesses a missing 12-month value.
+ */
+async function resolveBlsCpiOfficialMonthlyOnly(release:OfficialMacroRelease,fetcher:typeof fetch){
+ const sourceUrl=officialActualSourceUrl(release);
+ if(!sourceUrl||release.agency!=="U.S. Bureau of Labor Statistics")
+  throw new Error("BLS_CPI_ORIGINAL_NOT_APPROVED");
+ const parse=(body:string)=>parseBlsMonthlyOnlyCpiOriginal({
+  body,sourceUrl,referencePeriod:release.reference_period,releaseDate:release.release_date,
+ });
+ try{
+  const response=await fetcher(sourceUrl,{
+   headers:{accept:"text/html,application/xhtml+xml","user-agent":"Alchemy Live Desk official CPI source"},
+   cache:"no-store",signal:AbortSignal.timeout(10_000),
+  });
+  if(response.ok&&(!response.url||isSameOriginalBlsArchive(sourceUrl,response.url))){
+   const partial=parse(await response.text());
+   if(partial)return partial;
+  }
+ }catch{
+  // Reader fallback must still be exact article and period matched below.
+ }
+ const reader=await fetchJinaReader({
+  sourceUrl,apiKey:process.env.JINA_API_KEY,fetchImpl:fetcher,timeoutMs:12_000,
+ });
+ if(reader.ok){
+  const partial=parse(reader.text);
+  if(partial)return partial;
+ }
+ throw new Error("BLS_CPI_ORIGINAL_PARTIAL_RATES_NOT_VERIFIED");
+}
+
 export async function resolveOfficialActual(
   release: OfficialMacroRelease,
   fetcher: typeof fetch = fetch,
 ): Promise<OfficialActualResolution> {
   if(isRbaDecision(release))return resolveOfficialRbaDecision(release,fetcher);
   if(beaPceReleaseUrl(release.release_name,release.reference_period,release.release_date)) return resolveBeaPceActual(release,fetcher);
-  if (isBlsRelease(release)) return resolveBlsApiActual(release, fetcher);
+  if (isBlsRelease(release)) {
+    try{return await resolveBlsApiActual(release, fetcher);}
+    catch(error){
+      const reason=error instanceof Error?error.message:"";
+      if(/consumer price index/i.test(release.release_name)&&
+        reason.includes("BLS Public Data API did not return all CPI observations")){
+        return resolveBlsCpiOfficialMonthlyOnly(release,fetcher);
+      }
+      throw error;
+    }
+  }
   if (/ism manufacturing|ism services/i.test(release.release_name)) return resolveIsmActual(release, fetcher);
   throw new Error(`No deterministic official Actual adapter exists for ${release.release_name}.`);
 }
@@ -696,7 +741,9 @@ export async function upsertOfficialCpiMetrics(
 ) {
   if (!/consumer price index/i.test(release.release_name)) return 0;
   const metrics = parseOfficialCpiMetricRows(resolved.actual, resolved.previousCpiMetrics);
-  if (metrics.length !== 4) throw new Error("Official CPI summary cannot be separated into four comparable metrics.");
+  if(metrics.length!==4&&!(metrics.length===2&&metrics.some(m=>m.metric_key==="cpi_headline_mom")&&
+    metrics.some(m=>m.metric_key==="cpi_core_mom")&&resolved.actual.includes("y/y unavailable (BLS)")))
+    throw new Error("Official CPI summary lacks verified comparable components.");
 
   // A PostgREST upsert that omits forecast columns can reset them on conflict.
   // Insert only missing keys; then update ONLY BLS-owned fields. This preserves

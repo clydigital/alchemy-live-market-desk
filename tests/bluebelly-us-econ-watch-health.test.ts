@@ -37,7 +37,15 @@ test("daily authenticated check is scheduled only after existing official actual
  assert.match(route,/NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED/);
  assert.match(route,/getUsEconStatWatch/);
  assert.match(route,/state==="CRITICAL"\?503:200/);
- assert.doesNotMatch(route,/\.insert\(|\.upsert\(|\.update\(|ingestOfficialMacroActuals/);
+ assert.match(route,/\.from\("us_econ_watch_health_runs"\)\.insert\(/);
+ assert.doesNotMatch(route,/\.from\("(?:macro_releases|macro_release_metrics|market_regimes|portfolio_positions)"\)/);
+ assert.doesNotMatch(route,/ingestOfficialMacroActuals/);
+ const missed=readFileSync("app/api/cron/research/us-econ-watch-audit/route.ts","utf8");
+ assert.match(missed,/acceptsResearchAuthorization/);
+ assert.match(missed,/EXPECTED_DAILY_HEALTH_RUN_MISSING/);
+ assert.match(missed,/MISSED_RUN_AUDIT/);
+ assert.deepEqual(vercel.crons.filter((x:{path:string})=>x.path==="/api/cron/research/us-econ-watch-audit")
+   .map((x:{schedule:string})=>x.schedule),["25 2 * * *"]);
  assert.match(server,/getEconomicCalendar/);
  assert.deepEqual(vercel.crons.filter((x:{path:string})=>x.path==="/api/cron/research/us-econ-watch-health")
   .map((x:{schedule:string})=>x.schedule),["40 15 * * *"]);
