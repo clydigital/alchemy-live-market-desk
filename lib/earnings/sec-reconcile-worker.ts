@@ -96,7 +96,7 @@ export async function reconcileDueSecEarnings(options:{
    const dueMs=Date.parse(item.event_at.slice(0,10)+"T00:00:00Z");
    const notice=registryCompany.filings.find(filing=>{
     const filedMs=Date.parse(filing.filingDate+"T00:00:00Z");
-    return filing.form==="8-K" && /(?:^|[,\\s])2\\.02(?:$|[,\\s])/.test(filing.items||"")
+    return filing.form==="8-K" && /(?:^|[,\s])2\.02(?:$|[,\s])/.test(filing.items||"")
       && filedMs>=dueMs-3*86400000&&filedMs<=now.getTime()
       && Boolean(filing.primaryDocumentUrl);
    });
