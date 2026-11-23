@@ -118,9 +118,16 @@ export async function reconcileDueSecEarnings(options:{
     }
    }
    if(period.quarter===4){
-    await setState("review_required","SEC 8-K results notice "+
-      (notice?"found":"not yet found")+"; Q4 requires FY-minus-9M reconciliation or issuer quarter-specific release; annual financials cannot be treated as Q4",null);
-    out.reviewRequired++;out.details.push(item.ticker+":Q4_QUARTER_FINANCIALS_NEED_REVIEW");
+    if(notice||attempts>=8){
+     await setState("review_required","SEC Item 2.02 results filing "+
+       (notice?"detected":"not found after retries")+
+       "; Q4 requires fiscal-year-minus-nine-month reconciliation or an issuer quarter-specific release; annual amounts are not Q4",null);
+     out.reviewRequired++;
+    }else{
+     await setState("retry","Q4 SEC Item 2.02 results filing not yet confirmed; retry first-party filing history",12);
+     out.unavailable++;
+    }
+    out.details.push(item.ticker+":Q4_FINANCIALS_NEED_REVIEW");
     continue;
    }
    const facts=await secJson("https://data.sec.gov/api/xbrl/companyfacts/CIK"+cik10+".json",agent,fetchImpl);
