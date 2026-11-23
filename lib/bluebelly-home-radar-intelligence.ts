@@ -106,7 +106,7 @@ function divergencePulses(
 ):HomeRadarPulse[]{
  const selected=selectMeasuredMarketSignals(readings,"1D",now,3);
  return selected.map(row=>({
-  id:"divergence:"+row.id,kind:"DIVERGENCE",title:clean(row.title,90),
+  id:"divergence:"+row.id,kind:"DIVERGENCE" as const,title:clean(row.title,90),
   summary:row.left+" "+(row.leftChange>0?"+":"")+row.leftChange.toFixed(2)+"% vs "+
    row.right+" "+(row.rightChange>0?"+":"")+row.rightChange.toFixed(2)+
    "% · gap "+(row.gapPp>0?"+":"")+row.gapPp.toFixed(2)+" pp.",
