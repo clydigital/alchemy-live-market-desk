@@ -73,8 +73,8 @@ function officialRelease(row:PceReleaseInput|null,now:number):boolean{
   row.source_url!==OCTOBER_PCE_SOURCE||
   row.status!=="completed"&&row.status!=="revision_detected"||
   row.ingestion_attempt_status!=="completed"||
-  row.release_date!==OCTOBER_PCE_AT||
-  row.released_at!==OCTOBER_PCE_AT||
+  Date.parse(String(row.release_date??""))!==Date.parse(OCTOBER_PCE_AT)||
+  Date.parse(String(row.released_at??""))!==Date.parse(OCTOBER_PCE_AT)||
   typeof row.actual!=="string"||
   !validTime(row.actual_retrieved_at,Date.parse(OCTOBER_PCE_AT),now))return false;
  return parseOfficialBeaPceMetricRows(row.actual).length===4;
