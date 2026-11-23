@@ -27,6 +27,7 @@ import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
 import RegimeResearchClocks from "@/components/blue-desk/RegimeResearchClocks";
 import RegimeManualChallenge from "@/components/blue-desk/RegimeManualChallenge";
 import RegimeNov23PceChallenge from "@/components/blue-desk/RegimeNov23PceChallenge";
+import {getOctoberPceEventReadout} from "@/lib/bluebelly-pce-event-server";
 import NvidiaEarningsDecisionWatch from "@/components/blue-desk/NvidiaEarningsDecisionWatch";
 import DirectionQuickRead from "@/components/blue-desk/DirectionQuickRead";
 import QuestionVerdictCard from "@/components/blue-desk/QuestionVerdictCard";
@@ -62,7 +63,7 @@ export default async function ResearchLensPage({params}:Props){
  const definition=EDITORIAL_REGIME_LENSES.find(item=>item.id===lensId);
  if(!definition)notFound();
  const now=new Date(),host=(await headers()).get("host");
- const [publicTheses,sourceObservations,marketMonitor,influence,shadowHealth,qualified,briefs,breadthFeed]=await Promise.all([
+ const [publicTheses,sourceObservations,marketMonitor,influence,shadowHealth,qualified,briefs,breadthFeed,pceEvent]=await Promise.all([
   getPublicThesisLedger(now,38).catch(()=>null),
   getPublicSourceObservations(now,24).catch(()=>null),
   getMarketMonitor().catch(()=>null),
@@ -71,6 +72,7 @@ export default async function ResearchLensPage({params}:Props){
   readBluebellyQualifiedNews(now,18).catch(()=>null),
   getPublishedMacroPulseBriefs(8).catch(()=>[]),
   getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
+  getOctoberPceEventReadout(now).catch(()=>null),
  ]);
  const lens=groupPublicResearch(publicTheses||[]).find(item=>item.id===lensId)!;
  const lensNumber=String(EDITORIAL_REGIME_LENSES.findIndex(item=>item.id===lensId)+1).padStart(2,"0");
@@ -136,7 +138,7 @@ export default async function ResearchLensPage({params}:Props){
    {lens.id==="ai"?<NvidiaEarningsDecisionWatch mode="regime" now={now}/>:null}
    <RegimeResearchClocks sources={sourceObservations===null?null:recent} editorialReviewedOn={outlook.reviewedAt} shadow={shadowHealth}/>
    {(["fed","bonds","ai","breadth"] as const).some(id=>id===lens.id)?
-     <RegimeNov23PceChallenge scope={lens.id as "fed"|"bonds"|"ai"|"breadth"} now={now}/>:null}
+     <RegimeNov23PceChallenge scope={lens.id as "fed"|"bonds"|"ai"|"breadth"} now={now} event={pceEvent??undefined}/>:null}
    {bondPressure?<BondPressureMonitor reading={bondPressure}
      marketsHref={blueDeskPublicHref("/blue-desk/markets",host)+"?group=rates"}/>:null}
    {lens.id!=="bonds"&&direction?<DirectionQuickRead question={direction.question} summary={direction.summary}
