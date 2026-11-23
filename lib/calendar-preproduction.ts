@@ -38,6 +38,7 @@ type Metric = {
 };
 
 function family(name: string) {
+  if (/personal income and outlays|personal consumption expenditure|\bpce\b/i.test(name)) return "PCE";
   if (/consumer price index|\bcpi\b/i.test(name)) return "CPI";
   if (/producer price index|\bppi\b/i.test(name)) return "PPI";
   if (/employment situation|nonfarm payroll/i.test(name)) return "NFP";
@@ -54,6 +55,14 @@ function metricForProvider(fam: string, event: string): string | null {
     const yoy = /\b(?:yoy|year.over.year|annual)\b/i.test(event);
     if (mom === yoy) return null;
     return "cpi_" + (core ? "core" : "headline") + "_" + (mom ? "mom" : "yoy");
+  }
+  if (fam === "PCE") {
+    // Exact price-index metric identity only. Personal income, quarterly rates,
+    // index levels and spending are different economic variables.
+    const name = event.trim().toLowerCase().replace(/\s+/g, " ");
+    const match = /^(core )?(?:pce price index|personal consumption expenditures? price index) (mom|yoy)$/.exec(name);
+    if (!match) return null;
+    return "pce_" + (match[1] ? "core" : "headline") + "_" + match[2];
   }
   // More metric families can be enabled only after official unit/reference
   // identity fixtures. Do not treat NFP change as total payroll levels.
@@ -87,10 +96,10 @@ export function preReleaseConsensusCandidates(input: {
 }) {
   const at = Date.parse(input.capturedAt);
   if (!Number.isFinite(at)) return [];
-  const results: Array<{ releaseId: string; metricKey: string; value: number; source: string; capturedAt: string }> = [];
+  const results: Array<{ releaseId: string; metricKey: string; value: number; source: string; capturedAt: string; forecastUrl: string; calendarId: string }> = [];
   for (const release of input.releases) {
     const due = Date.parse(release.release_date);
-    if (!Number.isFinite(due) || due <= at || release.actual || release.status === "completed") continue;
+    if (!Number.isFinite(due) || due - at < 5 * 60_000 || release.actual || release.status === "completed") continue;
     const fam = family(release.release_name);
     if (!fam) continue;
     for (const metric of input.metrics.filter(x => x.release_id === release.id && x.consensus === null && !x.consensus_captured_at)) {
@@ -110,7 +119,7 @@ export function preReleaseConsensusCandidates(input: {
       const item = matches[0];
       // Require an exact percentage metric and a plausible rate, not 1.2K,
       // index level, raw CPI value, or another transformation.
-      if (!/^cpi_(?:headline|core)_(?:mom|yoy)$/.test(metric.metric_key)
+      if (!/^(?:cpi|pce)_(?:headline|core)_(?:mom|yoy)$/.test(metric.metric_key)
         || !Number.isFinite(item.parsedConsensus)
         || Math.abs(item.parsedConsensus!) > 50
         || !/%/.test(item.consensus ?? "")) continue;
@@ -118,7 +127,9 @@ export function preReleaseConsensusCandidates(input: {
         releaseId: release.id,
         metricKey: metric.metric_key,
         value: item.parsedConsensus!,
-        source: "https://tradingeconomics.com/calendar/api",
+        source: "https://tradingeconomics.com/calendar",
+        forecastUrl: "https://tradingeconomics.com/calendar",
+        calendarId: item.calendarId,
         capturedAt: input.capturedAt,
       });
     }
@@ -132,6 +143,30 @@ const CPI_KEYS = [
   { key:"cpi_core_mom",label:"Core CPI m/m",transformation:"mom" },
   { key:"cpi_core_yoy",label:"Core CPI y/y",transformation:"yoy" },
 ] as const;
+
+const PCE_KEYS = [
+  {key:"pce_headline_mom",label:"Headline PCE m/m",transformation:"mom"},
+  {key:"pce_headline_yoy",label:"Headline PCE y/y",transformation:"yoy"},
+  {key:"pce_core_mom",label:"Core PCE m/m",transformation:"mom"},
+  {key:"pce_core_yoy",label:"Core PCE y/y",transformation:"yoy"},
+] as const;
+
+/** Preseed BEA metric identities ahead of publication, never actuals or forecasts. */
+export function futurePceMetricSeedRows(
+  releases: readonly Release[], metrics: readonly Metric[], at: string,
+) {
+  const already = new Set(metrics.map(x=>x.release_id+":"+x.metric_key));
+  return releases.filter(release =>
+    family(release.release_name)==="PCE" &&
+    Date.parse(release.release_date)>Date.parse(at) &&
+    !release.actual && Boolean(monthKey(release.reference_period))
+  ).flatMap(release=>PCE_KEYS.filter(item=>!already.has(release.id+":"+item.key)).map(item=>({
+    release_id:release.id,metric_key:item.key,label:item.label,
+    transformation:item.transformation,unit:"%",
+    source_url:"https://www.bea.gov/news/schedule",
+    metadata:{sourceRole:"future_measurement_schema_only",forecastStatus:"NOT_CAPTURED"},
+  })));
+}
 
 /** Insert only empty observation schemas, never forecast values or rewritten
  * actuals. Existing CPI post-release ingestion fills these same stable keys. */
@@ -205,7 +240,8 @@ export async function runCalendarPreproductionCheck({
     ? await client.from("macro_release_metrics").select("release_id,metric_key,consensus,consensus_captured_at").in("release_id",ids).limit(250)
     : {data:[],error:null};
   if(existingMetricError) throw new Error("Calendar pre-production metric preflight failed: "+existingMetricError.message);
-  const seed = futureCpiMetricSeedRows(listed, existingMetrics ?? [], checkedAt);
+  const seed = [...futureCpiMetricSeedRows(listed, existingMetrics ?? [], checkedAt),
+    ...futurePceMetricSeedRows(listed, existingMetrics ?? [], checkedAt)];
   if(seed.length) {
     const {error:seedError}=await client.from("macro_release_metrics").upsert(seed,{
       onConflict:"release_id,metric_key",ignoreDuplicates:true,
@@ -236,6 +272,13 @@ export async function runCalendarPreproductionCheck({
           .update({
             consensus: candidate.value, consensus_source:candidate.source,
             consensus_captured_at:candidate.capturedAt,
+            metadata:{
+              sourceRole:"future_measurement_schema_only",
+              forecastStatus:"CAPTURED_PRE_RELEASE",
+              consensus_source_url:candidate.forecastUrl,
+              consensus_vendor_event_id:candidate.calendarId,
+              consensus_capture_method:"first_observed_live_provider_snapshot",
+            },
           })
           .eq("release_id",candidate.releaseId).eq("metric_key",candidate.metricKey)
           .is("consensus",null).is("consensus_captured_at",null)
