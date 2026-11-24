@@ -3,14 +3,17 @@ import {
   isChromeTranscriptOperatorConfigured,
 } from "./chrome-transcript-operator.ts";
 
+// Active FX Evolution handle verified; historical source rows remain intact.
 export const XWADA_VIDEO_CHANNELS = [
-  { key: "stockedup", name: "StockedUp", handle: "@StockedUp", env: "YOUTUBE_CHANNEL_ID_STOCKEDUP" },
-  { key: "wall-street-truth-bombs", name: "Wall Street Truthbombs", handle: "@wstruthbombs", env: "YOUTUBE_CHANNEL_ID_WALL_STREET_TRUTH_BOMBS" },
-  // @FXEvolution resolved to a stale/wrong identity in production. The creator
-  // workflow and source registry use the active @fxevolutionvideo channel.
-  { key: "fx-evolution", name: "FX Evolution", handle: "@fxevolutionvideo", env: "YOUTUBE_CHANNEL_ID_FX_EVOLUTION" },
-  { key: "tradernick", name: "TraderNick", handle: "@TraderNick", env: "YOUTUBE_CHANNEL_ID_TRADERNICK" },
-  { key: "casual-finance", name: "Casual Finance", handle: "@casuallyfinance", env: "YOUTUBE_CHANNEL_ID_CASUAL_FINANCE" },
+  {"key":"meetkevin","name":"MeetKevin","handle":"@MeetKevin","env":"YOUTUBE_CHANNEL_ID_MEETKEVIN"},
+  {"key":"stockedup","name":"StockedUp","handle":"@StockedUp","env":"YOUTUBE_CHANNEL_ID_STOCKEDUP"},
+  {"key":"fx-evolution","name":"FX Evolution","handle":"@fxevolutionvideo","env":"YOUTUBE_CHANNEL_ID_FX_EVOLUTION"},
+  {"key":"traders-reality","name":"Traders Reality","handle":"@TradersReality","env":"YOUTUBE_CHANNEL_ID_TRADERS_REALITY","officialChannelId":"UCbvtzZkMmTeM4oWvH3ziGTg"},
+  {"key":"wall-street-truth-bombs","name":"Wall Street Truthbombs","handle":"@wstruthbombs","env":"YOUTUBE_CHANNEL_ID_WALL_STREET_TRUTH_BOMBS"},
+  {"key":"trade-brigade","name":"Trade Brigade","handle":"@TradeBrigade","env":"YOUTUBE_CHANNEL_ID_TRADE_BRIGADE","officialChannelId":"UCYKtr6GfycBqQJf32tbQSbQ"},
+  {"key":"real-eisman-playbook","name":"Real Eisman Playbook","handle":"@RealEismanPlaybook","env":"YOUTUBE_CHANNEL_ID_REAL_EISMAN_PLAYBOOK","officialChannelId":"UCzQ2FFVe7m8yIgzXMZtlSjg"},
+  {"key":"tradernick","name":"TraderNick","handle":"@TraderNick","env":"YOUTUBE_CHANNEL_ID_TRADERNICK"},
+  {"key":"clearvalue-tax","name":"ClearValueTax","handle":"@clearvaluetax9382","env":"YOUTUBE_CHANNEL_ID_CLEARVALUE_TAX","officialChannelId":"UCigUBIf-zt_DA6xyOQtq2WA"},
 ] as const;
 
 export type XwadaChannelKey = typeof XWADA_VIDEO_CHANNELS[number]["key"];

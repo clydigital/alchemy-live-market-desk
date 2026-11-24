@@ -212,46 +212,26 @@ function scheduledHarness(options: {
   };
 }
 
-test("only the fixed creator universe enters the browser/manual work list", () => {
+test("only the nine approved creators enter the prioritised work list", () => {
   const channels = [
-    channel("fx-evolution", [
-      video("fx-evolution", "fx-upload"),
-      video("fx-evolution", "fx-live", { isLive: true }),
-      video("fx-evolution", "fx-short", { isShort: true }),
-    ]),
-    channel("stockedup", [
-      video("stockedup", "stock-upload"),
-      video("stockedup", "stock-live", { isLive: true }),
-      video("stockedup", "stock-short", { isShort: true }),
-    ]),
+    channel("fx-evolution", [video("fx-evolution", "fx-upload"), video("fx-evolution", "fx-live", { isLive: true })]),
+    channel("stockedup", [video("stockedup", "stock-upload"), video("stockedup", "stock-short", { isShort: true })]),
+    channel("meetkevin", [video("meetkevin", "kevin-upload")]),
     channel("wall-street-truth-bombs", [video("wall-street-truth-bombs", "truth-upload")]),
+    channel("traders-reality", [video("traders-reality", "tr-upload")]),
+    channel("trade-brigade", [video("trade-brigade", "trade-upload")]),
+    channel("real-eisman-playbook", [video("real-eisman-playbook", "eisman-upload")]),
     channel("tradernick", [video("tradernick", "nick-upload")]),
-    channel("casual-finance", [video("casual-finance", "casual-upload")]),
+    channel("clearvalue-tax", [
+      {...video("clearvalue-tax", "rates-upload"), title: "Fed interest rate outlook"},
+      {...video("clearvalue-tax", "tax-upload"), title: "Tax filing tips"},
+    ]),
   ];
-
   const workList = selectedTranscriptChannels(channels);
-  assert.deepEqual(workList.map((entry) => entry.channelKey), [
-    "stockedup",
-    "wall-street-truth-bombs",
-    "fx-evolution",
-    "tradernick",
-    "casual-finance",
-  ]);
-  assert.deepEqual(workList.flatMap((entry) => entry.videos.map((entryVideo) => entryVideo.videoId)), [
-    "stock-upload",
-    "truth-upload",
-    "fx-upload",
-    "nick-upload",
-    "casual-upload",
-  ]);
-  assert.equal(isTranscriptChannel("stockedup"), true);
-  assert.equal(isTranscriptChannel("wall-street-truth-bombs"), true);
-  assert.equal(isTranscriptChannel("fx-evolution"), true);
-  assert.equal(isTranscriptChannel("tradernick"), true);
-  assert.equal(isTranscriptChannel("casual-finance"), true);
-  assert.equal(isTranscriptChannel("traders-reality"), false);
-  assert.equal(isTranscriptChannel("kevin-gerrity"), false);
-  assert.equal(isTranscriptChannel("clearvalue-tax"), false);
+  assert.deepEqual(workList.map(entry => entry.channelKey), ["meetkevin","stockedup","fx-evolution","traders-reality","wall-street-truth-bombs","trade-brigade","real-eisman-playbook","tradernick","clearvalue-tax"]);
+  assert.deepEqual(workList.flatMap(entry => entry.videos.map(v => v.videoId)), ["kevin-upload","stock-upload","fx-upload","tr-upload","truth-upload","trade-upload","eisman-upload","nick-upload","rates-upload"]);
+  for (const key of ["meetkevin","stockedup","fx-evolution","traders-reality","wall-street-truth-bombs","trade-brigade","real-eisman-playbook","tradernick","clearvalue-tax"]) assert.equal(isTranscriptChannel(key), true);
+  for (const key of ["casual-finance","fireship","thewhyx","kevin-gerrity","lucid-trading"]) assert.equal(isTranscriptChannel(key), false);
 });
 
 test("YouTube ISO durations support the conservative three-minute Shorts guard", () => {

@@ -6,17 +6,22 @@ import { discoverXwadaVideoChannels, XWADA_VIDEO_CHANNELS } from "../lib/youtube
 
 test("production discovery uses only the fixed creator universe and active FX Evolution handle", () => {
   assert.deepEqual(XWADA_VIDEO_CHANNELS.map((channel) => channel.key), [
+    "meetkevin",
     "stockedup",
-    "wall-street-truth-bombs",
     "fx-evolution",
+    "traders-reality",
+    "wall-street-truth-bombs",
+    "trade-brigade",
+    "real-eisman-playbook",
     "tradernick",
-    "casual-finance",
+    "clearvalue-tax",
   ]);
   assert.equal(
     XWADA_VIDEO_CHANNELS.find((channel) => channel.key === "fx-evolution")?.handle,
     "@fxevolutionvideo",
   );
-  assert.equal(XWADA_VIDEO_CHANNELS.find((ch) => ch.key === "casual-finance")?.handle, "@casuallyfinance");
+  assert.equal(XWADA_VIDEO_CHANNELS.find((ch) => ch.key === "meetkevin")?.handle, "@MeetKevin");
+  assert.equal(XWADA_VIDEO_CHANNELS.some((ch) => String(ch.key) === "casual-finance"), false);
 });
 
 test("a latest YouTube discovery failure cannot be hidden by other successful channels", () => {
