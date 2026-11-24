@@ -256,7 +256,7 @@ try{
       'data-market-change-screener="read-only"');
    // All Assets is now the first screen. Its open, searchable instrument table
    // is present without forcing the comparison into the same long page.
-   if(view.html.includes('data-v7-etf-rotation="source-matched"'))
+   if(view.html.includes('data-xl-sector-diverging-bars="same-session"'))
     throw Error("All Assets unexpectedly rendered the Compare-only ETF graphic");
    const first=await waitResponse("/markets",code=>code===307);
    if(first.status!==307)throw Error("Default Markets must lead to Screener");
@@ -265,10 +265,8 @@ try{
    const compare=await waitResponse("/markets?mode=compare");
    assertHtml(compare.html,'data-market-breadth-watch="research-first"',
       'data-market-change-screener="read-only"');
-   // Source-matched rotation is optional when prices are unavailable.
-   if(compare.html.includes('data-v7-etf-rotation="source-matched"'))
-    console.log("Compare 200 · matching ETF rotation reader present");
-   else console.log("Compare 200 · source-limited ETF comparison correctly omitted");
+   assertHtml(compare.html,'data-xl-sector-diverging-bars="same-session"','data-xl-benchmark-synergy="source-matched"');
+   if(compare.html.includes('data-v7-etf-rotation="source-matched"')||compare.html.includes("Rotation map"))throw Error("Redundant Compare graph remains");
    const watch=await waitResponse("/markets?mode=watch");
    assertHtml(watch.html,'data-market-divergence-watch="read-only"',
       'data-markets-working-modes="four"',"Same-session ETF price returns");
