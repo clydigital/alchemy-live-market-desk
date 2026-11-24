@@ -193,8 +193,6 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
               <nav className={marketHome.actions} aria-label="Market terminal shortcuts">
                 <Link href="/markets">Explore markets</Link>
                 <Link href="/calendar">Economic &amp; earnings calendar</Link>
-                <Link href="/newsroom">Newsroom</Link>
-                <Link href="/my-reports">My Desk · private</Link>
                 <RadarIntelligenceTrigger className={marketHome.quickRadar}>RADAR · What matters now</RadarIntelligenceTrigger>
               </nav>
             </div>
