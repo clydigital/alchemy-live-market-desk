@@ -121,3 +121,16 @@ test("latest common close cannot conceal gaps or excessive reporting skew",()=>{
  const x=row("xlp",gap.map((_,i)=>100+i),gap);
  assert.equal(buildDivergenceRadar([x,b],[],now).checks.find(c=>c.id==="defensive")?.historyAvailable,false);
 });
+
+test("Treasury comparisons exclude verified bond-only holidays, without relaxing equity pairs",()=>{
+ const eqDays=sessions.slice(-13),rateDays=eqDays.filter(d=>d!=="2026-11-11");
+ assert.ok(eqDays.includes("2026-11-11"));
+ const rates=row("us2y",rateDays.map((_,i)=>4+i/100),rateDays);
+ const thirty=row("us30y-fred",rateDays.map(()=>5),rateDays);
+ const gold=row("gold-proxy",eqDays.map((_,i)=>100+i),eqDays);
+ const real=row("us10y-real",rateDays.map((_,i)=>2+i/100),rateDays);
+ const r=buildDivergenceRadar([rates,thirty,gold,real,row("xlp",eqDays.map((_,i)=>100+i),eqDays),row("xlk",rateDays.map(()=>100),rateDays)],[],now);
+ assert.ok(r.checks.find(c=>c.id==="yield-curve")?.historyAvailable);
+ assert.ok(r.checks.find(c=>c.id==="gold-real-yield")?.historyAvailable);
+ assert.equal(r.checks.find(c=>c.id==="defensive")?.historyAvailable,false);
+});
