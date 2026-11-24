@@ -92,7 +92,7 @@ export default async function ResearchLensPage({params}:Props){
  const newest=lens.stories.find(story=>workbook.leadHeadlinePattern.test(story.title))||null;
  const base=blueDeskPublicHref("/blue-desk/regime-watch",host);
  const rows=publicMarketObservations(marketMonitor?.rows??[],"all");
- const compare=buildCompareResearch(marketMonitor?.rows??[],[...rows,...compareBreadthObservations(breadthFeed.series,now)],now);
+ const compare=buildCompareResearch(marketMonitor?.rows??[],[...rows,...compareBreadthObservations(breadthFeed.series,now)],now,breadthFeed.series);
  const breadth=calculateBreadthRow("S5FI","S&P 500 above 50-day MA",breadthFeed.series.find(row=>row.symbol==="S5FI"),now);
  const readings=projectRegimeMeterReadings(rows,breadth,bondPressure??projectBondPressure(marketMonitor?.rows??null,now),now);
  const liveRead=projectLiveLensResearch(lens.id,qualified?.news??[],sourceObservations,briefs,influence,now,!qualified||Object.values(qualified.sourceReads).includes("UNAVAILABLE"));
