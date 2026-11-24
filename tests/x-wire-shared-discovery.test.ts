@@ -17,7 +17,7 @@ const source=(handle:string,id:number,text:string,time="2026-10-27T23:05:00Z",
 const run:ResearchRunInput={runKey:"xwire-market",scheduleSlot:"morning",
  scheduledFor:now.toISOString(),items:[],sourceChecks:[],summary:"other sources"};
 test("existing sources stay unique, new owners join and excluded handle stays blocked",()=>{
- assert.equal(X_CORE_ROSTER.length,15);
+ assert.equal(X_CORE_ROSTER.length,16);
  assert.equal(X_CORE_ROSTER.filter(x=>x.handle==="KobeissiLetter").length,1);
  assert.equal(X_CORE_ROSTER.filter(x=>x.handle==="HormuzReport").length,1);
  assert.ok(X_CORE_ROSTER.some(x=>x.handle.toLowerCase()==="zerohedge"));
@@ -26,6 +26,7 @@ test("existing sources stay unique, new owners join and excluded handle stays bl
  assert.ok(X_CORE_ROSTER.some(x=>x.handle==="BeginnerTrades"));
  assert.ok(X_CORE_ROSTER.some(x=>x.handle==="OddStats"));
  assert.equal(X_CORE_ROSTER.filter(x=>x.handle==="DrJStrategy").length,1);
+ assert.equal(X_CORE_ROSTER.filter(x=>x.handle==="SaraEisen").length,1);
  assert.ok(!X_CORE_ROSTER.some(x=>x.handle.toLowerCase()==="gordianknotdev"));
 });
 test("market-catalyst ranking covers Hormuz and yields, with social claims never promoted",()=>{
