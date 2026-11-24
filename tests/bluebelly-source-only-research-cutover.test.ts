@@ -97,7 +97,11 @@ test("source-only keeps legacy writers and PDFs off while existing Dossier cron 
     assert.match(code,/scheduledSourceOnlyEnabled\(process\.env\)/);
     assert.match(code,/if\(!authorised\)return Response\.json\(\{status:"unauthorized"\}/);
     assert.ok(code.indexOf("if(scheduledSourceOnlyEnabled")<code.indexOf("handleScheduledPostResearchDossier(request"));
-    assert.match(code,/return handleScheduledPostResearchDossier\(request, "(?:morning|evening)"\)/);
+    // The derived embedding cache refresh wraps, but never replaces, Dossier.
+    const auth=code.indexOf('if(!authorised)return Response.json({status:"unauthorized"}');
+    const refresh=code.indexOf("return withResearchEmbeddingRefresh(");
+    assert.ok(auth>0&&refresh>auth);
+    assert.match(code,/return withResearchEmbeddingRefresh\(handleScheduledPostResearchDossier\(request, "(?:morning|evening)"\),now\)/);
     assert.doesNotMatch(code,/return Response\.json\(\{status:"not_required",mode:"SOURCE_ONLY"/);
   }
   const handoff=read("app/api/cron/research-gap/handoff/route.ts");
