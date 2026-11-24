@@ -1,7 +1,7 @@
 import {isExcludedXWireHandle,normaliseXPostUrl} from "./x-sweep-core.ts";
 /** Only public-source locators, not downloaded bytes, interpretation or permission to republish.
  * Never fetch arbitrary URLs on the application server. Unrecognised links remain on the original post. */
-const LINK_HOSTS=["bluekurtic.com","oilprice.com","isw.pub","understandingwar.org","arena.ai","zerohedge.com","hfir.com","kobeissiletter.com","substack.com","fred.stlouisfed.org","federalreserve.gov","eia.gov","sec.gov","bls.gov","bea.gov"];
+const LINK_HOSTS=["bluekurtic.com","oilprice.com","isw.pub","understandingwar.org","arena.ai","zerohedge.com","hfir.com","cnbc.com","kobeissiletter.com","substack.com","fred.stlouisfed.org","federalreserve.gov","eia.gov","sec.gov","bls.gov","bea.gov"];
 export function xWireSourceMaterial(post:{text:string;images:string[];quoteUrl:string|null}){
  const valid=(raw:string,hosts:string[],image=false)=>{
   try{const url=new URL(raw);if(url.protocol!=="https:"||url.username||url.password||url.port||url.hash)return null;
