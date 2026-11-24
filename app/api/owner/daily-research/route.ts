@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { blueDeskHostAccess } from "@/lib/blue-desk-host";
 import { fetchTodayNotionResearch } from "@/lib/notion-market-research";
-import {buildCompareResearch} from "@/lib/bluebelly-compare-research";
+import {buildCompareResearch,compareBreadthObservations} from "@/lib/bluebelly-compare-research";
 import { buildDailyResearchPacket } from "@/lib/daily-report-research-packet";
 import { assessDailyResearchHealth } from "@/lib/daily-report-research-health";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
@@ -16,7 +16,7 @@ import { buildPresenterCalendar } from "@/lib/presenter-calendar";
 import { selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
-import {calculateBreadthRow,marketParticipationResearch} from "@/lib/bluebelly-breadth-dated";
+import {marketParticipationResearch} from "@/lib/bluebelly-breadth-dated";
 import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
 import {getOwnerDeliveredResearchBriefs} from "@/lib/blue-desk-delivered-research-server";
 import {getPrivateReviewedCreatorArguments} from "@/lib/bluebelly-private-creator-reviews";
@@ -56,18 +56,14 @@ export async function GET(req:NextRequest){
     getPrivateReviewedCreatorArguments(now)
       .then(reviews=>({status:"AVAILABLE" as const,reviews}))
       .catch(()=>({status:"UNAVAILABLE" as const,reviews:[]})),
-    getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
+    getSourceDatedBreadth(true).catch(()=>({series:[],retrievalStatus:"fallback" as const})),
     getOwnerCreatorSignalDigest(now),
   ]);
   const motionNews=selectVerifiedNewsBriefs(rawNews,now,12);
   const news=combineQualifiedNews(motionNews,originalPress,12);
   const calendar=buildPresenterCalendar(macro,earnings,now);
   const upcoming=selectBlueDeskUpcoming(calendar,now,30).slice(0,14);
-  const bfi=calculateBreadthRow("S5FI","S&P 500 above 50D",
-    breadthSource.series.find(item=>item.symbol==="S5FI"),now);
-  const bth=calculateBreadthRow("S5TH","S&P 500 above 200D",
-    breadthSource.series.find(item=>item.symbol==="S5TH"),now);
-  const marketObservations=[...publicMarketObservations(monitor?.rows||[],"all"),bfi,bth];
+  const marketObservations=[...publicMarketObservations(monitor?.rows||[],"all"),...compareBreadthObservations(breadthSource.series,now)];
   const breadthDiagnostic=marketParticipationResearch(marketObservations);
   const compare=buildCompareResearch(monitor?.rows||[],marketObservations,now);
   const packet=buildDailyResearchPacket({
