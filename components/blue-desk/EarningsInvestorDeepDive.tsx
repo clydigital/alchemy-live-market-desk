@@ -12,7 +12,7 @@ export default function EarningsInvestorDeepDive({ticker,backHref}:{ticker:strin
  const item=getEarningsCase(ticker);
  if(!item)return <section className={styles.unavailable}><h1>Financial investigation unavailable</h1>
    <p>Only the seven pre-reviewed public financial cases are available.</p>
-   <Link href={backHref}>Return to Markets</Link></section>;
+   <Link href={backHref}>Return to Earnings</Link></section>;
  const index=EARNINGS_CASES.findIndex(c=>c.ticker===item.ticker);
  const other=EARNINGS_CASES.filter(c=>c.ticker!==item.ticker);
  const to=(t:string)=>backHref+"?view=earnings&ticker="+encodeURIComponent(t);
