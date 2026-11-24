@@ -3,15 +3,9 @@ import {
   isChromeTranscriptOperatorConfigured,
 } from "./chrome-transcript-operator.ts";
 
-export const XWADA_VIDEO_CHANNELS = [
-  { key: "stockedup", name: "StockedUp", handle: "@StockedUp", env: "YOUTUBE_CHANNEL_ID_STOCKEDUP" },
-  { key: "wall-street-truth-bombs", name: "Wall Street Truthbombs", handle: "@wstruthbombs", env: "YOUTUBE_CHANNEL_ID_WALL_STREET_TRUTH_BOMBS" },
-  // @FXEvolution resolved to a stale/wrong identity in production. The creator
-  // workflow and source registry use the active @fxevolutionvideo channel.
-  { key: "fx-evolution", name: "FX Evolution", handle: "@fxevolutionvideo", env: "YOUTUBE_CHANNEL_ID_FX_EVOLUTION" },
-  { key: "tradernick", name: "TraderNick", handle: "@TraderNick", env: "YOUTUBE_CHANNEL_ID_TRADERNICK" },
-  { key: "casual-finance", name: "Casual Finance", handle: "@casuallyfinance", env: "YOUTUBE_CHANNEL_ID_CASUAL_FINANCE" },
-] as const;
+import { CREATOR_ROSTER } from "./video-intake-policy.ts";
+
+export const XWADA_VIDEO_CHANNELS = CREATOR_ROSTER;
 
 export type XwadaChannelKey = typeof XWADA_VIDEO_CHANNELS[number]["key"];
 export type XwadaCheckStatus =
