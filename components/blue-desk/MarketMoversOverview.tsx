@@ -20,10 +20,10 @@ export default function MarketMoversOverview({data:d,compareHref,watchHref,scann
    <Link href={scannerHref}>Intelligent screens →</Link></header>
   <div className={ui.grid}><Movers title="Top gainers" rows={d.gainers}/><Movers title="Top losers" rows={d.losers}/><Movers title="Smallest moves" rows={d.quiet}/></div>
   <div className={ui.sectors} id="xl-sector-pulse">
-   <header className={ui.head}><div><h3>XL sector performance</h3><p>{sectorCount}/11 same-session observations · 1D change</p></div><Link href={compareHref}>Full XL / RSP / SMH comparison →</Link></header>
-   <div className={ui.sectorGrid}>{d.sectors.map(r=><div key={r.symbol} className={ui.sector} data-direction={r.change===null?"unknown":r.change>0?"up":r.change<0?"down":"flat"}>
-    {r.sourceUrl?<a href={r.sourceUrl} target="_blank" rel="noopener noreferrer" title={r.label+" · original source"}>{r.symbol}</a>:<strong>{r.symbol}</strong>}<b>{r.change===null?"—":fmt(r.change)}</b>
-   </div>)}</div>
+   <header className={ui.head}><div><h3>XL sector performance</h3><p>{d.sectorSession?`Session ${d.sectorSession} · ${sectorCount}/11 same-session observations · 1D close-to-close${d.sectorDelayed?" · Delayed / last valid session":""}`:"No valid matched sector session"}{d.sectorProviderFailures?` · ${d.sectorProviderFailures} provider refresh failures`:""}</p></div><Link href={compareHref}>Full XL / RSP / SMH comparison →</Link></header>
+   {sectorCount>0?<div className={ui.sectorGrid}>{d.sectors.map(r=><div key={r.symbol} className={ui.sector} data-direction={r.change===null?"unknown":r.change>0?"up":r.change<0?"down":"flat"}>
+    {r.sourceUrl?<a href={r.sourceUrl} target="_blank" rel="noopener noreferrer" title={r.label+" · original source"}>{r.symbol}</a>:<strong>{r.symbol}</strong>}<b>{r.change===null?(r.status==="provider-failed"?"Feed failed":"Missing"):fmt(r.change)}</b>
+   </div>)}</div>:<p className={ui.empty}>{d.sectorProviderFailures?"Sector feed refresh failed; no valid sector session is available.":"Sector observations are missing; no verified session is available."}</p>}
   </div>
   <div className={ui.links}><Link href={compareHref}>Compare sectors &amp; breadth · 1D / 3D / 5D →</Link><Link href={watchHref}>Cross-asset divergence watch →</Link></div>
  </section>;

@@ -30,9 +30,10 @@ import JobsLabourFeature from "@/components/blue-desk/JobsLabourFeature";
 import { readPublicUsJobs } from "@/lib/bluebelly-us-jobs-reader";
 import { MarketIcon, type MarketIconName } from "@/components/blue-desk/MarketIcon";
 import {
-  PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations, publicGovernmentRateTrends,
+  PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations, publicGovernmentRateTrends, publicSectorSessionObservations,
 } from "@/lib/blue-desk-public-markets";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
+import {expectedHomeEtfSession} from "@/lib/bluebelly-home-etf-history";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
 import {currentReviewedPublicFocus} from "@/lib/bluebelly-reviewed-public-focus";
@@ -106,7 +107,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   const observations=[...monitoredRows,...breadthObservations];
   const xlSynergy=mode==="compare"?buildXlBenchmarkSynergy(monitor?.rows??[],now):null;
   const divergenceRadar=mode==="watch"?buildDivergenceRadar([...(monitor?.rows??[]),...(monitor?.divergenceRows??[])],breadthHistory.series,now):null;
-  const movers=mode==="assets"&&group==="all"?buildScannerDiscovery(monitoredRows,now):null;
+  const movers=mode==="assets"&&group==="all"?buildScannerDiscovery(monitoredRows,now,publicSectorSessionObservations(monitor?.rows??[],expectedHomeEtfSession(now)),expectedHomeEtfSession(now),monitor?.sectorProviderFailures??(monitor?[]:["XLB","XLC","XLE","XLF","XLI","XLK","XLP","XLRE","XLU","XLV","XLY"])):null;
   const catalogue=mode==="assets"&&group==="all"?
     searchPublicAssetCatalogue(publicMarketObservations(monitor?.rows||[],"all"),{
       query:query["catalogue-q"],scope:query["catalogue-scope"],page:query["catalogue-page"],

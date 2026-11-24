@@ -38,3 +38,14 @@ test("all eleven XL sectors remain represented and missing or mismatched dates a
  assert.equal(d.sectors.find(r=>r.symbol==="XLRE")?.change,null);
  assert.equal(d.gainers[0]?.symbol,"NVDA");assert.equal(d.losers[0]?.symbol,"AAPL");assert.equal(d.quiet[0]?.symbol,"MSFT");
 });
+
+test("sector fallback uses an independently dated complete session; no mixed-date returns",()=>{
+ const older="2026-11-20",symbols=["XLB","XLC","XLE","XLF","XLI","XLK","XLP","XLRE","XLU","XLV","XLY"];
+ const history=symbols.map(s=>row(s,"Sector",1,2,3,older));
+ const d=buildScannerDiscovery([row("NVDA","MAG7",2,3,4)],now,[...history,row("XLK","Sector",5,6,7)],"2026-11-23",["XLF"]);
+ assert.equal(d.sectorSession,older);assert.equal(d.sectorDelayed,true);
+ assert.equal(d.sectors.filter(s=>s.change===1).length,11);assert.equal(d.sectorProviderFailures,1);
+ const empty=buildScannerDiscovery([],now,[],"2026-11-23",["XLF"]);
+ assert.equal(empty.sectorSession,null);assert.equal(empty.sectors.find(s=>s.symbol==="XLF")?.status,"provider-failed");
+ assert.equal(empty.sectors.find(s=>s.symbol==="XLK")?.status,"missing");
+});
