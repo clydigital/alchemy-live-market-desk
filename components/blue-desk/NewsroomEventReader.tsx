@@ -1,3 +1,5 @@
+import {newsroomContext} from "@/lib/bluebelly-newsroom-context";
+import {EDITORIAL_REGIME_LENSES} from "@/lib/bluebelly-editorial-architecture";
 import StoryHeroAside from "./StoryHeroAside";
 import {ScopeStrip} from "./EntityIdentity";
 import BankCountryBall from "./BankCountryBall";
@@ -14,7 +16,10 @@ export default function NewsroomEventReader({event,backHref,socialPosts=[]}:{
 }){
  const bank=event.kind==="bank"?event.value:null;
  const story=event.kind==="reported"?event.value:null;
- const cryptoIncident=story?.kind==="VERIFIED_INCIDENT";
+ const cryptoIncident=story?.id==="binance-security-incident-2026-10-30";
+ const context=story?newsroomContext(story.id):null;
+ const research=bank?.countryCode==="US"?[{lens:"fed",question:"Is the Fed path changing because inflation or demand is changing?"}]:bank?[]:context?.research??[];
+ const regimeHref=backHref.replace(/\/newsroom\/?$/,"/regime-watch");
  const serviceIncident=story?.kind==="SERVICE_INCIDENT";
  const incident=cryptoIncident||serviceIncident;
  const title=bank?.headline||story?.headline||"Source-qualified market story";
@@ -30,19 +35,19 @@ export default function NewsroomEventReader({event,backHref,socialPosts=[]}:{
       <div><span>POLICY ACTION</span><strong>{bank.decision}</strong></div>
       <div><span>POLICY RATE</span><strong>{bank.rateLabel}</strong></div>
       <div><span>SOURCE STATUS</span><strong>Official statement</strong></div>
-     </div>:<div className={s.reportStrip}>{serviceIncident?"Microsoft 365 disruption confirmed · recovery being verified · root cause pending":incident?"Exchange incident confirmed · $6.3bn estimated impact · final net loss unresolved":"Talks reported · Agreement not confirmed · Valuation indicative"}</div>}
+     </div>:<div className={s.reportStrip}>{serviceIncident?"Microsoft 365 disruption confirmed · recovery being verified · root cause pending":incident?"Exchange incident confirmed · $6.3bn estimated impact · final net loss unresolved":story?.verificationLabel??"Talks reported · Agreement not confirmed · Valuation indicative"}</div>}
    </div>
    <StoryHeroAside
     headline={title} summary={bank?.observedStatement||story?.reporting||""}
-    category={bank?"ORIGINAL CENTRAL-BANK STATEMENT · OFFICIAL OUTCOME":serviceIncident?"MICROSOFT SERVICE ADVISORY · RECOVERY IN PROGRESS":incident?"BINANCE ORIGINAL STATEMENT · REUTERS PRICE REPORT":"SECONDARY REPORTING · NOT INDEPENDENTLY CONFIRMED"}
-    sourceName={bank?.bank||(serviceIncident?"Microsoft 365 / Exchange Online":incident?"Bitcoin / Binance security":"Reported transaction talks")}
+    category={bank?"ORIGINAL CENTRAL-BANK STATEMENT · OFFICIAL OUTCOME":serviceIncident?"MICROSOFT SERVICE ADVISORY · RECOVERY IN PROGRESS":incident?"BINANCE ORIGINAL STATEMENT · REUTERS PRICE REPORT":story?.verificationLabel??"SECONDARY REPORTING · NOT INDEPENDENTLY CONFIRMED"}
+    sourceName={bank?.bank||(serviceIncident?"Microsoft 365 / Exchange Online":incident?"Bitcoin / Binance security":story?.publisher??"Reported transaction talks")}
     icon={bank?<BankCountryBall code={bank.countryCode} size="lg" className={s.countryBall}/>:null}
     eventAt={date}
-    secondary={bank?"Official statement · price response requires separate evidence":serviceIncident?"Official incident updates; final root cause and full recovery require verification":incident?"Initial company statement; final net loss unresolved":"Reporting only; agreement not confirmed"}
+    secondary={bank?"Official statement · price response requires separate evidence":serviceIncident?"Official incident updates; final root cause and full recovery require verification":incident?"Initial company statement; final net loss unresolved":story?.verificationLabel?"Dated report · see source and outstanding checks":"Reporting only; agreement not confirmed"}
     backHref={backHref} backLabel="Newsroom"
    />
   </header>
-  {bank||incident?<div className={s.assetLine}><ScopeStrip assets={bank?bank.affectedAssets:story?.assetNames||[]} label="Markets to monitor"/></div>:null}
+  {bank||story?.assetNames.length?<div className={s.assetLine}><ScopeStrip assets={bank?bank.affectedAssets:story?.assetNames||[]} label="Markets to monitor"/></div>:null}
   <div className={s.pageSummary} aria-label="Short market explanation">
    <p className={s.readingHint}>THE SHORT VERSION</p>
    <div className={s.story}>
@@ -52,12 +57,15 @@ export default function NewsroomEventReader({event,backHref,socialPosts=[]}:{
     </section>
     <section>
      <h2>Why does it matter?</h2>
+     {context?<><p>{context.players}</p><p>{context.marketRelevance}</p></>:bank?<p>{bank.bank} sets the policy rate that anchors short-term borrowing costs in its economy. Borrowers, savers, lenders and currency investors are exposed in different ways.</p>:null}
      <p>{bank?.financialMechanism||story?.why}</p>
      <p className={s.boundary}>This is a possible market impact, not proof that prices moved because of this news.</p>
     </section>
     <section>
      <h2>What should I watch next?</h2>
      <p>{bank?.nextTest||story?.nextTest}</p>
+     {research.length?<div data-newsroom-research-connection="existing-lens"><h3>Related market research</h3>{research.map(r=>{const lens=EDITORIAL_REGIME_LENSES.find(l=>l.id===r.lens);return lens?<p key={r.lens}><a href={regimeHref+"/"+lens.id}>{lens.name} ↗</a> — {r.question}</p>:null})}</div>:null}
+     <p><a href={url} target="_blank" rel="noopener noreferrer">Original report · {source} ↗</a></p>
     </section>
    </div>
   </div>
@@ -71,13 +79,13 @@ export default function NewsroomEventReader({event,backHref,socialPosts=[]}:{
      "Microsoft confirms the service disruption and its mitigation updates, but the final root cause, full restoration and financial effects remain unverified.":
      incident?
      "Binance gives its initial estimate; Reuters supplies dated prices. The final net loss, recoveries and the reason for any market move are not established.":
-     "The acquisition discussions are reported, not a signed or completed agreement. The purchase price and outcome remain unconfirmed.")}</p>
+     story?.verificationLabel?"See the reported limitations and next checks above; a dated source does not independently establish a market-price cause.":"The acquisition discussions are reported, not a signed or completed agreement. The purchase price and outcome remain unconfirmed.")}</p>
     <aside className={s.sourceCard}>
-     <h3>{bank?"Official bank decision":serviceIncident?"Official service advisory":incident?"Official incident report":"Attributed transaction report"}</h3>
+     <h3>{bank?"Official bank decision":serviceIncident?"Official service advisory":incident?"Official incident report":story?.verificationLabel?"Original dated report":"Attributed transaction report"}</h3>
      <p>Use the dated original report below for the figures and wording. Any reaction in stocks, bonds or crypto requires separate price and timing checks.</p>
      <p className={s.source}>
       <a href={url} target="_blank" rel="noopener noreferrer">Original report · {source} ↗</a>
-      {incident&&story?.secondarySourceUrl?<a href={story.secondarySourceUrl} target="_blank" rel="noopener noreferrer"> · {story.secondarySourceName||"Independent reporting"} ↗</a>:null}
+      {story?.secondarySourceUrl?<a href={story.secondarySourceUrl} target="_blank" rel="noopener noreferrer"> · {story.secondarySourceName||"Independent reporting"} ↗</a>:null}
      </p>
     </aside>
     {bank?<SourceTweetEmbeds posts={socialPosts} sourceLink={bank.sourceUrl}/>:null}
