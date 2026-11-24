@@ -2,7 +2,7 @@ import type {ReactNode} from "react";
 import type {RadarRead} from "@/lib/bluebelly-divergence-radar";
 import css from "./MarketDivergenceWatch.module.css";
 const fmt=(v:number,unit:string)=>`${v>0&&unit!=="%"?"+":""}${v.toFixed(2)} ${unit}`;
-export default function DivergenceRadar({read,compact=false,href="/markets?mode=watch#divergence-radar",comparisons}:{read:RadarRead;compact?:boolean;href?:string;comparisons?:ReactNode}){
+export default function DivergenceRadar({read,compact=false,href="/markets?mode=watch#divergence-radar",comparisons,comparisonsOpen=false}:{read:RadarRead;compact?:boolean;href?:string;comparisons?:ReactNode;comparisonsOpen?:boolean}){
  const leads=read.leads.slice(0,compact?3:6),remaining=read.leads.slice(6);
  const card=(r:RadarRead["leads"][number])=><article key={r.id} className={css.card} data-divergence-lead={r.id}>
   <span className={css.tag}>{r.family} · {r.kind==="BREADTH"?"Breadth":r.kind==="CORRELATION"?"Correlation":r.kind==="CREDIT"?"Credit spreads":r.kind==="RATES"?"Yield curve":"Relative return"}</span>
@@ -22,7 +22,7 @@ export default function DivergenceRadar({read,compact=false,href="/markets?mode=
   {compact?<p><a href={href}>Open full divergence radar &amp; chart queue →</a></p>:<>
     {remaining.length?<details><summary>Other qualified leads ({remaining.length})</summary><div className={css.grid}>{remaining.map(card)}</div></details>:null}
     {read.leads.length?<details><summary>Prioritised chart queue</summary><ol>{[...new Map(read.leads.map(r=>[r.chart,r])).values()].slice(0,6).map(r=><li key={r.id}><b>{r.chart}</b> — {r.nextTest}</li>)}</ol></details>:null}
-    {comparisons?<details className={css.missingDisclosure}><summary>Inspect matched 1D / 3D / 5D comparisons</summary>{comparisons}</details>:null}
+    {comparisons?<details open={comparisonsOpen} className={css.missingDisclosure}><summary>Inspect matched 1D / 3D / 5D comparisons</summary>{comparisons}</details>:null}
     {read.coverage.missing.length?<details><summary>Data and history gaps ({read.coverage.missing.length})</summary><ul>{read.coverage.missing.map(s=><li key={s}>{s}</li>)}</ul></details>:null}
     <details><summary>Method and limitations</summary><ul>{read.limitations.map(s=><li key={s}>{s}</li>)}</ul></details>
   </>}
