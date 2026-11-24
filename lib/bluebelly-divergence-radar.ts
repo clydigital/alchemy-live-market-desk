@@ -72,10 +72,12 @@ function corr(a:Point[],b:Point[]){
  return xx>0&&yy>0?Math.max(-1,Math.min(1,xy/Math.sqrt(xx*yy))):null;
 }
 export type RadarLead = {id:string;family:string;title:string;asOf:string;kind:"RELATIVE"|"BREADTH"|"CORRELATION"|"CREDIT"|"RATES";summary:string;chart:string;nextTest:string;score:number;sources:Source[];metrics:{label:string;value:number;unit:string}[]};
-export type RadarRead={generatedAt:string;leads:RadarLead[];coverage:{checked:number;eligible:number;missing:string[]};limitations:string[]};
+export type RadarWindow={window:"1D"|"3D"|"5D";left:number;right:number;gap:number;asOf:string};
+export type RadarCheck={id:string;title:string;family:string;chart:string;nextTest:string;leftLabel?:string;rightLabel?:string;windows:RadarWindow[];asOf:string|null;metrics:RadarLead["metrics"];sources:Source[];historyAvailable:boolean};
+export type RadarRead={generatedAt:string;leads:RadarLead[];checks:RadarCheck[];coverage:{checked:number;eligible:number;missing:string[]};limitations:string[]};
 const signed=(n:number)=> (n>0?"+":"")+round(n).toFixed(2);
 export function buildDivergenceRadar(rows:readonly MarketMonitorRow[],breadth:readonly BreadthSeries[],now=new Date()):RadarRead{
- const leads:RadarLead[]=[],missing:string[]=[];let eligible=0;
+ const leads:RadarLead[]=[],checks:RadarCheck[]=[],missing:string[]=[];let eligible=0;
  const by=new Map(rows.map(r=>[r.id,r]));
  const hs=new Map<string,Point[]>();
  const get=(id:string)=>{if(!hs.has(id))hs.set(id,history(by.get(id),now));return hs.get(id)!;};
@@ -83,17 +85,24 @@ export function buildDivergenceRadar(rows:readonly MarketMonitorRow[],breadth:re
  const rules:Rule[]=[...RADAR_PAIRS,...["xlb","xlc","xle","xlf","xli","xlk","xlp","xlre","xlu","xlv","xly"].filter(a=>a!=="xle"&&a!=="xlre").map(a=>({id:a+"-broad",a,b:"spx-proxy",title:a.toUpperCase()+" vs broad equities",family:"Rotation",chart:a.toUpperCase()+"/SPY · daily",test:"Check constituent participation, earnings revisions and the next matched close.",threshold:3}))];
  for(const r of rules){
   const a=get(r.a),b=get(r.b),m=aligned(a,b,11);
+  const sourceA=by.get(r.a),sourceB=by.get(r.b);
+  const sources=[sourceA,sourceB].flatMap(source=>source&&validUrl(source.sourceUrl)?[{label:source.label,url:source.sourceUrl}]:[]);
+  const windows:RadarWindow[]=([1,3,5] as const).flatMap(n=>{const v=aligned(a,b,n+1);if(!v)return [];
+   const left=ret(v[0],0,n),right=ret(v[1],0,n);
+   return [{window:(n+"D") as RadarWindow["window"],left:round(left),right:round(right),gap:round(left-right),asOf:v[0][n].date}];
+  });
+  const check:RadarCheck={id:r.id,title:r.title,family:r.family,chart:r.chart,nextTest:r.test,leftLabel:sourceA?.label??r.a.toUpperCase(),rightLabel:sourceB?.label??r.b.toUpperCase(),windows,asOf:windows[0]?.asOf??null,metrics:[],sources,historyAvailable:!!m};
+  checks.push(check);
   if(!m){missing.push(r.title+" — 11 matching daily observations unavailable");continue;}
   eligible++;
-  const [x,y]=m,asOf=x[10].date,sourceA=by.get(r.a)!,sourceB=by.get(r.b)!;
-  const sources=[{label:sourceA.label,url:sourceA.sourceUrl},{label:sourceB.label,url:sourceB.sourceUrl}];
+  const [x,y]=m,asOf=x[10].date;
   const one=ret(x,9,10)-ret(y,9,10),three=ret(x,7,10)-ret(y,7,10),ten=ret(x,0,10)-ret(y,0,10),latest=ret(x,5,10)-ret(y,5,10),prior=ret(x,0,5)-ret(y,0,5),delta=latest-prior;
   const m20=aligned(a,b,21),long=m20?ret(m20[0],0,20)-ret(m20[1],0,20):null;
   const reversal=latest*prior<0&&Math.abs(delta)>=r.threshold;
   const dayFlip=one*latest<0&&Math.abs(one)>=r.threshold/2;
   const longFlip=long!==null&&long*latest<0&&Math.abs(latest)>=r.threshold;
   const strength=Math.max(Math.abs(latest)/r.threshold,Math.abs(delta)/(r.threshold*1.5),Math.abs(one)/(r.threshold/2));
-  if(strength>=1||reversal||dayFlip||longFlip){
+  {
    const metrics=[{label:"1 session",value:round(one),unit:"pp"},{label:"3 sessions",value:round(three),unit:"pp"},{label:"Latest 5",value:round(latest),unit:"pp"},{label:"Prior 5",value:round(prior),unit:"pp"},{label:"5-session acceleration",value:round(delta),unit:"pp"},{label:"10 sessions",value:round(ten),unit:"pp"}];
    if(long!==null)metrics.push({label:"20 sessions",value:round(long),unit:"pp"});
    const m60=aligned(a,b,61);
@@ -101,11 +110,13 @@ export function buildDivergenceRadar(rows:readonly MarketMonitorRow[],breadth:re
     const gaps=Array.from({length:55},(_,i)=>Math.abs(ret(m60[0],i,i+5)-ret(m60[1],i,i+5)));
     metrics.push({label:"60 sessions",value:round(ret(m60[0],0,60)-ret(m60[1],0,60)),unit:"pp"},{label:"5-session gap percentile (55 prior overlapping samples)",value:round(100*gaps.filter(v=>v<=Math.abs(latest)).length/gaps.length),unit:"%"});
    }
-   leads.push({id:r.id,family:r.family,title:r.title,asOf,kind:"RELATIVE",summary:(reversal?"Five-session relative leadership reversed. ":dayFlip?"Latest session opposes the five-session trend. ":longFlip?"Short- and medium-window leadership disagree. ":"Material relative move. ")+ "Latest 5 sessions "+signed(latest)+" pp vs prior 5 "+signed(prior)+" pp.",chart:r.chart,nextTest:r.test,score:Math.min(strength,5)+(reversal?1:0)+(dayFlip?0.5:0),sources,metrics});
+   check.metrics.push(...metrics);
+   if(strength>=1||reversal||dayFlip||longFlip)leads.push({id:r.id,family:r.family,title:r.title,asOf,kind:"RELATIVE",summary:(reversal?"Five-session relative leadership reversed. ":dayFlip?"Latest session opposes the five-session trend. ":longFlip?"Short- and medium-window leadership disagree. ":"Material relative move. ")+ "Latest 5 sessions "+signed(latest)+" pp vs prior 5 "+signed(prior)+" pp.",chart:r.chart,nextTest:r.test,score:Math.min(strength,5)+(reversal?1:0)+(dayFlip?0.5:0),sources,metrics});
   }
   const c=aligned(a,b,41);
   if(c){
    const prev=corr(c[0].slice(0,21),c[1].slice(0,21)),curr=corr(c[0].slice(20),c[1].slice(20));
+   if(prev!==null&&curr!==null)check.metrics.push({label:"Prior 20D correlation",value:round(prev),unit:"r"},{label:"Latest 20D correlation",value:round(curr),unit:"r"},{label:"Correlation change",value:round(curr-prev),unit:"r"});
    if(prev!==null&&curr!==null&&Math.abs(curr-prev)>=0.35){
     leads.push({id:r.id+"-corr",family:r.family,title:r.title+" · correlation shift",asOf,kind:"CORRELATION",summary:"Daily-return correlation changed from "+prev.toFixed(2)+" to "+curr.toFixed(2)+" across adjacent non-overlapping 20-return samples.",chart:r.chart,nextTest:"Investigate possible changing drivers and repeat the next sample; no statistical significance or causal break is implied.",score:Math.min(Math.abs(curr-prev)/0.35,5),sources,metrics:[{label:"Prior 20",value:round(prev),unit:"r"},{label:"Latest 20",value:round(curr),unit:"r"},{label:"Change",value:round(curr-prev),unit:"r"}]});
    }
@@ -118,12 +129,14 @@ export function buildDivergenceRadar(rows:readonly MarketMonitorRow[],breadth:re
   eligible++;
   const one=(p[10].value-p[9].value)*100,latest=(p[10].value-p[5].value)*100,prior=(p[5].value-p[0].value)*100,delta=latest-prior;
   const strength=Math.max(Math.abs(one)/(r.threshold/2),Math.abs(latest)/r.threshold,Math.abs(delta)/r.threshold);
-  if(strength>=1){
+  {
    const equity=aligned(p,get("spx-proxy"),6);const eq=equity?ret(equity[1],0,5):null;
    const opposite=eq!==null&&eq>0&&latest>0;
    const metrics=[{label:"Spread level",value:round(p[10].value),unit:"%"},{label:"1 session",value:round(one),unit:"bp"},{label:"Latest 5",value:round(latest),unit:"bp"},{label:"Prior 5",value:round(prior),unit:"bp"}];
    if(eq!==null)metrics.push({label:"SPY latest 5",value:round(eq),unit:"%"});
-   leads.push({id:r.id,family:r.family,title:r.title,asOf:p[10].date,kind:"CREDIT",summary:(opposite?"Equities rose while credit spreads widened. ":"Credit spread change. ")+ "Latest 5 "+signed(latest)+" bp vs prior 5 "+signed(prior)+" bp."+(eq===null?" Equity session unmatched.":""),chart:r.chart,nextTest:r.test,score:Math.min(strength,5)+(opposite?1:0),sources:[{label:source.label,url:source.sourceUrl},...(eq!==null?[{label:by.get("spx-proxy")!.label,url:by.get("spx-proxy")!.sourceUrl}]:[])],metrics});
+   metrics.push({label:"3 sessions",value:round((p[10].value-p[7].value)*100),unit:"bp"},{label:"Acceleration",value:round(delta),unit:"bp"});
+   checks.push({id:r.id,title:r.title,family:r.family,chart:r.chart,nextTest:r.test,windows:[],asOf:p[10].date,metrics,sources:[{label:source.label,url:source.sourceUrl}],historyAvailable:true});
+   if(strength>=1)leads.push({id:r.id,family:r.family,title:r.title,asOf:p[10].date,kind:"CREDIT",summary:(opposite?"Equities rose while credit spreads widened. ":"Credit spread change. ")+ "Latest 5 "+signed(latest)+" bp vs prior 5 "+signed(prior)+" bp."+(eq===null?" Equity session unmatched.":""),chart:r.chart,nextTest:r.test,score:Math.min(strength,5)+(opposite?1:0),sources:[{label:source.label,url:source.sourceUrl},...(eq!==null?[{label:by.get("spx-proxy")!.label,url:by.get("spx-proxy")!.sourceUrl}]:[])],metrics});
   }
  }
  const two=by.get("us2y"),thirty=by.get("us30y");
@@ -133,6 +146,8 @@ export function buildDivergenceRadar(rows:readonly MarketMonitorRow[],breadth:re
   const spread=curve[0].map((p,i)=>(p.value-curve[1][i].value)*100);
   const latest=spread[10]-spread[5],prior=spread[5]-spread[0],one=spread[10]-spread[9],delta=latest-prior;
   const strength=Math.max(Math.abs(one)/8,Math.abs(latest)/15,Math.abs(delta)/15);
+  const curveMetrics=[{label:"Spread",value:round(spread[10]),unit:"bp"},{label:"1 session",value:round(one),unit:"bp"},{label:"3 sessions",value:round(spread[10]-spread[7]),unit:"bp"},{label:"Latest 5",value:round(latest),unit:"bp"},{label:"Prior 5",value:round(prior),unit:"bp"},{label:"Acceleration",value:round(delta),unit:"bp"},{label:"2Y latest 5",value:round((curve[0][10].value-curve[0][5].value)*100),unit:"bp"},{label:"30Y latest 5",value:round((curve[1][10].value-curve[1][5].value)*100),unit:"bp"}];
+  checks.push({id:"yield-curve",title:"US 2Y minus 30Y yield spread",family:"Rates",chart:"US02Y − US30Y · daily",nextTest:"Check individual yields, real yields, Fed repricing and the matched gold reaction.",windows:[],asOf:curve[0][10].date,metrics:curveMetrics,sources:[{label:two.label,url:two.sourceUrl},{label:thirty.label,url:thirty.sourceUrl}],historyAvailable:true});
   if(strength>=1)leads.push({id:"yield-curve",family:"Rates",title:"US 2Y minus 30Y yield spread",asOf:curve[0][10].date,kind:"RATES",summary:"Front-end minus long-end spread changed "+signed(latest)+" bp in the latest five sessions vs "+signed(prior)+" bp previously. Distinguish front-end repricing from long-end moves.",chart:"US02Y − US30Y · daily; gold and DXY",nextTest:"Check which yield moved, real yields, Fed repricing and the matched gold reaction; no fixed inverse relationship is assumed.",score:Math.min(strength,5),sources:[{label:two.label,url:two.sourceUrl},{label:thirty.label,url:thirty.sourceUrl}],metrics:[{label:"Spread",value:round(spread[10]),unit:"bp"},{label:"Latest 5",value:round(latest),unit:"bp"},{label:"Prior 5",value:round(prior),unit:"bp"},{label:"2Y latest 5",value:round((curve[0][10].value-curve[0][5].value)*100),unit:"bp"},{label:"30Y latest 5",value:round((curve[1][10].value-curve[1][5].value)*100),unit:"bp"}]});
  }else missing.push("US 2Y minus 30Y — matched yield history unavailable");
  const breadthSymbols=["S5FI","S5TH","NDFI","NDTH","R2FI","R2TH"];
@@ -143,11 +158,13 @@ export function buildDivergenceRadar(rows:readonly MarketMonitorRow[],breadth:re
   eligible++;
   const v=p.slice(-11),one=v[10].value-v[9].value,latest=v[10].value-v[5].value,prior=v[5].value-v[0].value,delta=latest-prior;
   const strength=Math.max(Math.abs(one)/5,Math.abs(latest)/8,Math.abs(delta)/8);
+  const breadthMetrics=[{label:"Level",value:round(v[10].value),unit:"%"},{label:"1 session",value:round(one),unit:"pp"},{label:"3 sessions",value:round(v[10].value-v[7].value),unit:"pp"},{label:"Latest 5",value:round(latest),unit:"pp"},{label:"Prior 5",value:round(prior),unit:"pp"},{label:"Acceleration",value:round(delta),unit:"pp"}];
+  checks.push({id:"breadth-"+symbol,title:symbol+" · participation change",family:"Participation",chart:symbol+" · daily breadth",nextTest:"Confirm against equal-weight indices, credit and the next same-series release.",windows:[],asOf:v[10].date,metrics:breadthMetrics,sources:[{label:s.sourceName,url:s.sourceUrl}],historyAvailable:true});
   if(strength>=1)leads.push({id:"breadth-"+symbol,family:"Participation",title:symbol+" · participation change",asOf:v[10].date,kind:"BREADTH",summary:(one*latest<0?"Latest session opposes the five-session trend. ":"Material participation change. ")+"Latest 5 "+signed(latest)+" pp vs prior 5 "+signed(prior)+" pp.",chart:symbol+" · daily breadth",nextTest:"Confirm using the next same-series release and matched RSP/SPY, SMH/QQQ and credit; proxy membership can differ from the official index.",score:Math.min(strength,5)+(one*latest<0?1:0),sources:[{label:s.sourceName,url:s.sourceUrl}],metrics:[{label:"Level",value:round(v[10].value),unit:"%"},{label:"1 session",value:round(one),unit:"pp"},{label:"Latest 5",value:round(latest),unit:"pp"},{label:"Prior 5",value:round(prior),unit:"pp"},{label:"Acceleration",value:round(delta),unit:"pp"}]});
  }
  const ranked=leads.sort((a,b)=>b.score-a.score||a.id.localeCompare(b.id));
  // Diversify the first results instead of flooding the radar with one theme.
  const seen=new Set<string>(),first:RadarLead[]=[],rest:RadarLead[]=[];
  for(const lead of ranked){if(seen.has(lead.family))rest.push(lead);else{seen.add(lead.family);first.push(lead);}}
- return {generatedAt:now.toISOString(),leads:[...first,...rest],coverage:{checked:rules.length+breadthSymbols.length+spreadRules.length+1,eligible,missing},limitations:["Screening thresholds are editorial heuristics, not statistical significance or trade signals.","Returns are price returns on identical scheduled daily observations; adjacent five-session windows share only their boundary close. Credit changes are basis points. No flow or causal inference.","Correlation compares separate 20-return samples; correlation gaps are disclosed independently from relative-return coverage. Historical gap percentiles are descriptive and use overlapping prior windows, not independent significance tests.","Breadth uses the existing permitted source series; full research history remains owner-gated. Missing values are not zero.","Fundamentals, creator views, physical flows and proprietary EMA annotations require separate agent-led investigation."]};
+ return {generatedAt:now.toISOString(),leads:[...first,...rest],checks,coverage:{checked:rules.length+breadthSymbols.length+spreadRules.length+1,eligible,missing},limitations:["Screening thresholds are editorial heuristics, not statistical significance or trade signals.","Returns are price returns on identical scheduled daily observations; adjacent five-session windows share only their boundary close. Credit changes are basis points. No flow or causal inference.","Correlation compares separate 20-return samples; correlation gaps are disclosed independently from relative-return coverage. Historical gap percentiles are descriptive and use overlapping prior windows, not independent significance tests.","Breadth uses the existing permitted source series; full research history remains owner-gated. Missing values are not zero.","Fundamentals, creator views, physical flows and proprietary EMA annotations require separate agent-led investigation."]};
 }
