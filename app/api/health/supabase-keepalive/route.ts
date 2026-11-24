@@ -9,7 +9,7 @@ export async function GET() {
   try {
     const db = createSupabaseAdminClient();
     const { error } = await db.from("power_stack_quote_observations")
-      .select("ticker", { head: true, count: "exact" })
+      .select("ticker", { head: true })
       .limit(1)
       .abortSignal(AbortSignal.timeout(8000));
     if (error) throw error;
