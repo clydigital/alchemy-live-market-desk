@@ -318,3 +318,5 @@
 .marketContextStrip a{color:var(--bb-command-accent);font-size:12px;font-weight:750;text-decoration:none}
 .marketContextStrip a:focus-visible{outline:2px solid var(--bb-command-alt);outline-offset:3px}
 @media(max-width:650px){.marketContextStrip{padding:11px 12px}.marketContextStrip a{font-size:11px}}
+
+.breadthSourceLine{display:block;line-height:1.55;margin-top:5px;overflow-wrap:anywhere}

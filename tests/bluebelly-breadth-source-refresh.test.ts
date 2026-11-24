@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {readFileSync} from "node:fs";
-import {parsePublishedSp500Breadth,calculateBreadthRow,parseCurrentBreadthTable,parseBreadthHistoricalTable,REVIEWED_BREADTH_PROXY_SNAPSHOT} from "../lib/bluebelly-breadth-dated.ts";
+import {parsePublishedSp500Breadth,calculateBreadthRow,parseCurrentBreadthTable,parseBreadthHistoricalTable,parseBreadthDailyDataset,REVIEWED_BREADTH_PROXY_SNAPSHOT} from "../lib/bluebelly-breadth-dated.ts";
 
 const now=new Date("2026-11-04T10:00:00Z");
 const fixture=(date="Nov 03, 2026",short="65.9% +5.5 / 5d",long="61.5% +2.4 / 5d")=>
@@ -51,4 +51,20 @@ test("historical fallback uses daily closing levels, never relative percentage r
  const s=parseBreadthHistoricalTable(html,"S5FI","https://www.investing.com/indices/s-p-500-stocks-above-50-day-average-historical-data",date)!;
  assert.equal(s.points.length,2);
  assert.equal(calculateBreadthRow("S5FI","breadth",s,date).change,9.54);
+});
+
+test("daily downloadable source yields exact 1/3/5-session percentage-point moves",()=>{
+ const dates=["2026-11-16","2026-11-17","2026-11-18","2026-11-19","2026-11-20","2026-11-23"];
+ const now=new Date("2026-11-24T08:00:00Z");
+ const records=dates.map((date,i)=>({date,spx_pct_above_50d:40+i*2,spx_pct_above_100d:42+i,spx_pct_above_200d:50+i,ndx_pct_above_50d:30+i,ndx_pct_above_200d:31+i,r2k_pct_above_50d:20+i,r2k_pct_above_200d:25+i}));
+ const series=parseBreadthDailyDataset({data:records},now);
+ assert.equal(series.length,7);
+ const x=calculateBreadthRow("S5FI","50D",series.find(s=>s.symbol==="S5FI"),now);
+ assert.equal(x.last,50);assert.equal(x.change,2);assert.equal(x.change3d,6);assert.equal(x.change5d,10);
+ assert.equal(parseBreadthDailyDataset({data:records},new Date("2026-12-01")).length,0);
+ const gap=parseBreadthDailyDataset({data:records.map((r,i)=>i===3?{...r,ndx_pct_above_50d:null}:r)},now);
+ const n=calculateBreadthRow("NDFI","50D",gap.find(s=>s.symbol==="NDFI"),now);
+ assert.equal(n.change,1);assert.equal(n.change3d,null);assert.equal(n.change5d,null);
+ const reader=readFileSync(new URL("../lib/bluebelly-breadth-reader.ts",import.meta.url),"utf8");
+ assert.match(reader,/auth\.getUser/);assert.match(reader,/app_access_allowlist/);assert.match(reader,/researchAllowed\?readResearchHistory/);
 });

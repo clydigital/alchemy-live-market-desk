@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {buildEtfComparisonUniverse, ETF_COMPARISON_SYMBOLS, XL_COMPARISON_SYMBOLS} from "@/lib/bluebelly-etf-comparison-universe";
+import {buildEtfComparisonUniverse, XL_COMPARISON_SYMBOLS} from "@/lib/bluebelly-etf-comparison-universe";
 import {projectEtfRotationVisual} from "@/lib/bluebelly-etf-rotation-visuals";
 import {passesMarketSignalFilter, marketSignalAlignment, type SignalFamily, type SignalBias} from "@/lib/bluebelly-signal-filters";
 
@@ -13,8 +13,6 @@ import {
   filterPublicMarketObservations,
   publicMarketWindowChange,
   sortPublicMarketColumns,
-  sortEtfComparisonRows,
-  type EtfComparisonSortColumn,
   type MarketSortColumn,
   type MarketChangeWindow,
   type MarketChangeDirection,
@@ -50,21 +48,12 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
   const [sort, setSort] = useState<MarketChangeSort>("source");
   const [columnSort, setColumnSort] = useState<MarketSortColumn | null>(null);
   const [ascending, setAscending] = useState(true);
-  const [compareSymbols, setCompareSymbols] = useState<string[]>(() => [...ETF_COMPARISON_SYMBOLS]);
-  const [comparisonSort, setComparisonSort] = useState<EtfComparisonSortColumn | null>("1D");
   const [graphicWindow, setGraphicWindow] = useState<MarketChangeWindow>("1D");
-  const [comparisonAscending, setComparisonAscending] = useState(false);
   // Signal discovery lives inside All Assets. No fourth navigation mode.
   const [signalFamily, setSignalFamily] = useState<SignalFamily>("all");
   const [signalBias, setSignalBias] = useState<SignalBias>("bullish");
   const [breakoutDays, setBreakoutDays] = useState<"20" | "55" | "252">("55");
   const [minimumAligned, setMinimumAligned] = useState(0);
-
-  function sortComparisonColumn(column: EtfComparisonSortColumn) {
-    setComparisonAscending(comparisonSort === column ? !comparisonAscending : column === "instrument");
-    setComparisonSort(column);
-    if(column==="1D"||column==="3D"||column==="5D")setGraphicWindow(column);
-  }
 
   function sortColumn(column: MarketSortColumn) {
     setAscending(columnSort===column ? !ascending : column==="instrument" || column==="source");
@@ -107,31 +96,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
       spread: ranked[0].change! - ranked[ranked.length - 1].change!,
     };
   }, [comparisonUniverse]);
-  const comparisonRows = comparisonUniverse.filter(row => compareSymbols.includes(row.symbol));
-  const equalWeight = comparisonUniverse.find(row => row.symbol === "RSP");
-  const orderedComparisonRows = comparisonSort
-    ? sortEtfComparisonRows(comparisonRows, comparisonSort, comparisonAscending, equalWeight)
-    : comparisonRows;
-  const rotationVisual = useMemo(
-    ()=>projectEtfRotationVisual(comparisonUniverse,compareSymbols,graphicWindow),
-    [comparisonUniverse,compareSymbols,graphicWindow],
-  );
   const xlVisual = useMemo(()=>projectEtfRotationVisual(comparisonUniverse,XL_COMPARISON_SYMBOLS,graphicWindow),[comparisonUniverse,graphicWindow]);
-  const comparisonHeader = (column: EtfComparisonSortColumn, label: string) =>
-    <th scope="col" aria-sort={comparisonSort===column
-      ? comparisonAscending ? "ascending" : "descending" : undefined}>
-      <button type="button" className={ui.columnSort} onClick={() => sortComparisonColumn(column)}
-        aria-label={`Sort ETF comparison by ${label}`}>
-        {label} {comparisonSort===column ? comparisonAscending ? "▲" : "▼" : "↕"}
-      </button>
-    </th>;
-
-  function toggleComparison(symbol: string, checked: boolean) {
-    setCompareSymbols(current => checked
-      ? [...new Set([...current, symbol])].slice(0, 20)
-      : current.filter(item => item !== symbol));
-  }
-
   function reset() {
     setColumnSort(null);
     setQuery(DEFAULT_PUBLIC_MARKET_FILTERS.query);
@@ -156,24 +121,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
 
   return <div className={mode==="assets"?ui.assetsMode:undefined} data-market-change-screener="read-only">
     {mode === "compare" && group === "all" && comparisonUniverse.length ? <details className={ui.comparePanel} open>
-      <summary>Compare sector ETFs, equal weight and semiconductors</summary>
-      <p>Choose ETFs to compare 1D, 3D and 5D percentage returns from their source-dated sessions. This is not a live chart or a total-return series.</p>
-      <div className={ui.comparePresets}>
-        <button type="button" onClick={() => setCompareSymbols([...XL_COMPARISON_SYMBOLS])}>All XL sectors</button>
-        <button type="button" onClick={() => setCompareSymbols(["RSP", ...XL_COMPARISON_SYMBOLS])}>RSP vs XL sectors</button>
-        <button type="button" onClick={() => setCompareSymbols(["RSP", "SMH", "SOXX", "XLK"])}>Semis vs market</button>
-        <button type="button" onClick={() => setCompareSymbols([...ETF_COMPARISON_SYMBOLS])}>All ETFs + benchmarks</button>
-        <button type="button" onClick={() => setCompareSymbols([])}>Clear</button>
-      </div>
-      <details className={ui.comparePickDisclosure} open>
-        <summary>Customize ETF selection ({compareSymbols.length} chosen)</summary>
-      <div className={ui.compareChoices}>
-        {comparisonUniverse.map(row => <label key={row.id}>
-          <input type="checkbox" checked={compareSymbols.includes(row.symbol)} onChange={event => toggleComparison(row.symbol, event.target.checked)} />
-          <span>{row.symbol}</span><small>{row.label}{row.asOf ? "" : " · no data"}</small>
-        </label>)}
-      </div>
-      </details>
+      <summary>XL sector performance</summary>
       {sectorSnapshot ? <div className={ui.rotationSummary} aria-label="Source-dated XL sector rotation">
         <div><span>1D LEADER</span><strong data-direction={sectorSnapshot.leader.change!>0?"up":sectorSnapshot.leader.change!<0?"down":"flat"}>{sectorSnapshot.leader.symbol} {change(sectorSnapshot.leader.change, "%")}</strong></div>
         <div><span>1D LAGGARD</span><strong data-direction={sectorSnapshot.laggard.change!>0?"up":sectorSnapshot.laggard.change!<0?"down":"flat"}>{sectorSnapshot.laggard.symbol} {change(sectorSnapshot.laggard.change, "%")}</strong></div>
@@ -183,9 +131,9 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
       </div> : <p className={ui.rotationUnavailable}>Sector rotation summary unavailable: fewer than eight same-session, source-dated sector readings. Individual ETF rows remain accessible.</p>}
       <section className={ui.rotationGraphic} aria-label="XL sector gains and losses" data-xl-sector-diverging-bars="same-session">
         <div className={ui.graphicHeader}><div><h3>XL sector performance <span>· all 11 sectors</span></h3>
-          <p>Losses extend left of zero; gains extend right. Independent of your custom ETF selection.</p></div>
+          <p>Losses extend left of zero; gains extend right. Compare all eleven sectors on a common scale.</p></div>
           <div className={ui.graphicPeriods} role="group" aria-label="XL sector comparison period">
-          {(["1D","3D","5D"] as const).map(period=><button key={period} type="button" aria-pressed={graphicWindow===period} onClick={()=>{setGraphicWindow(period);setComparisonSort(period);setComparisonAscending(false)}}>{period}</button>)}
+          {(["1D","3D","5D"] as const).map(period=><button key={period} type="button" aria-pressed={graphicWindow===period} onClick={()=>setGraphicWindow(period)}>{period}</button>)}
           </div>
         </div>
         <div className={ui.graphicMetadata}><span>{xlVisual?.asOf?"SESSION "+xlVisual.asOf:"NO MATCHED SESSION"}</span><span>{xlVisual?.bars.length??0} / 11 SECTORS</span></div>
@@ -200,71 +148,10 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
         </div>
         <p className={ui.graphicCaveat}>All bars share the same symmetric scale. Missing or different-session observations are marked —, not zero.</p>
       </section>
-      <section className={ui.rotationGraphic} aria-label="Same-session ETF price-change comparison"
-        data-v7-etf-rotation="source-matched">
-        <div className={ui.graphicHeader}>
-          <div><h3>Rotation map <span>· recorded price changes</span></h3>
-          <p>Signed cumulative returns, same observation session only. This is not an ETF flow chart.</p></div>
-          <div className={ui.graphicPeriods} role="group" aria-label="Graph comparison window">
-            {(["1D","3D","5D"] as const).map(period=>
-              <button key={period} type="button" aria-pressed={graphicWindow===period}
-                onClick={()=>{setGraphicWindow(period);setComparisonSort(period);setComparisonAscending(false)}}>
-                {period}
-              </button>)}
-          </div>
-        </div>
-        {rotationVisual?<div className={ui.graphicBody}>
-          <div className={ui.graphicMetadata}>
-            <span>SESSION {rotationVisual.asOf}</span>
-            <span>{rotationVisual.bars.length} MATCHED / {compareSymbols.length} SELECTED</span>
-          </div>
-          <div className={ui.graphicRows}>
-            {rotationVisual.bars.map(bar=><div key={bar.id} className={ui.graphicRow}
-              data-direction={bar.direction} title={bar.label}>
-              <strong>{bar.symbol}</strong>
-              <div className={ui.graphicTrack} aria-hidden="true">
-                {bar.widthPercent>0?<span className={ui.graphicBar}
-                  style={{left:`${bar.leftPercent}%`,width:`${bar.widthPercent}%`}}/>:null}
-              </div>
-              <span className={ui.graphicValue}>{bar.display}</span>
-            </div>)}
-          </div>
-          <p className={ui.graphicCaveat}>Bars share a zero midpoint and scale only within this matched session.
-            {rotationVisual.omitted>0?` ${rotationVisual.omitted} selection(s) excluded for missing or mismatched observations.`:""}
-            The sortable table below retains every selected instrument and its individual source date.</p>
-        </div>:<p className={ui.rotationUnavailable}>No valid graphical comparison: select at least two ETFs with recorded {graphicWindow} percentage changes from the same source session. The full table below still shows all selected rows.</p>}
-      </section>
-      {comparisonRows.length ? <div className={styles.publicMarketTableScroll}>
-        <table className={`${styles.publicMarketTable} ${ui.compareTable}`}>
-          <thead><tr>
-            {comparisonHeader("instrument", "Instrument")}
-            {comparisonHeader("sourceSession", "Source session")}
-            {(["1D", "3D", "5D"] as const).map(period =>
-              <th key={period} scope="col" aria-sort={comparisonSort===period
-                ? comparisonAscending ? "ascending" : "descending" : undefined}>
-                <button type="button" className={ui.columnSort} onClick={()=>sortComparisonColumn(period)}>
-                  {period} {comparisonSort===period ? comparisonAscending ? "▲" : "▼" : "↕"}
-                </button>
-              </th>)}
-            {comparisonHeader("relative5D", "5D vs RSP")}
-          </tr></thead>
-          <tbody>{orderedComparisonRows.map(row => {
-            const matched = Boolean(equalWeight && row.asOf && row.asOf === equalWeight.asOf
-              && publicMarketWindowChange(row,"5D") !== null && publicMarketWindowChange(equalWeight,"5D") !== null);
-            const relative = matched ? row.change5d! - equalWeight!.change5d! : null;
-            return <tr key={row.id}><th scope="row">{row.symbol} · {row.label}</th>
-              <td>{row.asOf || "Unavailable"}</td>
-              {(["1D","3D","5D"] as const).map(period => <td key={period} data-direction={publicMarketWindowChange(row,period) === null ? "unknown" : publicMarketWindowChange(row,period)! > 0 ? "up" : publicMarketWindowChange(row,period)! < 0 ? "down" : "flat"}>{change(publicMarketWindowChange(row,period), "%")}</td>)}
-              <td>{relative === null ? "—" : `${relative > 0 ? "+" : ""}${relative.toFixed(2)} pp`}</td>
-            </tr>;
-          })}</tbody>
-        </table>
-      </div> : <p>Select at least one ETF to compare.</p>}
-      <p className={ui.comparisonNote}>Relative comparisons are percentage-point differences against RSP over the same five source sessions and matching observation date. Missing values are not filled in.</p>
     </details> : null}
     <details className={ui.advancedPanel} open={mode === "assets" || group !== "all"} data-market-advanced="optional">
       <summary>All instruments · search and advanced filters</summary>
-      <p>Search, filter and sort the complete available source-dated universe. The ETF comparison remains in the Compare mode.</p>
+      <p>Search, filter and sort the complete available source-dated universe. Sector comparisons remain in Compare.</p>
     <div className={ui.screener} aria-label="Market change filters">
       <details className={ui.quickDisclosure}>
         <summary>Quick screens</summary>

@@ -105,7 +105,7 @@ test("search can find breadth tickers and neutral research instruments even with
 });
 
 
-test("ETF comparison column headers sort independently, both ways, with source-dated RSP deltas", () => {
+test("ETF sorting helper preserves source-dated RSP deltas; simplified Compare uses period and benchmark controls", () => {
   const etfs = [
     { ...row("rsp", 1), symbol: "RSP", change5d: 2, asOf: "2026-10-30" },
     { ...row("xlk", 2), symbol: "XLK", change5d: 4, asOf: "2026-10-30" },
@@ -130,10 +130,13 @@ test("ETF comparison column headers sort independently, both ways, with source-d
   assert.equal(etfs[0].symbol, "RSP"); // original source/preset order is immutable
 
   const ui = readFileSync(new URL("../components/blue-desk/PublicMarketScreener.tsx", import.meta.url), "utf8");
-  assert.match(ui, /sortEtfComparisonRows\(comparisonRows, comparisonSort, comparisonAscending, equalWeight\)/);
-  assert.match(ui, /onClick=\{\(\)=>sortComparisonColumn\(period\)\}/);
-  assert.match(ui, /comparisonHeader\("relative5D", "5D vs RSP"\)/);
-  assert.match(ui, /aria-sort=\{comparisonSort/);
+  assert.doesNotMatch(ui,/5D vs RSP|Rotation map/);
+  assert.match(ui, /onClick=\{\(\)=>setGraphicWindow\(period\)\}/);
+  const matrix = readFileSync(new URL("../components/blue-desk/XlBenchmarkSynergy.tsx", import.meta.url), "utf8");
+  assert.match(matrix, /setSort\(e.target.value\)/);
+  assert.match(matrix, /setPeriod\(n\)/);
+
+
 });
 
 test("signal alignment header ranks actual matched families both ways and leaves missing scans last",()=>{

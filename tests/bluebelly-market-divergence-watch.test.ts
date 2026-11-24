@@ -69,7 +69,7 @@ test("Markets retains one screener, preserves source controls and has a separate
   assert.match(page,/mode=watch/);
   assert.match(page,/<MarketDivergenceWatch/);
   assert.match(page,/<PublicMarketScreener key=\{group\}/);
-  assert.match(screener,/sortEtfComparisonRows/);
+  assert.match(screener,/projectEtfRotationVisual\(comparisonUniverse,XL_COMPARISON_SYMBOLS,graphicWindow\)/);
   assert.match(screener,/sortPublicMarketColumns/);
   assert.match(screener,/mode === "assets"/);
 });
