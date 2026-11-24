@@ -1,4 +1,6 @@
 import Link from "next/link";
+import {TOPIC_RESEARCH} from "@/lib/bluebelly-newsroom-context";
+import {EDITORIAL_REGIME_LENSES} from "@/lib/bluebelly-editorial-architecture";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import type {LivingMarketTopic} from "@/lib/blue-desk-living-topics";
 import styles from "./VerifiedCatalystArticle.module.css";
@@ -10,6 +12,8 @@ type Props={topic:LivingMarketTopic;backHref:string};
 export default function VerifiedCatalystArticle({topic,backHref}:Props){
  const updates=[...topic.updates].sort((a,b)=>Date.parse(a.occurredAt)-Date.parse(b.occurredAt));
  const lead=topic.updates[0];
+ const research=EDITORIAL_REGIME_LENSES.filter(lens=>(TOPIC_RESEARCH[topic.id]??[]).includes(lens.id));
+ const regimeHref=backHref.replace(/\/newsroom\/?$/,"/regime-watch");
  if(!lead||updates.length===0)return null;
  return <article className={styles.article}
    data-catalyst-reader="verified-source-timeline" data-catalyst-topic={topic.id}>
@@ -34,6 +38,7 @@ export default function VerifiedCatalystArticle({topic,backHref}:Props){
      <section className={styles.chapter} aria-labelledby="what-next">
        <h2 id="what-next">What should I watch next?</h2>
        <p>{topic.guidingQuestion}</p>
+       {research.length?<div data-newsroom-research-connection="topic-navigation"><h3>Related market research</h3>{research.map(lens=><p key={lens.id}><Link href={regimeHref+"/"+lens.id}>{lens.name} ↗</Link> — {lens.question}</p>)}<p className={styles.hint}>These are related research questions, not a finding that this news changed the regime.</p></div>:null}
      </section>
      <details className={styles.moreDetails}>
        <summary>See all {updates.length} verified update{updates.length===1?"":"s"} and source links</summary>
