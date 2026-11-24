@@ -122,8 +122,10 @@ export default async function NewsroomPage({searchParams}:Props){
           <h3><Link href={blueDeskPublicHref(target,host)}>{sweep.title}</Link></h3>
           <SignalTags tags={suggestSignalTags({title:sweep.title,detail:best.reason,evidence:best.status,reviewedValuation:best.reviewedValuation})}/>
           <p>{best.reason}</p>
+          {best.marketContext?<p>{best.marketContext}</p>:null}
+          {best.researchQuestion?<p><strong>Research connection:</strong> {best.researchQuestion}</p>:null}
           <div className={ui.manualLinks}>
-            <Link href={blueDeskPublicHref(target,host)}>Open the regime / flow evidence →</Link>
+            <Link href={blueDeskPublicHref(target,host)}>Follow the market research →</Link>
             <a href={best.sourceUrl} target="_blank" rel="noopener noreferrer">{best.sourceName} · original source ↗</a>
           </div>
          </article>;
