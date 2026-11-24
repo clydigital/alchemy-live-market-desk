@@ -32,7 +32,8 @@ test("Public CP Markets begins with breadth and keeps date-aware ETF comparison 
  assert.match(screener, /data-market-advanced="optional"/);
  assert.match(screener, /group !== "all"/);
  assert.match(screener, /comparePanel/);
- assert.match(screener, /row\.asOf === equalWeight\.asOf/);
+ assert.match(screener, /data-xl-sector-diverging-bars="same-session"/);
+ assert.match(page, /<XlBenchmarkSynergyPanel/);
  assert.match(legibility,/var\(--bb-accent\)/);
  assert.match(legibility,/\.breadthPrimary/);
 });
