@@ -137,6 +137,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
             <p className={styles.heroDeck}>
               Search the assets, compare performance or inspect cross-market contradictions.
             </p>
+            <p><Link href={blueDeskPublicHref("/blue-desk/markets/scanner",host)}>Open Scanner →</Link></p>
           </div>
           <div className={styles.calendarClock}>
             <span className={styles.kicker}>ACTIVELY MONITORED</span>
