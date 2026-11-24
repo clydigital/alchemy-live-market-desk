@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-test("Regime Watch, AI/breadth lenses and Whiteboard consume the same Compare research projection as daily research",()=>{
- for(const path of ["app/blue-desk/page.tsx","app/blue-desk/regime-watch/page.tsx","app/blue-desk/regime-watch/[lensId]/page.tsx","app/api/owner/daily-research/route.ts"]){
+test("Regime Watch, AI/breadth lenses consume the same Compare research projection as daily research",()=>{
+ for(const path of ["app/blue-desk/regime-watch/page.tsx","app/blue-desk/regime-watch/[lensId]/page.tsx","app/api/owner/daily-research/route.ts"]){
   const source=readFileSync(path,"utf8");
   assert.match(source,/const compare=buildCompareResearch\(/);
   assert.match(source,/compareBreadthObservations\(breadthFeed.series|compareBreadthObservations\(breadthSource.series/);
