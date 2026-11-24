@@ -337,7 +337,9 @@ try{
  console.log("Historical Story index preserved via explicit ?category=All");
  // Brief-first reader acceptance uses a frozen public issuer snapshot:
  // it checks rendering, not current financial accuracy or unsourced prices.
- const investorPath="/markets?view=earnings&ticker=AMZN";
+ const investorPath="/earnings?view=earnings&ticker=AMZN";
+ const oldInvestor=await waitResponse("/markets?view=earnings&ticker=AMZN",code=>code===307);
+ if(oldInvestor.status!==307)throw new Error("Legacy investor link must redirect");
  const investor=await waitResponse(investorPath);
  assertHtml(investor.html,'data-bluebelly-financial-article="AMZN"',
    'data-quick-market-brief="dated-investor-research"',
