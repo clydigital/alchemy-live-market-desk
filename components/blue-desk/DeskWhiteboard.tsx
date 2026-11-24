@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type {CompareResearch} from "@/lib/bluebelly-compare-research";
 import type {MarketCompassSummary} from "@/lib/bluebelly-market-compass";
 import type {NewsBriefV1} from "@/lib/market-brief-news";
 import {sourceCheckedReleaseImpact} from "@/lib/bluebelly-release-impact-brief";
@@ -16,9 +17,10 @@ function shortened(input:string,max:number):string{
 /** A single, bounded, source-dated read model. No second thesis engine,
  * AI generation, quote fetch, market-price cause or live probability. */
 export default function DeskWhiteboard({
- compass,news,theses,upcoming,now,host,
+ compass,news,theses,upcoming,now,host,compare,
 }:{
  compass:MarketCompassSummary;
+ compare?:CompareResearch;
  news:readonly NewsBriefV1[];
  theses:readonly PublicThesis[];
  upcoming:readonly PresenterCalendarEvent[];
@@ -31,6 +33,7 @@ export default function DeskWhiteboard({
  const reviewedRelease=latest?sourceCheckedReleaseImpact(latest):null;
  const story=theses[0]??null;
  const catalyst=upcoming[0]??null;
+ const sectors=compare?.rotation.find(r=>r.window==="5D");
  const open=(path:string)=>blueDeskPublicHref(path,host);
  const stories=open("/blue-desk/key-stories");
  const newsHref=latest?stories+"?news="+encodeURIComponent(latest.id):open("/blue-desk/newsroom");
@@ -49,6 +52,8 @@ export default function DeskWhiteboard({
     <h3>{compass.title}</h3>
     <p>{shortened(compass.explanation,170)}</p>
     <small>{compass.sourceSession?"US session "+compass.sourceSession+" · 1D matched ETFs":"Comparable ETF session unavailable"}</small>
+    {sectors&&sectors.coverage>=8?<small style={{display:"block"}}>{sectors.advancing}/{sectors.coverage} sectors advanced over 5D · {sectors.asOf}</small>:null}
+    {compare?.participation.status==="ready"?<small style={{display:"block"}}>{compare.participation.headline} · {compare.participation.asOf}</small>:null}
     <Link href={open("/blue-desk/regime-watch")}>Compass &amp; evidence <span aria-hidden="true">↗</span></Link>
    </article>
    <article className={styles.cell} data-whiteboard-cell="release">
