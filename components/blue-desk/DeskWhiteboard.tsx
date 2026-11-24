@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type {MarketInternalsDiagnostic} from "@/lib/bluebelly-market-internals-research";
 import type {MarketCompassSummary} from "@/lib/bluebelly-market-compass";
 import type {NewsBriefV1} from "@/lib/market-brief-news";
 import {sourceCheckedReleaseImpact} from "@/lib/bluebelly-release-impact-brief";
@@ -16,9 +17,10 @@ function shortened(input:string,max:number):string{
 /** A single, bounded, source-dated read model. No second thesis engine,
  * AI generation, quote fetch, market-price cause or live probability. */
 export default function DeskWhiteboard({
- compass,news,theses,upcoming,now,host,
+ compass,news,theses,upcoming,now,host,internals,
 }:{
  compass:MarketCompassSummary;
+ internals?:readonly MarketInternalsDiagnostic[];
  news:readonly NewsBriefV1[];
  theses:readonly PublicThesis[];
  upcoming:readonly PresenterCalendarEvent[];
@@ -49,6 +51,7 @@ export default function DeskWhiteboard({
     <h3>{compass.title}</h3>
     <p>{shortened(compass.explanation,170)}</p>
     <small>{compass.sourceSession?"US session "+compass.sourceSession+" · 1D matched ETFs":"Comparable ETF session unavailable"}</small>
+    {internals?.filter(d=>d.status==="ready").slice(0,2).map(d=><small key={d.headline} style={{display:"block"}}>{d.headline} · {d.asOf}</small>)}
     <Link href={open("/blue-desk/regime-watch")}>Compass &amp; evidence <span aria-hidden="true">↗</span></Link>
    </article>
    <article className={styles.cell} data-whiteboard-cell="release">

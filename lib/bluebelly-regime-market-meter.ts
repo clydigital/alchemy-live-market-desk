@@ -117,8 +117,8 @@ export function projectRegimeMeterReadings(rows:readonly PublicMarketObservation
    "Semiconductor price proxy · not AI cash-flow fundamentals","Price falling","Price rising",
    "Semiconductor ETF prices are not evidence that hyperscaler cash returns improved.",now),
   breadth:tape("breadth",breadth50?[breadth50]:[],["breadth:S5FI"],
-   "S&P 500 above 50D","S&P member participation · provider reports 5D",
+   "S&P 500 above 50D","S&P member participation · source-dated sessions",
    "Breadth falling","Breadth rising",
-   "Current-member breadth proxy is not the same series as the S5FI index close; 1D/3D changes are not inferred.",now,"5D")
+   "Current-member breadth proxy is not the same series as the S5FI index close; changes require matched source observations, never inference.",now,"5D")
  };
 }
