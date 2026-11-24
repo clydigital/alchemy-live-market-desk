@@ -22,3 +22,6 @@ Service-role-only Edge Function `bb-research-retrieval`: POST `{"action":"backfi
 - Search returns a real semantic-only relevant match with source receipt, and lexical fallback if inference unavailable.
 - Verify cache update after edited input and query as-of boundaries, permission denials, source deduplication, coverage per lane, latency and quotas.
 - Existing test: synthetic vector returned one semantic match, rolled back; persisted vectors remained zero. Keyword tests and anon/authenticated grant checks passed. No new collection schedule or canonical data writes.
+
+## Existing cron integration (24 Nov update)
+Morning Dossier invokes evidence and creator batches; evening invokes historical thesis and market motion batches. Two batches of up to eight records per authenticated enabled source-only invocation, with 20s request timeout and 42s total budget. Worker outcome is logged, not used as a condition for Dossier success. No new cron or public MCP method. Service-role-only worker v3 retains JWT verification and corrects empty REST response handling. Temporary one-use capability was never invoked successfully and its grants are revoked. Six local mocked regression scenarios passed; real model inference and positive cache count remain unverified. Jina MCP returned an API-key error and is not a dependency. No private corpus is sent to an external reranker.
