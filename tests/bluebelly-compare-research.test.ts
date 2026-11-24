@@ -48,7 +48,7 @@ test("private report receives source-dated Compare evidence, not causal or canon
  assert.ok(packet.sourceUrls.includes("https://example.com/XLY"));
  assert.ok(compareResearchLines(compare).some(line=>line.includes("not flows or causal evidence")));
  const route=readFileSync(new URL("../app/api/owner/daily-research/route.ts",import.meta.url),"utf8");
- assert.match(route,/buildCompareResearch\(monitor\?\.rows/);
+ assert.match(route,/buildCompareResearch\(\[\.\.\.\(monitor\?\.rows\?\?\[\]\),\.\.\.\(monitor\?\.divergenceRows\?\?\[\]\)\]/);
  assert.match(route,/marketCompare:compare/);
  const mcp=readFileSync(new URL("../app/api/mcp/route.ts",import.meta.url),"utf8");
  assert.match(mcp,/if\(group==="compare"\)return buildCompareResearch/);
