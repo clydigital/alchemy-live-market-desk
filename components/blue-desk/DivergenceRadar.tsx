@@ -13,7 +13,7 @@ export default function DivergenceRadar({read,compact=false,href="/markets?mode=
   return <article key={r.id} className={css.compactCard} data-divergence-lead={r.id}>
    <span className={css.tag}>{r.family} · {r.kind==="RELATIVE"?"Relative return":r.kind==="BREADTH"?"Breadth":r.kind==="CORRELATION"?"Correlation":r.kind==="CREDIT"?"Credit spreads":"Yield curve"}</span>
    <h3>{r.title}</h3><p>{summary}</p>
-   <div className={css.compactMetrics}>{pair.map((m,i)=><div key={m.label}><small>{m.label==="Prior 5"?"Prior 5 sessions":m.label==="Latest 5"?"Latest 5 sessions":m.label==="Prior 20"?"Prior 20 sessions":m.label==="Latest 20"?"Latest 20 sessions":m.label}</small><strong data-direction={tone(m.value)}>{fmt(m.value,m.unit)}</strong>{i===0&&pair.length===2?<span className={css.metricArrow} aria-hidden="true">→</span>:null}</div>)}</div>
+   <div className={css.compactMetrics}>{pair.map(m=><div key={m.label}><small>{m.label==="Prior 5"?"Prior 5 sessions":m.label==="Latest 5"?"Latest 5 sessions":m.label==="Prior 20"?"Prior 20 sessions":m.label==="Latest 20"?"Latest 20 sessions":m.label}</small><strong data-direction={tone(m.value)}>{fmt(m.value,m.unit)}</strong></div>)}</div>
    <small className={css.observed}>Observed {r.asOf}</small>
    <details><summary>Research implications &amp; chart</summary><p>{r.summary}</p><p><b>{r.chart}</b></p><p>{r.nextTest}</p><div className={css.readings} style={{gridTemplateColumns:"repeat(auto-fit,minmax(100px,1fr))"}}>{r.metrics.map(m=><div key={m.label}><small>{m.label}</small><strong data-direction={tone(m.value)}>{fmt(m.value,m.unit)}</strong></div>)}</div><div className={css.sources}>{r.sources.map((s,i)=><a key={i} href={s.url} target="_blank" rel="noreferrer">{s.label} ↗</a>)}</div></details>
   </article>;
