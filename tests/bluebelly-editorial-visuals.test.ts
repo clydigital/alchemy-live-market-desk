@@ -31,5 +31,5 @@ test("public views use lazy official TradingView widgets and not generated price
   assert.match(c,/tv-advanced-chart/);
   assert.match(c,/!opened/);
   assert.match(c,/Open in TradingView/);
-  assert.match(m,/TradingViewChart/);
+  assert.doesNotMatch(m,/TradingViewChart/);
 });
