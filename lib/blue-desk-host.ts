@@ -86,6 +86,9 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
      (pathname==="/oauth/consent"||pathname==="/api/oauth/decision") &&
      process.env.BLUEBELLY_MCP_ENABLED!=="true")return "blocked";
 
+  // Exact read-only health probe; returns only availability, never database rows.
+  if(hostname===BLUEBELLY_PRESENTATION_HOST && pathname==="/api/health/supabase-keepalive")return "public";
+
   // One strictly bounded public X discovery handoff for the existing ChatGPT
   // MacroPulse reader. It is a READ-ONLY redacted view of public original X
   // posts; never expose owner pages, raw operational data, tokens or write APIs.
