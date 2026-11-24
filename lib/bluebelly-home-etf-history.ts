@@ -3,7 +3,8 @@ import {scheduledUsEquityCloseHourET} from "./bluebelly-us-equity-trading-calend
 
 /** Bounded delayed secondary fallback for the existing homepage ETF tape only.
  * Replace a whole history; never splice providers or infer a missing close. */
-export const HOME_ETFS = ["SPY","RSP","QQQ","SMH","SOXX"] as const;
+export const XL_FALLBACK_ETFS = ["XLB","XLC","XLE","XLF","XLI","XLK","XLP","XLRE","XLU","XLV","XLY"] as const;
+export const HOME_ETFS = ["SPY","RSP","QQQ","SMH","SOXX",...XL_FALLBACK_ETFS] as const;
 export type HomeEtf = typeof HOME_ETFS[number];
 export type EtfBar = {time:number;close:number};
 export function expectedHomeEtfSession(now:Date):string|null{
@@ -40,7 +41,7 @@ export function parseHomeEtfChart(payload:unknown,symbol:HomeEtf,now:Date):EtfBa
   byDay.set(day,{time:Date.parse(day+"T00:00:00Z")/1000,close});
  }
  const bars=[...byDay.values()].sort((a,b)=>a.time-b.time);
- if(bars.length<6||new Date(bars.at(-1)!.time*1000).toISOString().slice(0,10)!==expected)
+ if(bars.length<6||(!(XL_FALLBACK_ETFS as readonly string[]).includes(symbol)&&new Date(bars.at(-1)!.time*1000).toISOString().slice(0,10)!==expected))
   throw Error("Secondary ETF history is behind expected session");
  return bars;
 }

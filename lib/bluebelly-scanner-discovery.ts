@@ -10,16 +10,16 @@ const sectorFor:Record<string,string>={
 export const XL_SECTORS=["XLB","XLC","XLE","XLF","XLI","XLK","XLP","XLRE","XLU","XLV","XLY"] as const;
 export type ScannerCandidate={symbol:string;label:string;asOf:string;detail:string;sourceUrl:string;comparisonUrl?:string;nextTest:string;score:number};
 const signed=(n:number)=> (n>0?"+":"")+n.toFixed(2);
-function valid(row:Row,now:Date){
+function valid(row:Row,now:Date,maxAge=4){
  if(row.frequency!=="daily"||row.dataStatus==="UNAVAILABLE_OR_STALE"||row.changeUnit!=="%"||
   !row.asOf||!/^\d{4}-\d{2}-\d{2}$/.test(row.asOf)||row.last===null||!Number.isFinite(row.last)||
   row.change===null||!Number.isFinite(row.change)||!row.sourceUrl)return false;
- const t=Date.parse(row.asOf+"T00:00:00Z");if(!Number.isFinite(t)||new Date(t).toISOString().slice(0,10)!==row.asOf||t>+now||+now-t>4*86400000)return false;
+ const t=Date.parse(row.asOf+"T00:00:00Z");if(!Number.isFinite(t)||new Date(t).toISOString().slice(0,10)!==row.asOf||t>+now||+now-t>maxAge*86400000)return false;
  try{const u=new URL(row.sourceUrl);return u.protocol==="https:"&&!u.username&&!u.password;}catch{return false;}
 }
 function stock(row:Row){return ["MAG7","US Stock","Europe Stock"].includes(row.type)||row.type==="AI / Semis"&&Object.prototype.hasOwnProperty.call(sectorFor,row.symbol);}
 function hasFive(r:Row){return r.change5d!==null&&Number.isFinite(r.change5d);}
-export function buildScannerDiscovery(rows:readonly Row[],now=new Date()){
+export function buildScannerDiscovery(rows:readonly Row[],now=new Date(),sectorRows:readonly Row[]=rows,expectedSectorSession:string|null=null,failedSectorSymbols:readonly string[]=[]){
  const available=rows.filter(r=>valid(r,now));
  // Anchor to a source-dated US equity session, not a newer UTC crypto/FX bar.
  const session=available.filter(r=>r.symbol==="RSP"||r.type==="Sector"||r.type==="MAG7"||r.type==="US Stock").map(r=>r.asOf!).sort().at(-1)??null;
@@ -66,12 +66,25 @@ export function buildScannerDiscovery(rows:readonly Row[],now=new Date()){
   cross.push(candidate(left,signed(left.change!)+"% vs "+b+" "+signed(right.change!)+"% · "+signed(gap)+" pp",next,Math.abs(gap),right));
   cross[cross.length-1].symbol=a+" / "+b;cross[cross.length-1].label=label;
  }
+ // Sector display has its own session; do not change the live scanner's signal dates.
+ const bySession=new Map<string,Map<string,Row>>();
+ for(const r of sectorRows){
+  if(r.type!=="Sector"||!(XL_SECTORS as readonly string[]).includes(r.symbol)||!valid(r,now,Infinity)||!r.asOf||(expectedSectorSession&&r.asOf>expectedSectorSession))continue;
+  const group=bySession.get(r.asOf)??new Map<string,Row>();
+  if(!group.has(r.symbol))group.set(r.symbol,r);
+  bySession.set(r.asOf,group);
+ }
+ const ordered=[...bySession].sort((a,b)=>b[0].localeCompare(a[0]));
+ const selected=ordered.find(([,group])=>group.size===XL_SECTORS.length)??ordered[0];
+ const sectorSession=selected?.[0]??null;
+ const sectorDelayed=Boolean(sectorSession&&(expectedSectorSession??session)&&sectorSession<(expectedSectorSession??session)!);
  const sectors=XL_SECTORS.map(symbol=>{
-  const r=same(symbol);
-  return {symbol,label:r?.label??symbol,change:r?.type==="Sector"?r.change:null,sourceUrl:r?.type==="Sector"?r.sourceUrl:null};
+  const r=selected?.[1].get(symbol);
+  const status=r?(sectorDelayed?"delayed":"available"):failedSectorSymbols.includes(symbol)?"provider-failed":"missing";
+  return {symbol,label:r?.label??symbol,change:r?.change??null,sourceUrl:r?.sourceUrl??null,status};
  });
  const movers=current.filter(stock).sort((a,b)=>b.change!-a.change!||a.symbol.localeCompare(b.symbol));
- return {session,coverage:current.length,stockCoverage:movers.length,sectors,laggards:top(laggards),rotation:top(rotation),rebound:top(rebound),cross:top(cross),
+ return {session,sectorSession,sectorDelayed,sectorProviderFailures:failedSectorSymbols.length,coverage:current.length,stockCoverage:movers.length,sectors,laggards:top(laggards),rotation:top(rotation),rebound:top(rebound),cross:top(cross),
  gainers:movers.filter(r=>r.change!>0).slice(0,5).map(r=>candidate(r,signed(r.change!)+"%","Check original catalyst and follow-through.",r.change!)),
  losers:movers.filter(r=>r.change!<0).slice(-5).reverse().map(r=>candidate(r,signed(r.change!)+"%","Check original catalyst and whether weakness persists.",-r.change!)),
  quiet:movers.slice().sort((a,b)=>Math.abs(a.change!)-Math.abs(b.change!)).slice(0,5).map(r=>candidate(r,signed(r.change!)+"%","Low absolute price change, not low trading volume.",Math.abs(r.change!)))};

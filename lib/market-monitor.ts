@@ -1,5 +1,5 @@
 import { unstable_cache } from "next/cache";
-import {expectedHomeEtfSession,fetchHomeEtfHistory,type HomeEtf} from "./bluebelly-home-etf-history";
+import {expectedHomeEtfSession,fetchHomeEtfHistory,XL_FALLBACK_ETFS,type HomeEtf} from "./bluebelly-home-etf-history";
 import {ADDITIONAL_US_STOCKS,EUROPE_STOCKS} from "./bluebelly-equity-universe";
 import {fetchEuropeanStockHistory} from "./bluebelly-europe-stock-history";
 import { evaluateMarketSignals, type MarketSignalSnapshot } from "./bluebelly-signal-scan";
@@ -85,6 +85,10 @@ export type MarketResearchTrigger = {
 export type MarketMonitor = {
   updatedAt: string;
   rows: MarketMonitorRow[];
+  /** Official volatility histories for divergence research; not screener instruments. */
+  divergenceRows?: MarketMonitorRow[];
+  /** Failed secondary refresh attempts; an older valid observation may survive. */
+  sectorProviderFailures?: string[];
   breadth: BreadthSnapshot[];
   contradictions: MarketContradiction[];
   researchTriggers: MarketResearchTrigger[];
@@ -821,7 +825,7 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   // Degrade independently: core market data, broad extras and cash anchors.
   // Cash anchors stay on their own short cache so headline prices can refresh
   // without re-fetching the full extras universe.
-  const results = await Promise.allSettled([getMarketData(), loadExtras(), loadCashAnchors(),loadEuropeEquities()]);
+  const results = await Promise.allSettled([getMarketData(), loadExtras(), loadCashAnchors(),loadEuropeEquities(),loadVolatilityAnchors()]);
   
   const marketResult = results[0];
   const extrasResult = results[1];
@@ -833,6 +837,8 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   const cashAnchors = cashResult.status === "fulfilled" ? cashResult.value : [];
   const euroResult=results[3];
   const europeanStocks=euroResult.status==="fulfilled"?euroResult.value:[];
+  const volResult=results[4];
+  const divergenceRows=makeRows(volResult.status==="fulfilled"?volResult.value.filter((row):row is RawSeries=>row!==null):[]);
   if(euroResult.status==="rejected")console.warn(JSON.stringify({event:"bluebelly_eu_equities_unavailable"}));
   
   // Collect coverage gaps from failed branches
@@ -887,7 +893,9 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   const now=new Date(),expected=expectedHomeEtfSession(now);
   const homeTape=[{id:"spx-proxy",symbol:"SPY"},{id:"rsp",symbol:"RSP"},
     {id:"ndx",symbol:"QQQ"},{id:"smh",symbol:"SMH"},{id:"soxx",symbol:"SOXX"}] as const;
-  await Promise.all(homeTape.map(async spec=>{
+  const sectorProviderFailures:string[]=[];
+  const sectorTape=XL_FALLBACK_ETFS.map(symbol=>({id:symbol.toLowerCase(),symbol}));
+  await Promise.all([...homeTape,...sectorTape].map(async spec=>{
     const index=rawRows.findIndex(row=>row.id===spec.id);
     const current=index<0?null:rawRows[index];
     const last=current?.points.at(-1)?.time;
@@ -895,13 +903,16 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
     if(!expected||(day&&day>=expected))return;
     try{
       const fallback=await fetchHomeEtfHistory(spec.symbol as HomeEtf,now);
+      const fallbackDay=new Date(fallback.points.at(-1)!.time*1000).toISOString().slice(0,10);
+      if(day&&fallbackDay<=day)return; // retain the better existing series
       const replacement:RawSeries={
         id:spec.id,symbol:spec.symbol,label:current?.label??spec.symbol,
-        type:current?.type??(["SMH","SOXX"].includes(spec.symbol)?"AI / Semis":"Major Index"),
+        type:current?.type??((XL_FALLBACK_ETFS as readonly string[]).includes(spec.symbol)?"Sector":["SMH","SOXX"].includes(spec.symbol)?"AI / Semis":"Major Index"),
         benchmark:current?.benchmark??null,frequency:"daily",...fallback,
       };
       if(index<0)rawRows.push(replacement);else rawRows[index]=replacement;
     }catch{
+      if((XL_FALLBACK_ETFS as readonly string[]).includes(spec.symbol))sectorProviderFailures.push(spec.symbol);
       coverageGaps.push(spec.symbol+" daily history is behind expected US session "+expected+".");
     }
   }));
@@ -934,6 +945,8 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   return {
     updatedAt: new Date().toISOString(),
     rows,
+    divergenceRows,
+    sectorProviderFailures,
     breadth: market?.breadth ?? [],
     contradictions,
     researchTriggers: buildResearchTriggers(rows, contradictions),
@@ -941,4 +954,4 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   };
 }
 
-export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v1"], { revalidate: 300 });
+export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v3-xl-fallback"], { revalidate: 300 });

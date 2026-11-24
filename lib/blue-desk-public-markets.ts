@@ -1,4 +1,5 @@
 import type { MarketMonitorRow, MarketMonitorType } from "./market-monitor.ts";
+import { scheduledUsEquityCloseHourET } from "./bluebelly-us-equity-trading-calendar.ts";
 import type { MarketSignalSnapshot } from "./bluebelly-signal-scan";
 
 /**
@@ -177,4 +178,33 @@ export function publicGovernmentRateTrends(
     })
     .filter((row): row is PublicGovernmentRateTrend=>row!==null)
     .slice(0,7);
+}
+
+/** Server-side bounded aggregate-only sector session candidates; no raw candles exported. */
+export function publicSectorSessionObservations(rows:readonly MarketMonitorRow[],expected:string|null):PublicMarketObservation[]{
+ if(!expected)return [];
+ const symbols=new Set(["XLB","XLC","XLE","XLF","XLI","XLK","XLP","XLRE","XLU","XLV","XLY"]);
+ const result:PublicMarketObservation[]=[];
+ for(const row of rows){
+  if(row.type!=="Sector"||row.frequency!=="daily"||!symbols.has(row.symbol))continue;
+  const projected=publicRow(row);
+  if(!projected.sourceUrl)continue;
+  const byDay=new Map<string,number>();
+  for(const p of row.points){
+   if(!Number.isFinite(p.time)||p.time<=0||!Number.isFinite(p.close)||p.close<=0)continue;
+   const day=new Date(p.time*1000).toISOString().slice(0,10);
+   if(day<=expected&&scheduledUsEquityCloseHourET(day)!==null)byDay.set(day,p.close);
+  }
+  const priorDay=(day:string)=>{
+   let t=Date.parse(day+"T00:00:00Z");
+   for(let j=0;j<10;j++){t-=86400000;const d=new Date(t).toISOString().slice(0,10);if(scheduledUsEquityCloseHourET(d)!==null)return d;}
+   return null;
+  };
+  for(const day of [...byDay.keys()].sort().slice(-15)){
+   const prior=priorDay(day),prev=prior?byDay.get(prior):undefined,last=byDay.get(day)!;
+   if(prev===undefined)continue;
+   result.push({...projected,asOf:day,last,change:(last/prev-1)*100,change3d:null,change5d:null,screening:null});
+  }
+ }
+ return result;
 }
