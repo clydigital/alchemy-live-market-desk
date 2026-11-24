@@ -12,8 +12,8 @@ test("Earnings is a sibling directly after Markets",()=>{
 });
 test("market instruments, visible category filters, watch and comparisons remain native",()=>{
  const markets=readFileSync("app/blue-desk/markets/page.tsx","utf8");
- for(const marker of ["<PublicMarketScreener","<PublicAssetCatalogue","<MarketDivergenceWatch","<PublicTreasuryLadder","<RatesPolicyMonitor","<TradingViewChart","All Assets","Compare","Divergence Watch","<details open className={legibility.categoryDisclosure}","/blue-desk/markets/scanner"])assert.ok(markets.includes(marker),marker);
- assert.doesNotMatch(markets,/<EarningsFundamentals|<EarningsInvestorDeepDive/);
+ for(const marker of ["<PublicMarketScreener","<PublicAssetCatalogue","<MarketDivergenceWatch","<PublicTreasuryLadder","<RatesPolicyMonitor","All Assets","Compare","Divergence Watch","<details open className={legibility.categoryDisclosure}","/blue-desk/markets/scanner"])assert.ok(markets.includes(marker),marker);
+ assert.doesNotMatch(markets,/<EarningsFundamentals|<EarningsInvestorDeepDive|<TradingViewChart/);
  assert.match(markets,/if\(detail\)redirect/);
  const earnings=readFileSync("app/blue-desk/earnings/page.tsx","utf8");
  for(const marker of ["<IssuerEarningsBoard","<RecentEarningsScorecards","<EarningsWeekGrid","<EarningsFundamentals","<EarningsInvestorDeepDive","/blue-desk/earnings-week"])assert.ok(earnings.includes(marker),marker);
