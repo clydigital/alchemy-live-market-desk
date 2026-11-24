@@ -267,7 +267,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
     <div className={desk.content}>
       <Link href={blueDeskPublicHref("/blue-desk/newsroom",host)}>← Newsroom</Link>
       <AmazonFomcFeatures kind="amazon"/>
-      <p><Link href={blueDeskPublicHref("/blue-desk/markets",host)+"?view=earnings&ticker=AMZN"}>Read the full Amazon business model, cash-flow bridge and balance-sheet investor investigation →</Link></p>
+      <p><Link href={blueDeskPublicHref("/blue-desk/earnings",host)+"?view=earnings&ticker=AMZN"}>Read the full Amazon business model, cash-flow bridge and balance-sheet investor investigation →</Link></p>
     </div>
   </main>;
   if(briefId){
@@ -321,7 +321,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
         <div className={desk.content}>
           <Link href={blueDeskPublicHref("/blue-desk/newsroom",host)}>← Newsroom</Link>
           <AmazonFomcFeatures kind="amazon" />
-          <p>Read the <Link href={blueDeskPublicHref("/blue-desk/markets",host)+"?view=earnings&ticker=AMZN"}>complete Amazon financial investigation →</Link> or the <Link href={blueDeskPublicHref("/blue-desk/markets",host)+"#earnings-fundamentals"}>seven-company investor tests</Link>. Financial figures are dated; no forthcoming Q3 result is inferred.</p>
+          <p>Read the <Link href={blueDeskPublicHref("/blue-desk/earnings",host)+"?view=earnings&ticker=AMZN"}>complete Amazon financial investigation →</Link> or the <Link href={blueDeskPublicHref("/blue-desk/earnings",host)+"#earnings-fundamentals"}>seven-company investor tests</Link>. Financial figures are dated; no forthcoming Q3 result is inferred.</p>
         </div>
       </main>;
     }
@@ -441,7 +441,7 @@ export default async function KeyStories({searchParams}:{searchParams?:Promise<{
           {earlierNews.length?<a href="#recent-reports">Earlier this week</a>:null}
           <a href="#persistent-theses">Browse by topic</a>
           <a href="#upcoming-decisions">What's next</a>
-          <Link href={blueDeskPublicHref("/blue-desk/markets",host)+"#earnings-fundamentals"}>Earnings &amp; fundamentals</Link>
+          <Link href={blueDeskPublicHref("/blue-desk/earnings",host)+"#earnings-fundamentals"}>Earnings &amp; fundamentals</Link>
           <Link href={blueDeskPublicHref("/blue-desk/research",host)}>Dated research &amp; investigations</Link>
         </nav>
       </header>
