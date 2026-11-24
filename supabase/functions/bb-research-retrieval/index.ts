@@ -51,7 +51,16 @@ Deno.serve(async req=>{
     catch{failures++;}
    }
    if(ready.length)await rest("bb_research_vector_cache?on_conflict=lane,record_id,model",ready,"resolution=merge-duplicates,return=minimal");
-   return reply({requested:queue.length,embedded:ready.length,failed:failures,model:MODEL});
+   // Verify a real model vector against persisted data; do not echo private text or vectors.
+   let semantic_readback:"passed"|"failed"|"not_attempted"="not_attempted";
+   if(ready.length){
+    const sample=ready[0];
+    try{
+     const rows=await rest("rpc/bb_research_search",{query_text:"",lanes:[sample.lane],since_at:null,as_of:new Date().toISOString(),match_count:10,query_embedding:sample.embedding});
+     semantic_readback=Array.isArray(rows)&&rows.some((r:{record_id:string;semantic_rank:number|null})=>r.record_id===sample.record_id&&r.semantic_rank!==null)?"passed":"failed";
+    }catch{semantic_readback="failed";}
+   }
+   return reply({requested:queue.length,embedded:ready.length,failed:failures,model:MODEL,semantic_readback});
   }
   return reply({error:"invalid_action"},400);
  }catch{return reply({error:"retrieval_unavailable"},503);}
