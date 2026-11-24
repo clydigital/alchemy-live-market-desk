@@ -1,4 +1,5 @@
 import { handleScheduledPostResearchDossier } from "@/lib/dossier-post-research-trigger";
+import { withResearchEmbeddingRefresh } from "@/lib/bluebelly-research-embedding-refresh";
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
 import { scheduledSourceOnlyEnabled } from "@/lib/bluebelly-source-only-research";
 import {isAutomaticReportFinalisationWindow,runAutomatedDailyPdfReport}
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
    if(!authorised)return Response.json({status:"unauthorized"},{status:401,headers:{"Cache-Control":"private, no-store"}});
    // Reuse this existing post-intake cron for Dossier V2 assessment only.
    // Legacy Story intelligence and private PDF generation remain disabled.
-   return handleScheduledPostResearchDossier(request, "evening");
+   return withResearchEmbeddingRefresh(handleScheduledPostResearchDossier(request, "evening"),now);
  }
  const reportWindow=isAutomaticReportFinalisationWindow(now,"evening");
  const scheduleEnabled=process.env.NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED==="true";
