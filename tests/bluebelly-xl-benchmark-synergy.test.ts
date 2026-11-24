@@ -15,14 +15,14 @@ test("all eleven sectors and four benchmark identities; exact return synergy use
  assert.equal(result.sectors.length,11);assert.equal(result.benchmarks.length,4);
  const x=result.sectors.find(r=>r.symbol==="XLK")!;
  assert.equal(x.correlation20.best,"ndx");assert.equal(x.correlation60.best,"ndx");
- assert.equal(x.correlation20.values.find(v=>v.id==="ndx")!.correlation,1);
+ assert.ok(Math.abs(x.correlation20.values.find(v=>v.id==="ndx")!.correlation!-1)<1e-10);
  assert.equal(x.relative.find(v=>v.id==="ndx")!.changes[5],0);
  assert.ok(x.relative.find(v=>v.id==="spx")!.changes[5]!==null);
  assert.equal(result.sectors.find(r=>r.symbol==="XLP")!.correlation20.best,null);
 });
-test("no ranking with missing benchmark, no relative return over mismatched session intervals",()=>{
+test("partial benchmark ranking is labelled by coverage; no relative return over mismatched session intervals",()=>{
  const missing=buildXlBenchmarkSynergy(fixtures.filter(r=>r.id!=="dow"),now).sectors.find(r=>r.symbol==="XLK")!;
- assert.equal(missing.correlation20.best,null);assert.equal(missing.relative.find(v=>v.id==="dow")!.changes[5],null);
+ assert.equal(missing.correlation20.best,"ndx");assert.equal(missing.correlation20.coverage,3);assert.equal(missing.relative.find(v=>v.id==="dow")!.changes[5],null);
  const gap=fixtures.map(r=>r.id==="ndx"?{...r,points:r.points.filter((_,i)=>i!==r.points.length-2)}:r);
  const x=buildXlBenchmarkSynergy(gap,now).sectors.find(r=>r.symbol==="XLK")!;
  assert.equal(x.relative.find(v=>v.id==="ndx")!.changes[1],null);
