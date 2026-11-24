@@ -58,7 +58,19 @@ function history(r:MarketMonitorRow|undefined,now:Date,level=false):Point[]{
 }
 function aligned(a:Point[],b:Point[],count:number):[Point[],Point[]]|null{
  if(a.length<count||b.length<count)return null;
- const x=a.slice(-count),y=b.slice(-count);
+ // Anchor every window to the newest common dated close. Do not cherry-pick an older
+ // end date if the newest shared window has a missing scheduled session.
+ const ad=a.at(-1)!.date,bd=b.at(-1)!.date;
+ const bm=new Map(b.map((p,i)=>[p.date,i]));
+ let ai=a.length-1;while(ai>=0&&!bm.has(a[ai].date))ai--;
+ if(ai<0)return null;
+ const end=a[ai].date,bi=bm.get(end)!;
+ // Allow at most two scheduled sessions of reporting skew, never stale history.
+ const lag=(d:string)=>{let n=0;for(let t=Date.parse(end)+DAY;t<=Date.parse(d);t+=DAY){
+  if(scheduledUsEquityCloseHourET(new Date(t).toISOString().slice(0,10))!==null)n++;
+ }return n;};
+ if(lag(ad)>2||lag(bd)>2||ai+1<count||bi+1<count)return null;
+ const x=a.slice(ai+1-count,ai+1),y=b.slice(bi+1-count,bi+1);
  return x.every((p,i)=>p.date===y[i].date)&&contiguous(x)?[x,y]:null;
 }
 // Require every scheduled regular US cash-equity session; unexpected closures remain coverage gaps.
@@ -82,7 +94,7 @@ function corr(a:Point[],b:Point[]){
 }
 export type RadarLead = {id:string;family:string;title:string;asOf:string;kind:"RELATIVE"|"BREADTH"|"CORRELATION"|"CREDIT"|"RATES";summary:string;chart:string;nextTest:string;score:number;sources:Source[];metrics:{label:string;value:number;unit:string}[]};
 export type RadarWindow={window:"1D"|"3D"|"5D";left:number;right:number;gap:number;asOf:string};
-export type RadarCheck={id:string;title:string;family:string;chart:string;nextTest:string;leftLabel?:string;rightLabel?:string;windows:RadarWindow[];asOf:string|null;metrics:RadarLead["metrics"];sources:Source[];historyAvailable:boolean};
+export type RadarCheck={id:string;title:string;family:string;chart:string;nextTest:string;leftLabel?:string;rightLabel?:string;windows:RadarWindow[];asOf:string|null;latestSourceDates?:{left:string|null;right:string|null};metrics:RadarLead["metrics"];sources:Source[];historyAvailable:boolean};
 export type RadarRead={generatedAt:string;leads:RadarLead[];checks:RadarCheck[];coverage:{checked:number;eligible:number;missing:string[]};limitations:string[]};
 const signed=(n:number)=> (n>0?"+":"")+round(n).toFixed(2);
 export function buildDivergenceRadar(rows:readonly MarketMonitorRow[],breadth:readonly BreadthSeries[],now=new Date()):RadarRead{
@@ -100,7 +112,7 @@ export function buildDivergenceRadar(rows:readonly MarketMonitorRow[],breadth:re
    const left=ret(v[0],0,n),right=ret(v[1],0,n);
    return [{window:(n+"D") as RadarWindow["window"],left:round(left),right:round(right),gap:round(left-right),asOf:v[0][n].date}];
   });
-  const check:RadarCheck={id:r.id,title:r.title,family:r.family,chart:r.chart,nextTest:r.test,leftLabel:sourceA?.label??r.a.toUpperCase(),rightLabel:sourceB?.label??r.b.toUpperCase(),windows,asOf:windows[0]?.asOf??null,metrics:[],sources,historyAvailable:!!m};
+  const check:RadarCheck={id:r.id,title:r.title,family:r.family,chart:r.chart,nextTest:r.test,leftLabel:sourceA?.label??r.a.toUpperCase(),rightLabel:sourceB?.label??r.b.toUpperCase(),windows,asOf:windows[0]?.asOf??null,latestSourceDates:{left:a.at(-1)?.date??null,right:b.at(-1)?.date??null},metrics:[],sources,historyAvailable:!!m};
   checks.push(check);
   if(!m){missing.push(r.title+" — 11 matching daily observations unavailable");continue;}
   eligible++;
@@ -148,7 +160,7 @@ export function buildDivergenceRadar(rows:readonly MarketMonitorRow[],breadth:re
   const one=(p[10].value-p[9].value)*100,latest=(p[10].value-p[5].value)*100,prior=(p[5].value-p[0].value)*100,delta=latest-prior;
   const strength=Math.max(Math.abs(one)/(r.threshold/2),Math.abs(latest)/r.threshold,Math.abs(delta)/r.threshold);
   {
-   const equity=aligned(p,get("spx-proxy"),6);const eq=equity?ret(equity[1],0,5):null;
+   const equity=aligned(p,get("spx-proxy"),6);const eq=equity&&equity[0].at(-1)?.date===p[10].date?ret(equity[1],0,5):null;
    const opposite=eq!==null&&eq>0&&latest>0;
    const metrics=[{label:"Spread level",value:round(p[10].value),unit:"%"},{label:"1 session",value:round(one),unit:"bp"},{label:"Latest 5",value:round(latest),unit:"bp"},{label:"Prior 5",value:round(prior),unit:"bp"}];
    if(eq!==null)metrics.push({label:"SPY latest 5",value:round(eq),unit:"%"});
@@ -170,7 +182,7 @@ export function buildDivergenceRadar(rows:readonly MarketMonitorRow[],breadth:re
   const latest=spread[10]-spread[5],prior=spread[5]-spread[0],one=spread[10]-spread[9],delta=latest-prior;
   const strength=Math.max(Math.abs(one)/8,Math.abs(latest)/15,Math.abs(delta)/15);
   const curveMetrics=[{label:"Spread",value:round(spread[10]),unit:"bp"},{label:"1 session",value:round(one),unit:"bp"},{label:"3 sessions",value:round(spread[10]-spread[7]),unit:"bp"},{label:"Latest 5",value:round(latest),unit:"bp"},{label:"Prior 5",value:round(prior),unit:"bp"},{label:"Acceleration",value:round(delta),unit:"bp"},{label:"2Y latest 5",value:round((curve[0][10].value-curve[0][5].value)*100),unit:"bp"},{label:"30Y latest 5",value:round((curve[1][10].value-curve[1][5].value)*100),unit:"bp"}];
-  checks.push({id:"yield-curve",title:"US 2Y minus 30Y yield spread",family:"Rates",chart:"US02Y − US30Y · daily",nextTest:"Check individual yields, real yields, Fed repricing and the matched gold reaction.",windows:[],asOf:curve[0][10].date,metrics:curveMetrics,sources:[{label:two.label,url:two.sourceUrl},{label:thirty.label,url:thirty.sourceUrl}],historyAvailable:true});
+  checks.push({id:"yield-curve",title:"US 2Y minus 30Y yield spread",family:"Rates",chart:"US02Y − US30Y · daily",nextTest:"Check individual yields, real yields, Fed repricing and the matched gold reaction.",windows:[],asOf:curve[0][10].date,latestSourceDates:{left:history(two,now,true).at(-1)?.date??null,right:history(thirty,now,true).at(-1)?.date??null},metrics:curveMetrics,sources:[{label:two.label,url:two.sourceUrl},{label:thirty.label,url:thirty.sourceUrl}],historyAvailable:true});
   if(strength>=1)leads.push({id:"yield-curve",family:"Rates",title:"US 2Y minus 30Y yield spread",asOf:curve[0][10].date,kind:"RATES",summary:"Front-end minus long-end spread changed "+signed(latest)+" bp in the latest five sessions vs "+signed(prior)+" bp previously. Distinguish front-end repricing from long-end moves.",chart:"US02Y − US30Y · daily; gold and DXY",nextTest:"Check which yield moved, real yields, Fed repricing and the matched gold reaction; no fixed inverse relationship is assumed.",score:Math.min(strength,5),sources:[{label:two.label,url:two.sourceUrl},{label:thirty.label,url:thirty.sourceUrl}],metrics:[{label:"Spread",value:round(spread[10]),unit:"bp"},{label:"Latest 5",value:round(latest),unit:"bp"},{label:"Prior 5",value:round(prior),unit:"bp"},{label:"2Y latest 5",value:round((curve[0][10].value-curve[0][5].value)*100),unit:"bp"},{label:"30Y latest 5",value:round((curve[1][10].value-curve[1][5].value)*100),unit:"bp"}]});
  }else{
   checks.push({id:"yield-curve",title:"US 2Y minus 30Y yield spread",family:"Rates",chart:"US02Y − US30Y · daily",nextTest:"Obtain matched daily 2Y and 30Y yields.",windows:[],asOf:null,metrics:[],sources:[],historyAvailable:false});
@@ -215,7 +227,7 @@ export function buildDivergenceRadar(rows:readonly MarketMonitorRow[],breadth:re
    metrics.push({label:label+" price return",value:round(ret(m[0],0,n)),unit:"%"},{label:label+" level change",value:round((m[1][n].value-m[1][0].value)*r.scale),unit:r.unit});
   }
   const m=aligned(a,b,11);
-  const check:RadarCheck={id:r.id,title:r.title,family:r.family,chart:r.chart,nextTest:r.test,windows:[],asOf,metrics,sources,historyAvailable:!!m};
+  const check:RadarCheck={id:r.id,title:r.title,family:r.family,chart:r.chart,nextTest:r.test,windows:[],asOf,latestSourceDates:{left:a.at(-1)?.date??null,right:b.at(-1)?.date??null},metrics,sources,historyAvailable:!!m};
   checks.push(check);
   if(!m){missing.push(r.title+" — 11 matching daily observations unavailable");continue;}
   eligible++;
@@ -230,5 +242,5 @@ export function buildDivergenceRadar(rows:readonly MarketMonitorRow[],breadth:re
  // Diversify the first results instead of flooding the radar with one theme.
  const seen=new Set<string>(),first:RadarLead[]=[],rest:RadarLead[]=[];
  for(const lead of ranked){if(seen.has(lead.family))rest.push(lead);else{seen.add(lead.family);first.push(lead);}}
- return {generatedAt:now.toISOString(),leads:[...first,...rest],checks,coverage:{checked:rules.length+breadthSymbols.length+spreadRules.length+1+mixedRules.length,eligible,missing},limitations:["Screening thresholds are editorial heuristics, not statistical significance or trade signals.","Returns are price returns on identical scheduled daily observations; adjacent five-session windows share only their boundary close. Credit changes are basis points. Mixed-unit relationships compare direction and separately scaled changes, not a fabricated return gap. No flow or causal inference.","Correlation compares separate 20-return samples; correlation gaps are disclosed independently from relative-return coverage. Historical gap percentiles are descriptive and use overlapping prior windows, not independent significance tests.","Breadth uses the existing permitted source series; full research history remains owner-gated. Missing values are not zero.","Fundamentals, creator views, physical flows and proprietary EMA annotations require separate agent-led investigation."]};
+ return {generatedAt:now.toISOString(),leads:[...first,...rest],checks,coverage:{checked:rules.length+breadthSymbols.length+spreadRules.length+1+mixedRules.length,eligible,missing},limitations:["Screening thresholds are editorial heuristics, not statistical significance or trade signals.","Returns use the latest common completed session, with at most two scheduled sessions of source-date skew; unmatched observations are never combined. Adjacent five-session windows share only their boundary close. Credit changes are basis points. Mixed-unit relationships compare direction and separately scaled changes, not a fabricated return gap. No flow or causal inference.","Correlation compares separate 20-return samples; correlation gaps are disclosed independently from relative-return coverage. Historical gap percentiles are descriptive and use overlapping prior windows, not independent significance tests.","Breadth uses the existing permitted source series; full research history remains owner-gated. Missing values are not zero.","Fundamentals, creator views, physical flows and proprietary EMA annotations require separate agent-led investigation."]};
 }
