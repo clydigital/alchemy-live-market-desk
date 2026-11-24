@@ -24,7 +24,7 @@ export async function refreshResearchEmbeddings(now=new Date()){
    });
    if(!response.ok){failed++;break;}
    const data=await response.json() as Partial<BatchResult>;
-   if(data.model!=="gte-small-v1"||!Number.isInteger(data.requested)||!Number.isInteger(data.embedded)||!Number.isInteger(data.failed)||data.requested!<0||data.requested!>8||data.embedded!<0||data.failed!<0||data.embedded!+data.failed!>data.requested!){failed++;break;}
+   if(data.model!=="gte-small-v1"||!Number.isInteger(data.requested)||!Number.isInteger(data.embedded)||!Number.isInteger(data.failed)||data.requested!<0||data.requested!>8||data.embedded!<0||data.failed!<0||(data.embedded!+data.failed!)!==data.requested!){failed++;break;}
    requested+=data.requested!;embedded+=data.embedded!;failed+=data.failed!;batches++;
   }catch{failed++;break;}
  }
