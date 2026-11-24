@@ -205,3 +205,36 @@ export function parseBreadthHistoricalTable(html:string,symbol:string,sourceUrl:
 export const REVIEWED_BREADTH_PROXY_SNAPSHOT:BreadthSeries[]=[
  ["S5FI",52.3],["S5OH",46.3],["S5TH",52.8],["NDFI",42.0],["NDTH",43.4],["R2FI",29.4],["R2TH",34.0],
 ].map(([symbol,value])=>({symbol:String(symbol),sourceUrl:PROXY_SOURCE,sourceName:String(symbol).startsWith("R2")?"thetrading.tools · Russell 2000-style stocks proxy (not the official index)":PROXY_NAME,points:[{date:"2026-11-23",value:Number(value)}]}));
+
+/** Publicly documented daily research dataset. Read only its latest contiguous
+ * sessions, without merging current-member proxies with official index closes.
+ * Access to the resulting history is restricted by the server reader. */
+export const BREADTH_HISTORY_URL="https://www.thetrading.tools/data/market_breadth/market_breadth.json";
+const HISTORY_FIELDS=[
+ ["S5FI","spx_pct_above_50d"],["S5OH","spx_pct_above_100d"],["S5TH","spx_pct_above_200d"],
+ ["NDFI","ndx_pct_above_50d"],["NDTH","ndx_pct_above_200d"],
+ ["R2FI","r2k_pct_above_50d"],["R2TH","r2k_pct_above_200d"],
+] as const;
+export function parseBreadthDailyDataset(json:unknown,now=new Date()):BreadthSeries[]{
+ if(!json||typeof json!=="object"||!("data" in json)||!Array.isArray(json.data)||json.data.length>15000)return [];
+ const records=new Map<string,Record<string,unknown>>();
+ for(const record of json.data){
+  if(!record||typeof record!=="object"||typeof record.date!=="string"||!/^20\\d{2}-\\d{2}-\\d{2}$/.test(record.date))continue;
+  const stamp=Date.parse(record.date+"T00:00:00Z");
+  if(!Number.isFinite(stamp)||new Date(stamp).toISOString().slice(0,10)!==record.date||stamp>+now)continue;
+  records.set(record.date,record);
+ }
+ const recent=[...records].sort((a,b)=>a[0].localeCompare(b[0])).slice(-12);
+ const latest=recent.at(-1)?.[0];
+ if(!latest||!sourceDateFresh(latest,now))return [];
+ return HISTORY_FIELDS.flatMap(([symbol,key])=>{
+  const points:BreadthPoint[]=[];
+  for(let i=recent.length-1;i>=0;i--){
+   const [date,row]=recent[i],v=row[key];
+   if(typeof v!=="number"||!Number.isFinite(v)||v<0||v>100)break;
+   points.unshift({date,value:v});
+  }
+  if(!points.length)return [];
+  return [{symbol,sourceUrl:BREADTH_HISTORY_URL,sourceName:symbol.startsWith("R2")?"thetrading.tools · Russell 2000-style historical research proxy":PROXY_NAME,points}];
+ });
+}
