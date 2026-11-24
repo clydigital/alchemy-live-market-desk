@@ -116,6 +116,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
     ()=>projectEtfRotationVisual(comparisonUniverse,compareSymbols,graphicWindow),
     [comparisonUniverse,compareSymbols,graphicWindow],
   );
+  const xlVisual = useMemo(()=>projectEtfRotationVisual(comparisonUniverse,XL_COMPARISON_SYMBOLS,graphicWindow),[comparisonUniverse,graphicWindow]);
   const comparisonHeader = (column: EtfComparisonSortColumn, label: string) =>
     <th scope="col" aria-sort={comparisonSort===column
       ? comparisonAscending ? "ascending" : "descending" : undefined}>
@@ -180,6 +181,25 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
         <p>Leader–laggard gap: {sectorSnapshot.spread.toFixed(2)} percentage points · source session {sectorSnapshot.asOf}.
           Source-matched ETF price rotation, not confirmed investment flows or a canonical regime verdict.</p>
       </div> : <p className={ui.rotationUnavailable}>Sector rotation summary unavailable: fewer than eight same-session, source-dated sector readings. Individual ETF rows remain accessible.</p>}
+      <section className={ui.rotationGraphic} aria-label="XL sector gains and losses" data-xl-sector-diverging-bars="same-session">
+        <div className={ui.graphicHeader}><div><h3>XL sector performance <span>· all 11 sectors</span></h3>
+          <p>Losses extend left of zero; gains extend right. Independent of your custom ETF selection.</p></div>
+          <div className={ui.graphicPeriods} role="group" aria-label="XL sector comparison period">
+          {(["1D","3D","5D"] as const).map(period=><button key={period} type="button" aria-pressed={graphicWindow===period} onClick={()=>{setGraphicWindow(period);setComparisonSort(period);setComparisonAscending(false)}}>{period}</button>)}
+          </div>
+        </div>
+        <div className={ui.graphicMetadata}><span>{xlVisual?.asOf?"SESSION "+xlVisual.asOf:"NO MATCHED SESSION"}</span><span>{xlVisual?.bars.length??0} / 11 SECTORS</span></div>
+        <div className={ui.xlAxis}><span>LOSSES ←</span><span>0%</span><span>→ GAINS</span></div>
+        <div className={ui.graphicRows}>
+          {[...(xlVisual?.bars??[]),...XL_COMPARISON_SYMBOLS.filter(symbol=>!xlVisual?.bars.some(b=>b.symbol===symbol)).map(symbol=>({id:"missing-"+symbol,symbol,label:comparisonUniverse.find(r=>r.symbol===symbol)?.label??symbol,value:null,display:"—",direction:"unknown",widthPercent:0,leftPercent:50}))].map(bar=>
+            <div key={bar.id} className={ui.graphicRow} data-direction={bar.direction} title={bar.label}>
+             <strong>{bar.symbol}</strong><div className={ui.graphicTrack} aria-hidden="true">{bar.widthPercent>0?<span className={ui.graphicBar} style={{left:`${bar.leftPercent}%`,width:`${bar.widthPercent}%`}}/>:null}</div>
+             <span className={ui.graphicValue}>{bar.display}</span>
+            </div>
+          )}
+        </div>
+        <p className={ui.graphicCaveat}>All bars share the same symmetric scale. Missing or different-session observations are marked —, not zero.</p>
+      </section>
       <section className={ui.rotationGraphic} aria-label="Same-session ETF price-change comparison"
         data-v7-etf-rotation="source-matched">
         <div className={ui.graphicHeader}>

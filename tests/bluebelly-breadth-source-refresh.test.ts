@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {readFileSync} from "node:fs";
-import {parsePublishedSp500Breadth,calculateBreadthRow} from "../lib/bluebelly-breadth-dated.ts";
+import {parsePublishedSp500Breadth,calculateBreadthRow,parseCurrentBreadthTable,parseBreadthHistoricalTable,REVIEWED_BREADTH_PROXY_SNAPSHOT} from "../lib/bluebelly-breadth-dated.ts";
 
 const now=new Date("2026-11-04T10:00:00Z");
 const fixture=(date="Nov 03, 2026",short="65.9% +5.5 / 5d",long="61.5% +2.4 / 5d")=>
@@ -29,7 +29,26 @@ test("rejects stale, future, impossible and unscoped source observations",()=>{
 test("uses bounded 2-hour refresh with explicit unavailable fallback",()=>{
   const reader=readFileSync(new URL("../lib/bluebelly-breadth-reader.ts",import.meta.url),"utf8");
   assert.match(reader,/thetrading\.tools\/stocks-above-moving-average/);
-  assert.doesNotMatch(reader,/investing\.com/);
+  assert.match(reader,/investing\.com/);
   assert.match(reader,/retrievalStatus:"fallback"/);
   assert.match(reader,/revalidate:7200/);
+});
+
+test("new upstream table maps the exact named universes and rejects stale data",()=>{
+ const date=new Date("2026-11-24T08:00:00Z");
+ const html='<p>Updated daily after close · as of 2026-11-23</p><table><tr><th>% above their</th><th>All US Stocks</th><th>S&amp;P 500 Members</th><th>Nasdaq-100 Members</th><th>Russell 2000-Style Stocks</th></tr><tr><td>50-Day average · Swing</td><td>28.6%</td><td>52.3%</td><td>42.0%</td><td>29.4%</td></tr><tr><td>100-Day average · Trend</td><td>25.1%</td><td>46.3%</td><td>40%</td><td>25.4%</td></tr><tr><td>200-Day average · Regime</td><td>31.2%</td><td>52.8%</td><td>43.4%</td><td>34.0%</td></tr></table>';
+ const rows=parseCurrentBreadthTable(html,date)!;
+ assert.equal(rows.length,7);
+ assert.equal(rows.find(r=>r.symbol==="S5FI")?.points[0].value,52.3);
+ assert.equal(rows.find(r=>r.symbol==="NDFI")?.points[0].value,42);
+ assert.match(rows.find(r=>r.symbol==="R2FI")!.sourceName,/proxy/);
+ assert.equal(parseCurrentBreadthTable(html,new Date("2026-12-01")),null);
+ assert.equal(calculateBreadthRow("S5FI","breadth",REVIEWED_BREADTH_PROXY_SNAPSHOT[0],date).last,52.3);
+});
+test("historical fallback uses daily closing levels, never relative percentage returns",()=>{
+ const html='<table><tr><th>Date</th><th>Price</th><th>Open</th><th>Change %</th></tr><tr><td>Nov 23, 2026</td><td>52.28</td><td>49.70</td><td>+22.32%</td></tr><tr><td>Nov 20, 2026</td><td>42.74</td><td>50.00</td><td>-10%</td></tr></table>';
+ const date=new Date("2026-11-24T08:00:00Z");
+ const s=parseBreadthHistoricalTable(html,"S5FI","https://www.investing.com/indices/s-p-500-stocks-above-50-day-average-historical-data",date)!;
+ assert.equal(s.points.length,2);
+ assert.equal(calculateBreadthRow("S5FI","breadth",s,date).change,9.54);
 });

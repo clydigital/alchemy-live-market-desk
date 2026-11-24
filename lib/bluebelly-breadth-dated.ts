@@ -145,3 +145,63 @@ export function marketParticipationResearch(
     asOf:f.asOf,
   };
 }
+
+// Current upstream layout publishes a cross-universe table rather than the
+// previous individual chart headings. Read only the named columns and the
+// source's stated close date. Russell 2000-style is a proxy, not R2FI/R2TH.
+const PROXY_SOURCE="https://www.thetrading.tools/stocks-above-moving-average";
+const PROXY_NAME="thetrading.tools · current-member moving-average breadth proxy";
+function tableText(html:string):string{
+ return html.replace(/<[^>]+>/g," ").replace(/&amp;/gi,"&").replace(/&nbsp;|&#160;/gi," ").replace(/\s+/g," ").trim();
+}
+function tableRows(html:string):string[][]{
+ return [...html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].map(r=>[...r[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(c=>tableText(c[1])));
+}
+export function parseCurrentBreadthTable(html:string,now=new Date()):BreadthSeries[]|null{
+ if(!html||html.length>6000000)return null;
+ const clean=tableText(html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi," "));
+ const date=clean.match(/(?:Updated daily after close\s*[·|]?\s*as of|Data as of)\s*(20\d{2}-\d{2}-\d{2})/i)?.[1];
+ if(!date||!sourceDateFresh(date,now))return null;
+ for(const t of html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)){
+  const rows=tableRows(t[1]);const head=rows.find(r=>r.some(c=>/S&P 500 Members/i.test(c))&&r.some(c=>/Nasdaq-100 Members/i.test(c)));
+  if(!head)continue;
+  const columns=[{col:head.findIndex(c=>/S&P 500 Members/i.test(c)),symbols:{50:"S5FI",100:"S5OH",200:"S5TH"}},
+   {col:head.findIndex(c=>/Nasdaq-100 Members/i.test(c)),symbols:{50:"NDFI",200:"NDTH"}},
+   {col:head.findIndex(c=>/Russell 2000.Style Stocks/i.test(c)),symbols:{50:"R2FI",200:"R2TH"}}] as const;
+  const out:BreadthSeries[]=[];
+  for(const {col,symbols} of columns)for(const [horizon,symbol] of Object.entries(symbols)){
+   const row=rows.find(r=>new RegExp("^"+horizon+"[ -]Day average","i").test(r[0]||""));
+   const val=row?.[col]?.match(/^(\d{1,3}(?:\.\d+)?)\s*%$/);
+   if(!val||Number(val[1])>100)continue;
+   out.push({symbol,sourceUrl:PROXY_SOURCE,sourceName:symbol.startsWith("R2")?"thetrading.tools · Russell 2000-style stocks proxy (not the official index)":PROXY_NAME,points:[{date,value:Number(val[1])}]});
+  }
+  if(out.some(r=>r.symbol==="S5FI")&&out.some(r=>r.symbol==="S5TH"))return out;
+ }
+ return null;
+}
+// Independent secondary historical index closes. The first numeric cell after
+// each date is the close/Price column, not the provider's percent return.
+export function parseBreadthHistoricalTable(html:string,symbol:string,sourceUrl:string,now=new Date()):BreadthSeries|null{
+ if(!html||html.length>6000000)return null;
+ for(const t of html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)){
+  const rows=tableRows(t[1]);const header=rows.find(r=>/^Date$/i.test(r[0]||"")&&/^Price$/i.test(r[1]||""));
+  if(!header)continue;
+  const points:BreadthPoint[]=[];
+  for(const r of rows){
+   const m=r[0]?.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),\s*(20\d{2})$/i);
+   if(!m||!/^\d{1,3}(?:\.\d+)?$/.test(r[1]||""))continue;
+   const month=["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"].indexOf(m[1].toLowerCase())+1;
+   const date=m[3]+"-"+String(month).padStart(2,"0")+"-"+m[2].padStart(2,"0");
+   const epoch=Date.parse(date+"T00:00:00Z"),value=Number(r[1]);
+   if(!Number.isFinite(epoch)||new Date(epoch).toISOString().slice(0,10)!==date||epoch>+now||value>100)continue;
+   points.push({date,value});
+  }
+  const unique=[...new Map(points.map(p=>[p.date,p])).values()].sort((a,b)=>a.date.localeCompare(b.date));
+  if(unique.length>=2&&sourceDateFresh(unique.at(-1)!.date,now))return {symbol,sourceUrl,sourceName:"Investing.com historical index levels · secondary provider",points:unique.slice(-12)};
+ }
+ return null;
+}
+// Reviewed source snapshot, not a live quote. Freshness gate expires it.
+export const REVIEWED_BREADTH_PROXY_SNAPSHOT:BreadthSeries[]=[
+ ["S5FI",52.3],["S5OH",46.3],["S5TH",52.8],["NDFI",42.0],["NDTH",43.4],["R2FI",29.4],["R2TH",34.0],
+].map(([symbol,value])=>({symbol:String(symbol),sourceUrl:PROXY_SOURCE,sourceName:String(symbol).startsWith("R2")?"thetrading.tools · Russell 2000-style stocks proxy (not the official index)":PROXY_NAME,points:[{date:"2026-11-23",value:Number(value)}]}));
