@@ -16,6 +16,8 @@ import {fetchBoeGilt10} from "@/lib/providers/boe-gilt10";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import MarketMoversOverview from "@/components/blue-desk/MarketMoversOverview";
 import {buildScannerDiscovery} from "@/lib/bluebelly-scanner-discovery";
+import XlBenchmarkSynergyPanel from "@/components/blue-desk/XlBenchmarkSynergy";
+import {buildXlBenchmarkSynergy} from "@/lib/bluebelly-xl-benchmark-synergy";
 import PublicMarketScreener from "@/components/blue-desk/PublicMarketScreener";
 import MarketDivergenceWatch from "@/components/blue-desk/MarketDivergenceWatch";
 import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
@@ -101,6 +103,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
         item.symbol,item.label,breadthHistory.series.find(row=>row.symbol===item.symbol)))
     : [];
   const observations=[...monitoredRows,...breadthObservations];
+  const xlSynergy=mode==="compare"?buildXlBenchmarkSynergy(monitor?.rows??[],now):null;
   const movers=mode==="assets"&&group==="all"?buildScannerDiscovery(monitoredRows,now):null;
   const catalogue=mode==="assets"&&group==="all"?
     searchPublicAssetCatalogue(publicMarketObservations(monitor?.rows||[],"all"),{
@@ -168,6 +171,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
         {mode==="compare"?<nav aria-label="Markets page sections"
           className={legibility.focusNavigation} data-markets-primary="breadth-and-comparison">
           <a href="#market-group-heading">ETF comparisons</a>
+          <a href="#xl-benchmark-synergy">XLs vs indices</a>
           <a href="#breadth-watch-heading">Market breadth</a>
         </nav>:mode==="assets"?<nav aria-label="Markets page sections"
           className={legibility.focusNavigation} data-markets-primary="asset-catalogue">
@@ -282,6 +286,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           </div>
 
 
+          {xlSynergy?<XlBenchmarkSynergyPanel data={xlSynergy}/>:null}
           <PublicMarketScreener key={group} observations={observations} group={group} dataAvailable={Boolean(monitor)} mode={mode==="compare"?"compare":"assets"} />
         </section>:null}
 
