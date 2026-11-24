@@ -28,3 +28,13 @@ test("scanner refuses stale or missing evidence",()=>{
  {...row("AAPL","MAG7",2,3,4),change:null}],now);
  assert.equal(r.session,null);assert.equal(r.coverage,0);assert.equal(r.laggards.length,0);
 });
+
+test("all eleven XL sectors remain represented and missing or mismatched dates are not priced",()=>{
+ const d=buildScannerDiscovery([row("RSP","Major Index",1,1,1),row("XLK","Sector",2,3,4),row("XLF","Sector",-1,-2,-3),row("XLE","Sector",9,9,9,"2026-11-20"),row("NVDA","MAG7",3,4,5),row("AAPL","MAG7",-2,-3,-4),row("MSFT","MAG7",0,1,2)],now);
+ assert.equal(d.sectors.length,11);
+ assert.equal(d.sectors.find(r=>r.symbol==="XLK")?.change,2);
+ assert.equal(d.sectors.find(r=>r.symbol==="XLF")?.change,-1);
+ assert.equal(d.sectors.find(r=>r.symbol==="XLE")?.change,null);
+ assert.equal(d.sectors.find(r=>r.symbol==="XLRE")?.change,null);
+ assert.equal(d.gainers[0]?.symbol,"NVDA");assert.equal(d.losers[0]?.symbol,"AAPL");assert.equal(d.quiet[0]?.symbol,"MSFT");
+});
