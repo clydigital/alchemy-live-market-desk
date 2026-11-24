@@ -226,32 +226,24 @@ test("only the fixed creator universe enters the browser/manual work list", () =
     ]),
     channel("wall-street-truth-bombs", [video("wall-street-truth-bombs", "truth-upload")]),
     channel("tradernick", [video("tradernick", "nick-upload")]),
-    channel("casual-finance", [video("casual-finance", "casual-upload")]),
+    channel("meetkevin", [video("meetkevin", "kevin-upload")]),
+    channel("traders-reality", [video("traders-reality", "tino-upload")]),
+    channel("trade-brigade", [video("trade-brigade", "trade-upload")]),
+    channel("real-eisman-playbook", [video("real-eisman-playbook", "eisman-upload")]),
+    channel("clearvalue-tax", [video("clearvalue-tax", "rates-upload")]),
   ];
 
   const workList = selectedTranscriptChannels(channels);
-  assert.deepEqual(workList.map((entry) => entry.channelKey), [
-    "stockedup",
-    "wall-street-truth-bombs",
-    "fx-evolution",
-    "tradernick",
-    "casual-finance",
-  ]);
-  assert.deepEqual(workList.flatMap((entry) => entry.videos.map((entryVideo) => entryVideo.videoId)), [
-    "stock-upload",
-    "truth-upload",
-    "fx-upload",
-    "nick-upload",
-    "casual-upload",
-  ]);
+  assert.deepEqual(workList.map((entry) => entry.channelKey), ["meetkevin", "stockedup", "fx-evolution", "traders-reality", "wall-street-truth-bombs", "trade-brigade", "real-eisman-playbook", "tradernick", "clearvalue-tax"]);
+  assert.deepEqual(workList.flatMap((entry) => entry.videos.map((entryVideo) => entryVideo.videoId)), ["kevin-upload", "stock-upload", "fx-upload", "tino-upload", "truth-upload", "trade-upload", "eisman-upload", "nick-upload", "rates-upload"]);
   assert.equal(isTranscriptChannel("stockedup"), true);
   assert.equal(isTranscriptChannel("wall-street-truth-bombs"), true);
   assert.equal(isTranscriptChannel("fx-evolution"), true);
   assert.equal(isTranscriptChannel("tradernick"), true);
-  assert.equal(isTranscriptChannel("casual-finance"), true);
-  assert.equal(isTranscriptChannel("traders-reality"), false);
+  assert.equal(isTranscriptChannel("casual-finance"), false);
+  assert.equal(isTranscriptChannel("traders-reality"), true);
   assert.equal(isTranscriptChannel("kevin-gerrity"), false);
-  assert.equal(isTranscriptChannel("clearvalue-tax"), false);
+  assert.equal(isTranscriptChannel("clearvalue-tax"), true);
 });
 
 test("YouTube ISO durations support the conservative three-minute Shorts guard", () => {
