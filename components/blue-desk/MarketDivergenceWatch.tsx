@@ -8,13 +8,13 @@ import css from "./MarketDivergenceWatch.module.css";
 
 const number=(value:number|null,unit:string)=>value===null?"—":`${value>0?"+":""}${value.toFixed(2)} ${unit}`;
 const direction=(n:number|null)=>n===null?"unknown":n>0?"up":n<0?"down":"flat";
-const pairKeys:Record<string,string>={"semis-vs-nasdaq":"chips","financials-vs-tech":"financial-tech","equal-vs-cap":"broad","software-vs-chips":"software"};
+const pairKeys:Record<string,string>={"semis-vs-nasdaq":"chips","financials-vs-tech":"financial-tech","equal-vs-cap":"broad","software-vs-chips":"software","energy-vs-consumer":"energy-consumer"};
 const leadKey=(r:RadarLead)=>r.kind==="CORRELATION"?r.id.replace(/-corr$/,""):r.id;
 type Metric=RadarLead["metrics"][number];
 const keyMetrics=["Latest 5","Prior 5","5-session acceleration","Acceleration","Prior 20D correlation","Latest 20D correlation","Correlation change"];
 function MetricGrid({metrics}:{metrics:Metric[]}){
  if(!metrics.length)return null;
- return <div className={css.readings} style={{gridTemplateColumns:"repeat(auto-fit,minmax(115px,1fr))"}}>
+ return <div className={css.readings} style={{gridTemplateColumns:"repeat(auto-fit,minmax(min(115px,100%),1fr))"}}>
   {metrics.map(m=><div key={m.label}><small>{m.label}</small><strong data-direction={m.unit==="r"?"flat":direction(m.value)}>{number(m.value,m.unit)}</strong></div>)}
  </div>;
 }
