@@ -7,7 +7,10 @@ export async function refreshResearchEmbeddings(now=new Date()){
  const url=process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/,"");
  const key=process.env.SUPABASE_SERVICE_ROLE_KEY;
  if(!url||!key)return {status:"unavailable",reason:"server_configuration_missing",embedded:0};
- const start=now.getUTCHours()%LANES.length;
+ if(process.env.NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED!=="true")return {status:"disabled",embedded:0};
+ // Existing Dossier slots are 02:20/02:40 and 15:00/15:20 UTC.
+ const start=now.getUTCHours()<12?0:2;
+ const order=now.getUTCMinutes()>=20?[0,1]:[1,0];
  const deadline=Date.now()+42000;
  let embedded=0,failed=0,requested=0,batches=0;
  for(let i=0;i<2;i++){
@@ -16,7 +19,7 @@ export async function refreshResearchEmbeddings(now=new Date()){
   try{
    const response=await fetch(url+"/functions/v1/bb-research-retrieval",{
     method:"POST",cache:"no-store",headers:{"Content-Type":"application/json",Authorization:"Bearer "+key,apikey:key},
-    body:JSON.stringify({action:"backfill",batch_size:8,lanes:LANES[(start+i)%LANES.length]}),
+    body:JSON.stringify({action:"backfill",batch_size:8,lanes:LANES[start+order[i]]}),
     signal:AbortSignal.timeout(Math.min(20000,remaining))
    });
    if(!response.ok){failed++;break;}
