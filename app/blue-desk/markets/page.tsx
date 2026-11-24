@@ -15,6 +15,8 @@ import {fetchBoeGilt10} from "@/lib/providers/boe-gilt10";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import TradingViewChart from "@/components/blue-desk/TradingViewChart";
+import MarketMoversOverview from "@/components/blue-desk/MarketMoversOverview";
+import {buildScannerDiscovery} from "@/lib/bluebelly-scanner-discovery";
 import PublicMarketScreener from "@/components/blue-desk/PublicMarketScreener";
 import MarketDivergenceWatch from "@/components/blue-desk/MarketDivergenceWatch";
 import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
@@ -98,6 +100,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
         item.symbol,item.label,breadthHistory.series.find(row=>row.symbol===item.symbol)))
     : [];
   const observations=[...monitoredRows,...breadthObservations];
+  const movers=mode==="assets"&&group==="all"?buildScannerDiscovery(monitoredRows,now):null;
   const catalogue=mode==="assets"&&group==="all"?
     searchPublicAssetCatalogue(publicMarketObservations(monitor?.rows||[],"all"),{
       query:query["catalogue-q"],scope:query["catalogue-scope"],page:query["catalogue-page"],
@@ -168,6 +171,8 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
         </nav>:mode==="assets"?<nav aria-label="Markets page sections"
           className={legibility.focusNavigation} data-markets-primary="asset-catalogue">
           <a href="#market-group-heading">All instruments</a>
+          {movers?<a href="#market-movers">Top movers</a>:null}
+          {movers?<a href="#xl-sector-pulse">XL sectors</a>:null}
           {group==="all"?<a href="#yield-ladder">US yields</a>:null}
           {group==="rates"?<a href="#rates-policy-heading">Yields &amp; FedWatch</a>:null}
           {group==="all"?<a href="#jobs-monitor">US jobs</a>:null}
@@ -185,6 +190,10 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
             </Link>)}
           </nav>
         </details>:null}
+        {movers?<MarketMoversOverview data={movers}
+          compareHref={blueDeskPublicHref("/blue-desk/markets?mode=compare",host)+"#market-group-heading"}
+          watchHref={blueDeskPublicHref("/blue-desk/markets?mode=watch",host)}
+          scannerHref={blueDeskPublicHref("/blue-desk/markets/scanner",host)}/>:null}
         {mode==="watch"?<section aria-labelledby="divergence-watch-heading"
           className={`${styles.section} ${legibility.marketSection}`}>
           <p className={styles.kicker}>01 / WHAT IS NOT MOVING TOGETHER?</p>
