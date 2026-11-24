@@ -201,19 +201,15 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           compareHref={blueDeskPublicHref("/blue-desk/markets?mode=compare",host)+"#market-group-heading"}
           watchHref={blueDeskPublicHref("/blue-desk/markets?mode=watch",host)}
           scannerHref={blueDeskPublicHref("/blue-desk/markets/scanner",host)}/>:null}
-        {divergenceRadar?<DivergenceRadar read={divergenceRadar}/>:null}
-        {mode==="watch"?<section aria-labelledby="divergence-watch-heading"
-          className={`${styles.section} ${legibility.marketSection}`}>
-          <p className={styles.kicker}>01 / WHAT IS NOT MOVING TOGETHER?</p>
-          <h2 id="divergence-watch-heading">Divergence Watch</h2>
-          <MarketDivergenceWatch observations={publicMarketObservations(monitor?.rows||[],"all")}
+        {mode==="watch"&&divergenceRadar?<DivergenceRadar read={divergenceRadar}
+          comparisons={<MarketDivergenceWatch observations={publicMarketObservations(monitor?.rows||[],"all")}
             window={watchWindow}
             windowHrefs={{
-              "1D":blueDeskPublicHref("/blue-desk/markets?mode=watch&window=1D",host),
-              "3D":blueDeskPublicHref("/blue-desk/markets?mode=watch&window=3D",host),
-              "5D":blueDeskPublicHref("/blue-desk/markets?mode=watch&window=5D",host),
-            }}/>
-        </section>:null}
+              "1D":blueDeskPublicHref("/blue-desk/markets?mode=watch&window=1D",host)+"#divergence-watch",
+              "3D":blueDeskPublicHref("/blue-desk/markets?mode=watch&window=3D",host)+"#divergence-watch",
+              "5D":blueDeskPublicHref("/blue-desk/markets?mode=watch&window=5D",host)+"#divergence-watch",
+            }}/>}
+        />:null}
 
         {mode==="compare"?<section className={`${styles.section} ${legibility.marketSection}`}
           aria-labelledby="breadth-watch-heading" data-market-breadth-watch="research-first">
