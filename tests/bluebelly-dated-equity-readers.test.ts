@@ -61,7 +61,7 @@ test("recovered XL ranking sorts 1D by completed session and refuses unmatched d
   assert.match(screener,/group\.length >= 8/);
   assert.match(screener,/Source-matched ETF price rotation, not confirmed investment flows/);
   assert.match(screener,/Sector rotation summary unavailable/);
-  assert.match(screener,/publicMarketWindowChange\(row,period\) === null \? "unknown"/);
+  assert.match(screener,/direction:"unknown",widthPercent:0,leftPercent:50/);
   assert.match(scss,/\.rotationSummary\{/);
   assert.doesNotMatch(screener,/createSupabaseAdminClient|\.insert\(|\.upsert\(/);
 });
