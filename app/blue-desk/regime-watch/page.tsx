@@ -2,6 +2,8 @@ import QqqPositioningPanel from "@/components/blue-desk/QqqPositioningPanel";
 import InvestorMindsetBoard from "@/components/blue-desk/InvestorMindsetBoard";
 import {buildInvestorMindsetSnapshot,buildInvestorResearchThemes} from "@/lib/bluebelly-investor-mindset";
 import {projectInvestorAssessment} from "@/lib/bluebelly-investor-assessment";
+import {selectPilotLensAssessment} from "@/lib/bluebelly-regime-assessment-pilot";
+import RegimeCurrentAssessment from "@/components/blue-desk/RegimeCurrentAssessment";
 import {getInvestorReviewReceipt} from "@/lib/bluebelly-investor-review-receipt";
 import {getDossierV2PresentationSelection} from "@/lib/dossier-v2/presentation-reader";
 import {isBlueDeskPublicReaderHost} from "@/lib/blue-desk-host";
@@ -113,7 +115,7 @@ export default async function RegimeWatchPage(){
    </div>
    <div className={styles.heading} id="lens-grid">
     <div><span className={styles.kicker}>01 / THE NINE RESEARCH FILES</span><h2>Choose the <em>pressure point.</em></h2></div>
-    <span><span className={styles.reviewDate}>Reviewed {LENS_OUTLOOK_REVIEWED_ON} MYT</span><span className={styles.reviewMeta}> · {theses===null?"Story coverage unavailable":theses.length+" public Story snapshots"} · Viewed <DualTimestamp value={now.toISOString()}/></span></span>
+    <span><span className={styles.reviewDate}>Historical editorial baseline {LENS_OUTLOOK_REVIEWED_ON} MYT</span><span className={styles.reviewMeta}> · {theses===null?"Story coverage unavailable":theses.length+" public Story snapshots"} · Viewed <DualTimestamp value={now.toISOString()}/></span></span>
    </div>
    <p className={styles.lensIntro}>Explore a research lens automatically refreshed from existing research and dated market proxies every 10 minutes while open. Colours describe price or yield direction, not a fundamental Regime verdict or trade recommendation.</p>
    <div className={styles.lensLegend} aria-label="Regime lens market-signal colour key">
@@ -138,6 +140,7 @@ export default async function RegimeWatchPage(){
         <span className={styles.lensStatusDetail}>{signal.readout}</span>
         <small>{signal.sourceDate?signal.dateNote+" "+signal.sourceDate:signal.dateNote} · {signal.scope}</small>
        </div>
+       <RegimeCurrentAssessment assessment={selectPilotLensAssessment(lens.id,investorAssessment)} compact/>
        <RegimeLiveCardEvidence read={liveReads[index]}/>
        {revisions.length?<div data-regime-current-research="source-reviewed-provisional" style={{borderTop:"1px solid var(--bb-card-border)",marginTop:12,paddingTop:10}}>
         <small className={styles.kicker}>17 NOV US / 18 NOV MYT · RESEARCH CHECK</small>
