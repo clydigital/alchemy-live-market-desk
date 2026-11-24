@@ -16,14 +16,15 @@ function valid(row:Row,now:Date){
  const t=Date.parse(row.asOf+"T00:00:00Z");if(!Number.isFinite(t)||new Date(t).toISOString().slice(0,10)!==row.asOf||t>+now||+now-t>4*86400000)return false;
  try{const u=new URL(row.sourceUrl);return u.protocol==="https:"&&!u.username&&!u.password;}catch{return false;}
 }
-function stock(row:Row){return ["MAG7","US Stock","Europe Stock"].includes(row.type)||row.type==="AI / Semis"&&Object.hasOwn(sectorFor,row.symbol);}
+function stock(row:Row){return ["MAG7","US Stock","Europe Stock"].includes(row.type)||row.type==="AI / Semis"&&Object.prototype.hasOwnProperty.call(sectorFor,row.symbol);}
 function hasFive(r:Row){return r.change5d!==null&&Number.isFinite(r.change5d);}
 export function buildScannerDiscovery(rows:readonly Row[],now=new Date()){
  const available=rows.filter(r=>valid(r,now));
- const bySymbol=new Map<string,Row>();
- for(const r of available){const old=bySymbol.get(r.symbol);if(!old||r.asOf!>old.asOf!)bySymbol.set(r.symbol,r);}
- const session=[...bySymbol.values()].map(r=>r.asOf!).sort().at(-1)??null;
- const current=[...bySymbol.values()].filter(r=>r.asOf===session);
+ // Anchor to a source-dated US equity session, not a newer UTC crypto/FX bar.
+ const session=available.filter(r=>r.symbol==="RSP"||r.type==="Sector"||r.type==="MAG7"||r.type==="US Stock").map(r=>r.asOf!).sort().at(-1)??null;
+ const matched=new Map<string,Row>();
+ for(const r of available)if(r.asOf===session&&!matched.has(r.symbol))matched.set(r.symbol,r);
+ const current=[...matched.values()];
  const same=(symbol:string)=>current.find(r=>r.symbol===symbol);
  const candidate=(r:Row,detail:string,nextTest:string,score:number,comparison?:Row):ScannerCandidate=>({
   symbol:r.symbol,label:r.label,asOf:r.asOf!,sourceUrl:r.sourceUrl!,detail,nextTest,score,
@@ -50,7 +51,7 @@ export function buildScannerDiscovery(rows:readonly Row[],now=new Date()){
    if(gap1>=0.5&&gap3>0&&gap5<=0)rotation.push(candidate(r,"1D "+signed(gap1)+" pp; 3D "+signed(gap3)+" pp; 5D "+signed(gap5)+" pp vs RSP.","Look for sustained relative strength and constituent participation on the next pullback; invalidate if relative gains reverse.",gap1+gap3,base));
   }
  }
- const divergence=selectMeasuredMarketSignals(buildMarketDivergenceWatch(rows,"1D"),"1D",now,5);
+ const divergence=selectMeasuredMarketSignals(buildMarketDivergenceWatch(current,"1D"),"1D",now,5);
  const cross:ScannerCandidate[]=divergence.map(d=>({symbol:d.left+" / "+d.right,label:d.title,asOf:d.sourceSession,detail:signed(d.leftChange)+"% vs "+signed(d.rightChange)+"% · "+signed(d.gapPp)+" pp",nextTest:d.nextTest,sourceUrl:d.leftSourceUrl,comparisonUrl:d.rightSourceUrl,score:Math.abs(d.gapPp)}));
  // Use US-listed ETFs for matched equity-session comparisons; do not equate ETF returns with spot Bitcoin or cash index returns.
  for(const [a,b,label,next] of [
