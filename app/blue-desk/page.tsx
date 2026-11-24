@@ -1,3 +1,4 @@
+import ProviderMarketWidgets from "@/components/blue-desk/ProviderMarketWidgets";
 import CreatorIntelligencePanel from "@/components/blue-desk/CreatorIntelligencePanel";
 import {readQqqPositioning} from "@/lib/bluebelly-qqq-positioning";
 import AbsorptionHealth from "@/components/blue-desk/AbsorptionHealth";
@@ -182,6 +183,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
         {!publicHost?<CurrentMarketUpdates host={host} mode="full" now={now}/>:null}
       {!publicHost?<AbsorptionHealth health={absorptionHealth}/>:null}
       <div className={styles.content}>
+        <ProviderMarketWidgets compact/>
         {publicHost?<section className={marketHome.terminal} data-home-market-first="source-dated-terminal" aria-label="Bluebelly market overview">
           <RadarIntelligenceShell read={radarIntel!}>
           <header className={marketHome.hero} data-v7-graphical-hero="source-dated">
