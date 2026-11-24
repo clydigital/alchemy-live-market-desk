@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { blueDeskHostAccess } from "@/lib/blue-desk-host";
 import { fetchTodayNotionResearch } from "@/lib/notion-market-research";
+import {buildCompareResearch} from "@/lib/bluebelly-compare-research";
 import { buildDailyResearchPacket } from "@/lib/daily-report-research-packet";
 import { assessDailyResearchHealth } from "@/lib/daily-report-research-health";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
@@ -66,14 +67,15 @@ export async function GET(req:NextRequest){
     breadthSource.series.find(item=>item.symbol==="S5FI"),now);
   const bth=calculateBreadthRow("S5TH","S&P 500 above 200D",
     breadthSource.series.find(item=>item.symbol==="S5TH"),now);
-  const breadthDiagnostic=marketParticipationResearch([
-    ...publicMarketObservations(monitor?.rows||[],"all"),bfi,bth,
-  ]);
+  const marketObservations=[...publicMarketObservations(monitor?.rows||[],"all"),bfi,bth];
+  const breadthDiagnostic=marketParticipationResearch(marketObservations);
+  const compare=buildCompareResearch(monitor?.rows||[],marketObservations,now);
   const packet=buildDailyResearchPacket({
     now:now.toISOString(),notion,news,
     editorialBriefs:delivery.briefs,
     creatorReviews:creatorDelivery.reviews,
     creatorCoverageStatus:creatorDelivery.status,
+    compare,
     marketDiagnostics:[{...breadthDiagnostic,
       sourceUrls:breadthSource.series.map(item=>item.sourceUrl)}],
     prices:(monitor?.rows||[]).filter(r=>r.last!==null)
@@ -89,7 +91,7 @@ export async function GET(req:NextRequest){
   });
   const health=assessDailyResearchHealth({now,notion,packet,news});
   return NextResponse.json({
-    ...packet,health,creatorSignalDigest,
+    ...packet,health,creatorSignalDigest,marketCompare:compare,
     creatorReviewCoverage:{status:creatorDelivery.status,count:creatorDelivery.reviews.length,
       caveat:"Reviews have original video dates and attributed mechanisms; their claims have not been independently source-verified."},
     deliveredResearch:{status:delivery.status,count:delivery.briefs.length,
