@@ -81,7 +81,9 @@ test("existing private research handoff includes reviewed, dated creator ideas w
  assert.match(db,/\.eq\("transcript_status","ready"\)/);
  assert.match(db,/\.eq\("video_review_status","reviewed"\)/);
  assert.match(db,/\.gte\("published_at",cutoff\)/);
- assert.match(db,/\.limit\(25\)/);
+ assert.match(db,/\.limit\(90\)/);
+ assert.match(db,/\.in\("publisher",CREATOR_ROSTER\.map/);
+ assert.match(db,/\.slice\(0,9\)/);
  assert.match(packetBuilder,/ATTRIBUTED \/ NOT ORIGINAL FACTS/);
  assert.match(packetBuilder,/CREATOR TRANSCRIPT COVERAGE/);
  assert.match(packetBuilder,/Verification|verification target|Independent source target/i);
