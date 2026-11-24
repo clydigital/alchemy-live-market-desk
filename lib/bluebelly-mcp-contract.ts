@@ -19,9 +19,9 @@ const EMPTY={type:"object",properties:{},additionalProperties:false} as const;
 export const BLUEBELLY_MCP_TOOLS=[
  {
   name:"get_market_snapshot",
-  description:"Return source-dated market observations for one group, with 1/3/5 session changes when available. A missing observation is not a market move. Rates changes are basis points, other prices percentages. Read-only.",
+  description:"Return source-dated market observations for one group, with 1/3/5 session changes when available. Group compare returns all eleven XL sectors, matched-session relative performance against four benchmarks, correlations with sample counts, breadth and divergence pairs. A missing observation is not a market move. Rates changes are basis points, other prices percentages. Read-only.",
   inputSchema:{type:"object",properties:{
-    group:{type:"string",enum:["all","ai","breadth","rates","energy","fx","credit","equities","metals"],description:"A bounded market group."},
+    group:{type:"string",enum:["all","ai","breadth","rates","energy","fx","credit","equities","metals","compare"],description:"A bounded market group."},
     limit:{type:"integer",minimum:1,maximum:80},
   },additionalProperties:false},
   annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false},
@@ -63,7 +63,7 @@ function boundedInteger(value:unknown,defaultValue:number,max:number):number|nul
 function exactKeys(obj:Record<string,unknown>,allowed:readonly string[]){
  return Object.keys(obj).every(k=>allowed.includes(k));
 }
-const GROUPS=["all","ai","breadth","rates","energy","fx","credit","equities","metals"] as const;
+const GROUPS=["all","ai","breadth","rates","energy","fx","credit","equities","metals","compare"] as const;
 export async function handleBluebellyMcpMessage(
  request:unknown,
  invoke:McpInvocation,

@@ -1,5 +1,6 @@
 import "server-only";
 import {NextResponse,type NextRequest} from "next/server";
+import {buildCompareResearch,compareBreadthObservations} from "@/lib/bluebelly-compare-research";
 import {getMarketMonitor} from "@/lib/market-monitor-public";
 import {publicMarketGroup,publicMarketObservations} from "@/lib/blue-desk-public-markets";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
@@ -45,18 +46,19 @@ export async function POST(req:NextRequest){
  const operations:McpInvocation={
   getMarketSnapshot:async ({group,limit})=>{
    const now=new Date();
-   const includesBreadth=group==="all"||group==="breadth";
+   const includesBreadth=group==="all"||group==="breadth"||group==="compare";
    const [monitor,breadth]=await Promise.all([
     group==="breadth"?Promise.resolve(null):getMarketMonitor().catch(()=>null),
     includesBreadth?getSourceDatedBreadth().catch(()=>null):Promise.resolve(null),
    ]);
-   const markets=monitor?publicMarketObservations(monitor.rows,publicMarketGroup(group)):[];
+   const markets=monitor?publicMarketObservations(monitor.rows,publicMarketGroup(group==="compare"?"all":group)):[];
    const breadthRows=includesBreadth?[
     {symbol:"S5FI",label:"S&P 500 · above 50D"},
     {symbol:"S5TH",label:"S&P 500 · above 200D"},
    ].map(item=>calculateBreadthRow(
      item.symbol,item.label,breadth?.series.find(x=>x.symbol===item.symbol),now,
    )):[];
+   if(group==="compare")return buildCompareResearch(monitor?.rows??[],[...compareBreadthObservations(breadth?.series??[],now),...markets],now);
    const rows=[...breadthRows,...markets].slice(0,limit);
    return {contractVersion:"bluebelly/market-observations/1",
     generatedAt:now.toISOString(),group,count:rows.length,observations:rows,
