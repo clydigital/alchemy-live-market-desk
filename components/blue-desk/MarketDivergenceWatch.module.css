@@ -63,13 +63,20 @@
 .compactFoot a{font:800 12px/1.5 var(--bb-mono);color:var(--bb-command-accent,#ffe416)}
 @media(max-width:1000px){.compactGrid{grid-template-columns:1fr}.compactCard{padding:13px}.compactMetrics{max-width:480px}}
 
-/* Full-surface active illumination, with dark ink for contrast on cyan. */
+/* Match the hero radar's contact pulse: a clean theme-colour flash, not a painted gradient. */
 .compactCard:is(:hover,:has(:focus-visible)){
- background:linear-gradient(145deg,#36e4ed 0%,#14bed1 100%);
- border-color:#8efbff;
- color:#03232d;
- box-shadow:inset 0 0 22px rgba(224,255,255,.38),inset 0 0 0 1px rgba(255,255,255,.28);
+ background:var(--bb-command-alt,#00d9ef);
+ border-color:var(--bb-command-alt,#00d9ef);
+ color:#071017;
+ box-shadow:inset 0 0 14px rgba(225,255,255,.18);
+ animation:compact-radar-contact .85s ease-out both;
 }
+@keyframes compact-radar-contact{
+ 0%{background:color-mix(in srgb,var(--bb-command-alt,#00d9ef) 76%,#ffffff);box-shadow:inset 0 0 25px rgba(225,255,255,.52)}
+ 24%{background:var(--bb-command-alt,#00d9ef);box-shadow:inset 0 0 32px rgba(225,255,255,.4)}
+ 100%{background:var(--bb-command-alt,#00d9ef);box-shadow:inset 0 0 14px rgba(225,255,255,.18)}
+}
+@media(prefers-reduced-motion:reduce){.compactCard:is(:hover,:has(:focus-visible)){animation:none}}
 .compactCard:is(:hover,:has(:focus-visible)) :is(h3,p,small,b,.tag,.observed,summary,a,.readings strong,.compactMetrics strong){color:#03232d}
 .compactCard:is(:hover,:has(:focus-visible)) :is(.compactMetrics,.readings,.compactMetrics>div+div,details){border-color:rgba(3,35,45,.32)}
 .compactCard:is(:hover,:has(:focus-visible)) [data-direction="up"]{color:#00452f}
