@@ -106,3 +106,8 @@ test("host allowlist only routes exact discovery and MCP paths; runtime still en
  assert.match(source,/exactHost\(req\)/);
  assert.doesNotMatch(source,/SUPABASE_SERVICE_ROLE_KEY|createSupabaseAdminClient/);
 });
+
+test("Compare uses the existing bounded authenticated market reader, not a new mutation tool",async()=>{
+ const result=await handleBluebellyMcpMessage(req("tools/call",{name:"get_market_snapshot",arguments:{group:"compare"}}),invocations);
+ assert.equal((result?.result as {structuredContent:{group:string}}).structuredContent.group,"compare");
+});
