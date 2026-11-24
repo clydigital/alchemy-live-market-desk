@@ -14,12 +14,15 @@ test("embedding refresh keeps research independent and bounded", async (t) => {
  process.env.NEXT_PUBLIC_SUPABASE_URL="https://example.invalid";
  process.env.SUPABASE_SERVICE_ROLE_KEY="mock-only";
  process.env.NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED="true";
- const ok=()=>Response.json({model:"gte-small-v1",requested:8,embedded:8,failed:0});
+ const ok=()=>Response.json({model:"gte-small-v1",requested:8,embedded:8,failed:0,semantic_readback:"passed"});
  const morning=new Date("2026-11-24T02:20:00Z");
  await t.test("four lane allocation and bounds",async()=>{
   const calls:Array<{lanes:string[];batch_size:number}>=[];
   globalThis.fetch=async(_url,options)=>{calls.push(JSON.parse(String(options?.body)));return ok();};
-  assert.equal((await refreshResearchEmbeddings(morning)).embedded,16);
+  const result=await refreshResearchEmbeddings(morning);
+  assert.equal(result.embedded,16);
+  assert.equal(result.semanticChecksPassed,2);
+  assert.equal(result.semanticChecksFailed,0);
   assert.equal((await refreshResearchEmbeddings(new Date("2026-11-24T15:00:00Z"))).embedded,16);
   assert.deepEqual(calls.map(c=>c.lanes[0]),["evidence","creator","motion","thesis"]);
   assert.ok(calls.every(c=>c.batch_size===8));
@@ -38,6 +41,12 @@ test("embedding refresh keeps research independent and bounded", async (t) => {
  await t.test("invalid accounting is rejected",async()=>{
   globalThis.fetch=async()=>Response.json({model:"gte-small-v1",requested:8,embedded:1,failed:0});
   assert.equal((await refreshResearchEmbeddings(morning)).status,"unavailable");
+ });
+ await t.test("failed semantic verification is visible",async()=>{
+  globalThis.fetch=async()=>Response.json({model:"gte-small-v1",requested:8,embedded:8,failed:0,semantic_readback:"failed"});
+  const result=await refreshResearchEmbeddings(morning);
+  assert.equal(result.semanticChecksFailed,2);
+  assert.equal(result.semanticChecksPassed,0);
  });
  await t.test("worker failure preserves primary result",async()=>{
   globalThis.fetch=async()=>{throw Error("unavailable");};
