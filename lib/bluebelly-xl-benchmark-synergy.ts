@@ -26,17 +26,19 @@ function pearson(x:number[],y:number[]):number|null{
  let cross=0,xx=0,yy=0;for(let i=0;i<x.length;i++){const a=x[i]-mx,b=y[i]-my;cross+=a*b;xx+=a*a;yy+=b*b;}
  return xx>0&&yy>0?Math.max(-1,Math.min(1,cross/Math.sqrt(xx*yy))):null;
 }
-function relative(sector:History,bench:History):Record<Window,number|null>{
- const a=[...sector],b=[...bench],out={1:null,3:null,5:null,20:null,60:null} as Record<Window,number|null>;
- // Both histories must end on the same session, and every date in the
+function relative(sector:History,bench:History,now:Date){
+ const asOf=[...sector.keys()].filter(d=>bench.has(d)).at(-1)??null;
+ const a=[...sector].filter(([d])=>asOf!==null&&d<=asOf),b=[...bench].filter(([d])=>asOf!==null&&d<=asOf),out={1:null,3:null,5:null,20:null,60:null} as Record<Window,number|null>;
+ // Both histories are cut to the latest shared fresh session, and every date in the
  // lookback must match. Never compare different holding periods.
+ if(!asOf||!fresh(asOf,now))return {asOf:null,changes:out};
  for(const n of WINDOWS){
   if(a.length<=n||b.length<=n)continue;
   const x=a.slice(-n-1),y=b.slice(-n-1);
   if(x.some((p,i)=>p[0]!==y[i][0]))continue;
   out[n]=((x.at(-1)![1]/x[0][1]-1)-(y.at(-1)![1]/y[0][1]-1))*100;
  }
- return out;
+ return {asOf,changes:out};
 }
 export function buildXlBenchmarkSynergy(rows:readonly MarketMonitorRow[],now=new Date()){
  const source=(id:string)=>rows.find(r=>r.id===id);
@@ -45,17 +47,17 @@ export function buildXlBenchmarkSynergy(rows:readonly MarketMonitorRow[],now=new
   const raw=source(symbol.toLowerCase());const h=history(raw,now),returns=intervals(h);
   // Use the identical intersection of return intervals for every available
   // benchmark, so correlation rankings are on the same sample.
-  const available=benches.filter(b=>b.returns.size>=20);
-  const common=returns.filter(r=>available.every(b=>b.returns.has(r.key)));
   const measure=(n:20|60)=>{
+   const available=benches.filter(b=>b.returns.size>=n);
+   const common=available.length?returns.filter(r=>available.every(b=>b.returns.has(r.key))):[];
    const sample=common.slice(-n);const sufficient=sample.length>=n&&fresh(sample.at(-1)?.end??"",now);
    const values=benches.map(b=>({id:b.id,correlation:sufficient&&available.includes(b)?pearson(sample.map(r=>r.value),sample.map(r=>b.returns.get(r.key)!)):null}));
    const ranked=values.filter(v=>v.correlation!==null).sort((a,b)=>b.correlation!-a.correlation!);
-   const best=ranked.length===4&&ranked[0].correlation!>0?ranked[0]:null;
-   return {count:sample.length,asOf:sample.at(-1)?.end??null,values,best:best?.id??null,tied:best!==null&&ranked[1]!==undefined&&best.correlation!-ranked[1].correlation!<0.02};
+   const best=ranked.length>=2&&ranked[0].correlation!>0?ranked[0]:null;
+   return {count:sample.length,coverage:ranked.length,asOf:sample.at(-1)?.end??null,values,best:best?.id??null,tied:best!==null&&ranked[1]!==undefined&&best.correlation!-ranked[1].correlation!<0.02};
   };
   return {symbol,label:raw?.label??symbol,asOf:[...h.keys()].at(-1)??null,sourceUrl:h.size?raw!.sourceUrl:null,
-   relative:benches.map(b=>({id:b.id,changes:relative(h,b.h)})),correlation20:measure(20),correlation60:measure(60)};
+   relative:benches.map(b=>({id:b.id,...relative(h,b.h,now)})),correlation20:measure(20),correlation60:measure(60)};
  });
  return {benchmarks:benches.map(({h,returns,...b})=>b),sectors:sectorRows};
 }
