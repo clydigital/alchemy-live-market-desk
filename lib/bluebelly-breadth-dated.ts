@@ -219,7 +219,7 @@ export function parseBreadthDailyDataset(json:unknown,now=new Date()):BreadthSer
  if(!json||typeof json!=="object"||!("data" in json)||!Array.isArray(json.data)||json.data.length>15000)return [];
  const records=new Map<string,Record<string,unknown>>();
  for(const record of json.data){
-  if(!record||typeof record!=="object"||typeof record.date!=="string"||!/^20\\d{2}-\\d{2}-\\d{2}$/.test(record.date))continue;
+  if(!record||typeof record!=="object"||typeof record.date!=="string"||!/^20\d{2}-\d{2}-\d{2}$/.test(record.date))continue;
   const stamp=Date.parse(record.date+"T00:00:00Z");
   if(!Number.isFinite(stamp)||new Date(stamp).toISOString().slice(0,10)!==record.date||stamp>+now)continue;
   records.set(record.date,record);
