@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { videoSourceChecksFromDedicatedRun } from "../lib/scheduled-video-handoff.ts";
-import { REQUIRED_RESEARCH_SOURCES, validateResearchRun, type ResearchRunInput } from "../lib/research-update.ts";
+import { REQUIRED_RESEARCH_SOURCES, OPTIONAL_RESEARCH_SOURCES, validateResearchRun, type ResearchRunInput } from "../lib/research-update.ts";
 
 const completeVideoRun = {
   id: "video-run-1",
@@ -50,7 +50,7 @@ test("desk cron projects completed transcript coverage per creator", () => {
     ],
   );
 
-  assert.deepEqual(checks.map((check) => [check.source, check.status, check.itemCount]), [
+  assert.deepEqual(checks.filter(check => ["stockedup", "wall-street-truth-bombs", "fx-evolution", "tradernick"].includes(check.source)).sort((a,b)=>["stockedup", "wall-street-truth-bombs", "fx-evolution", "tradernick"].indexOf(a.source)-["stockedup", "wall-street-truth-bombs", "fx-evolution", "tradernick"].indexOf(b.source)).map((check) => [check.source, check.status, check.itemCount]), [
     ["stockedup", "checked", 1],
     ["wall-street-truth-bombs", "no_new_items", 0],
     ["fx-evolution", "checked", 2],
@@ -70,29 +70,30 @@ test("one creator's unresolved transcript no longer blocks healthy creators", ()
     ],
   );
 
-  assert.deepEqual(checks.map((check) => [check.source, check.status, check.itemCount]), [
+  assert.deepEqual(checks.filter(check => ["stockedup", "wall-street-truth-bombs", "fx-evolution", "tradernick"].includes(check.source)).sort((a,b)=>["stockedup", "wall-street-truth-bombs", "fx-evolution", "tradernick"].indexOf(a.source)-["stockedup", "wall-street-truth-bombs", "fx-evolution", "tradernick"].indexOf(b.source)).map((check) => [check.source, check.status, check.itemCount]), [
     ["stockedup", "checked", 1],
     ["wall-street-truth-bombs", "no_new_items", 0],
     ["fx-evolution", "blocked", 0],
     ["tradernick", "checked", 1],
   ]);
-  assert.equal(checks[2].retryable, true);
-  assert.match(checks[2].note || "", /1 creator transcript.*usable; 1 remain unresolved/i);
+  assert.equal(checks.find(check=>check.source==="fx-evolution")?.retryable, true);
+  assert.match(checks.find(check=>check.source==="fx-evolution")?.note || "", /1 creator transcript.*usable; 1 remain unresolved/i);
 });
 
 test("run-level transcript state remains a fail-closed fallback when per-creator rows are unavailable", () => {
   const checks = videoSourceChecksFromDedicatedRun(completeVideoRun, { transcript_status: "partial" });
 
-  assert.equal(checks[0].status, "blocked");
-  assert.equal(checks[2].status, "blocked");
-  assert.equal(checks[3].status, "blocked");
-  assert.equal(checks[1].status, "no_new_items");
+  assert.equal(checks.find(c=>c.source==="stockedup")?.status, "blocked");
+  assert.equal(checks.find(c=>c.source==="fx-evolution")?.status, "blocked");
+  assert.equal(checks.find(c=>c.source==="tradernick")?.status, "blocked");
+  assert.equal(checks.find(c=>c.source==="wall-street-truth-bombs")?.status, "no_new_items");
+  assert.equal(checks.find(c=>c.source==="meetkevin")?.status, "blocked");
 });
 
 test("missing dedicated video work remains explicit blocked research debt", () => {
   const checks = videoSourceChecksFromDedicatedRun(null, null);
 
-  assert.equal(checks.length, 4);
+  assert.equal(checks.length, 9);
   assert.ok(checks.every((check) => check.status === "blocked" && check.itemCount === 0));
 });
 
@@ -106,7 +107,8 @@ test("scheduled research uses only the fixed creator universe", () => {
     "fx-evolution",
     "tradernick",
   ]);
-  assert.equal((REQUIRED_RESEARCH_SOURCES as readonly string[]).includes("traders-reality"), false);
+  assert.ok((OPTIONAL_RESEARCH_SOURCES as readonly string[]).includes("traders-reality"));
+  assert.equal((OPTIONAL_RESEARCH_SOURCES as readonly string[]).includes("casual-finance"), false);
 });
 
 
@@ -121,7 +123,7 @@ test("partial creator intake meets the canonical research validator without eras
   const restOfSources = REQUIRED_RESEARCH_SOURCES
     .filter((source) => !creatorChecks.some((check) => check.source === source))
     .map((source) => ({ source, status: "no_new_items" as const, itemCount: 0 }));
-  assert.equal(creatorChecks.length + restOfSources.length, 9);
+  assert.equal(creatorChecks.length + restOfSources.length, 14);
   for (const scheduleSlot of ["morning", "evening"] as const) {
     const scheduledInput: ResearchRunInput = {
       runKey: `cron-v1:${scheduleSlot}:2026-10-10`,
