@@ -87,7 +87,8 @@ test("a fresh breadth snapshot remains visible without fabricating historical ch
  assert.ok(!r.leads.some(l=>l.id===c.id));
 });
 test("gold and real-yield co-movement compares native units without a fake gap",()=>{
- const r=buildDivergenceRadar([row("gold-proxy",[100,100,100,100,100,100,101,102,103,104,105]),row("us10y-real",[2,2,2,2,2,2,2.03,2.06,2.09,2.12,2.15])],[],now);
+ const rateDays=sessions.filter(d=>d!=="2026-11-11").slice(-11);
+ const r=buildDivergenceRadar([row("gold-proxy",[100,100,100,100,100,100,101,102,103,104,105],rateDays),row("us10y-real",[2,2,2,2,2,2,2.03,2.06,2.09,2.12,2.15],rateDays)],[],now);
  const c=r.checks.find(c=>c.id==="gold-real-yield")!;
  assert.equal(c.metrics.find(m=>m.label==="5D price return")?.value,5);
  assert.equal(c.metrics.find(m=>m.label==="5D level change")?.value,15);
@@ -96,7 +97,8 @@ test("gold and real-yield co-movement compares native units without a fake gap",
  assert.ok(r.leads.some(l=>l.id===c.id));
 });
 test("a matched FRED 30Y series can supply the curve without mixing histories",()=>{
- const r=buildDivergenceRadar([row("us2y",[4,4,4,4,4,4,4.1,4.2,4.3,4.4,4.5]),row("us30y-fred",Array(11).fill(5))],[],now);
+ const rateDays=sessions.filter(d=>d!=="2026-11-11").slice(-11);
+ const r=buildDivergenceRadar([row("us2y",[4,4,4,4,4,4,4.1,4.2,4.3,4.4,4.5],rateDays),row("us30y-fred",Array(11).fill(5),rateDays)],[],now);
  const c=r.checks.find(c=>c.id==="yield-curve")!;
  assert.ok(c.historyAvailable);assert.equal(c.metrics.find(m=>m.label==="Latest 5")?.value,50);
  assert.equal(c.metrics.find(m=>m.label==="Spread")?.value,-50);
