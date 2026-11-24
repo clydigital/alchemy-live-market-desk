@@ -17,6 +17,8 @@ import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-ser
 import {projectLiveLensResearch,liveLensSignal} from "@/lib/bluebelly-regime-live-research";
 import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
+import {buildMarketInternalsResearch} from "@/lib/bluebelly-market-internals-research";
+import MarketInternalsEvidence from "@/components/blue-desk/MarketInternalsEvidence";
 import {calculateBreadthRow} from "@/lib/bluebelly-breadth-dated";
 import {projectRegimeMeterReadings} from "@/lib/bluebelly-regime-market-meter";
 import RegimeLiveEvidence from "@/components/blue-desk/RegimeLiveEvidence";
@@ -71,7 +73,7 @@ export default async function ResearchLensPage({params}:Props){
   getRegimeShadowHealth().catch(()=>null),
   readBluebellyQualifiedNews(now,18).catch(()=>null),
   getPublishedMacroPulseBriefs(8).catch(()=>[]),
-  getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
+  getSourceDatedBreadth(true).catch(()=>({series:[],retrievalStatus:"fallback" as const})),
   getUsEconStatWatch(now).catch(()=>null),
  ]);
  const lens=groupPublicResearch(publicTheses||[]).find(item=>item.id===lensId)!;
@@ -120,6 +122,7 @@ export default async function ResearchLensPage({params}:Props){
     </div>
    </header>
    <RegimeLiveEvidence read={liveRead} signal={liveLensSignal(lens.id,readings,rows,now)}/>
+    {lens.id==="breadth"||lens.id==="ai"?<MarketInternalsEvidence diagnostics={internals.diagnostics} host={host}/>:null}
    {researchRevisions.length?<section id="current-research-revisions" data-regime-research-revisions="source-reviewed-provisional" aria-label="Latest reviewed research and conditional watch ideas" style={{margin:"18px 0"}}>
      <span className={styles.kicker}>17 NOV US / 18 NOV MYT · DATED RESEARCH REVISION</span>
      <h2>What changed, and what could benefit?</h2>
