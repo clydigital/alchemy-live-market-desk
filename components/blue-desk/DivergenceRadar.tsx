@@ -4,9 +4,9 @@ const fmt=(v:number,unit:string)=>`${v>0&&unit!=="%"?"+":""}${v.toFixed(2)} ${un
 export default function DivergenceRadar({read,compact=false,href="/markets?mode=compare#divergence-radar"}:{read:RadarRead;compact?:boolean;href?:string}){
  const leads=read.leads.slice(0,compact?3:6),remaining=read.leads.slice(6);
  const card=(r:RadarRead["leads"][number])=><article key={r.id} className={css.card} data-divergence-lead={r.id}>
-  <span className={css.tag}>{r.family} · {r.kind==="BREADTH"?"Breadth":r.kind==="CORRELATION"?"Correlation":"Relative return"}</span>
+  <span className={css.tag}>{r.family} · {r.kind==="BREADTH"?"Breadth":r.kind==="CORRELATION"?"Correlation":r.kind==="CREDIT"?"Credit spreads":r.kind==="RATES"?"Yield curve":"Relative return"}</span>
   <h3>{r.title}</h3><p>{r.summary}</p>
-  <div className={css.readings}>{r.metrics.map(m=><div key={m.label}><small>{m.label}</small><strong>{fmt(m.value,m.unit)}</strong></div>)}</div>
+  <div className={css.readings} style={{gridTemplateColumns:"repeat(auto-fit,minmax(100px,1fr))"}}>{r.metrics.map(m=><div key={m.label}><small>{m.label}</small><strong>{fmt(m.value,m.unit)}</strong></div>)}</div>
   <p><small>Observed {r.asOf} · research lead, not a trade signal</small></p>
   <details><summary>Chart &amp; what to check next</summary><p><b>{r.chart}</b></p><p>{r.nextTest}</p>
    <div className={css.sources}>{r.sources.map((s,i)=><a key={i} href={s.url} target="_blank" rel="noreferrer">{s.label} ↗</a>)}</div>
