@@ -56,6 +56,7 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   if (normalizedHost(host) === BLUEBELLY_PRESENTATION_HOST &&
       pathname === "/editorial-lab") return "/blue-desk/editorial-lab";
   if (pathname === "/markets") return "/blue-desk/markets";
+  if (pathname === "/markets/scanner") return "/blue-desk/markets/scanner";
   if (/^\/stories\/[^/]+$/.test(pathname)) return "/blue-desk" + pathname;
   return null;
 }
@@ -162,6 +163,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     pathname === "/blue-desk/features/global-bonds" ||
     pathname === "/markets" ||
     pathname === "/blue-desk/markets" ||
+    pathname === "/markets/scanner" || pathname === "/blue-desk/markets/scanner" ||
     /^\/(?:blue-desk\/)?stories\/article(?::|%3a)[0-9a-f-]{36}(?::|%3a)[0-9a-f-]{36}$/i.test(pathname);
 
   return publicPage ? "public" : hostname === BLUEBELLY_PRESENTATION_HOST ? "blocked" : "private";
