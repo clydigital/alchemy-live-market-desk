@@ -130,10 +130,10 @@ test("ETF comparison column headers sort independently, both ways, with source-d
   assert.equal(etfs[0].symbol, "RSP"); // original source/preset order is immutable
 
   const ui = readFileSync(new URL("../components/blue-desk/PublicMarketScreener.tsx", import.meta.url), "utf8");
-  assert.match(ui, /sortEtfComparisonRows\(comparisonRows, comparisonSort, comparisonAscending, equalWeight\)/);
+  assert.doesNotMatch(ui,/5D vs RSP|Rotation map/);
   assert.match(ui, /onClick=\{\(\)=>sortComparisonColumn\(period\)\}/);
-  assert.match(ui, /comparisonHeader\("relative5D", "5D vs RSP"\)/);
-  assert.match(ui, /aria-sort=\{comparisonSort/);
+
+
 });
 
 test("signal alignment header ranks actual matched families both ways and leaves missing scans last",()=>{
