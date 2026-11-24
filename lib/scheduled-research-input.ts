@@ -413,12 +413,7 @@ export async function buildScheduledResearchInput(
     }));
   }
 
-  const videoSources = new Set<ResearchSourceKey>([
-    "stockedup",
-    "wall-street-truth-bombs",
-    "fx-evolution",
-    "tradernick",
-  ]);
+  const videoSources = new Set<ResearchSourceKey>(REQUIRED_VIDEO_SOURCES.map(({ source }) => source));
   const directNewsSources = new Set<ResearchSourceKey>([
     "zerohedge",
     "axios",
