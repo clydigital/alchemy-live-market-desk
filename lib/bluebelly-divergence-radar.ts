@@ -198,9 +198,37 @@ export function buildDivergenceRadar(rows:readonly MarketMonitorRow[],breadth:re
   checks.push({id:"breadth-"+symbol,title:symbol+" · participation change",family:"Participation",chart:symbol+" · daily breadth",nextTest:"Confirm against equal-weight indices, credit and the next same-series release.",windows:[],asOf:v[10].date,metrics:breadthMetrics,sources:[{label:s.sourceName,url:s.sourceUrl}],historyAvailable:true});
   if(strength>=1)leads.push({id:"breadth-"+symbol,family:"Participation",title:symbol+" · participation change",asOf:v[10].date,kind:"BREADTH",summary:(one*latest<0?"Latest session opposes the five-session trend. ":"Material participation change. ")+"Latest 5 "+signed(latest)+" pp vs prior 5 "+signed(prior)+" pp.",chart:symbol+" · daily breadth",nextTest:"Confirm using the next same-series release and matched RSP/SPY, SMH/QQQ and credit; proxy membership can differ from the official index.",score:Math.min(strength,5)+(one*latest<0?1:0),sources:[{label:s.sourceName,url:s.sourceUrl}],metrics:[{label:"Level",value:round(v[10].value),unit:"%"},{label:"1 session",value:round(one),unit:"pp"},{label:"Latest 5",value:round(latest),unit:"pp"},{label:"Prior 5",value:round(prior),unit:"pp"},{label:"Acceleration",value:round(delta),unit:"pp"}]});
  }
+ // Mixed-unit relationships: compare direction and strength, never subtract bp from %.
+ const mixedRules=[
+  {id:"gold-real-yield",a:"gold-proxy",b:"us10y-real",title:"Gold vs US 10Y real yield",family:"FX / metals",chart:"GLD + DFII10 · daily",test:"Check spot gold, real yields, dollar and potential safe-haven demand.",unit:"bp",scale:100,moveA:1.5,moveB:10},
+  {id:"equities-volatility",a:"spx-proxy",b:"vix",title:"Equities vs implied volatility",family:"Liquidity",chart:"SPY + VIX · daily",test:"Check whether equity gains coexist with rising implied volatility; VIX is not a traded ETF.",unit:"vol pts",scale:1,moveA:1.5,moveB:2},
+  {id:"equities-hy",a:"spx-proxy",b:"hy-oas",title:"Equities vs high-yield credit stress",family:"Credit",chart:"SPY + HY OAS · daily",test:"Check whether equity gains coexist with wider credit spreads. Distinguish funding stress from price momentum.",unit:"bp",scale:100,moveA:1.5,moveB:15}
+ ];
+ for(const r of mixedRules){
+  const a=get(r.a),right=by.get(r.b),b=history(right,now,true);
+  const left=by.get(r.a),sources=[left,right].flatMap(x=>x&&validUrl(x.sourceUrl)?[{label:x.label,url:x.sourceUrl}]:[]);
+  const metrics:RadarLead["metrics"]=[];
+  let asOf:string|null=null;
+  for(const [n,label] of [[1,"1D"],[3,"3D"],[5,"5D"]] as const){
+   const m=aligned(a,b,n+1);if(!m)continue;
+   asOf=m[0][n].date;
+   metrics.push({label:label+" price return",value:round(ret(m[0],0,n)),unit:"%"},{label:label+" level change",value:round((m[1][n].value-m[1][0].value)*r.scale),unit:r.unit});
+  }
+  const m=aligned(a,b,11);
+  const check:RadarCheck={id:r.id,title:r.title,family:r.family,chart:r.chart,nextTest:r.test,windows:[],asOf,metrics,sources,historyAvailable:!!m};
+  checks.push(check);
+  if(!m){missing.push(r.title+" — 11 matching daily observations unavailable");continue;}
+  eligible++;
+  const [x,y]=m,nowDate=x[10].date;
+  const lp=ret(x,5,10),rp=(y[10].value-y[5].value)*r.scale;
+  const lPrior=ret(x,0,5),rPrior=(y[5].value-y[0].value)*r.scale;
+  metrics.push({label:"Prior 5D price return",value:round(lPrior),unit:"%"},{label:"Prior 5D level change",value:round(rPrior),unit:r.unit},{label:"Price-return acceleration",value:round(lp-lPrior),unit:"pp"},{label:"Level-change acceleration",value:round(rp-rPrior),unit:r.unit});
+  const unusual=lp*rp>0&&Math.abs(lp)>=r.moveA&&Math.abs(rp)>=r.moveB;
+  if(unusual)leads.push({id:r.id,family:r.family,title:r.title,asOf:nowDate,kind:"RELATIVE",summary:"Both moved "+(lp>0?"higher":"lower")+" over five matched sessions: price "+signed(lp)+"%, level "+signed(rp)+" "+r.unit+". Investigate the unusual direction; no causal relationship is established.",chart:r.chart,nextTest:r.test,score:Math.min(Math.abs(lp)/r.moveA,Math.abs(rp)/r.moveB,5),sources,metrics});
+ }
  const ranked=leads.sort((a,b)=>b.score-a.score||a.id.localeCompare(b.id));
  // Diversify the first results instead of flooding the radar with one theme.
  const seen=new Set<string>(),first:RadarLead[]=[],rest:RadarLead[]=[];
  for(const lead of ranked){if(seen.has(lead.family))rest.push(lead);else{seen.add(lead.family);first.push(lead);}}
- return {generatedAt:now.toISOString(),leads:[...first,...rest],checks,coverage:{checked:rules.length+breadthSymbols.length+spreadRules.length+1,eligible,missing},limitations:["Screening thresholds are editorial heuristics, not statistical significance or trade signals.","Returns are price returns on identical scheduled daily observations; adjacent five-session windows share only their boundary close. Credit changes are basis points. No flow or causal inference.","Correlation compares separate 20-return samples; correlation gaps are disclosed independently from relative-return coverage. Historical gap percentiles are descriptive and use overlapping prior windows, not independent significance tests.","Breadth uses the existing permitted source series; full research history remains owner-gated. Missing values are not zero.","Fundamentals, creator views, physical flows and proprietary EMA annotations require separate agent-led investigation."]};
+ return {generatedAt:now.toISOString(),leads:[...first,...rest],checks,coverage:{checked:rules.length+breadthSymbols.length+spreadRules.length+1+mixedRules.length,eligible,missing},limitations:["Screening thresholds are editorial heuristics, not statistical significance or trade signals.","Returns are price returns on identical scheduled daily observations; adjacent five-session windows share only their boundary close. Credit changes are basis points. Mixed-unit relationships compare direction and separately scaled changes, not a fabricated return gap. No flow or causal inference.","Correlation compares separate 20-return samples; correlation gaps are disclosed independently from relative-return coverage. Historical gap percentiles are descriptive and use overlapping prior windows, not independent significance tests.","Breadth uses the existing permitted source series; full research history remains owner-gated. Missing values are not zero.","Fundamentals, creator views, physical flows and proprietary EMA annotations require separate agent-led investigation."]};
 }
