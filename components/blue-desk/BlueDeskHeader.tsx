@@ -14,6 +14,7 @@ import chrome from "./bluebelly-chrome.module.css";
 // Market utilities + owner CTA (outside public navigation).
 // The brand opens the compact market overview. Historical URLs remain valid.
 const PRIVATE_NAV = [
+  ["Creator Intelligence", "/creator-intelligence"],
   ["Markets", "/markets"],
   ["Earnings", "/blue-desk/earnings"],
   ["Calendar", "/blue-desk/calendar"],
@@ -21,6 +22,7 @@ const PRIVATE_NAV = [
 ] as const;
 
 const PUBLIC_NAV = [
+  ["Creator Intelligence", "/creator-intelligence"],
   ["Markets", "/markets"],
   ["Earnings", "/blue-desk/earnings"],
   ["Calendar", "/calendar"],
@@ -75,7 +77,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
   const publicHost = isBlueDeskPublicReaderHost(host);
   // Authenticated owner routes must retain their private workspace navigation,
   // even when opened on the canonical hostname that also serves public readers.
-  const ownerWorkspace = activePath === "/power-stack" || activePath === "/my-reports" || activePath === "/owner/editorial" || activePath === "/owner/presenter" || activePath === "/owner/research" || activePath === "/owner/publications" || activePath === "/owner/daily-report" || activePath === "/owner/daily-articles" || activePath === "/owner/x-wire" || activePath === "/market-tools";
+  const ownerWorkspace = activePath === "/creator-intelligence" || activePath === "/power-stack" || activePath === "/my-reports" || activePath === "/owner/editorial" || activePath === "/owner/presenter" || activePath === "/owner/research" || activePath === "/owner/publications" || activePath === "/owner/daily-report" || activePath === "/owner/daily-articles" || activePath === "/owner/x-wire" || activePath === "/market-tools";
   const nav = publicHost && !ownerWorkspace ? PUBLIC_NAV : PRIVATE_NAV;
   const more = publicHost && !ownerWorkspace ? PUBLIC_MORE : [];
   const current=blueDeskPublicHref(activePath==="/blue-desk/key-stories"?"/blue-desk/newsroom":activePath==="/blue-desk/earnings-week"?"/blue-desk/earnings":activePath,host);
