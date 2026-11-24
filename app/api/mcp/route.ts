@@ -3,6 +3,7 @@ import {NextResponse,type NextRequest} from "next/server";
 import {getMarketMonitor} from "@/lib/market-monitor-public";
 import {publicMarketGroup,publicMarketObservations} from "@/lib/blue-desk-public-markets";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
+import {buildXlBenchmarkSynergy} from "@/lib/bluebelly-xl-benchmark-synergy";
 import {calculateBreadthRow} from "@/lib/bluebelly-breadth-dated";
 import {readBluebellyQualifiedNews,getBluebellyVerifiedEvents} from "@/lib/bluebelly-verified-event-server";
 import {
@@ -63,6 +64,7 @@ export async function POST(req:NextRequest){
     status:group==="breadth"
       ?breadth?.retrievalStatus==="refreshed"?"SOURCE_DATED":"STALE_OR_UNAVAILABLE"
       :monitor&&(!includesBreadth||breadth?.retrievalStatus==="refreshed")?"SOURCE_DATED":"DEGRADED",
+    sectorBenchmarkComparisons:group==="all"||group==="equities"?buildXlBenchmarkSynergy(monitor?.rows??[],now):null,
     breadthRetrievalStatus:includesBreadth?breadth?.retrievalStatus||"unavailable":null,
     limitations:["Missing session changes are null, not zero.",
      "Changes for daily nominal yields are basis points; other market changes are percentages.",
