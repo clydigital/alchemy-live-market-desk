@@ -210,7 +210,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
             </div>
           </header>
           </RadarIntelligenceShell>
-          <DivergenceRadar read={divergenceRadar} compact href="/markets?mode=compare#divergence-radar"/>
+          <DivergenceRadar read={divergenceRadar} compact href="/markets?mode=watch#divergence-radar"/>
           <InstitutionalRiskMonitor rows={buildInstitutionalRisk(volatility,monitor?.rows??[],now)} equityTape={marketCompass} rates={buildFedRateWatch(monitor?.rows??[],now)} nextDecision={nextFomcDecision(calendar.events,now)}/>
           <Link href="/creator-intelligence">Open Creator Intelligence →</Link>
           <InvestorMindsetBoard snapshot={investorMindset} assessment={investorAssessment} host={host} themes={investorThemes} receipt={investorReceipt}/>
