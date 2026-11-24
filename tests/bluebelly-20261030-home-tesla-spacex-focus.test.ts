@@ -11,7 +11,8 @@ test("public Bluebelly ends after editorial recap; dedicated Markets keeps its d
  assert.match(home, /<DecisionBrief news=\{verifiedNews\}/);
  assert.match(markets, /getMarketMonitor\(\)/);
  assert.match(markets, /<PublicMarketScreener/);
- assert.match(markets, /<details id="earnings-research"/);
+ assert.doesNotMatch(markets, /<EarningsFundamentals/);
+ assert.match(source("app/blue-desk/earnings/page.tsx"), /<EarningsFundamentals/);
 });
 
 test("last-seven-days reports link to real approved on-site readers",()=>{
