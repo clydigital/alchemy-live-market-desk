@@ -113,7 +113,7 @@ function divergencePulses(
   why:row.question+" "+row.nextTest+" Matched returns are not proof of causal decoupling.",
   observedAt:row.sourceSession,clockLabel:"MATCHED 1D SESSION",
   statusLabel:row.status==="OPPOSITE_MOVE"?"OPPOSITE MOVES":"RELATIVE GAP",
-  href:hostPrefix+"/markets?mode=compare&window=1D#divergence-watch",
+  href:hostPrefix+"/markets?mode=watch&window=1D#divergence-watch",
   sourceUrl:row.leftSourceUrl,sourceLabel:row.left+" / "+row.right+" original observations",
   rank:(row.status==="OPPOSITE_MOVE"?121:106)+Math.min(15,Math.abs(row.gapPp)*2),
  })).slice(0,2);
