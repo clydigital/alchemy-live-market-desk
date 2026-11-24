@@ -283,3 +283,5 @@
 @media(max-width:760px){
   .instrumentCell{min-width:228px!important;width:228px}
 }
+
+.xlAxis{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px;margin:7px 0;padding:0 80px;font:800 10px/1.4 var(--bb-mono);color:var(--bb-muted)}.xlAxis span:first-child{color:#ff8597}.xlAxis span:last-child{text-align:right;color:#48e99a}@media(max-width:600px){.xlAxis{padding:0 55px;font-size:9px}}
