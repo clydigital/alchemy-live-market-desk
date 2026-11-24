@@ -14,7 +14,6 @@ import {fetchBundesbankBund10} from "@/lib/providers/bundesbank-bund10";
 import {fetchBoeGilt10} from "@/lib/providers/boe-gilt10";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
-import TradingViewChart from "@/components/blue-desk/TradingViewChart";
 import MarketMoversOverview from "@/components/blue-desk/MarketMoversOverview";
 import {buildScannerDiscovery} from "@/lib/bluebelly-scanner-discovery";
 import PublicMarketScreener from "@/components/blue-desk/PublicMarketScreener";
@@ -26,7 +25,6 @@ import {searchPublicAssetCatalogue} from "@/lib/bluebelly-public-asset-catalogue
 import SectorDivergenceFeature from "@/components/blue-desk/SectorDivergenceFeature";
 import JobsLabourFeature from "@/components/blue-desk/JobsLabourFeature";
 import { readPublicUsJobs } from "@/lib/bluebelly-us-jobs-reader";
-import {TV_MARKET_GROUP_DEFAULTS} from "@/lib/bluebelly-editorial-visuals";
 import { MarketIcon, type MarketIconName } from "@/components/blue-desk/MarketIcon";
 import {
   PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations, publicGovernmentRateTrends,
@@ -80,6 +78,9 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   const readTicker=typeof query.ticker==="string"?query.ticker:"";
   const detail=query.view==="earnings"?getEarningsCase(readTicker):null;
   if(detail)redirect(blueDeskPublicHref("/blue-desk/earnings",host)+"?view=earnings&ticker="+encodeURIComponent(detail.ticker));
+  // The unfiltered Markets entry opens discovery; legacy filtered URLs remain native.
+  if(query.mode==="screener" || Object.keys(query).length===0)
+    redirect(blueDeskPublicHref("/blue-desk/markets/scanner",host));
   const [monitor,breadthHistory,researchDigests,usJobs,japan,bund,gilt] = await Promise.all([
     getMarketMonitor().catch(() => null),
     getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
@@ -154,8 +155,9 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
          </aside>:null}
 
 
-        <nav aria-label="Markets working modes" data-markets-working-modes="three"
+        <nav aria-label="Markets working modes" data-markets-working-modes="four"
           className={legibility.workingModes}>
+          <Link href={blueDeskPublicHref("/blue-desk/markets/scanner",host)}>Screener</Link>
           <Link href={blueDeskPublicHref("/blue-desk/markets?mode=assets",host)}
             aria-current={mode==="assets"?"page":undefined}>All Assets</Link>
           <Link href={blueDeskPublicHref("/blue-desk/markets?mode=compare",host)}
@@ -165,9 +167,8 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
         </nav>
         {mode==="compare"?<nav aria-label="Markets page sections"
           className={legibility.focusNavigation} data-markets-primary="breadth-and-comparison">
-          <a href="#breadth-watch-heading">Market breadth</a>
           <a href="#market-group-heading">ETF comparisons</a>
-          <a href="#advanced-market-charts">Open charts</a>
+          <a href="#breadth-watch-heading">Market breadth</a>
         </nav>:mode==="assets"?<nav aria-label="Markets page sections"
           className={legibility.focusNavigation} data-markets-primary="asset-catalogue">
           <a href="#market-group-heading">All instruments</a>
@@ -176,7 +177,6 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           {group==="all"?<a href="#yield-ladder">US yields</a>:null}
           {group==="rates"?<a href="#rates-policy-heading">Yields &amp; FedWatch</a>:null}
           {group==="all"?<a href="#jobs-monitor">US jobs</a>:null}
-          <a href="#advanced-market-charts">Open charts</a>
         </nav>:null}
         {mode==="assets"?<details open className={legibility.categoryDisclosure}>
           <summary>Browse assets by category</summary>
@@ -316,13 +316,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <p><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)+focus.href}>Read the source-reviewed story →</Link>
           {" · "}<Link href={blueDeskPublicHref("/blue-desk/hormuz",host)}>Check source-dated crossings and fuel markets →</Link></p>
         </section>):null}
-        <details id="advanced-market-charts"
-          className={`${styles.section} ${legibility.marketSection} ${legibility.breadthMore}`}
-          data-market-chart-provider="tradingview">
-          <summary>Market charts · TradingView</summary>
-          <p>Interactive charts are optional and are not independent evidence of an event reaction.</p>
-          <TradingViewChart initial={TV_MARKET_GROUP_DEFAULTS[group]||"us10y"} showPicker/>
-        </details>
+
 
         {/* Keep old fragment bookmarks useful without duplicating the earnings reader. */}
         <aside id="earnings-research" className={styles.secondaryPanel}>
