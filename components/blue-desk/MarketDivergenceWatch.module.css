@@ -34,12 +34,12 @@
 .missingDisclosure li strong{color:var(--bb-text)}
 
 /* Homepage-only compact research recap */
-.compactRadar{margin:14px 0;border:1px solid rgba(160,205,220,.16);border-radius:0;padding:clamp(14px,2vw,24px);min-width:0;background:linear-gradient(155deg,rgba(255,255,255,.035),rgba(255,255,255,.012) 58%,rgba(255,255,255,.022));color:var(--bb-text);box-shadow:inset 0 1px 0 rgba(255,255,255,.045)}
+.compactRadar{margin:14px 0;border:1px solid rgba(160,205,220,.16);border-radius:0;padding:clamp(14px,2vw,24px);min-width:0;background:linear-gradient(155deg,rgba(0,0,0,.055),rgba(0,0,0,.09) 58%,rgba(0,0,0,.065));color:var(--bb-text);box-shadow:inset 0 1px 0 rgba(255,255,255,.045)}
 .compactRadar>.tag{color:var(--bb-command-accent,#ffe416);letter-spacing:.1em}
 .compactRadar>h2{font:850 clamp(20px,1.8vw,26px)/1.3 var(--bb-display);margin:7px 0 4px;letter-spacing:-.02em;color:var(--bb-text)}
 .compactRadar>p{font-size:13px;color:var(--bb-muted);line-height:1.5;margin:4px 0 12px}
 .compactGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start;margin-top:12px}
-.compactCard{border:1px solid rgba(160,205,220,.15);border-radius:0;padding:14px;min-width:0;background:linear-gradient(145deg,rgba(255,255,255,.032),rgba(255,255,255,.012));display:grid;gap:8px;box-shadow:inset 0 1px 0 rgba(255,255,255,.035)}
+.compactCard{border:1px solid rgba(160,205,220,.15);border-radius:0;padding:14px;min-width:0;background:linear-gradient(145deg,rgba(255,255,255,.018),rgba(0,0,0,.035));display:grid;gap:8px;box-shadow:inset 0 1px 0 rgba(255,255,255,.035)}
 .compactCard>.tag{color:var(--bb-accent)}
 .compactCard h3{font:850 17px/1.3 var(--bb-display);color:var(--bb-text);margin:0;overflow-wrap:anywhere}
 .compactCard p{font-size:13px;line-height:1.5;color:var(--bb-muted);margin:0}
