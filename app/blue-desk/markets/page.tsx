@@ -85,7 +85,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
     redirect(blueDeskPublicHref("/blue-desk/markets/scanner",host));
   const [monitor,breadthHistory,researchDigests,usJobs,japan,bund,gilt] = await Promise.all([
     getMarketMonitor().catch(() => null),
-    getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
+    getSourceDatedBreadth(mode==="compare"||group==="breadth").catch(()=>({series:[],retrievalStatus:"fallback" as const,researchHistory:false})),
     getPublishedMacroPulseBriefs(6).catch(()=>[]),
     mode==="assets"&&group==="all"?readPublicUsJobs():Promise.resolve(null),
     // International providers only run when the reader deliberately opens
@@ -241,12 +241,12 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
                     {breadthValue(period.value,"pp")}</strong>
                 </div>)}
               </div>
-              <small>Source session {reading.asOf||"unavailable"} · {reading.dataStatus==="SOURCE_DATED_SECONDARY"?
+              <small className={legibility.breadthSourceLine}>Source session {reading.asOf||"unavailable"} · {reading.dataStatus==="SOURCE_DATED_SECONDARY"?
                "Secondary daily observation":"Stale or unverified"}</small>
-              <small>{reading.sourceName} · <a href={reading.sourceUrl??"https://www.thetrading.tools/stocks-above-moving-average"} target="_blank" rel="noreferrer">Source ↗</a></small>
+              <small className={legibility.breadthSourceLine}>{reading.sourceName} · <a href={reading.sourceUrl??"https://www.thetrading.tools/stocks-above-moving-average"} target="_blank" rel="noreferrer">Source ↗</a></small>
             </article>)}
           </div>
-          <p className={styles.subtle}>Breadth is the percentage of members above their moving averages. Current-member and Russell 2000-style proxies are labelled separately from historical index levels. 1D/3D/5D changes require verified observations from the same series; unavailable changes remain blank.</p>
+          <p className={styles.subtle}>Breadth is the percentage of members above their moving averages. Current-member and Russell 2000-style proxies are labelled separately from historical index levels. 1D/3D/5D changes require verified observations from the same series; unavailable changes remain blank. {!breadthHistory.researchHistory?"Sign in to the allowlisted research workspace for the full daily proxy history.":""}</p>
           <details className={legibility.breadthDiagnostic}>
             <summary><strong>{participation.headline}</strong><span>Research mechanism and next tests</span></summary>
             <div className={styles.secondaryPanel} data-breadth-research-diagnostic={participation.status}>
