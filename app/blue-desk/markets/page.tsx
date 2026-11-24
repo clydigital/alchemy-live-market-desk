@@ -111,7 +111,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
     ...BREADTH_WATCHES.map(item=>calculateBreadthRow(
       item.symbol,item.label,breadthHistory.series.find(row=>row.symbol===item.symbol))),
   ]);
-  const breadthPrimary=["S5FI","S5TH"].map(symbol=>
+  const breadthPrimary=["S5FI","S5TH","NDFI","NDTH","R2FI","R2TH","S5OH"].map(symbol=>
     BREADTH_WATCHES.find(row=>row.symbol===symbol)!
   ).map(item=>({item,reading:calculateBreadthRow(item.symbol,item.label,
     breadthHistory.series.find(row=>row.symbol===item.symbol))}));
@@ -227,7 +227,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
                       style={{"--breadth-fill":`${reading.last}%`} as CSSProperties}/>
                   : <span className={legibility.breadthDialUnavailable} aria-hidden="true"/>}
                 <div><strong className={legibility.breadthLevel}>{breadthValue(reading.last,"%")}</strong>
-                <p>Constituents above {item.symbol==="S5FI"?"50":"200"}-day average</p></div>
+                <p>{item.label}</p></div>
               </div>
               <div className={legibility.breadthChanges}>
                 {([{name:"1D",value:reading.change},{name:"3D",value:reading.change3d},
@@ -239,9 +239,10 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
               </div>
               <small>Source session {reading.asOf||"unavailable"} · {reading.dataStatus==="SOURCE_DATED_SECONDARY"?
                "Secondary daily observation":"Stale or unverified"}</small>
+              <small>{reading.sourceName} · <a href={reading.sourceUrl??"https://www.thetrading.tools/stocks-above-moving-average"} target="_blank" rel="noreferrer">Source ↗</a></small>
             </article>)}
           </div>
-          <p className={styles.subtle}>When available, readings are calculated using today's S&amp;P 500 members and are proxies, not official S5FI/S5TH closes. Only provider-reported 5D change is displayed; 1D/3D require verified daily histories. <a href="https://www.thetrading.tools/stocks-above-moving-average" target="_blank" rel="noreferrer">Source and methodology ↗</a></p>
+          <p className={styles.subtle}>Breadth is the percentage of members above their moving averages. Current-member and Russell 2000-style proxies are labelled separately from historical index levels. 1D/3D/5D changes require verified observations from the same series; unavailable changes remain blank.</p>
           <details className={legibility.breadthDiagnostic}>
             <summary><strong>{participation.headline}</strong><span>Research mechanism and next tests</span></summary>
             <div className={styles.secondaryPanel} data-breadth-research-diagnostic={participation.status}>
@@ -254,11 +255,10 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
             </div>
           </details>
           <details className={legibility.breadthMore}>
-            <summary>Other breadth charts · Nasdaq and Russell</summary>
-            <p>These series are chart links until independently source-dated histories are verified.
-              We do not substitute S&P 500 readings for Nasdaq or Russell participation.</p>
+            <summary>Other breadth series</summary>
+            <p>These series remain source links until independently dated readings are verified.</p>
             <div className={legibility.breadthGrid}>
-              {BREADTH_WATCHES.filter(item=>item.symbol!=="S5FI"&&item.symbol!=="S5TH")
+              {BREADTH_WATCHES.filter(item=>!breadthPrimary.some(p=>p.item.symbol===item.symbol))
                 .map(item=><a key={item.symbol}
                  href={`https://www.tradingview.com/chart/?symbol=INDEX%3A${item.symbol}`}
                  target="_blank" rel="noreferrer" className={legibility.breadthLink}>
