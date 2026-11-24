@@ -14,7 +14,6 @@ import chrome from "./bluebelly-chrome.module.css";
 // Market utilities + owner CTA (outside public navigation).
 // The brand opens the compact market overview. Historical URLs remain valid.
 const PRIVATE_NAV = [
-  ["Creator Intelligence", "/creator-intelligence"],
   ["Markets", "/markets"],
   ["Earnings", "/blue-desk/earnings"],
   ["Calendar", "/blue-desk/calendar"],
@@ -22,7 +21,6 @@ const PRIVATE_NAV = [
 ] as const;
 
 const PUBLIC_NAV = [
-  ["Creator Intelligence", "/creator-intelligence"],
   ["Markets", "/markets"],
   ["Earnings", "/blue-desk/earnings"],
   ["Calendar", "/calendar"],
@@ -85,6 +83,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
   // client-side router or an alternative source of market/owner data.
   const commandLinks: ReadonlyArray<readonly [string,string]> = [
     ["Dashboard", "/blue-desk"],
+    ["Creator Intelligence", "/creator-intelligence"],
     ...nav.filter(([label]) => label !== "My Desk"),
   ];
   const isActive = (path: string) => {
