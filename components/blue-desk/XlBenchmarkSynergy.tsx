@@ -26,17 +26,18 @@ export default function XlBenchmarkSynergyPanel({data}:{data:XlBenchmarkSynergy}
    const c=lookback===20?s.correlation20:s.correlation60;const best=c.values.find(v=>v.id===c.best);const name=data.benchmarks.find(b=>b.id===c.best)?.label;
    return <tr key={s.symbol}><th scope="row"><strong>{s.symbol}</strong><small>{s.label.replace(s.symbol,"").trim()}</small><small>{s.asOf??"Unavailable"}</small></th>
    {data.benchmarks.map(b=>{
-    const delta=s.relative.find(r=>r.id===b.id)?.changes[period]??null;
+    const relative=s.relative.find(r=>r.id===b.id);
+    const delta=relative?.changes[period]??null;
     const corr=c.values.find(v=>v.id===b.id)?.correlation??null;
     const strongest=c.best===b.id;
     return <td key={b.id} data-best={strongest?"true":undefined} data-direction={delta===null?"unknown":delta>0?"up":delta<0?"down":"flat"}>
-     <strong>{delta===null?"—":(delta>0?"+":"")+delta.toFixed(2)+" pp"}</strong><small>{corr===null?"r —":"r "+corr.toFixed(2)}{strongest?" · BEST":""}</small>
+     <strong>{delta===null?"—":(delta>0?"+":"")+delta.toFixed(2)+" pp"}</strong><small>{corr===null?"r —":"r "+corr.toFixed(2)}{strongest?" · BEST":""}</small>{delta!==null?<small>{relative?.asOf}</small>:null}
     </td>;
    })}
-   <td><strong>{name??"—"}</strong><small>{best?.correlation!=null?"r "+best.correlation.toFixed(2)+(c.tied?" · close tie":""):c.count<lookback?"Insufficient history":"No complete positive ranking"}</small><small>{c.count}/{lookback} matched · {c.asOf??"—"}</small></td>
+   <td><strong>{name??"—"}</strong><small>{best?.correlation!=null?"r "+best.correlation.toFixed(2)+(c.tied?" · close tie":""):c.count<lookback?"Insufficient history":"No positive comparable ranking"}</small><small>{c.count}/{lookback} matched · {c.asOf??"—"}</small><small>{c.coverage}/4 benchmarks{c.coverage<4&&best?" · provisional":""}</small></td>
    </tr>;
   })}</tbody>
  </table></div>
- <p className={ui.note}>Relative return = sector price return minus benchmark price return, in percentage points over identical sessions. Synergy = Pearson correlation of daily returns (−1 to +1), not relative strength or causation. Highest positive correlation is highlighted only when all four benchmarks can be ranked on the same sample. Within 0.02 of the runner-up is a close tie. Missing or mismatched observations remain unavailable. Cash index and ETF proxies are identified above.</p>
+ <p className={ui.note}>Relative return = sector price return minus benchmark price return, in percentage points over identical sessions. Synergy = Pearson correlation of daily returns (−1 to +1), not relative strength or causation. Highest positive correlation is highlighted among at least two benchmarks on the same sample; rankings with fewer than four are labelled provisional. Relative returns use each pair’s latest shared fresh session, shown in the cell. Within 0.02 of the runner-up is a close tie. Missing or mismatched observations remain unavailable. Cash index and ETF proxies are identified above.</p>
  </section>;
 }
