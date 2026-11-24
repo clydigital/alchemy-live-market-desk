@@ -1,3 +1,4 @@
+import ProviderMarketWidgets from "@/components/blue-desk/ProviderMarketWidgets";
 import EarningsFundamentals from "@/components/blue-desk/EarningsFundamentals";
 import EarningsInvestorDeepDive from "@/components/blue-desk/EarningsInvestorDeepDive";
 import {getEarningsCase} from "@/lib/bluebelly-earnings-investor-stories";
@@ -156,6 +157,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
          </aside>:null}
 
 
+        {mode==="assets"&&group==="all"?<ProviderMarketWidgets/>:null}
         <nav aria-label="Markets working modes" data-markets-working-modes="three"
           className={legibility.workingModes}>
           <Link href={blueDeskPublicHref("/blue-desk/markets?mode=assets",host)}
