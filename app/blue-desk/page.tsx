@@ -8,7 +8,6 @@ import {loadVolatilityAnchors} from "@/lib/market-monitor";
 import {buildInstitutionalRisk} from "@/lib/bluebelly-institutional-risk";
 import {buildFedRateWatch,nextFomcDecision} from "@/lib/bluebelly-next-rate-decision";
 import InvestorMindsetBoard from "@/components/blue-desk/InvestorMindsetBoard";
-import DeskWhiteboard from "@/components/blue-desk/DeskWhiteboard";
 import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
 import {buildMarketCompassSummary} from "@/lib/bluebelly-market-compass";
 import {buildInvestorMindsetSnapshot} from "@/lib/bluebelly-investor-mindset";
@@ -16,7 +15,6 @@ import {projectInvestorAssessment} from "@/lib/bluebelly-investor-assessment";
 import {buildInvestorResearchThemes} from "@/lib/bluebelly-investor-mindset";
 import {getInvestorReviewReceipt} from "@/lib/bluebelly-investor-review-receipt";
 import {getDossierV2PresentationSelection} from "@/lib/dossier-v2/presentation-reader";
-import {buildCompareResearch,compareBreadthObservations} from "@/lib/bluebelly-compare-research";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
 import {calculateBreadthRow} from "@/lib/bluebelly-breadth-dated";
 import {readPublicUsJobs} from "@/lib/bluebelly-us-jobs-reader";
@@ -159,7 +157,6 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
     creatorDigest:creatorRadarRead?.digest??null,
     creatorIsAuthorised:Boolean(creatorRadarRead&&creatorRadarRead.status!=="unauthorised"),
   }):null;
-  const compare=buildCompareResearch(monitor?.rows??[],[...marketRows,...compareBreadthObservations(breadthFeed.series,now)],now);
   const marketCompass=buildMarketCompassSummary(marketComparisons,now);
   const investorMindset=buildInvestorMindsetSnapshot(marketRows,marketComparisons,marketCompass,verifiedNews,now);
   const investorAssessment=projectInvestorAssessment(dossierSelection,now);
@@ -211,8 +208,6 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
             </div>
           </header>
           </RadarIntelligenceShell>
-          <DeskWhiteboard compass={marketCompass} news={verifiedNews} theses={theses} compare={compare}
-            upcoming={upcoming} now={now} host={host}/>
           <InstitutionalRiskMonitor rows={buildInstitutionalRisk(volatility,monitor?.rows??[],now)} equityTape={marketCompass} rates={buildFedRateWatch(monitor?.rows??[],now)} nextDecision={nextFomcDecision(calendar.events,now)}/>
           <CreatorIntelligencePanel rows={qqqPosition.rows} market={marketRows} now={now} host={host} readOverride={creatorRadarRead??undefined}/>
           <InvestorMindsetBoard snapshot={investorMindset} assessment={investorAssessment} host={host} themes={investorThemes} receipt={investorReceipt}/>
