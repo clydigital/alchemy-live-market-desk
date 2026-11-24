@@ -5,17 +5,7 @@ import { firecrawlConfigured, scrapePublicUrlWithFirecrawl } from "./firecrawl.t
 import { parseFxStreetNewsFeedPage, parseFxStreetNewsFeedMarkdown } from "./fxstreet-feed.ts";
 import { fetchJinaReader } from "./acquisition/jina-reader.ts";
 
-type ResearchSourceKey =
-  | "stockedup"
-  | "wall-street-truth-bombs"
-  | "fx-evolution"
-  | "tradernick"
-  | "zerohedge"
-  | "axios"
-  | "investing-com"
-  | "fxstreet"
-  | "rebound-capital"
-  | "alchemy-market-insights";
+import type { ResearchSourceKey } from "./research-update.ts";
 
 type SourceCheckInput = {
   source: ResearchSourceKey;
