@@ -1,4 +1,6 @@
 import Link from "next/link";
+import {Suspense} from "react";
+import NativeMarketsDiscovery from "@/components/blue-desk/NativeMarketsDiscovery";
 import {headers} from "next/headers";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import MarketsScannerWidgets from "@/components/blue-desk/MarketsScannerWidgets";
@@ -15,6 +17,7 @@ export default async function MarketsScannerPage(){
     <div><p className={styles.kicker}><Link href={blueDeskPublicHref("/blue-desk/markets",host)}>Markets</Link> / SCANNER</p>
     <h1>Scanner</h1><p className={styles.heroDeck}>Find unusual moves, currency strength and equity candidates.</p></div>
    </header>
+   <Suspense fallback={<p role="status">Loading source-dated intelligent screens…</p>}><NativeMarketsDiscovery positioningHref={blueDeskPublicHref("/blue-desk/qqq-positioning",host)}/></Suspense>
    <MarketsScannerWidgets/>
   </div>
  </main>;
