@@ -20,7 +20,7 @@ export const REQUIRED_RESEARCH_SOURCES = [
 ] as const;
 
 /** Independent opinion/research feeds are checked in production but do not gate the canonical macro/news publisher. */
-export const OPTIONAL_RESEARCH_SOURCES = ["rebound-capital"] as const;
+export const OPTIONAL_RESEARCH_SOURCES = ["rebound-capital", "meetkevin", "traders-reality", "trade-brigade", "real-eisman-playbook", "clearvalue-tax"] as const;
 export type ResearchSourceKey = typeof REQUIRED_RESEARCH_SOURCES[number] | typeof OPTIONAL_RESEARCH_SOURCES[number];
 export type ResearchScheduleSlot = "video_midnight" | "morning" | "video_late_morning" | "evening" | "manual";
 export type SourceCheckStatus = "checked" | "no_new_items" | "blocked";
