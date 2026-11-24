@@ -207,5 +207,5 @@ export function buildDailyResearchPacket(input:{
   return {contractVersion:"daily-report-research/1",assembledAt:input.now,
     notionStatus:input.notion.status,warnings:input.notion.warnings,
     newsCount:input.news.length,deliveredBriefCount:delivered.length,researchSourceCandidates:candidates,
-    packet:lines.join("\n").slice(0,30000),sourceUrls:[...links]};
+    packet:lines.join("\n").slice(0,23800),sourceUrls:[...links]};
 }
