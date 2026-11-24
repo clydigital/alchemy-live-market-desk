@@ -28,6 +28,8 @@ import RegimeSignalRadar from "@/components/blue-desk/RegimeSignalRadar";
 import {buildSignalRadar} from "@/lib/bluebelly-signal-radar";
 import {getMarketMonitor} from "@/lib/market-monitor-public";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
+import {buildMarketInternalsResearch} from "@/lib/bluebelly-market-internals-research";
+import MarketInternalsEvidence from "@/components/blue-desk/MarketInternalsEvidence";
 import {calculateBreadthRow} from "@/lib/bluebelly-breadth-dated";
 import {projectRegimeMeterReadings} from "@/lib/bluebelly-regime-market-meter";
 import {liveLensSignal,projectLiveLensResearch} from "@/lib/bluebelly-regime-live-research";
@@ -60,7 +62,7 @@ export default async function RegimeWatchPage(){
   getTopicInfluences(EDITORIAL_REGIME_LENSES.map(lens=>lens.id),now).catch(()=>[]),
   getRegimeShadowHealth().catch(()=>null),
   getMarketMonitor().catch(()=>null),
-  getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
+  getSourceDatedBreadth(true).catch(()=>({series:[],retrievalStatus:"fallback" as const})),
   readBluebellyQualifiedNews(now,18).catch(()=>null),
   getPublishedMacroPulseBriefs(8).catch(()=>[]),
   isBlueDeskPublicReaderHost(host)?getDossierV2PresentationSelection().catch(()=>null):Promise.resolve(null),
@@ -85,6 +87,7 @@ export default async function RegimeWatchPage(){
   <BlueDeskHeader activePath="/blue-desk/regime-watch"/>
   <div className={desk.content}>
    <MarketCompass summary={compassSummary} readings={meterReadings} host={host}/>
+    <MarketInternalsEvidence diagnostics={internals.diagnostics} host={host}/>
    <p style={{margin:"10px 0 14px",fontSize:"12px",color:"var(--bb-muted)"}}>The directional reading summarises one matched equity session. Deeper research, nine regime lenses and evidence follow below; no tape signal automatically changes a fundamental thesis.</p>
    <QqqPositioningPanel rows={qqqPosition.rows} checkedAt={qqqPosition.checkedAt} market={rows} now={now} host={host}/>
    <RegimeResearchClocks sources={observations} editorialReviewedOn={LENS_OUTLOOK_REVIEWED_ON} shadow={shadowHealth}/>
