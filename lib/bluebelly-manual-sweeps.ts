@@ -9,6 +9,8 @@ export type ManualSweepFinding={
  sourcePublishedAt:string;
  status:"RESEARCH_LEAD"|"SOURCE_CORROBORATED"|"CONTRADICTED";
  nextCheck:string;
+ marketContext?:string;
+ researchQuestion?:string;
  /** Explicit, dual-source valuation comparison; rejected if incomplete. */
  reviewedValuation?:ValuationComparison;
 };
@@ -39,7 +41,7 @@ function asSourceFinding(value:unknown,now:Date):ManualSweepFinding|null{
  const reviewedValuation=status==="SOURCE_CORROBORATED"&&isReviewedValuationComparison(candidate)&&
   candidate!.priceObservedOn<=new Date(now.getTime()+8*3600000).toISOString().slice(0,10)?candidate:undefined;
  return {reason,sourceName,sourceUrl,sourcePublishedAt,status:status as ManualSweepFinding["status"],
-  nextCheck:text(row.nextCheck,300),...(reviewedValuation?{reviewedValuation}:{})};
+  nextCheck:text(row.nextCheck,300),...(text(row.marketContext,500)?{marketContext:text(row.marketContext,500)}:{}),...(text(row.researchQuestion,240)?{researchQuestion:text(row.researchQuestion,240)}:{}),...(reviewedValuation?{reviewedValuation}:{})};
 }
 /** Only editor-committed, exact-source and date-vetted manual notes are public.
  * Git commits are the audit trail; the application never turns chat into a public write.
