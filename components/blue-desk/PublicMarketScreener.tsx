@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import {buildEtfComparisonUniverse, ETF_COMPARISON_SYMBOLS, XL_COMPARISON_SYMBOLS} from "@/lib/bluebelly-etf-comparison-universe";
 import {projectEtfRotationVisual} from "@/lib/bluebelly-etf-rotation-visuals";
 import {passesMarketSignalFilter, marketSignalAlignment, type SignalFamily, type SignalBias} from "@/lib/bluebelly-signal-filters";
 
@@ -49,7 +50,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
   const [sort, setSort] = useState<MarketChangeSort>("source");
   const [columnSort, setColumnSort] = useState<MarketSortColumn | null>(null);
   const [ascending, setAscending] = useState(true);
-  const [compareSymbols, setCompareSymbols] = useState<string[]>(() => observations.filter(row => row.type === "Sector").map(row => row.symbol));
+  const [compareSymbols, setCompareSymbols] = useState<string[]>(() => [...ETF_COMPARISON_SYMBOLS]);
   const [comparisonSort, setComparisonSort] = useState<EtfComparisonSortColumn | null>("1D");
   const [graphicWindow, setGraphicWindow] = useState<MarketChangeWindow>("1D");
   const [comparisonAscending, setComparisonAscending] = useState(false);
@@ -86,13 +87,11 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
   }, [observations, query, window, unit, direction, minimum, sort, columnSort,
       ascending, signalFamily, signalBias, breakoutDays, minimumAligned]);
 
-  const comparisonUniverse = useMemo(() => observations.filter(row =>
-    row.type === "Sector" || ["RSP", "SMH", "SOXX", "QQQ", "SPY"].includes(row.symbol)
-  ), [observations]);
+  const comparisonUniverse = useMemo(() => buildEtfComparisonUniverse(observations), [observations]);
   // Only compare sectors whose original observations belong to the same
   // completed source session. Insufficient coverage fails closed.
   const sectorSnapshot = useMemo(() => {
-    const rows = observations.filter(row => row.type === "Sector"
+    const rows = comparisonUniverse.filter(row => row.type === "Sector" && row.dataStatus !== "UNAVAILABLE_OR_STALE"
       && row.changeUnit === "%" && row.asOf
       && row.change !== null && Number.isFinite(row.change));
     const dates = [...new Set(rows.map(row => row.asOf!))].sort().reverse();
@@ -107,7 +106,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
       coverage: ranked.length,
       spread: ranked[0].change! - ranked[ranked.length - 1].change!,
     };
-  }, [observations]);
+  }, [comparisonUniverse]);
   const comparisonRows = comparisonUniverse.filter(row => compareSymbols.includes(row.symbol));
   const equalWeight = comparisonUniverse.find(row => row.symbol === "RSP");
   const orderedComparisonRows = comparisonSort
@@ -159,17 +158,18 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
       <summary>Compare sector ETFs, equal weight and semiconductors</summary>
       <p>Choose ETFs to compare 1D, 3D and 5D percentage returns from their source-dated sessions. This is not a live chart or a total-return series.</p>
       <div className={ui.comparePresets}>
-        <button type="button" onClick={() => setCompareSymbols(comparisonUniverse.filter(row => row.type === "Sector").map(row => row.symbol))}>All XL sectors</button>
-        <button type="button" onClick={() => setCompareSymbols(["RSP", "XLK", "XLF", "XLE"])}>RSP vs XL sectors</button>
+        <button type="button" onClick={() => setCompareSymbols([...XL_COMPARISON_SYMBOLS])}>All XL sectors</button>
+        <button type="button" onClick={() => setCompareSymbols(["RSP", ...XL_COMPARISON_SYMBOLS])}>RSP vs XL sectors</button>
         <button type="button" onClick={() => setCompareSymbols(["RSP", "SMH", "SOXX", "XLK"])}>Semis vs market</button>
+        <button type="button" onClick={() => setCompareSymbols([...ETF_COMPARISON_SYMBOLS])}>All ETFs + benchmarks</button>
         <button type="button" onClick={() => setCompareSymbols([])}>Clear</button>
       </div>
-      <details className={ui.comparePickDisclosure}>
+      <details className={ui.comparePickDisclosure} open>
         <summary>Customize ETF selection ({compareSymbols.length} chosen)</summary>
       <div className={ui.compareChoices}>
         {comparisonUniverse.map(row => <label key={row.id}>
           <input type="checkbox" checked={compareSymbols.includes(row.symbol)} onChange={event => toggleComparison(row.symbol, event.target.checked)} />
-          <span>{row.symbol}</span><small>{row.label}</small>
+          <span>{row.symbol}</span><small>{row.label}{row.asOf ? "" : " · no data"}</small>
         </label>)}
       </div>
       </details>
@@ -230,7 +230,7 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
           </tr></thead>
           <tbody>{orderedComparisonRows.map(row => {
             const matched = Boolean(equalWeight && row.asOf && row.asOf === equalWeight.asOf
-              && row.change5d !== null && equalWeight.change5d !== null);
+              && publicMarketWindowChange(row,"5D") !== null && publicMarketWindowChange(equalWeight,"5D") !== null);
             const relative = matched ? row.change5d! - equalWeight!.change5d! : null;
             return <tr key={row.id}><th scope="row">{row.symbol} · {row.label}</th>
               <td>{row.asOf || "Unavailable"}</td>
