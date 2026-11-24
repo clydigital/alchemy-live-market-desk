@@ -41,6 +41,9 @@ test("owner health distinguishes recent-window completion from archival gaps",()
  const page=readFileSync(new URL("../app/owner/x-wire/page.tsx",import.meta.url),"utf8");
  assert.match(owner,/xWireFreshCheckComplete\(a,now\)\?"healthy"/);
  assert.match(owner,/historicalGap:gap,resumePending:resume/);
- assert.match(page,/Healthy current source checks/);
+ assert.match(page,/Current X Wire coverage · completed checks/);
+ assert.match(page,/absorption\.freshCompleted/);
+ assert.match(page,/X posts retrieved · 24h/);
+ assert.match(page,/Archive results below use published time and selected filters/);
  assert.match(page,/Historical coverage gap remains unresolved/);
 });
