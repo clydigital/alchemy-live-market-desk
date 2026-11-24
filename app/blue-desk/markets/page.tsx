@@ -201,7 +201,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           compareHref={blueDeskPublicHref("/blue-desk/markets?mode=compare",host)+"#market-group-heading"}
           watchHref={blueDeskPublicHref("/blue-desk/markets?mode=watch",host)}
           scannerHref={blueDeskPublicHref("/blue-desk/markets/scanner",host)}/>:null}
-        {mode==="watch"&&divergenceRadar?<DivergenceRadar read={divergenceRadar}
+        {mode==="watch"&&divergenceRadar?<DivergenceRadar read={divergenceRadar} comparisonsOpen={query.window==="1D"||query.window==="3D"||query.window==="5D"}
           comparisons={<MarketDivergenceWatch observations={publicMarketObservations(monitor?.rows||[],"all")}
             window={watchWindow}
             windowHrefs={{
