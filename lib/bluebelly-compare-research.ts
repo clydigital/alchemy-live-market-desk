@@ -4,9 +4,11 @@ import { buildEtfComparisonUniverse, XL_COMPARISON_SYMBOLS } from "./bluebelly-e
 import { projectEtfRotationVisual } from "./bluebelly-etf-rotation-visuals.ts";
 import { buildXlBenchmarkSynergy } from "./bluebelly-xl-benchmark-synergy.ts";
 import { buildMarketDivergenceWatch } from "./bluebelly-market-divergence-watch.ts";
-import { marketParticipationResearch, sourceDateFresh } from "./bluebelly-breadth-dated.ts";
+import { calculateBreadthRow, marketParticipationResearch, sourceDateFresh, type BreadthSeries } from "./bluebelly-breadth-dated.ts";
 
 export const COMPARE_WINDOWS = ["1D","3D","5D"] as const;
+export const COMPARE_BREADTH_SYMBOLS = [["S5TW","S&P 500 above 20D"],["S5FI","S&P 500 above 50D"],["S5OH","S&P 500 above 100D"],["S5TH","S&P 500 above 200D"],["NDFI","Nasdaq 100 above 50D"],["NDTH","Nasdaq 100 above 200D"],["R2FI","Russell 2000 above 50D"],["R2TH","Russell 2000 above 200D"]] as const;
+export function compareBreadthObservations(series:readonly BreadthSeries[],now:Date){return COMPARE_BREADTH_SYMBOLS.map(([symbol,label])=>calculateBreadthRow(symbol,label,series.find(s=>s.symbol===symbol),now));}
 
 /** Read-only research projection of the exact Markets Compare calculations.
  * No new requests, fabricated prices, causal inference or canonical admission. */
@@ -30,12 +32,12 @@ export function buildCompareResearch(rows: readonly MarketMonitorRow[], observat
  const divergences=COMPARE_WINDOWS.map(window=>({window,pairs:buildMarketDivergenceWatch(observations,window).map(pair=>
   pair.sourceSession&&!sourceDateFresh(pair.sourceSession,now)?{...pair,status:"NOT_COMPARABLE" as const,reason:"Source session stale",leftChange:null,rightChange:null,gapPp:null}:pair)}));
  const benchmark=buildXlBenchmarkSynergy(rows,now);
- const breadth=observations.filter(r=>["S5FI","S5TH"].includes(r.symbol)).map(r=>({
+ const breadth=observations.filter(r=>COMPARE_BREADTH_SYMBOLS.some(([symbol])=>symbol===r.symbol)).map(r=>({
   symbol:r.symbol,label:r.label,level:r.last,asOf:r.asOf,change1dPp:r.change,change3dPp:r.change3d,change5dPp:r.change5d,
   status:r.dataStatus,sourceUrl:r.sourceUrl,sourceName:r.sourceName,
  }));
  return {contractVersion:"bluebelly/markets-compare/1" as const,generatedAt:now.toISOString(),
-  status:rotation.some(r=>r.coverage>0)?"SOURCE_DATED_PARTIAL_OR_COMPLETE":"UNAVAILABLE",
+  status:rotation.some(r=>r.coverage>0)||divergences.some(d=>d.pairs.some(p=>p.gapPp!==null))||breadth.some(b=>b.level!==null)||benchmark.sectors.some(s=>s.relative.some(r=>Object.values(r.changes).some(v=>v!==null)))?"SOURCE_DATED_PARTIAL_OR_COMPLETE":"UNAVAILABLE",
   rotation,divergences,benchmark,breadth,participation:marketParticipationResearch(observations),
   limitations:["Use source session, not retrieval clock. Different holding periods must not be compared.",
    "XL bars are price returns, not fund flows. Relative performance is percentage points; correlations are aligned return correlations, not causation.",
