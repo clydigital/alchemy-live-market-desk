@@ -88,7 +88,7 @@ test("private Markets retains source trend, public Bluebelly uses TradingView, a
   const macro=file("../app/data/macro/page.tsx");
   assert.match(markets,/<MarketTrendChart rows=\{monitor\.rows\}/);
   assert.match(markets,/setTrendSelectedId\(row\.id\)/);
-  assert.match(blue,/<TradingViewChart initial=\{TV_MARKET_GROUP_DEFAULTS\[group\]/);
+  assert.doesNotMatch(blue,/<TradingViewChart/);
   assert.doesNotMatch(blue,/<PublicGovernmentRateTrendChart/);
   assert.match(macro,/<MacroTrendMonitor observations=\{data\.macroObservations\}/);
   assert.match(macro,/macroHistoryStale/);
