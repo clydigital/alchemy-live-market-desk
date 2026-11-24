@@ -85,6 +85,8 @@ export type MarketResearchTrigger = {
 export type MarketMonitor = {
   updatedAt: string;
   rows: MarketMonitorRow[];
+  /** Official volatility histories for divergence research; not screener instruments. */
+  divergenceRows?: MarketMonitorRow[];
   breadth: BreadthSnapshot[];
   contradictions: MarketContradiction[];
   researchTriggers: MarketResearchTrigger[];
@@ -821,7 +823,7 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   // Degrade independently: core market data, broad extras and cash anchors.
   // Cash anchors stay on their own short cache so headline prices can refresh
   // without re-fetching the full extras universe.
-  const results = await Promise.allSettled([getMarketData(), loadExtras(), loadCashAnchors(),loadEuropeEquities()]);
+  const results = await Promise.allSettled([getMarketData(), loadExtras(), loadCashAnchors(),loadEuropeEquities(),loadVolatilityAnchors()]);
   
   const marketResult = results[0];
   const extrasResult = results[1];
@@ -833,6 +835,8 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   const cashAnchors = cashResult.status === "fulfilled" ? cashResult.value : [];
   const euroResult=results[3];
   const europeanStocks=euroResult.status==="fulfilled"?euroResult.value:[];
+  const volResult=results[4];
+  const divergenceRows=makeRows(volResult.status==="fulfilled"?volResult.value.filter((row):row is RawSeries=>row!==null):[]);
   if(euroResult.status==="rejected")console.warn(JSON.stringify({event:"bluebelly_eu_equities_unavailable"}));
   
   // Collect coverage gaps from failed branches
@@ -934,6 +938,7 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   return {
     updatedAt: new Date().toISOString(),
     rows,
+    divergenceRows,
     breadth: market?.breadth ?? [],
     contradictions,
     researchTriggers: buildResearchTriggers(rows, contradictions),
@@ -941,4 +946,4 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   };
 }
 
-export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v1"], { revalidate: 300 });
+export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v2"], { revalidate: 300 });

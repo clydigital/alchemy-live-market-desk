@@ -105,7 +105,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
     : [];
   const observations=[...monitoredRows,...breadthObservations];
   const xlSynergy=mode==="compare"?buildXlBenchmarkSynergy(monitor?.rows??[],now):null;
-  const divergenceRadar=mode==="watch"?buildDivergenceRadar(monitor?.rows??[],breadthHistory.series,now):null;
+  const divergenceRadar=mode==="watch"?buildDivergenceRadar([...(monitor?.rows??[]),...(monitor?.divergenceRows??[])],breadthHistory.series,now):null;
   const movers=mode==="assets"&&group==="all"?buildScannerDiscovery(monitoredRows,now):null;
   const catalogue=mode==="assets"&&group==="all"?
     searchPublicAssetCatalogue(publicMarketObservations(monitor?.rows||[],"all"),{
