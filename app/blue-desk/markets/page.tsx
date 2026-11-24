@@ -1,7 +1,6 @@
-import EarningsFundamentals from "@/components/blue-desk/EarningsFundamentals";
-import EarningsInvestorDeepDive from "@/components/blue-desk/EarningsInvestorDeepDive";
 import {getEarningsCase} from "@/lib/bluebelly-earnings-investor-stories";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import PublishedResearchDispatches from "@/components/blue-desk/PublishedResearchDispatches";
 import MarketTakeaway from "@/components/blue-desk/MarketTakeaway";
 import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
@@ -78,12 +77,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   // one of seven dated editorial cases, never arbitrary owner records.
   const readTicker=typeof query.ticker==="string"?query.ticker:"";
   const detail=query.view==="earnings"?getEarningsCase(readTicker):null;
-  if(detail)return <main className={styles.page} data-bluebelly-markets-view="earnings-investor-dossier">
-    <BlueDeskHeader activePath="/blue-desk/markets" />
-    <div className={styles.content}>
-      <EarningsInvestorDeepDive ticker={detail.ticker} backHref={blueDeskPublicHref("/blue-desk/markets",host)} />
-    </div>
-  </main>;
+  if(detail)redirect(blueDeskPublicHref("/blue-desk/earnings",host)+"?view=earnings&ticker="+encodeURIComponent(detail.ticker));
   const [monitor,breadthHistory,researchDigests,usJobs,japan,bund,gilt] = await Promise.all([
     getMarketMonitor().catch(() => null),
     getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
@@ -179,7 +173,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           {group==="all"?<a href="#jobs-monitor">US jobs</a>:null}
           <a href="#advanced-market-charts">Open charts</a>
         </nav>:null}
-        {mode==="assets"?<details className={legibility.categoryDisclosure}>
+        {mode==="assets"?<details open className={legibility.categoryDisclosure}>
           <summary>Browse assets by category</summary>
           <nav aria-label="Market group" className={`${styles.publicMarketGroups} ${legibility.marketGroups}`}>
             {PUBLIC_MARKET_GROUPS.map(item=><Link key={item.id}
@@ -266,9 +260,6 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           </details>
         </section>:null}
 
-        {catalogue?<PublicAssetCatalogue data={catalogue}
-          baseHref={blueDeskPublicHref("/blue-desk/markets",host)}/>:null}
-
         {mode!=="watch"?<section aria-labelledby="market-group-heading" className={`${styles.section} ${legibility.marketSection}`}>
           <div className={styles.sectionHead}>
             <div>
@@ -281,6 +272,9 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
 
           <PublicMarketScreener key={group} observations={observations} group={group} dataAvailable={Boolean(monitor)} mode={mode==="compare"?"compare":"assets"} />
         </section>:null}
+
+        {catalogue?<PublicAssetCatalogue data={catalogue}
+          baseHref={blueDeskPublicHref("/blue-desk/markets",host)}/>:null}
 
         {mode==="assets"&&group==="all"?
           <PublicTreasuryLadder rows={publicMarketObservations(monitor?.rows||[],"rates")}/>:null}
@@ -321,12 +315,11 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <TradingViewChart initial={TV_MARKET_GROUP_DEFAULTS[group]||"us10y"} showPicker/>
         </details>
 
-        {mode==="assets"?<details id="earnings-research" className={`${styles.section} ${legibility.marketSection}`} data-earnings-reader-entry="seven-company">
-          <summary>Optional: seven company earnings and financing investigations</summary>
-          <p>Original-source investor research. These are dated investigations, not a live earnings-result feed. <Link href="#coreweave-credit-watch">Jump to the CoreWeave financing case</Link> after expanding.</p>
-          <EarningsFundamentals amazonFeatureHref={blueDeskPublicHref("/blue-desk/key-stories",host)+"?feature=amazon-cash-test-october-2026"} deepBaseHref={blueDeskPublicHref("/blue-desk/markets",host)} />
-        </details>:null}
-
+        {/* Keep old fragment bookmarks useful without duplicating the earnings reader. */}
+        <aside id="earnings-research" className={styles.secondaryPanel}>
+          <span id="earnings-fundamentals"/><span id="coreweave-credit-watch"/>
+          <Link href={blueDeskPublicHref("/blue-desk/earnings",host)}>Earnings, company fundamentals and financing research →</Link>
+        </aside>
 
         <footer className={styles.footer}><span>Blue Desk</span></footer>
       </div>
