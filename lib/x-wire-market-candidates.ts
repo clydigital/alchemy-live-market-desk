@@ -42,7 +42,7 @@ export function rankXWireMarketCandidates(posts:readonly WirePost[],now=new Date
   if(!matched.length&&!flash)return [];
   const preferred=["hormuzreport","hfi_research","oilandenergy"].includes(handle)?"energy_shipping":
     ["bluekurtic","oddstats"].includes(handle)?"equities_ai":
-    ["kobeissiletter","macropaperr","drjstrategy"].includes(handle)?"macro_rates_fx":
+    ["kobeissiletter","macropaperr","drjstrategy","saraeisen"].includes(handle)?"macro_rates_fx":
     handle==="tgletter"?"resilience_preparedness":null;
   const theme=matched.find(t=>t.theme===preferred)?.theme||matched[0]?.theme||
     (flash==="macro_data"||flash==="policy_decision"?"macro_rates_fx":flash==="conflict_shock"?"geopolitics":"corporate");
