@@ -45,15 +45,18 @@ test("accounting exceptions and periods explicitly change the verdict",()=>{
  assert.equal(getEarningsCase("META"),null);
 });
 
-test("the deep reader stays in bounded public Markets route and preserves dated Amazon bookmark",()=>{
+test("the deep reader uses standalone bounded public Earnings route and preserves dated Amazon bookmark",()=>{
  const markets=source("../app/blue-desk/markets/page.tsx");
+ const earnings=source("../app/blue-desk/earnings/page.tsx");
  const stories=source("../app/blue-desk/key-stories/page.tsx");
  const article=source("../components/blue-desk/EarningsInvestorDeepDive.tsx");
  assert.equal(blueDeskHostAccess("/markets","bluebelly-desk.vercel.app"),"public");
+ assert.match(markets,/if\(detail\)redirect/);
+ assert.equal(blueDeskHostAccess("/earnings","bluebelly-desk.vercel.app"),"public");
  assert.equal(blueDeskHostAccess("/markets/earnings","bluebelly-desk.vercel.app"),"blocked");
  assert.equal(blueDeskHostAccess("/owner/research","bluebelly-desk.vercel.app"),"private");
  assert.match(markets,/query\.view==="earnings"\?getEarningsCase/);
- assert.match(markets,/<EarningsInvestorDeepDive ticker=\{detail\.ticker\}/);
+ assert.match(earnings,/<EarningsInvestorDeepDive ticker=\{detail\.ticker\}/);
  assert.match(stories,/briefId==="earnings:mev_146cecdc376b7290256b1a81"/);
  assert.match(stories,/data-earnings-bookmark="immutable-dated-preview"/);
  assert.match(stories,/data-bluebelly-earnings-preview="full-dated-financial-investigation"/);
