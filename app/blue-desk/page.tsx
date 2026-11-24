@@ -1,5 +1,4 @@
 import DivergenceRadar from "@/components/blue-desk/DivergenceRadar";
-import {buildDivergenceRadar} from "@/lib/bluebelly-divergence-radar";
 import CreatorIntelligencePanel from "@/components/blue-desk/CreatorIntelligencePanel";
 import {readQqqPositioning} from "@/lib/bluebelly-qqq-positioning";
 import AbsorptionHealth from "@/components/blue-desk/AbsorptionHealth";
@@ -161,8 +160,8 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
     creatorDigest:creatorRadarRead?.digest??null,
     creatorIsAuthorised:Boolean(creatorRadarRead&&creatorRadarRead.status!=="unauthorised"),
   }):null;
-  const compare=buildCompareResearch(monitor?.rows??[],[...marketRows,...compareBreadthObservations(breadthFeed.series,now)],now);
-  const divergenceRadar=buildDivergenceRadar(monitor?.rows??[],breadthFeed.series,now);
+  const compare=buildCompareResearch(monitor?.rows??[],[...marketRows,...compareBreadthObservations(breadthFeed.series,now)],now,breadthFeed.series);
+  const divergenceRadar=compare.radar;
   const marketCompass=buildMarketCompassSummary(marketComparisons,now);
   const investorMindset=buildInvestorMindsetSnapshot(marketRows,marketComparisons,marketCompass,verifiedNews,now);
   const investorAssessment=projectInvestorAssessment(dossierSelection,now);
