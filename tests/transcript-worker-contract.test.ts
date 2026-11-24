@@ -178,3 +178,21 @@ test("explicit Story queues pin trigger Evidence for active and archived Stories
     /storyReviewEvidence = unique\(\[[\s\S]*evidence\.filter\(\(item\) => queuedTriggerEvidenceIds\.has\(item\.id\)\)/,
   );
 });
+
+test("current nine-creator SQL gate matches the shared production roster and retains private leases", async () => {
+  const { CREATOR_ROSTER } = await import("../lib/video-intake-policy.ts");
+  const { TRANSCRIPT_WORKER_CREATORS } = await import("../lib/transcript-job-state.ts");
+  const sql = fs.readFileSync(path.join(root,"supabase","migrations","20261124090508_align_nine_creator_transcript_claim_roster.sql"),"utf8");
+  const clause = sql.match(/intake\.publisher = any \(array\[([\s\S]*?)\]\)/);
+  assert.ok(clause);
+  const names = Array.from(clause[1].matchAll(/'([^']+)'::text/g), match => match[1]);
+  assert.deepEqual(names,CREATOR_ROSTER.map(channel=>channel.name));
+  assert.deepEqual([...TRANSCRIPT_WORKER_CREATORS],names);
+  assert.equal(names.length,9);
+  assert.doesNotMatch(sql,/'Casual Finance'::text|'Fireship'::text|'TheWhyX'::text/);
+  assert.match(sql,/for update skip locked/i);
+  assert.match(sql,/security invoker/i);
+  assert.match(sql,/revoke all on function public\.claim_transcript_jobs[\s\S]*from public, anon, authenticated/i);
+  assert.match(sql,/grant execute on function public\.claim_transcript_jobs[\s\S]*to service_role/i);
+  assert.match(sql,/limit greatest\(1, least\(coalesce\(p_batch_size, 1\), 25\)\)/i);
+});

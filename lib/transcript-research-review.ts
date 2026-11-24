@@ -37,7 +37,7 @@ export async function reviewCreatorTranscript(input: {
   const allowedStorySlugs = new Set(stories.map((story) => story.slug));
   const result = await runStructuredStage<TranscriptResearchReview>({
     stageKey: "creator_transcript_review",
-    instructions: REVIEW_INSTRUCTIONS,
+    instructions: REVIEW_INSTRUCTIONS + (input.video.publisher === "ClearValueTax" ? "\nScope this review strictly to interest rates, Fed policy and forward projections; include labour or inflation only as it bears directly on rates. Ignore other topics, and emit no unrelated claims or Story mappings. If no relevant material exists, state that explicitly." : ""),
     input: {
       publisher: input.video.publisher,
       title: input.video.title,

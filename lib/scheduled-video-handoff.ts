@@ -1,3 +1,5 @@
+import { CREATOR_ROSTER, type CreatorChannelKey } from "./video-intake-policy.ts";
+
 export type DedicatedVideoRun = {
   id: string;
   status: "running" | "completed" | "blocked" | "failed";
@@ -18,7 +20,7 @@ export type DedicatedVideoIntakeRow = {
   transcript_retryable: boolean | null;
 };
 
-type VideoSource = "stockedup" | "wall-street-truth-bombs" | "fx-evolution" | "tradernick";
+type VideoSource = CreatorChannelKey;
 
 export type DedicatedVideoSourceCheck = {
   source: VideoSource;
@@ -28,12 +30,7 @@ export type DedicatedVideoSourceCheck = {
   note?: string;
 };
 
-export const REQUIRED_VIDEO_SOURCES: Array<{ source: VideoSource; channelName: string }> = [
-  { source: "stockedup", channelName: "StockedUp" },
-  { source: "wall-street-truth-bombs", channelName: "Wall Street Truthbombs" },
-  { source: "fx-evolution", channelName: "FX Evolution" },
-  { source: "tradernick", channelName: "TraderNick" },
-];
+export const REQUIRED_VIDEO_SOURCES: Array<{ source: VideoSource; channelName: string }> = CREATOR_ROSTER.map(channel => ({ source: channel.key, channelName: channel.name }));
 
 function sourceCheckRows(value: unknown) {
   if (!Array.isArray(value)) return [];

@@ -4,29 +4,11 @@ The Live Market Desk owns creator-video discovery and transcript-gated intake. H
 
 ## Required YouTube channels
 
-Creator intelligence is intentionally limited to this fixed universe:
-
-1. StockedUp — https://www.youtube.com/@StockedUp/videos
-2. Wall Street Truthbombs / Mark Malek — https://www.youtube.com/@wstruthbombs/videos
-3. FX Evolution — https://www.youtube.com/@fxevolutionvideo/videos
-4. TraderNick — https://www.youtube.com/@TraderNick/videos
-5. Casual Finance — https://www.youtube.com/@casuallyfinance/videos (Tier 2 market)
-
-Do not add other creators to scheduled discovery or transcript claiming without an explicit workflow change.
-
-## Current monitored-video priority
-
-The scheduled detector checks these five creators, with the original four first:
-
-1. StockedUp
-2. Wall Street Truthbombs / Mark Malek
-3. FX Evolution
-4. TraderNick
-5. Casual Finance
+Creator intelligence uses the nine user-authorized standing channels as of 24 November 2026, in priority order: MeetKevin, StockedUp, FX Evolution, Traders Reality, Wall Street Truthbombs, Trade Brigade, Real Eisman Playbook, TraderNick, ClearValueTax. The single canonical code roster is `lib/video-intake-policy.ts`. ClearValueTax is rates/Fed outlook only at review/selection; other uploads are not actionable hypotheses. Casual Finance, Fireship and TheWhyX are retired from new discovery and retries, not historical evidence. The macro publisher retains its original required-source fence; five expanded creator checks are additional diagnostic sources, not permission to suppress an official-data run. The transcript attempt limits, exact-ID dedupe and evidence gates are unchanged.
 
 Only long-form, non-live uploads enter transcript intake. YouTube video ID is the durable deduplication key. If a video ID already exists in `research_intake_items`, rediscovery records an `already_seen` stage and stops before cache lookup, browser retrieval or transcript-provider work. Transcript retries belong to the leased transcript worker and its cooldown state; discovery must not create a second retry path.
 
-The database also enforces uniqueness for video `external_id` values and restricts transcript-job claims to the same five publishers after the additive Casual Finance migration is applied. This prevents a concurrent run, renamed channel key or stale queue row from creating duplicate provider work.
+The database also enforces uniqueness for video `external_id` values and restricts transcript-job claims to the same nine publishers after the 24 November roster migration is applied. This prevents a concurrent run, renamed channel key or stale queue row from creating duplicate provider work.
 
 YouTube does not expose a first-class Shorts flag through the Data API. Scheduled Live intake therefore treats any upload with a YouTube-reported duration of 180 seconds or less as short-form and excludes it from transcript collection. This can intentionally exclude an occasional normal sub-three-minute upload rather than queue Shorts for manual work.
 
@@ -131,7 +113,7 @@ The research-update validator enforces the transcript gate: retained video evide
 
 ## ChatGPT creator-research discovery and retrieval fallback — 12 October 2026
 
-This is a **separate manual/researcher-side** process, not a replacement for the deployed leased transcript worker or its actual provider chain. Preserve the four-creator priority, especially StockedUp first, the existing YouTube video-ID dedupe and transcript-status gates.
+This is a **separate manual/researcher-side** process, not a replacement for the deployed leased transcript worker or its actual provider chain. Preserve the current nine-creator priority, especially MeetKevin, StockedUp and FX Evolution, the existing YouTube video-ID dedupe and transcript-status gates.
 
 1. Inspect the **original YouTube watch URL** and native transcript/caption availability first, recording channel, video ID, publication time, language and whether the video is public, restricted, live or short-form.
 2. Use **Parallel Search** or **Exa** to discover relevant watch URLs, the creator's own supporting links or corroborating primary material; use **Firecrawl** to extract *accessible page content* when useful. **Tavily** is an optional additional search/crawl source when connected. Do not claim any of these returns caption text by default.

@@ -5,7 +5,7 @@ import { applyFirecrawlResearchFallback } from "../lib/firecrawl-research-fallba
 import { OPTIONAL_RESEARCH_SOURCES, REQUIRED_RESEARCH_SOURCES, validateResearchRun } from "../lib/research-update.ts";
 
 test("Rebound Capital is a real, optional, separately identified opinion source", () => {
-  assert.deepEqual(OPTIONAL_RESEARCH_SOURCES, ["rebound-capital"]);
+  assert.ok(OPTIONAL_RESEARCH_SOURCES.includes("rebound-capital"));
   assert.equal(REBOUND_CAPITAL_FEED_URL, "https://reboundcapital.substack.com/feed");
   assert.equal(isReboundCapitalArticleUrl("https://reboundcapital.substack.com/p/top-rebound-stocks-for-nov26"), true);
   assert.equal(isReboundCapitalArticleUrl("https://www.rebound.capital/p/top-rebound-stocks-for-nov-26"), true);

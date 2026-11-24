@@ -1,5 +1,6 @@
 import "server-only";
 import {createSupabaseAdminClient} from "@/lib/supabase/admin";
+import {CREATOR_ROSTER} from "./video-intake-policy.ts";
 
 export type PrivateCreatorReview={
  publisher:string;videoId:string;title:string;url:string;
@@ -14,9 +15,9 @@ export async function getPrivateReviewedCreatorArguments(now:Date,claimLimit=3):
  const {data,error}=await db.from("research_intake_items")
   .select("publisher,external_id,title,url,published_at,summary,creator_logic,claim_checks")
   .eq("item_type","video").eq("transcript_status","ready")
-  .eq("video_review_status","reviewed")
+  .eq("video_review_status","reviewed").in("publisher",CREATOR_ROSTER.map(channel=>channel.name))
   .gte("published_at",cutoff).lte("published_at",now.toISOString())
-  .order("published_at",{ascending:false}).limit(25);
+  .order("published_at",{ascending:false}).limit(90);
  if(error)throw new Error("Creator review receipts unavailable");
  const reviews:PrivateCreatorReview[]=[];
  const used=new Map<string,number>();
@@ -49,7 +50,10 @@ export async function getPrivateReviewedCreatorArguments(now:Date,claimLimit=3):
    publishedAt:item.published_at,url,summary,logic,claimChecks:claims,
   });
   used.set(publisher,(used.get(publisher)||0)+1);
-  if(reviews.length>=8)break;
+
  }
- return reviews;
+ // Protect representation of each active creator before selecting a second review.
+ const ordered=CREATOR_ROSTER.flatMap(channel=>reviews.filter(review=>review.publisher===channel.name).slice(0,1));
+ const usedIds=new Set(ordered.map(review=>review.videoId));
+ return [...ordered,...reviews.filter(review=>!usedIds.has(review.videoId))].slice(0,9);
 }
