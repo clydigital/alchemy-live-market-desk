@@ -1,4 +1,3 @@
-import DivergenceRadar from "@/components/blue-desk/DivergenceRadar";
 import {buildDivergenceRadar} from "@/lib/bluebelly-divergence-radar";
 import {getEarningsCase} from "@/lib/bluebelly-earnings-investor-stories";
 import Link from "next/link";
@@ -201,15 +200,17 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           compareHref={blueDeskPublicHref("/blue-desk/markets?mode=compare",host)+"#market-group-heading"}
           watchHref={blueDeskPublicHref("/blue-desk/markets?mode=watch",host)}
           scannerHref={blueDeskPublicHref("/blue-desk/markets/scanner",host)}/>:null}
-        {mode==="watch"&&divergenceRadar?<DivergenceRadar read={divergenceRadar} comparisonsOpen={query.window==="1D"||query.window==="3D"||query.window==="5D"}
-          comparisons={<MarketDivergenceWatch observations={publicMarketObservations(monitor?.rows||[],"all")}
+        {mode==="watch"?<section aria-labelledby="divergence-watch-heading" className={`${styles.section} ${legibility.marketSection}`}>
+          <p className={styles.kicker}>01 / WHAT IS NOT MOVING TOGETHER?</p>
+          <h2 id="divergence-watch-heading">Divergence Watch</h2>
+          <MarketDivergenceWatch observations={publicMarketObservations(monitor?.rows||[],"all")} radar={divergenceRadar}
             window={watchWindow}
             windowHrefs={{
               "1D":blueDeskPublicHref("/blue-desk/markets?mode=watch&window=1D",host)+"#divergence-watch",
               "3D":blueDeskPublicHref("/blue-desk/markets?mode=watch&window=3D",host)+"#divergence-watch",
               "5D":blueDeskPublicHref("/blue-desk/markets?mode=watch&window=5D",host)+"#divergence-watch",
-            }}/>}
-        />:null}
+            }}/>
+        </section>:null}
 
         {mode==="compare"?<section className={`${styles.section} ${legibility.marketSection}`}
           aria-labelledby="breadth-watch-heading" data-market-breadth-watch="research-first">
