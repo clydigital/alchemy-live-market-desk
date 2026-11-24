@@ -105,7 +105,7 @@ test("search can find breadth tickers and neutral research instruments even with
 });
 
 
-test("ETF comparison column headers sort independently, both ways, with source-dated RSP deltas", () => {
+test("ETF sorting helper preserves source-dated RSP deltas; simplified Compare uses period and benchmark controls", () => {
   const etfs = [
     { ...row("rsp", 1), symbol: "RSP", change5d: 2, asOf: "2026-10-30" },
     { ...row("xlk", 2), symbol: "XLK", change5d: 4, asOf: "2026-10-30" },
@@ -131,7 +131,10 @@ test("ETF comparison column headers sort independently, both ways, with source-d
 
   const ui = readFileSync(new URL("../components/blue-desk/PublicMarketScreener.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(ui,/5D vs RSP|Rotation map/);
-  assert.match(ui, /onClick=\{\(\)=>sortComparisonColumn\(period\)\}/);
+  assert.match(ui, /onClick=\{\(\)=>setGraphicWindow\(period\)\}/);
+  const matrix = readFileSync(new URL("../components/blue-desk/XlBenchmarkSynergy.tsx", import.meta.url), "utf8");
+  assert.match(matrix, /setSort\(e.target.value\)/);
+  assert.match(matrix, /setPeriod\(n\)/);
 
 
 });
