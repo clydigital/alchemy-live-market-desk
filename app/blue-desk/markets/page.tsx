@@ -1,3 +1,5 @@
+import DivergenceRadar from "@/components/blue-desk/DivergenceRadar";
+import {buildDivergenceRadar} from "@/lib/bluebelly-divergence-radar";
 import {getEarningsCase} from "@/lib/bluebelly-earnings-investor-stories";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -85,7 +87,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
     redirect(blueDeskPublicHref("/blue-desk/markets/scanner",host));
   const [monitor,breadthHistory,researchDigests,usJobs,japan,bund,gilt] = await Promise.all([
     getMarketMonitor().catch(() => null),
-    getSourceDatedBreadth(mode==="compare"||group==="breadth").catch(()=>({series:[],retrievalStatus:"fallback" as const,researchHistory:false})),
+    getSourceDatedBreadth(mode==="compare"||mode==="watch"||group==="breadth").catch(()=>({series:[],retrievalStatus:"fallback" as const,researchHistory:false})),
     getPublishedMacroPulseBriefs(6).catch(()=>[]),
     mode==="assets"&&group==="all"?readPublicUsJobs():Promise.resolve(null),
     // International providers only run when the reader deliberately opens
@@ -104,6 +106,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
     : [];
   const observations=[...monitoredRows,...breadthObservations];
   const xlSynergy=mode==="compare"?buildXlBenchmarkSynergy(monitor?.rows??[],now):null;
+  const divergenceRadar=mode==="compare"||mode==="watch"?buildDivergenceRadar(monitor?.rows??[],breadthHistory.series,now):null;
   const movers=mode==="assets"&&group==="all"?buildScannerDiscovery(monitoredRows,now):null;
   const catalogue=mode==="assets"&&group==="all"?
     searchPublicAssetCatalogue(publicMarketObservations(monitor?.rows||[],"all"),{
@@ -170,6 +173,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
         </nav>
         {mode==="compare"?<nav aria-label="Markets page sections"
           className={legibility.focusNavigation} data-markets-primary="breadth-and-comparison">
+          <a href="#divergence-radar">Research radar</a>
           <a href="#market-group-heading">ETF comparisons</a>
           <a href="#xl-benchmark-synergy">XLs vs indices</a>
           <a href="#breadth-watch-heading">Market breadth</a>
@@ -198,6 +202,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           compareHref={blueDeskPublicHref("/blue-desk/markets?mode=compare",host)+"#market-group-heading"}
           watchHref={blueDeskPublicHref("/blue-desk/markets?mode=watch",host)}
           scannerHref={blueDeskPublicHref("/blue-desk/markets/scanner",host)}/>:null}
+        {divergenceRadar?<DivergenceRadar read={divergenceRadar}/>:null}
         {mode==="watch"?<section aria-labelledby="divergence-watch-heading"
           className={`${styles.section} ${legibility.marketSection}`}>
           <p className={styles.kicker}>01 / WHAT IS NOT MOVING TOGETHER?</p>
