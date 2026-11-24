@@ -15,8 +15,7 @@ import { buildPresenterCalendar } from "@/lib/presenter-calendar";
 import { selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
-import {calculateBreadthRow,marketParticipationResearch} from "@/lib/bluebelly-breadth-dated";
-import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
+import {buildMarketInternalsResearch} from "@/lib/bluebelly-market-internals-research";
 import {getOwnerDeliveredResearchBriefs} from "@/lib/blue-desk-delivered-research-server";
 import {getPrivateReviewedCreatorArguments} from "@/lib/bluebelly-private-creator-reviews";
 import {getOwnerCreatorSignalDigest} from "@/lib/bluebelly-creator-signals-server";
@@ -55,27 +54,20 @@ export async function GET(req:NextRequest){
     getPrivateReviewedCreatorArguments(now)
       .then(reviews=>({status:"AVAILABLE" as const,reviews}))
       .catch(()=>({status:"UNAVAILABLE" as const,reviews:[]})),
-    getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
+    getSourceDatedBreadth(true).catch(()=>({series:[],retrievalStatus:"fallback" as const})),
     getOwnerCreatorSignalDigest(now),
   ]);
   const motionNews=selectVerifiedNewsBriefs(rawNews,now,12);
   const news=combineQualifiedNews(motionNews,originalPress,12);
   const calendar=buildPresenterCalendar(macro,earnings,now);
   const upcoming=selectBlueDeskUpcoming(calendar,now,30).slice(0,14);
-  const bfi=calculateBreadthRow("S5FI","S&P 500 above 50D",
-    breadthSource.series.find(item=>item.symbol==="S5FI"),now);
-  const bth=calculateBreadthRow("S5TH","S&P 500 above 200D",
-    breadthSource.series.find(item=>item.symbol==="S5TH"),now);
-  const breadthDiagnostic=marketParticipationResearch([
-    ...publicMarketObservations(monitor?.rows||[],"all"),bfi,bth,
-  ]);
+  const internals=buildMarketInternalsResearch(monitor?.rows??[],breadthSource.series,now);
   const packet=buildDailyResearchPacket({
     now:now.toISOString(),notion,news,
     editorialBriefs:delivery.briefs,
     creatorReviews:creatorDelivery.reviews,
     creatorCoverageStatus:creatorDelivery.status,
-    marketDiagnostics:[{...breadthDiagnostic,
-      sourceUrls:breadthSource.series.map(item=>item.sourceUrl)}],
+    marketDiagnostics:internals.diagnostics,
     prices:(monitor?.rows||[]).filter(r=>r.last!==null)
       .slice(0,12).map(r=>({
         label:r.label,level:r.last,asOf:r.asOf,
@@ -89,7 +81,7 @@ export async function GET(req:NextRequest){
   });
   const health=assessDailyResearchHealth({now,notion,packet,news});
   return NextResponse.json({
-    ...packet,health,creatorSignalDigest,
+    ...packet,health,creatorSignalDigest,marketInternals:internals,
     creatorReviewCoverage:{status:creatorDelivery.status,count:creatorDelivery.reviews.length,
       caveat:"Reviews have original video dates and attributed mechanisms; their claims have not been independently source-verified."},
     deliveredResearch:{status:delivery.status,count:delivery.briefs.length,
