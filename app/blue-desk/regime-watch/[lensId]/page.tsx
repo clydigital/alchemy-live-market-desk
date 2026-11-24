@@ -16,6 +16,8 @@ import {readBluebellyQualifiedNews} from "@/lib/bluebelly-verified-event-server"
 import {getPublishedMacroPulseBriefs} from "@/lib/blue-desk-macropulse-brief-server";
 import {projectLiveLensResearch,liveLensSignal} from "@/lib/bluebelly-regime-live-research";
 import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
+import {buildCompareResearch,compareBreadthObservations} from "@/lib/bluebelly-compare-research";
+import RegimeCompareEvidence from "@/components/blue-desk/RegimeCompareEvidence";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
 import {calculateBreadthRow} from "@/lib/bluebelly-breadth-dated";
 import {projectRegimeMeterReadings} from "@/lib/bluebelly-regime-market-meter";
@@ -71,7 +73,7 @@ export default async function ResearchLensPage({params}:Props){
   getRegimeShadowHealth().catch(()=>null),
   readBluebellyQualifiedNews(now,18).catch(()=>null),
   getPublishedMacroPulseBriefs(8).catch(()=>[]),
-  getSourceDatedBreadth().catch(()=>({series:[],retrievalStatus:"fallback" as const})),
+  getSourceDatedBreadth(true).catch(()=>({series:[],retrievalStatus:"fallback" as const})),
   getUsEconStatWatch(now).catch(()=>null),
  ]);
  const lens=groupPublicResearch(publicTheses||[]).find(item=>item.id===lensId)!;
@@ -90,6 +92,7 @@ export default async function ResearchLensPage({params}:Props){
  const newest=lens.stories.find(story=>workbook.leadHeadlinePattern.test(story.title))||null;
  const base=blueDeskPublicHref("/blue-desk/regime-watch",host);
  const rows=publicMarketObservations(marketMonitor?.rows??[],"all");
+ const compare=buildCompareResearch(marketMonitor?.rows??[],[...rows,...compareBreadthObservations(breadthFeed.series,now)],now);
  const breadth=calculateBreadthRow("S5FI","S&P 500 above 50-day MA",breadthFeed.series.find(row=>row.symbol==="S5FI"),now);
  const readings=projectRegimeMeterReadings(rows,breadth,bondPressure??projectBondPressure(marketMonitor?.rows??null,now),now);
  const liveRead=projectLiveLensResearch(lens.id,qualified?.news??[],sourceObservations,briefs,influence,now,!qualified||Object.values(qualified.sourceReads).includes("UNAVAILABLE"));
@@ -120,6 +123,7 @@ export default async function ResearchLensPage({params}:Props){
     </div>
    </header>
    <RegimeLiveEvidence read={liveRead} signal={liveLensSignal(lens.id,readings,rows,now)}/>
+   {lens.id==="breadth"||lens.id==="ai"?<RegimeCompareEvidence compare={compare} host={host}/>:null}
    {researchRevisions.length?<section id="current-research-revisions" data-regime-research-revisions="source-reviewed-provisional" aria-label="Latest reviewed research and conditional watch ideas" style={{margin:"18px 0"}}>
      <span className={styles.kicker}>17 NOV US / 18 NOV MYT · DATED RESEARCH REVISION</span>
      <h2>What changed, and what could benefit?</h2>
