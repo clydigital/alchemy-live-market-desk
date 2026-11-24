@@ -27,8 +27,18 @@ Keep original evidence, exact publication/observation timestamps, expectation vi
 - Do not imply current prices in a frozen edition. Cite dated sources and mark missing evidence.
 - Never invent numbers, dates, consensus, sources or confirmed cause, and do not lower the existing evidence/publication gates.
 
+## Manual news additions — context and ongoing research (24 November)
+Every manually researched or added Newsroom item must answer, in natural prose rather than a rigid template:
+
+- **Who is involved?** Introduce unfamiliar companies, products, institutions or people on first mention. Give their actual role (supplier, buyer, financier, regulator, competitor, etc.), what they sell or do, and why the reader should care. Do not assume a ticker or acronym explains the company.
+- **Who is affected?** Where material, explain the customer, supplier, competitor or financing relationship and how money, demand, supply, costs or risk travel between them. Named relationships require sources; unnamed counterparties stay unnamed. Explain potential beneficiaries and exposures conditionally, not as automatic stock recommendations.
+- **What changes in our market thinking?** Identify the relevant active Regime Lens or running Story/thesis and its specific question. Check the current research before writing; say whether the new evidence strengthens, weakens, complicates or leaves that question unresolved, and why. Link directly to the relevant existing lens and, when an exact current Story exists, its canonical reader. Do not create a thesis solely to attach a link or imply its verdict has changed.
+- **What would settle it?** State the next observable test. Compare with existing Markets Compare/divergence evidence, dates, prices and relevant fundamentals where material. Do not infer a market-price cause from timing or a creator's opinion.
+
+Keep the first read compact: usually one short explanation of the players and customer economics integrated into the existing story, followed by a brief research connection. No mandatory cards or headings for every question. Retain sources and detailed comparisons in optional depth. If no material running thesis applies, omit the link rather than force a connection. Manually written news and source checks remain dated and evidence-labelled; research leads cannot become verified facts or automatically change a canonical regime.
+
 ## Editorial quality check before publishing
-Can someone outside financial markets identify the news, the stakes, and the next test within a minute? Is at least one dated original report accessible? Are actual and expected figures comparable when used? Is an unverified market reaction clearly identified? Can a specialist still open the detailed sources and verify all meaningful claims? If any answer is no, revise the article layout rather than dropping evidence.
+Can someone outside financial markets identify the news, who the players are, their customers or affected parties, the stakes, the relevant research question, and the next test within a minute? Is at least one dated original report accessible? Are actual and expected figures comparable when used? Is an unverified market reaction clearly identified? Can a specialist still open the detailed sources and verify all meaningful claims? If any answer is no, revise the article layout rather than dropping evidence.
 
 ## Example
 **Overly technical:** “Front-end repricing divergence and transmission have not been independently established by the evidence ledger.”
