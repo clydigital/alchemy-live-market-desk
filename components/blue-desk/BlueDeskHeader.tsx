@@ -84,7 +84,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
   ];
   const isActive = (path: string) => {
     const href = blueDeskPublicHref(path, host);
-    return href === current || (href === "/markets" && activePath === "/blue-desk/markets");
+    return href === current || (href === "/markets" && (activePath === "/blue-desk/markets" || activePath === "/blue-desk/markets/scanner"));
   };
   const commandContext = [...commandLinks, ...PUBLIC_MORE, ["My Desk", "/my-reports"] as const]
     .find(([, path]) => isActive(path))?.[0] || (ownerWorkspace ? "My Desk" : "Markets");
@@ -143,7 +143,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
         <nav className={chrome.links} aria-label="Bluebelly primary">
           {nav.map(([label,path])=>{
             const href=blueDeskPublicHref(path,host);
-            const active=href===current || (href==="/markets"&&activePath==="/blue-desk/markets");
+            const active=href===current || (href==="/markets"&&(activePath==="/blue-desk/markets"||activePath==="/blue-desk/markets/scanner"));
             return <Link key={path} href={href} aria-current={active?"page":undefined}
               className={(active?chrome.navActive:chrome.navLink)+" "+(label==="My Desk"?chrome.owner:"")}>
               <MarketIcon name={NAV_ICONS[label]||"market"} size={15}/><span>{label}</span>
