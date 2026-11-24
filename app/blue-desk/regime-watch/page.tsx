@@ -77,7 +77,7 @@ export default async function RegimeWatchPage(){
  const meterReadings=projectRegimeMeterReadings(publicMarketObservations(monitor?.rows??[],"all"),breadth50,bondPressure,now);
  const compassSummary=buildMarketCompassSummary(measuredMarket,now);
  const rows=publicMarketObservations(monitor?.rows??[],"all");
- const compare=buildCompareResearch(monitor?.rows??[],[...rows,...compareBreadthObservations(breadthFeed.series,now)],now,breadthFeed.series);
+ const compare=buildCompareResearch([...(monitor?.rows??[]),...(monitor?.divergenceRows??[])],[...rows,...compareBreadthObservations(breadthFeed.series,now)],now,breadthFeed.series);
  const [qqqPosition,investorReceipt]=await Promise.all([readQqqPositioning(),getInvestorReviewReceipt(dossierSelection?.latestDossierId??null,now).catch(()=>null)]);
  const investorSnapshot=buildInvestorMindsetSnapshot(rows,measuredMarket,compassSummary,qualified?.news??[],now);
  const investorAssessment=projectInvestorAssessment(dossierSelection,now);
