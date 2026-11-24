@@ -29,7 +29,7 @@ test("Owner intake meter is sourced, nonsemantic, null-safe and accessible",()=>
  assert.match(health,/data-absorption-meter="sourced-account-health"/);
  assert.match(health,/role="meter"/);
  assert.match(health,/aria-valuetext=/);
- assert.match(health,/health\.healthy\/Math\.max\(1,health\.monitored\)/);
+ assert.match(health,/health\.freshCompleted\/Math\.max\(1,health\.monitored\)/);
  assert.match(health,/No green status is inferred/);
  assert.match(health,/not proof that every post or claim is independently verified/);
  assert.match(source,/createSupabaseAdminClient/);
@@ -68,8 +68,8 @@ test("X Wire retains server pagination, filters and source-state while improving
  const css=read("app/owner/x-wire/x-wire.module.css");
  assert.match(page,/data-x-wire="owner-paginated-ledger"/);
  assert.match(page,/data-v7-x-wire="private-source-operations"/);
- assert.match(page,/getXWireOwnerView\(params\)/);
- assert.match(page,/getBluebellyAbsorptionHealth\(\)/);
+ assert.match(page,/getXWireOwnerView\(params,now\)/);
+ assert.match(page,/getBluebellyAbsorptionHealth\(now\)/);
  assert.match(page,/X_WIRE_THEMES\.map/);
  for(const key of ["theme","handle","status","period","q"])
    assert.ok(page.includes('name="'+key+'"'),"X Wire filter "+key);
@@ -98,4 +98,22 @@ test("Protected owner paths remain protected by middleware, not CSS or anonymous
  assert.match(smoke,/\/my-reports/);
  assert.match(smoke,/\/power-stack/);
  assert.match(smoke,/data-power-stack=/);
+});
+
+test("homepage and X Wire share current coverage and retrieval windows without archival penalties",()=>{
+ const home=read("components/blue-desk/AbsorptionHealth.tsx");
+ const board=read("components/blue-desk/MarketConditionsBoard.tsx");
+ const wire=read("app/owner/x-wire/page.tsx");
+ assert.match(home,/health\.freshCompleted/);
+ assert.doesNotMatch(home,/health\.healthy\b/);
+ assert.match(board,/health!\.freshCompleted:0/);
+ assert.doesNotMatch(board,/health!\.healthy\b/);
+ assert.match(wire,/absorption\.freshCompleted/);
+ for(const page of [home,wire]){
+  assert.match(page,/X posts retrieved · 24h/);
+  assert.match(page,/X leads handed to research · 48h/);
+  assert.match(page,/Historical coverage gaps/);
+ }
+ assert.match(wire,/wire\.total/);
+ assert.match(home,/agent-led research and recap use are not measured/);
 });

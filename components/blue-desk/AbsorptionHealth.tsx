@@ -11,26 +11,26 @@ export default function AbsorptionHealth({health}:{health:BluebellyAbsorptionHea
     {!health?<p className={s.missing}>Live intake metrics are unavailable. No green status is inferred.</p>:
     <>
       <div className={s.healthReadout} data-absorption-meter="sourced-account-health">
-        <div className={s.healthLabels}><span>Source intake coverage · recent checks without historical gaps</span>
-          <strong>{health.healthy} / {health.monitored} monitored sources</strong></div>
+        <div className={s.healthLabels}><span>Current X Wire coverage · completed checks</span>
+          <strong>{health.freshCompleted} / {health.monitored} monitored sources</strong></div>
         <div className={s.healthTrack} role="meter" aria-label="Complete fresh source checks"
           aria-valuemin={0} aria-valuemax={Math.max(1,health.monitored)}
-          aria-valuenow={Math.min(health.healthy,Math.max(1,health.monitored))}
-          aria-valuetext={`${health.healthy} of ${health.monitored} monitored sources have complete fresh checks`}>
-          <span style={{width: `${Math.min(100,Math.max(0,Math.round(100*health.healthy/Math.max(1,health.monitored))))}%`}}/>
+          aria-valuenow={Math.min(health.freshCompleted,Math.max(1,health.monitored))}
+          aria-valuetext={`${health.freshCompleted} of ${health.monitored} monitored sources have complete fresh checks`}>
+          <span style={{width: `${Math.min(100,Math.max(0,Math.round(100*health.freshCompleted/Math.max(1,health.monitored))))}%`}}/>
         </div>
-        <small>{health.freshCompleted}/{health.monitored} completed a recent window; historical gaps are tracked separately. Aggregate coverage is not proof that every post or claim is independently verified.</small>
+        <small>{Math.max(0,health.monitored-health.freshCompleted)} sources need a recent complete check. Historical gaps are tracked separately. Aggregate coverage is not proof that every post or claim is independently verified.</small>
       </div>
       <div className={s.metrics}>
-        <div><strong>{health.healthy}/{health.monitored}</strong><span>X sources with complete recent checks</span></div>
         <div><strong>{health.posts24h.toLocaleString("en-GB")}</strong><span>X posts retrieved · 24h</span></div>
-        <div><strong>{health.handedToResearch48h.toLocaleString("en-GB")}</strong><span>X leads entered research intake · 48h</span></div>
+        <div><strong>{health.handedToResearch48h.toLocaleString("en-GB")}</strong><span>X leads handed to research · 48h</span></div>
         <div><strong>{health.completedRuns7d}</strong><span>Completed morning/evening research runs · 7d</span></div>
-        <div><strong>{health.publishedUpdates7d}</strong><span>Story updates recorded by those runs · 7d</span></div>
+        <div><strong>{Math.max(0,health.monitored-health.freshCompleted)}</strong><span>Incomplete recent checks</span></div>
+        <div><strong>{health.historicalGaps}</strong><span>Historical coverage gaps</span></div>
       </div>
       <p className={s.note}>
-        {health.historicalGaps} source(s) retain historical gaps; {health.failedRuns7d} failed/blocked research run(s) in 7d.
-        Ingestion acceptance is not independent claim verification. Zero Story updates may be legitimate and is not proof that research was unused.
+        {health.failedRuns7d} failed/blocked research run(s) in 7d. {health.publishedUpdates7d} canonical Story updates recorded by scheduled runs in 7d; agent-led research and recap use are not measured by this figure.
+        {health.lastSourceAttemptAt?<> Last X source attempt: <time dateTime={health.lastSourceAttemptAt}>{new Date(health.lastSourceAttemptAt).toLocaleString("en-GB",{timeZone:"Asia/Kuala_Lumpur",day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})} MYT</time>.</>:null}
         {health.lastResearchRun?<> Last successful research run: <time dateTime={health.lastResearchRun}>{new Date(health.lastResearchRun).toLocaleString("en-GB",{timeZone:"Asia/Kuala_Lumpur",day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})} MYT</time>.</>:null}
       </p>
     </>}

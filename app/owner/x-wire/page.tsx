@@ -20,7 +20,8 @@ export default async function OwnerXWirePage({searchParams}:{
   searchParams:Promise<Record<string,string|string[]|undefined>>;
 }){
   const params=await searchParams;
-  const [wire,absorption]=await Promise.all([getXWireOwnerView(params),getBluebellyAbsorptionHealth()]);
+  const now=new Date();
+  const [wire,absorption]=await Promise.all([getXWireOwnerView(params,now),getBluebellyAbsorptionHealth(now)]);
   const f=wire.filters;
   const from=wire.total?(f.page-1)*25+1:0;
   const to=Math.min(f.page*25,wire.total);
@@ -40,13 +41,14 @@ export default async function OwnerXWirePage({searchParams}:{
         </nav>
       </header>
       <div className={styles.stats}>
-        <div><strong>{wire.error?"—":wire.sourceHealthy+"/"+wire.sourceMonitored}</strong><span>Healthy current source checks</span></div>
-        <div><strong>{wire.error?"—":wire.total.toLocaleString("en-GB")}</strong><span>Posts matching the filters</span></div>
+        <div><strong>{absorption?absorption.freshCompleted+"/"+absorption.monitored:"—"}</strong><span>Current X Wire coverage · completed checks</span></div>
+        <div><strong>{absorption?.posts24h.toLocaleString("en-GB")??"—"}</strong><span>X posts retrieved · 24h</span></div>
         <div><strong>{absorption?.handedToResearch48h??"—"}</strong><span>X leads handed to research · 48h</span></div>
-        <div><strong>{absorption?.historicalGaps??"—"}</strong><span>Unresolved source-history gaps</span></div>
+        <div><strong>{absorption?.historicalGaps??"—"}</strong><span>Historical coverage gaps</span></div>
       </div>
       <aside className={styles.caution} role="note">
         <strong>Third-party discovery is not verification.</strong>
+        {absorption?<p>{Math.max(0,absorption.monitored-absorption.freshCompleted)} incomplete recent checks · Last X source attempt: {clock(absorption.lastSourceAttemptAt)}. Archive results below use published time and selected filters; the 24h retrieval count above is independent of those filters.</p>:null}
         <p>Stored X posts and research intake records do not prove the social claims. Provider retries and historical gaps remain visible. Existing scheduled research jobs own ingestion and editorial promotion; navigating pages never triggers another scan.</p>
       </aside>
       <section className={styles.filters} id="wire-filters" aria-label="Search X Wire">
