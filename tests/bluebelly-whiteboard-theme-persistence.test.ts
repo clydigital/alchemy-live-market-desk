@@ -32,14 +32,15 @@ test("nav shelf square uses palette-driven command token with no mandatory yello
  }
 });
 
-test("dashboard whiteboard reuses canonical existing source data and market direction engine",()=>{
+test("homepage retires duplicate whiteboard while retaining canonical market direction engine",()=>{
  const home=read("app/blue-desk/page.tsx");
  const board=read("components/blue-desk/DeskWhiteboard.tsx");
  const css=read("components/blue-desk/DeskWhiteboard.module.css");
  assert.match(home,/const marketComparisons=buildMarketDivergenceWatch\(marketRows,"1D"\)/);
  assert.match(home,/buildMarketCompassSummary\(marketComparisons,now\)/);
  assert.match(home,/buildInvestorMindsetSnapshot\(marketRows,marketComparisons,marketCompass,verifiedNews,now\)/);
- assert.match(home,/<DeskWhiteboard compass=\{marketCompass\} news=\{verifiedNews\} theses=\{theses\}/);
+ assert.doesNotMatch(home,/<DeskWhiteboard\b/);
+ assert.match(home,/<RadarIntelligenceShell\b/);
  for(const lane of ["market","release","thesis","catalyst"])assert.ok(board.includes('data-whiteboard-cell="'+lane+'"'));
  assert.match(board,/MarketCompassSummary/);
  assert.match(board,/sourceCheckedReleaseImpact\(latest\)/);
