@@ -1,5 +1,7 @@
 import type { MarketMonitorRow } from "./market-monitor.ts";
 import type { BreadthSeries } from "./bluebelly-breadth-dated.ts";
+import {expectedCompletedUsWeekdaySessionDay} from "./bluebelly-daily-report-session.ts";
+import {scheduledUsEquityCloseHourET} from "./bluebelly-us-equity-trading-calendar.ts";
 
 type Point = {date:string;value:number};
 type Source = {label:string;url:string};
@@ -13,6 +15,7 @@ export const RADAR_PAIRS: readonly Rule[] = [
  {id:"broad",a:"rsp",b:"spx-proxy",title:"Equal vs cap weight",family:"Participation",chart:"RSP/SPY · daily + weekly",test:"Check breadth and small-cap participation before calling a broad recovery.",threshold:2},
  {id:"small",a:"russell",b:"spx-proxy",title:"Small caps vs large caps",family:"Participation",chart:"IWM/SPY · daily",test:"Compare small-business credit and earnings with breadth.",threshold:3},
  {id:"consumer",a:"xly",b:"xlp",title:"Discretionary vs staples",family:"Consumer",chart:"XLY/XLP · daily + weekly",test:"Check equal-weight consumer ETFs, constituent earnings and spending; mega-cap concentration can distort XLY.",threshold:3},
+ {id:"consumer-equal-staples",a:"rspd",b:"rsps",title:"Equal-weight discretionary vs staples",family:"Consumer",chart:"RSPD/RSPS · daily + weekly",test:"Check retail volumes and earnings without cap-weight concentration.",threshold:2},
  {id:"consumer-equal",a:"rspd",b:"xly",title:"Equal-weight consumer vs headline",family:"Consumer",chart:"RSPD/XLY · daily",test:"Check constituent weights and underlying participation.",threshold:2},
  {id:"credit",a:"hyg",b:"lqd",title:"High yield vs investment grade",family:"Credit",chart:"HYG/LQD · daily; HY and CCC OAS",test:"Check official spreads and duration differences before inferring financing stress.",threshold:1},
  {id:"duration",a:"xlre",b:"spx-proxy",title:"Real estate vs equities",family:"Rates",chart:"XLRE/SPY · daily + weekly",test:"Check long yields, financing and actual property demand.",threshold:3},
@@ -30,10 +33,12 @@ function clean(points:readonly Point[]):Point[]{
  for(const p of points)if(/^\d{4}-\d{2}-\d{2}$/.test(p.date)&&finite(p.value)&&Number.isFinite(Date.parse(p.date)))map.set(p.date,p.value);
  return [...map].map(([date,value])=>({date,value})).sort((a,b)=>a.date.localeCompare(b.date));
 }
-function history(r:MarketMonitorRow|undefined,now:Date):Point[]{
+function history(r:MarketMonitorRow|undefined,now:Date,level=false):Point[]{
  if(!r||r.frequency!=="daily"||!r.asOf||!fresh(r.asOf,now)||!validUrl(r.sourceUrl)||!finite(r.last))return [];
+ const expected=expectedCompletedUsWeekdaySessionDay(now);
+ if(!expected||r.asOf>expected)return [];
  const points=clean(r.points.flatMap(p=>{
-  if(!finite(p.time)||!finite(p.close)||p.close<=0)return [];
+  if(!finite(p.time)||!finite(p.close)||(!level&&p.close<=0))return [];
   const d=new Date(p.time*1000);if(!Number.isFinite(+d)||+d>+now)return [];
   const date=d.toISOString().slice(0,10);return date<=r.asOf!?[{date,value:p.close}]:[];
  }));
@@ -45,8 +50,17 @@ function aligned(a:Point[],b:Point[],count:number):[Point[],Point[]]|null{
  const x=a.slice(-count),y=b.slice(-count);
  return x.every((p,i)=>p.date===y[i].date)&&contiguous(x)?[x,y]:null;
 }
-// No silent bridging of extended gaps. These are recorded sessions, not a holiday-calendar assertion.
-function contiguous(p:Point[]){return p.every((v,i)=>i===0||(Date.parse(v.date)-Date.parse(p[i-1].date))/DAY<=4);}
+// Require every scheduled regular US cash-equity session; unexpected closures remain coverage gaps.
+function contiguous(p:Point[]){
+ return p.every((v,i)=>{
+  if(scheduledUsEquityCloseHourET(v.date)===null)return false;
+  if(i===0)return true;
+  const start=Date.parse(p[i-1].date),end=Date.parse(v.date);
+  if(end-start>7*DAY)return false;
+  for(let t=start+DAY;t<end;t+=DAY)if(scheduledUsEquityCloseHourET(new Date(t).toISOString().slice(0,10))!==null)return false;
+  return true;
+ });
+}
 function ret(a:Point[],start:number,end:number){return (a[end].value/a[start].value-1)*100;}
 function corr(a:Point[],b:Point[]){
  const x=a.slice(1).map((p,i)=>p.value/a[i].value-1),y=b.slice(1).map((p,i)=>p.value/b[i].value-1);
@@ -90,11 +104,26 @@ export function buildDivergenceRadar(rows:readonly MarketMonitorRow[],breadth:re
    }
   }else missing.push(r.title+" — correlation history unavailable");
  }
+ const spreadRules=[{id:"hy-oas",title:"High-yield credit spreads",family:"Credit",chart:"ICE BofA US HY OAS · daily",test:"Compare credit widening with the same-session equity response and financing conditions.",threshold:20},{id:"ccc-oas",title:"CCC and lower credit spreads",family:"Credit",chart:"ICE BofA CCC OAS · daily",test:"Check whether speculative credit confirms or contradicts the equity rebound.",threshold:35}];
+ for(const r of spreadRules){
+  const source=by.get(r.id),p=history(source,now,true).slice(-11);
+  if(!source||p.length<11||!contiguous(p)){missing.push(r.title+" — matching daily history unavailable");continue;}
+  eligible++;
+  const one=(p[10].value-p[9].value)*100,latest=(p[10].value-p[5].value)*100,prior=(p[5].value-p[0].value)*100,delta=latest-prior;
+  const strength=Math.max(Math.abs(one)/(r.threshold/2),Math.abs(latest)/r.threshold,Math.abs(delta)/r.threshold);
+  if(strength>=1){
+   const equity=aligned(p,get("spx-proxy"),6);const eq=equity?ret(equity[1],0,5):null;
+   const opposite=eq!==null&&eq>0&&latest>0;
+   const metrics=[{label:"Spread level",value:round(p[10].value),unit:"%"},{label:"1 session",value:round(one),unit:"bp"},{label:"Latest 5",value:round(latest),unit:"bp"},{label:"Prior 5",value:round(prior),unit:"bp"}];
+   if(eq!==null)metrics.push({label:"SPY latest 5",value:round(eq),unit:"%"});
+   leads.push({id:r.id,family:r.family,title:r.title,asOf:p[10].date,kind:"RELATIVE",summary:(opposite?"Equities rose while credit spreads widened. ":"Credit spread change. ")+ "Latest 5 "+signed(latest)+" bp vs prior 5 "+signed(prior)+" bp."+(eq===null?" Equity session unmatched.":""),chart:r.chart,nextTest:r.test,score:Math.min(strength,5)+(opposite?1:0),sources:[{label:source.label,url:source.sourceUrl},...(eq!==null?[{label:by.get("spx-proxy")!.label,url:by.get("spx-proxy")!.sourceUrl}]:[])],metrics});
+  }
+ }
  const breadthSymbols=["S5FI","S5TH","NDFI","NDTH","R2FI","R2TH"];
  for(const symbol of breadthSymbols){
   const s=breadth.find(v=>v.symbol===symbol);
   const p=s?clean(s.points.filter(v=>finite(v.value)&&v.value>=0&&v.value<=100)).filter(v=>Date.parse(v.date)<=+now):[];
-  if(!s||!validUrl(s.sourceUrl)||p.length<11||!fresh(p.at(-1)!.date,now)||!contiguous(p.slice(-11))){missing.push(symbol+" — 11 same-series breadth observations unavailable");continue;}
+  if(!s||!validUrl(s.sourceUrl)||p.length<11||!fresh(p.at(-1)!.date,now)||p.at(-1)!.date>(expectedCompletedUsWeekdaySessionDay(now)??"")||!contiguous(p.slice(-11))){missing.push(symbol+" — 11 same-series breadth observations unavailable");continue;}
   eligible++;
   const v=p.slice(-11),one=v[10].value-v[9].value,latest=v[10].value-v[5].value,prior=v[5].value-v[0].value,delta=latest-prior;
   const strength=Math.max(Math.abs(one)/5,Math.abs(latest)/8,Math.abs(delta)/8);
@@ -104,5 +133,5 @@ export function buildDivergenceRadar(rows:readonly MarketMonitorRow[],breadth:re
  // Diversify the first results instead of flooding the radar with one theme.
  const seen=new Set<string>(),first:RadarLead[]=[],rest:RadarLead[]=[];
  for(const lead of ranked){if(seen.has(lead.family))rest.push(lead);else{seen.add(lead.family);first.push(lead);}}
- return {generatedAt:now.toISOString(),leads:[...first,...rest],coverage:{checked:rules.length+breadthSymbols.length,eligible,missing},limitations:["Screening thresholds are editorial heuristics, not statistical significance or trade signals.","Returns are price returns on identical dated observations; adjacent five-session windows share only their boundary close. No flow or causal inference.","Correlation compares separate 20-return samples; correlation gaps are disclosed independently from relative-return coverage.","Breadth uses the existing permitted source series; full research history remains owner-gated. Missing values are not zero.","Fundamentals, creator views, physical flows and proprietary EMA annotations require separate agent-led investigation."]};
+ return {generatedAt:now.toISOString(),leads:[...first,...rest],coverage:{checked:rules.length+breadthSymbols.length+spreadRules.length,eligible,missing},limitations:["Screening thresholds are editorial heuristics, not statistical significance or trade signals.","Returns are price returns on identical scheduled daily observations; adjacent five-session windows share only their boundary close. Credit changes are basis points. No flow or causal inference.","Correlation compares separate 20-return samples; correlation gaps are disclosed independently from relative-return coverage.","Breadth uses the existing permitted source series; full research history remains owner-gated. Missing values are not zero.","Fundamentals, creator views, physical flows and proprietary EMA annotations require separate agent-led investigation."]};
 }
