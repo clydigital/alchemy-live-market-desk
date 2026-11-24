@@ -1,3 +1,4 @@
+import {compareResearchLines,type CompareResearch} from "./bluebelly-compare-research.ts";
 import type { NotionResearchBundle } from "./notion-market-research.ts";
 import type { NewsBriefV1 } from "./market-brief-news.ts";
 import type { DeliveredMacroPulseBrief } from "./blue-desk-delivered-research";
@@ -42,6 +43,7 @@ export function buildDailyResearchPacket(input:{
   editorialBriefs?:readonly DeliveredMacroPulseBrief[];
   creatorReviews?:readonly PrivateCreatorReview[];
   creatorCoverageStatus?:"AVAILABLE"|"UNAVAILABLE";
+  compare?:CompareResearch;
   marketDiagnostics?: readonly {status:"ready"|"insufficient";headline:string;interpretation:string;
     nextTest:string;asOf:string|null;sourceUrls:readonly string[]}[];
 }):DailyResearchPacket{
@@ -101,7 +103,14 @@ export function buildDailyResearchPacket(input:{
     ...input.notion.warnings.map(w=>"COVERAGE WARNING: "+safe(w,550)),
     "",
   ];
-  const reviews=(input.creatorReviews||[]).slice(0,7);
+  if(input.compare){
+    lines.push(...compareResearchLines(input.compare),"");
+    for(const window of input.compare.rotation)for(const row of window.bars)include(row.sourceUrl);
+    for(const horizon of input.compare.divergences)for(const p of horizon.pairs){include(p.leftSourceUrl);include(p.rightSourceUrl);}
+    for(const b of input.compare.benchmark.benchmarks)include(b.sourceUrl);
+    for(const b of input.compare.breadth)include(b.sourceUrl);
+  }else lines.push("MARKETS COMPARE COVERAGE: NOT PROVIDED; do not invent relative returns or breadth.","");
+  const reviews=(input.creatorReviews||[]).slice(0,9);
   if(reviews.length){
     lines.push("","## PRIVATE CREATOR TRANSCRIPT ARGUMENTS — ATTRIBUTED / NOT ORIGINAL FACTS",
       "These reviews were derived from actually stored YouTube transcripts with review receipts. They are hypotheses, not independent evidence or exhaustive new videos. Video publication dates are NOT current prices or verified transactions. Numbers in creator speech require the explicit verification targets below.");
@@ -198,5 +207,5 @@ export function buildDailyResearchPacket(input:{
   return {contractVersion:"daily-report-research/1",assembledAt:input.now,
     notionStatus:input.notion.status,warnings:input.notion.warnings,
     newsCount:input.news.length,deliveredBriefCount:delivered.length,researchSourceCandidates:candidates,
-    packet:lines.join("\n").slice(0,23800),sourceUrls:[...links]};
+    packet:lines.join("\n").slice(0,30000),sourceUrls:[...links]};
 }
