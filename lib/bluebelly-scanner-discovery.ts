@@ -7,6 +7,7 @@ const sectorFor:Record<string,string>={
  AMZN:"XLY",TSLA:"XLY",GOOGL:"XLC",META:"XLC",CI:"XLV",CVS:"XLV",
  CF:"XLB",XOM:"XLE",CVX:"XLE",PWR:"XLI",BWXT:"XLI",
 };
+export const XL_SECTORS=["XLB","XLC","XLE","XLF","XLI","XLK","XLP","XLRE","XLU","XLV","XLY"] as const;
 export type ScannerCandidate={symbol:string;label:string;asOf:string;detail:string;sourceUrl:string;comparisonUrl?:string;nextTest:string;score:number};
 const signed=(n:number)=> (n>0?"+":"")+n.toFixed(2);
 function valid(row:Row,now:Date){
@@ -65,8 +66,12 @@ export function buildScannerDiscovery(rows:readonly Row[],now=new Date()){
   cross.push(candidate(left,signed(left.change!)+"% vs "+b+" "+signed(right.change!)+"% · "+signed(gap)+" pp",next,Math.abs(gap),right));
   cross[cross.length-1].symbol=a+" / "+b;cross[cross.length-1].label=label;
  }
+ const sectors=XL_SECTORS.map(symbol=>{
+  const r=same(symbol);
+  return {symbol,label:r?.label??symbol,change:r?.type==="Sector"?r.change:null,sourceUrl:r?.type==="Sector"?r.sourceUrl:null};
+ });
  const movers=current.filter(stock).sort((a,b)=>b.change!-a.change!||a.symbol.localeCompare(b.symbol));
- return {session,coverage:current.length,stockCoverage:movers.length,laggards:top(laggards),rotation:top(rotation),rebound:top(rebound),cross:top(cross),
+ return {session,coverage:current.length,stockCoverage:movers.length,sectors,laggards:top(laggards),rotation:top(rotation),rebound:top(rebound),cross:top(cross),
  gainers:movers.filter(r=>r.change!>0).slice(0,5).map(r=>candidate(r,signed(r.change!)+"%","Check original catalyst and follow-through.",r.change!)),
  losers:movers.filter(r=>r.change!<0).slice(-5).reverse().map(r=>candidate(r,signed(r.change!)+"%","Check original catalyst and whether weakness persists.",-r.change!)),
  quiet:movers.slice().sort((a,b)=>Math.abs(a.change!)-Math.abs(b.change!)).slice(0,5).map(r=>candidate(r,signed(r.change!)+"%","Low absolute price change, not low trading volume.",Math.abs(r.change!)))};
