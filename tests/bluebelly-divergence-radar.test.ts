@@ -48,3 +48,26 @@ test("credit level changes are basis points, not percentage returns",()=>{
  const r=buildDivergenceRadar([row("hy-oas",[3,3,3,3,3,3,3.1,3.2,3.3,3.4,3.5])],[],now).leads.find(x=>x.id==="hy-oas")!;
  assert.ok(r);assert.equal(r.metrics.find(x=>x.label==="Latest 5")?.unit,"bp");assert.equal(r.metrics.find(x=>x.label==="Latest 5")?.value,50);
 });
+
+test("quiet relationships retain full matched return statistics independently of alerts",()=>{
+ const result=buildDivergenceRadar([row("xlp",Array(11).fill(100)),row("xlk",Array(11).fill(100))],[],now);
+ const check=result.checks.find(c=>c.id==="defensive")!;
+ assert.ok(check.historyAvailable);
+ assert.deepEqual(check.windows.map(w=>w.window),["1D","3D","5D"]);
+ assert.equal(check.windows[2].left,0);assert.equal(check.windows[2].right,0);assert.equal(check.windows[2].gap,0);
+ assert.ok(!result.leads.some(l=>l.id==="defensive"));
+});
+test("short matched histories remain inspectable without qualifying a historical lead",()=>{
+ const dates=days.slice(-4);
+ const out=buildDivergenceRadar([row("xlp",[100,101,102,103],dates),row("xlk",[100,100,100,100],dates)],[],now);
+ const check=out.checks.find(c=>c.id==="defensive")!;
+ assert.equal(check.historyAvailable,false);
+ assert.deepEqual(check.windows.map(w=>w.window),["1D","3D"]);
+ assert.equal(check.windows.find(w=>w.window==="3D")?.gap,3);
+ assert.ok(!out.leads.some(l=>l.id==="defensive"));
+});
+test("all qualifying alerts have a corresponding visible relationship check",()=>{
+ const a=row("xlp",[100,101,102,103,104,105,104,103,102,101,100]),b=row("xlk",Array(11).fill(100));
+ const result=buildDivergenceRadar([a,b],[],now);
+ for(const lead of result.leads)assert.ok(result.checks.some(c=>c.id===(lead.kind==="CORRELATION"?lead.id.replace(/-corr$/,""):lead.id)));
+});
