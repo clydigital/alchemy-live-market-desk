@@ -151,6 +151,7 @@ const FRED_RATE_SPECS: FredSpec[] = [
 
 const FRED_CREDIT_SPECS: FredSpec[] = [
   { id: "hy-oas", seriesId: "BAMLH0A0HYM2", label: "US High Yield OAS", type: "Credit / Risk" },
+  { id: "ccc-oas", seriesId: "BAMLH0A3HYC", label: "US CCC and Lower OAS", type: "Credit / Risk" },
   { id: "ig-oas", seriesId: "BAMLC0A0CM", label: "US Investment Grade OAS", type: "Credit / Risk" },
 ];
 
@@ -236,6 +237,8 @@ const EXTRA_SPECS: ExtraSpec[] = [
   { id: "xle", providerSymbol: "XLE", assetClass: "etf", label: "XLE Energy", type: "Sector", benchmark: "spx" },
   { id: "xli", providerSymbol: "XLI", assetClass: "etf", label: "XLI Industrials", type: "Sector", benchmark: "spx" },
   { id: "xly", providerSymbol: "XLY", assetClass: "etf", label: "XLY Discretionary", type: "Sector", benchmark: "spx" },
+  { id: "rspd", providerSymbol: "RSPD", assetClass: "etf", label: "RSPD Equal-weight discretionary", type: "Sector", benchmark: "xly" },
+  { id: "rsps", providerSymbol: "RSPS", assetClass: "etf", label: "RSPS Equal-weight staples", type: "Sector", benchmark: "xlp" },
   { id: "xlp", providerSymbol: "XLP", assetClass: "etf", label: "XLP Staples", type: "Sector", benchmark: "spx" },
   { id: "xlv", providerSymbol: "XLV", assetClass: "etf", label: "XLV Healthcare", type: "Sector", benchmark: "spx" },
   { id: "xlu", providerSymbol: "XLU", assetClass: "etf", label: "XLU Utilities", type: "Sector", benchmark: "spx" },
