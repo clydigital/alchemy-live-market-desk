@@ -14,7 +14,9 @@
           "sourceUrl": "https://www.streetinsider.com/Reuters/AMD%2Bshares%2Bslide%2Bas%2Breport%2Bsays%2BChina%2Blinks%2Bcould%2Binvite%2BUS%2Bscrutiny/27375288.html",
           "sourcePublishedAt": "2026-11-19T17:04:00Z",
           "status": "RESEARCH_LEAD",
-          "nextCheck": "Seek AMD's response, independently corroborated evidence and any official regulator announcement; check matched AMD/SMH returns. Do not treat the allegations, investigation or price causality as verified."
+          "nextCheck": "Seek AMD's response, independently corroborated evidence and any official regulator announcement; check matched AMD/SMH returns. Do not treat the allegations, investigation or price causality as verified.",
+          "marketContext": "AMD supplies processors and AI accelerators to computing customers. If actual restrictions emerge, customer access and chip sales could be affected; the short-seller allegations do not establish such restrictions.",
+          "researchQuestion": "Does regulatory exposure threaten AI chip demand, or is this still an unverified risk to sentiment?"
         }
       ]
     },
@@ -31,7 +33,9 @@
           "sourceUrl": "https://www.sec.gov/Archives/edgar/data/2130357/000162828026074937/anthropicpbc-fwppricing.htm",
           "sourcePublishedAt": "2026-11-18",
           "status": "SOURCE_CORROBORATED",
-          "nextCheck": "Verify settlement, net proceeds, placement closing, option exercise and cash conversion in subsequent issuer filings."
+          "nextCheck": "Verify settlement, net proceeds, placement closing, option exercise and cash conversion in subsequent issuer filings.",
+          "marketContext": "Anthropic develops AI models and requires compute to serve customers. Financing may support infrastructure purchases, but gross offering value does not prove operating profitability or that new supplier contracts were signed.",
+          "researchQuestion": "Does AI investment generate enough customer cash revenue to justify the capital raised?"
         }
       ]
     },
@@ -48,7 +52,9 @@
           "sourceUrl": "https://www.freddiemac.com/pmms",
           "sourcePublishedAt": "2026-11-19",
           "status": "SOURCE_CORROBORATED",
-          "nextCheck": "Compare next PMMS release, Treasury yields, mortgage spreads, purchase applications and housing activity."
+          "nextCheck": "Compare next PMMS release, Treasury yields, mortgage spreads, purchase applications and housing activity.",
+          "marketContext": "Freddie Mac tracks US mortgage borrowing costs. Higher rates can reduce homebuyers' purchasing power and demand for builders and lenders; this weekly change is not evidence that purchases or defaults have already changed.",
+          "researchQuestion": "Does expensive housing weaken demand enough to affect growth or household credit?"
         }
       ]
     },
@@ -98,7 +104,9 @@
           "sourceUrl": "https://www.marketbeat.com/stocks/NASDAQ/QQQ/short-interest/",
           "sourcePublishedAt": "2026-11-13",
           "status": "RESEARCH_LEAD",
-          "nextCheck": "Verify the exchange/FINRA issue-level settlement data and same-date ETF denominator. Compare a like-for-like historical series; do not assume 14% is a hard ceiling."
+          "nextCheck": "Verify the exchange/FINRA issue-level settlement data and same-date ETF denominator. Compare a like-for-like historical series; do not assume 14% is a hard ceiling.",
+          "marketContext": "QQQ is an ETF tracking the Nasdaq-100. Its short interest measures positioning in ETF shares, not direct short positions in every constituent; a rebound can squeeze shorts without broadening equity participation.",
+          "researchQuestion": "Is the recovery supported by wider participation or temporary positioning pressure?"
         },
         {
           "reason": "Nasdaq reports open short positions twice monthly; settlement dates lag dissemination. A rally while measured short interest is elevated is a squeeze candidate, not evidence that those positions actually closed.",
@@ -131,7 +139,9 @@
           "sourceUrl": "https://www.bls.gov/news.release/archives/ppi_11132026.htm",
           "sourcePublishedAt": "2026-11-13",
           "status": "SOURCE_CORROBORATED",
-          "nextCheck": "Compare the frozen consensus and Fed minutes due 18 Nov; track two-year yields, real yields and subsequent CPI before inferring a policy pivot."
+          "nextCheck": "Compare the frozen consensus and Fed minutes due 18 Nov; track two-year yields, real yields and subsequent CPI before inferring a policy pivot.",
+          "marketContext": "Producer prices measure selling prices received by domestic producers. Persistent costs may reach consumers or squeeze company margins, depending on pricing power and demand.",
+          "researchQuestion": "Does monthly moderation translate into softer consumer inflation and a less restrictive Fed path?"
         },
         {
           "reason": "The Fed's official November calendar lists FOMC minutes on 18 November. The minutes are retrospective, not a fresh policy decision.",
