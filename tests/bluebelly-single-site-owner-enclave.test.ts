@@ -76,9 +76,9 @@ test("public reader links include dated Research, omit duplicate Daily Report an
  assert.match(header,/activePath === "\/my-reports"/);
  const nav=header.split("const PUBLIC_NAV = [")[1]?.split("] as const;")[0]||"";
  for (const [label,href] of [
-  ["Markets","/markets"],["Calendar","/calendar"],
+  ["Markets","/markets"],["Earnings","/blue-desk/earnings"],["Calendar","/calendar"],
  ]) assert.ok(nav.includes('["'+label+'", "'+href+'"]'),label);
- assert.equal((nav.match(/\["/g)||[]).length,2);
+ assert.equal((nav.match(/\["/g)||[]).length,3);
  assert.ok(!nav.includes('["My Desk", "/my-reports"]'));
  assert.match(header,/href="\/my-reports">My Desk/);
  const more=header.split("const PUBLIC_MORE = [")[1]?.split("] as const;")[0]||"";

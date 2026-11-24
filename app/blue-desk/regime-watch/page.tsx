@@ -259,7 +259,7 @@ export default async function RegimeWatchPage(){
     <h2 id="coreweave-ai-financing">AI infrastructure: the CoreWeave financing test</h2>
     <p>CoreWeave's June 2026 financials and Q2 institutional ownership disclosures raise questions about how contracted AI compute becomes debt-serviceable cash. Reported share sales and credit-market stress need dated, original-source verification; this is an issuer research warning, not a newly accepted AI-wide Regime verdict.</p>
     <div className={styles.pathGrid}>
-     <Link className={styles.path} href={blueDeskPublicHref("/blue-desk/markets",host)+"#coreweave-credit-watch"}>
+     <Link className={styles.path} href={blueDeskPublicHref("/blue-desk/earnings",host)+"#coreweave-credit-watch"}>
       <span>CRWV · FUNDING &amp; OWNERSHIP</span><strong>Read the CoreWeave cash-flow, institutional-activity and dilution investigation</strong><small>30 October 2026 research snapshot · Sources and next tests →</small>
      </Link>
     </div>

@@ -15,12 +15,14 @@ import chrome from "./bluebelly-chrome.module.css";
 // The brand opens the compact market overview. Historical URLs remain valid.
 const PRIVATE_NAV = [
   ["Markets", "/markets"],
+  ["Earnings", "/blue-desk/earnings"],
   ["Calendar", "/blue-desk/calendar"],
   ["My Desk", "/my-reports"],
 ] as const;
 
 const PUBLIC_NAV = [
   ["Markets", "/markets"],
+  ["Earnings", "/blue-desk/earnings"],
   ["Calendar", "/calendar"],
 ] as const;
 
@@ -43,6 +45,7 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Hormuz Watch": "oil",
   "Regime Watch": "divergence",
   "Markets": "chart",
+  "Earnings": "calendar",
   "Deep Dive": "deep-dive",
   "Deep Dives": "deep-dive",
   "Research": "research",
@@ -75,7 +78,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
   const ownerWorkspace = activePath === "/power-stack" || activePath === "/my-reports" || activePath === "/owner/editorial" || activePath === "/owner/presenter" || activePath === "/owner/research" || activePath === "/owner/publications" || activePath === "/owner/daily-report" || activePath === "/owner/daily-articles" || activePath === "/owner/x-wire" || activePath === "/market-tools";
   const nav = publicHost && !ownerWorkspace ? PUBLIC_NAV : PRIVATE_NAV;
   const more = publicHost && !ownerWorkspace ? PUBLIC_MORE : [];
-  const current=blueDeskPublicHref(activePath==="/blue-desk/key-stories"?"/blue-desk/newsroom":activePath,host);
+  const current=blueDeskPublicHref(activePath==="/blue-desk/key-stories"?"/blue-desk/newsroom":activePath==="/blue-desk/earnings-week"?"/blue-desk/earnings":activePath,host);
   // v7 reuses the existing host-aware routes: this is navigation, not a
   // client-side router or an alternative source of market/owner data.
   const commandLinks: ReadonlyArray<readonly [string,string]> = [

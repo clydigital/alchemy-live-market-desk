@@ -30,10 +30,11 @@ test("the exact Amazon earnings brief can reach sourced long-form research inste
   assert.match(component,/non-operating pre-tax other income/);
 });
 
-test("the seven-company dated investor reader is visible through existing allowlisted Markets route",()=>{
+test("the seven-company dated investor reader is visible through standalone Earnings route",()=>{
   assert.equal(blueDeskHostAccess("/markets","bluebelly-desk.vercel.app"),"public");
   assert.equal(blueDeskHostAccess("/markets/earnings","bluebelly-desk.vercel.app"),"blocked");
-  const markets=path("../app/blue-desk/markets/page.tsx");
+  assert.equal(blueDeskHostAccess("/earnings","bluebelly-desk.vercel.app"),"public");
+  const markets=path("../app/blue-desk/earnings/page.tsx");
   const reader=path("../components/blue-desk/EarningsFundamentals.tsx");
   assert.match(markets,/<EarningsFundamentals/);
   assert.match(reader,/researchCutoff = "29 October 2026/);

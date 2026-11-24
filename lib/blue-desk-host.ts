@@ -41,6 +41,7 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   if (pathname === "/learn") return "/blue-desk/learn";
   if (PUBLIC_LEARN_DECK_PATH.test(pathname) && pathname.startsWith("/learn/decks/")) return "/blue-desk" + pathname;
   if (pathname === "/key-stories") return "/blue-desk/key-stories";
+  if (pathname === "/earnings") return "/blue-desk/earnings";
   if (pathname === "/earnings-week") return "/blue-desk/earnings-week";
   if (pathname === "/newsroom") return "/blue-desk/newsroom";
   if (pathname === "/research") return "/blue-desk/research";
@@ -151,6 +152,8 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     pathname === "/blue-desk/calendar" ||
     pathname === "/key-stories" ||
     pathname === "/blue-desk/key-stories" ||
+    pathname === "/earnings" ||
+    pathname === "/blue-desk/earnings" ||
     pathname === "/earnings-week" || pathname === "/blue-desk/earnings-week" ||
     pathname === "/newsroom" || pathname === "/blue-desk/newsroom" ||
     pathname === "/research" || pathname === "/blue-desk/research" ||
@@ -188,7 +191,7 @@ export function retiredLivePublicDestination(
    || blueDeskHostAccess(pathname,host) !== "public"
    || typeof search !== "string" || search.length > 1024) return null;
  const query=new URLSearchParams(search.startsWith("?")?search.slice(1):search);
- for(const key of ["edition","dossier","story","motion","regime","event","research_run","article","snapshot"]){
+ for(const key of ["edition","dossier","story","motion","regime","event","research_run","article","snapshot","ticker","view"]){
   if(query.has(key)) return null;
  }
  let clean=pathname;

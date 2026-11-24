@@ -115,9 +115,9 @@ const outlook=[{
 export default async function EarningsWeekPage(){
  const host=(await headers()).get("host");
  return <main className={styles.page} data-earnings-preview="source-dated-2026-11-02">
-  <BlueDeskHeader activePath="/blue-desk/key-stories"/>
+  <BlueDeskHeader activePath="/blue-desk/earnings"/>
   <article className={styles.body}>
-   <nav className={styles.back}><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← Key Stories</Link><Link href={blueDeskPublicHref("/blue-desk/calendar#earnings-hub",host)}>Earnings Hub</Link><Link href={blueDeskPublicHref("/blue-desk/newsroom",host)}>Newsroom</Link></nav>
+   <nav className={styles.back}><Link href={blueDeskPublicHref("/blue-desk/key-stories",host)}>← Key Stories</Link><Link href={blueDeskPublicHref("/blue-desk/earnings#earnings-hub",host)}>Earnings Hub</Link><Link href={blueDeskPublicHref("/blue-desk/newsroom",host)}>Newsroom</Link></nav>
    <header className={styles.hero}>
     <p className={styles.kicker}>BLUEBELLY / EARNINGS WEEK / 2–6 NOVEMBER 2026 · ET</p>
     <h1>The AI boom is reporting its numbers. Who actually keeps the cash?</h1>

@@ -10,7 +10,7 @@ test("all visible public header links target approved host paths and real anchor
   const match = header.match(/const PUBLIC_NAV = \[([\s\S]*?)\] as const;/);
   assert.ok(match, "public navigation must be explicitly enumerated");
   const hrefs = [...match[1].matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m => m[1]);
-  assert.deepEqual(hrefs, ["/markets", "/calendar"]);
+  assert.deepEqual(hrefs, ["/markets", "/blue-desk/earnings", "/calendar"]);
   const more = header.match(/const PUBLIC_MORE = \[([\s\S]*?)\] as const;/);
   assert.ok(more, "secondary public research destinations must be explicit");
   const additional = [...more[1].matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m=>m[1]);
@@ -36,7 +36,7 @@ test("private legacy navigation remains available only on owner host", () => {
   assert.match(header, /isBlueDeskPublicReaderHost\(host\)/);
   const privateNav=header.split("const PRIVATE_NAV = [")[1]?.split("] as const;")[0]||"";
   const privateLinks=[...privateNav.matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m=>m[1]);
-  assert.deepEqual(privateLinks, ["/markets", "/blue-desk/calendar", "/my-reports"]);
+  assert.deepEqual(privateLinks, ["/markets", "/blue-desk/earnings", "/blue-desk/calendar", "/my-reports"]);
   for(const privatePath of ["/articles","/data/macro","/concepts","/owner/daily-articles"]){
     assert.equal(blueDeskHostAccess(privatePath,"bluebelly-desk.vercel.app"),"blocked");
     assert.ok(!privateLinks.includes(privatePath),"legacy links stay outside the main navigation");
