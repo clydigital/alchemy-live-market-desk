@@ -1,6 +1,6 @@
 import "server-only";
 import {NextResponse,type NextRequest} from "next/server";
-import {buildCompareResearch} from "@/lib/bluebelly-compare-research";
+import {buildCompareResearch,compareBreadthObservations} from "@/lib/bluebelly-compare-research";
 import {getMarketMonitor} from "@/lib/market-monitor-public";
 import {publicMarketGroup,publicMarketObservations} from "@/lib/blue-desk-public-markets";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
@@ -58,7 +58,7 @@ export async function POST(req:NextRequest){
    ].map(item=>calculateBreadthRow(
      item.symbol,item.label,breadth?.series.find(x=>x.symbol===item.symbol),now,
    )):[];
-   if(group==="compare")return buildCompareResearch(monitor?.rows??[],[...breadthRows,...markets],now);
+   if(group==="compare")return buildCompareResearch(monitor?.rows??[],[...compareBreadthObservations(breadth?.series??[],now),...markets],now);
    const rows=[...breadthRows,...markets].slice(0,limit);
    return {contractVersion:"bluebelly/market-observations/1",
     generatedAt:now.toISOString(),group,count:rows.length,observations:rows,
