@@ -109,6 +109,7 @@ export function buildDailyResearchPacket(input:{
     for(const horizon of input.compare.divergences)for(const p of horizon.pairs){include(p.leftSourceUrl);include(p.rightSourceUrl);}
     for(const b of input.compare.benchmark.benchmarks)include(b.sourceUrl);
     for(const b of input.compare.breadth)include(b.sourceUrl);
+    for(const lead of input.compare.radar.leads.slice(0,8))for(const source of lead.sources)include(source.url);
   }else lines.push("MARKETS COMPARE COVERAGE: NOT PROVIDED; do not invent relative returns or breadth.","");
   const reviews=(input.creatorReviews||[]).slice(0,9);
   if(reviews.length){

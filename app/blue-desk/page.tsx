@@ -1,3 +1,4 @@
+import DivergenceRadar from "@/components/blue-desk/DivergenceRadar";
 import CreatorIntelligencePanel from "@/components/blue-desk/CreatorIntelligencePanel";
 import {readQqqPositioning} from "@/lib/bluebelly-qqq-positioning";
 import AbsorptionHealth from "@/components/blue-desk/AbsorptionHealth";
@@ -159,7 +160,8 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
     creatorDigest:creatorRadarRead?.digest??null,
     creatorIsAuthorised:Boolean(creatorRadarRead&&creatorRadarRead.status!=="unauthorised"),
   }):null;
-  const compare=buildCompareResearch(monitor?.rows??[],[...marketRows,...compareBreadthObservations(breadthFeed.series,now)],now);
+  const compare=buildCompareResearch(monitor?.rows??[],[...marketRows,...compareBreadthObservations(breadthFeed.series,now)],now,breadthFeed.series);
+  const divergenceRadar=compare.radar;
   const marketCompass=buildMarketCompassSummary(marketComparisons,now);
   const investorMindset=buildInvestorMindsetSnapshot(marketRows,marketComparisons,marketCompass,verifiedNews,now);
   const investorAssessment=projectInvestorAssessment(dossierSelection,now);
@@ -211,6 +213,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
             </div>
           </header>
           </RadarIntelligenceShell>
+          <DivergenceRadar read={divergenceRadar} compact href="/markets?mode=compare#divergence-radar"/>
           <DeskWhiteboard compass={marketCompass} news={verifiedNews} theses={theses} compare={compare}
             upcoming={upcoming} now={now} host={host}/>
           <InstitutionalRiskMonitor rows={buildInstitutionalRisk(volatility,monitor?.rows??[],now)} equityTape={marketCompass} rates={buildFedRateWatch(monitor?.rows??[],now)} nextDecision={nextFomcDecision(calendar.events,now)}/>
