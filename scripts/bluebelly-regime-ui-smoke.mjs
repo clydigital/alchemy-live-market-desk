@@ -188,7 +188,7 @@ try{
   ["/","market-home",'data-home-market-first="source-dated-terminal"'],
   ["/newsroom","newsroom",'data-public-newsroom="original-source-only"'],
   ["/hormuz","hormuz",'data-bluebelly-hormuz="public-source-dated-physical-first"'],
-  ["/markets","markets",'data-blue-desk-markets="public-observations"'],
+  ["/markets?mode=assets","markets",'data-blue-desk-markets="public-observations"'],
   ["/calendar","calendar",'data-blue-desk-calendar="ET-primary"'],
   ["/research","research",'data-bluebelly-research-index="public-approved-dated"'],
  ];
@@ -251,13 +251,17 @@ try{
       .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi,"")
       .replace(/<img\b[^>]*>/gi,"")
       .replace(/<link\b(?=[^>]*\brel=["']preload["'])[^>]*>/gi,"");
-   assertHtml(view.html,'data-markets-working-modes="three"',
+   assertHtml(view.html,'data-markets-working-modes="four"',
       'data-v7-treasury-ladder="source-dated-us-only"',
       'data-market-change-screener="read-only"');
    // All Assets is now the first screen. Its open, searchable instrument table
    // is present without forcing the comparison into the same long page.
    if(view.html.includes('data-v7-etf-rotation="source-matched"'))
     throw Error("All Assets unexpectedly rendered the Compare-only ETF graphic");
+   const first=await waitResponse("/markets",code=>code===307);
+   if(first.status!==307)throw Error("Default Markets must lead to Screener");
+   const scanner=await waitResponse("/markets/scanner");
+   assertHtml(scanner.html,'data-markets-working-modes="four"',"Stock screener","Stock heatmap","Currency strength");
    const compare=await waitResponse("/markets?mode=compare");
    assertHtml(compare.html,'data-market-breadth-watch="research-first"',
       'data-market-change-screener="read-only"');
@@ -267,7 +271,7 @@ try{
    else console.log("Compare 200 · source-limited ETF comparison correctly omitted");
    const watch=await waitResponse("/markets?mode=watch");
    assertHtml(watch.html,'data-market-divergence-watch="read-only"',
-      'data-markets-working-modes="three"',"Same-session ETF price returns");
+      'data-markets-working-modes="four"',"Same-session ETF price returns");
    const watch3d=await waitResponse("/markets?mode=watch&window=3D");
    assertHtml(watch3d.html,'data-market-divergence-watch="read-only"',
       'Divergence comparison window',"3D");
