@@ -9,7 +9,7 @@ async function rest(path:string,body:unknown,prefer?:string){
  if(prefer)headers.Prefer=prefer;
  const r=await fetch(base+"/rest/v1/"+path,{method:"POST",headers,body:JSON.stringify(body)});
  if(!r.ok)throw new Error("database_request_failed_"+r.status);
- return r.status===204?null:await r.json();
+ const bodyText=await r.text(); return bodyText?JSON.parse(bodyText):null;
 }
 let session:Supabase.ai.Session|undefined;
 async function embed(text:string){
@@ -22,11 +22,12 @@ async function embed(text:string){
 Deno.serve(async req=>{
  if(!base||!key)return reply({error:"server_configuration_unavailable"},503);
  // Existing service-role credentials only; no owner data in unauthenticated routes.
- if(req.headers.get("authorization")!=="Bearer "+key)return reply({error:"forbidden"},403);
+ const serviceAuthorized=req.headers.get("authorization")==="Bearer "+key;
  if(req.method!=="POST")return reply({error:"method_not_allowed"},405);
  try {
   const b=await req.json();
   if(!b||typeof b!=="object"||Array.isArray(b))return reply({error:"invalid_body"},400);
+  if(!serviceAuthorized)return reply({error:"forbidden"},403);
   const lanes=b.lanes??null;
   if(lanes!==null&&(!Array.isArray(lanes)||!lanes.length||lanes.length>6||lanes.some((x:unknown)=>typeof x!=="string"||!LANES.includes(x))))return reply({error:"invalid_lanes"},400);
   if(b.action==="search"){
