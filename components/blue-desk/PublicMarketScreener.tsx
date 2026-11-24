@@ -200,67 +200,6 @@ export default function PublicMarketScreener({ observations, group, dataAvailabl
         </div>
         <p className={ui.graphicCaveat}>All bars share the same symmetric scale. Missing or different-session observations are marked —, not zero.</p>
       </section>
-      <section className={ui.rotationGraphic} aria-label="Same-session ETF price-change comparison"
-        data-v7-etf-rotation="source-matched">
-        <div className={ui.graphicHeader}>
-          <div><h3>Rotation map <span>· recorded price changes</span></h3>
-          <p>Signed cumulative returns, same observation session only. This is not an ETF flow chart.</p></div>
-          <div className={ui.graphicPeriods} role="group" aria-label="Graph comparison window">
-            {(["1D","3D","5D"] as const).map(period=>
-              <button key={period} type="button" aria-pressed={graphicWindow===period}
-                onClick={()=>{setGraphicWindow(period);setComparisonSort(period);setComparisonAscending(false)}}>
-                {period}
-              </button>)}
-          </div>
-        </div>
-        {rotationVisual?<div className={ui.graphicBody}>
-          <div className={ui.graphicMetadata}>
-            <span>SESSION {rotationVisual.asOf}</span>
-            <span>{rotationVisual.bars.length} MATCHED / {compareSymbols.length} SELECTED</span>
-          </div>
-          <div className={ui.graphicRows}>
-            {rotationVisual.bars.map(bar=><div key={bar.id} className={ui.graphicRow}
-              data-direction={bar.direction} title={bar.label}>
-              <strong>{bar.symbol}</strong>
-              <div className={ui.graphicTrack} aria-hidden="true">
-                {bar.widthPercent>0?<span className={ui.graphicBar}
-                  style={{left:`${bar.leftPercent}%`,width:`${bar.widthPercent}%`}}/>:null}
-              </div>
-              <span className={ui.graphicValue}>{bar.display}</span>
-            </div>)}
-          </div>
-          <p className={ui.graphicCaveat}>Bars share a zero midpoint and scale only within this matched session.
-            {rotationVisual.omitted>0?` ${rotationVisual.omitted} selection(s) excluded for missing or mismatched observations.`:""}
-            The sortable table below retains every selected instrument and its individual source date.</p>
-        </div>:<p className={ui.rotationUnavailable}>No valid graphical comparison: select at least two ETFs with recorded {graphicWindow} percentage changes from the same source session. The full table below still shows all selected rows.</p>}
-      </section>
-      {comparisonRows.length ? <div className={styles.publicMarketTableScroll}>
-        <table className={`${styles.publicMarketTable} ${ui.compareTable}`}>
-          <thead><tr>
-            {comparisonHeader("instrument", "Instrument")}
-            {comparisonHeader("sourceSession", "Source session")}
-            {(["1D", "3D", "5D"] as const).map(period =>
-              <th key={period} scope="col" aria-sort={comparisonSort===period
-                ? comparisonAscending ? "ascending" : "descending" : undefined}>
-                <button type="button" className={ui.columnSort} onClick={()=>sortComparisonColumn(period)}>
-                  {period} {comparisonSort===period ? comparisonAscending ? "▲" : "▼" : "↕"}
-                </button>
-              </th>)}
-            {comparisonHeader("relative5D", "5D vs RSP")}
-          </tr></thead>
-          <tbody>{orderedComparisonRows.map(row => {
-            const matched = Boolean(equalWeight && row.asOf && row.asOf === equalWeight.asOf
-              && publicMarketWindowChange(row,"5D") !== null && publicMarketWindowChange(equalWeight,"5D") !== null);
-            const relative = matched ? row.change5d! - equalWeight!.change5d! : null;
-            return <tr key={row.id}><th scope="row">{row.symbol} · {row.label}</th>
-              <td>{row.asOf || "Unavailable"}</td>
-              {(["1D","3D","5D"] as const).map(period => <td key={period} data-direction={publicMarketWindowChange(row,period) === null ? "unknown" : publicMarketWindowChange(row,period)! > 0 ? "up" : publicMarketWindowChange(row,period)! < 0 ? "down" : "flat"}>{change(publicMarketWindowChange(row,period), "%")}</td>)}
-              <td>{relative === null ? "—" : `${relative > 0 ? "+" : ""}${relative.toFixed(2)} pp`}</td>
-            </tr>;
-          })}</tbody>
-        </table>
-      </div> : <p>Select at least one ETF to compare.</p>}
-      <p className={ui.comparisonNote}>Relative comparisons are percentage-point differences against RSP over the same five source sessions and matching observation date. Missing values are not filled in.</p>
     </details> : null}
     <details className={ui.advancedPanel} open={mode === "assets" || group !== "all"} data-market-advanced="optional">
       <summary>All instruments · search and advanced filters</summary>
