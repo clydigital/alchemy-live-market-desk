@@ -55,8 +55,8 @@ test("readers use existing public Newsroom route, no new auth exceptions or priv
 });
 
 test("recovered XL ranking sorts 1D by completed session and refuses unmatched dates",()=>{
-  assert.match(screener,/useState<string\[\]>\(\(\) => \[\.\.\.ETF_COMPARISON_SYMBOLS\]\)/);
-  assert.match(screener,/useState<EtfComparisonSortColumn \| null>\("1D"\)/);
+  assert.match(screener,/projectEtfRotationVisual\(comparisonUniverse,XL_COMPARISON_SYMBOLS,graphicWindow\)/);
+  assert.match(screener,/useState<MarketChangeWindow>\("1D"\)/);
   assert.match(screener,/row\.asOf === date/);
   assert.match(screener,/group\.length >= 8/);
   assert.match(screener,/Source-matched ETF price rotation, not confirmed investment flows/);
