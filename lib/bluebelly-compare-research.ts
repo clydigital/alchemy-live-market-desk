@@ -1,3 +1,4 @@
+import {buildDivergenceRadar} from "./bluebelly-divergence-radar.ts";
 import type { MarketMonitorRow } from "./market-monitor.ts";
 import type { PublicMarketObservation } from "./blue-desk-public-markets.ts";
 import { buildEtfComparisonUniverse, XL_COMPARISON_SYMBOLS } from "./bluebelly-etf-comparison-universe.ts";
@@ -12,7 +13,7 @@ export function compareBreadthObservations(series:readonly BreadthSeries[],now:D
 
 /** Read-only research projection of the exact Markets Compare calculations.
  * No new requests, fabricated prices, causal inference or canonical admission. */
-export function buildCompareResearch(rows: readonly MarketMonitorRow[], observations: readonly PublicMarketObservation[], now: Date) {
+export function buildCompareResearch(rows: readonly MarketMonitorRow[], observations: readonly PublicMarketObservation[], now: Date, breadthHistory:readonly BreadthSeries[] = []) {
  const universe=buildEtfComparisonUniverse(observations);
  const sectors=universe.filter(r=>(XL_COMPARISON_SYMBOLS as readonly string[]).includes(r.symbol));
  const rotation=COMPARE_WINDOWS.map(window=>{
@@ -38,7 +39,7 @@ export function buildCompareResearch(rows: readonly MarketMonitorRow[], observat
  }));
  return {contractVersion:"bluebelly/markets-compare/1" as const,generatedAt:now.toISOString(),
   status:rotation.some(r=>r.coverage>0)||divergences.some(d=>d.pairs.some(p=>p.gapPp!==null))||breadth.some(b=>b.level!==null)||benchmark.sectors.some(s=>s.relative.some(r=>Object.values(r.changes).some(v=>v!==null)))?"SOURCE_DATED_PARTIAL_OR_COMPLETE":"UNAVAILABLE",
-  rotation,divergences,benchmark,breadth,participation:marketParticipationResearch(observations),
+  rotation,divergences,benchmark,breadth,radar:buildDivergenceRadar(rows,breadthHistory,now),participation:marketParticipationResearch(observations),
   limitations:["Use source session, not retrieval clock. Different holding periods must not be compared.",
    "XL bars are price returns, not fund flows. Relative performance is percentage points; correlations are aligned return correlations, not causation.",
    "Benchmarks include explicit ETF proxies; correlation sample counts and unavailable cells must be retained.",
@@ -67,5 +68,8 @@ export function compareResearchLines(data:CompareResearch):string[]{
   out.push(s.symbol+" "+s.relative.map(r=>r.id+" "+num(r.changes[5])+"@"+(r.asOf??"UNKNOWN")).join("; ")+" | corr20 n="+s.correlation20.count+"; best="+(s.correlation20.best??"UNKNOWN")+(s.correlation20.tied?" (near tie)":""));
  }
  out.push("Use full structured benchmark matrix for other windows and correlation values; never turn a missing cell into zero.");
+ out.push("## DIVERGENCE RADAR — RESEARCH LEADS",`${data.radar.coverage.eligible}/${data.radar.coverage.checked} primary checks eligible; ${data.radar.leads.length} qualified leads. Not trade signals.`);
+ for(const r of data.radar.leads.slice(0,8))out.push(`${r.asOf} | ${r.title}: ${r.summary} | ${r.metrics.map(m=>m.label+" "+m.value+" "+m.unit).join("; ")} | Chart: ${r.chart} | Next test: ${r.nextTest}`);
+ out.push("Radar gaps: "+(data.radar.coverage.missing.join("; ")||"none"));
  return out;
 }
