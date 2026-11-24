@@ -92,6 +92,7 @@ export default function RadarIntelligenceShell({
     <p className={ui.empty} role="status">No source-qualified pulse meets this radar's current admission rules.
      This is a coverage gap, not evidence that markets are quiet.</p>}
    <footer className={ui.footer}>
+    <p><a href="/markets/scanner">Open market scanner →</a></p>
     <p><b>Time windows:</b> News is restricted to the past 24 hours ({observed(read.windowStart)}–{observed(read.windowEnd)}).
      Market moves and divergences use their separately dated latest trading sessions (up to four calendar days).
      Price moves do not prove what caused them.</p>
