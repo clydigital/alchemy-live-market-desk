@@ -20,6 +20,8 @@ export const RADAR_PAIRS: readonly Rule[] = [
  {id:"credit",a:"hyg",b:"lqd",title:"High yield vs investment grade",family:"Credit",chart:"HYG/LQD · daily; HY and CCC OAS",test:"Check official spreads and duration differences before inferring financing stress.",threshold:1},
  {id:"duration",a:"xlre",b:"spx-proxy",title:"Real estate vs equities",family:"Rates",chart:"XLRE/SPY · daily + weekly",test:"Check long yields, financing and actual property demand.",threshold:3},
  {id:"gold-copper",a:"copper",b:"gold-proxy",title:"Copper vs gold ETF proxies",family:"Commodities",chart:"CPER/GLD · daily + weekly",test:"Check physical inventories and demand; futures roll and ETF structure matter.",threshold:3},
+ {id:"financial-tech",a:"xlf",b:"xlk",title:"Financials vs technology",family:"Rotation",chart:"XLF/XLK · daily + weekly",test:"Compare the yield curve, provisions and technology earnings revisions.",threshold:3},
+ {id:"gold-dollar",a:"gold-proxy",b:"dxy",title:"Gold vs dollar ETF proxy",family:"FX / metals",chart:"GLD/UUP · daily; spot XAUUSD and DXY",test:"Check real yields and spot dollar/gold; these are ETF price proxies.",threshold:2},
  {id:"energy",a:"xle",b:"spx-proxy",title:"Energy vs broad equities",family:"Energy",chart:"XLE/SPY · daily + weekly",test:"Check crude, refining margins, inventories and issuer exposure.",threshold:3},
  {id:"crypto",a:"btc-proxy",b:"ndx",title:"Bitcoin proxy vs Nasdaq",family:"Liquidity",chart:"IBIT/QQQ · daily",test:"Check spot BTC flows and credit; ETF sessions exclude weekend trading.",threshold:4},
 ];
@@ -69,7 +71,7 @@ function corr(a:Point[],b:Point[]){
  for(let i=0;i<x.length;i++){const u=x[i]-mx,v=y[i]-my;xx+=u*u;yy+=v*v;xy+=u*v;}
  return xx>0&&yy>0?Math.max(-1,Math.min(1,xy/Math.sqrt(xx*yy))):null;
 }
-export type RadarLead = {id:string;family:string;title:string;asOf:string;kind:"RELATIVE"|"BREADTH"|"CORRELATION";summary:string;chart:string;nextTest:string;score:number;sources:Source[];metrics:{label:string;value:number;unit:string}[]};
+export type RadarLead = {id:string;family:string;title:string;asOf:string;kind:"RELATIVE"|"BREADTH"|"CORRELATION"|"CREDIT"|"RATES";summary:string;chart:string;nextTest:string;score:number;sources:Source[];metrics:{label:string;value:number;unit:string}[]};
 export type RadarRead={generatedAt:string;leads:RadarLead[];coverage:{checked:number;eligible:number;missing:string[]};limitations:string[]};
 const signed=(n:number)=> (n>0?"+":"")+round(n).toFixed(2);
 export function buildDivergenceRadar(rows:readonly MarketMonitorRow[],breadth:readonly BreadthSeries[],now=new Date()):RadarRead{
@@ -85,15 +87,20 @@ export function buildDivergenceRadar(rows:readonly MarketMonitorRow[],breadth:re
   eligible++;
   const [x,y]=m,asOf=x[10].date,sourceA=by.get(r.a)!,sourceB=by.get(r.b)!;
   const sources=[{label:sourceA.label,url:sourceA.sourceUrl},{label:sourceB.label,url:sourceB.sourceUrl}];
-  const one=ret(x,9,10)-ret(y,9,10),latest=ret(x,5,10)-ret(y,5,10),prior=ret(x,0,5)-ret(y,0,5),delta=latest-prior;
+  const one=ret(x,9,10)-ret(y,9,10),three=ret(x,7,10)-ret(y,7,10),ten=ret(x,0,10)-ret(y,0,10),latest=ret(x,5,10)-ret(y,5,10),prior=ret(x,0,5)-ret(y,0,5),delta=latest-prior;
   const m20=aligned(a,b,21),long=m20?ret(m20[0],0,20)-ret(m20[1],0,20):null;
   const reversal=latest*prior<0&&Math.abs(delta)>=r.threshold;
   const dayFlip=one*latest<0&&Math.abs(one)>=r.threshold/2;
   const longFlip=long!==null&&long*latest<0&&Math.abs(latest)>=r.threshold;
   const strength=Math.max(Math.abs(latest)/r.threshold,Math.abs(delta)/(r.threshold*1.5),Math.abs(one)/(r.threshold/2));
   if(strength>=1||reversal||dayFlip||longFlip){
-   const metrics=[{label:"1 session",value:round(one),unit:"pp"},{label:"Latest 5",value:round(latest),unit:"pp"},{label:"Prior 5",value:round(prior),unit:"pp"},{label:"5-session acceleration",value:round(delta),unit:"pp"}];
+   const metrics=[{label:"1 session",value:round(one),unit:"pp"},{label:"3 sessions",value:round(three),unit:"pp"},{label:"Latest 5",value:round(latest),unit:"pp"},{label:"Prior 5",value:round(prior),unit:"pp"},{label:"5-session acceleration",value:round(delta),unit:"pp"},{label:"10 sessions",value:round(ten),unit:"pp"}];
    if(long!==null)metrics.push({label:"20 sessions",value:round(long),unit:"pp"});
+   const m60=aligned(a,b,61);
+   if(m60){
+    const gaps=Array.from({length:55},(_,i)=>Math.abs(ret(m60[0],i,i+5)-ret(m60[1],i,i+5)));
+    metrics.push({label:"60 sessions",value:round(ret(m60[0],0,60)-ret(m60[1],0,60)),unit:"pp"},{label:"5-session gap percentile (55 prior overlapping samples)",value:round(100*gaps.filter(v=>v<=Math.abs(latest)).length/gaps.length),unit:"%"});
+   }
    leads.push({id:r.id,family:r.family,title:r.title,asOf,kind:"RELATIVE",summary:(reversal?"Five-session relative leadership reversed. ":dayFlip?"Latest session opposes the five-session trend. ":longFlip?"Short- and medium-window leadership disagree. ":"Material relative move. ")+ "Latest 5 sessions "+signed(latest)+" pp vs prior 5 "+signed(prior)+" pp.",chart:r.chart,nextTest:r.test,score:Math.min(strength,5)+(reversal?1:0)+(dayFlip?0.5:0),sources,metrics});
   }
   const c=aligned(a,b,41);
@@ -116,9 +123,18 @@ export function buildDivergenceRadar(rows:readonly MarketMonitorRow[],breadth:re
    const opposite=eq!==null&&eq>0&&latest>0;
    const metrics=[{label:"Spread level",value:round(p[10].value),unit:"%"},{label:"1 session",value:round(one),unit:"bp"},{label:"Latest 5",value:round(latest),unit:"bp"},{label:"Prior 5",value:round(prior),unit:"bp"}];
    if(eq!==null)metrics.push({label:"SPY latest 5",value:round(eq),unit:"%"});
-   leads.push({id:r.id,family:r.family,title:r.title,asOf:p[10].date,kind:"RELATIVE",summary:(opposite?"Equities rose while credit spreads widened. ":"Credit spread change. ")+ "Latest 5 "+signed(latest)+" bp vs prior 5 "+signed(prior)+" bp."+(eq===null?" Equity session unmatched.":""),chart:r.chart,nextTest:r.test,score:Math.min(strength,5)+(opposite?1:0),sources:[{label:source.label,url:source.sourceUrl},...(eq!==null?[{label:by.get("spx-proxy")!.label,url:by.get("spx-proxy")!.sourceUrl}]:[])],metrics});
+   leads.push({id:r.id,family:r.family,title:r.title,asOf:p[10].date,kind:"CREDIT",summary:(opposite?"Equities rose while credit spreads widened. ":"Credit spread change. ")+ "Latest 5 "+signed(latest)+" bp vs prior 5 "+signed(prior)+" bp."+(eq===null?" Equity session unmatched.":""),chart:r.chart,nextTest:r.test,score:Math.min(strength,5)+(opposite?1:0),sources:[{label:source.label,url:source.sourceUrl},...(eq!==null?[{label:by.get("spx-proxy")!.label,url:by.get("spx-proxy")!.sourceUrl}]:[])],metrics});
   }
  }
+ const two=by.get("us2y"),thirty=by.get("us30y");
+ const curve=aligned(history(two,now,true),history(thirty,now,true),11);
+ if(curve&&two&&thirty){
+  eligible++;
+  const spread=curve[0].map((p,i)=>(p.value-curve[1][i].value)*100);
+  const latest=spread[10]-spread[5],prior=spread[5]-spread[0],one=spread[10]-spread[9],delta=latest-prior;
+  const strength=Math.max(Math.abs(one)/8,Math.abs(latest)/15,Math.abs(delta)/15);
+  if(strength>=1)leads.push({id:"yield-curve",family:"Rates",title:"US 2Y minus 30Y yield spread",asOf:curve[0][10].date,kind:"RATES",summary:"Front-end minus long-end spread changed "+signed(latest)+" bp in the latest five sessions vs "+signed(prior)+" bp previously. Distinguish front-end repricing from long-end moves.",chart:"US02Y − US30Y · daily; gold and DXY",nextTest:"Check which yield moved, real yields, Fed repricing and the matched gold reaction; no fixed inverse relationship is assumed.",score:Math.min(strength,5),sources:[{label:two.label,url:two.sourceUrl},{label:thirty.label,url:thirty.sourceUrl}],metrics:[{label:"Spread",value:round(spread[10]),unit:"bp"},{label:"Latest 5",value:round(latest),unit:"bp"},{label:"Prior 5",value:round(prior),unit:"bp"},{label:"2Y latest 5",value:round((curve[0][10].value-curve[0][5].value)*100),unit:"bp"},{label:"30Y latest 5",value:round((curve[1][10].value-curve[1][5].value)*100),unit:"bp"}]});
+ }else missing.push("US 2Y minus 30Y — matched yield history unavailable");
  const breadthSymbols=["S5FI","S5TH","NDFI","NDTH","R2FI","R2TH"];
  for(const symbol of breadthSymbols){
   const s=breadth.find(v=>v.symbol===symbol);
@@ -133,5 +149,5 @@ export function buildDivergenceRadar(rows:readonly MarketMonitorRow[],breadth:re
  // Diversify the first results instead of flooding the radar with one theme.
  const seen=new Set<string>(),first:RadarLead[]=[],rest:RadarLead[]=[];
  for(const lead of ranked){if(seen.has(lead.family))rest.push(lead);else{seen.add(lead.family);first.push(lead);}}
- return {generatedAt:now.toISOString(),leads:[...first,...rest],coverage:{checked:rules.length+breadthSymbols.length+spreadRules.length,eligible,missing},limitations:["Screening thresholds are editorial heuristics, not statistical significance or trade signals.","Returns are price returns on identical scheduled daily observations; adjacent five-session windows share only their boundary close. Credit changes are basis points. No flow or causal inference.","Correlation compares separate 20-return samples; correlation gaps are disclosed independently from relative-return coverage.","Breadth uses the existing permitted source series; full research history remains owner-gated. Missing values are not zero.","Fundamentals, creator views, physical flows and proprietary EMA annotations require separate agent-led investigation."]};
+ return {generatedAt:now.toISOString(),leads:[...first,...rest],coverage:{checked:rules.length+breadthSymbols.length+spreadRules.length+1,eligible,missing},limitations:["Screening thresholds are editorial heuristics, not statistical significance or trade signals.","Returns are price returns on identical scheduled daily observations; adjacent five-session windows share only their boundary close. Credit changes are basis points. No flow or causal inference.","Correlation compares separate 20-return samples; correlation gaps are disclosed independently from relative-return coverage. Historical gap percentiles are descriptive and use overlapping prior windows, not independent significance tests.","Breadth uses the existing permitted source series; full research history remains owner-gated. Missing values are not zero.","Fundamentals, creator views, physical flows and proprietary EMA annotations require separate agent-led investigation."]};
 }
