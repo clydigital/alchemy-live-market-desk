@@ -22,6 +22,7 @@ export const RADAR_PAIRS: readonly Rule[] = [
  {id:"gold-copper",a:"copper",b:"gold-proxy",title:"Copper vs gold ETF proxies",family:"Commodities",chart:"CPER/GLD · daily + weekly",test:"Check physical inventories and demand; futures roll and ETF structure matter.",threshold:3},
  {id:"financial-tech",a:"xlf",b:"xlk",title:"Financials vs technology",family:"Rotation",chart:"XLF/XLK · daily + weekly",test:"Compare the yield curve, provisions and technology earnings revisions.",threshold:3},
  {id:"gold-dollar",a:"gold-proxy",b:"dxy",title:"Gold vs dollar ETF proxy",family:"FX / metals",chart:"GLD/UUP · daily; spot XAUUSD and DXY",test:"Check real yields and spot dollar/gold; these are ETF price proxies.",threshold:2},
+ {id:"energy-consumer",a:"xle",b:"xly",title:"Energy vs consumer discretionary",family:"Energy",chart:"XLE/XLY · daily + weekly",test:"Check crude, refined-product margins and consumer earnings.",threshold:3},
  {id:"energy",a:"xle",b:"spx-proxy",title:"Energy vs broad equities",family:"Energy",chart:"XLE/SPY · daily + weekly",test:"Check crude, refining margins, inventories and issuer exposure.",threshold:3},
  {id:"crypto",a:"btc-proxy",b:"ndx",title:"Bitcoin proxy vs Nasdaq",family:"Liquidity",chart:"IBIT/QQQ · daily",test:"Check spot BTC flows and credit; ETF sessions exclude weekend trading.",threshold:4},
 ];
