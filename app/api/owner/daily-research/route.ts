@@ -65,7 +65,7 @@ export async function GET(req:NextRequest){
   const upcoming=selectBlueDeskUpcoming(calendar,now,30).slice(0,14);
   const marketObservations=[...publicMarketObservations(monitor?.rows||[],"all"),...compareBreadthObservations(breadthSource.series,now)];
   const breadthDiagnostic=marketParticipationResearch(marketObservations);
-  const compare=buildCompareResearch(monitor?.rows||[],marketObservations,now);
+  const compare=buildCompareResearch(monitor?.rows||[],marketObservations,now,breadthSource.series);
   const packet=buildDailyResearchPacket({
     now:now.toISOString(),notion,news,
     editorialBriefs:delivery.briefs,
