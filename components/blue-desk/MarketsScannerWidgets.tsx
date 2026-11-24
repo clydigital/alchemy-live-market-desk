@@ -45,11 +45,11 @@ function Embed({tool}:{tool:Tool}){
 }
 
 export default function MarketsScannerWidgets(){
- const [selected,setSelected]=useState<Tool["id"]>("stocks");
+ const [selected,setSelected]=useState<Tool["id"]>("screener");
  const tool=TOOLS.find(t=>t.id===selected)!;
  return <section className={ui.scanner} aria-label="Market discovery tools">
   <nav className={ui.tabs} aria-label="Choose scanner tool">
-   {TOOLS.map(t=><button key={t.id} type="button" aria-pressed={selected===t.id} onClick={()=>setSelected(t.id)}>{t.label}</button>)}
+   {[TOOLS[2],TOOLS[0],TOOLS[1]].map(t=><button key={t.id} type="button" aria-pressed={selected===t.id} onClick={()=>setSelected(t.id)}>{t.label}</button>)}
   </nav>
   <div className={ui.heading}><div><h2>{tool.label}</h2><p>{tool.description}</p></div><a href={tool.url} target="_blank" rel="noopener noreferrer">Open on TradingView ↗</a></div>
   <Embed key={tool.id} tool={tool}/>
