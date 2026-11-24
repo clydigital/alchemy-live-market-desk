@@ -158,7 +158,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
     creatorDigest:creatorRadarRead?.digest??null,
     creatorIsAuthorised:Boolean(creatorRadarRead&&creatorRadarRead.status!=="unauthorised"),
   }):null;
-  const divergenceRadar=buildDivergenceRadar(monitor?.rows??[],breadthFeed.series,now);
+  const divergenceRadar=buildDivergenceRadar([...(monitor?.rows??[]),...(monitor?.divergenceRows??[])],breadthFeed.series,now);
   const marketCompass=buildMarketCompassSummary(marketComparisons,now);
   const investorMindset=buildInvestorMindsetSnapshot(marketRows,marketComparisons,marketCompass,verifiedNews,now);
   const investorAssessment=projectInvestorAssessment(dossierSelection,now);
