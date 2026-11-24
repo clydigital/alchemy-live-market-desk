@@ -101,3 +101,23 @@ test("a matched FRED 30Y series can supply the curve without mixing histories",(
  assert.ok(c.historyAvailable);assert.equal(c.metrics.find(m=>m.label==="Latest 5")?.value,50);
  assert.equal(c.metrics.find(m=>m.label==="Spread")?.value,-50);
 });
+
+test("latest common completed session recovers reporting skew without mixing dates",()=>{
+ const date="2026-11-24",later=new Date("2026-11-25T00:00:00Z");
+ const a=row("xlp",[100,101,102,103,104,105,106,107,108,109,110,120],[...days,date]);
+ const b=row("xlk",Array(11).fill(100),days);
+ const r=buildDivergenceRadar([a,b],[],later),check=r.checks.find(c=>c.id==="defensive")!;
+ assert.equal(check.asOf,days.at(-1));assert.equal(check.latestSourceDates?.left,date);
+ assert.equal(check.windows.find(w=>w.window==="5D")?.left,4.76);
+ assert.equal(check.historyAvailable,true);
+});
+test("latest common close cannot conceal gaps or excessive reporting skew",()=>{
+ const later=new Date("2026-11-28T00:00:00Z");
+ const dates=[...days,"2026-11-24","2026-11-25","2026-11-27"];
+ const a=row("xlp",dates.map((_,i)=>100+i),dates);
+ const b=row("xlk",Array(11).fill(100),days);
+ assert.equal(buildDivergenceRadar([a,b],[],later).checks.find(c=>c.id==="defensive")?.historyAvailable,false);
+ const gap=days.filter((_,i)=>i!==7);
+ const x=row("xlp",gap.map((_,i)=>100+i),gap);
+ assert.equal(buildDivergenceRadar([x,b],[],now).checks.find(c=>c.id==="defensive")?.historyAvailable,false);
+});

@@ -41,6 +41,7 @@ function CheckEvidence({check,leads,window,showPair=true}:{check:RadarCheck;lead
   <MetricGrid metrics={primary}/>
   {leads.map(r=><p key={r.id} data-divergence-lead={r.id}>{r.summary}</p>)}
   <p><small>Source session {check.asOf??"unavailable"} · {leads.length?"Research lead":check.historyAvailable?"No screening threshold met":"Partial data · not screened"}</small></p>
+  {check.asOf&&check.latestSourceDates&&[check.latestSourceDates.left,check.latestSourceDates.right].some(d=>d&&d>check.asOf!)?<p><small>Latest shared close used; individual histories end {check.latestSourceDates.left??"unavailable"} / {check.latestSourceDates.right??"unavailable"}. Newer unmatched observations are excluded.</small></p>:null}
   <details><summary>Full historical metrics, chart &amp; next test</summary>
    <MetricGrid metrics={extra}/>
    <p><b>{check.chart}</b> — {check.nextTest}</p>
