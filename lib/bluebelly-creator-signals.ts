@@ -17,16 +17,17 @@ const list=(v:unknown,max=30):v is string[]=>Array.isArray(v)&&v.length<=max&&v.
 const date=(v:unknown,now:Date):v is string=>typeof v==="string"&&Number.isFinite(Date.parse(v))&&Date.parse(v)<=+now;
 const day=(v:unknown,now:Date):v is string=>date(v,now)&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&new Date(v).toISOString().slice(0,10)===v;
 function signal(v:unknown):CreatorSignal|null{
- const r=obj(v);if(!r||!str(r.asset,40)||!['Bullish','Bearish','Neutral'].includes(String(r.bias))||!str(r.horizon,100)||!list(r.signals,8)||!r.signals.length||!list(r.sources??[],20))return null;
+ const r=obj(v);if(!r||!str(r.asset,120)||!['Bullish','Bearish','Neutral'].includes(String(r.bias))||!str(r.horizon,100)||!list(r.signals,8)||!r.signals.length||!list(r.sources??[],20))return null;
  return {asset:r.asset,bias:r.bias as CreatorSignal['bias'],horizon:r.horizon,signals:r.signals,sources:(r.sources??[]) as string[]};
 }
 function signals(v:unknown):CreatorSignal[]|null{
- if(!Array.isArray(v)||v.length>60)return null;const rows=v.map(signal);return rows.every(r=>r!==null)?rows as CreatorSignal[]:null;
+ if(!Array.isArray(v)||v.length>60)return null;const rows=v.map(signal);return rows.filter((r):r is CreatorSignal=>r!==null);
 }
 export function creatorSourceKey(c:CreatorTake){return c.videoId??`${c.publisher} (supplied)`;}
 export function parseCreatorDigest(v:unknown,now=new Date()):CreatorDigest|null{
  const r=obj(v),o=obj(r?.overview);if(!r||!o||r.version!=="creator-signals-v1"||!date(r.generatedAt,now)||!(r.marketSession===null||day(r.marketSession,now))||!str(r.coverage)||!str(o.headline)||!list(o.news)||!list(o.divergences)||!Array.isArray(r.creators)||!r.creators.length||r.creators.length>24)return null;
  const overviewSignals=signals(o.signals);if(!overviewSignals)return null;
+ let omittedSignals=(o.signals as unknown[]).length-overviewSignals.length;
  const creators:CreatorTake[]=[];const keys=new Set<string>();
  for(const item of r.creators){const c=obj(item);if(!c||!str(c.publisher,120)||!str(c.title,300)||!['reviewed','handoff_reviewed','supplied'].includes(String(c.sourceStatus))||!list(c.news)||!list(c.fundamentals,3)||!list(c.opinions,3)||!str(c.changed)||!(c.publishedAt===null||date(c.publishedAt,now)))return null;
   if(c.sourceStatus==='supplied'){
@@ -41,11 +42,14 @@ export function parseCreatorDigest(v:unknown,now=new Date()):CreatorDigest|null{
    if(c.sourceStatus==='reviewed'&&c.publishedAt===null)return null;
   }
   const views=signals(c.views);if(!views)return null;
+  omittedSignals+=(c.views as unknown[]).length-views.length;
   const take={publisher:c.publisher,title:c.title,videoId:c.videoId as string|null,publishedAt:c.publishedAt as string|null,sourceStatus:c.sourceStatus as CreatorTake['sourceStatus'],news:c.news,views,fundamentals:c.fundamentals,opinions:c.opinions,changed:c.changed};
   const key=creatorSourceKey(take);if(keys.has(key))return null;keys.add(key);creators.push(take);
  }
- if(overviewSignals.some(s=>!s.sources.length||s.sources.some(k=>!keys.has(k))))return null;
- return {version:'creator-signals-v1',generatedAt:r.generatedAt,marketSession:r.marketSession,coverage:r.coverage,overview:{headline:o.headline,news:o.news,signals:overviewSignals,divergences:o.divergences},creators};
+ const attributed=overviewSignals.filter(s=>s.sources.length>0&&s.sources.every(k=>keys.has(k)));
+ omittedSignals+=overviewSignals.length-attributed.length;
+ const coverage=omittedSignals?r.coverage+` · Reader omitted ${omittedSignals} malformed or unattributed asset signal(s); remaining creator research retained.`:r.coverage;
+ return {version:'creator-signals-v1',generatedAt:r.generatedAt,marketSession:r.marketSession,coverage,overview:{headline:o.headline,news:o.news,signals:attributed,divergences:o.divergences},creators};
 }
 const indices=['SPX','SPY','NDX','QQQ','IWM','RUT','DJI','DJIA','DIA','RSP','VIX'];
 const tech=['SMH','SOXX','NVDA','AMD','AVGO','MSFT','AAPL','META','GOOGL','GOOG','AMZN','TSLA','ANET','PLTR','MU','ORCL'];

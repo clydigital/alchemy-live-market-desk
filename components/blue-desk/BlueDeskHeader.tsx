@@ -83,7 +83,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
   // client-side router or an alternative source of market/owner data.
   const commandLinks: ReadonlyArray<readonly [string,string]> = [
     ["Dashboard", "/blue-desk"],
-    ["Creator Intelligence", "/creator-intelligence"],
+    ["CREATOR INTEL", "/creator-intelligence"],
     ...nav.filter(([label]) => label !== "My Desk"),
   ];
   const isActive = (path: string) => {

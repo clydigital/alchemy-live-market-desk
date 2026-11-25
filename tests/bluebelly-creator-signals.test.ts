@@ -7,9 +7,9 @@ import type {PublicMarketObservation} from "../lib/blue-desk-public-markets.ts";
 const now=new Date("2026-11-19T10:30:00Z");
 const row=(asset:string)=>({asset,bias:"Neutral" as const,horizon:"daily",signals:["Potential higher low", "Watch 100 reclaim"],sources:["abcdefghijk"]});
 const sample=():CreatorDigest=>({version:"creator-signals-v1",generatedAt:"2026-11-19T09:40:00Z",marketSession:"2026-11-18",coverage:"partial",overview:{headline:"Review",news:["Main event"],signals:[row("SPY")],divergences:[]},creators:[{publisher:"Creator",videoId:"abcdefghijk",title:"Review",publishedAt:"2026-11-18T00:00:00Z",sourceStatus:"reviewed",news:[],views:[row("SPY")],fundamentals:[],opinions:[],changed:"Prior review unavailable"}]});
-test("preserves exact levels and multiline structural bullets, rejects unknown overview attribution",()=>{
+test("preserves exact levels and multiline structural bullets, omits unknown overview attribution",()=>{
  const d=sample();assert.deepEqual(parseCreatorDigest(d,now)?.overview.signals[0].signals,row("SPY").signals);
- d.overview.signals[0].sources=["unknown"];assert.equal(parseCreatorDigest(d,now),null);
+ d.overview.signals[0].sources=["unknown"];const partial=parseCreatorDigest(d,now);assert.equal(partial?.overview.signals.length,0);assert.equal(partial?.creators.length,1);assert.match(partial?.coverage??"",/omitted 1/);
 });
 test("rejects future timestamps or missing reviewed video identifiers",()=>{
  const a=sample();a.generatedAt="2026-11-20T00:00:00Z";assert.equal(parseCreatorDigest(a,now),null);
@@ -81,7 +81,8 @@ test("private digest with a handoff and supplied video preserves unknown dates a
  assert.equal(received?.creators.length,3);
  assert.equal(received?.overview.signals.at(-1)?.sources[0],"RifmW9r45mQ");
  d.overview.signals[1].sources=["unknown-video"];
- assert.equal(parseCreatorDigest(d,now),null);
+ assert.equal(parseCreatorDigest(d,now)?.overview.signals.length,1);
+ assert.equal(parseCreatorDigest(d,now)?.creators.length,3);
 });
 
 test("latest read-only creator panel shows unmatched reviewed receipts and session lag separately",()=>{
@@ -92,4 +93,23 @@ test("latest read-only creator panel shows unmatched reviewed receipts and sessi
  const gate=panel.indexOf('read.status==="unauthorised"');
  const intake=panel.indexOf('recentReviewed=await getPrivateReviewedCreatorArguments(now)');
  assert.ok(gate>=0&&intake>gate,"private ingestion must only happen after owner gate");
+});
+
+
+test("long thematic asset labels from the 25 November digest are valid",()=>{
+ const d=sample();const long="AI compute / electrical and cooling suppliers";
+ d.overview.signals.push(row(long));d.creators[0].views.push(row(long));
+ const result=parseCreatorDigest(d,now);
+ assert.equal(result?.overview.signals[1].asset,long);
+ assert.equal(result?.creators[0].views[1].asset,long);
+ assert.equal(result?.coverage,"partial");
+});
+test("one malformed asset signal cannot erase a fresh owner digest or other creator views",()=>{
+ const d=sample();d.overview.signals.push({...row("bad"),asset:"x".repeat(121)});
+ d.creators[0].views.push({...row("bad"),signals:[]});
+ const result=parseCreatorDigest(d,now);
+ assert.equal(result?.overview.signals.length,1);
+ assert.equal(result?.creators[0].views.length,1);
+ assert.equal(result?.generatedAt,d.generatedAt);
+ assert.match(result?.coverage??"",/omitted 2/);
 });

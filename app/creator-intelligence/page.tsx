@@ -7,7 +7,7 @@ import {readQqqPositioning} from "@/lib/bluebelly-qqq-positioning";
 import {getOwnerCreatorSignalDigest} from "@/lib/bluebelly-creator-signals-server";
 import desk from "../blue-desk/blue-desk.module.css";
 export const dynamic="force-dynamic";
-export const metadata={title:"Creator Intelligence | Bluebelly"};
+export const metadata={title:"CREATOR INTEL | Bluebelly"};
 export default async function Page(){
  const now=new Date(),host=(await headers()).get("host");
  const read=await getOwnerCreatorSignalDigest(now);
