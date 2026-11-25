@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 import {expectedHomeEtfSession,fetchHomeEtfHistory,XL_FALLBACK_ETFS,type HomeEtf} from "./bluebelly-home-etf-history";
 import {ADDITIONAL_US_STOCKS,EUROPE_STOCKS,ASIA_STOCKS,findStockIdentity} from "./bluebelly-equity-universe";
 import {fetchEuropeanStockHistory} from "./bluebelly-europe-stock-history";
+import {scanEquityEma,type EquityEmaScan} from "./bluebelly-equity-ema";
 import { evaluateMarketSignals, type MarketSignalSnapshot } from "./bluebelly-signal-scan";
 
 import { getMarketData, type BreadthSnapshot, type MarketSeries, type PricePoint } from "@/lib/market";
@@ -49,6 +50,7 @@ export type MarketMonitorRow = {
   stochRsi: number | null;
   /** Bounded, source-dated public screening summary, not raw provider candles. */
   screening?: MarketSignalSnapshot | null;
+  emaScan?: EquityEmaScan | null;
   volPercentile: number | null;
   relative5d: number | null;
   attentionScore: number;
@@ -708,6 +710,7 @@ function makeRows(rawSeries: RawSeries[]): MarketMonitorRow[] {
     const previous = points.at(-2);
     const previousClose = previous?.close ?? null;
     const sessionOpen = last?.open ?? null;
+    const identity=findStockIdentity(raw.symbol);
     const row = {
       id: raw.id,
       symbol: raw.symbol,
@@ -731,6 +734,7 @@ function makeRows(rawSeries: RawSeries[]): MarketMonitorRow[] {
           return selected?.at(-1)?.time === lastTime ? selected :
             fallback?.at(-1)?.time === lastTime ? fallback : selected ?? null;
         })()) : null,
+      emaScan: identity&&raw.frequency==="daily"?scanEquityEma(points,identity.timeZone):null,
       volPercentile: volPercentile(points),
       relative5d: null,
       asOf: formatDate(last?.time),
