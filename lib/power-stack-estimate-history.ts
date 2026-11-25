@@ -8,7 +8,7 @@ const time=(s:string)=>/T| /.test(s)&&/(?:Z|[+-]\d\d(?::?\d\d)?)$/.test(s)?Date.
 const n=(v:unknown)=>typeof v==="number"||typeof v==="string"&&v.trim()?Number(v):NaN;
 const url=(s:string)=>{try{const u=new URL(s);return u.protocol==="https:"&&!u.username&&!u.password&&!u.port&&u.hostname.includes(".")}catch{return false}};
 const provider=(r:PegResearchObservation)=>r.forecast_source.trim().toLowerCase()+"|"+r.forecast_source_url.trim();
-export type EstimateHistoryRow={ticker:string;latest:PegResearchObservation;prior:PegResearchObservation|null;state:"RETRIEVAL_COMPARISON"|"NO_COMPARABLE_PRIOR";firstChangePct:number|null;secondChangePct:number|null;priceChangePct:number|null;nextFYMultiple:number;priorNextFYMultiple:number|null;multipleChangePct:number|null;historyCount:number};
+export type EstimateHistoryRow={ticker:string;latest:PegResearchObservation;prior:PegResearchObservation|null;state:"RETRIEVAL_COMPARISON"|"NO_COMPARABLE_PRIOR";firstChangePct:number|null;secondChangePct:number|null;priceChangePct:number|null;nextFYMultiple:number;priorNextFYMultiple:number|null;multipleChangePct:number|null;historyCount:number;direction:"PRICE_DOWN_EPS_UP"|"PRICE_DOWN_EPS_DOWN"|"PRICE_UP_EPS_UP"|"PRICE_UP_EPS_DOWN"|"FLAT_OR_MIXED"|"NOT_COMPARABLE"};
 export function projectEstimateHistory(records:readonly PegResearchObservation[],now=new Date()):EstimateHistoryRow[]{
  const today=now.getTime();
  const valid=records.filter(r=>{
@@ -21,7 +21,10 @@ export function projectEstimateHistory(records:readonly PegResearchObservation[]
   const all=valid.filter(r=>r.ticker===ticker),latest=all[0];
   const prior=all.find(r=>time(r.retrieved_at)<time(latest.retrieved_at)&&provider(r)===provider(latest)&&r.forecast_first_fy_end===latest.forecast_first_fy_end&&r.forecast_second_fy_end===latest.forecast_second_fy_end&&r.estimate_currency===latest.estimate_currency)??null;
   const multiple=n(latest.quote_price)/n(latest.eps_second_fy),priorMultiple=prior?n(prior.quote_price)/n(prior.eps_second_fy):null;
-  const matchedPrice=prior!==null&&prior.quote_source===latest.quote_source&&day(prior.quote_observed_on)<=day(latest.quote_observed_on)&&n(latest.quote_price)/n(prior.quote_price)>=.4&&n(latest.quote_price)/n(prior.quote_price)<=2.5;
-  return {ticker,latest,prior,state:prior?"RETRIEVAL_COMPARISON":"NO_COMPARABLE_PRIOR",firstChangePct:prior?pct(n(latest.eps_first_fy),n(prior.eps_first_fy)):null,secondChangePct:prior?pct(n(latest.eps_second_fy),n(prior.eps_second_fy)):null,priceChangePct:matchedPrice?pct(n(latest.quote_price),n(prior!.quote_price)):null,nextFYMultiple:multiple,priorNextFYMultiple:priorMultiple,multipleChangePct:matchedPrice&&priorMultiple!==null?pct(multiple,priorMultiple):null,historyCount:all.length};
+  const matchedPrice=prior!==null&&prior.quote_source===latest.quote_source&&day(prior.quote_observed_on)<day(latest.quote_observed_on)&&time(prior.retrieved_at)-day(prior.quote_observed_on)<=4*86400000&&time(latest.retrieved_at)-day(latest.quote_observed_on)<=4*86400000&&n(latest.quote_price)/n(prior.quote_price)>=.4&&n(latest.quote_price)/n(prior.quote_price)<=2.5;
+  const priceChange=matchedPrice?pct(n(latest.quote_price),n(prior!.quote_price)):null;
+  const epsChange=prior?pct(n(latest.eps_second_fy),n(prior.eps_second_fy)):null;
+  const direction:EstimateHistoryRow["direction"]=priceChange===null||epsChange===null?"NOT_COMPARABLE":priceChange<0&&epsChange>0?"PRICE_DOWN_EPS_UP":priceChange<0&&epsChange<0?"PRICE_DOWN_EPS_DOWN":priceChange>0&&epsChange>0?"PRICE_UP_EPS_UP":priceChange>0&&epsChange<0?"PRICE_UP_EPS_DOWN":"FLAT_OR_MIXED";
+  return {ticker,latest,prior,direction,state:prior?"RETRIEVAL_COMPARISON":"NO_COMPARABLE_PRIOR",firstChangePct:prior?pct(n(latest.eps_first_fy),n(prior.eps_first_fy)):null,secondChangePct:prior?pct(n(latest.eps_second_fy),n(prior.eps_second_fy)):null,priceChangePct:matchedPrice?pct(n(latest.quote_price),n(prior!.quote_price)):null,nextFYMultiple:multiple,priorNextFYMultiple:priorMultiple,multipleChangePct:matchedPrice&&priorMultiple!==null?pct(multiple,priorMultiple):null,historyCount:all.length};
  }).sort((a,b)=>a.ticker.localeCompare(b.ticker));
 }
