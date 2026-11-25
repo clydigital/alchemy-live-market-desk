@@ -24,11 +24,11 @@ export const PROPERTY_METRICS=[
  {key:"p_book",label:"Price / book",unit:"x",type:"BUILDER"}
 ] as const;
 type Key=typeof PROPERTY_METRICS[number]["key"];
-type Scope="QUARTER"|"PERIOD_END_TTM";
+type Scope="QUARTER"|"PERIOD_END";
 type Fact={key:Key;value:number;scope:Scope;basis:string};
 type Receipt={ticker:string;type:"REIT"|"BUILDER";periodEnd:string;releaseDay:string;availableNotBefore:string;sourceUrl:string;facts:readonly Fact[];guidance:string};
 const q=(key:Key,value:number,basis:string):Fact=>({key,value,scope:"QUARTER",basis});
-const end=(key:Key,value:number,basis:string):Fact=>({key,value,scope:"PERIOD_END_TTM",basis});
+const end=(key:Key,value:number,basis:string):Fact=>({key,value,scope:"PERIOD_END",basis});
 const RECEIPTS:readonly Receipt[]=[
  {ticker:"MAA",type:"REIT",periodEnd:"2026-09-30",releaseDay:"2026-10-28",availableNotBefore:"2026-11-25T21:27:00Z",sourceUrl:"https://www.sec.gov/Archives/edgar/data/912595/000119312526436173/maa-ex99_1.htm",facts:[
  q("core_ffo",2.10,"Issuer Core FFO per diluted share; non-GAAP"),
