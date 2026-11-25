@@ -17,7 +17,7 @@ export function projectEstimateHistory(records:readonly PegResearchObservation[]
  }).sort((a,b)=>time(b.retrieved_at)-time(a.retrieved_at));
  const tickers=[...new Set(valid.map(r=>r.ticker))];
  const pct=(a:number,b:number)=>100*(a/b-1);
- return tickers.map(ticker=>{
+ return tickers.map<EstimateHistoryRow>(ticker=>{
   const all=valid.filter(r=>r.ticker===ticker),latest=all[0];
   const prior=all.find(r=>time(r.retrieved_at)<time(latest.retrieved_at)&&provider(r)===provider(latest)&&r.forecast_first_fy_end===latest.forecast_first_fy_end&&r.forecast_second_fy_end===latest.forecast_second_fy_end&&r.estimate_currency===latest.estimate_currency)??null;
   const multiple=n(latest.quote_price)/n(latest.eps_second_fy),priorMultiple=prior?n(prior.quote_price)/n(prior.eps_second_fy):null;
