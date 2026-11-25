@@ -24,13 +24,15 @@ const definitions={
  accounts_receivable:{label:"Accounts receivable, net",unit:"USD"},inventory:{label:"Inventory",unit:"USD"},short_term_financing_receivables:{label:"Short-term financing receivables, net",unit:"USD"},
  medical_care_ratio_pct:{label:"Cigna Healthcare medical care ratio",unit:"percent"},medical_benefit_ratio_pct:{label:"CVS Health Care Benefits medical benefit ratio",unit:"percent"},adjusted_eps_guidance_floor:{label:"FY adjusted EPS guidance floor",unit:"USD/shares"},
  gaap_eps_guidance:{label:"FY GAAP EPS guidance",unit:"USD/shares"},adjusted_eps_guidance:{label:"FY adjusted EPS guidance",unit:"USD/shares"},
+ total_backlog:{label:"Total backlog (issuer definition)",unit:"USD"},remaining_performance_obligations:{label:"Remaining performance obligations",unit:"USD"},
+ recurrent_consumer_spending:{label:"Recurrent consumer spending revenue",unit:"USD"},net_bookings:{label:"Net bookings (operating metric)",unit:"USD"},
 } as const;
 export type MetricKey=keyof typeof definitions;
 export type FundamentalFact={key:MetricKey;label:string;value:number;unit:string;basis:string;period:string;sourceUrl:string;filingDay:string};
 export type FundamentalRow={ticker:string;company:string;theme:string;priority:string;currency:string;price:number|null;priceDay:string|null;priceSource:string|null;period:string|null;filingDay:string|null;status:"CURRENT"|"STALE"|"UNAVAILABLE";facts:FundamentalFact[];valuation:{label:string;multiple:number;yieldPct:number;sourceUrl:string;basis:string}|null};
 const allowedBases=new Set(["SEC_US_GAAP","SEC_US_GAAP_DERIVED","ISSUER_RELEASE_GAAP","ISSUER_RELEASE_NON_GAAP","ISSUER_RELEASE_OPERATING","ISSUER_GUIDANCE_NON_GAAP"]);
 const guidanceKeys=new Set(["core_ffo_guidance_mid","affo_guidance_mid","core_affo_guidance_mid","adjusted_eps_guidance_floor","gaap_eps_guidance","adjusted_eps_guidance"]);
-const pointKeys=new Set(["cash_and_equivalents","short_term_debt","long_term_debt","accounts_receivable","inventory","short_term_financing_receivables"]);
+const pointKeys=new Set(["cash_and_equivalents","short_term_debt","long_term_debt","accounts_receivable","inventory","short_term_financing_receivables","total_backlog","remaining_performance_obligations"]);
 function day(s:string|null){if(!s||!/^\d{4}-\d{2}-\d{2}$/.test(s))return null;const ms=Date.parse(s+"T00:00:00Z");return Number.isFinite(ms)&&new Date(ms).toISOString().slice(0,10)===s?ms:null;}
 function source(s:string){try{const u=new URL(s);return u.protocol==="https:"&&u.hostname==="www.sec.gov"&&!u.username&&!u.password&&!u.port&&/^\/Archives\/edgar\/data\/\d+\/\d+\//.test(u.pathname);}catch{return false;}}
 function number(v:unknown){if(typeof v!=="number"&&(typeof v!=="string"||!v.trim()))return null;const n=Number(v);return Number.isFinite(n)?n:null;}
