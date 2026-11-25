@@ -209,6 +209,16 @@ const EXTRA_SPECS: ExtraSpec[] = [
   { id: "ief", providerSymbol: "IEF", assetClass: "etf", label: "IEF · 7–10Y Treasury ETF", type: "Bond ETF" },
   { id: "shy", providerSymbol: "SHY", assetClass: "etf", label: "SHY · 1–3Y Treasury ETF", type: "Bond ETF" },
   { id: "tip", providerSymbol: "TIP", assetClass: "etf", label: "TIP · TIPS ETF", type: "Bond ETF" },
+  { id: "sgov", providerSymbol: "SGOV", assetClass: "etf", label: "SGOV · 0–3M Treasury ETF", type: "Bond ETF" },
+  { id: "usfr", providerSymbol: "USFR", assetClass: "etf", label: "USFR · Treasury floating-rate ETF", type: "Bond ETF" },
+  { id: "tlh", providerSymbol: "TLH", assetClass: "etf", label: "TLH · 10–20Y Treasury ETF", type: "Bond ETF" },
+  { id: "edv", providerSymbol: "EDV", assetClass: "etf", label: "EDV · Extended duration Treasury ETF", type: "Bond ETF" },
+  { id: "zroz", providerSymbol: "ZROZ", assetClass: "etf", label: "ZROZ · 25+Y zero coupon Treasury ETF", type: "Bond ETF" },
+  { id: "agg", providerSymbol: "AGG", assetClass: "etf", label: "AGG · US aggregate bond ETF", type: "Bond ETF" },
+  { id: "govt", providerSymbol: "GOVT", assetClass: "etf", label: "GOVT · US Treasury ETF", type: "Bond ETF" },
+  { id: "vgit", providerSymbol: "VGIT", assetClass: "etf", label: "VGIT · Intermediate Treasury ETF", type: "Bond ETF" },
+  { id: "gldm", providerSymbol: "GLDM", assetClass: "etf", label: "GLDM Gold ETF", type: "Metal", benchmark: "gold" },
+  { id: "nlr", providerSymbol: "NLR", assetClass: "etf", label: "NLR Nuclear Energy ETF", type: "Energy", benchmark: "spx" },
   { id: "ndx", providerSymbol: "QQQ", assetClass: "etf", label: "Nasdaq 100 · QQQ proxy", type: "Major Index", benchmark: "spx" },
   { id: "dow", providerSymbol: "DIA", assetClass: "etf", label: "Dow · DIA proxy", type: "Major Index", benchmark: "spx" },
   { id: "russell", providerSymbol: "IWM", assetClass: "etf", label: "Russell 2000 · IWM proxy", type: "Major Index", benchmark: "spx" },
@@ -313,6 +323,7 @@ async function fetchNasdaqHistory(spec: ExtraSpec): Promise<RawSeries> {
       referer: "https://www.nasdaq.com/market-activity/",
     },
     next: { revalidate: EXTRA_REVALIDATE },
+    signal: AbortSignal.timeout(8500),
   });
   if (!response.ok) throw new Error(`Nasdaq ${spec.providerSymbol} ${response.status}`);
   const payload = await response.json();
@@ -944,7 +955,7 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
     "Daily open/gap is shown only when the upstream history exposes an opening price.",
     "Euro-area and Japan long-yield fallbacks are monthly until a reliable daily official structured feed is connected; daily momentum fields remain unavailable for those rows.",
     "Daily headline anchors use direct cash/spot series where available. ETF rows such as SPY, GLD and IBIT remain separate proxies for secondary positioning/market-structure analysis.",
-    "European ordinary shares are sourced separately from unofficial Yahoo Finance daily history. Missing/late sessions remain unavailable, not 0% changes or US ADR stand-ins. EU values retain local EUR/DKK currencies and must not be USD compared without FX conversion.",
+    "European and Asian local shares are sourced separately from unofficial Yahoo Finance daily history. Missing/late sessions remain unavailable, not 0% changes or US listing stand-ins. Local currencies must not be compared with USD without FX conversion.",
   ].filter((item): item is string => Boolean(item));
   
   return {
