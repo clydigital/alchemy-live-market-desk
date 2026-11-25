@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { blueDeskHostAccess } from "@/lib/blue-desk-host";
 import { fetchTodayNotionResearch } from "@/lib/notion-market-research";
-import {buildCompareResearch,compareBreadthObservations} from "@/lib/bluebelly-compare-research";
+import {buildCompareResearch,compareBreadthObservations,marketInternalsDiagnostics} from "@/lib/bluebelly-compare-research";
 import { buildDailyResearchPacket } from "@/lib/daily-report-research-packet";
 import { assessDailyResearchHealth } from "@/lib/daily-report-research-health";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
@@ -16,7 +16,6 @@ import { buildPresenterCalendar } from "@/lib/presenter-calendar";
 import { selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
-import {marketParticipationResearch} from "@/lib/bluebelly-breadth-dated";
 import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
 import {getOwnerDeliveredResearchBriefs} from "@/lib/blue-desk-delivered-research-server";
 import {getPrivateReviewedCreatorArguments} from "@/lib/bluebelly-private-creator-reviews";
@@ -66,7 +65,6 @@ export async function GET(req:NextRequest){
   const calendar=buildPresenterCalendar(macro,earnings,now);
   const upcoming=selectBlueDeskUpcoming(calendar,now,30).slice(0,14);
   const marketObservations=[...publicMarketObservations(monitor?.rows||[],"all"),...compareBreadthObservations(breadthSource.series,now)];
-  const breadthDiagnostic=marketParticipationResearch(marketObservations);
   const compare=buildCompareResearch([...(monitor?.rows??[]),...(monitor?.divergenceRows??[])],marketObservations,now,breadthSource.series);
   const packet=buildDailyResearchPacket({
     now:now.toISOString(),notion,news,
@@ -74,8 +72,7 @@ export async function GET(req:NextRequest){
     creatorReviews:creatorDelivery.reviews,
     creatorCoverageStatus:creatorDelivery.status,
     compare,
-    marketDiagnostics:[{...breadthDiagnostic,
-      sourceUrls:breadthSource.series.map(item=>item.sourceUrl)}],
+    marketDiagnostics:marketInternalsDiagnostics(compare),
     prices:(monitor?.rows||[]).filter(r=>r.last!==null)
       .slice(0,12).map(r=>({
         label:r.label,level:r.last,asOf:r.asOf,

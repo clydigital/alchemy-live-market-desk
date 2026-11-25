@@ -1,8 +1,10 @@
 import Link from "next/link";
-import type {CompareResearch} from "@/lib/bluebelly-compare-research";
+import {marketInternalsDiagnostics,type CompareResearch} from "@/lib/bluebelly-compare-research";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 const pp=(n:number|null)=>n===null?"—":(n>0?"+":"")+n.toFixed(2)+" pp";
-export default function RegimeCompareEvidence({compare,host}:{compare:CompareResearch;host:string|null}){
+export default function RegimeCompareEvidence({compare,host,compact=false}:{compare:CompareResearch;host:string|null;compact?:boolean}){
+ const diagnostics=marketInternalsDiagnostics(compare);
+ if(compact)return <section data-regime-compare-evidence="shared-source-dated" style={{border:"1px solid var(--bb-card-border)",padding:12,margin:"12px 0"}}><small>MARKET INTERNALS</small><h2 style={{margin:"6px 0"}}>Participation &amp; sector leadership</h2>{diagnostics.map(d=><details key={d.headline}><summary>{d.headline} · {d.asOf??"unavailable"}</summary><p>{d.interpretation}</p><p>{d.nextTest}</p></details>)}<Link href={blueDeskPublicHref("/blue-desk/markets?mode=compare",host)}>Inspect full Compare matrix →</Link></section>;
  const five=compare.rotation.find(r=>r.window==="5D");
  const available=compare.breadth.filter(b=>b.status==="SOURCE_DATED_SECONDARY"&&b.level!==null);
  const session=available.map(b=>b.asOf??"").sort().at(-1);
@@ -16,6 +18,7 @@ export default function RegimeCompareEvidence({compare,host}:{compare:CompareRes
  <h2 style={{margin:"6px 0"}}>Participation &amp; sector leadership</h2>
  <p>{five&&five.coverage>=8?five.advancing+"/"+five.coverage+" measured sectors advanced over 5D · "+five.asOf+". Leader "+five.leader?.symbol+"; laggard "+five.laggard?.symbol+".":"Insufficient matched sector observations for a broad leadership read."}</p>
  <p>{compare.participation.headline} · {compare.participation.asOf??"unavailable"}</p>
+ {diagnostics.slice(1).map(d=><details key={d.headline}><summary>{d.headline} · {d.asOf??"unavailable"}</summary><p>{d.interpretation}</p><p><strong>Next test:</strong> {d.nextTest}</p></details>)}
  <details><summary>Source-dated breadth, 1D / 3D / 5D</summary>
  {breadth.length?breadth.map(b=><p key={b.symbol}>{b.symbol} · {b.level!.toFixed(2)}% · {pp(b.change1dPp)} / {pp(b.change3dPp)} / {pp(b.change5dPp)} · {b.asOf}{b.sourceUrl?<a href={b.sourceUrl} target="_blank" rel="noreferrer"> source ↗</a>:null}</p>):<p>Recent participation readings unavailable.</p>}
  </details>

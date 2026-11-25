@@ -1,0 +1,3 @@
+# Shared market internals — 26 Nov 2026
+
+Current main already supersedes #1530 with matched-session radar, benchmark matrix, expanded breadth and authenticated MCP Compare. Port only remaining research summaries from #1525 through the existing Compare projection. Home reuses compare.radar; Regime overview/detail retain existing component, now with cross-index and relative leadership diagnostics; owner packet and model-readable Compare lines reuse the same derived diagnostics. No new fetching, storage, scheduler, raw private data or regime verdict. Missing history stays unavailable. Old branches remain intact until CI and production acceptance. No replacement of current radar or research distribution bridge.
