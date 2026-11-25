@@ -31,18 +31,22 @@ const baskets=[
 ] as const;
 type PrivateLevel={ticker:string;currency:string;low:number|null;high:number|null;note:string;updatedAt:string};
 export default function PowerStackBBMarketSweep({rows,reviews,asOf,levels,fundamentals,longHistory}:{rows:readonly PublicEquityCoverageRow[];reviews:readonly IssuerReviewResult[];asOf:string;levels:readonly PrivateLevel[];fundamentals:readonly FundamentalRow[];longHistory:LongEquityRead|null}){
- const levelByTicker=new Map(levels.map(x=>[x.ticker,x]));
+ const levelByTicker=new Map<string,PrivateLevel>();
+ const conflicted=new Set<string>();
+ for(const level of levels){const prior=levelByTicker.get(level.ticker);if(prior&&(prior.currency!==level.currency||prior.low!==level.low||prior.high!==level.high))conflicted.add(level.ticker);else if(!prior)levelByTicker.set(level.ticker,level);}
+ for(const ticker of conflicted)levelByTicker.delete(ticker);
  const factsByTicker=new Map(fundamentals.map(x=>[x.ticker,x]));
  const reviewByTicker=new Map(reviews.map(r=>[r.ticker,r]));
  const eligible=rows.filter(r=>r.status==="SOURCE_DATED"&&r.price!==null&&r.asOf&&r.asOf<=asOf&&Date.parse(asOf+"T00:00:00Z")-Date.parse(r.asOf+"T00:00:00Z")<=5*86400000);
- const signals=eligible.map(r=>({row:r,levels:r.emaScan?.observations.map(o=>({o,statements:statements(o)})).filter(x=>x.statements.length)??[],review:reviewByTicker.get(r.ticker),entry:levelByTicker.get(r.ticker),fundamental:factsByTicker.get(r.ticker)}));
+ const signals=eligible.filter(r=>r.theme!=="REAL_ESTATE").map(r=>({row:r,levels:r.emaScan?.observations.filter(o=>o.warmup==="READY").map(o=>({o,statements:statements(o)})).filter(x=>x.statements.length)??[],review:reviewByTicker.get(r.ticker),entry:levelByTicker.get(r.ticker),fundamental:factsByTicker.get(r.ticker)}));
  const nearEntry=(x:typeof signals[number])=>!!x.entry&&x.entry.currency===x.row.currency&&x.row.price!<=(x.entry.high??x.entry.low??0)*1.03;
  const flagged=signals.filter(x=>nearEntry(x)||x.levels.length||x.review&&x.review.currency===x.row.currency&&x.row.price!<=x.review.valuationLow*1.05).sort((a,b)=>Number(nearEntry(b))-Number(nearEntry(a))||(a.row.changePct??0)-(b.row.changePct??0));
  return <section id="bb-market-sweep" className={styles.section} data-power-stack-bb-sweep="canonical-market-read">
-  <h2>BB market sweep · {asOf}</h2>
+  <h2>04 / Technical Watch · {asOf}</h2>
+  <p>Real estate is valuation-only; short-warm-up bands are reference context, not qualifying technical alerts. {conflicted.size?`Conflicting private marks require reconciliation: ${[...conflicted].join(", ")}.`:""}</p>
   <p>{eligible.length}/{rows.length} recent source-dated equity observations. Research alerts only; a falling price or EMA crossing is not proof of value. <Link href="/markets">Full BB market universe</Link>.</p>
   <p>Approach alert: within 3% of EMA with a narrowing signed distance and matching price direction over 1, 3 or 5 completed daily sessions. Crosses use consecutive completed daily closes within each window; intraday-only breaches are not inferred. W/M anchors use completed periods only. The common BB kernel uses a first-close EMA seed and population SD. Short warm-up (less than 5× period) is indicative only; missing history stays unavailable.</p>
-  <form action="/power-stack#bb-market-sweep" method="get"><label>Manual long-history deep dive: <select name="technical" defaultValue={longHistory?.ticker??""}><option value="">Select equity</option>{rows.map(r=><option key={r.ticker} value={r.ticker}>{r.ticker} · {r.company}</option>)}</select></label> <button type="submit">Check D/W/M EMA</button></form>
+  <form action="/power-stack#bb-market-sweep" method="get"><label>Manual long-history deep dive: <select name="technical" defaultValue={longHistory?.ticker??""}><option value="">Select equity</option>{rows.filter(r=>r.theme!=="REAL_ESTATE").map(r=><option key={r.ticker} value={r.ticker}>{r.ticker} · {r.company}</option>)}</select></label> <button type="submit">Check D/W/M EMA</button></form>
   {longHistory?<details open className={styles.assetDetails}><summary><strong>{longHistory.ticker} · Long-history check · {longHistory.status}</strong></summary><p>{longHistory.reason} · <a href={longHistory.sourceUrl}>History source</a>{longHistory.asOf?" · "+longHistory.historyStart+" to "+longHistory.asOf+" · "+longHistory.bars+" daily bars":""}</p>
   {longHistory.scan?.observations.map(o=><p key={o.frame+o.period}>{o.frame} EMA{o.period}: {o.ema.toFixed(2)} · price {o.side} ({pct(o.distancePct)}) · {o.band.replaceAll("_"," ")} {o.multiplier} SD · {statements(o).join("; ")||"No recent boundary event"} · anchor {o.anchorDay} · {o.warmup==="READY"?"warm-up ready":"short warm-up; indicative"}</p>)}
   {longHistory.scan?.unavailable.length?<p>Insufficient history: {longHistory.scan.unavailable.join(", ")}</p>:null}</details>:null}
@@ -59,10 +63,11 @@ export default function PowerStackBBMarketSweep({rows,reviews,asOf,levels,fundam
   {flagged.length>12?<details className={styles.assetDetails}><summary>More flagged symbols ({flagged.length-12})</summary><ul>{flagged.slice(12).map(({row,levels})=><li key={row.ticker}>{row.ticker}: {levels.map(({o,statements:s})=>o.frame+" EMA"+o.period+" "+s.join(", ")).join("; ")||"reviewed value proximity"}</li>)}</ul></details>:null}
   <details className={styles.assetDetails}><summary>All private marked equity levels ({levels.length})</summary><ul>{levels.map(entry=>{const row=eligible.find(r=>r.ticker===entry.ticker&&r.currency===entry.currency);return <li key={entry.ticker}>{entry.ticker} · {entry.currency} {entry.low??"—"}–{entry.high??"—"} · {row?row.price?.toFixed(2)+" on "+row.asOf:"No matching recent BB equity quote"}</li>})}</ul></details>
   <p><Link href="/market-tools#ema-sd-levels">Existing owner-only Twelve Data technical pilot</Link> — independent vendor cross-check using the same numerical kernel; no automatic second-provider requests.</p>
-  <h3>Scenario baskets · research hypotheses</h3><p>Directional tendencies, not measured hedge ratios or forecasts. Shared exposures can still decline together. Evaluate the actual issuer, valuation, leverage and funding before investing.</p>
+  <details className={styles.assetDetails}><summary>Scenario baskets · research hypotheses</summary><p>Directional tendencies, not measured hedge ratios or forecasts. Shared exposures can still decline together. Evaluate the actual issuer, valuation, leverage and funding before investing.</p>
   <div className={styles.tableScroll}><table className={styles.holdingsTable}><thead><tr><th>Basket / thesis</th><th>Potential diversification</th><th>AI boom</th><th>AI bust</th><th>Recession</th><th>Supply shock / sticky inflation</th><th>Soft landing / cuts</th></tr></thead><tbody>
    {baskets.map(([name,tickers,logic,hedge,...states])=><tr key={name}><td><strong>{name}</strong><br/>{tickers}<br/>{logic}</td><td>{hedge}</td>{states.map((state,i)=><td key={i}>{state}</td>)}</tr>)}
   </tbody></table></div>
+  </details>
   <p>Manual committee review: read BB macro and credit regime, then verified issuer filings and BB fundamentals; normalise cash earnings, compare valuation with internal entry ranges and stress downside, funding and portfolio overlap. Mark research now, wait, de-risk or no change only with evidence.</p>
  </section>;
 }
