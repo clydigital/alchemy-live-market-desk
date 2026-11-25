@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache";
-import {nasdaqCompletedHistoryBounds,expectedHomeEtfSession} from "./bluebelly-home-etf-history.ts";
+import {expectedHomeEtfSession} from "./bluebelly-home-etf-history.ts";
+import {nasdaqCompletedSessionRange,admitNasdaqSessionDay} from "./bluebelly-nasdaq-session-range.ts";
 
 export type PricePoint = { time: number; close: number; high?: number | null; low?: number | null; volume?: number | null };
 
@@ -184,8 +185,10 @@ async function mapLimit<T, R>(items: T[], limit: number, worker: (item: T) => Pr
 }
 
 async function fetchNasdaqHistory(request: NasdaqRequest): Promise<PricePoint[]> {
-  const {end,start,through}=nasdaqCompletedHistoryBounds(new Date(),HISTORY_DAYS);
-  const endpoint = `https://api.nasdaq.com/api/quote/${encodeURIComponent(request.providerSymbol)}/historical?assetclass=${request.assetClass}&fromdate=${isoDate(start)}&todate=${isoDate(end)}&limit=5000`;
+  const expected=expectedHomeEtfSession(new Date());
+  if(!expected)throw Error("US session unavailable");
+  const range=nasdaqCompletedSessionRange(expected,HISTORY_DAYS);
+  const endpoint = `https://api.nasdaq.com/api/quote/${encodeURIComponent(request.providerSymbol)}/historical?assetclass=${request.assetClass}&fromdate=${range.from}&todate=${range.to}&limit=5000`;
   const response = await fetch(endpoint, {
     headers: {
       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36",
@@ -204,7 +207,7 @@ async function fetchNasdaqHistory(request: NasdaqRequest): Promise<PricePoint[]>
     const match = row.date?.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
     if (close === null || !match) return [];
     const time = Date.UTC(Number(match[3]), Number(match[1]) - 1, Number(match[2])) / 1000;
-    if(time>through)return [];
+    if(!admitNasdaqSessionDay(time,expected))return [];
     return [{ time, close, high: parseNumber(row.high), low: parseNumber(row.low), volume: parseNumber(row.volume) }];
   }).sort((a, b) => a.time - b.time);
 }
