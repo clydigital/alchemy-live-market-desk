@@ -58,7 +58,7 @@ function includedType(type: MarketMonitorType, group: PublicMarketGroup): boolea
     case "energy": return type === "Energy";
     case "fx": return type === "FX";
     case "credit": return type === "Credit / Risk";
-    case "equities": return ["Major Index", "MAG7", "Sector", "IPO / New Issue", "US Stock", "Europe Stock"].includes(type);
+    case "equities": return ["Major Index", "MAG7", "Sector", "IPO / New Issue", "US Stock", "Europe Stock", "Asia Stock"].includes(type);
     case "metals": return type === "Metal";
     default: return true;
   }
