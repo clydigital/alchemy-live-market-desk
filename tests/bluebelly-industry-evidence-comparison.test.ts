@@ -52,3 +52,17 @@ test("reviewed scorecard values retain text and accounting basis, never parsed i
  assert.equal(col.cells.operating_margin.state,"MISSING");
  assert.equal(col.fiscalPeriod,"Q3 2026");
 });
+
+test("Dell source-reviewed numeric facts preserve GAAP vs derived cash-flow basis and true fiscal end",()=>{
+ const cards=getRecentVerifiedEarningsScorecards(now,90);
+ const col=buildIndustryComparison(["DELL"],[],[],cards,now)[0];
+ assert.equal(col.cells.revenue.state,"REVIEWED_NUMERIC");
+ assert.equal(col.cells.revenue.value,54937000000);
+ assert.equal(col.cells.net_income.value,5673000000);
+ assert.equal(col.cells.diluted_eps.value,8.82);
+ assert.equal(col.cells.operating_cash_flow.value,4459000000);
+ assert.equal(col.cells.free_cash_flow.value,3474000000);
+ assert.match(col.cells.free_cash_flow.basis??"",/Derived CFO/);
+ assert.match(col.cells.free_cash_flow.note??"",/2026-10-30/);
+ assert.equal(col.cells.valuation.state,"MISSING");
+});
