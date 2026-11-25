@@ -1,6 +1,7 @@
 import {calculateEmaBand,EMA_PERIODS,EMA_WIDTHS} from "./ema-sd-levels.ts";
 import {expectedHomeEtfSession} from "./bluebelly-home-etf-history.ts";
 import {scheduledUsEquityCloseHourET,usEquitySessionCalendarBasis} from "./bluebelly-us-equity-trading-calendar.ts";
+import {replayRespectedBand,type RespectedBandTrend} from "./bluebelly-ema-trend-replay.ts";
 /** Canonical BB calculations: completed daily closes, no forecast or trade signal.
  * First-close seeded EMA; rolling population SD of closing prices around their SMA,
  * envelope centred on EMA. Confirm chart convention before execution.
@@ -12,7 +13,7 @@ type State="above"|"below"|"at";
 type Band="above_upper"|"below_lower"|"inside";
 type Cross="up"|"down"|"none";
 export type CloseHold={boundary:"ema"|"upper"|"lower";direction:"up"|"down";crossedOn:string;consecutiveCloses:number;status:"BREAK_ONLY"|"HOLD_CONFIRMED"};
-export type EmaObservation={frame:Frame;period:number;multiplier:number;asOf:string;anchorDay:string;sampleCount?:number;requiredReadySamples?:number;closeHolds?:CloseHold[];warmup:"READY"|"SHORT_WARMUP";ema:number;upper:number;lower:number;distancePct:number;side:State;band:Band;windows:Record<"1"|"3"|"5",{returnPct:number;approach:"down_to"|"up_to"|"away"|"none";emaCross:Cross;upperCross:Cross;lowerCross:Cross;events:{session:string;boundary:"ema"|"upper"|"lower";direction:"up"|"down"}[]}|null>};
+export type EmaObservation={frame:Frame;period:number;multiplier:number;asOf:string;anchorDay:string;sampleCount?:number;requiredReadySamples?:number;closeHolds?:CloseHold[];respectedBandTrend?:RespectedBandTrend|null;warmup:"READY"|"SHORT_WARMUP";ema:number;upper:number;lower:number;distancePct:number;side:State;band:Band;windows:Record<"1"|"3"|"5",{returnPct:number;approach:"down_to"|"up_to"|"away"|"none";emaCross:Cross;upperCross:Cross;lowerCross:Cross;events:{session:string;boundary:"ema"|"upper"|"lower";direction:"up"|"down"}[]}|null>};
 export type EquityEmaScan={asOf:string;method:"FIRST_CLOSE_EMA_ROLLING_CLOSE_POPULATION_SD";observations:EmaObservation[];unavailable:string[]};
 const periods=EMA_PERIODS.map((period,i)=>[period,EMA_WIDTHS[i]] as const);
 const day=(t:number)=>new Date(t*1000).toISOString().slice(0,10);
@@ -41,6 +42,11 @@ export function scanEquityEma(input:readonly EmaPoint[],timeZone:string,now=new 
    n++;
   }
  }
+ const trendStart=Math.max(0,at-29);
+ const trendBars=bars.slice(trendStart);
+ const trendDays=new Set(trendBars.map(b=>day(b.time)));
+ let trendContiguous=contiguous&&trendBars.length===30;
+ if(trendContiguous){let t=p.time;for(let n=0;n<30;t-=86400){const d=day(t);if(usEquitySessionCalendarBasis(d)!=="OFFICIAL_NYSE_2026_2028"){trendContiguous=false;break;}if(scheduledUsEquityCloseHourET(d)===null)continue;if(!trendDays.has(d)){trendContiguous=false;break;}n++;}}
  for(const frame of ["D","W","M"] as const){
  const byIndex=new Map<number,EmaPoint[]>();for(let i=Math.max(0,at-5);i<=at;i++)byIndex.set(i,anchors(bars,frame,i));
  for(const [period,multiplier] of periods){
@@ -77,7 +83,12 @@ export function scanEquityEma(input:readonly EmaPoint[],timeZone:string,now=new 
     if(valid)closeHolds.push({boundary,direction:event.direction,crossedOn:event.session,consecutiveCloses:at-start+1,status:at-start>=2?"HOLD_CONFIRMED":"BREAK_ONLY"});
    }
   }
-  observations.push({frame,period,multiplier,asOf,...cur,distancePct:pct(p.close,cur.ema),side,band,windows,closeHolds});
+  let respectedBandTrend:RespectedBandTrend|null=null;
+  if(frame==="D"&&trendContiguous&&cur.warmup==="READY"){
+   const trail=trendBars.map((b,i)=>{const j=trendStart+i;const level=levels.get(j)??bandAt(bars.slice(0,j+1),period,multiplier);return level?.warmup==="READY"?{day:day(b.time),close:b.close,upper:level.upper,lower:level.lower}:null;});
+   if(trail.every((x):x is NonNullable<typeof x>=>x!==null))respectedBandTrend=replayRespectedBand(trail);
+  }
+  observations.push({frame,period,multiplier,asOf,...cur,distancePct:pct(p.close,cur.ema),side,band,windows,closeHolds,...(frame==="D"?{respectedBandTrend}:{})});
  }}
  return {asOf,method:"FIRST_CLOSE_EMA_ROLLING_CLOSE_POPULATION_SD",observations,unavailable};
 }
