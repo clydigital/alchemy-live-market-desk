@@ -57,7 +57,8 @@ test("Dated manual features move to Research while remaining readable from Key S
   assert.doesNotMatch(keys,new RegExp("/blue-desk/features/"+slug));
   assert.doesNotMatch(owner,new RegExp("/features/"+slug)); // Historical manual research moved out of My Desk.
  }
- assert.match(home,/data-home-research-archive-link="dated-not-live"/);
+ assert.doesNotMatch(home,/data-home-research-archive-link=/);
+ assert.match(home,/data-home-industry-intel-link="source-qualified"/);
  assert.doesNotMatch(home,/data-featured-manual-research="two-independent-stories"/);
  assert.match(research,/data-bluebelly-research-index="public-approved-dated"/);
  assert.match(keys,/data-key-stories-research-handoff="dated-not-live"/);

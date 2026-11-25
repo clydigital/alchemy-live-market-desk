@@ -68,7 +68,7 @@ test("every browser API remains signed-in and field-specific, not a cross-site m
  assert.match(checklist,/expectedRevision/);
 });
 
-test("public reader links include dated Research, omit duplicate Daily Report and keep My Desk gated",()=>{
+test("public reader navigation hides dated Research, omit duplicate Daily Report and keep My Desk gated",()=>{
  const header=read("components/blue-desk/BlueDeskHeader.tsx");
  const presenter=read("app/owner/presenter/page.tsx");
  const editorial=read("app/owner/editorial/page.tsx");
@@ -82,8 +82,9 @@ test("public reader links include dated Research, omit duplicate Daily Report an
  assert.ok(!nav.includes('["My Desk", "/my-reports"]'));
  assert.match(header,/href="\/my-reports">My Desk/);
  const more=header.split("const PUBLIC_MORE = [")[1]?.split("] as const;")[0]||"";
+ assert.doesNotMatch(more,/Research Archive/);
  for(const [label,href] of [
-  ["Newsroom","/newsroom"],["Research Archive","/research"],["Hormuz Data","/hormuz"],
+  ["Newsroom","/newsroom"],["Industry Intel","/industry-intel"],["Hormuz Data","/hormuz"],
   ["Regime Lenses","/regime-watch"],["Learn","/learn"],
  ]) assert.ok(more.includes('["'+label+'", "'+href+'"]'),label);
  assert.match(header,/className=\{chrome\.moreNav\}/);

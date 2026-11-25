@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {INDUSTRY_LENSES,MATERIAL_RESEARCH_QUESTIONS,industryNews,questionNews} from "../lib/bluebelly-industry-intel.ts";
+import {INDUSTRY_LENSES,INDUSTRY_CONDITIONAL_TESTS,MATERIAL_RESEARCH_QUESTIONS,industryNews,questionNews} from "../lib/bluebelly-industry-intel.ts";
 import {blueDeskHostAccess,blueDeskPresentationTarget} from "../lib/blue-desk-host.ts";
 test("industry questions retain unique identities and valid lens links",()=>{
  assert.equal(INDUSTRY_LENSES.length,8);
@@ -21,4 +21,8 @@ test("only exact public industry route is enabled, not arbitrary child routes",(
  assert.equal(blueDeskHostAccess("/industry-intel",h),"public");
  assert.equal(blueDeskHostAccess("/industry-intel/private",h),"blocked");
  assert.equal(blueDeskPresentationTarget("/industry-intel",h),"/blue-desk/industry-intel");
+});
+
+test("each persistent industry question has a conditional mechanism and countercase",()=>{
+ for(const q of MATERIAL_RESEARCH_QUESTIONS){assert.ok(INDUSTRY_CONDITIONAL_TESTS[q.id]?.ifThen);assert.ok(INDUSTRY_CONDITIONAL_TESTS[q.id]?.countercase);}
 });

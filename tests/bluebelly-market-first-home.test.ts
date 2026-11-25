@@ -41,7 +41,7 @@ test("navigation demotes reporting, protects owner, and retains source and histo
   assert.ok(!nav.includes("Today")&&!nav.includes("Newsroom")&&!nav.includes("Daily Report"));
   assert.match(more,/Newsroom/);
   assert.doesNotMatch(nav,/Watch|key-stories/);
-  assert.match(more,/Research Archive/);
+  assert.doesNotMatch(more,/Research Archive/);
   for(const p of ["/newsroom","/research","/regime-watch","/hormuz","/learn"])
     assert.equal(blueDeskHostAccess(p,"bluebelly-desk.vercel.app"),"public",p);
   for(const p of ["/my-reports","/owner/research","/owner/daily-report"])

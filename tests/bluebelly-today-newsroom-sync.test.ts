@@ -62,8 +62,9 @@ test("Today features the same approved source-dated Newsroom updates without pro
  assert.match(reader,/latestApproved\.label/);
  assert.match(reader,/Source dated <DualTimestamp/);
  assert.doesNotMatch(reader,/research_intake_items|blue_desk_work_html_editions|RESEARCH_DERIVED_UNADJUDICATED/);
- assert.match(today,/data-home-research-archive-link="dated-not-live"/);
- assert.match(today,/\/blue-desk\/research/);
+ assert.doesNotMatch(today,/data-home-research-archive-link=/);
+ assert.match(today,/data-home-industry-intel-link="source-qualified"/);
+ assert.match(today,/\/blue-desk\/industry-intel/);
  assert.match(today,/export const dynamic = "force-dynamic"/);
  assert.match(newsroom,/publicNewsroomEditorials\(news,now,host\)/);
  assert.match(newsroom,/<BluebellyNewsWire news=\{news\}/);
