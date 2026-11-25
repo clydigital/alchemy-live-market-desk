@@ -9,9 +9,9 @@ const researchState = readFileSync(new URL("../lib/intelligence/research-state.t
 const routing = readFileSync(new URL("../lib/research-automation-routing.ts", import.meta.url), "utf8");
 
 test("full Live research uses Vercel exact slots with deduplicated GitHub fallback", () => {
-  assert.match(workflow, /cron:\s*"30 2 \* \* \*"/);
+  assert.doesNotMatch(workflow, /cron:\s*"30 2 \* \* \*"/);
   assert.match(workflow, /cron:\s*"45 2 \* \* \*"/);
-  assert.match(workflow, /cron:\s*"30 14 \* \* \*"/);
+  assert.doesNotMatch(workflow, /cron:\s*"30 14 \* \* \*"/);
   assert.match(workflow, /cron:\s*"45 14 \* \* \*"/);
   assert.match(workflow, /github\.event_name == 'schedule'/);
   assert.match(workflow, /"30 2 \* \* \*"\|"45 2 \* \* \*"/);

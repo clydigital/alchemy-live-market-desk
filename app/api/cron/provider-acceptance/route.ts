@@ -3,6 +3,7 @@ import { providerAcceptanceReceipt } from "@/lib/provider-acceptance";
 import { fetchBeaSnapshot } from "@/lib/providers/bea";
 import { readFredSeries } from "@/lib/providers/fred-api-v1";
 import { readFmpRecords } from "@/lib/providers/fmp-rest";
+import {refreshTechnicalPilot} from "@/lib/providers/twelve-data-ema-history";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -33,6 +34,11 @@ export async function GET(request: Request) {
     at: now.toISOString(), nominal10Y, breakeven10Y, earningsCalendar, bea,
   });
   console.info(JSON.stringify(receipt));
+  // Independently bounded, private technical-history acceptance pilot. Do not change original health response.
+  if(process.env.TWELVEDATA_API_KEY){
+    try{const technical=await refreshTechnicalPilot(now);console.info(JSON.stringify({event:"ema_sd_pilot_coverage",...technical}));}
+    catch{console.warn(JSON.stringify({event:"ema_sd_pilot_unavailable"}));}
+  }
   const ready = nominal10Y.state === "ready" && breakeven10Y.state === "ready"
     && earningsCalendar.state === "ready" && bea.state === "ready";
   return Response.json(receipt, {

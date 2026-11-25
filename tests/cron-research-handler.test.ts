@@ -264,11 +264,11 @@ test("scheduled acquisition and intelligence routes are separate durable phases"
   assert.equal(hasCron("/api/cron/research/evening-watchdog", "35 13 * * *"), true);
   assert.equal(
     vercelConfig.crons.filter((cron) => cron.path === "/api/cron/research/morning-intelligence").length,
-    8,
+    2,
   );
   assert.equal(
     vercelConfig.crons.filter((cron) => cron.path === "/api/cron/research/evening-intelligence").length,
-    8,
+    2,
   );
   assert.equal(vercelConfig.crons.some((cron) => cron.path === "/api/cron/live-research"), false);
   assert.equal(

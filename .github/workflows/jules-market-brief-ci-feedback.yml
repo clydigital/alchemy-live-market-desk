@@ -6,8 +6,8 @@ on:
       - "Validate Live Desk"
     types: [completed]
   schedule:
-    # Idempotent fallback if a GitHub workflow_run delivery is missed.
-    - cron: '27 * * * *'
+    # Event-driven workflow_run is primary; bounded six-hour recovery for missed deliveries.
+    - cron: '27 */6 * * *'
   workflow_dispatch:
 
 # Trust boundary: workflow_run always loads trusted default-branch code,

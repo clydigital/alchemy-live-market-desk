@@ -1,7 +1,7 @@
 import "server-only";
 import {createSupabaseAdminClient} from "./supabase/admin.ts";
 import {X_CORE_ROSTER} from "./x-sweep-core.ts";
-import {xWireFreshCheckComplete} from "./x-wire-pagination.ts";
+import {xWireFreshCheckComplete,xWireLiveFreshnessHours} from "./x-wire-pagination.ts";
 import {classifyXWireThemes} from "./x-wire-market-candidates.ts";
 import {X_WIRE_THEMES,X_WIRE_PAGE_SIZE,parseXWireOwnerFilters,type XWireOwnerFilters} from "./x-wire-owner-query.ts";
 
@@ -53,7 +53,7 @@ export async function getXWireOwnerView(raw:Record<string,unknown>,now=new Date(
         const gap=Boolean(a.uncovered_before),resume=Boolean(a.page_cursor);
         // Current collection health is independent of archival completeness.
         // Use the same fresh-window rule as homepage absorption; retain gap and error receipts.
-        const status=xWireFreshCheckComplete(a,now)?"healthy":a.health==="healthy"?"partial":a.health;
+        const status=xWireFreshCheckComplete(a,now,xWireLiveFreshnessHours(a.handle))?"healthy":a.health==="healthy"?"partial":a.health;
         return {handle:a.handle,status,attemptedAt:a.last_attempt_at,completedAt:a.last_completed_at,
           observedAt:a.last_observed_post_at,lastFetched:a.last_fetched,error:a.last_error,
           historicalGap:gap,resumePending:resume};
