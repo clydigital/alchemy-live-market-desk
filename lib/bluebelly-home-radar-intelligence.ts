@@ -49,7 +49,7 @@ const marketClass=(row:PublicMarketObservation)=>{
  if(type==="FX")return {threshold:1,label:"1%",group:"fx"};
  if(type==="Energy")return {threshold:2.5,label:"2.5%",group:"energy"};
  if(type==="Metal")return {threshold:1.7,label:"1.7%",group:"metals"};
- if(type==="AI / Semis"||type==="MAG7"||type==="US Stock"||type==="Europe Stock")return {threshold:4,label:"4%",group:"ai"};
+ if(type==="AI / Semis"||type==="MAG7"||type==="US Stock"||type==="Europe Stock"||type==="Asia Stock")return {threshold:4,label:"4%",group:"ai"};
  return {threshold:2,label:"2%",group:"equities"};
 };
 function sourceSessionAge(raw:string|null,nowMs:number):number|null{
