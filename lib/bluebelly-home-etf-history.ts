@@ -22,7 +22,7 @@ export function planUsRecovery(behind:ReadonlySet<string>):string[]{
  return [...US_REPAIR_SYMBOLS,...US_EQUITY_CANARY,...PREFERRED_US_EQUITIES].filter(s=>behind.has(s)).slice(0,US_RECOVERY_BATCH_LIMIT);
 }
 const isEquityCanary=(symbol:string)=>(US_EQUITY_CANARY as readonly string[]).includes(symbol);
-export type EtfBar = {time:number;close:number};
+export type EtfBar = {time:number;close:number;open?:number;high?:number;low?:number;volume?:number};
 export function expectedHomeEtfSession(now:Date):string|null{
  // Allow 15 minutes after the scheduled close for daily-history publication.
  return expectedCompletedUsWeekdaySessionDay(new Date(now.getTime()-15*60000));
@@ -59,7 +59,7 @@ export function repairFailureCode(error:unknown):string{
 function parseUsListedChart(payload:unknown,symbol:string,kind:"ETF"|"EQUITY",now:Date,allowLag:boolean,maxBars=400):EtfBar[]{
  const root=payload as {chart?:{error?:unknown;result?:Array<{
   meta?:{symbol?:string;currency?:string;instrumentType?:string;exchangeTimezoneName?:string};
-  timestamp?:unknown;indicators?:{quote?:Array<{close?:unknown}>};
+  timestamp?:unknown;indicators?:{quote?:Array<{close?:unknown;open?:unknown;high?:unknown;low?:unknown;volume?:unknown}>};
  }>}}|null;
  const chart=root?.chart,record=chart?.result?.[0];
  if(chart?.error||chart?.result?.length!==1||!record||
@@ -83,7 +83,17 @@ function parseUsListedChart(payload:unknown,symbol:string,kind:"ETF"|"EQUITY",no
   const day=p("year")+"-"+p("month")+"-"+p("day");
   if(day>expected||scheduledUsEquityCloseHourET(day)===null)continue;
   if(byDay.has(day))throw Error("Duplicate ETF daily session");
-  byDay.set(day,{time:Date.parse(day+"T00:00:00Z")/1000,close});
+  const bar:EtfBar={time:Date.parse(day+"T00:00:00Z")/1000,close};
+  // Preserve available OHLCV on switched equity routes; missing or incoherent
+  // auxiliary data is omitted, not imputed from the close.
+  if(kind==="EQUITY"){
+   const q=record.indicators?.quote?.[0];
+   const read=(series:unknown)=>Array.isArray(series)&&typeof series[i]==="number"&&Number.isFinite(series[i])?series[i] as number:null;
+   const o=read(q?.open),h=read(q?.high),l=read(q?.low),v=read(q?.volume);
+   if(o!==null&&h!==null&&l!==null&&l>0&&l<=Math.min(o,close)&&h>=Math.max(o,close))Object.assign(bar,{open:o,high:h,low:l});
+   if(v!==null&&v>=0)bar.volume=v;
+  }
+  byDay.set(day,bar);
  }
  const bars=[...byDay.values()].sort((a,b)=>a.time-b.time);
  if(bars.length<6||(!allowLag&&new Date(bars.at(-1)!.time*1000).toISOString().slice(0,10)!==expected))
