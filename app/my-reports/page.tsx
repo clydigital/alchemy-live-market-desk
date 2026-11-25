@@ -74,6 +74,7 @@ export default async function MyBluebellyReports({searchParams}:{
       <h3>Research Library</h3>
       <p>Inspect source receipts and archived research without starting a duplicate daily report.</p>
       <Link href="/owner/research">Open Research Library</Link>
+      <p><Link href="/owner/research#hypothesis-evidence">Active hypotheses and evidence gems</Link></p>
      </article>
      <article className={layout.hubCard}>
       <span>04 / CREATOR SIGNALS</span>

@@ -17,6 +17,7 @@ export default function PowerStackResearchImpact({groups}:{
    <div>
     <p className={s.researchEyebrow}>PRIVATE / SOURCE-LINKED CONTEXT</p>
     <h2 id="power-stack-research-title">Research affecting my portfolio</h2>
+    <p><Link href="/owner/research#hypothesis-evidence">Review Bluebelly’s active hypotheses and evidence gems ↗</Link> before changing a manual investment thesis.</p>
     <p>Matched against your recorded holdings, watchlist and bond ideas, not live brokerage positions.
      This projects Bluebelly's existing Regime, Hormuz, X Wire and reviewed creator research.
      It does not re-score assets or imply that a sector headline proves an issuer-specific change.</p>

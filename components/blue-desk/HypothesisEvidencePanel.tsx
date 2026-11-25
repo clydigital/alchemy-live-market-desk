@@ -1,0 +1,16 @@
+import type {RegistryRead} from "@/lib/bluebelly-hypothesis-registry";
+import styles from "./hypothesis-evidence.module.css";
+const label=(s:string)=>s.replaceAll("_"," ").toLowerCase();
+export default function HypothesisEvidencePanel({read}:{read:RegistryRead}){
+ return <section id="hypothesis-evidence" data-hypothesis-evidence="private-registry-readonly" className={styles.panel} aria-labelledby="hypothesis-heading">
+ <header><small>PRIVATE RESEARCH / COMPOSABLE HYPOTHESES</small><h2 id="hypothesis-heading">Hypotheses &amp; evidence gems</h2><p>Existing research questions, their latest saved conditional assessments and linked evidence. These are analyst interpretations, not automatically verified market facts or investment instructions.</p></header>
+ <p className={styles.meta}>Registry {label(read.status)}{read.retrievedAt?" · retrieved "+read.retrievedAt.slice(0,16).replace("T"," ")+" UTC":""}{read.truncated?" · bounded selection, not complete registry":""}. Source dates and review dates are distinct from retrieval.</p>
+ {read.rows.length?<div className={styles.grid}>{read.rows.map(row=><article key={row.id} className={styles.card}>
+ <div className={styles.meta}>{row.theme||"Research question"} · {label(row.state)} · {row.id}</div><h3>{row.title}</h3>
+ <p><strong>Current read:</strong> {row.currentRead||"Not recorded"}</p>
+ {row.snapshot?<><p className={styles.meta}>Saved assessment {row.snapshot.reviewedOn}</p><p className={styles.logic}>{row.snapshot.conditional}</p><div className={styles.gems}>{row.snapshot.gems.map(g=><div key={g.id} className={styles.gem}><small data-role={g.role}>{label(g.role)} · {label(g.state)}</small><strong>{g.label}</strong><p>{g.observation}</p><p className={styles.meta}>{g.premise}</p><a href={g.sourceUrl} target="_blank" rel="noopener noreferrer">Source · {g.sourceDate||"date unverified"} ↗</a></div>)}</div><p><strong>Next discriminator:</strong> {row.snapshot.nextTest}</p></>:<p className={styles.meta}>Structured evidence snapshot unavailable or not aligned with the current registry read; inspect the original record.</p>}
+ <p><strong>Registry next test:</strong> {row.nextTrigger||"Not recorded"}</p><p className={styles.meta}>Last source check recorded: {row.lastChecked||"unknown"}</p><a href={"https://www.notion.so/"+row.pageId} target="_blank" rel="noopener noreferrer">Open original hypothesis and history ↗</a>
+ </article>)}</div>:<p role="status">No readable active hypothesis records in this bounded request. This does not indicate no active research.</p>}
+ <a href="https://app.notion.com/p/f0eb01304c684dce95696f32671dc55a" target="_blank" rel="noopener noreferrer">Open complete Research Gap Registry ↗</a>
+ </section>;
+}
