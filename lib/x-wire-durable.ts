@@ -1,7 +1,7 @@
 import "server-only";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
 import { X_CORE_ROSTER, X_SWEEP_DEFAULTS, isExcludedXWireHandle, normaliseXPostUrl, xSourceHealth, type XAccountAttempt } from "./x-sweep-core.ts";
-import { X_WIRE_PROVIDER_PAGE_SIZE, parseFxTimeline, xWireRequestWindow, xWireRecoveryAnchor, xWireNeedsRetry, xWireSearchFallbackUrl, type FxPage } from "./x-wire-pagination.ts";
+import { X_WIRE_PROVIDER_PAGE_SIZE, parseFxTimeline, xWireRequestWindow, xWireRecoveryAnchor, xWireNeedsRetry, xWireSearchFallbackUrl, xWireAcquisitionPriority, xWireLiveFreshnessHours, type FxPage } from "./x-wire-pagination.ts";
 import type { XWirePost } from "./x-wire-provider.ts";
 import { permitsXResearch,xWireSourcePolicy } from "./x-wire-source-policy.ts";
 import { readXWireResearchPool } from "./x-wire-research-pool.ts";
@@ -11,6 +11,7 @@ const PAGE_LIMIT = 6; // high-output accounts may need several 20-post provider 
 const MAX_SCAN_MS = 18_000; // 5 concurrent accounts, at most two bounded waves per SSR invocation
 const PAGE_SIZE = X_WIRE_PROVIDER_PAGE_SIZE;
 const CONCURRENT_ACCOUNTS = 5;
+const GLOBAL_NETWORK_BUDGET_MS = 24_000; // existing invocation, no new scheduler
 // Existing morning/evening acquisition is 12h apart; older completions are stale.
 const HEALTH_COMPLETION_MAX_AGE_HOURS = 15;
 type Db = ReturnType<typeof createSupabaseAdminClient>;
@@ -78,7 +79,17 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
   const startedAt=Date.now();
   async function persistPage(parsed:FxPage){
     fetched+=parsed.total;
-    const writes=parsed.posts.map(post=>{
+    const ids=[...new Set(parsed.posts.map(post=>post.id))];
+    if(!ids.length)return;
+    const {data:knownRows,error:knownError}=await db.from("x_wire_posts").select("post_id").in("post_id",ids);
+    if(knownError)throw new Error("Post deduplication lookup failed");
+    const known=new Set((knownRows||[]).map(row=>row.post_id));
+    const writes=parsed.posts.filter(post=>{
+      latest=Math.max(latest,Date.parse(post.publishedAt));
+      if(known.has(post.id))return false;
+      known.add(post.id);
+      return true;
+    }).map(post=>{
       // Preserve all retrieved posts in the archive; routine squawks are not backlog work.
       const relevant=permitsXResearch(handle,post.text);
       const active=relevant&&kept<policy.activeCap &&
@@ -248,7 +259,17 @@ export type XWireDurable = {
 };
 /** Existing authenticated acquisition and retry slots share the same ledger. */
 export async function getXWireDurable(opts:{now?:Date;fetchImpl?:typeof fetch;db?:Db;retryOnly?:boolean}={}):Promise<XWireDurable> {
-  const now=(opts.now||new Date()).toISOString(), fetchImpl=opts.fetchImpl||fetch;
+  const now=(opts.now||new Date()).toISOString(), providerFetch=opts.fetchImpl||fetch;
+  const deadline=Date.now()+GLOBAL_NETWORK_BUDGET_MS;
+  let providerRateLimited=false;
+  const fetchImpl:typeof fetch=async(input,init)=>{
+    const remaining=deadline-Date.now();
+    if(providerRateLimited||remaining<=0)throw new Error("X provider budget exhausted");
+    const budgetSignal=AbortSignal.timeout(remaining);
+    const response=await providerFetch(input,{...init,signal:init?.signal?AbortSignal.any([init.signal,budgetSignal]):budgetSignal});
+    if(response.status===429)providerRateLimited=true;
+    return response;
+  };
   const unavailable=(reason:string):XWireDurable=>{
     const accounts=X_CORE_ROSTER.map(x=>emptyAccount(x.handle,now,reason));
     return {storageHealthy:false,retrievedAt:now,posts:[],accounts,health:xSourceHealth(accounts),
@@ -257,17 +278,29 @@ export async function getXWireDurable(opts:{now?:Date;fetchImpl?:typeof fetch;db
   let db:Db,initial:StoredAccount[];
   try{ db=opts.db||createSupabaseAdminClient();initial=await loadAccounts(db); }
   catch(e){return unavailable(safeError(e));}
+  // Reconcile approved missing registrations idempotently; never reset existing checkpoints.
+  const registered=new Set(initial.map(x=>x.handle.toLowerCase()));
+  const missing=X_CORE_ROSTER.filter(x=>!registered.has(x.handle.toLowerCase()));
+  if(missing.length){
+    const {error}=await db.from("x_wire_accounts").upsert(missing.map(x=>({handle:x.handle,health:"unconfigured",next_attempt_at:"-infinity"})),{onConflict:"handle",ignoreDuplicates:true});
+    if(!error){try{initial=await loadAccounts(db);}catch{/* existing rows remain usable */}}
+  }
   const initialByHandle=new Map(initial.map(x=>[x.handle.toLowerCase(),x]));
   const roster=opts.retryOnly?X_CORE_ROSTER.filter(x=>
-    xWireNeedsRetry(initialByHandle.get(x.handle.toLowerCase()),new Date(now))):X_CORE_ROSTER;
+    xWireNeedsRetry(initialByHandle.get(x.handle.toLowerCase()),new Date(now),xWireLiveFreshnessHours(x.handle))):X_CORE_ROSTER;
+  const orderedRoster=[...roster].sort((a,b)=>{
+    const [ap,at]=xWireAcquisitionPriority(a.handle,initialByHandle.get(a.handle.toLowerCase())?.last_completed_at);
+    const [bp,bt]=xWireAcquisitionPriority(b.handle,initialByHandle.get(b.handle.toLowerCase())?.last_completed_at);
+    return ap-bp||at-bt;
+  });
   const quota={total:0};
   const failures=new Map<string,string>();
   let next=0;
   await Promise.all(Array.from({length:CONCURRENT_ACCOUNTS},async()=>{
-    while(next<roster.length){
+    while(next<orderedRoster.length && Date.now()<deadline && !providerRateLimited){
       const i=next++;
-      try{await scanOne(db,roster[i].handle,now,fetchImpl,quota);}
-      catch(e){failures.set(roster[i].handle,safeError(e)); /* Failure is shown in source health */ }
+      try{await scanOne(db,orderedRoster[i].handle,now,fetchImpl,quota);}
+      catch(e){failures.set(orderedRoster[i].handle,safeError(e)); /* Failure is shown in source health */ }
     }
   }));
   try{
