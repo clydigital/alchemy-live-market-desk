@@ -68,3 +68,13 @@ export function creatorMarketMatch(asset:string,market:readonly PublicMarketObse
  if(!expected||session>expected||+now-Date.parse(row.asOf)>7*86400_000)return null;
  return {...row,session,latestSession:session===expected};
 }
+
+// Corporate-bond sentiment uses the credit direction, not the direction of
+// Treasury yields. Explicit spread/OAS calls have the opposite sign.
+export function corporateBondBias(view:CreatorSignal):CreatorSignal["bias"]|null{
+ const k=view.asset.trim().toUpperCase().replace(/[\u2010-\u2015]/g,"-").replace(/\s+/g," ");
+ const spread=/^(?:BAMLC0A0CM|BAMLH0A0HYM2|(?:US |U\.S\. )?(?:(?:CORPORATE (?:BOND )?|CREDIT |HIGH[ -]YIELD |INVESTMENT[ -]GRADE |HY |IG )+)(?:CREDIT )?(?:SPREADS?|OAS)|CREDIT SPREADS?)$/.test(k);
+ const bond=/^(?:HYG|JNK|LQD|USHY|SHYG|SJNK|VCIT|VCSH|VCLT|IGIB|IGSB|IGLB|USIG|ANGL|FALN|HYLB|(?:US |U\.S\. )?(?:CORPORATE (?:BONDS?|CREDIT)|HIGH[ -]YIELD (?:CORPORATE )?(?:BONDS?|CREDIT)|INVESTMENT[ -]GRADE (?:CORPORATE )?(?:BONDS?|CREDIT)|JUNK BONDS?|IG (?:BONDS?|CREDIT)|HY (?:BONDS?|CREDIT)))$/.test(k);
+ if(spread)return view.bias==="Bullish"?"Bearish":view.bias==="Bearish"?"Bullish":"Neutral";
+ return bond?view.bias:null;
+}

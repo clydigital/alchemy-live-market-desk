@@ -4,7 +4,7 @@ import {getOwnerCreatorSignalDigest,CREATOR_DIGEST_URL,type CreatorDigestRead} f
 import {groupCreatorTakes,uniqueResearchPoints,type ArgumentSource} from "@/lib/bluebelly-creator-argument-cards";
 import {getPrivateReviewedCreatorArguments,type PrivateCreatorReview} from "@/lib/bluebelly-private-creator-reviews";
 import {expectedHomeEtfSession} from "@/lib/bluebelly-home-etf-history";
-import {creatorMarketMatch,creatorSignalGroup,creatorSourceKey,orderCreatorSignals,type CreatorSignal,type CreatorTake} from "@/lib/bluebelly-creator-signals";
+import {corporateBondBias,creatorMarketMatch,creatorSignalGroup,creatorSourceKey,orderCreatorSignals,type CreatorSignal,type CreatorTake} from "@/lib/bluebelly-creator-signals";
 import type {PublicMarketObservation} from "@/lib/blue-desk-public-markets";
 import {positioningRead,qqqReleaseClock,RESEARCH_SNAPSHOT,type ShortPosition} from "@/lib/bluebelly-qqq-positioning-core";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
@@ -51,10 +51,10 @@ function ReviewCards({reviews}:{reviews:PrivateCreatorReview[]}){
  return <div className={styles.creatorStack}>{[...groups].map(([publisher,videos])=><article className={styles.editorialCreator} key={publisher}><header className={styles.creatorHeading}><h3>{publisher}</h3><small>New research · not yet synthesised</small></header>{videos.map(c=><div className={styles.edition} key={c.videoId}><h4><a href={c.url} target="_blank" rel="noreferrer">{c.title} ↗</a></h4><small className={styles.muted}>{c.publishedAt.slice(0,10)} · reviewed transcript</small><p className={styles.editorialLead}>{c.summary||c.logic}</p>{c.summary&&c.logic?<p className={styles.editorialText}>{c.logic}</p>:null}{c.claimChecks.length?<details className={styles.more}><summary>Research checks · {c.claimChecks.length}</summary>{bullets(c.claimChecks.map(k=>k.verificationTarget?k.claim+" — Check: "+k.verificationTarget:k.claim))}</details>:null}</div>)}</article>)}</div>;
 }
 function CreatorGauges({takes}:{takes:CreatorTake[]}){
- const groups=[{label:"Broad equities",assets:/^(SPX|SPY|NDX|QQQ|IWM|RUT|DJI|DIA|RSP)$/i},{label:"US dollar",assets:/^(DXY|USD)$/i},{label:"Treasury yields",assets:/^(US0?2Y|US10Y|US30Y|2Y|10Y|30Y)$/i},{label:"Technology",assets:/^(SMH|SOXX|NVDA|AMD|MSFT|META|GOOGL|AMZN)$/i}];
+ const groups=[{label:"Broad equities",assets:/^(SPX|SPY|NDX|QQQ|IWM|RUT|DJI|DIA|RSP)$/i},{label:"US dollar",assets:/^(DXY|USD)$/i},{label:"Treasury yields",assets:/^(US0?2Y|US10Y|US30Y|2Y|10Y|30Y)$/i},{label:"Corporate bonds",assets:null},{label:"Technology",assets:/^(SMH|SOXX|NVDA|AMD|MSFT|META|GOOGL|AMZN)$/i}];
  return <section aria-label="Creator sentiment" className={styles.sentimentSection}><div className={styles.sentimentGrid}>{groups.map(g=>{
  const votes=new Map<string,Set<string>>();
- for(const t of takes)for(const v of t.views)if(g.assets.test(v.asset.trim())){const set=votes.get(t.publisher)??new Set<string>();set.add(v.bias);votes.set(t.publisher,set);}
+ for(const t of takes)for(const v of t.views){const bias=g.assets?(g.assets.test(v.asset.trim())?v.bias:null):corporateBondBias(v);if(bias===null)continue;const set=votes.get(t.publisher)??new Set<string>();set.add(bias);votes.set(t.publisher,set);}
  const counts={Bullish:0,Bearish:0,Neutral:0};for(const set of votes.values()){if(set.size===1&&set.has("Bullish"))counts.Bullish++;else if(set.size===1&&set.has("Bearish"))counts.Bearish++;else counts.Neutral++;}
  const n=votes.size;
  const view=!n?"No clear view":counts.Bullish>counts.Bearish?"Leaning bullish":counts.Bearish>counts.Bullish?"Leaning bearish":"Mixed";
@@ -65,7 +65,7 @@ function CreatorGauges({takes}:{takes:CreatorTake[]}){
  {n?([["bear",counts.Bearish],["mixed",counts.Neutral],["bull",counts.Bullish]] as const).filter(([,count])=>count>0).map(([kind,count])=><span key={kind} data-kind={kind} style={{flexGrow:count}}/>):<span data-kind="empty" style={{flexGrow:1}}/>}</div>
  {n?<div className={styles.sentimentLegend}><span data-kind="bear">{counts.Bearish} Bearish</span><span data-kind="mixed">{counts.Neutral} Mixed</span><span data-kind="bull">{counts.Bullish} Bullish</span></div>:<small className={styles.muted}>No explicit directional call</small>}
  </article>;
- })}</div><p className={styles.sentimentFoot}>Creator views, not market probabilities. Mixed includes conflicting or neutral calls.</p></section>;
+ })}</div><p className={styles.sentimentFoot}>Creator views, not market probabilities. Mixed includes conflicting or neutral calls. Corporate bonds: widening credit spreads count as bearish, tightening as bullish.</p></section>;
 }
 
 function CreatorSections({takes,market,now,session}:{takes:CreatorTake[];market:PublicMarketObservation[];now:Date;session:string|null}){
