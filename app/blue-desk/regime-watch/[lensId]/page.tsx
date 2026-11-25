@@ -24,6 +24,11 @@ import {projectRegimeMeterReadings} from "@/lib/bluebelly-regime-market-meter";
 import RegimeLiveEvidence from "@/components/blue-desk/RegimeLiveEvidence";
 import CrashEvidenceAutoRefresh from "@/components/blue-desk/CrashEvidenceAutoRefresh";
 import {getLensOutlook} from "@/lib/bluebelly-regime-lens-outlook";
+import {getDossierV2PresentationSelection} from "@/lib/dossier-v2/presentation-reader";
+import {projectInvestorAssessment} from "@/lib/bluebelly-investor-assessment";
+import {isPilotLens,selectPilotLensAssessment} from "@/lib/bluebelly-regime-assessment-pilot";
+import {isBlueDeskPublicReaderHost} from "@/lib/blue-desk-host";
+import RegimeCurrentAssessment from "@/components/blue-desk/RegimeCurrentAssessment";
 import {getRegimeEditorialUpdate} from "@/lib/bluebelly-regime-verified-crossasset";
 import RegimeOutlookMeter from "@/components/blue-desk/RegimeOutlookMeter";
 import RegimeResearchClocks from "@/components/blue-desk/RegimeResearchClocks";
@@ -65,7 +70,7 @@ export default async function ResearchLensPage({params}:Props){
  const definition=EDITORIAL_REGIME_LENSES.find(item=>item.id===lensId);
  if(!definition)notFound();
  const now=new Date(),host=(await headers()).get("host");
- const [publicTheses,sourceObservations,marketMonitor,influence,shadowHealth,qualified,briefs,breadthFeed,usWatch]=await Promise.all([
+ const [publicTheses,sourceObservations,marketMonitor,influence,shadowHealth,qualified,briefs,breadthFeed,usWatch,dossierSelection]=await Promise.all([
   getPublicThesisLedger(now,38).catch(()=>null),
   getPublicSourceObservations(now,24).catch(()=>null),
   getMarketMonitor().catch(()=>null),
@@ -75,6 +80,7 @@ export default async function ResearchLensPage({params}:Props){
   getPublishedMacroPulseBriefs(8).catch(()=>[]),
   getSourceDatedBreadth(true).catch(()=>({series:[],retrievalStatus:"fallback" as const})),
   getUsEconStatWatch(now).catch(()=>null),
+  isPilotLens(lensId)&&isBlueDeskPublicReaderHost(host)?getDossierV2PresentationSelection().catch(()=>null):Promise.resolve(null),
  ]);
  const lens=groupPublicResearch(publicTheses||[]).find(item=>item.id===lensId)!;
  const lensNumber=String(EDITORIAL_REGIME_LENSES.findIndex(item=>item.id===lensId)+1).padStart(2,"0");
@@ -122,6 +128,7 @@ export default async function ResearchLensPage({params}:Props){
      <span className={styles.artFootnote}>MONITOR / CHALLENGE / REVISE</span>
     </div>
    </header>
+   <RegimeCurrentAssessment assessment={selectPilotLensAssessment(lens.id,projectInvestorAssessment(dossierSelection,now))}/>
    <RegimeLiveEvidence read={liveRead} signal={liveLensSignal(lens.id,readings,rows,now)}/>
    {lens.id==="breadth"||lens.id==="ai"?<RegimeCompareEvidence compare={compare} host={host}/>:null}
    {researchRevisions.length?<section id="current-research-revisions" data-regime-research-revisions="source-reviewed-provisional" aria-label="Latest reviewed research and conditional watch ideas" style={{margin:"18px 0"}}>
