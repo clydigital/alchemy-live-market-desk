@@ -6,7 +6,7 @@ export const LIVE_DESK_PRESENTATION_HOST = "alchemy-live-market-desk.vercel.app"
 // Do not expose arbitrary dynamic segments on the public presentation hosts.
 const PUBLIC_LEARN_DECK_PATH = /^\/(?:blue-desk\/)?learn\/decks\/(?:d02|d06|d08|d13|d15|d17|d23|d24|d26)$/;
 
-const PUBLIC_REGIME_LENS_PATH = /^\/(?:blue-desk\/)?regime-watch\/(?:fed|bonds|ai|china|energy|yen|breadth|gold|housing)$/;
+const PUBLIC_REGIME_LENS_PATH = /^\/(?:blue-desk\/)?regime-watch\/(?:fed|bonds|ai|china|energy|yen|breadth|gold|housing|recession)$/;
 
 function normalizedHost(host: string | null | undefined) {
   return (host || "").trim().toLowerCase().replace(/:443$/, "");
@@ -48,6 +48,7 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   if (pathname === "/newsroom/week-ahead") return "/blue-desk/newsroom/week-ahead";
   if (pathname === "/hormuz") return "/blue-desk/hormuz";
   if (pathname === "/regime-watch") return "/blue-desk/regime-watch";
+  if (pathname === "/industry-intel") return "/blue-desk/industry-intel";
   if (pathname === "/qqq-positioning") return "/blue-desk/qqq-positioning";
   if (pathname === "/crash-opportunity") return "/blue-desk/crash-opportunity";
   if (pathname.startsWith("/regime-watch/") && PUBLIC_REGIME_LENS_PATH.test(pathname)) return "/blue-desk" + pathname;
@@ -160,6 +161,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     pathname === "/newsroom/week-ahead" || pathname === "/blue-desk/newsroom/week-ahead" ||
     pathname === "/hormuz" || pathname === "/blue-desk/hormuz" ||
     pathname === "/regime-watch" || pathname === "/blue-desk/regime-watch" ||
+    pathname === "/industry-intel" || pathname === "/blue-desk/industry-intel" ||
     pathname === "/qqq-positioning" || pathname === "/blue-desk/qqq-positioning" ||
     pathname === "/crash-opportunity" || pathname === "/blue-desk/crash-opportunity" ||
     PUBLIC_REGIME_LENS_PATH.test(pathname) ||
