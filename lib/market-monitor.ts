@@ -1,6 +1,7 @@
 import { unstable_cache } from "next/cache";
 import {expectedHomeEtfSession,fetchHomeEtfHistory,fetchUsRepairHistory,US_REPAIR_SYMBOLS,XL_FALLBACK_ETFS,type HomeEtf} from "./bluebelly-home-etf-history";
 import {ADDITIONAL_US_STOCKS,EUROPE_STOCKS,ASIA_STOCKS,findStockIdentity} from "./bluebelly-equity-universe";
+import {nasdaqCompletedSessionRange,admitNasdaqSessionDay} from "./bluebelly-nasdaq-session-range.ts";
 import {fetchEuropeanStockHistory} from "./bluebelly-europe-stock-history";
 import {scanEquityEma,type EquityEmaScan} from "./bluebelly-equity-ema";
 import { evaluateMarketSignals, type MarketSignalSnapshot } from "./bluebelly-signal-scan";
@@ -314,9 +315,8 @@ async function mapLimit<T, R>(items: readonly T[], limit: number, worker: (item:
 async function fetchNasdaqHistory(spec: ExtraSpec, options?:{revalidate:number;signal:AbortSignal}): Promise<RawSeries> {
   const expected=expectedHomeEtfSession(new Date());
   if(!expected)throw Error("US session unavailable");
-  const end = new Date(expected+"T00:00:00Z");
-  const start = new Date(end.getTime() - HISTORY_DAYS * 86400000);
-  const endpoint = `https://api.nasdaq.com/api/quote/${encodeURIComponent(spec.providerSymbol)}/historical?assetclass=${spec.assetClass}&fromdate=${isoDate(start)}&todate=${isoDate(end)}&limit=260`;
+  const range=nasdaqCompletedSessionRange(expected,HISTORY_DAYS);
+  const endpoint = `https://api.nasdaq.com/api/quote/${encodeURIComponent(spec.providerSymbol)}/historical?assetclass=${spec.assetClass}&fromdate=${range.from}&todate=${range.to}&limit=260`;
   const response = await fetch(endpoint, {
     headers: {
       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36",
@@ -339,7 +339,7 @@ async function fetchNasdaqHistory(spec: ExtraSpec, options?:{revalidate:number;s
     const match = row.date?.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
     if (close === null || !match) return [];
     const time = Date.UTC(Number(match[3]), Number(match[1]) - 1, Number(match[2])) / 1000;
-    if(time>end.getTime()/1000)return [];
+    if(!admitNasdaqSessionDay(time,expected))return [];
     return [{ time, close, open, high, low, volume: parseNumber(row.volume) }];
   }).sort((a, b) => a.time - b.time).slice(-300);
   return {
@@ -942,6 +942,14 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   // If both branches failed, rows will be empty but not crash.
   const rawRows=[...base,...extras,...cashAnchors,...europeanStocks,...expandedStocks];
   const now=new Date(),expected=expectedHomeEtfSession(now);
+  // Bounded aggregate, no additional provider requests and no raw prices/secrets.
+  // Distinguishes upstream lag from successful source selection.
+  if(expected){
+    const primary=new Map<string,string>();
+    for(const r of rawRows){if(!r.sourceName.startsWith("Nasdaq official")&&!r.sourceName.startsWith("Nasdaq historical")&&!r.sourceName.includes("Nasdaq"))continue;const identity=findStockIdentity(r.symbol);if(identity?.region!=="US")continue;const last=r.points.at(-1);if(!last)continue;const d=new Date(last.time*1000).toISOString().slice(0,10);if(d>(primary.get(r.symbol)??""))primary.set(r.symbol,d);}
+    const dated=[...primary.values()];
+    if(dated.length)console.info(JSON.stringify({event:"bluebelly_nasdaq_completed_session_health",expected,sourceDated:dated.length,latest:dated.filter(d=>d===expected).length,behind:dated.filter(d=>d<expected).length,newest:dated.sort().at(-1)??null}));
+  }
   const homeTape=[{id:"spx-proxy",symbol:"SPY"},{id:"rsp",symbol:"RSP"},
     {id:"ndx",symbol:"QQQ"},{id:"smh",symbol:"SMH"},{id:"soxx",symbol:"SOXX"}] as const;
   const sectorProviderFailures:string[]=[];
