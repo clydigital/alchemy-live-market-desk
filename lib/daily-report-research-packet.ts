@@ -98,6 +98,7 @@ export function buildDailyResearchPacket(input:{
     "Distinguish event time, quote time, publication time, retrieval time and stale data.",
     "Do not treat attributed X posts or creator hypotheses as underlying fact.",
     "Do not invent market causality, a session return, issuer guidance or future releases.",
+    "DYNAMIC EVIDENCE GEMS: compare actual new/revised news, economic events and dated statistics from these receipts to an IF/AND/THEN/UNLESS hypothesis. Select by causal relevance, not only ticker; identify which premise is confirmed, weakened or challenged, why, horizon and next discriminator. Source-listed commentary and upcoming releases are not independent factual evidence. Preserve origin dedupe, competing mechanisms and unresolved status. Use the owner API evidenceGemCandidates when available; the list is not an automatic match or a regime change.",
     "When dates or price series differ, do not synthesize a matched event reaction.",
     "NOTION COVERAGE: "+input.notion.status,
     ...input.notion.warnings.map(w=>"COVERAGE WARNING: "+safe(w,550)),
