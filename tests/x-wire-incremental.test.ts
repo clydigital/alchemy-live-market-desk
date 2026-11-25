@@ -30,6 +30,8 @@ test("Kobeissi ranking priority is opt-in and only for a material eligible post"
  const data=[row("Bluekurtic",1,"SPY moving average and historical breadth signal in 16 prior trading days"),row("KobeissiLetter",2,"Treasury yields and the Fed FOMC interest rate decision")];
  assert.equal(rankXWireMarketCandidates(data,now,12,{prioritizeKobeissi:true})[0].post.handle,"KobeissiLetter");
  assert.notEqual(rankXWireMarketCandidates(data,now,12,{prioritizeKobeissi:true}).length,0);
+ const old=[data[0],{...data[1],publishedAt:"2026-11-24T23:00:00Z"}];
+ assert.equal(rankXWireMarketCandidates(old,now,12,{prioritizeKobeissi:true})[0].post.handle,"Bluekurtic");
 });
 test("source code keeps bounded read-only redaction, registration and quota safeguards",()=>{
  const route=readFileSync(new URL("../app/api/x-wire/discovery/route.ts",import.meta.url),"utf8");
@@ -39,4 +41,11 @@ test("source code keeps bounded read-only redaction, registration and quota safe
  assert.ok(collector.indexOf("Post deduplication lookup failed")<collector.indexOf("quota.total++"));
  assert.match(collector,/GLOBAL_NETWORK_BUDGET_MS/);assert.match(collector,/response.status===429/);
  assert.match(collector,/ignoreDuplicates:true/);assert.match(collector,/orderedRoster/);
+});
+
+test("owner and absorption readers use the same per-account live thresholds as discovery",()=>{
+ for(const path of ["../lib/bluebelly-absorption-health.ts","../lib/x-wire-owner-view.ts"]){
+  const source=readFileSync(new URL(path,import.meta.url),"utf8");
+  assert.match(source,/xWireFreshCheckComplete\(a,now,xWireLiveFreshnessHours\(a.handle\)\)/);
+ }
 });

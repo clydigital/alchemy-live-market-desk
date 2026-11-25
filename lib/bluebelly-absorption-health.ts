@@ -1,7 +1,7 @@
 import "server-only";
 import {createSupabaseAdminClient} from "./supabase/admin.ts";
 import {X_CORE_ROSTER} from "./x-sweep-core.ts";
-import {xWireFreshCheckComplete} from "./x-wire-pagination.ts";
+import {xWireFreshCheckComplete,xWireLiveFreshnessHours} from "./x-wire-pagination.ts";
 
 export type BluebellyAbsorptionHealth={
   checkedAt:string;lastSourceAttemptAt:string|null;monitored:number;healthy:number;freshCompleted:number;historicalGaps:number;
@@ -27,7 +27,7 @@ export async function getBluebellyAbsorptionHealth(now=new Date()):Promise<Blueb
     if(source.error||posts.error||handed.error||runs.error)return null;
     const roster=new Set(X_CORE_ROSTER.map(x=>x.handle.toLowerCase()));
     const rows=(source.data||[]).filter(a=>roster.has(a.handle.toLowerCase()));
-    const fresh=rows.filter(a=>xWireFreshCheckComplete(a,now));
+    const fresh=rows.filter(a=>xWireFreshCheckComplete(a,now,xWireLiveFreshnessHours(a.handle)));
     const healthy=fresh.filter(a=>!a.uncovered_before&&a.health==="healthy").length;
     const completions=(runs.data||[]).filter(r=>r.status==="completed");
     return {
