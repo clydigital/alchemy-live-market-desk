@@ -18,6 +18,7 @@ import PowerStackValuationWorkbench,{type ValuationResearchAsset} from "@/compon
 import {projectIssuerValuationReviews} from "@/lib/power-stack-issuer-valuation";
 import {getMarketMonitor} from "@/lib/market-monitor-public";
 import {projectPublicEquityCoverage} from "@/lib/bluebelly-equity-coverage";
+import {BLUEBELLY_STOCK_UNIVERSE} from "@/lib/bluebelly-equity-universe";
 import {readPublicFundamentalComparison} from "@/lib/bluebelly-fundamental-comparison-server";
 import {projectOpportunityQueue} from "@/lib/power-stack-opportunity-queue";
 import PowerStackOpportunityQueue from "@/components/blue-desk/PowerStackOpportunityQueue";
@@ -203,10 +204,11 @@ export default async function PrivatePowerStack() {
 
   // Reviewer-attested per-issuer valuations live in a *separate* owner-RLS
   // store. An absent table/migration is a visible coverage gap, never a buy.
-  const {data:issuerValuationRows,error:issuerValuationError}=ready&&trackedTickers.length
+  const valuationTickers=[...new Set([...BLUEBELLY_STOCK_UNIVERSE.map(x=>x.ticker),...trackedTickers])].slice(0,250);
+  const {data:issuerValuationRows,error:issuerValuationError}=ready&&valuationTickers.length
     ? await supabase.from("power_stack_issuer_valuation_reviews")
         .select("ticker,reviewed_at,review_status,price_observed_on,market_price,price_currency,price_source_url,source_timestamp_basis,valuation_low,valuation_high,valuation_currency,valuation_method,valuation_source_url,method_explanation,downside_case,invalidation_test,financial_period_end,financials_currency,financials_unit,fundamental_source_url,revenue,net_income,operating_cash_flow,capital_expenditure,share_based_compensation,net_debt,reviewer_note")
-        .eq("owner_user_id",identity.user.id).in("ticker",trackedTickers.slice(0,250))
+        .eq("owner_user_id",identity.user.id).in("ticker",valuationTickers)
         .order("reviewed_at",{ascending:false}).limit(300)
     : {data:null,error:null};
   const issuerReviews=projectIssuerValuationReviews(issuerValuationRows??[],trackedTickers,new Date());
@@ -246,7 +248,7 @@ export default async function PrivatePowerStack() {
   ]);
   const sharedQuotes=ready?projectPublicEquityCoverage(publicTape?.rows??[],researchedAt).rows:[];
   const sharedFundamentals=ready?await readPublicFundamentalComparison(sharedQuotes,researchedAt):null;
-  const opportunities=ready?projectOpportunityQueue(sharedQuotes,sharedFundamentals?.rows??[],issuerReviews,issuers,researchedAt):[];
+  const opportunities=ready?projectOpportunityQueue(sharedQuotes,sharedFundamentals?.rows??[],projectIssuerValuationReviews(issuerValuationRows??[],valuationTickers,researchedAt,250),issuers,researchedAt):[];
   const researchGroups=ready?projectPowerStackResearch(researchAssets,researchReads,researchedAt):[];
   const tapeComparisons=buildMarketDivergenceWatch(publicMarketObservations(publicTape?.rows??[],"all"),"1D");
   const measuredSignals=selectMeasuredMarketSignals(tapeComparisons,"1D",researchedAt,5);
