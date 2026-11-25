@@ -13,6 +13,19 @@ function date(s:string){if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return null;const n=Da
 function monday(n:number){const d=new Date(n).getUTCDay();return n-((d+6)%7)*dayMs;}
 function month(s:string){return Number(s.slice(0,4))*12+Number(s.slice(5,7));}
 const round=(n:number)=>Number(n.toFixed(8));
+/** Common numerical kernel, used by both the owner provider pilot and BB's
+ * completed-session scanner. Inputs must already be chronological, validated
+ * completed closes. First-close seed matches the existing technical pilot. */
+export function calculateEmaBand(closes:readonly number[],period:number,multiplier:number){
+ if(closes.length<period||period<1||!Number.isInteger(period)||!Number.isFinite(multiplier)||multiplier<0)return null;
+ const alpha=2/(period+1);let ema=closes[0];
+ for(let i=1;i<closes.length;i++)ema+=alpha*(closes[i]-ema);
+ const tail=closes.slice(-period),mean=tail.reduce((s,v)=>s+v,0)/period;
+ const sd=Math.sqrt(tail.reduce((s,v)=>s+(v-mean)**2,0)/period);
+ if(!Number.isFinite(ema)||ema<=0||!Number.isFinite(sd))return null;
+ return {ema,sd,lower:ema-multiplier*sd,upper:ema+multiplier*sd,
+  status:closes.length>=5*period?"READY" as const:"SHORT_WARMUP" as const};
+}
 export function unavailableLevels(frame:Frame,reason:string,status:TechnicalLevels["status"]="UNAVAILABLE"):TechnicalLevels{
  return {frame,asOf:null,sampleCount:0,close:null,status,reason,bands:EMA_PERIODS.map((period,i)=>({period,multiplier:EMA_WIDTHS[i],ema:null,sd:null,lower:null,upper:null,status:"INSUFFICIENT",distancePct:null,position:null}))};
 }
@@ -38,13 +51,10 @@ export function calculateTechnicalLevels(input:readonly Bar[],frame:Frame,today:
  const stale=frame==="1month"?month(today)-month(last.day)!==1:frame==="1week"?monday(now)-date(last.day)!>7*dayMs:age>6;
  const bands=EMA_PERIODS.map((period,i):Band=>{
   const multiplier=EMA_WIDTHS[i],empty:Band={period,multiplier,ema:null,sd:null,lower:null,upper:null,status:"INSUFFICIENT",distancePct:null,position:null};
-  if(rows.length<period)return empty;
-  const a=2/(period+1);let ema=rows[0].close;for(const p of rows.slice(1))ema+=a*(p.close-ema);
-  const tail=rows.slice(-period);const mean=tail.reduce((s,p)=>s+p.close,0)/period;
-  const sd=Math.sqrt(tail.reduce((s,p)=>s+(p.close-mean)**2,0)/period);
-  const lower=ema-multiplier*sd,upper=ema+multiplier*sd;
-  // 5 periods of warmup is a conservative parity threshold, not proof of platform parity.
-  return {...empty,ema:round(ema),sd:round(sd),lower:round(lower),upper:round(upper),status:rows.length>=5*period?"READY":"SHORT_WARMUP",distancePct:round((last.close/ema-1)*100),position:last.close>upper?"ABOVE":last.close<lower?"BELOW":"INSIDE"};
+  const result=calculateEmaBand(rows.map(p=>p.close),period,multiplier);
+  if(!result)return empty;
+  const {ema,sd,lower,upper,status}=result;
+  return {...empty,ema:round(ema),sd:round(sd),lower:round(lower),upper:round(upper),status,distancePct:round((last.close/ema-1)*100),position:last.close>upper?"ABOVE":last.close<lower?"BELOW":"INSIDE"};
  });
  return {frame,asOf:last.day,sampleCount:rows.length,close:last.close,status:stale?"STALE":"OK",reason:stale?"Latest completed period not present":null,bands};
 }
