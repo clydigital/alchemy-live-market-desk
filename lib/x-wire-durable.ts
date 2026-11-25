@@ -83,7 +83,7 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
     if(!ids.length)return;
     const {data:knownRows,error:knownError}=await db.from("x_wire_posts").select("post_id").in("post_id",ids);
     if(knownError)throw new Error("Post deduplication lookup failed");
-    const known=new Set((knownRows||[]).map(row=>row.post_id));
+    const known=new Set<string>(((knownRows||[]) as {post_id:string}[]).map(row=>row.post_id));
     const writes=parsed.posts.filter(post=>{
       latest=Math.max(latest,Date.parse(post.publishedAt));
       if(known.has(post.id))return false;
