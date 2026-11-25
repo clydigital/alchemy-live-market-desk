@@ -17,7 +17,8 @@ import PowerStackMeasuredSignals from "@/components/blue-desk/PowerStackMeasured
 import PowerStackValuationWorkbench,{type ValuationResearchAsset} from "@/components/blue-desk/PowerStackValuationWorkbench";
 import {projectIssuerValuationReviews} from "@/lib/power-stack-issuer-valuation";
 import {getMarketMonitor} from "@/lib/market-monitor-public";
-import {BLUEBELLY_STOCK_UNIVERSE} from "@/lib/bluebelly-equity-universe";
+import {readLongEquityHistory} from "@/lib/bluebelly-equity-long-history";
+import {BLUEBELLY_STOCK_UNIVERSE,findStockIdentity} from "@/lib/bluebelly-equity-universe";
 import {readPublicFundamentalComparison} from "@/lib/bluebelly-fundamental-comparison-server";
 import {projectPublicEquityCoverage} from "@/lib/bluebelly-equity-coverage";
 import PowerStackBBMarketSweep from "@/components/blue-desk/PowerStackBBMarketSweep";
@@ -110,7 +111,7 @@ function parseOwnerWatchlist(snapshot: unknown): WatchAsset[] {
   }).sort((a,b)=>(a.rank??999)-(b.rank??999));
 }
 
-export default async function PrivatePowerStack() {
+export default async function PrivatePowerStack({searchParams}:{searchParams:Promise<{technical?:string|string[]}>}) {
   // This page enforces owner identity itself, even if a preview/alias is
   // misconfigured to disable the general middleware dashboard gate.
   const supabase = await createSupabaseServerClient().catch(() => null);
@@ -162,6 +163,10 @@ export default async function PrivatePowerStack() {
   // remain archive-only. Keep original private holdings and manually reviewed theses.
   const publicTape=ready?await getMarketMonitor().catch(()=>null):null;
   const bbCoverage=projectPublicEquityCoverage(publicTape?.rows??[]);
+  const params=await searchParams;
+  const requested=ready&&typeof params.technical==="string"?findStockIdentity(params.technical):undefined;
+  const reference=requested?bbCoverage.rows.find(q=>q.ticker===requested.ticker&&q.status==="SOURCE_DATED"):undefined;
+  const longHistory=requested&&reference?.price!=null&&reference.asOf?await readLongEquityHistory(requested,{price:reference.price,asOf:reference.asOf}):null;
   const privateLevels=(ideaRecords??[]).flatMap(i=>{
     const lo=i.watch_low==null?null:Number(i.watch_low),hi=i.watch_high==null?null:Number(i.watch_high);
     if((lo===null&&hi===null)||(lo!==null&&(!Number.isFinite(lo)||lo<=0))||(hi!==null&&(!Number.isFinite(hi)||hi<=0))||(lo!==null&&hi!==null&&lo>hi))return [];
@@ -278,7 +283,7 @@ export default async function PrivatePowerStack() {
           </div>
         </header>
         <PowerStackDecisionHub now={researchedAt}/>
-        {ready?<PowerStackBBMarketSweep rows={bbCoverage.rows} reviews={issuerReviews} asOf={bbCoverage.asOf} levels={privateLevels} fundamentals={bbFundamentals?.rows??[]} />:null}
+        {ready?<PowerStackBBMarketSweep rows={bbCoverage.rows} reviews={issuerReviews} asOf={bbCoverage.asOf} levels={privateLevels} fundamentals={bbFundamentals?.rows??[]} longHistory={longHistory} />:null}
         {ready?<PowerStackMeasuredSignals signals={measuredSignals} trackedTickers={trackedTickers} topics={researchTopics}/>:null}
         {ready?<PowerStackResearchFocus assets={issuers} now={researchedAt}/>:null}
         {ready?<PowerStackValuationWorkbench assets={issuers} reviews={issuerReviews}
