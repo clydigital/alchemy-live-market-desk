@@ -17,6 +17,10 @@ import PowerStackMeasuredSignals from "@/components/blue-desk/PowerStackMeasured
 import PowerStackValuationWorkbench,{type ValuationResearchAsset} from "@/components/blue-desk/PowerStackValuationWorkbench";
 import {projectIssuerValuationReviews} from "@/lib/power-stack-issuer-valuation";
 import {getMarketMonitor} from "@/lib/market-monitor-public";
+import {projectPublicEquityCoverage} from "@/lib/bluebelly-equity-coverage";
+import {readPublicFundamentalComparison} from "@/lib/bluebelly-fundamental-comparison-server";
+import {projectOpportunityQueue} from "@/lib/power-stack-opportunity-queue";
+import PowerStackOpportunityQueue from "@/components/blue-desk/PowerStackOpportunityQueue";
 import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
 import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
 import {selectMeasuredMarketSignals} from "@/lib/bluebelly-measured-market-signals";
@@ -240,6 +244,9 @@ export default async function PrivatePowerStack() {
    ready?getMarketMonitor().catch(()=>null):Promise.resolve(null),
    ready?getReboundCapitalResearchLeads(researchedAt):Promise.resolve(null),
   ]);
+  const sharedQuotes=ready?projectPublicEquityCoverage(publicTape?.rows??[],researchedAt).rows:[];
+  const sharedFundamentals=ready?await readPublicFundamentalComparison(sharedQuotes,researchedAt):null;
+  const opportunities=ready?projectOpportunityQueue(sharedQuotes,sharedFundamentals?.rows??[],issuerReviews,issuers,researchedAt):[];
   const researchGroups=ready?projectPowerStackResearch(researchAssets,researchReads,researchedAt):[];
   const tapeComparisons=buildMarketDivergenceWatch(publicMarketObservations(publicTape?.rows??[],"all"),"1D");
   const measuredSignals=selectMeasuredMarketSignals(tapeComparisons,"1D",researchedAt,5);
@@ -262,6 +269,7 @@ export default async function PrivatePowerStack() {
         <PowerStackDecisionHub now={researchedAt}/>
         {ready?<PowerStackMeasuredSignals signals={measuredSignals} trackedTickers={trackedTickers} topics={researchTopics}/>:null}
         {ready?<PowerStackResearchFocus assets={issuers} now={researchedAt}/>:null}
+        {ready?<PowerStackOpportunityQueue rows={opportunities} issuerUnavailable={sharedFundamentals?.status!=="OK"}/>:null}
         {ready?<PowerStackValuationWorkbench assets={issuers} reviews={issuerReviews}
           storeError={Boolean(issuerValuationError)}/>:null}
         <NvidiaEarningsDecisionWatch mode="power-stack" now={researchedAt} owner={{
