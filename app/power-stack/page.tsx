@@ -320,7 +320,7 @@ export default async function PrivatePowerStack() {
             </section>
             <section className={portfolio.section} data-power-stack-quotes="dated-manual-observations">
               <h2>Bluebelly source-dated prices · {canonicalQuoteCount}/{trackedTickers.length}</h2>
-              <p>Current market observations are read from Bluebelly only, not a separate Power Stack quote feed. Missing or unsupported symbols are not assigned invented prices.</p>
+              <p>Current market observations are read from Bluebelly only, not a separate Power Stack quote feed; these are not streaming prices. Missing or unsupported symbols are not assigned invented prices.</p>
               <p data-power-stack-peg-coverage="owner-research-only">
                 Forward PEG research: {pegByTicker.size} of {trackedTickers.length} tracked symbols.
                 Uncovered names are not assigned estimates; non-equities, overseas listings and
