@@ -1,0 +1,15 @@
+import type {OpportunityRow} from "@/lib/power-stack-opportunity-queue";
+import s from "./PowerStackValuationWorkbench.module.css";
+const pct=(v:number|null)=>v===null?"Unavailable":v.toFixed(1)+"%";
+export default function PowerStackOpportunityQueue({rows,issuerUnavailable}:{rows:readonly OpportunityRow[];issuerUnavailable:boolean}){
+ const shared=rows.filter(r=>r.scope==="BB_UNIVERSE"),priced=shared.filter(r=>r.price!==null),reviewed=shared.filter(r=>r.model!==null);
+ const dates=[...new Set(priced.map(r=>r.priceDay))].sort();
+ return <section className={s.root} data-owner-opportunity-queue="bluebelly-read-only"><header className={s.header}><div><span>POWER STACK / SHARED BLUEBELLY EVIDENCE</span><h2>Cross-industry opportunity research</h2><p>All shared equities, not just holdings. Range comparisons are conditional arithmetic, not expected returns. Driver tags are qualitative, not measured correlation.</p></div><div className={s.totals}><strong>{priced.length}/{shared.length}</strong><small>DATED BB PRICES</small><span>{reviewed.length} compatible reviewed ranges</span></div></header>
+ <p>Quote sessions: {dates.join(", ")||"Unavailable"}. Dated does not prove the latest exchange session. {issuerUnavailable?"Issuer store unavailable. ":""}No current investment qualification is inferred from missing data.</p>
+ <div className={s.grid}>{rows.map(r=><article key={r.ticker} className={s.card} data-opportunity-state={r.state}><div className={s.meta}><strong>{r.ticker}</strong><span>{r.theme}</span></div><h3>{r.company}</h3><p className={s.badge}>{r.state.replaceAll("_"," ")}</p><p><b>Cash-flow drivers:</b> {r.drivers.join(" · ")}</p><p><b>BB dated quote:</b> {r.price===null?"Unavailable":r.currency+" "+r.price.toFixed(2)+" · "+r.priceDay} {r.priceSource&&<a href={r.priceSource} rel="noreferrer">Source</a>}</p>
+ <p><b>Issuer facts:</b> {r.fundamental?.status??"UNAVAILABLE"} · {r.fundamental?.period??"No period"} · {r.fundamental?.facts.length??0} verified fields</p>
+ {r.fundamental?.valuation&&<p><b>{r.fundamental.valuation.label}:</b> {r.fundamental.valuation.multiple.toFixed(1)}x · <a href={r.fundamental.valuation.sourceUrl} rel="noreferrer">{r.fundamental.valuation.basis}</a></p>}
+ {r.model&&<><p><b>Reviewed lower bound:</b> {r.currency+" "+r.model.valuationLow.toFixed(2)} · distance {pct(r.rangeUpsidePct)}</p><p><b>Illustrative 20% upside ceiling:</b> {r.currency+" "+r.upsideCeiling!.toFixed(2)} · <a href={r.model.valuationSourceUrl} rel="noreferrer">Model</a></p>{r.model.riskFlags.length>0&&<p className={s.warning}>{r.model.riskFlags.join("; ")}</p>}</>}
+ <details><summary>Outstanding evidence</summary><ul>{r.gaps.map(g=><li key={g}>{g}</li>)}</ul>{r.fundamental?.facts.slice(0,8).map(f=><p key={f.key}>{f.label}: {f.value.toLocaleString("en-US")} {f.unit} · <a href={f.sourceUrl} rel="noreferrer">{f.filingDay}</a></p>)}</details></article>)}</div>
+ <p className={s.footer}>Owner-only research queue. No separate price collector, no new positions, no private data in the public feed. Real estate remains valuation-led.</p></section>
+}
