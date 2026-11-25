@@ -57,31 +57,7 @@
     },
     {
       "path": "/api/cron/research/morning-intelligence",
-      "schedule": "40 1 * * *"
-    },
-    {
-      "path": "/api/cron/research/morning-intelligence",
-      "schedule": "45 1 * * *"
-    },
-    {
-      "path": "/api/cron/research/morning-intelligence",
-      "schedule": "50 1 * * *"
-    },
-    {
-      "path": "/api/cron/research/morning-intelligence",
       "schedule": "55 1 * * *"
-    },
-    {
-      "path": "/api/cron/research/morning-intelligence",
-      "schedule": "0 2 * * *"
-    },
-    {
-      "path": "/api/cron/research/morning-intelligence",
-      "schedule": "5 2 * * *"
-    },
-    {
-      "path": "/api/cron/research/morning-intelligence",
-      "schedule": "10 2 * * *"
     },
     {
       "path": "/api/cron/research/morning-intelligence",
@@ -97,31 +73,7 @@
     },
     {
       "path": "/api/cron/research/evening-intelligence",
-      "schedule": "40 13 * * *"
-    },
-    {
-      "path": "/api/cron/research/evening-intelligence",
-      "schedule": "45 13 * * *"
-    },
-    {
-      "path": "/api/cron/research/evening-intelligence",
-      "schedule": "50 13 * * *"
-    },
-    {
-      "path": "/api/cron/research/evening-intelligence",
       "schedule": "55 13 * * *"
-    },
-    {
-      "path": "/api/cron/research/evening-intelligence",
-      "schedule": "0 14 * * *"
-    },
-    {
-      "path": "/api/cron/research/evening-intelligence",
-      "schedule": "5 14 * * *"
-    },
-    {
-      "path": "/api/cron/research/evening-intelligence",
-      "schedule": "10 14 * * *"
     },
     {
       "path": "/api/cron/research/evening-intelligence",

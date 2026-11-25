@@ -73,11 +73,11 @@ test("database triggers never backfill legacy Story or daily_brief for the sourc
   assert.match(file,/\["scheduled", "running", "partial"\]/);
 });
 
-test("source-only phase neither alters the existing cron schedule nor opens private data routes",()=>{
+test("source-only phase retains acquisition and bounded X retry schedules without opening private data routes",()=>{
   const manifest=JSON.parse(read("vercel.json")) as {crons:Array<{path:string;schedule:string}>};
   assert.equal(manifest.crons.filter(x=>x.path.endsWith("/morning")).length,1);
   assert.equal(manifest.crons.filter(x=>x.path.endsWith("/evening")).length,1);
-  assert.equal(manifest.crons.filter(x=>x.path.includes("intelligence")).length,16);
+  assert.equal(manifest.crons.filter(x=>x.path.includes("intelligence")).length,4);
   const routing=read("lib/blue-desk-host.ts");
   assert.match(routing,/blueDeskHostAccess/);
   const human=read("app/my-reports/page.tsx");
