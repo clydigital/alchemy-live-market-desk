@@ -538,7 +538,7 @@ const secondaryPrimarySpec=async(spec:ExtraSpec,options?:{revalidate:number;sign
  if(!preferredEtfSet.has(spec.providerSymbol)&&!preferredEquitySet.has(spec.providerSymbol))return fetchNasdaqHistory(spec,options);
  const signal=options?.signal??AbortSignal.timeout(8500);
  const result=preferredEquitySet.has(spec.providerSymbol)
-  ?await fetchUsEquityCanaryHistory(spec.providerSymbol,new Date(),signal)
+  ?await fetchUsEquityCanaryHistory(spec.providerSymbol,new Date(),signal,fetch,options?.revalidate??EXTRA_REVALIDATE)
   :await fetchUsRepairHistory(spec.providerSymbol,new Date(),signal,fetch,options?.revalidate??EXTRA_REVALIDATE);
  return {id:spec.id,symbol:spec.providerSymbol,label:spec.label,type:spec.type,benchmark:spec.benchmark??null,frequency:"daily",currency:"USD",...result};
 };
