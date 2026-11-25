@@ -4,6 +4,7 @@ import {ADDITIONAL_US_STOCKS,EUROPE_STOCKS,ASIA_STOCKS,findStockIdentity} from "
 import {nasdaqCompletedSessionRange,admitNasdaqSessionDay} from "./bluebelly-nasdaq-session-range.ts";
 import {fetchEuropeanStockHistory} from "./bluebelly-europe-stock-history";
 import {scanEquityEma,type EquityEmaScan} from "./bluebelly-equity-ema";
+import {scanDirectEma} from "./bluebelly-direct-ema";
 import { evaluateMarketSignals, type MarketSignalSnapshot } from "./bluebelly-signal-scan";
 
 import { getMarketData, type BreadthSnapshot, type MarketSeries, type PricePoint } from "@/lib/market";
@@ -52,6 +53,7 @@ export type MarketMonitorRow = {
   /** Bounded, source-dated public screening summary, not raw provider candles. */
   screening?: MarketSignalSnapshot | null;
   emaScan?: EquityEmaScan | null;
+  directEmaScope?: NonNullable<ReturnType<typeof scanDirectEma>>["scope"];
   volPercentile: number | null;
   relative5d: number | null;
   attentionScore: number;
@@ -496,7 +498,7 @@ async function fetchGoldSpotSeries(): Promise<RawSeries> {
 
 async function fetchBitcoinSpotSeries(): Promise<RawSeries> {
   const end = Math.floor(Date.now() / 1000);
-  const start = end - 35 * 86400;
+  const start = end - 280 * 86400; // one existing Coinbase request, below the 300-candle limit
   const endpoint = `https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=86400&start=${new Date(start * 1000).toISOString()}&end=${new Date(end * 1000).toISOString()}`;
   const response = await fetch(endpoint, {
     headers: { accept: "application/json", "user-agent": "Alchemy Live Desk" },
@@ -816,7 +818,8 @@ function makeRows(rawSeries: RawSeries[]): MarketMonitorRow[] {
       points: points.slice(["spx","nasdaq-comp","smh"].includes(raw.id)?-126:-64)
         .map((point) => ({ time: point.time, close: point.close })),
     } satisfies Omit<MarketMonitorRow, "attentionScore" | "hot" | "contradiction" | "tags">;
-    return row;
+    const direct=scanDirectEma(raw,points);
+    return direct?{...row,emaScan:direct.scan,directEmaScope:direct.scope}:row;
   });
   const byId = new Map(prelim.map((row) => [row.id, row]));
   return prelim.map((row) => {
