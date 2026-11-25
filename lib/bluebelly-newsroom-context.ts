@@ -3,6 +3,11 @@ export type NewsroomContext={players:string;marketRelevance:string;research:read
 /** Editor-reviewed context for exact dated records, not inferred customers,
  * verified price causality, or a canonical thesis update. */
 const CONTEXT:Record<string,NewsroomContext>={
+ "xlk-critical-support-2026-11-25":{
+  players:"XLK tracks S&P 500 technology companies. Nvidia sells AI chips; Oracle and CoreWeave provide computing capacity to customers. Their financing conditions matter to future infrastructure demand, rather than just Nvidia's leadership.",
+  marketRelevance:"The technology reversal alongside gains in nine sectors points to possible rotation. Rising AI-linked credit risk could constrain investment. The $142.66 channel midpoint is an AlchemyMarkets technical watch level, not a guaranteed target.",
+  research:[{lens:"ai",question:"Can AI buyers generate cash returns sufficient to sustain chip and infrastructure spending?"},{lens:"bonds",question:"Is AI issuer credit stress spreading to the wider corporate market?"},{lens:"breadth",question:"Does the rotation persist across matched sessions?"},{lens:"fed",question:"Does the PCE release and yield response ease financing pressure?"}]
+ },
  "anthropic-ipo-pricing-debut-2026-11-19":{
   players:"Anthropic develops AI models. Its offering raises capital for the business, which needs computing infrastructure to develop and serve those models. Public investors are funding that expansion; the cited pricing does not identify new customer contracts.",
   marketRelevance:"More funding could support compute purchases and infrastructure demand. For investors, the key distinction is capital raised versus the cash the business can ultimately earn from customers.",
