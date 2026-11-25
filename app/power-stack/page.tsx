@@ -6,6 +6,8 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import styles from "@/app/blue-desk/blue-desk.module.css";
 import portfolio from "./private-power-stack.module.css";
 import {repricePegResearch,type PegResearchObservation,type RebasedPegResearchEvaluation} from "@/lib/power-stack-peg-research";
+import {projectEstimateHistory} from "@/lib/power-stack-estimate-history";
+import PowerStackEstimateHistory from "@/components/blue-desk/PowerStackEstimateHistory";
 import PowerStackResearchFocus from "@/components/blue-desk/PowerStackResearchFocus";
 import {getTopicInfluences} from "@/lib/bluebelly-topic-influence-server";
 import {powerStackResearchTopics,projectPowerStackResearch,type PowerStackTracked} from "@/lib/power-stack-research-links";
@@ -291,6 +293,7 @@ export default async function PrivatePowerStack({searchParams}:{searchParams:Pro
         {ready?<PowerStackMeasuredSignals signals={measuredSignals} trackedTickers={trackedTickers} topics={researchTopics}/>:null}
         {ready?<PowerStackResearchFocus assets={issuers} now={researchedAt}/>:null}
         {ready?<PowerStackOpportunityQueue rows={opportunities} issuerUnavailable={bbFundamentals?.status!=="OK"}/>:null}
+        {ready?<PowerStackEstimateHistory rows={pegError?[]:projectEstimateHistory((pegRecords??[]) as PegResearchObservation[],researchedAt)} unavailable={!!pegError} limited={(pegRecords??[]).length>=300}/>:null}
         {ready?<PowerStackValuationWorkbench assets={issuers} reviews={issuerReviews}
           storeError={Boolean(issuerValuationError)}/>:null}
         <NvidiaEarningsDecisionWatch mode="power-stack" now={researchedAt} owner={{
