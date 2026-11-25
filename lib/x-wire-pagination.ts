@@ -22,9 +22,15 @@ export function xWireFreshCheckComplete(row:SourceCheckpoint,now:Date,maxAgeHour
     ((row.health==="healthy"&&!row.last_error)||
      (row.health==="partial"&&row.last_error===X_WIRE_HISTORICAL_GAP_ERROR));
 }
-export function xWireNeedsRetry(row:SourceCheckpoint|undefined,now:Date){
-  return !row||!xWireFreshCheckComplete(row,now);
+export function xWireNeedsRetry(row:SourceCheckpoint|undefined,now:Date,maxAgeHours=15){
+  return !row||!xWireFreshCheckComplete(row,now,maxAgeHours);
 }
+/** Keep priority separate from the stable roster and preserve fairness among other accounts. */
+export function xWireAcquisitionPriority(handle:string,lastCompletedAt:string|null|undefined):[number,number] {
+ const time=Date.parse(lastCompletedAt||"");
+ return [handle.toLowerCase()==="kobeissiletter"?0:1,Number.isFinite(time)?time:0];
+}
+export function xWireLiveFreshnessHours(handle:string){return handle.toLowerCase()==="kobeissiletter"?2:2.5;}
 /** Search is a bounded alternate discovery route, NEVER timeline coverage proof. */
 export function xWireSearchFallbackUrl(handle:string,startAt:string){
   if(!/^[A-Za-z0-9_]{1,15}$/.test(handle)||isExcludedXWireHandle(handle)||
