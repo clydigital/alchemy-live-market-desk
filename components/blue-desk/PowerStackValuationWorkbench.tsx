@@ -4,7 +4,7 @@ import type {RebasedPegResearchEvaluation} from "@/lib/power-stack-peg-research"
 import s from "./PowerStackValuationWorkbench.module.css";
 export type ValuationResearchAsset=Readonly<{
  ticker:string;name:string;
- scope:"archived_holding"|"archived_watchlist"|"bond_watch";
+ scope:"archived_holding"|"archived_watchlist"|"bb_market"|"bond_watch";
  peg:(RebasedPegResearchEvaluation & {analystsFirst:number|null;analystsSecond:number|null;source:string;forecastSourceUrl:string})|null;
  quote:{price:number;currency:string;observed_on:string;source_url:string;timestamp_basis:string}|null;
 }>;
