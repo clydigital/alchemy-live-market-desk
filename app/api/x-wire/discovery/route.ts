@@ -7,6 +7,7 @@ import type {XWireDurable} from "@/lib/x-wire-durable";
 import {readXWireResearchPool,type XWireResearchRow} from "@/lib/x-wire-research-pool";
 import {xWireSourceMaterial} from "@/lib/x-wire-source-material";
 import {xWireFreshCheckComplete,xWireLiveFreshnessHours} from "@/lib/x-wire-pagination";
+import {parseXWireDeltaWindow,xWireDeltaPage} from "@/lib/x-wire-incremental";
 
 export const dynamic="force-dynamic";
 export const runtime="nodejs";
@@ -37,7 +38,7 @@ export async function GET(request:NextRequest){
    images:p.media_urls||[],quoteUrl:p.quote_url,attribution:"THIRD_PARTY_ONLY" as const,
    intakeStatus:p.intake_status
   })) as (XWireDurable["posts"][number]&{retrievedAt:string})[];
-  const leads=rankXWireMarketCandidates(posts,now,12).map(({post,theme,priority})=>{
+  const leads=rankXWireMarketCandidates(posts,now,12,{prioritizeKobeissi:true}).map(({post,theme,priority})=>{
    const p=posts.find(x=>x.id===post.id);
    return {postId:post.id,handle:post.handle,url:post.url,
     publishedAt:post.publishedAt,retrievedAt:p?.retrievedAt||null,
@@ -54,27 +55,24 @@ export async function GET(request:NextRequest){
   // Optional bounded consumer delta, independent of ranked highlights. Same public redaction.
   // The readback clock is insertion/retrieval, not a claim that the provider timeline is complete.
   const params=request.nextUrl.searchParams;
-  const since=params.get("since"), until=params.get("until")||now.toISOString(), afterId=params.get("afterId");
+  const since=params.get("since");
   let incremental:unknown=undefined;
-  if(since!==null){
-   const start=Date.parse(since),end=Date.parse(until);
-   if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start||end>now.getTime()+1000||
-      end-start>24*3_600_000||(afterId!==null&&(!params.has("until")||!/^\d{6,25}$/.test(afterId)))){
-    return NextResponse.json({error:"Invalid bounded incremental window"},{status:400,headers:{"Cache-Control":"no-store"}});
-   }
-   const startIso=new Date(start).toISOString(),endIso=new Date(end).toISOString();
-   let query=db.from("x_wire_posts").select("post_id,handle,original_url,published_at,retrieved_at,body")
+  if(since!==null||params.has("afterId")||params.has("until")){
+   const window=parseXWireDeltaWindow(params,now);
+   if(!window)return NextResponse.json({error:"Invalid bounded incremental window"},{status:400,headers:{"Cache-Control":"no-store"}});
+   let query=db.from("x_wire_posts").select("post_id,handle,original_url,published_at,retrieved_at,body,media_urls,quote_url")
     .in("handle",X_CORE_ROSTER.map(x=>x.handle)).eq("intake_status","discovery")
-    .gt("retrieved_at",startIso).lte("retrieved_at",endIso).lte("published_at",endIso)
+    .gt("retrieved_at",window.since).lte("retrieved_at",window.until).lte("published_at",window.until)
     .order("post_id",{ascending:true}).limit(41);
-   if(afterId)query=query.gt("post_id",afterId);
+   if(window.afterId)query=query.gt("post_id",window.afterId);
    const delta=await query;
    if(delta.error)throw new Error("X incremental ledger read failed");
-   const rows=delta.data||[], page=rows.slice(0,40);
-   incremental={scope:"REDACTED_DISCOVERY_ONLY",since:startIso,until:endIso,
-    more:rows.length>40,nextAfterId:rows.length>40?page[page.length-1].post_id:null,
+   const {page,more,nextAfterId}=xWireDeltaPage((delta.data||[]) as Omit<XWireResearchRow,"intake_status">[]);
+   incremental={scope:"REDACTED_DISCOVERY_ONLY",since:window.since,until:window.until,
+    more,nextAfterId,
     items:page.map(p=>({postId:p.post_id,handle:p.handle,url:p.original_url,
      publishedAt:p.published_at,retrievedAt:p.retrieved_at,excerpt:p.body.slice(0,240),
+     sourceMaterial:xWireSourceMaterial({text:p.body,images:p.media_urls||[],quoteUrl:p.quote_url}),
      verification:"UNVERIFIED_SOCIAL_LEAD" as const}))};
   }
   return NextResponse.json({
