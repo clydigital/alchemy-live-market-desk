@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
 import {readFileSync} from "node:fs";
-import {parseCreatorDigest,parseCreatorDigestHtml,orderCreatorSignals,creatorMarketMatch,creatorSignalGroup,type CreatorDigest} from "../lib/bluebelly-creator-signals.ts";
+import {corporateBondBias,parseCreatorDigest,parseCreatorDigestHtml,orderCreatorSignals,creatorMarketMatch,creatorSignalGroup,type CreatorDigest} from "../lib/bluebelly-creator-signals.ts";
 import type {PublicMarketObservation} from "../lib/blue-desk-public-markets.ts";
 
 const now=new Date("2026-11-19T10:30:00Z");
@@ -112,4 +112,17 @@ test("one malformed asset signal cannot erase a fresh owner digest or other crea
  assert.equal(result?.creators[0].views.length,1);
  assert.equal(result?.generatedAt,d.generatedAt);
  assert.match(result?.coverage??"",/omitted 2/);
+});
+
+test("corporate bonds use bond direction and reverse explicit credit spread direction",()=>{
+ const call=(asset:string,bias:"Bullish"|"Bearish"|"Neutral")=>corporateBondBias({...row(asset),bias});
+ assert.equal(call("HYG","Bullish"),"Bullish");
+ assert.equal(call("LQD","Bearish"),"Bearish");
+ assert.equal(call("Investment-grade corporate bonds","Bullish"),"Bullish");
+ assert.equal(call("High-yield credit spreads","Bullish"),"Bearish");
+ assert.equal(call("BAMLC0A0CM","Bearish"),"Bullish");
+ assert.equal(call("Corporate bond OAS","Neutral"),"Neutral");
+ assert.equal(call("US10Y","Bullish"),null);
+ assert.equal(call("TLT","Bearish"),null);
+ assert.equal(call("NVDA","Bullish"),null);
 });
