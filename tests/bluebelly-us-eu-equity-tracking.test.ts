@@ -16,9 +16,13 @@ function exampleChart(ticker:string,currency:string,days:string[],closes:number[
 }
 test("stock roster is public curated, uniquely keyed and accurately disambiguated",()=>{
  const c=stockUniverseCoverage();
- assert.deepEqual(c,{total:37,byRegion:{US:25,EU:12}});
+ assert.deepEqual(c,{total:48,byRegion:{US:36,EU:12}});
  assert.equal(BLUEBELLY_STOCK_UNIVERSE.length,new Set(BLUEBELLY_STOCK_UNIVERSE.map(x=>x.ticker)).size);
  assert.equal(BLUEBELLY_STOCK_UNIVERSE.length,new Set(BLUEBELLY_STOCK_UNIVERSE.map(x=>x.monitorId)).size);
+ for(const ticker of ["MAA","TOL","PHM","INVH","ESS","CPT","AMH","NVR","JLL","CBRE","RKT"]){
+  assert.equal(findStockIdentity(ticker)?.theme,"REAL_ESTATE");
+  assert(ADDITIONAL_US_STOCKS.some(x=>x.ticker===ticker));
+ }
  assert.equal(findStockIdentity("SPCX")?.company,"SpaceX Class A");
  assert.equal(findStockIdentity("ASML.AS")?.currency,"EUR");
  assert.equal(findStockIdentity("NOVO-B.CO")?.currency,"DKK");
@@ -71,7 +75,7 @@ test("public coverage excludes expired source dates and never reveals any user p
  const wrongCurrency={...row,currency:"USD"} as MarketMonitorRow;
  const accepted=projectPublicEquityCoverage([row],now),expired=projectPublicEquityCoverage([stale],now);
  assert.equal(accepted.contractVersion,"bluebelly-equity-coverage/1");
- assert.equal(accepted.coverage.tracked,37);
+ assert.equal(accepted.coverage.tracked,48);
  assert.equal(accepted.coverage.sourceDated,1);
  assert.equal(accepted.rows.find(x=>x.ticker==="ASML.AS")?.price,1025);
  assert.equal(expired.rows.find(x=>x.ticker==="ASML.AS")?.price,null);
