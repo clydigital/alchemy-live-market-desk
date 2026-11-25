@@ -9,8 +9,8 @@ export type EuDailyBar={
  volume:number|null;
 };
 export type EuStockHistory={
- id:string;symbol:string;label:string;currency:"EUR"|"DKK";
- type:"Europe Stock";benchmark:null;points:EuDailyBar[];
+ id:string;symbol:string;label:string;currency:StockIdentity["currency"];
+ type:"Europe Stock"|"Asia Stock";benchmark:null;points:EuDailyBar[];
  sourceName:string;sourceUrl:string;frequency:"daily";
 };
 const dayParts=(date:Date,timeZone:string)=>Object.fromEntries(
@@ -25,14 +25,14 @@ const number=(x:unknown)=>typeof x==="number"&&Number.isFinite(x)&&x>0?x:null;
  * gate is intentionally conservative for Xetra/Euronext/Copenhagen.
  */
 export function euroSessionIsCompleted(day:string,spec:StockIdentity,now:Date):boolean{
- if(spec.region!=="EU"||!/^20\d{2}-\d{2}-\d{2}$/.test(day))return false;
+ if(spec.region==="US"||!/^20\d{2}-\d{2}-\d{2}$/.test(day))return false;
  const p=dayParts(now,spec.timeZone),today=localDay(p);
  if(day>today)return false;
  if(day<today)return true;
- return p.weekday!=="Sat"&&p.weekday!=="Sun"&&Number(p.hour)>=18;
+ return p.weekday!=="Sat"&&p.weekday!=="Sun"&&Number(p.hour)>=(spec.region==="ASIA"?18:18);
 }
 export function parseEuropeanStockChart(payload:unknown,spec:StockIdentity,now:Date):EuDailyBar[]{
- if(spec.region!=="EU")throw Error("Only curated EU listings allowed");
+ if(spec.region==="US")throw Error("Only curated non-US listings allowed");
  const root=payload as {chart?:{error?:unknown;result?:Array<{meta?:{symbol?:string;currency?:string};
   timestamp?:unknown;indicators?:{quote?:Array<Record<string,unknown>>}}>}}|null;
  const chart=root?.chart;
@@ -66,10 +66,10 @@ export function parseEuropeanStockChart(payload:unknown,spec:StockIdentity,now:D
 export async function fetchEuropeanStockHistory(
  spec:StockIdentity,now=new Date(),fetcher:typeof fetch=fetch,
 ):Promise<EuStockHistory>{
- if(spec.region!=="EU")throw Error("Cannot request non-EU stock on EU connector");
- if(spec.currency!=="EUR"&&spec.currency!=="DKK")throw Error("EU quote currency cannot be USD");
+ if(spec.region==="US")throw Error("Cannot request US stock on local listing connector");
+ if(spec.currency==="USD")throw Error("Local quote currency cannot be USD");
  // Exactly curated symbols, never request-supplied URL parameters.
- if(!/^[A-Z0-9-]{1,12}\.(AS|DE|PA|CO)$/.test(spec.providerSymbol))throw Error("Unexpected EU chart symbol");
+ if(!/^[A-Z0-9-]{1,12}\.(AS|DE|PA|CO|KL|KS|TWO|HK|SS)$/.test(spec.providerSymbol))throw Error("Unexpected EU chart symbol");
  const sourceUrl="https://query1.finance.yahoo.com/v8/finance/chart/"+
   encodeURIComponent(spec.providerSymbol)+"?range=1y&interval=1d";
  const response=await fetcher(sourceUrl,{headers:{"accept":"application/json","user-agent":"Mozilla/5.0 Bluebelly Markets Monitor"},
@@ -77,8 +77,8 @@ export async function fetchEuropeanStockHistory(
  if(!response.ok)throw Error("EU chart source "+response.status);
  const payload=await response.json();
  const points=parseEuropeanStockChart(payload,spec,now);
- return {id:spec.monitorId,symbol:spec.ticker,label:spec.company,currency:spec.currency as "EUR"|"DKK",
-  type:"Europe Stock",benchmark:null,points,
+ return {id:spec.monitorId,symbol:spec.ticker,label:spec.company,currency:spec.currency,
+  type:spec.region==="EU"?"Europe Stock":"Asia Stock",benchmark:null,points,
   sourceName:"Yahoo Finance public daily chart (secondary; delayed)",
   sourceUrl:"https://finance.yahoo.com/quote/"+encodeURIComponent(spec.providerSymbol)+"/history/",
   frequency:"daily"};
