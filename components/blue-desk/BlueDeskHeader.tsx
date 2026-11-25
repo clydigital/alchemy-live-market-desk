@@ -31,6 +31,7 @@ const PUBLIC_MORE = [
   ["Newsroom", "/newsroom"],
   ["Research Archive", "/research"],
   ["Regime Lenses", "/regime-watch"],
+  ["Industry Intel", "/industry-intel"],
   ["Hormuz Data", "/hormuz"],
   ["Learn", "/learn"],
 ] as const;
@@ -41,6 +42,7 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Newsroom": "research",
   "Research Archive": "library",
   "Regime Lenses": "divergence",
+  "Industry Intel": "layers",
   "Hormuz Data": "oil",
   "Hormuz Watch": "oil",
   "Regime Watch": "divergence",
