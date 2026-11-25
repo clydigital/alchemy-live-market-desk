@@ -55,11 +55,13 @@ test("private cron isolation retained with additional first-party US macro check
  const job=read("lib/bluebelly-scheduled-daily-html-job.ts");
  const migration=read("supabase/migrations/20261101095000_scheduled_private_daily_html_fallback.sql");
  const vercel=JSON.parse(read("vercel.json")) as {crons:{path:string;schedule:string}[]};
- // Preserve the existing non-actual jobs plus daily calendar discovery and read-only US economic health.
- // The three prior checks are retained and a winter 08:42 ET official retry added.
+ // The authorised source-only consolidation removes twelve legacy intelligence polls.
+ // Private handoff, calendar discovery and all four official-actuals windows stay intact.
  const original=vercel.crons.filter(item=>item.path!=="/api/cron/research/official-actuals");
  const actuals=vercel.crons.filter(item=>item.path==="/api/cron/research/official-actuals");
- assert.equal(original.length,46);
+ assert.equal(original.length,34);
+ assert.equal(original.filter(item=>item.path.endsWith("-intelligence")).length,4);
+ assert.deepEqual(original.filter(item=>item.path==="/api/cron/research-gap/handoff").map(item=>item.schedule),["30 3 * * *","45 3 * * *","30 15 * * *","45 15 * * *"]);
  assert.deepEqual(vercel.crons.filter(item=>item.path==="/api/cron/calendar/discover").map(item=>item.schedule),["0 1 * * *"]);
  assert.deepEqual(actuals.map(item=>item.schedule),["42 12 * * *","42 13 * * *","12 14 * * *","12 15 * * *"]);
  assert.match(route,/runPrivateDailyHtmlFallback\(request,now\)/);

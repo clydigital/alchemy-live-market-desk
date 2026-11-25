@@ -2,9 +2,8 @@ name: Run Live Research Now
 
 on:
   schedule:
-    - cron: "30 2 * * *"
+    # One cross-scheduler fallback per canonical slot, after Vercel primary/watchdogs.
     - cron: "45 2 * * *"
-    - cron: "30 14 * * *"
     - cron: "45 14 * * *"
     # Research Gap scheduled ownership is Vercel-primary. GitHub retains
     # workflow_dispatch research_gap_cycle as an audited manual fallback.
