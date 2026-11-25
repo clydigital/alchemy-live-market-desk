@@ -1,10 +1,11 @@
 import {BLUEBELLY_STOCK_UNIVERSE,stockUniverseCoverage,type StockIdentity} from "./bluebelly-equity-universe.ts";
+import type {EquityEmaScan} from "./bluebelly-equity-ema";
 import type {MarketMonitorRow} from "./market-monitor";
 
 export type EquityCoverageStatus="SOURCE_DATED"|"MONITORED_UNAVAILABLE";
 export type PublicEquityCoverageRow=Pick<StockIdentity,
  "ticker"|"company"|"region"|"exchange"|"currency"|"timeZone"|"priority"|"theme"> & {
-  status:EquityCoverageStatus;price:number|null;changePct:number|null;change3dPct?:number|null;change5dPct?:number|null;
+  status:EquityCoverageStatus;price:number|null;changePct:number|null;change3dPct?:number|null;change5dPct?:number|null;emaScan?:EquityEmaScan|null;
   asOf:string|null;sourceName:string|null;sourceUrl:string|null;
 };
 export type PublicEquityCoverage={
@@ -43,6 +44,7 @@ export function projectPublicEquityCoverage(
    price:ok?row!.last:null,changePct:ok&&Number.isFinite(row!.dayChange)?row!.dayChange:null,
    change3dPct:ok&&Number.isFinite(row!.change3d)?row!.change3d:null,
    change5dPct:ok&&Number.isFinite(row!.change5d)?row!.change5d:null,
+   emaScan:ok&&row!.emaScan?.asOf===row!.asOf?row!.emaScan:null,
    asOf:ok?row!.asOf:null,sourceName:ok?row!.sourceName:null,sourceUrl:ok?row!.sourceUrl:null};
  });
  const coverage=stockUniverseCoverage(),available=projected.filter(x=>x.status==="SOURCE_DATED").length;
