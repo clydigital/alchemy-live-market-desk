@@ -13,10 +13,10 @@ type Props = {
   flows: GlobalFlowMonitor;
 };
 
-type Screen = "all" | "hot" | "gainers" | "losers" | "overbought" | "oversold" | "gap" | "highvol" | "relative" | "contradiction";
+type Screen = "all" | "hot" | "gainers" | "losers" | "overbought" | "oversold" | "gap" | "highvol" | "relative" | "contradiction" | "ema";
 type SortKey = "attention" | "day" | "3d" | "5d" | "rsi" | "vol" | "type";
 
-const TYPE_ORDER: MarketMonitorType[] = ["Major Index", "AI / Semis", "MAG7", "US Stock", "Europe Stock", "Asia Stock", "Sector", "Metal", "Energy", "FX", "Rates", "Credit / Risk", "IPO / New Issue", "Crypto"];
+const TYPE_ORDER: MarketMonitorType[] = ["Major Index", "AI / Semis", "MAG7", "US Stock", "Europe Stock", "Asia Stock", "Sector", "Metal", "Energy", "FX", "Rates", "Bond ETF", "Credit / Risk", "IPO / New Issue", "Crypto"];
 
 function formatPrice(value: number | null, type: MarketMonitorType,currency?:string|null) {
   if (value == null) return "—";
@@ -72,6 +72,7 @@ function filterRow(row: MarketMonitorRow, screen: Screen, lower: number, upper: 
   if (screen === "highvol") return row.volPercentile != null && row.volPercentile >= 80;
   if (screen === "relative") return row.relative5d != null && Math.abs(row.relative5d) >= 2;
   if (screen === "contradiction") return row.contradiction;
+  if (screen === "ema") return !!row.emaScope && row.emaScope.status==="CURRENT" && !!row.emaScan?.observations.some(o=>o.warmup==="READY"&&Object.values(o.windows).some(w=>w&&(w.events.length>0||((w.approach==="down_to"||w.approach==="up_to")&&Math.abs(o.distancePct)<=3))));
   return true;
 }
 
@@ -180,6 +181,11 @@ export default function MarketsMonitor({ monitor, flows }: Props) {
       <p className={styles.breadthFootnote}>Percentages are of eligible measured stocks, not every index constituent. Missing or sparse Nasdaq histories are not treated as zero breadth. The US large-cap series is a fixed proxy basket, not an official S&amp;P index calculation.</p>
     </section> : null}
 
+    <section className={styles.breadthPanel}>
+      <header><span>EMA / SD · CROSS-ASSET</span><h2>ETF and cash index coverage</h2><p>{monitor.rows.filter(r=>r.emaScope?.status==="CURRENT").length} current source-dated instruments · {monitor.rows.filter(r=>r.emaScope?.status==="BEHIND").length} lagging · select an asset for detailed EMA states. Unverified cash spot and monthly series are excluded; ETF proxy prices are not underlying spot prices.</p></header>
+      <button type="button" onClick={()=>{setType("All");setQuery("");setScreen("ema");}}>Show current EMA approaches and crossings</button>
+    </section>
+
     <MarketTrendChart rows={monitor.rows} selectedId={trendSelectedId} onSelect={setTrendSelectedId} nowIso={monitor.updatedAt} />
 
     <section className={styles.terminal}>
@@ -191,7 +197,7 @@ export default function MarketsMonitor({ monitor, flows }: Props) {
       <div className={styles.controls}>
         <label className={styles.search}><span>Search</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="NVDA, oil, sector, oversold..." /></label>
         <label><span>Type</span><select value={type} onChange={(event) => setType(event.target.value as "All" | MarketMonitorType)}><option>All</option>{types.map((item) => <option key={item}>{item}</option>)}</select></label>
-        <label><span>Screen</span><select value={screen} onChange={(event) => setScreen(event.target.value as Screen)}><option value="all">All</option><option value="hot">HOT</option><option value="gainers">Gainers</option><option value="losers">Losers</option><option value="overbought">Overbought</option><option value="oversold">Oversold</option><option value="gap">Gap ≥1%</option><option value="highvol">High volatility</option><option value="relative">Relative outlier</option><option value="contradiction">Contradictions</option></select></label>
+        <label><span>Screen</span><select value={screen} onChange={(event) => setScreen(event.target.value as Screen)}><option value="all">All</option><option value="hot">HOT</option><option value="gainers">Gainers</option><option value="losers">Losers</option><option value="overbought">Overbought</option><option value="oversold">Oversold</option><option value="gap">Gap ≥1%</option><option value="highvol">High volatility</option><option value="relative">Relative outlier</option><option value="contradiction">Contradictions</option><option value="ema">ETF / index EMA watch</option></select></label>
         <label><span>Sort</span><select value={sort} onChange={(event) => setSort(event.target.value as SortKey)}><option value="attention">HOT score</option><option value="day">Daily move</option><option value="3d">3D move</option><option value="5d">5D move</option><option value="rsi">RSI extreme</option><option value="vol">Volatility</option><option value="type">Asset type</option></select></label>
         <div className={styles.rsiThreshold}><span>RSI limits</span><div><input type="number" min="0" max="50" value={lower} onChange={(event) => setLower(Number(event.target.value) || 30)} aria-label="Oversold RSI threshold" /><i>/</i><input type="number" min="50" max="100" value={upper} onChange={(event) => setUpper(Number(event.target.value) || 70)} aria-label="Overbought RSI threshold" /></div></div>
       </div>
@@ -224,7 +230,12 @@ export default function MarketsMonitor({ monitor, flows }: Props) {
               <div><span>Relative 5D</span><strong>{formatPct(row.relative5d)}</strong></div>
               <div><span>Frequency</span><strong>{row.frequency}</strong></div>
               <div className={styles.detailSource}><span>Source</span><a href={row.sourceUrl} target="_blank" rel="noreferrer">{row.sourceName} ↗</a></div>
-            </div></td></tr> : null}
+            </div>{row.emaScan?<section>
+              <h3>EMA / SD · {row.emaScope?row.emaScope.instrument+" "+row.emaScope.kind+" · "+row.emaScope.status+" (expected "+row.emaScope.expectedSession+")":"Source-dated equity"} · {row.emaScan.asOf}</h3>
+              <p>Completed observations; short warm-up is indicative. 1/3/5-session changes are not intraday retests.</p>
+              <div className={styles.breadthTableWrap}><table><thead><tr><th>Anchor</th><th>EMA</th><th>Lower SD</th><th>Upper SD</th><th>Side / distance</th><th>Warm-up</th><th>Recent activity</th></tr></thead><tbody>{row.emaScan.observations.map(o=><tr key={o.frame+o.period}><td>{o.frame}{o.period}</td><td>{formatPrice(o.ema,row.type,row.currency)}</td><td>{formatPrice(o.lower,row.type,row.currency)}</td><td>{formatPrice(o.upper,row.type,row.currency)}</td><td>{o.side} · {formatPct(o.distancePct)}</td><td>{o.warmup}</td><td>{Object.entries(o.windows).filter(([,w])=>w&&(w.events.length||w.approach==="down_to"||w.approach==="up_to")).map(([k,w])=>k+"D "+w!.approach+" · "+w!.events.map(e=>e.boundary+" "+e.direction+" "+e.session).join(", ")).join("; ")||"—"}</td></tr>)}</tbody></table></div>
+              <p>Unavailable anchors: {row.emaScan.unavailable.join(", ")||"none"}</p>
+            </section>:null}</td></tr> : null}
           </>)}</tbody>
         </table>
       </div>
