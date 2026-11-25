@@ -10,7 +10,7 @@ type Frame="D"|"W"|"M";
 type State="above"|"below"|"at";
 type Band="above_upper"|"below_lower"|"inside";
 type Cross="up"|"down"|"none";
-export type EmaObservation={frame:Frame;period:number;multiplier:number;asOf:string;anchorDay:string;warmup:"READY"|"SHORT_WARMUP";ema:number;upper:number;lower:number;distancePct:number;side:State;band:Band;windows:Record<"1"|"3"|"5",{returnPct:number;approach:"down_to"|"up_to"|"away"|"none";emaCross:Cross;upperCross:Cross;lowerCross:Cross;events:{session:string;boundary:"ema"|"upper"|"lower";direction:"up"|"down"}[]}|null>};
+export type EmaObservation={frame:Frame;period:number;multiplier:number;asOf:string;anchorDay:string;sampleCount?:number;requiredReadySamples?:number;warmup:"READY"|"SHORT_WARMUP";ema:number;upper:number;lower:number;distancePct:number;side:State;band:Band;windows:Record<"1"|"3"|"5",{returnPct:number;approach:"down_to"|"up_to"|"away"|"none";emaCross:Cross;upperCross:Cross;lowerCross:Cross;events:{session:string;boundary:"ema"|"upper"|"lower";direction:"up"|"down"}[]}|null>};
 export type EquityEmaScan={asOf:string;method:"FIRST_CLOSE_EMA_ROLLING_CLOSE_POPULATION_SD";observations:EmaObservation[];unavailable:string[]};
 const periods=EMA_PERIODS.map((period,i)=>[period,EMA_WIDTHS[i]] as const);
 const day=(t:number)=>new Date(t*1000).toISOString().slice(0,10);
@@ -19,7 +19,7 @@ function localDay(now:Date,tz:string){const p=Object.fromEntries(new Intl.DateTi
 function anchors(bars:EmaPoint[],frame:Frame,at:number){const end=bars[at],prefix=bars.slice(0,at+1);if(frame==="D")return prefix;const current=key(end.time,frame),map=new Map<string,EmaPoint>();for(const b of prefix){const k=key(b.time,frame);if(k<current)map.set(k,b);}return [...map.values()];}
 function bandAt(a:EmaPoint[],n:number,m:number){
  const b=calculateEmaBand(a.map(x=>x.close),n,m);
- return b?{ema:b.ema,upper:b.upper,lower:b.lower,warmup:b.status,anchorDay:day(a.at(-1)!.time)}:null;
+ return b?{ema:b.ema,upper:b.upper,lower:b.lower,warmup:b.status,anchorDay:day(a.at(-1)!.time),sampleCount:a.length,requiredReadySamples:5*n}:null;
 }
 const cross=(old:number,now:number):Cross=>old<=0&&now>0?"up":old>=0&&now<0?"down":"none";
 const pct=(v:number,base:number)=>(v/base-1)*100;
