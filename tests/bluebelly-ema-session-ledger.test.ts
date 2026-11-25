@@ -1,0 +1,23 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {buildEmaLedgerInput} from "../lib/bluebelly-ema-session-ledger.ts";
+import {projectPublicEquityCoverage} from "../lib/bluebelly-equity-coverage.ts";
+import {scanEquityEma} from "../lib/bluebelly-equity-ema.ts";
+import type {MarketMonitorRow} from "../lib/market-monitor.ts";
+const now=new Date("2026-11-25T22:00:00Z"),session="2026-11-25";
+const points=Array.from({length:180},(_,i)=>({time:(Date.parse(session+"T00:00:00Z")-(179-i)*86400000)/1000,close:100+i/10}));
+const row={id:"nvda",symbol:"NVDA",frequency:"daily",currency:"USD",asOf:session,last:117.9,sourceName:"Nasdaq official stocks history",sourceUrl:"https://www.nasdaq.com/market-activity/stocks/nvda/historical",emaScan:scanEquityEma(points,"America/New_York",now)} as MarketMonitorRow;
+test("session ledger includes only current US rows and ready anchors, is deterministic across refresh times",()=>{
+ const stale={...row,symbol:"AMD",asOf:"2026-11-24"};
+ const c=projectPublicEquityCoverage([row,stale],now);
+ const input=buildEmaLedgerInput(c)!;
+ const payload=input.rawPayload as {rows:Array<{ticker:string;observations:Array<{period:number;frame:string}>}>;currentUS:number};
+ assert.equal(payload.currentUS,1);assert.deepEqual(payload.rows.map(r=>r.ticker),["NVDA"]);
+ assert.deepEqual(payload.rows[0].observations.map(o=>o.frame+o.period),["D20"]);
+ assert.equal(input.observations.length,1);
+ assert.equal(input.observations[0].observedAt,session+"T23:59:59.999Z");
+ const next=buildEmaLedgerInput({...c,generatedAt:"2026-11-25T23:00:00Z"})!;
+ assert.deepEqual(input.rawPayload,next.rawPayload);
+ assert.deepEqual(input.observations,next.observations);
+ assert.equal(buildEmaLedgerInput({...c,quality:undefined}),null);
+});
