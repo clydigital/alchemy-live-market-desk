@@ -24,6 +24,8 @@ import {projectPublicEquityCoverage} from "@/lib/bluebelly-equity-coverage";
 import PowerStackBBMarketSweep from "@/components/blue-desk/PowerStackBBMarketSweep";
 import {projectOpportunityQueue} from "@/lib/power-stack-opportunity-queue";
 import PowerStackOpportunityQueue from "@/components/blue-desk/PowerStackOpportunityQueue";
+import {projectPortfolioOverlap} from "@/lib/power-stack-portfolio-overlap";
+import PowerStackPortfolioOverlap from "@/components/blue-desk/PowerStackPortfolioOverlap";
 import PowerStackDecisionOverview from "@/components/blue-desk/PowerStackDecisionOverview";
 import {buildCompareResearch,compareBreadthObservations} from "@/lib/bluebelly-compare-research";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
@@ -435,6 +437,7 @@ export default async function PrivatePowerStack({searchParams}:{searchParams:Pro
                 </>
               ) : <p>No current bond watch rows. Run a manually sourced Power Stack bond sweep first.</p>}
             </section>
+            <PowerStackPortfolioOverlap view={projectPortfolioOverlap(holdings,latestQuotes,opportunities,marketTicker,researchedAt)} snapshotDay={row?.snapshot_as_of??"Unknown"}/>
             <section className={portfolio.section} data-power-stack-holdings="private">
               <h2>Recorded holdings · {holdings.length}</h2>
               <p data-power-stack-source-date="historical-only">Archived portfolio record dated {row?.snapshot_as_of ?? "unknown"}
