@@ -1,0 +1,24 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {INDUSTRY_LENSES,MATERIAL_RESEARCH_QUESTIONS,industryNews,questionNews} from "../lib/bluebelly-industry-intel.ts";
+import {blueDeskHostAccess,blueDeskPresentationTarget} from "../lib/blue-desk-host.ts";
+test("industry questions retain unique identities and valid lens links",()=>{
+ assert.equal(INDUSTRY_LENSES.length,8);
+ assert.equal(new Set(MATERIAL_RESEARCH_QUESTIONS.map(q=>q.id)).size,MATERIAL_RESEARCH_QUESTIONS.length);
+ for(const q of MATERIAL_RESEARCH_QUESTIONS)for(const id of q.lenses)assert.ok(INDUSTRY_LENSES.some(l=>l.id===id));
+});
+test("related headlines require entity and issue terms; absence is not a verdict",()=>{
+ const a={headline:"Google adjusts TPU procurement",summary:"Supplier allocation changes"};
+ const b={headline:"Google launches new search feature",summary:"New consumer product"};
+ const c={headline:"Tesla and SpaceX merger talks",summary:"Special committee negotiations"};
+ assert.deepEqual(questionNews("google-accelerator-allocation",[a,b,c]),[a]);
+ assert.deepEqual(questionNews("tesla-spacex-transaction",[a,b,c]),[c]);
+ assert.deepEqual(industryNews("unknown",[a]),[]);
+ assert.deepEqual(questionNews("google-accelerator-allocation",[]),[]);
+});
+test("only exact public industry route is enabled, not arbitrary child routes",()=>{
+ const h="bluebelly-desk.vercel.app";
+ assert.equal(blueDeskHostAccess("/industry-intel",h),"public");
+ assert.equal(blueDeskHostAccess("/industry-intel/private",h),"blocked");
+ assert.equal(blueDeskPresentationTarget("/industry-intel",h),"/blue-desk/industry-intel");
+});

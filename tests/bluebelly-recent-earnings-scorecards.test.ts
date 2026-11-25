@@ -8,7 +8,7 @@ test("reported SK hynix and TSMC results are date-qualified and do not appear ah
  assert.deepEqual(mid.map(x=>x.id),["tsmc-2026q3"]);
  const now=getRecentVerifiedEarningsScorecards(new Date("2026-10-28T13:00:00Z"));
  assert.deepEqual(now.map(x=>x.id),["sk-hynix-2026q3","tsmc-2026q3"]);
- assert.deepEqual(getRecentVerifiedEarningsScorecards(new Date("2026-12-02T11:00:00Z")).map(x=>x.id),["wmt-fy2027q3","panw-fy2027q1","amd-2026q3"]);
+ assert.deepEqual(getRecentVerifiedEarningsScorecards(new Date("2026-12-02T11:00:00Z")).map(x=>x.id),["dell-fy2027q3","wmt-fy2027q3","panw-fy2027q1","amd-2026q3"]);
  assert.deepEqual(getRecentVerifiedEarningsScorecards(new Date("2027-01-05T11:00:00Z")),[]);
 });
 
@@ -73,4 +73,9 @@ test("new released earnings panel is in visible Calendar, outside collapsed lega
  assert.match(component,/data-bluebelly-released-earnings="issuer-source-verified"/);
  assert.match(component,/Not yet verified/);
  assert.match(component,/source-reviewed results/);
+});
+
+test("Dell scorecard respects conservative source availability cutoff",()=>{
+ assert.ok(!getRecentVerifiedEarningsScorecards(new Date("2026-11-25T20:59:59Z")).some(x=>x.id==="dell-fy2027q3"));
+ assert.ok(getRecentVerifiedEarningsScorecards(new Date("2026-11-25T21:00:00Z")).some(x=>x.id==="dell-fy2027q3"));
 });

@@ -30,11 +30,44 @@ export type VerifiedEarningsScorecard = {
   conclusion: string;
   nextTest: string;
   preliminary: boolean;
+  /** Explicit numeric quarter receipts, never parsed from editorial display text. */
+  numericQuarterFacts?: readonly {key:"revenue"|"net_income"|"diluted_eps"|"operating_income"|"operating_margin"|"operating_cash_flow"|"capital_expenditure"|"free_cash_flow";value:number;unit:"USD"|"USD/shares"|"%";basis:string;periodEnd:string;note:string}[];
   /** Conservative public availability gate for US after-close dated receipts; NOT a claimed issuer release timestamp. */
   availableNotBefore?: string;
 };
 
 const PRIMARY_RESULTS: readonly VerifiedEarningsScorecard[] = [
+  {
+    id:"dell-fy2027q3",ticker:"DELL",company:"Dell Technologies",fiscalPeriod:"FY2027 Q3",
+    releaseDay:"2026-11-24",availableNotBefore:"2026-11-25T21:00:00Z",
+    sourceName:"Dell Technologies · issuer-hosted SEC 8-K exhibit 99.1",
+    sourceUrl:"https://investors.delltechnologies.com/sec-filings/all-sec-filings/content/0001571996-26-000050/exhibit991earnings8kq3fy27.htm",
+    additionalSourceUrl:"https://www.sec.gov/Archives/edgar/data/1571996/000157199626000050/exhibit991earnings8kq3fy27.htm",
+    basis:"Consolidated US GAAP, unaudited quarter ended 30 October 2026; reported cash capex includes capitalised software development. Derived unadjusted FCF is distinct from issuer adjusted FCF.",
+    headline:"Dell's revenue more than doubles as AI infrastructure orders climb",
+    beatMiss:"Year-on-year growth is issuer-reported; a frozen comparable analyst consensus was not independently verified.",
+    beatSource:"unavailable",
+    metrics:[
+      {name:"Revenue",value:"$54.937bn",comparison:"+103% YoY",state:"measured"},
+      {name:"Operating profit / margin",value:"$7.442bn GAAP operating income",comparison:"+251% YoY; 13.55% operating margin (derived)",state:"measured"},
+      {name:"Free cash flow",value:"$3.474bn derived unadjusted FCF",comparison:"Issuer adjusted FCF $4.288bn (separate definition)",state:"measured",note:"Quarter CFO $4.459bn less reported $0.985bn cash capex and capitalised software costs."},
+      {name:"Capital expenditure",value:"$0.985bn",comparison:"Cash capex and capitalised software costs",state:"measured"}
+    ],
+    numericQuarterFacts:[
+      {key:"revenue",value:54937000000,unit:"USD",basis:"US GAAP reported",periodEnd:"2026-10-30",note:"Quarter net revenue, +103% YoY"},
+      {key:"net_income",value:5673000000,unit:"USD",basis:"US GAAP reported",periodEnd:"2026-10-30",note:"Quarter net income, +266% YoY"},
+      {key:"diluted_eps",value:8.82,unit:"USD/shares",basis:"US GAAP reported",periodEnd:"2026-10-30",note:"Non-GAAP $9.45 is separate"},
+      {key:"operating_income",value:7442000000,unit:"USD",basis:"US GAAP reported",periodEnd:"2026-10-30",note:"Quarter operating income, +251% YoY"},
+      {key:"operating_margin",value:100*7442/54937,unit:"%",basis:"Derived from matched US GAAP operating income and revenue",periodEnd:"2026-10-30",note:"Not gross margin"},
+      {key:"operating_cash_flow",value:4459000000,unit:"USD",basis:"US GAAP reported",periodEnd:"2026-10-30",note:"Quarter net cash from operating activities"},
+      {key:"capital_expenditure",value:985000000,unit:"USD",basis:"Reported cash outflow magnitude",periodEnd:"2026-10-30",note:"Capital expenditures and capitalized software development costs"},
+      {key:"free_cash_flow",value:3474000000,unit:"USD",basis:"Derived CFO less reported cash capex and capitalized software costs",periodEnd:"2026-10-30",note:"Not issuer adjusted FCF of $4.288bn"}
+    ],
+    outlook:"FY27 revenue guidance $202bn; GAAP diluted EPS $28.24 and adjusted diluted EPS $29.68. Management reported $132.3bn AI backlog and $60.2bn of orders, screened for capital, land and power access.",
+    conclusion:"Strong reported revenue, operating income and operating cash generation do not establish the solvency of every customer or guarantee backlog conversion. Quarterly cash flow and future commitments are distinct.",
+    nextTest:"Paid deliveries, customer financing, working-capital conversion, realised margins and recurring capex/cash flow; current valuation not established.",
+    preliminary:false,
+  },
   {
     id:"wmt-fy2027q3",ticker:"WMT",company:"Walmart",fiscalPeriod:"FY2027 Q3",
     releaseDay:"2026-11-19",availableNotBefore:"2026-11-19T18:24:00Z",
