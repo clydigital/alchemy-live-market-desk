@@ -24,6 +24,9 @@ import {projectPublicEquityCoverage} from "@/lib/bluebelly-equity-coverage";
 import PowerStackBBMarketSweep from "@/components/blue-desk/PowerStackBBMarketSweep";
 import {projectOpportunityQueue} from "@/lib/power-stack-opportunity-queue";
 import PowerStackOpportunityQueue from "@/components/blue-desk/PowerStackOpportunityQueue";
+import PowerStackDecisionOverview from "@/components/blue-desk/PowerStackDecisionOverview";
+import {buildCompareResearch,compareBreadthObservations} from "@/lib/bluebelly-compare-research";
+import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
 import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
 import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
 import {selectMeasuredMarketSignals} from "@/lib/bluebelly-measured-market-signals";
@@ -167,7 +170,7 @@ export default async function PrivatePowerStack({searchParams}:{searchParams:Pro
   const bbCoverage=projectPublicEquityCoverage(publicTape?.rows??[]);
   const params=await searchParams;
   const requested=ready&&typeof params.technical==="string"?findStockIdentity(params.technical):undefined;
-  const reference=requested?bbCoverage.rows.find(q=>q.ticker===requested.ticker&&q.status==="SOURCE_DATED"):undefined;
+  const reference=requested&&requested.theme!=="REAL_ESTATE"?bbCoverage.rows.find(q=>q.ticker===requested.ticker&&q.status==="SOURCE_DATED"):undefined;
   const longHistory=requested&&reference?.price!=null&&reference.asOf?await readLongEquityHistory(requested,{price:reference.price,asOf:reference.asOf}):null;
   const privateLevels=(ideaRecords??[]).flatMap(i=>{
     const lo=i.watch_low==null?null:Number(i.watch_low),hi=i.watch_high==null?null:Number(i.watch_high);
@@ -260,15 +263,18 @@ export default async function PrivatePowerStack({searchParams}:{searchParams:Pro
 
   // Both reads happen only after owner/allowlist gating. Run in parallel to
   // avoid slowing the private terminal by sequential source collection.
-  const [researchReads,reboundCapitalLeads,bbFundamentals]=await Promise.all([
+  const [researchReads,reboundCapitalLeads,bbFundamentals,breadthFeed]=await Promise.all([
    researchTopics.length?getTopicInfluences(researchTopics,researchedAt):Promise.resolve([]),
    ready?getReboundCapitalResearchLeads(researchedAt):Promise.resolve(null),
    ready?readPublicFundamentalComparison(bbCoverage.rows,researchedAt):Promise.resolve(null),
+   ready?getSourceDatedBreadth(true).catch(()=>({series:[],retrievalStatus:"fallback" as const})):Promise.resolve({series:[],retrievalStatus:"fallback" as const}),
   ]);
   const ownerOpportunityAssets=[...holdings,...watchlist,...(ideaRecords??[])].filter(item=>item.ticker!=="6742UW"&&!nonIssuer.has(marketTicker(item.ticker))).map(item=>({ticker:marketTicker(item.ticker),name:item.name}));
   const opportunities=ready?projectOpportunityQueue(bbCoverage.rows,bbFundamentals?.rows??[],issuerReviews,ownerOpportunityAssets,researchedAt):[];
   const researchGroups=ready?projectPowerStackResearch(researchAssets,researchReads,researchedAt):[];
-  const tapeComparisons=buildMarketDivergenceWatch(publicMarketObservations(publicTape?.rows??[],"all"),"1D");
+  const tape=publicMarketObservations(publicTape?.rows??[],"all");
+  const compare=buildCompareResearch([...(publicTape?.rows??[]),...(publicTape?.divergenceRows??[])],[...tape,...compareBreadthObservations(breadthFeed.series,researchedAt)],researchedAt,breadthFeed.series);
+  const tapeComparisons=buildMarketDivergenceWatch(tape,"1D");
   const measuredSignals=selectMeasuredMarketSignals(tapeComparisons,"1D",researchedAt,5);
 
   return (
@@ -286,11 +292,12 @@ export default async function PrivatePowerStack({searchParams}:{searchParams:Pro
             </p>
           </div>
         </header>
-        <PowerStackDecisionHub now={researchedAt}/>
+        {ready?<PowerStackDecisionOverview compare={compare} tape={tape} now={researchedAt} breadthStatus={breadthFeed.retrievalStatus}/>:null}
         {ready?<PowerStackBBMarketSweep rows={bbCoverage.rows} reviews={issuerReviews} asOf={bbCoverage.asOf} levels={privateLevels} fundamentals={bbFundamentals?.rows??[]} longHistory={longHistory} />:null}
+        {ready?<PowerStackOpportunityQueue rows={opportunities} issuerUnavailable={bbFundamentals?.status!=="OK"}/>:null}
+        <PowerStackDecisionHub now={researchedAt}/>
         {ready?<PowerStackMeasuredSignals signals={measuredSignals} trackedTickers={trackedTickers} topics={researchTopics}/>:null}
         {ready?<PowerStackResearchFocus assets={issuers} now={researchedAt}/>:null}
-        {ready?<PowerStackOpportunityQueue rows={opportunities} issuerUnavailable={bbFundamentals?.status!=="OK"}/>:null}
         {ready?<PowerStackValuationWorkbench assets={issuers} reviews={issuerReviews}
           storeError={Boolean(issuerValuationError)}/>:null}
         <NvidiaEarningsDecisionWatch mode="power-stack" now={researchedAt} owner={{
