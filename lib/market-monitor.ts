@@ -1,5 +1,5 @@
 import { unstable_cache } from "next/cache";
-import {expectedHomeEtfSession,fetchHomeEtfHistory,fetchUsRepairHistory,repairFailureCode,US_REPAIR_SYMBOLS,XL_FALLBACK_ETFS,type HomeEtf} from "./bluebelly-home-etf-history";
+import {expectedHomeEtfSession,fetchHomeEtfHistory,fetchUsRepairHistory,fetchUsEquityCanaryHistory,repairFailureCode,US_REPAIR_SYMBOLS,US_EQUITY_CANARY,PREFERRED_US_ETFS,planUsRecovery,XL_FALLBACK_ETFS,type HomeEtf} from "./bluebelly-home-etf-history";
 import {ADDITIONAL_US_STOCKS,EUROPE_STOCKS,ASIA_STOCKS,findStockIdentity} from "./bluebelly-equity-universe";
 import {nasdaqCompletedSessionRange,admitNasdaqSessionDay} from "./bluebelly-nasdaq-session-range.ts";
 import {fetchEuropeanStockHistory} from "./bluebelly-europe-stock-history";
@@ -531,10 +531,17 @@ async function fetchBitcoinSpotSeries(): Promise<RawSeries> {
 const BASELINE_US_EXTRAS=new Set(["ADBE","CI","CVS","CF","XOM","CVX","GRAB","BWXT","OKLO","SMR","PWR","ENPH","MAA","TOL","PHM","INVH","ESS","CPT","AMH","NVR","JLL","CBRE","RKT"]);
 const EXPANDED_SYMBOLS=new Set([...ADDITIONAL_US_STOCKS.filter(x=>!BASELINE_US_EXTRAS.has(x.ticker)).map(x=>x.providerSymbol),"SGOV","USFR","TLH","EDV","ZROZ","AGG","GOVT","VGIT","GLDM","NLR"]);
 const EXPANDED_SPECS=EXTRA_SPECS.filter(spec=>EXPANDED_SYMBOLS.has(spec.providerSymbol));
+const preferredEtfSet=new Set<string>(PREFERRED_US_ETFS);
+const extraBySymbol=new Map(EXTRA_SPECS.map(s=>[s.providerSymbol,s]));
+const secondaryPrimarySpec=async(spec:ExtraSpec,options?:{revalidate:number;signal:AbortSignal}):Promise<RawSeries>=>{
+ if(!preferredEtfSet.has(spec.providerSymbol))return fetchNasdaqHistory(spec,options);
+ const result=await fetchUsRepairHistory(spec.providerSymbol,new Date(),options?.signal??AbortSignal.timeout(8500),fetch,options?.revalidate??EXTRA_REVALIDATE);
+ return {id:spec.id,symbol:spec.providerSymbol,label:spec.label,type:spec.type,benchmark:spec.benchmark??null,frequency:"daily",currency:"USD",...result};
+};
 const loadExtrasForSession = unstable_cache(async (session:string|null) => {
   void session;
   const extraRows = await mapLimit(EXTRA_SPECS.filter(spec=>!EXPANDED_SYMBOLS.has(spec.providerSymbol)), 10, async (spec) => {
-    try { return await fetchNasdaqHistory(spec); } catch { return null; }
+    try { return await secondaryPrimarySpec(spec); } catch { return null; }
   });
   const [fredRateRows, treasuryCurve] = await Promise.all([
     Promise.all(FRED_RATE_SPECS.map(async (spec) => {
@@ -598,7 +605,7 @@ const loadExtrasForSession = unstable_cache(async (session:string|null) => {
       : null)
     .catch(() => null);
   return [...extraRows, ...rateRows, ...creditRows, ...globalRateRows, moveRow].filter((row): row is RawSeries => Boolean(row));
-}, ["alchemy-market-monitor-extras-v12-session"], { revalidate: EXTRA_REVALIDATE });
+}, ["alchemy-market-monitor-extras-v13-preferred-etfs"], { revalidate: EXTRA_REVALIDATE });
 export const loadExtras=()=>loadExtrasForSession(expectedHomeEtfSession(new Date()));
 // Request-driven only: independent cache, six-hour per-symbol provider TTL,
 // hourly partial-cache retry, bounded concurrency and total batch budget.
@@ -608,10 +615,10 @@ const loadExpandedEquities=unstable_cache(async(session:string|null):Promise<Raw
  const budget=AbortSignal.timeout(30000);
  const rows=await mapLimit(EXPANDED_SPECS,8,async spec=>{
   if(budget.aborted)return null;
-  try{return await fetchNasdaqHistory(spec,{revalidate:21600,signal:budget});}catch{return null;}
+  try{return await secondaryPrimarySpec(spec,{revalidate:21600,signal:budget});}catch{return null;}
  });
  return rows.filter((row):row is RawSeries=>row!==null);
-},["bluebelly-expanded-daily-equities-v3-session"],{revalidate:3600});
+},["bluebelly-expanded-daily-equities-v4-preferred-etfs"],{revalidate:3600});
 // Bounded existing-source repair only. A cached batch shares its budget across
 // requests and never invokes the whole equity roster or a separate scheduler.
 const loadTargetedUsRepair=unstable_cache(async(symbols:readonly string[],session:string)=>{
@@ -619,7 +626,16 @@ const loadTargetedUsRepair=unstable_cache(async(symbols:readonly string[],sessio
  if(expectedHomeEtfSession(now)!==session)return [];
  const rows=await mapLimit(symbols,6,async symbol=>{
   if(budget.aborted)return {symbol,ok:false as const,reason:"BATCH_BUDGET"};
-  try{return {symbol,ok:true as const,...await fetchUsRepairHistory(symbol,now,budget)};}catch(error){
+  try{
+   // The 15 switched ETFs receive Nasdaq only when their first source is missing/behind.
+   const result=preferredEtfSet.has(symbol)
+     ?await fetchNasdaqHistory(extraBySymbol.get(symbol)!,{revalidate:3600,signal:budget})
+     :(US_EQUITY_CANARY as readonly string[]).includes(symbol)
+       ?await fetchUsEquityCanaryHistory(symbol,now,budget)
+       :await fetchUsRepairHistory(symbol,now,budget);
+   if(!result.points.length)throw Error("Secondary ETF history is behind expected session");
+   return {symbol,ok:true as const,...result};
+  }catch(error){
    return {symbol,ok:false as const,reason:repairFailureCode(error)};
   }
  });
@@ -627,7 +643,7 @@ const loadTargetedUsRepair=unstable_cache(async(symbols:readonly string[],sessio
  const observations=rows.filter(r=>r.ok);
  console.info(JSON.stringify({event:"bb_us_repair_result",session,requested:symbols.length,recovered:observations.map(r=>({symbol:r.symbol,day:new Date(r.points.at(-1)!.time*1000).toISOString().slice(0,10)})),failures}));
  return observations;
-},["bluebelly-targeted-us-repair-v2-session-window"],{revalidate:3600});
+},["bluebelly-targeted-us-repair-v3-equity-canary"],{revalidate:3600});
 const loadEuropeEquities=unstable_cache(async():Promise<RawSeries[]>=>{
  const fetched=await mapLimit([...EUROPE_STOCKS,...ASIA_STOCKS],6,async (spec):Promise<RawSeries|null>=>{
   try{return await fetchEuropeanStockHistory(spec);}
@@ -982,19 +998,22 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   }));
   if(expected){
     const bySymbol=new Map(rawRows.map(r=>[r.symbol,r]));
-    const repair=US_REPAIR_SYMBOLS.filter(symbol=>{
+    const behind=new Set([...US_REPAIR_SYMBOLS,...US_EQUITY_CANARY].filter(symbol=>{
       const r=bySymbol.get(symbol),last=r?.points.at(-1);
       return !last||new Date(last.time*1000).toISOString().slice(0,10)<expected;
-    });
+    }));
+    const repair=planUsRecovery(behind);
     const recovered=repair.length?await loadTargetedUsRepair(repair,expected).catch(()=>[]):[];
     for(const result of recovered){
-      const spec=EXTRA_SPECS.find(s=>s.providerSymbol===result.symbol);
-      if(!spec)continue;
+      const spec=extraBySymbol.get(result.symbol);
+      const baseSpec=BASE_SPECS.find(s=>s.sourceSymbol===result.symbol);
+      if(!spec&&!baseSpec)continue;
       const indices=rawRows.flatMap((row,i)=>row.symbol===result.symbol?[i]:[]);
       const date=new Date(result.points.at(-1)!.time*1000).toISOString().slice(0,10);
       if(date>expected||indices.some(i=>{const last=rawRows[i].points.at(-1);return !!last&&new Date(last.time*1000).toISOString().slice(0,10)>=date;}))continue;
       const {symbol,points,sourceName,sourceUrl}=result;
-      const replacement:RawSeries={id:spec.id,symbol,label:spec.label,type:spec.type,benchmark:spec.benchmark??null,frequency:"daily",currency:"USD",points,sourceName,sourceUrl};
+      const selected=spec??baseSpec!;
+      const replacement:RawSeries={id:selected.id,symbol,label:selected.label,type:selected.type,benchmark:selected.benchmark??null,frequency:"daily",currency:"USD",points,sourceName,sourceUrl};
       if(indices.length)for(const i of indices)rawRows[i]={...replacement,id:rawRows[i].id,benchmark:rawRows[i].benchmark};
       else rawRows.push(replacement);
     }
@@ -1040,4 +1059,4 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   };
 }
 
-export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v7-equity-session"], { revalidate: 300 });
+export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v8-equity-canary"], { revalidate: 300 });
