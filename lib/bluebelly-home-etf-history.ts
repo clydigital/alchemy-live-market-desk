@@ -127,10 +127,10 @@ export async function fetchUsRepairHistory(symbol:string,now:Date,budget:AbortSi
  if(!(US_REPAIR_SYMBOLS as readonly string[]).includes(symbol))throw Error("Repair symbol not allowlisted");
  return fetchSessionChart(symbol,REPAIR_EQUITIES.has(symbol)?"EQUITY":"ETF",now,budget,fetcher,revalidate);
 }
-export async function fetchUsEquityCanaryHistory(symbol:string,now:Date,budget:AbortSignal,fetcher:typeof fetch=fetch){
+export async function fetchUsEquityCanaryHistory(symbol:string,now:Date,budget:AbortSignal,fetcher:typeof fetch=fetch,revalidate=3600){
  if(!isEquityCanary(symbol)&&!(PREFERRED_US_EQUITIES as readonly string[]).includes(symbol))throw Error("Equity canary not allowlisted");
  // One existing request, longer history only for the already-proven equity pilot.
- const result=await fetchSessionChart(symbol,"EQUITY",now,budget,fetcher,3600,US_EQUITY_CANARY_HISTORY_DAYS,US_EQUITY_CANARY_MAX_BARS);
+ const result=await fetchSessionChart(symbol,"EQUITY",now,budget,fetcher,revalidate,US_EQUITY_CANARY_HISTORY_DAYS,US_EQUITY_CANARY_MAX_BARS);
  // A 1/3/5 session tracker must not silently treat missing sessions as observations.
  const recent=new Set(result.points.slice(-6).map(p=>new Date(p.time*1000).toISOString().slice(0,10)));
  let t=result.points.at(-1)!.time*1000;
