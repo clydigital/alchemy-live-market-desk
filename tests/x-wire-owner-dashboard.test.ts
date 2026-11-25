@@ -39,7 +39,7 @@ test("owner pagination has read-only server-backed selection; homepage only rece
 test("owner health distinguishes recent-window completion from archival gaps",()=>{
  const owner=readFileSync(new URL("../lib/x-wire-owner-view.ts",import.meta.url),"utf8");
  const page=readFileSync(new URL("../app/owner/x-wire/page.tsx",import.meta.url),"utf8");
- assert.match(owner,/xWireFreshCheckComplete\(a,now\)\?"healthy"/);
+ assert.match(owner,/xWireFreshCheckComplete\(a,now,xWireLiveFreshnessHours\(a\.handle\)\)\?"healthy"/);
  assert.match(owner,/historicalGap:gap,resumePending:resume/);
  assert.match(page,/Current X Wire coverage · completed checks/);
  assert.match(page,/absorption\.freshCompleted/);
