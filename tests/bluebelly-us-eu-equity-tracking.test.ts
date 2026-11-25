@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {BLUEBELLY_STOCK_UNIVERSE,ADDITIONAL_US_STOCKS,EUROPE_STOCKS,
  findStockIdentity,stockUniverseCoverage} from "../lib/bluebelly-equity-universe.ts";
-import {parseEuropeanStockChart,euroSessionIsCompleted,fetchEuropeanStockHistory} from "../lib/bluebelly-europe-stock-history.ts";
+import {parseEuropeanStockChart,euroSessionIsCompleted,fetchEuropeanStockHistory,LOCAL_DEEP_EMA_SYMBOLS} from "../lib/bluebelly-europe-stock-history.ts";
 import {projectPublicEquityCoverage} from "../lib/bluebelly-equity-coverage.ts";
 import type {MarketMonitorRow} from "../lib/market-monitor.ts";
 const read=(p:string)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
@@ -88,4 +88,29 @@ test("public coverage excludes expired source dates and never reveals any user p
  const ui=read("components/live-desk/MarketsMonitor.tsx");
  assert(ui.includes("European local shares")&&ui.includes("US stock watch"));
  assert(ui.includes("formatPrice(row.last, row.type,row.currency)"));
+});
+import {scanEquityEma} from "../lib/bluebelly-equity-ema.ts";
+
+test("bounded local five-year history uses one request, preserves listing and increases warmup",async()=>{
+ assert.equal(LOCAL_DEEP_EMA_SYMBOLS.length,12);
+ for(const ticker of LOCAL_DEEP_EMA_SYMBOLS)assert.notEqual(findStockIdentity(ticker)?.region,"US");
+ const spec=findStockIdentity("ASML.AS")!;
+ const end=Date.parse("2026-11-12T00:00:00Z");
+ const days=Array.from({length:1820},(_,i)=>new Date(end-(1819-i)*86400000)).filter(d=>d.getUTCDay()>0&&d.getUTCDay()<6).map(d=>d.toISOString().slice(0,10));
+ const payload=exampleChart(spec.ticker,spec.currency,days,days.map((_,i)=>100+i*.01));
+ let calls=0;
+ const fetcher=(async(input:string)=>{calls++;assert.match(input,/range=5y/);return new Response(JSON.stringify(payload));}) as unknown as typeof fetch;
+ const result=await fetchEuropeanStockHistory(spec,now,fetcher);
+ assert.equal(calls,1);assert(result.points.length>1000);
+ const scan=scanEquityEma(result.points,spec.timeZone,now)!;
+ assert.equal(scan.observations.find(o=>o.frame==="D"&&o.period===200)?.warmup,"READY");
+ assert.equal(scan.observations.find(o=>o.frame==="W"&&o.period===50)?.warmup,"READY");
+});
+test("local histories reject duplicate daily sessions and supplied wrong exchange timezone",()=>{
+ const spec=findStockIdentity("SAP.DE")!;
+ const dup=exampleChart(spec.ticker,spec.currency,["2026-11-10","2026-11-11","2026-11-12","2026-11-12"],[1,2,3,4]);
+ assert.throws(()=>parseEuropeanStockChart(dup,spec,now),/Duplicate/);
+ const payload=exampleChart(spec.ticker,spec.currency,["2026-11-10","2026-11-11","2026-11-12"],[1,2,3]);
+ Object.assign(payload.chart.result[0].meta,{exchangeTimezoneName:"America/New_York"});
+ assert.throws(()=>parseEuropeanStockChart(payload,spec,now),/mismatch/);
 });

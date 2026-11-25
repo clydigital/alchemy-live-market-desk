@@ -1,4 +1,7 @@
 import type {StockIdentity} from "./bluebelly-equity-universe.ts";
+// Bounded pilot on existing public local listing routes. No new requests.
+export const LOCAL_DEEP_EMA_SYMBOLS=["ASML.AS","SAP.DE","SIE.DE","RHM.DE","SU.PA","000660.KS","005930.KS","5398.KL","5347.KL","5141.KL","6742.KL","9988.HK"] as const;
+const deep=(spec:StockIdentity)=>(LOCAL_DEEP_EMA_SYMBOLS as readonly string[]).includes(spec.ticker);
 
 /** Exchange-aware secondary EU history.
  * A public quote provider outage is absence, never 0% or an ETF proxy.
@@ -33,16 +36,18 @@ export function euroSessionIsCompleted(day:string,spec:StockIdentity,now:Date):b
 }
 export function parseEuropeanStockChart(payload:unknown,spec:StockIdentity,now:Date):EuDailyBar[]{
  if(spec.region==="US")throw Error("Only curated non-US listings allowed");
- const root=payload as {chart?:{error?:unknown;result?:Array<{meta?:{symbol?:string;currency?:string};
+ const root=payload as {chart?:{error?:unknown;result?:Array<{meta?:{symbol?:string;currency?:string;exchangeTimezoneName?:string;instrumentType?:string};
   timestamp?:unknown;indicators?:{quote?:Array<Record<string,unknown>>}}>}}|null;
  const chart=root?.chart;
  if(chart?.error||!Array.isArray(chart?.result)||chart.result.length!==1)throw Error("EU chart unavailable");
  const record=chart.result[0];
  if(String(record?.meta?.symbol||"").toUpperCase()!==spec.providerSymbol||
-  String(record?.meta?.currency||"").toUpperCase()!==spec.currency)
+  String(record?.meta?.currency||"").toUpperCase()!==spec.currency||
+  (record?.meta?.exchangeTimezoneName!==undefined&&record.meta.exchangeTimezoneName!==spec.timeZone)||
+  (record?.meta?.instrumentType!==undefined&&record.meta.instrumentType!=="EQUITY"))
   throw Error("EU ticker or currency mismatch");
  const stamps=record.timestamp,source=record.indicators?.quote?.[0];
- if(!Array.isArray(stamps)||!source||stamps.length<2||stamps.length>500)throw Error("EU price history incomplete");
+ if(!Array.isArray(stamps)||!source||stamps.length<2||stamps.length>(deep(spec)?1500:500))throw Error("EU price history incomplete");
  const closes=source.close,opens=source.open,highs=source.high,lows=source.low,volumes=source.volume;
  if(!Array.isArray(closes)||closes.length!==stamps.length)throw Error("EU close series invalid");
  const byDay=new Map<string,EuDailyBar>();
@@ -54,10 +59,11 @@ export function parseEuropeanStockChart(payload:unknown,spec:StockIdentity,now:D
   const a=Array.isArray(opens)?number(opens[i]):null,b=Array.isArray(highs)?number(highs[i]):null,
    c=Array.isArray(lows)?number(lows[i]):null,v=Array.isArray(volumes)?Number(volumes[i]):null;
   if(a!==null&&b!==null&&c!==null&&(c>a||a>b||c>close||close>b))continue;
+  if(byDay.has(day))throw Error("Duplicate local daily session");
   byDay.set(day,{time:Date.parse(day+"T00:00:00Z")/1000,close,open:a,high:b,low:c,
    volume:v!==null&&Number.isFinite(v)&&v>=0?v:null});
  }
- const bars=[...byDay.values()].sort((a,b)=>a.time-b.time).slice(-280);
+ const bars=[...byDay.values()].sort((a,b)=>a.time-b.time).slice(deep(spec)?-1500:-280);
  if(bars.length<3)throw Error("EU history too sparse");
  const last=new Date(bars.at(-1)!.time*1000),days=(now.getTime()-last.getTime())/86400000;
  if(days>7||days<0)throw Error("EU last completed session too stale");
@@ -71,7 +77,7 @@ export async function fetchEuropeanStockHistory(
  // Exactly curated symbols, never request-supplied URL parameters.
  if(!/^[A-Z0-9-]{1,12}\.(AS|DE|PA|CO|KL|KS|TWO|HK|SS)$/.test(spec.providerSymbol))throw Error("Unexpected EU chart symbol");
  const sourceUrl="https://query1.finance.yahoo.com/v8/finance/chart/"+
-  encodeURIComponent(spec.providerSymbol)+"?range=1y&interval=1d";
+  encodeURIComponent(spec.providerSymbol)+"?range="+(deep(spec)?"5y":"1y")+"&interval=1d";
  const response=await fetcher(sourceUrl,{headers:{"accept":"application/json","user-agent":"Mozilla/5.0 Bluebelly Markets Monitor"},
   next:{revalidate:60*60*6},signal:AbortSignal.timeout(8500)});
  if(!response.ok)throw Error("EU chart source "+response.status);
