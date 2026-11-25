@@ -18,6 +18,7 @@ import PowerStackValuationWorkbench,{type ValuationResearchAsset} from "@/compon
 import {projectIssuerValuationReviews} from "@/lib/power-stack-issuer-valuation";
 import {getMarketMonitor} from "@/lib/market-monitor-public";
 import {BLUEBELLY_STOCK_UNIVERSE} from "@/lib/bluebelly-equity-universe";
+import {readPublicFundamentalComparison} from "@/lib/bluebelly-fundamental-comparison-server";
 import {projectPublicEquityCoverage} from "@/lib/bluebelly-equity-coverage";
 import PowerStackBBMarketSweep from "@/components/blue-desk/PowerStackBBMarketSweep";
 import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
@@ -57,7 +58,7 @@ type SnapshotRow = {
   snapshot: unknown;
 };
 
-const aliases:Record<string,string>={MNHLDG:"0245.KL",UUE:"0310.KL",HEGROUP:"0296.KL",GAMUDA:"5398.KL",TENAGA:"5347.KL",MISC:"3816.KL",HIBISCS:"5199.KL",YTLPOWR:"6742.KL",DAYANG:"5141.KL","688825":"688825.SS",ASML:"ASML.AS"};
+const aliases:Record<string,string>={MNHLDG:"0245.KL",UUE:"0310.KL",HEGROUP:"0296.KL",GAMUDA:"5398.KL",TENAGA:"5347.KL",MISC:"3816.KL",HIBISCS:"5199.KL",YTLPOWR:"6742.KL",DAYANG:"5141.KL" ,"688825":"688825.SS"};
 const marketTicker=(ticker:string)=>aliases[ticker]??ticker;
 function cleanString(v: unknown, max = 90): string {
   return typeof v === "string" ? v.trim().slice(0, max) : "";
@@ -146,8 +147,8 @@ export default async function PrivatePowerStack() {
   // without rewriting the frozen original Power Stack snapshot.
   const { data: ideaRecords, error: ideasError } = ready
     ? await supabase.from("power_stack_idea_tracker")
-        .select("ticker,name,currency,macro_state,macro_reason,macro_as_of,note")
-        .eq("owner_user_id", identity.user.id).eq("idea_type", "INVESTMENT").limit(100)
+        .select("ticker,name,currency,macro_state,macro_reason,macro_as_of,note,watch_low,watch_high,updated_at")
+        .eq("owner_user_id", identity.user.id).eq("idea_type", "INVESTMENT").limit(250)
     : { data: null, error: null };
   const bondPriority = ["TLT","IEF","SGOV","SHY","EDV","ZROZ","TIP","LQD","HYG","AGG","GOVT","USFR","TLH"];
   const bondWatch = (ideaRecords ?? [])
@@ -161,6 +162,11 @@ export default async function PrivatePowerStack() {
   // remain archive-only. Keep original private holdings and manually reviewed theses.
   const publicTape=ready?await getMarketMonitor().catch(()=>null):null;
   const bbCoverage=projectPublicEquityCoverage(publicTape?.rows??[]);
+  const privateLevels=(ideaRecords??[]).flatMap(i=>{
+    const lo=i.watch_low==null?null:Number(i.watch_low),hi=i.watch_high==null?null:Number(i.watch_high);
+    if((lo===null&&hi===null)||(lo!==null&&(!Number.isFinite(lo)||lo<=0))||(hi!==null&&(!Number.isFinite(hi)||hi<=0))||(lo!==null&&hi!==null&&lo>hi))return [];
+    return [{ticker:marketTicker(i.ticker),currency:i.currency,low:lo,high:hi,note:i.note,updatedAt:i.updated_at}];
+  });
   const trackedTickers = ready?[...new Set([
     ...holdings.filter(item=>item.ticker!=="6742UW").map(item=>marketTicker(item.ticker)),
     ...BLUEBELLY_STOCK_UNIVERSE.map(item=>item.ticker),
@@ -247,9 +253,10 @@ export default async function PrivatePowerStack() {
 
   // Both reads happen only after owner/allowlist gating. Run in parallel to
   // avoid slowing the private terminal by sequential source collection.
-  const [researchReads,reboundCapitalLeads]=await Promise.all([
+  const [researchReads,reboundCapitalLeads,bbFundamentals]=await Promise.all([
    researchTopics.length?getTopicInfluences(researchTopics,researchedAt):Promise.resolve([]),
    ready?getReboundCapitalResearchLeads(researchedAt):Promise.resolve(null),
+   ready?readPublicFundamentalComparison(bbCoverage.rows,researchedAt):Promise.resolve(null),
   ]);
   const researchGroups=ready?projectPowerStackResearch(researchAssets,researchReads,researchedAt):[];
   const tapeComparisons=buildMarketDivergenceWatch(publicMarketObservations(publicTape?.rows??[],"all"),"1D");
@@ -271,7 +278,7 @@ export default async function PrivatePowerStack() {
           </div>
         </header>
         <PowerStackDecisionHub now={researchedAt}/>
-        {ready?<PowerStackBBMarketSweep rows={bbCoverage.rows} reviews={issuerReviews} asOf={bbCoverage.asOf}/>:null}
+        {ready?<PowerStackBBMarketSweep rows={bbCoverage.rows} reviews={issuerReviews} asOf={bbCoverage.asOf} levels={privateLevels} fundamentals={bbFundamentals?.rows??[]} />:null}
         {ready?<PowerStackMeasuredSignals signals={measuredSignals} trackedTickers={trackedTickers} topics={researchTopics}/>:null}
         {ready?<PowerStackResearchFocus assets={issuers} now={researchedAt}/>:null}
         {ready?<PowerStackValuationWorkbench assets={issuers} reviews={issuerReviews}
