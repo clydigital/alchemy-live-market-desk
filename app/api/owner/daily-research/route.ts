@@ -21,6 +21,7 @@ import {getOwnerDeliveredResearchBriefs} from "@/lib/blue-desk-delivered-researc
 import {getPrivateReviewedCreatorArguments} from "@/lib/bluebelly-private-creator-reviews";
 import {getOwnerCreatorSignalDigest} from "@/lib/bluebelly-creator-signals-server";
 import {getOwnerResearchDistribution} from "@/lib/bluebelly-research-distribution-server";
+import {buildEvidenceGemCandidates} from "@/lib/bluebelly-evidence-gems";
 
 export const dynamic="force-dynamic";
 export const runtime="nodejs";
@@ -84,9 +85,14 @@ export async function GET(req:NextRequest){
       verificationState:e.verificationState,decidingQuestion:e.decidingQuestion,
     })),
   });
+  const evidenceGemCandidates=buildEvidenceGemCandidates({now,notion,news,marketObservations,
+    creatorReviews:creatorDelivery.reviews,creatorCoverage:creatorDelivery.status,
+    calendar:upcoming.map(e=>({title:e.title,scheduledAt:e.scheduledAt||e.localDate||null,
+      sourceName:e.sourceName,sourceUrl:e.sourceUrl||null,verificationState:e.verificationState,decidingQuestion:e.decidingQuestion})),
+  });
   const health=assessDailyResearchHealth({now,notion,packet,news});
   return NextResponse.json({
-    ...packet,health,creatorSignalDigest,marketCompare:compare,researchDistribution,
+    ...packet,health,creatorSignalDigest,marketCompare:compare,researchDistribution,evidenceGemCandidates,
     creatorReviewCoverage:{status:creatorDelivery.status,count:creatorDelivery.reviews.length,
       caveat:"Reviews have original video dates and attributed mechanisms; their claims have not been independently source-verified."},
     deliveredResearch:{status:delivery.status,count:delivery.briefs.length,
