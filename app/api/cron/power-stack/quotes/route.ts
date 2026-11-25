@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
+import { projectPublicEquityCoverage } from "@/lib/bluebelly-equity-coverage";
 import { trackedFromSnapshot } from "@/lib/power-stack-quote-routing";
 import { fetchStooqDailyClose, type DailyClose } from "@/lib/providers/stooq-daily-close";
 import { readISahamQuote, readISahamUsage, type ISahamQuote } from "@/lib/providers/isaham";
@@ -80,6 +81,10 @@ export async function GET(request: Request) {
       if (quote) cachedBursa.set(symbol,quote);
     }
     const monitor = await getMarketMonitor();
+    // Existing scheduled canonical read: no additional fetch, scheduler, model or private holdings in the receipt.
+    const emaCoverage = projectPublicEquityCoverage(monitor.rows);
+    const emaReceipt={event:"bb_scheduled_ema_coverage",generatedAt:emaCoverage.generatedAt,coverage:emaCoverage.coverage,quality:emaCoverage.quality};
+    console.info(JSON.stringify(emaReceipt));
     const indexed = new Map(monitor.rows
       .filter(row => row.last !== null && row.last > 0 && row.asOf
         && row.frequency === "daily" && row.sourceName && row.sourceUrl)
@@ -151,6 +156,7 @@ export async function GET(request: Request) {
       staleTickers:[...staleTickers].sort(),
       quoteFreshnessPolicy:'source observation within 4 calendar days (weekends/holidays may require review)',
       providerSnapshotAt:monitor.updatedAt,
+      emaCoverage:emaReceipt,
       note:"iSaham timestamps are upstream refresh batches, NOT last trade times. Free-tier quota is checked before calls."
     });
   } catch {

@@ -14,13 +14,15 @@ const REPAIR_EQUITIES=new Set<string>(["AVB","EQR"]);
 export const PREFERRED_US_ETFS=US_REPAIR_SYMBOLS.filter(s=>!REPAIR_EQUITIES.has(s));
 // Public, fixed research pilot. Never derive requests from owner holdings.
 export const US_EQUITY_CANARY=["NVDA","AMD","AAPL","MSFT","TSLA","AVGO","MU","ORCL","CI","DELL","PWR","TTWO"] as const;
+// Existing public equity routes, not new requests or owner-specific symbols.
+export const PREFERRED_US_EQUITIES=["XOM","CVX","GRAB","BWXT","OKLO","SMR","ENPH","CRM","XYL","MOD","CEG","VST"] as const;
 export const US_RECOVERY_BATCH_LIMIT=17;
 export function planUsRecovery(behind:ReadonlySet<string>):string[]{
  // Preserve existing missing-instrument priority; only spend unused slots on the pilot.
- return [...US_REPAIR_SYMBOLS,...US_EQUITY_CANARY].filter(s=>behind.has(s)).slice(0,US_RECOVERY_BATCH_LIMIT);
+ return [...US_REPAIR_SYMBOLS,...US_EQUITY_CANARY,...PREFERRED_US_EQUITIES].filter(s=>behind.has(s)).slice(0,US_RECOVERY_BATCH_LIMIT);
 }
 const isEquityCanary=(symbol:string)=>(US_EQUITY_CANARY as readonly string[]).includes(symbol);
-export type EtfBar = {time:number;close:number};
+export type EtfBar = {time:number;close:number;open?:number;high?:number;low?:number;volume?:number};
 export function expectedHomeEtfSession(now:Date):string|null{
  // Allow 15 minutes after the scheduled close for daily-history publication.
  return expectedCompletedUsWeekdaySessionDay(new Date(now.getTime()-15*60000));
@@ -33,11 +35,13 @@ export function nasdaqCompletedHistoryBounds(now:Date,historyDays:number){
  const through=Date.parse(expected+"T00:00:00Z")/1000;
  return {start:new Date((through-historyDays*86400)*1000),end:new Date((through+86400)*1000),through};
 }
-function sessionChartUrl(symbol:string,now:Date):string{
- const {through}=nasdaqCompletedHistoryBounds(now,365);
+export const US_EQUITY_CANARY_HISTORY_DAYS=1830;
+const US_EQUITY_CANARY_MAX_BARS=1500;
+function sessionChartUrl(symbol:string,now:Date,historyDays=365):string{
+ const {through}=nasdaqCompletedHistoryBounds(now,historyDays);
  // A stable per-session key replaces a rolling range URL that could reuse
  // pre-close cached data. End is exclusive and includes the US close.
- return "https://query1.finance.yahoo.com/v8/finance/chart/"+symbol+"?period1="+(through-365*86400)+"&period2="+(through+86400)+"&interval=1d";
+ return "https://query1.finance.yahoo.com/v8/finance/chart/"+symbol+"?period1="+(through-historyDays*86400)+"&period2="+(through+86400)+"&interval=1d";
 }
 export function usRepairChartUrl(symbol:string,now:Date):string{
  if(!(US_REPAIR_SYMBOLS as readonly string[]).includes(symbol))throw Error("Repair symbol not allowlisted");
@@ -52,10 +56,10 @@ export function repairFailureCode(error:unknown):string{
  if(m==="Secondary ETF history is behind expected session")return "SESSION_BEHIND_OR_SPARSE";
  return "UNAVAILABLE";
 }
-function parseUsListedChart(payload:unknown,symbol:string,kind:"ETF"|"EQUITY",now:Date,allowLag:boolean):EtfBar[]{
+function parseUsListedChart(payload:unknown,symbol:string,kind:"ETF"|"EQUITY",now:Date,allowLag:boolean,maxBars=400):EtfBar[]{
  const root=payload as {chart?:{error?:unknown;result?:Array<{
   meta?:{symbol?:string;currency?:string;instrumentType?:string;exchangeTimezoneName?:string};
-  timestamp?:unknown;indicators?:{quote?:Array<{close?:unknown}>};
+  timestamp?:unknown;indicators?:{quote?:Array<{close?:unknown;open?:unknown;high?:unknown;low?:unknown;volume?:unknown}>};
  }>}}|null;
  const chart=root?.chart,record=chart?.result?.[0];
  if(chart?.error||chart?.result?.length!==1||!record||
@@ -64,7 +68,7 @@ function parseUsListedChart(payload:unknown,symbol:string,kind:"ETF"|"EQUITY",no
   throw Error("ETF identity mismatch");
  const stamps=record.timestamp,closes=record.indicators?.quote?.[0]?.close;
  if(!Array.isArray(stamps)||!Array.isArray(closes)||stamps.length!==closes.length||
-  stamps.length>400)throw Error("Invalid ETF daily history");
+  stamps.length>maxBars)throw Error("Invalid ETF daily history");
  const expected=expectedHomeEtfSession(now);
  if(!expected)throw Error("US session unavailable");
  const dayFormat=new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York",
@@ -79,7 +83,17 @@ function parseUsListedChart(payload:unknown,symbol:string,kind:"ETF"|"EQUITY",no
   const day=p("year")+"-"+p("month")+"-"+p("day");
   if(day>expected||scheduledUsEquityCloseHourET(day)===null)continue;
   if(byDay.has(day))throw Error("Duplicate ETF daily session");
-  byDay.set(day,{time:Date.parse(day+"T00:00:00Z")/1000,close});
+  const bar:EtfBar={time:Date.parse(day+"T00:00:00Z")/1000,close};
+  // Preserve available OHLCV on switched equity routes; missing or incoherent
+  // auxiliary data is omitted, not imputed from the close.
+  if(kind==="EQUITY"){
+   const q=record.indicators?.quote?.[0];
+   const read=(series:unknown)=>Array.isArray(series)&&typeof series[i]==="number"&&Number.isFinite(series[i])?series[i] as number:null;
+   const o=read(q?.open),h=read(q?.high),l=read(q?.low),v=read(q?.volume);
+   if(o!==null&&h!==null&&l!==null&&l>0&&l<=Math.min(o,close)&&h>=Math.max(o,close))Object.assign(bar,{open:o,high:h,low:l});
+   if(v!==null&&v>=0)bar.volume=v;
+  }
+  byDay.set(day,bar);
  }
  const bars=[...byDay.values()].sort((a,b)=>a.time-b.time);
  if(bars.length<6||(!allowLag&&new Date(bars.at(-1)!.time*1000).toISOString().slice(0,10)!==expected))
@@ -106,13 +120,13 @@ export function parseUsRepairChart(payload:unknown,symbol:string,now:Date):EtfBa
  if(!(US_REPAIR_SYMBOLS as readonly string[]).includes(symbol))throw Error("Repair symbol not allowlisted");
  return parseUsListedChart(payload,symbol,REPAIR_EQUITIES.has(symbol)?"EQUITY":"ETF",now,false);
 }
-async function fetchSessionChart(symbol:string,kind:"ETF"|"EQUITY",now:Date,budget:AbortSignal,fetcher:typeof fetch,revalidate:number){
- const response=await fetcher(sessionChartUrl(symbol,now),{
+async function fetchSessionChart(symbol:string,kind:"ETF"|"EQUITY",now:Date,budget:AbortSignal,fetcher:typeof fetch,revalidate:number,historyDays=365,maxBars=400){
+ const response=await fetcher(sessionChartUrl(symbol,now,historyDays),{
   headers:{accept:"application/json","user-agent":"Mozilla/5.0 Bluebelly Markets Monitor"},
   next:{revalidate},signal:AbortSignal.any([budget,AbortSignal.timeout(8500)])});
  if(!response.ok)throw Error("Secondary repair HTTP "+response.status);
  const payload=await response.json();
- const points=parseUsListedChart(payload,symbol,kind,now,true);
+ const points=parseUsListedChart(payload,symbol,kind,now,true,maxBars);
  const lastDay=new Date(points.at(-1)!.time*1000).toISOString().slice(0,10);
  const expected=expectedHomeEtfSession(now)!;
  if(Date.parse(expected+"T00:00:00Z")-Date.parse(lastDay+"T00:00:00Z")>7*86400000)throw Error("Secondary ETF history is behind expected session");
@@ -123,7 +137,18 @@ export async function fetchUsRepairHistory(symbol:string,now:Date,budget:AbortSi
  if(!(US_REPAIR_SYMBOLS as readonly string[]).includes(symbol))throw Error("Repair symbol not allowlisted");
  return fetchSessionChart(symbol,REPAIR_EQUITIES.has(symbol)?"EQUITY":"ETF",now,budget,fetcher,revalidate);
 }
-export async function fetchUsEquityCanaryHistory(symbol:string,now:Date,budget:AbortSignal,fetcher:typeof fetch=fetch){
- if(!isEquityCanary(symbol))throw Error("Equity canary not allowlisted");
- return fetchSessionChart(symbol,"EQUITY",now,budget,fetcher,3600);
+export async function fetchUsEquityCanaryHistory(symbol:string,now:Date,budget:AbortSignal,fetcher:typeof fetch=fetch,revalidate=3600){
+ if(!isEquityCanary(symbol)&&!(PREFERRED_US_EQUITIES as readonly string[]).includes(symbol))throw Error("Equity canary not allowlisted");
+ // One existing request, longer history only for the already-proven equity pilot.
+ const result=await fetchSessionChart(symbol,"EQUITY",now,budget,fetcher,revalidate,US_EQUITY_CANARY_HISTORY_DAYS,US_EQUITY_CANARY_MAX_BARS);
+ // A 1/3/5 session tracker must not silently treat missing sessions as observations.
+ const recent=new Set(result.points.slice(-6).map(p=>new Date(p.time*1000).toISOString().slice(0,10)));
+ let t=result.points.at(-1)!.time*1000;
+ for(let n=0;n<6;t-=86400000){
+  const day=new Date(t).toISOString().slice(0,10);
+  if(scheduledUsEquityCloseHourET(day)===null)continue;
+  if(!recent.has(day))throw Error("Secondary ETF history is behind expected session");
+  n++;
+ }
+ return result;
 }
