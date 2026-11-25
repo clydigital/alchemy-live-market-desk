@@ -29,7 +29,6 @@ const PUBLIC_NAV = [
 // Retained as source and historical reference tools, not parallel news products.
 const PUBLIC_MORE = [
   ["Newsroom", "/newsroom"],
-  ["Research Archive", "/research"],
   ["Regime Lenses", "/regime-watch"],
   ["Industry Intel", "/industry-intel"],
   ["Hormuz Data", "/hormuz"],
@@ -40,7 +39,6 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Live Market": "market",
   "Today": "market",
   "Newsroom": "research",
-  "Research Archive": "library",
   "Regime Lenses": "divergence",
   "Industry Intel": "layers",
   "Hormuz Data": "oil",
