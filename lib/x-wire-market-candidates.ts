@@ -71,6 +71,9 @@ export function rankXWireMarketCandidates(posts:readonly WirePost[],now=new Date
   if(policy.analyst)analystCount++;
   return true;
  };
+ // Give the user-prioritised account the first available material slot, not a guaranteed claim or quota.
+ const kobeissi=valid.find(c=>c.post.handle.toLowerCase()==="kobeissiletter");
+ if(kobeissi)add(kobeissi);
  // First reserve at most two actual alert candidates, then four distinct analyst voices.
  // A quiet alert lane consumes no slots; do not force a fixed quota of low-value posts.
  if(capacity>=6){
