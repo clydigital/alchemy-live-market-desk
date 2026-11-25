@@ -9,7 +9,7 @@ const now=new Date("2026-11-26T00:00:00Z");
 test("delta is bounded, stable across continuation, and rejects malformed windows",()=>{
  const since="2026-11-25T22:00:00Z",until=now.toISOString();
  assert.deepEqual(parseXWireDeltaWindow(new URLSearchParams({since,until}),now),{since:new Date(since).toISOString(),until,afterId:null});
- const rows=Array.from({length:41},(_,i)=>({post_id:String(2125600000000000000n+BigInt(i))}));
+ const rows=Array.from({length:41},(_,i)=>({post_id:String(BigInt("2125600000000000000")+BigInt(i))}));
  const result=xWireDeltaPage(rows);
  assert.equal(result.page.length,40);assert.equal(result.more,true);assert.equal(result.nextAfterId,rows[39].post_id);
  assert.equal(xWireDeltaPage(rows.slice(40)).nextAfterId,null);
@@ -26,7 +26,7 @@ test("Kobeissi is first in acquisition, stale accounts retain oldest-first order
  assert.equal(xWireNeedsRetry({...row,page_cursor:"pending"},now,2),true);
 });
 test("Kobeissi ranking priority is opt-in and only for a material eligible post",()=>{
- const row=(handle:string,i:number,text:string)=>({handle,id:String(2125600000000000000n+BigInt(i)),url:"https://x.com/"+handle+"/status/"+String(2125600000000000000n+BigInt(i)),text,publishedAt:"2026-11-25T23:00:00Z",images:[],quoteUrl:null,attribution:"THIRD_PARTY_ONLY" as const,intakeStatus:"discovery"});
+ const row=(handle:string,i:number,text:string)=>({handle,id:String(BigInt("2125600000000000000")+BigInt(i)),url:"https://x.com/"+handle+"/status/"+String(BigInt("2125600000000000000")+BigInt(i)),text,publishedAt:"2026-11-25T23:00:00Z",images:[],quoteUrl:null,attribution:"THIRD_PARTY_ONLY" as const,intakeStatus:"discovery"});
  const data=[row("Bluekurtic",1,"SPY moving average and historical breadth signal in 16 prior trading days"),row("KobeissiLetter",2,"Treasury yields and the Fed FOMC interest rate decision")];
  assert.equal(rankXWireMarketCandidates(data,now,12,{prioritizeKobeissi:true})[0].post.handle,"KobeissiLetter");
  assert.notEqual(rankXWireMarketCandidates(data,now,12,{prioritizeKobeissi:true}).length,0);
