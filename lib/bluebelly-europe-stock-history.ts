@@ -20,6 +20,16 @@ const dayParts=(date:Date,timeZone:string)=>Object.fromEntries(
  }).formatToParts(date).map(x=>[x.type,x.value])
 );
 const localDay=(p:Record<string,string>)=>[p.year,p.month,p.day].join("-");
+/** Conservative weekday session key only; local holiday calendars are not verified. */
+export function expectedLocalEquityDay(now:Date,spec:StockIdentity):string{
+ const p=dayParts(now,spec.timeZone);const d=new Date(localDay(p)+"T00:00:00Z");
+ if(Number(p.hour)<18)d.setUTCDate(d.getUTCDate()-1);
+ while(d.getUTCDay()===0||d.getUTCDay()===6)d.setUTCDate(d.getUTCDate()-1);
+ return d.toISOString().slice(0,10);
+}
+export function localEquitySessionKey(now:Date,specs:readonly StockIdentity[]):string{
+ return [...new Set(specs.map(s=>s.timeZone+"="+expectedLocalEquityDay(now,s)))].sort().join("|");
+}
 const number=(x:unknown)=>typeof x==="number"&&Number.isFinite(x)&&x>0?x:null;
 /** Eligible only after that venue's *completed* close. The 18:00 local
  * gate is intentionally conservative for Xetra/Euronext/Copenhagen.
@@ -70,8 +80,9 @@ export async function fetchEuropeanStockHistory(
  if(spec.currency==="USD")throw Error("Local quote currency cannot be USD");
  // Exactly curated symbols, never request-supplied URL parameters.
  if(!/^[A-Z0-9-]{1,12}\.(AS|DE|PA|CO|KL|KS|TWO|HK|SS)$/.test(spec.providerSymbol))throw Error("Unexpected EU chart symbol");
+ const through=Date.parse(expectedLocalEquityDay(now,spec)+"T00:00:00Z")/1000;
  const sourceUrl="https://query1.finance.yahoo.com/v8/finance/chart/"+
-  encodeURIComponent(spec.providerSymbol)+"?range=1y&interval=1d";
+  encodeURIComponent(spec.providerSymbol)+"?period1="+(through-365*86400)+"&period2="+(through+86400)+"&interval=1d";
  const response=await fetcher(sourceUrl,{headers:{"accept":"application/json","user-agent":"Mozilla/5.0 Bluebelly Markets Monitor"},
   next:{revalidate:60*60*6},signal:AbortSignal.timeout(8500)});
  if(!response.ok)throw Error("EU chart source "+response.status);

@@ -1,5 +1,6 @@
 import {expectedCompletedUsWeekdaySessionDay} from "./bluebelly-daily-report-session.ts";
 import {scheduledUsEquityCloseHourET} from "./bluebelly-us-equity-trading-calendar.ts";
+import {BLUEBELLY_STOCK_UNIVERSE,findStockIdentity} from "./bluebelly-equity-universe.ts";
 
 /** Bounded delayed secondary fallback for the existing homepage ETF tape only.
  * Replace a whole history; never splice providers or infer a missing close. */
@@ -126,4 +127,18 @@ export async function fetchUsRepairHistory(symbol:string,now:Date,budget:AbortSi
 export async function fetchUsEquityCanaryHistory(symbol:string,now:Date,budget:AbortSignal,fetcher:typeof fetch=fetch){
  if(!isEquityCanary(symbol))throw Error("Equity canary not allowlisted");
  return fetchSessionChart(symbol,"EQUITY",now,budget,fetcher,3600);
+}
+
+// Existing core index/breadth acquisition remains Nasdaq-based; eight displayed
+// core equities receive the already-budgeted alternate recovery when necessary.
+export const CORE_DISPLAY_US_EQUITIES=["NVDA","AMD","AAPL","MSFT","TSLA","AMZN","GOOGL","META"] as const;
+export const ALL_US_EQUITY_SYMBOLS=BLUEBELLY_STOCK_UNIVERSE.filter(s=>s.region==="US").map(s=>s.ticker);
+export function planFullUsRecovery(behind:ReadonlySet<string>):string[]{
+ const priority=[...US_REPAIR_SYMBOLS,...CORE_DISPLAY_US_EQUITIES,...US_EQUITY_CANARY,...ALL_US_EQUITY_SYMBOLS];
+ return [...new Set(priority)].filter(s=>behind.has(s)).slice(0,US_RECOVERY_BATCH_LIMIT);
+}
+export async function fetchCuratedUsEquityHistory(symbol:string,now:Date,budget:AbortSignal,fetcher:typeof fetch=fetch,revalidate=3600){
+ const identity=findStockIdentity(symbol);
+ if(!identity||identity.region!=="US"||identity.providerSymbol!==symbol||identity.currency!=="USD")throw Error("US equity not allowlisted");
+ return fetchSessionChart(symbol,"EQUITY",now,budget,fetcher,revalidate);
 }

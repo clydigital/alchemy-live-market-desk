@@ -1,0 +1,12 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {ALL_US_EQUITY_SYMBOLS,CORE_DISPLAY_US_EQUITIES,US_REPAIR_SYMBOLS,planFullUsRecovery,fetchCuratedUsEquityHistory} from "../lib/bluebelly-home-etf-history.ts";
+import {expectedLocalEquityDay,localEquitySessionKey} from "../lib/bluebelly-europe-stock-history.ts";
+import {findStockIdentity} from "../lib/bluebelly-equity-universe.ts";
+import {refreshScheduledBbEquities} from "../lib/scheduled-bb-equity-refresh.ts";
+import type {MarketMonitor} from "../lib/market-monitor.ts";
+const now=new Date("2026-11-26T01:30:00Z");
+test("all curated US names admitted, bounded recovery preserves original slots",()=>{assert.equal(ALL_US_EQUITY_SYMBOLS.length,124);assert.equal(CORE_DISPLAY_US_EQUITIES.length,8);assert.deepEqual(planFullUsRecovery(new Set([...ALL_US_EQUITY_SYMBOLS,...US_REPAIR_SYMBOLS])),[...US_REPAIR_SYMBOLS]);assert.equal(planFullUsRecovery(new Set(ALL_US_EQUITY_SYMBOLS)).length,17);assert(planFullUsRecovery(new Set(ALL_US_EQUITY_SYMBOLS)).includes("AMZN"));});
+test("local cache advances after local conservative close; weekend stable",()=>{const kl=findStockIdentity("5347.KL")!;assert.equal(expectedLocalEquityDay(now,kl),"2026-11-25");assert.equal(expectedLocalEquityDay(new Date("2026-11-26T10:01:00Z"),kl),"2026-11-26");assert.equal(expectedLocalEquityDay(new Date("2026-11-28T12:00:00Z"),kl),"2026-11-27");assert.notEqual(localEquitySessionKey(now,[kl]),localEquitySessionKey(new Date("2026-11-26T10:01:00Z"),[kl]));});
+test("non-US and unknown symbols not routed to US equity provider",async()=>{const fail=(async()=>{throw Error("should not fetch")}) as typeof fetch;await assert.rejects(()=>fetchCuratedUsEquityHistory("5347.KL",now,AbortSignal.timeout(100),fail),/allowlisted/);await assert.rejects(()=>fetchCuratedUsEquityHistory("NOT_IN_UNIVERSE",now,AbortSignal.timeout(100),fail),/allowlisted/);});
+test("scheduled refresh exposes actual missing coverage without claiming success",async()=>{const r=await refreshScheduledBbEquities(now,async()=>({rows:[]} as MarketMonitor));assert.equal(r.status,"DEGRADED");assert.equal(r.missing.length,155);assert.equal(r.latestUs,0);const fail=await refreshScheduledBbEquities(now,async()=>{throw Error("network")});assert.equal(fail.status,"PROVIDER_ERROR");});
