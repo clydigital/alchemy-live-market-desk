@@ -1,6 +1,6 @@
 import { unstable_cache } from "next/cache";
 import {expectedHomeEtfSession,fetchHomeEtfHistory,XL_FALLBACK_ETFS,type HomeEtf} from "./bluebelly-home-etf-history";
-import {ADDITIONAL_US_STOCKS,EUROPE_STOCKS} from "./bluebelly-equity-universe";
+import {ADDITIONAL_US_STOCKS,EUROPE_STOCKS,ASIA_STOCKS,findStockIdentity} from "./bluebelly-equity-universe";
 import {fetchEuropeanStockHistory} from "./bluebelly-europe-stock-history";
 import { evaluateMarketSignals, type MarketSignalSnapshot } from "./bluebelly-signal-scan";
 
@@ -23,6 +23,7 @@ export type MarketMonitorType =
   | "IPO / New Issue"
   | "US Stock"
   | "Europe Stock"
+  | "Asia Stock"
   | "Crypto";
 
 export type MarketMonitorPoint = PricePoint & {
@@ -576,9 +577,9 @@ export const loadExtras = unstable_cache(async () => {
       : null)
     .catch(() => null);
   return [...extraRows, ...rateRows, ...creditRows, ...globalRateRows, moveRow].filter((row): row is RawSeries => Boolean(row));
-}, ["alchemy-market-monitor-extras-v8-us-stocks"], { revalidate: EXTRA_REVALIDATE });
+}, ["alchemy-market-monitor-extras-v9-us-stocks"], { revalidate: EXTRA_REVALIDATE });
 const loadEuropeEquities=unstable_cache(async():Promise<RawSeries[]>=>{
- const fetched=await mapLimit(EUROPE_STOCKS,4,async (spec):Promise<RawSeries|null>=>{
+ const fetched=await mapLimit([...EUROPE_STOCKS,...ASIA_STOCKS],6,async (spec):Promise<RawSeries|null>=>{
   try{return await fetchEuropeanStockHistory(spec);}
   catch(error){
    console.warn(JSON.stringify({event:"bluebelly_eu_stock_source_unavailable",ticker:spec.ticker,
@@ -587,7 +588,7 @@ const loadEuropeEquities=unstable_cache(async():Promise<RawSeries[]>=>{
   }
  });
  return fetched.filter((row):row is RawSeries=>row!==null);
-},["bluebelly-europe-daily-shares-v1"],{revalidate:60*60*6});
+},["bluebelly-local-daily-shares-v2"],{revalidate:60*60*6});
 
 export const loadCashAnchors = unstable_cache(async () => {
   const rows = await Promise.all([
@@ -954,4 +955,4 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   };
 }
 
-export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v3-xl-fallback"], { revalidate: 300 });
+export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v4-equities"], { revalidate: 300 });
