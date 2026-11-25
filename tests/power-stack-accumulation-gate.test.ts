@@ -1,0 +1,11 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {entryCeilings,evaluateAccumulation,type AccumulationInput,type Evidence} from "../lib/power-stack-accumulation-gate.ts";
+const now=new Date("2026-11-26T00:00:00Z");
+const e:Evidence={state:"REVIEWED",availableAt:"2026-11-23T12:00:00Z",sourceUrl:"https://www.sec.gov/Archives/edgar/data/123/456/a.htm",note:"Reviewed source-dated evidence"};
+const input:AccumulationInput={ticker:"TEST",currency:"USD",price:100,quoteCurrency:"USD",quoteAt:"2026-11-24T21:00:00Z",priceSourceUrl:"https://example.com/quote",modelAvailableAt:"2026-11-25T12:00:00Z",modelCurrency:"USD",modelSourceUrl:"https://example.org/model",modelKind:"NORMALISED_EPS",base:{value:120,basis:"10 EPS times 12 multiple"},bear:{value:80,basis:"8 EPS times 10 multiple"},bull:null,cashGeneration:e,balanceSheet:e,earningsDirection:e,invalidation:"Reassess when cash flow falls materially",horizonMonths:12};
+test("20 percent upside and 20 percent discount differ",()=>{const r=entryCeilings(120);assert.equal(r.upsideCeiling,100);assert.equal(r.discountCeiling,96)});
+test("candidate is a manual scenario, not order; calculates downside",()=>{const a=evaluateAccumulation(input,now);assert.equal(a.state,"VALUATION_REVIEW_CANDIDATE");assert.equal(a.metrics?.bearReturnPct,-20);assert.equal(a.metrics?.rewardRisk,1)});
+test("missing and adverse fundamentals block qualification",()=>{assert.equal(evaluateAccumulation({...input,bear:null},now).state,"INCOMPLETE");assert.equal(evaluateAccumulation({...input,cashGeneration:{...e,state:"UNKNOWN"}},now).state,"INCOMPLETE");assert.equal(evaluateAccumulation({...input,balanceSheet:{...e,state:"ADVERSE"}},now).state,"RISK_REVIEW")});
+test("future model cannot qualify historical test",()=>{assert.equal(evaluateAccumulation(input,now,"HISTORICAL").state,"INCOMPLETE");assert.equal(evaluateAccumulation({...input,modelAvailableAt:"2026-11-23T00:00:00Z"},now,"HISTORICAL").state,"VALUATION_REVIEW_CANDIDATE")});
+test("currency mismatch and future quotes rejected",()=>{assert.equal(evaluateAccumulation({...input,quoteCurrency:"EUR"},now).state,"INVALID");assert.equal(evaluateAccumulation({...input,quoteAt:"2026-11-27T00:00:00Z"},now).state,"INVALID")});
