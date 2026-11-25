@@ -634,7 +634,7 @@ const loadTargetedUsRepair=unstable_cache(async(symbols:readonly string[],sessio
        ?await fetchUsEquityCanaryHistory(symbol,now,budget)
        :await fetchUsRepairHistory(symbol,now,budget);
    if(!result.points.length)throw Error("Secondary ETF history is behind expected session");
-   return {symbol,ok:true as const,...result};
+   return {...result,symbol,ok:true as const};
   }catch(error){
    return {symbol,ok:false as const,reason:repairFailureCode(error)};
   }
