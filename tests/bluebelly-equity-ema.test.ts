@@ -1,3 +1,4 @@
+import {scheduledUsEquityCloseHourET} from "../lib/bluebelly-us-equity-trading-calendar.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {calculateTechnicalLevels} from "../lib/ema-sd-levels.ts";
@@ -34,4 +35,19 @@ test("completed-session crossing events capture reversal and reclaim inside wind
  assert(o.windows["5"]!.events.some(e=>e.boundary==="ema"&&e.direction==="down"));
  assert(o.windows["5"]!.events.some(e=>e.boundary==="ema"&&e.direction==="up"));
  assert.equal(o.warmup,"READY");
+});
+
+test("confirmed close hold requires two more completed scheduled sessions and ready warmup",()=>{
+ const end=Date.parse("2026-11-25T00:00:00Z");
+ const bars=Array.from({length:180},(_,i)=>end-(179-i)*86400000).filter(t=>scheduledUsEquityCloseHourET(new Date(t).toISOString().slice(0,10))!==null).map(t=>({time:t/1000,close:100}));
+ for(const b of bars.slice(-3))b.close=130;
+ const now=new Date("2026-11-25T22:00:00Z");
+ const o=scanEquityEma(bars,"America/New_York",now)!.observations.find(o=>o.frame==="D"&&o.period===20)!;
+ assert(o.closeHolds?.some(h=>h.boundary==="ema"&&h.direction==="up"&&h.status==="HOLD_CONFIRMED"&&h.consecutiveCloses===3));
+ const gap=bars.filter(b=>b!==bars.at(-2));
+ const g=scanEquityEma(gap,"America/New_York",now)!.observations.find(o=>o.frame==="D"&&o.period===20)!;
+ assert.equal(g.closeHolds?.length,0);
+ const breakOnly=bars.map((b,i)=>({...b,close:i===bars.length-1?130:100}));
+ const p=scanEquityEma(breakOnly,"America/New_York",now)!.observations.find(o=>o.frame==="D"&&o.period===20)!;
+ assert(p.closeHolds?.some(h=>h.boundary==="ema"&&h.status==="BREAK_ONLY"));
 });
