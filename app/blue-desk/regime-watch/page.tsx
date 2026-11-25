@@ -91,6 +91,7 @@ export default async function RegimeWatchPage(){
   <div className={desk.content}>
    <MarketCompass summary={compassSummary} readings={meterReadings} host={host}/>
    <RegimeCompareEvidence compare={compare} host={host}/>
+   <aside style={{border:"1px solid var(--bb-card-border)",background:"var(--bb-surface)",borderRadius:12,padding:"16px 20px",margin:"16px 0"}}><h2 style={{margin:"0 0 8px"}}>Recession Watch</h2><p>Is the economy deteriorating, or is weakness concentrated in markets and selected industries? Examine dated labour, real activity, household, credit and leading indicators separately from the nine legacy research files.</p><Link href={blueDeskPublicHref("/blue-desk/regime-watch/recession",host)}>Open Recession Watch →</Link></aside>
    <p style={{margin:"10px 0 14px",fontSize:"12px",color:"var(--bb-muted)"}}>The directional reading summarises one matched equity session. Deeper research, nine regime lenses and evidence follow below; no tape signal automatically changes a fundamental thesis.</p>
    <QqqPositioningPanel rows={qqqPosition.rows} checkedAt={qqqPosition.checkedAt} market={rows} now={now} host={host}/>
    <RegimeResearchClocks sources={observations} editorialReviewedOn={LENS_OUTLOOK_REVIEWED_ON} shadow={shadowHealth}/>
