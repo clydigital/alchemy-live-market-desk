@@ -293,7 +293,7 @@ export default async function PrivatePowerStack({searchParams}:{searchParams:Pro
         {ready?<PowerStackMeasuredSignals signals={measuredSignals} trackedTickers={trackedTickers} topics={researchTopics}/>:null}
         {ready?<PowerStackResearchFocus assets={issuers} now={researchedAt}/>:null}
         {ready?<PowerStackOpportunityQueue rows={opportunities} issuerUnavailable={bbFundamentals?.status!=="OK"}/>:null}
-        {ready?<PowerStackEstimateHistory rows={pegError?[]:projectEstimateHistory((pegRecords??[]) as PegResearchObservation[],researchedAt)} unavailable={!!pegError} limited={(pegRecords??[]).length>=300}/>:null}
+        {ready?<PowerStackEstimateHistory rows={pegError?[]:projectEstimateHistory((pegRecords??[]) as PegResearchObservation[],researchedAt)} unavailable={!!pegError} limited={(pegRecords??[]).length>=300} now={researchedAt}/>:null}
         {ready?<PowerStackValuationWorkbench assets={issuers} reviews={issuerReviews}
           storeError={Boolean(issuerValuationError)}/>:null}
         <NvidiaEarningsDecisionWatch mode="power-stack" now={researchedAt} owner={{
