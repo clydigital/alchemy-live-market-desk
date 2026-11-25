@@ -22,7 +22,7 @@ const definitions={
  net_debt_ebitda:{label:"Net debt / EBITDA",unit:"multiple"},liquidity:{label:"Liquidity",unit:"USD"},
  cash_and_equivalents:{label:"Cash and equivalents",unit:"USD"},short_term_debt:{label:"Short-term debt",unit:"USD"},long_term_debt:{label:"Long-term debt",unit:"USD"},
  accounts_receivable:{label:"Accounts receivable, net",unit:"USD"},inventory:{label:"Inventory",unit:"USD"},short_term_financing_receivables:{label:"Short-term financing receivables, net",unit:"USD"},
- medical_care_ratio_pct:{label:"Cigna Healthcare medical care ratio",unit:"percent"},adjusted_eps_guidance_floor:{label:"FY adjusted EPS guidance floor",unit:"USD/shares"},
+ medical_care_ratio_pct:{label:"Cigna Healthcare medical care ratio",unit:"percent"},medical_benefit_ratio_pct:{label:"CVS Health Care Benefits medical benefit ratio",unit:"percent"},adjusted_eps_guidance_floor:{label:"FY adjusted EPS guidance floor",unit:"USD/shares"},
  gaap_eps_guidance:{label:"FY GAAP EPS guidance",unit:"USD/shares"},adjusted_eps_guidance:{label:"FY adjusted EPS guidance",unit:"USD/shares"},
 } as const;
 export type MetricKey=keyof typeof definitions;
