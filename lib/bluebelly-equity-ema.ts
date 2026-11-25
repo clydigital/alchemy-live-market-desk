@@ -8,7 +8,7 @@ type Frame="D"|"W"|"M";
 type State="above"|"below"|"at";
 type Band="above_upper"|"below_lower"|"inside";
 type Cross="up"|"down"|"none";
-export type EmaObservation={frame:Frame;period:number;multiplier:number;asOf:string;anchorDay:string;ema:number;upper:number;lower:number;distancePct:number;side:State;band:Band;windows:Record<"1"|"3"|"5",{returnPct:number;approach:"down_to"|"up_to"|"away"|"none";emaCross:Cross;upperCross:Cross;lowerCross:Cross}|null>};
+export type EmaObservation={frame:Frame;period:number;multiplier:number;asOf:string;anchorDay:string;ema:number;upper:number;lower:number;distancePct:number;side:State;band:Band;windows:Record<"1"|"3"|"5",{returnPct:number;approach:"down_to"|"up_to"|"away"|"none";emaCross:Cross;upperCross:Cross;lowerCross:Cross;events:{session:string;boundary:"ema"|"upper"|"lower";direction:"up"|"down"}[]}|null>};
 export type EquityEmaScan={asOf:string;method:"SMA_SEEDED_EMA_ROLLING_CLOSE_POPULATION_SD";observations:EmaObservation[];unavailable:string[]};
 const periods=[[20,1],[50,1],[100,.5],[200,.25]] as const;
 const day=(t:number)=>new Date(t*1000).toISOString().slice(0,10);
@@ -28,8 +28,16 @@ export function scanEquityEma(input:readonly EmaPoint[],timeZone:string,now=new 
   for(const k of [1,3,5] as const){const old=at-k>=0?bandAt(bars,frame,at-k,period,multiplier):null;const prior=bars[at-k];const w=String(k) as "1"|"3"|"5";if(!old||!prior){windows[w]=null;continue;}
    const before=pct(prior.close,old.ema),after=pct(p.close,cur.ema),ret=pct(p.close,prior.close);
    const approach=before>0&&after>=0&&ret<0&&Math.abs(after)<Math.abs(before)?"down_to":before<0&&after<=0&&ret>0&&Math.abs(after)<Math.abs(before)?"up_to":Math.abs(after)>Math.abs(before)?"away":"none";
-   // Window endpoints compare their own contemporaneous bands. This is not intrawindow event enumeration.
-   windows[w]={returnPct:ret,approach,emaCross:cross(prior.close-old.ema,p.close-cur.ema),upperCross:cross(prior.close-old.upper,p.close-cur.upper),lowerCross:cross(prior.close-old.lower,p.close-cur.lower)};
+   const events:NonNullable<EmaObservation["windows"]["1"]>["events"]=[];
+   for(let j=at-k+1;j<=at;j++){
+    const a=bandAt(bars,frame,j-1,period,multiplier),b=bandAt(bars,frame,j,period,multiplier);if(!a||!b)continue;
+    for(const boundary of ["ema","upper","lower"] as const){
+     const direction=cross(bars[j-1].close-a[boundary],bars[j].close-b[boundary]);
+     if(direction!=="none")events.push({session:day(bars[j].time),boundary,direction});
+    }
+   }
+   // Endpoint state plus each observed completed-session crossing within the window.
+   windows[w]={returnPct:ret,approach,emaCross:cross(prior.close-old.ema,p.close-cur.ema),upperCross:cross(prior.close-old.upper,p.close-cur.upper),lowerCross:cross(prior.close-old.lower,p.close-cur.lower),events};
   }
   observations.push({frame,period,multiplier,asOf,...cur,distancePct:pct(p.close,cur.ema),side,band,windows});
  }
