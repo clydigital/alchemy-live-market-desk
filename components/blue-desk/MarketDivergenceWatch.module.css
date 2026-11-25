@@ -63,17 +63,17 @@
 .compactFoot a{font:800 12px/1.5 var(--bb-mono);color:var(--bb-command-accent,#ffe416)}
 @media(max-width:1000px){.compactGrid{grid-template-columns:1fr}.compactCard{padding:13px}.compactMetrics{max-width:480px}}
 
-/* Use the same illumination colour as the hero radar shortcuts, without animating the card. */
+/* Match the BELLY wordmark accent in every theme, rather than the secondary radar colour. */
 .compactCard:is(:hover,:has(:focus-visible)){
- background:var(--bb-command-alt);
- border-color:var(--bb-command-alt);
+ background:var(--bb-command-accent);
+ border-color:var(--bb-command-accent);
  color:#071017;
- box-shadow:inset 0 0 14px rgba(225,255,255,.18);
+ box-shadow:inset 0 0 14px rgba(255,255,255,.18);
 }
 .compactCard:is(:hover,:has(:focus-visible)) :is(h3,p,small,b,.tag,.observed,summary,a,.readings strong,.compactMetrics strong){color:#03232d}
 .compactCard:is(:hover,:has(:focus-visible)) :is(.compactMetrics,.readings,.compactMetrics>div+div,details){border-color:rgba(3,35,45,.32)}
 .compactCard:is(:hover,:has(:focus-visible)) [data-direction="up"]{color:#00452f}
 .compactCard:is(:hover,:has(:focus-visible)) [data-direction="down"]{color:#730d26}
 .compactCard:is(:hover,:has(:focus-visible)) [data-direction="flat"]{color:#254550}
-.compactCard:is(:hover,:has(:focus-visible))::before{background:#ffe416;box-shadow:0 0 7px rgba(255,228,22,.75)}
+.compactCard:is(:hover,:has(:focus-visible))::before{background:#071017;box-shadow:0 0 7px rgba(7,16,23,.35)}
 .compactCard :focus-visible{outline:2px solid currentColor;outline-offset:2px}
