@@ -643,7 +643,7 @@ const loadTargetedUsRepair=unstable_cache(async(symbols:readonly string[],sessio
  const observations=rows.filter(r=>r.ok);
  console.info(JSON.stringify({event:"bb_us_repair_result",session,requested:symbols.length,recovered:observations.map(r=>({symbol:r.symbol,day:new Date(r.points.at(-1)!.time*1000).toISOString().slice(0,10)})),failures}));
  return observations;
-},["bluebelly-targeted-us-repair-v3-equity-canary"],{revalidate:3600});
+},["bluebelly-targeted-us-repair-v4-equity-deep-canary"],{revalidate:3600});
 const loadEuropeEquities=unstable_cache(async():Promise<RawSeries[]>=>{
  const fetched=await mapLimit([...EUROPE_STOCKS,...ASIA_STOCKS],6,async (spec):Promise<RawSeries|null>=>{
   try{return await fetchEuropeanStockHistory(spec);}
@@ -1059,4 +1059,4 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   };
 }
 
-export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v8-equity-canary"], { revalidate: 300 });
+export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v9-equity-deep-canary"], { revalidate: 300 });
