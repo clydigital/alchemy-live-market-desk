@@ -20,6 +20,9 @@ import {buildScannerDiscovery} from "@/lib/bluebelly-scanner-discovery";
 import XlBenchmarkSynergyPanel from "@/components/blue-desk/XlBenchmarkSynergy";
 import {buildXlBenchmarkSynergy} from "@/lib/bluebelly-xl-benchmark-synergy";
 import PublicMarketScreener from "@/components/blue-desk/PublicMarketScreener";
+import MarketFundamentalComparison from "@/components/blue-desk/MarketFundamentalComparison";
+import {projectPublicEquityCoverage} from "@/lib/bluebelly-equity-coverage";
+import {readPublicFundamentalComparison} from "@/lib/bluebelly-fundamental-comparison-server";
 import MarketDivergenceWatch from "@/components/blue-desk/MarketDivergenceWatch";
 import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
 import {buildMarketCompassSummary} from "@/lib/bluebelly-market-compass";
@@ -105,6 +108,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
         item.symbol,item.label,breadthHistory.series.find(row=>row.symbol===item.symbol)))
     : [];
   const observations=[...monitoredRows,...breadthObservations];
+  const fundamentals=mode==="assets"&&group==="equities"?await readPublicFundamentalComparison(projectPublicEquityCoverage(monitor?.rows??[],now).rows,now):null;
   const xlSynergy=mode==="compare"?buildXlBenchmarkSynergy(monitor?.rows??[],now):null;
   const divergenceRadar=mode==="watch"?buildDivergenceRadar([...(monitor?.rows??[]),...(monitor?.divergenceRows??[])],breadthHistory.series,now):null;
   const movers=mode==="assets"&&group==="all"?buildScannerDiscovery(monitoredRows,now,publicSectorSessionObservations(monitor?.rows??[],expectedHomeEtfSession(now)),expectedHomeEtfSession(now),monitor?.sectorProviderFailures??(monitor?[]:["XLB","XLC","XLE","XLF","XLI","XLK","XLP","XLRE","XLU","XLV","XLY"])):null;
@@ -179,6 +183,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
         </nav>:mode==="assets"?<nav aria-label="Markets page sections"
           className={legibility.focusNavigation} data-markets-primary="asset-catalogue">
           <a href="#market-group-heading">All instruments</a>
+          <Link href={blueDeskPublicHref("/blue-desk/markets?group=equities",host)+"#market-fundamentals"}>Fundamentals</Link>
           {movers?<a href="#market-movers">Top movers</a>:null}
           {movers?<a href="#xl-sector-pulse">XL sectors</a>:null}
           {group==="all"?<a href="#yield-ladder">US yields</a>:null}
@@ -292,6 +297,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <PublicMarketScreener key={group} observations={observations} group={group} dataAvailable={Boolean(monitor)} mode={mode==="compare"?"compare":"assets"} />
         </section>:null}
 
+        {fundamentals?<MarketFundamentalComparison rows={fundamentals.rows} status={fundamentals.status}/>:null}
         {mode==="assets"&&group==="all"?
           <PublicTreasuryLadder rows={publicMarketObservations(monitor?.rows||[],"rates")}/>:null}
         {mode==="assets"&&group==="rates"?
