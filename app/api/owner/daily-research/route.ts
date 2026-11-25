@@ -21,6 +21,7 @@ import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
 import {getOwnerDeliveredResearchBriefs} from "@/lib/blue-desk-delivered-research-server";
 import {getPrivateReviewedCreatorArguments} from "@/lib/bluebelly-private-creator-reviews";
 import {getOwnerCreatorSignalDigest} from "@/lib/bluebelly-creator-signals-server";
+import {getOwnerResearchDistribution} from "@/lib/bluebelly-research-distribution-server";
 
 export const dynamic="force-dynamic";
 export const runtime="nodejs";
@@ -59,6 +60,7 @@ export async function GET(req:NextRequest){
     getSourceDatedBreadth(true).catch(()=>({series:[],retrievalStatus:"fallback" as const})),
     getOwnerCreatorSignalDigest(now),
   ]);
+  const researchDistribution=await getOwnerResearchDistribution(creatorSignalDigest.digest,now);
   const motionNews=selectVerifiedNewsBriefs(rawNews,now,12);
   const news=combineQualifiedNews(motionNews,originalPress,12);
   const calendar=buildPresenterCalendar(macro,earnings,now);
@@ -87,7 +89,7 @@ export async function GET(req:NextRequest){
   });
   const health=assessDailyResearchHealth({now,notion,packet,news});
   return NextResponse.json({
-    ...packet,health,creatorSignalDigest,marketCompare:compare,
+    ...packet,health,creatorSignalDigest,marketCompare:compare,researchDistribution,
     creatorReviewCoverage:{status:creatorDelivery.status,count:creatorDelivery.reviews.length,
       caveat:"Reviews have original video dates and attributed mechanisms; their claims have not been independently source-verified."},
     deliveredResearch:{status:delivery.status,count:delivery.briefs.length,
