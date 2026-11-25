@@ -1,11 +1,12 @@
 import {BLUEBELLY_STOCK_UNIVERSE,stockUniverseCoverage,type StockIdentity} from "./bluebelly-equity-universe.ts";
+import {expectedHomeEtfSession} from "./bluebelly-home-etf-history.ts";
 import type {EquityEmaScan} from "./bluebelly-equity-ema";
 import type {MarketMonitorRow} from "./market-monitor";
 
 export type EquityCoverageStatus="SOURCE_DATED"|"MONITORED_UNAVAILABLE";
 export type PublicEquityCoverageRow=Pick<StockIdentity,
  "ticker"|"company"|"region"|"exchange"|"currency"|"timeZone"|"priority"|"theme"> & {
-  status:EquityCoverageStatus;price:number|null;changePct:number|null;change3dPct?:number|null;change5dPct?:number|null;emaScan?:EquityEmaScan|null;
+  status:EquityCoverageStatus;sessionFreshness?:"LATEST_COMPLETED_US_SESSION"|"BEHIND_US_SESSION"|"LOCAL_SESSION_DATED"|"UNAVAILABLE";expectedUsSession?:string|null;price:number|null;changePct:number|null;change3dPct?:number|null;change5dPct?:number|null;emaScan?:EquityEmaScan|null;
   asOf:string|null;sourceName:string|null;sourceUrl:string|null;
 };
 export type PublicEquityCoverage={
@@ -17,6 +18,7 @@ function eligible(row:MarketMonitorRow,spec:StockIdentity,now:Date):boolean{
  if(row.frequency!=="daily"||row.symbol.toUpperCase()!==spec.ticker||!row.asOf
   ||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(row.asOf)
   ||!Number.isFinite(row.last)||!(row.last!>0)||row.currency&&row.currency!==spec.currency)return false;
+ if(spec.region==="US"){const expected=expectedHomeEtfSession(now);if(!expected||row.asOf>expected)return false;}
  const time=Date.parse(row.asOf+"T00:00:00Z"),age=now.getTime()-time;
  if(!Number.isFinite(time)||age<0||age>8*86400000)return false;
  try{
@@ -35,6 +37,7 @@ export function projectPublicEquityCoverage(
   const ticker=raw.symbol?.toUpperCase();if(!ticker)continue;
   const list=observed.get(ticker)??[];list.push(raw);observed.set(ticker,list);
  }
+ const expected=expectedHomeEtfSession(now);
  const projected:PublicEquityCoverageRow[]=BLUEBELLY_STOCK_UNIVERSE.map(spec=>{
   const candidates=(observed.get(spec.ticker)??[]).filter(r=>eligible(r,spec,now)).sort((a,b)=>b.asOf!.localeCompare(a.asOf!));
   const row=candidates[0];
@@ -43,6 +46,7 @@ export function projectPublicEquityCoverage(
   return {ticker:spec.ticker,company:spec.company,region:spec.region,exchange:spec.exchange,
    currency:spec.currency,timeZone:spec.timeZone,priority:spec.priority,theme:spec.theme,
    status:ok?"SOURCE_DATED":"MONITORED_UNAVAILABLE",
+   sessionFreshness:!ok?"UNAVAILABLE":spec.region!=="US"?"LOCAL_SESSION_DATED":row!.asOf===expected?"LATEST_COMPLETED_US_SESSION":"BEHIND_US_SESSION",expectedUsSession:spec.region==="US"?expected:null,
    price:ok?row!.last:null,changePct:ok&&Number.isFinite(row!.dayChange)?row!.dayChange:null,
    change3dPct:ok&&Number.isFinite(row!.change3d)?row!.change3d:null,
    change5dPct:ok&&Number.isFinite(row!.change5d)?row!.change5d:null,

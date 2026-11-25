@@ -1,4 +1,5 @@
 import { unstable_cache } from "next/cache";
+import {expectedHomeEtfSession} from "./bluebelly-home-etf-history.ts";
 
 export type PricePoint = { time: number; close: number; high?: number | null; low?: number | null; volume?: number | null };
 
@@ -183,7 +184,9 @@ async function mapLimit<T, R>(items: T[], limit: number, worker: (item: T) => Pr
 }
 
 async function fetchNasdaqHistory(request: NasdaqRequest): Promise<PricePoint[]> {
-  const end = new Date();
+  const expected=expectedHomeEtfSession(new Date());
+  if(!expected)throw Error("US session unavailable");
+  const end = new Date(expected+"T00:00:00Z");
   const start = new Date(end.getTime() - HISTORY_DAYS * 86400000);
   const endpoint = `https://api.nasdaq.com/api/quote/${encodeURIComponent(request.providerSymbol)}/historical?assetclass=${request.assetClass}&fromdate=${isoDate(start)}&todate=${isoDate(end)}&limit=5000`;
   const response = await fetch(endpoint, {
@@ -204,6 +207,7 @@ async function fetchNasdaqHistory(request: NasdaqRequest): Promise<PricePoint[]>
     const match = row.date?.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
     if (close === null || !match) return [];
     const time = Date.UTC(Number(match[3]), Number(match[1]) - 1, Number(match[2])) / 1000;
+    if(time>end.getTime()/1000)return [];
     return [{ time, close, high: parseNumber(row.high), low: parseNumber(row.low), volume: parseNumber(row.volume) }];
   }).sort((a, b) => a.time - b.time);
 }

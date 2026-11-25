@@ -6,12 +6,15 @@ import {scheduledUsEquityCloseHourET} from "./bluebelly-us-equity-trading-calend
 export const XL_FALLBACK_ETFS = ["XLB","XLC","XLE","XLF","XLI","XLK","XLP","XLRE","XLU","XLV","XLY"] as const;
 export const HOME_ETFS = ["SPY","RSP","QQQ","SMH","SOXX",...XL_FALLBACK_ETFS] as const;
 export type HomeEtf = typeof HOME_ETFS[number];
+// Fixed public instrument list: 13 bond ETFs, DIA/IWM, and two missing REITs.
+export const US_REPAIR_SYMBOLS=["AVB","EQR","SGOV","USFR","SHY","IEF","TLH","TLT","TIP","AGG","GOVT","LQD","HYG","EDV","ZROZ","DIA","IWM"] as const;
+const REPAIR_EQUITIES=new Set<string>(["AVB","EQR"]);
 export type EtfBar = {time:number;close:number};
 export function expectedHomeEtfSession(now:Date):string|null{
  // Allow 15 minutes after the scheduled close for daily-history publication.
  return expectedCompletedUsWeekdaySessionDay(new Date(now.getTime()-15*60000));
 }
-export function parseHomeEtfChart(payload:unknown,symbol:HomeEtf,now:Date):EtfBar[]{
+function parseUsListedChart(payload:unknown,symbol:string,kind:"ETF"|"EQUITY",now:Date,allowLag:boolean):EtfBar[]{
  const root=payload as {chart?:{error?:unknown;result?:Array<{
   meta?:{symbol?:string;currency?:string;instrumentType?:string;exchangeTimezoneName?:string};
   timestamp?:unknown;indicators?:{quote?:Array<{close?:unknown}>};
@@ -19,7 +22,7 @@ export function parseHomeEtfChart(payload:unknown,symbol:HomeEtf,now:Date):EtfBa
  const chart=root?.chart,record=chart?.result?.[0];
  if(chart?.error||chart?.result?.length!==1||!record||
   record.meta?.symbol!==symbol||record.meta.currency!=="USD"||
-  record.meta.instrumentType!=="ETF"||record.meta.exchangeTimezoneName!=="America/New_York")
+  record.meta.instrumentType!==kind||record.meta.exchangeTimezoneName!=="America/New_York")
   throw Error("ETF identity mismatch");
  const stamps=record.timestamp,closes=record.indicators?.quote?.[0]?.close;
  if(!Array.isArray(stamps)||!Array.isArray(closes)||stamps.length!==closes.length||
@@ -41,9 +44,12 @@ export function parseHomeEtfChart(payload:unknown,symbol:HomeEtf,now:Date):EtfBa
   byDay.set(day,{time:Date.parse(day+"T00:00:00Z")/1000,close});
  }
  const bars=[...byDay.values()].sort((a,b)=>a.time-b.time);
- if(bars.length<6||(!(XL_FALLBACK_ETFS as readonly string[]).includes(symbol)&&new Date(bars.at(-1)!.time*1000).toISOString().slice(0,10)!==expected))
+ if(bars.length<6||(!allowLag&&new Date(bars.at(-1)!.time*1000).toISOString().slice(0,10)!==expected))
   throw Error("Secondary ETF history is behind expected session");
  return bars;
+}
+export function parseHomeEtfChart(payload:unknown,symbol:HomeEtf,now:Date):EtfBar[]{
+ return parseUsListedChart(payload,symbol,"ETF",now,(XL_FALLBACK_ETFS as readonly string[]).includes(symbol));
 }
 export async function fetchHomeEtfHistory(symbol:HomeEtf,now=new Date(),fetcher:typeof fetch=fetch){
  if(!HOME_ETFS.includes(symbol))throw Error("ETF not allowlisted");
@@ -54,4 +60,19 @@ export async function fetchHomeEtfHistory(symbol:HomeEtf,now=new Date(),fetcher:
  return {points:parseHomeEtfChart(await response.json(),symbol,now),
   sourceName:"Yahoo Finance public daily chart (secondary; delayed)",
   sourceUrl:"https://finance.yahoo.com/quote/"+symbol+"/history/"};
+}
+
+/** Exact listing and completed-session validation; never splice histories or
+ * admit arbitrary request-supplied instruments. */
+export function parseUsRepairChart(payload:unknown,symbol:string,now:Date):EtfBar[]{
+ if(!(US_REPAIR_SYMBOLS as readonly string[]).includes(symbol))throw Error("Repair symbol not allowlisted");
+ return parseUsListedChart(payload,symbol,REPAIR_EQUITIES.has(symbol)?"EQUITY":"ETF",now,false);
+}
+export async function fetchUsRepairHistory(symbol:string,now:Date,budget:AbortSignal,fetcher:typeof fetch=fetch){
+ if(!(US_REPAIR_SYMBOLS as readonly string[]).includes(symbol))throw Error("Repair symbol not allowlisted");
+ const response=await fetcher("https://query1.finance.yahoo.com/v8/finance/chart/"+symbol+"?range=1y&interval=1d",{
+  headers:{accept:"application/json","user-agent":"Mozilla/5.0 Bluebelly Markets Monitor"},
+  next:{revalidate:3600},signal:AbortSignal.any([budget,AbortSignal.timeout(8500)])});
+ if(!response.ok)throw Error("Secondary repair history unavailable");
+ return {points:parseUsRepairChart(await response.json(),symbol,now),sourceName:"Yahoo Finance public daily chart (secondary; delayed)",sourceUrl:"https://finance.yahoo.com/quote/"+symbol+"/history/"};
 }

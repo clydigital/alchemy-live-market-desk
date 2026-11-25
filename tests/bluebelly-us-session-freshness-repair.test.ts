@@ -1,0 +1,12 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {expectedHomeEtfSession,parseUsRepairChart,US_REPAIR_SYMBOLS} from "../lib/bluebelly-home-etf-history.ts";
+import {scanEquityEma} from "../lib/bluebelly-equity-ema.ts";
+import {projectPublicEquityCoverage} from "../lib/bluebelly-equity-coverage.ts";
+import type {MarketMonitorRow} from "../lib/market-monitor.ts";
+const now=new Date("2026-11-25T21:30:00Z");
+const dates=["2026-11-18","2026-11-19","2026-11-20","2026-11-23","2026-11-24","2026-11-25"];
+const payload=(symbol:string,kind:string)=>({chart:{error:null,result:[{meta:{symbol,currency:"USD",instrumentType:kind,exchangeTimezoneName:"America/New_York"},timestamp:dates.map(d=>Date.parse(d+"T14:30:00Z")/1000),indicators:{quote:[{close:[90,91,92,93,94,95]}]}}]}});
+test("bounded repair accepts exact completed US listing and kind, refuses stale data",()=>{assert.equal(US_REPAIR_SYMBOLS.length,17);assert.equal(parseUsRepairChart(payload("AVB","EQUITY"),"AVB",now).at(-1)?.close,95);assert.equal(parseUsRepairChart(payload("TLT","ETF"),"TLT",now).length,6);assert.throws(()=>parseUsRepairChart(payload("AVB","ETF"),"AVB",now));assert.throws(()=>parseUsRepairChart(payload("NVDA","EQUITY"),"NVDA",now));assert.throws(()=>parseUsRepairChart(payload("TLT","ETF"),"TLT",new Date("2026-11-25T20:30:00Z")));});
+test("US close and Thanksgiving use same official session gate as EMA",()=>{assert.equal(expectedHomeEtfSession(now),"2026-11-25");const bars=parseUsRepairChart(payload("AVB","EQUITY"),"AVB",now);assert.equal(scanEquityEma(bars,"America/New_York",now)?.asOf,"2026-11-25");assert.equal(expectedHomeEtfSession(new Date("2026-11-26T23:00:00Z")),"2026-11-25");});
+test("source-dated US lag remains visible but is not current; future bars fail closed",()=>{const row={symbol:"NVDA",frequency:"daily",asOf:"2026-11-24",last:155,currency:"USD",sourceName:"Example",sourceUrl:"https://example.com"} as MarketMonitorRow;const read=(r:MarketMonitorRow)=>projectPublicEquityCoverage([r],now).rows.find(s=>s.ticker==="NVDA")!;assert.equal(read(row).sessionFreshness,"BEHIND_US_SESSION");assert.equal(read({...row,asOf:"2026-11-25"}).sessionFreshness,"LATEST_COMPLETED_US_SESSION");assert.equal(read({...row,asOf:"2026-11-26"}).status,"MONITORED_UNAVAILABLE");});
