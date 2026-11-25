@@ -16,7 +16,7 @@ type Props = {
 type Screen = "all" | "hot" | "gainers" | "losers" | "overbought" | "oversold" | "gap" | "highvol" | "relative" | "contradiction";
 type SortKey = "attention" | "day" | "3d" | "5d" | "rsi" | "vol" | "type";
 
-const TYPE_ORDER: MarketMonitorType[] = ["Major Index", "AI / Semis", "MAG7", "US Stock", "Europe Stock", "Sector", "Metal", "Energy", "FX", "Rates", "Credit / Risk", "IPO / New Issue", "Crypto"];
+const TYPE_ORDER: MarketMonitorType[] = ["Major Index", "AI / Semis", "MAG7", "US Stock", "Europe Stock", "Asia Stock", "Sector", "Metal", "Energy", "FX", "Rates", "Credit / Risk", "IPO / New Issue", "Crypto"];
 
 function formatPrice(value: number | null, type: MarketMonitorType,currency?:string|null) {
   if (value == null) return "—";
@@ -125,6 +125,7 @@ export default function MarketsMonitor({ monitor, flows }: Props) {
   const gapCount = monitor.rows.filter((row) => row.rsi == null || row.dayChange == null).length;
   const usStocks=monitor.rows.filter(row=>row.type==="US Stock"||row.type==="MAG7");
   const euStocks=monitor.rows.filter(row=>row.type==="Europe Stock");
+  const asiaStocks=monitor.rows.filter(row=>row.type==="Asia Stock");
   const euroSourceHealth=euStocks.length+"/12 source-dated EU shares";
   const usSourceHealth=usStocks.length+" monitored US shares";
 
@@ -141,6 +142,9 @@ export default function MarketsMonitor({ monitor, flows }: Props) {
       </button>
       <button type="button" data-selected={type==="Europe Stock"} onClick={()=>{setType("Europe Stock");setScreen("all");}}>
         <span>European local shares</span><strong>{euStocks.length} / 12</strong><small>EUR &amp; DKK · {euroSourceHealth}; unavailable shares shown in coverage API</small>
+      </button>
+      <button type="button" data-selected={type==="Asia Stock"} onClick={()=>{setType("Asia Stock");setScreen("all");}}>
+        <span>Asian local shares</span><strong>{asiaStocks.length}</strong><small>Local currencies · see coverage feed for missing listings</small>
       </button>
       <a href="/api/markets/stocks" target="_blank" rel="noreferrer">Stock coverage feed ↗</a>
     </nav>
