@@ -8,7 +8,7 @@ export type StockPriority="CORE"|"SECONDARY";
 export type StockIdentity={
  ticker:string; company:string; region:StockRegion; exchange:string;
  currency:"USD"|"EUR"|"DKK"; timeZone:string; priority:StockPriority;
- theme:"AI"|"ENERGY"|"HEALTH"|"NUCLEAR"|"INDUSTRIAL"|"CONSUMER"|"LUXURY";
+ theme:"AI"|"ENERGY"|"HEALTH"|"NUCLEAR"|"INDUSTRIAL"|"CONSUMER"|"LUXURY"|"REAL_ESTATE";
  providerSymbol:string; monitorId:string;
 };
 const us=(
@@ -33,6 +33,17 @@ export const BLUEBELLY_STOCK_UNIVERSE:readonly StockIdentity[]=Object.freeze([
  us("BWXT","BWX Technologies","NUCLEAR"),us("OKLO","Oklo","NUCLEAR"),
  us("SMR","NuScale Power","NUCLEAR"),us("PWR","Quanta Services","INDUSTRIAL"),
  us("ENPH","Enphase Energy","INDUSTRIAL"),
+ us("MAA","Mid-America Apartment Communities","REAL_ESTATE"),
+ us("TOL","Toll Brothers","REAL_ESTATE"),
+ us("PHM","PulteGroup","REAL_ESTATE"),
+ us("INVH","Invitation Homes","REAL_ESTATE"),
+ us("ESS","Essex Property Trust","REAL_ESTATE"),
+ us("CPT","Camden Property Trust","REAL_ESTATE"),
+ us("AMH","AMH","REAL_ESTATE","SECONDARY"),
+ us("NVR","NVR","REAL_ESTATE","SECONDARY"),
+ us("JLL","Jones Lang LaSalle","REAL_ESTATE","SECONDARY"),
+ us("CBRE","CBRE Group","REAL_ESTATE","SECONDARY"),
+ us("RKT","Rocket Companies","REAL_ESTATE","SECONDARY"),
  eu("ASML.AS","ASML","Euronext Amsterdam","EUR","Europe/Amsterdam","AI"),
  eu("ADYEN.AS","Adyen","Euronext Amsterdam","EUR","Europe/Amsterdam","AI","SECONDARY"),
  eu("SAP.DE","SAP","Xetra","EUR","Europe/Berlin","AI"),
