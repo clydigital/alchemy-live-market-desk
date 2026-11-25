@@ -14,10 +14,12 @@ const REPAIR_EQUITIES=new Set<string>(["AVB","EQR"]);
 export const PREFERRED_US_ETFS=US_REPAIR_SYMBOLS.filter(s=>!REPAIR_EQUITIES.has(s));
 // Public, fixed research pilot. Never derive requests from owner holdings.
 export const US_EQUITY_CANARY=["NVDA","AMD","AAPL","MSFT","TSLA","AVGO","MU","ORCL","CI","DELL","PWR","TTWO"] as const;
+// Existing public equity routes, not new requests or owner-specific symbols.
+export const PREFERRED_US_EQUITIES=["XOM","CVX","GRAB","BWXT","OKLO","SMR","ENPH","CRM","XYL","MOD","CEG","VST"] as const;
 export const US_RECOVERY_BATCH_LIMIT=17;
 export function planUsRecovery(behind:ReadonlySet<string>):string[]{
  // Preserve existing missing-instrument priority; only spend unused slots on the pilot.
- return [...US_REPAIR_SYMBOLS,...US_EQUITY_CANARY].filter(s=>behind.has(s)).slice(0,US_RECOVERY_BATCH_LIMIT);
+ return [...US_REPAIR_SYMBOLS,...US_EQUITY_CANARY,...PREFERRED_US_EQUITIES].filter(s=>behind.has(s)).slice(0,US_RECOVERY_BATCH_LIMIT);
 }
 const isEquityCanary=(symbol:string)=>(US_EQUITY_CANARY as readonly string[]).includes(symbol);
 export type EtfBar = {time:number;close:number};
@@ -126,7 +128,7 @@ export async function fetchUsRepairHistory(symbol:string,now:Date,budget:AbortSi
  return fetchSessionChart(symbol,REPAIR_EQUITIES.has(symbol)?"EQUITY":"ETF",now,budget,fetcher,revalidate);
 }
 export async function fetchUsEquityCanaryHistory(symbol:string,now:Date,budget:AbortSignal,fetcher:typeof fetch=fetch){
- if(!isEquityCanary(symbol))throw Error("Equity canary not allowlisted");
+ if(!isEquityCanary(symbol)&&!(PREFERRED_US_EQUITIES as readonly string[]).includes(symbol))throw Error("Equity canary not allowlisted");
  // One existing request, longer history only for the already-proven equity pilot.
  const result=await fetchSessionChart(symbol,"EQUITY",now,budget,fetcher,3600,US_EQUITY_CANARY_HISTORY_DAYS,US_EQUITY_CANARY_MAX_BARS);
  // A 1/3/5 session tracker must not silently treat missing sessions as observations.
