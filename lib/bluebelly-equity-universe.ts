@@ -64,7 +64,7 @@ export const BLUEBELLY_STOCK_UNIVERSE:readonly StockIdentity[]=Object.freeze([
  us("DLR","Digital Realty","REAL_ESTATE","SECONDARY"),
  us("EQIX","Equinix","REAL_ESTATE","SECONDARY"),
  us("AMAT","Applied Materials","AI","SECONDARY"),
- us("ASML","ASML US-listed ADR","AI","SECONDARY"),
+ us("ASML","ASML US listing","AI","SECONDARY"),
  us("DOV","Dover","INDUSTRIAL","SECONDARY"),
  us("LEU","Centrus Energy","NUCLEAR","SECONDARY"),
  us("NFLX","Netflix","CONSUMER","SECONDARY"),
@@ -178,7 +178,7 @@ export function stockUniverseCoverage(){
  */
 export const ADDITIONAL_US_STOCKS:readonly StockIdentity[]=BLUEBELLY_STOCK_UNIVERSE.filter(x=>
  x.region==="US"&&!["NVDA","AMD","AAPL","MSFT","AMZN","GOOGL","META","TSLA",
- "AVGO","MU","ORCL","CRWV","SPCX"].includes(x.ticker));
+ "AVGO","MU","ORCL","CRWV","SPCX","ASML","TSM"].includes(x.ticker));
 export const EUROPE_STOCKS:readonly StockIdentity[]=BLUEBELLY_STOCK_UNIVERSE.filter(x=>x.region==="EU");
 
 export const ASIA_STOCKS:readonly StockIdentity[]=BLUEBELLY_STOCK_UNIVERSE.filter(x=>x.region==="ASIA");
