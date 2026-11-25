@@ -1,5 +1,5 @@
 import { unstable_cache } from "next/cache";
-import {expectedHomeEtfSession,fetchHomeEtfHistory,fetchUsRepairHistory,fetchCuratedUsEquityHistory,repairFailureCode,US_REPAIR_SYMBOLS,ALL_US_EQUITY_SYMBOLS,CORE_DISPLAY_US_EQUITIES,PREFERRED_US_ETFS,planFullUsRecovery,XL_FALLBACK_ETFS,type HomeEtf} from "./bluebelly-home-etf-history";
+import {expectedHomeEtfSession,fetchHomeEtfHistory,fetchUsRepairHistory,fetchCuratedUsEquityHistory,repairFailureCode,US_REPAIR_SYMBOLS,ALL_US_EQUITY_SYMBOLS,PREFERRED_US_ETFS,planFullUsRecovery,XL_FALLBACK_ETFS,type HomeEtf} from "./bluebelly-home-etf-history";
 import {ADDITIONAL_US_STOCKS,EUROPE_STOCKS,ASIA_STOCKS,findStockIdentity} from "./bluebelly-equity-universe";
 import {nasdaqCompletedSessionRange,admitNasdaqSessionDay} from "./bluebelly-nasdaq-session-range.ts";
 import {fetchEuropeanStockHistory,localEquitySessionKey} from "./bluebelly-europe-stock-history";
@@ -649,7 +649,7 @@ const loadTargetedUsRepair=unstable_cache(async(symbols:readonly string[],sessio
  console.info(JSON.stringify({event:"bb_us_repair_result",session,requested:symbols.length,recovered:observations.map(r=>({symbol:r.symbol,day:new Date(r.points.at(-1)!.time*1000).toISOString().slice(0,10)})),failures}));
  return observations;
 },["bluebelly-targeted-us-repair-v4-full-equity"],{revalidate:3600});
-const loadEuropeEquities=unstable_cache(async(sessionKeys:string):Promise<RawSeries[]>=>{
+const loadEuropeEquitiesForSessions=unstable_cache(async(sessionKeys:string):Promise<RawSeries[]>=>{
  void sessionKeys;
  const fetched=await mapLimit([...EUROPE_STOCKS,...ASIA_STOCKS],6,async (spec):Promise<RawSeries|null>=>{
   try{return await fetchEuropeanStockHistory(spec);}
@@ -661,6 +661,7 @@ const loadEuropeEquities=unstable_cache(async(sessionKeys:string):Promise<RawSer
  });
  return fetched.filter((row):row is RawSeries=>row!==null);
 },["bluebelly-local-daily-shares-v3-session"],{revalidate:60*60*6});
+const loadEuropeEquities=()=>loadEuropeEquitiesForSessions(localEquitySessionKey(new Date(),[...EUROPE_STOCKS,...ASIA_STOCKS]));
 
 export const loadCashAnchors = unstable_cache(async () => {
   const rows = await Promise.all([
@@ -900,7 +901,7 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   // Degrade independently: core market data, broad extras and cash anchors.
   // Cash anchors stay on their own short cache so headline prices can refresh
   // without re-fetching the full extras universe.
-  const results = await Promise.allSettled([getMarketData(), loadExtras(), loadCashAnchors(),loadEuropeEquities(localEquitySessionKey(new Date(),[...EUROPE_STOCKS,...ASIA_STOCKS])),loadVolatilityAnchors(),loadExpandedEquities(expectedHomeEtfSession(new Date()))]);
+  const results = await Promise.allSettled([getMarketData(), loadExtras(), loadCashAnchors(),loadEuropeEquities(),loadVolatilityAnchors(),loadExpandedEquities(expectedHomeEtfSession(new Date()))]);
   
   const marketResult = results[0];
   const extrasResult = results[1];
