@@ -9,8 +9,8 @@ test("equal capital-days diagnostic and fixed calendar allocations",()=>{
  assert.equal(get("Immediate").ret,25);
  assert.equal(get("75% immediate").ret,18.75);
  assert.ok(Math.abs(get("Calendar 25/25/50").exposure-100*(.25+.25*53/63+.5*43/63))<1e-9);
- assert.equal(get("Staged dip + EMA").exposure,get("Matched cash A (ex post)").exposure);
- assert.equal(get("Staged VIX + band").exposure,get("Matched cash B (ex post)").exposure);
+ assert.ok(Math.abs(get("Staged dip + EMA").exposure-get("Matched cash A (ex post)").exposure)<1e-9);
+ assert.ok(Math.abs(get("Staged VIX + band").exposure-get("Matched cash B (ex post)").exposure)<1e-9);
 });
 test("NBER and lagged Sahm labels are descriptive and never change entries",()=>{
  const rows=fixture(),d=rows[400].date.slice(0,7);
