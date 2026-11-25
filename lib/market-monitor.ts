@@ -1,5 +1,5 @@
 import { unstable_cache } from "next/cache";
-import {expectedHomeEtfSession,fetchHomeEtfHistory,fetchUsRepairHistory,fetchUsEquityCanaryHistory,repairFailureCode,US_REPAIR_SYMBOLS,US_EQUITY_CANARY,PREFERRED_US_ETFS,planUsRecovery,XL_FALLBACK_ETFS,type HomeEtf} from "./bluebelly-home-etf-history";
+import {expectedHomeEtfSession,fetchHomeEtfHistory,fetchUsRepairHistory,fetchUsEquityCanaryHistory,repairFailureCode,US_REPAIR_SYMBOLS,US_EQUITY_CANARY,PREFERRED_US_ETFS,PREFERRED_US_EQUITIES,planUsRecovery,XL_FALLBACK_ETFS,type HomeEtf} from "./bluebelly-home-etf-history";
 import {ADDITIONAL_US_STOCKS,EUROPE_STOCKS,ASIA_STOCKS,findStockIdentity} from "./bluebelly-equity-universe";
 import {nasdaqCompletedSessionRange,admitNasdaqSessionDay} from "./bluebelly-nasdaq-session-range.ts";
 import {fetchEuropeanStockHistory} from "./bluebelly-europe-stock-history";
@@ -532,10 +532,14 @@ const BASELINE_US_EXTRAS=new Set(["ADBE","CI","CVS","CF","XOM","CVX","GRAB","BWX
 const EXPANDED_SYMBOLS=new Set([...ADDITIONAL_US_STOCKS.filter(x=>!BASELINE_US_EXTRAS.has(x.ticker)).map(x=>x.providerSymbol),"SGOV","USFR","TLH","EDV","ZROZ","AGG","GOVT","VGIT","GLDM","NLR"]);
 const EXPANDED_SPECS=EXTRA_SPECS.filter(spec=>EXPANDED_SYMBOLS.has(spec.providerSymbol));
 const preferredEtfSet=new Set<string>(PREFERRED_US_ETFS);
+const preferredEquitySet=new Set<string>(PREFERRED_US_EQUITIES);
 const extraBySymbol=new Map(EXTRA_SPECS.map(s=>[s.providerSymbol,s]));
 const secondaryPrimarySpec=async(spec:ExtraSpec,options?:{revalidate:number;signal:AbortSignal}):Promise<RawSeries>=>{
- if(!preferredEtfSet.has(spec.providerSymbol))return fetchNasdaqHistory(spec,options);
- const result=await fetchUsRepairHistory(spec.providerSymbol,new Date(),options?.signal??AbortSignal.timeout(8500),fetch,options?.revalidate??EXTRA_REVALIDATE);
+ if(!preferredEtfSet.has(spec.providerSymbol)&&!preferredEquitySet.has(spec.providerSymbol))return fetchNasdaqHistory(spec,options);
+ const signal=options?.signal??AbortSignal.timeout(8500);
+ const result=preferredEquitySet.has(spec.providerSymbol)
+  ?await fetchUsEquityCanaryHistory(spec.providerSymbol,new Date(),signal)
+  :await fetchUsRepairHistory(spec.providerSymbol,new Date(),signal,fetch,options?.revalidate??EXTRA_REVALIDATE);
  return {id:spec.id,symbol:spec.providerSymbol,label:spec.label,type:spec.type,benchmark:spec.benchmark??null,frequency:"daily",currency:"USD",...result};
 };
 const loadExtrasForSession = unstable_cache(async (session:string|null) => {
@@ -605,7 +609,7 @@ const loadExtrasForSession = unstable_cache(async (session:string|null) => {
       : null)
     .catch(() => null);
   return [...extraRows, ...rateRows, ...creditRows, ...globalRateRows, moveRow].filter((row): row is RawSeries => Boolean(row));
-}, ["alchemy-market-monitor-extras-v13-preferred-etfs"], { revalidate: EXTRA_REVALIDATE });
+}, ["alchemy-market-monitor-extras-v14-deep-equities"], { revalidate: EXTRA_REVALIDATE });
 export const loadExtras=()=>loadExtrasForSession(expectedHomeEtfSession(new Date()));
 // Request-driven only: independent cache, six-hour per-symbol provider TTL,
 // hourly partial-cache retry, bounded concurrency and total batch budget.
@@ -618,7 +622,7 @@ const loadExpandedEquities=unstable_cache(async(session:string|null):Promise<Raw
   try{return await secondaryPrimarySpec(spec,{revalidate:21600,signal:budget});}catch{return null;}
  });
  return rows.filter((row):row is RawSeries=>row!==null);
-},["bluebelly-expanded-daily-equities-v4-preferred-etfs"],{revalidate:3600});
+},["bluebelly-expanded-daily-equities-v5-deep-equities"],{revalidate:3600});
 // Bounded existing-source repair only. A cached batch shares its budget across
 // requests and never invokes the whole equity roster or a separate scheduler.
 const loadTargetedUsRepair=unstable_cache(async(symbols:readonly string[],session:string)=>{
@@ -628,7 +632,7 @@ const loadTargetedUsRepair=unstable_cache(async(symbols:readonly string[],sessio
   if(budget.aborted)return {symbol,ok:false as const,reason:"BATCH_BUDGET"};
   try{
    // The 15 switched ETFs receive Nasdaq only when their first source is missing/behind.
-   const result=preferredEtfSet.has(symbol)
+   const result=preferredEtfSet.has(symbol)||preferredEquitySet.has(symbol)
      ?await fetchNasdaqHistory(extraBySymbol.get(symbol)!,{revalidate:3600,signal:budget})
      :(US_EQUITY_CANARY as readonly string[]).includes(symbol)
        ?await fetchUsEquityCanaryHistory(symbol,now,budget)
@@ -643,7 +647,7 @@ const loadTargetedUsRepair=unstable_cache(async(symbols:readonly string[],sessio
  const observations=rows.filter(r=>r.ok);
  console.info(JSON.stringify({event:"bb_us_repair_result",session,requested:symbols.length,recovered:observations.map(r=>({symbol:r.symbol,day:new Date(r.points.at(-1)!.time*1000).toISOString().slice(0,10)})),failures}));
  return observations;
-},["bluebelly-targeted-us-repair-v4-equity-deep-canary"],{revalidate:3600});
+},["bluebelly-targeted-us-repair-v5-deep-equities"],{revalidate:3600});
 const loadEuropeEquities=unstable_cache(async():Promise<RawSeries[]>=>{
  const fetched=await mapLimit([...EUROPE_STOCKS,...ASIA_STOCKS],6,async (spec):Promise<RawSeries|null>=>{
   try{return await fetchEuropeanStockHistory(spec);}
@@ -998,7 +1002,7 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   }));
   if(expected){
     const bySymbol=new Map(rawRows.map(r=>[r.symbol,r]));
-    const behind=new Set([...US_REPAIR_SYMBOLS,...US_EQUITY_CANARY].filter(symbol=>{
+    const behind=new Set([...US_REPAIR_SYMBOLS,...US_EQUITY_CANARY,...PREFERRED_US_EQUITIES].filter(symbol=>{
       const r=bySymbol.get(symbol),last=r?.points.at(-1);
       return !last||new Date(last.time*1000).toISOString().slice(0,10)<expected;
     }));
@@ -1059,4 +1063,4 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   };
 }
 
-export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v9-equity-deep-canary"], { revalidate: 300 });
+export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v10-deep-equities"], { revalidate: 300 });
