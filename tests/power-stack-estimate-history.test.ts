@@ -19,3 +19,11 @@ test("price-source mismatch suppresses price and multiple changes, not EPS",()=>
 test("reject future data and invalid periods",()=>{
  assert.equal(projectEstimateHistory([{...latest,retrieved_at:"2026-11-27T00:00:00Z"},{...old,quote_observed_on:"2026-11-11"},{...old,estimate_native_updated_at:"2026-11-26T00:00:00Z"}],now).length,0);
 });
+
+test("direction requires distinct quote sessions and nearby retrievals",()=>{
+ assert.equal(projectEstimateHistory([old,latest],now)[0].direction,"PRICE_DOWN_EPS_UP");
+ const same={...old,quote_observed_on:latest.quote_observed_on,retrieved_at:"2026-11-25T20:00:00Z"};
+ const r=projectEstimateHistory([same,latest],now)[0];assert.equal(r.direction,"NOT_COMPARABLE");assert.equal(r.priceChangePct,null);assert.ok(r.secondChangePct!==null);
+ const stale={...old,quote_observed_on:"2026-10-30"};
+ assert.equal(projectEstimateHistory([stale,latest],now)[0].direction,"NOT_COMPARABLE");
+});
