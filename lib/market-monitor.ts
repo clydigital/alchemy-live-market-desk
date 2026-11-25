@@ -4,6 +4,7 @@ import {ADDITIONAL_US_STOCKS,EUROPE_STOCKS,ASIA_STOCKS,findStockIdentity} from "
 import {nasdaqCompletedSessionRange,admitNasdaqSessionDay} from "./bluebelly-nasdaq-session-range.ts";
 import {fetchEuropeanStockHistory} from "./bluebelly-europe-stock-history";
 import {scanEquityEma,type EquityEmaScan} from "./bluebelly-equity-ema";
+import {CROSS_ASSET_DEEP_ETFS,scanCrossAssetEma} from "./bluebelly-cross-asset-ema";
 import { evaluateMarketSignals, type MarketSignalSnapshot } from "./bluebelly-signal-scan";
 
 import { getMarketData, type BreadthSnapshot, type MarketSeries, type PricePoint } from "@/lib/market";
@@ -52,6 +53,7 @@ export type MarketMonitorRow = {
   /** Bounded, source-dated public screening summary, not raw provider candles. */
   screening?: MarketSignalSnapshot | null;
   emaScan?: EquityEmaScan | null;
+  emaScope?: {instrument:string;kind:"ETF"|"CASH_INDEX";expectedSession:string;status:"CURRENT"|"BEHIND"};
   volPercentile: number | null;
   relative5d: number | null;
   attentionScore: number;
@@ -315,8 +317,9 @@ async function mapLimit<T, R>(items: readonly T[], limit: number, worker: (item:
 async function fetchNasdaqHistory(spec: ExtraSpec, options?:{revalidate:number;signal:AbortSignal}): Promise<RawSeries> {
   const expected=expectedHomeEtfSession(new Date());
   if(!expected)throw Error("US session unavailable");
-  const range=nasdaqCompletedSessionRange(expected,HISTORY_DAYS);
-  const endpoint = `https://api.nasdaq.com/api/quote/${encodeURIComponent(spec.providerSymbol)}/historical?assetclass=${spec.assetClass}&fromdate=${range.from}&todate=${range.to}&limit=260`;
+  const deep=spec.assetClass==="etf"&&(CROSS_ASSET_DEEP_ETFS as readonly string[]).includes(spec.providerSymbol);
+  const range=nasdaqCompletedSessionRange(expected,deep?1830:HISTORY_DAYS);
+  const endpoint = `https://api.nasdaq.com/api/quote/${encodeURIComponent(spec.providerSymbol)}/historical?assetclass=${spec.assetClass}&fromdate=${range.from}&todate=${range.to}&limit=${deep?1500:260}`;
   const response = await fetch(endpoint, {
     headers: {
       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36",
@@ -341,7 +344,7 @@ async function fetchNasdaqHistory(spec: ExtraSpec, options?:{revalidate:number;s
     const time = Date.UTC(Number(match[3]), Number(match[1]) - 1, Number(match[2])) / 1000;
     if(!admitNasdaqSessionDay(time,expected))return [];
     return [{ time, close, open, high, low, volume: parseNumber(row.volume) }];
-  }).sort((a, b) => a.time - b.time).slice(-300);
+  }).sort((a, b) => a.time - b.time).slice(deep?-1500:-300);
   return {
     id: spec.id,
     symbol: spec.providerSymbol,
@@ -775,6 +778,7 @@ function makeRows(rawSeries: RawSeries[]): MarketMonitorRow[] {
     const previousClose = previous?.close ?? null;
     const sessionOpen = last?.open ?? null;
     const identity=findStockIdentity(raw.symbol);
+    const crossAsset=identity?null:scanCrossAssetEma(raw,points);
     const row = {
       id: raw.id,
       symbol: raw.symbol,
@@ -798,7 +802,8 @@ function makeRows(rawSeries: RawSeries[]): MarketMonitorRow[] {
           return selected?.at(-1)?.time === lastTime ? selected :
             fallback?.at(-1)?.time === lastTime ? fallback : selected ?? null;
         })()) : null,
-      emaScan: identity&&raw.frequency==="daily"?scanEquityEma(points,identity.timeZone):null,
+      emaScan: identity&&raw.frequency==="daily"?scanEquityEma(points,identity.timeZone):crossAsset?.scan??null,
+      ...(crossAsset?{emaScope:crossAsset.scope}:{}),
       volPercentile: volPercentile(points),
       relative5d: null,
       asOf: formatDate(last?.time),
