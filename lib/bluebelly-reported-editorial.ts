@@ -14,6 +14,22 @@ export type ReportedEditorial={
 };
 const REPORTS:readonly ReportedEditorial[]=[
  {
+ id:"xlk-critical-support-2026-11-25",
+ headline:"XLK Is Nearly 10% Away From Critical Support",
+ publishedAt:"2026-11-25T08:14:00.000Z",
+ publisher:"AlchemyMarkets · Market analysis",
+ sourceUrl:"https://www.reuters.com/business/media-telecom/global-markets-ai-cds-urgent-2026-11-25/",
+ secondarySourceUrl:"https://www.goodman-macro.com/en/articles/20261125-main/",
+ secondarySourceName:"24 November closing market data",
+ verificationLabel:"DATED MARKET ANALYSIS · CONDITIONAL TECHNICAL LEVEL",
+ topics:["ai","bonds","earnings","policy"],
+ reporting:"Nvidia's board reinstated Jensen Huang as CEO on Monday, 23 November. Nvidia rose 31.5% and the technology ETF XLK rallied nearly 9%. On Tuesday XLK fell 3.26% to $157.09 and Nvidia fell 5.86%, even as nine of eleven sector ETFs advanced. Healthcare gained 2.95%, staples 1.66% and real estate 1.31%. Reuters reported renewed record five-year credit default swap spreads for several AI-linked borrowers, including Oracle and CoreWeave. A leadership crisis may have ended, but the financing question remains.",
+ why:"Nvidia supplies chips to cloud and AI infrastructure operators; Oracle provides cloud computing and CoreWeave rents GPU capacity. Higher borrowing costs could constrain those buyers' capital expenditure and eventually affect semiconductor suppliers. The wider sector gains suggest rotation rather than indiscriminate equity selling. On the AlchemyMarkets logarithmic chart dated 25 November, XLK has returned inside its ascending channel from late 2022. The channel midpoint near $142.66 is 9.2% below the 24 November close and 6.9% below the chart's $153.24 overnight quote; it is a conditional technical support area, not a forecast.",
+ countercase:"XLK remains approximately 5.4% above its 20 November close after the two sessions. Issuer-specific credit stress does not establish a broad corporate credit crisis, and one session of sector divergence does not prove lasting rotation or fund flows. The rising channel midpoint moves over time and a historical support test does not guarantee another bounce.",
+ nextTest:"Watch the 25 November US PCE release and subsequent yield response, matched semiconductor and XLK closing returns, and broader corporate credit spreads. If XLK approaches $142.66, look for renewed buying pressure and stabilising semiconductor leadership; a decisive break below the midpoint raises the risk of a deeper correction towards the lower channel boundary.",
+ assetNames:["XLK","NVDA","MU","INTC","ORCL","CRWV","SMH","SPY"],
+ },
+ {
  id:"anthropic-ipo-pricing-debut-2026-11-19",
  headline:"Anthropic prices at $83; first trade jumps, then AI risk appetite cools",
  // Conservative availability gate: dated 19 Nov intraday reporting, not an exchange execution clock.
