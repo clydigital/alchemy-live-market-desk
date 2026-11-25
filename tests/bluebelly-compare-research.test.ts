@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {buildCompareResearch,compareResearchLines} from "../lib/bluebelly-compare-research.ts";
+import {buildCompareResearch,compareResearchLines,compareBreadthObservations,marketInternalsDiagnostics} from "../lib/bluebelly-compare-research.ts";
 import {XL_COMPARISON_SYMBOLS} from "../lib/bluebelly-etf-comparison-universe.ts";
 import type {PublicMarketObservation} from "../lib/blue-desk-public-markets.ts";
 import {buildDailyResearchPacket} from "../lib/daily-report-research-packet.ts";
@@ -53,4 +53,15 @@ test("private report receives source-dated Compare evidence, not causal or canon
  const mcp=readFileSync(new URL("../app/api/mcp/route.ts",import.meta.url),"utf8");
  assert.match(mcp,/if\(group==="compare"\)return buildCompareResearch/);
  assert.match(mcp,/validateBluebellyMcpBearer\(req\)/);
+});
+
+test("shared market internals preserve partial breadth, units, and missing horizons",()=>{
+ const blank=marketInternalsDiagnostics(buildCompareResearch([],[],now));assert.equal(blank.length,3);assert.ok(blank.every(d=>d.status==="insufficient"));
+ const series=["S5FI","S5TH","NDFI"].map(symbol=>({symbol,sourceName:"Fixture",sourceUrl:"https://example.com/"+symbol,points:[{date:"2026-11-20",value:42},{date:"2026-11-23",value:48}]}));
+ const compare=buildCompareResearch([],compareBreadthObservations(series,now),now,series);
+ const d=marketInternalsDiagnostics(compare);assert.equal(d[1].status,"ready");assert.match(d[1].interpretation,/NDFI 48.00% \(1D \+6.00 pp, 3D unavailable, 5D unavailable\)/);assert.equal(d[0].status,"insufficient");assert.equal(d[2].status,"insufficient");
+ assert.ok(compareResearchLines(compare).some(line=>line.includes(d[1].headline)));
+ assert.match(readFileSync(new URL("../app/api/owner/daily-research/route.ts",import.meta.url),"utf8"),/marketDiagnostics:marketInternalsDiagnostics\(compare\)/);
+ assert.match(readFileSync(new URL("../app/blue-desk/page.tsx",import.meta.url),"utf8"),/const divergenceRadar=compare\.radar/);
+ assert.match(readFileSync(new URL("../components/blue-desk/RegimeCompareEvidence.tsx",import.meta.url),"utf8"),/marketInternalsDiagnostics\(compare\)/);
 });

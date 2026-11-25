@@ -1,5 +1,6 @@
 import DivergenceRadar from "@/components/blue-desk/DivergenceRadar";
-import {buildDivergenceRadar} from "@/lib/bluebelly-divergence-radar";
+import {buildCompareResearch,compareBreadthObservations} from "@/lib/bluebelly-compare-research";
+import RegimeCompareEvidence from "@/components/blue-desk/RegimeCompareEvidence";
 import {readQqqPositioning} from "@/lib/bluebelly-qqq-positioning";
 import AbsorptionHealth from "@/components/blue-desk/AbsorptionHealth";
 import MarketWindowBars from "@/components/blue-desk/MarketWindowBars";
@@ -158,7 +159,8 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
     creatorDigest:creatorRadarRead?.digest??null,
     creatorIsAuthorised:Boolean(creatorRadarRead&&creatorRadarRead.status!=="unauthorised"),
   }):null;
-  const divergenceRadar=buildDivergenceRadar([...(monitor?.rows??[]),...(monitor?.divergenceRows??[])],breadthFeed.series,now);
+  const compare=buildCompareResearch([...(monitor?.rows??[]),...(monitor?.divergenceRows??[])],[...marketRows,...compareBreadthObservations(breadthFeed.series,now)],now,breadthFeed.series);
+  const divergenceRadar=compare.radar;
   const marketCompass=buildMarketCompassSummary(marketComparisons,now);
   const investorMindset=buildInvestorMindsetSnapshot(marketRows,marketComparisons,marketCompass,verifiedNews,now);
   const investorAssessment=projectInvestorAssessment(dossierSelection,now);
@@ -209,6 +211,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
           </header>
           </RadarIntelligenceShell>
           <DivergenceRadar read={divergenceRadar} compact href="/markets?mode=watch#divergence-radar"/>
+           <RegimeCompareEvidence compare={compare} host={host} compact/>
           <InstitutionalRiskMonitor rows={buildInstitutionalRisk(volatility,monitor?.rows??[],now)} equityTape={marketCompass} rates={buildFedRateWatch(monitor?.rows??[],now)} nextDecision={nextFomcDecision(calendar.events,now)}/>
           <Link href="/creator-intelligence">Open CREATOR INTEL →</Link>
           <InvestorMindsetBoard snapshot={investorMindset} assessment={investorAssessment} host={host} themes={investorThemes} receipt={investorReceipt}/>
