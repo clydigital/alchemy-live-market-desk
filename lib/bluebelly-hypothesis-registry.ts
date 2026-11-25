@@ -1,0 +1,38 @@
+/** Bounded projection of existing private Research Gap rows. No inference or writes. */
+export type EvidenceRole="CONFIRMS"|"WEAKENS"|"CONDITIONAL"|"AMPLIFIES"|"INVALIDATES"|"TRANSMITS"|"HORIZON_SHIFT";
+export type Gem={id:string;label:string;role:EvidenceRole;observation:string;sourceUrl:string;sourceDate:string|null;state:"RETAINED_SOURCE_RECEIPT"|"ATTRIBUTED"|"PENDING";premise:string};
+export type HypothesisSnapshot={version:"evidence-gems/1";hypothesisId:string;reviewedOn:string;currentRead:string;conditional:string;nextTest:string;gems:Gem[]};
+export type RegistryRow={id:string;pageId:string;title:string;state:"ACTIVE"|"STALE";theme:string;currentRead:string;nextTrigger:string;lastChecked:string|null;lastEdited:string|null;snapshot:HypothesisSnapshot|null};
+export type RegistryRead={status:"AVAILABLE"|"PARTIAL"|"UNAVAILABLE"|"NOT_CONFIGURED"|"UNAUTHORISED";rows:RegistryRow[];truncated:boolean;retrievedAt:string|null};
+const obj=(v:unknown):Record<string,unknown>=>v&&typeof v==="object"&&!Array.isArray(v)?v as Record<string,unknown>:{};
+const list=(v:unknown):unknown[]=>Array.isArray(v)?v:[];
+const str=(v:unknown,n=1000)=>typeof v==="string"&&v.trim().length<=n?v.trim():"";
+const rich=(v:unknown,n=1600)=>str(list(v).map(x=>str(obj(x).plain_text,4000)||str(obj(obj(x).text).content,4000)).join(""),n);
+const date=(v:unknown,now:Date)=>{const s=str(v,40);return s&&/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(s)&&Number.isFinite(Date.parse(s))&&Date.parse(s)<=now.getTime()?s:null;};
+const safeId=(v:unknown)=>{const s=str(v,50).replace(/-/g,"").toLowerCase();return /^[0-9a-f]{32}$/.test(s)?s:"";};
+const roles=new Set<string>(["CONFIRMS","WEAKENS","CONDITIONAL","AMPLIFIES","INVALIDATES","TRANSMITS","HORIZON_SHIFT"]);
+const states=new Set<string>(["RETAINED_SOURCE_RECEIPT","ATTRIBUTED","PENDING"]);
+function sourceUrl(v:unknown){try{const u=new URL(str(v,1800));return u.protocol==="https:"&&!u.username&&!u.password&&!/^(localhost|127\.|0\.|\[)/i.test(u.hostname)&&!u.hostname.endsWith(".local")&&!u.hostname.endsWith(".internal")?u.href:"";}catch{return "";}}
+export function projectRegistryRows(raw:unknown,now:Date):RegistryRow[]{
+ const seen=new Set<string>();return list(obj(raw).results).slice(0,12).flatMap(v=>{
+ const r=obj(v),p=obj(r.properties),field=(key:string,kind="rich_text")=>rich(obj(p[key])[kind]),id=field("Investigation ID"),pageId=safeId(r.id),title=field("Gap","title"),state=str(obj(obj(p.Status).select).name,20);
+ if(r.archived||r.in_trash||!pageId||!/^[-A-Za-z0-9_]{3,100}$/.test(id)||!title||!["ACTIVE","STALE"].includes(state)||seen.has(id))return [];
+ seen.add(id);return [{id,pageId,title,state:state as RegistryRow["state"],theme:field("Story / Theme"),currentRead:field("Current Read"),nextTrigger:field("Next Trigger"),lastChecked:date(obj(obj(p["Last Checked"]).date).start,now),lastEdited:date(r.last_edited_time,now),snapshot:null}];
+ });
+}
+export function parseHypothesisSnapshot(raw:unknown,row:RegistryRow,now:Date):HypothesisSnapshot|null{
+ const x=obj(raw),reviewedOn=date(x.reviewedOn,now),currentRead=str(x.currentRead,1600),conditional=str(x.conditional,1600),nextTest=str(x.nextTest,1000);
+ if(x.version!=="evidence-gems/1"||x.hypothesisId!==row.id||!reviewedOn||!currentRead||currentRead!==row.currentRead||!conditional||!nextTest||!Array.isArray(x.gems)||x.gems.length<1||x.gems.length>8)return null;
+ const gems:Gem[]=[],ids=new Set<string>();
+ for(const rawGem of x.gems){const g=obj(rawGem),id=str(g.id,140),label=str(g.label,180),role=str(g.role,30),state=str(g.state,40),observation=str(g.observation,750),premise=str(g.premise,600),url=sourceUrl(g.sourceUrl),d=g.sourceDate===null?null:date(g.sourceDate,now);
+ if(!id||ids.has(id)||!label||!roles.has(role)||!states.has(state)||!observation||!premise||!url||(g.sourceDate!==null&&!d))return null;
+ ids.add(id);gems.push({id,label,role:role as EvidenceRole,state:state as Gem["state"],observation,premise,sourceUrl:url,sourceDate:d});
+ }
+ return {version:"evidence-gems/1",hypothesisId:row.id,reviewedOn,currentRead,conditional,nextTest,gems};
+}
+export function readFirstSnapshot(blockResponse:unknown,row:RegistryRow,now:Date):HypothesisSnapshot|null{
+ const block=obj(list(obj(blockResponse).results)[0]),code=obj(block.code);
+ if(block.type!=="code"||code.language!=="json")return null;
+ const raw=rich(code.rich_text,28000);if(!raw)return null;
+ try{return parseHypothesisSnapshot(JSON.parse(raw),row,now);}catch{return null;}
+}
