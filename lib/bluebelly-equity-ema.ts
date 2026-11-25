@@ -1,4 +1,5 @@
 import {calculateEmaBand,EMA_PERIODS,EMA_WIDTHS} from "./ema-sd-levels.ts";
+import {expectedHomeEtfSession} from "./bluebelly-home-etf-history.ts";
 /** Canonical BB calculations: completed daily closes, no forecast or trade signal.
  * First-close seeded EMA; rolling population SD of closing prices around their SMA,
  * envelope centred on EMA. Confirm chart convention before execution.
@@ -23,7 +24,7 @@ function bandAt(a:EmaPoint[],n:number,m:number){
 const cross=(old:number,now:number):Cross=>old<=0&&now>0?"up":old>=0&&now<0?"down":"none";
 const pct=(v:number,base:number)=>(v/base-1)*100;
 export function scanEquityEma(input:readonly EmaPoint[],timeZone:string,now=new Date()):EquityEmaScan|null{
- const local=localDay(now,timeZone);const bars=[...new Map(input.filter(b=>Number.isFinite(b.time)&&b.time>0&&Number.isFinite(b.close)&&b.close>0&&day(b.time)<=local.date&&(day(b.time)<local.date||(!local.weekend&&local.hour>=18))).map(b=>[day(b.time),b])).values()].sort((a,b)=>a.time-b.time);
+ const local=localDay(now,timeZone),usExpected=timeZone==="America/New_York"?expectedHomeEtfSession(now):null;const bars=[...new Map(input.filter(b=>Number.isFinite(b.time)&&b.time>0&&Number.isFinite(b.close)&&b.close>0&&day(b.time)<=local.date&&(timeZone==="America/New_York"?!!usExpected&&day(b.time)<=usExpected:day(b.time)<local.date||(!local.weekend&&local.hour>=18))).map(b=>[day(b.time),b])).values()].sort((a,b)=>a.time-b.time);
  if(!bars.length)return null;const at=bars.length-1,p=bars[at],asOf=day(p.time),observations:EmaObservation[]=[],unavailable:string[]=[];
  for(const frame of ["D","W","M"] as const){
  const byIndex=new Map<number,EmaPoint[]>();for(let i=Math.max(0,at-5);i<=at;i++)byIndex.set(i,anchors(bars,frame,i));
