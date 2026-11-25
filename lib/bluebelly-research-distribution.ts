@@ -16,7 +16,7 @@ export const DESTINATIONS={
  housing:{path:"/regime-watch/housing",action:"Verify housing releases, rates and credit transmission; avoid speculative spillover claims."},
  compare:{path:"/markets?mode=compare",action:"Read current independently dated sector and breadth observations; do not write creator estimates into market data."},
  divergence:{path:"/markets?mode=watch",action:"Check measured relative leadership and acceleration; route only observed discrepancies to Radar."},
- crash:{path:"/regime-watch/crash-vs-opportunity",action:"Reassess broad deterioration versus sector-specific deleveraging using independent credit, breadth, positioning and volatility."},
+ crash:{path:"/crash-opportunity",action:"Reassess broad deterioration versus sector-specific deleveraging using independent credit, breadth, positioning and volatility."},
  positioning:{path:"/qqq-positioning",action:"Check exchange settlement dates and separate daily price/option proxies from actual short interest."},
  mindset:{path:"/regime-watch",action:"Use the eligible existing Dossier V2 route for source-backed material reasoning; do not manufacture a Dossier receipt."},
  earnings:{path:"/earnings",action:"Check reported issuer results, filings and guidance; keep company speculation out of verified fundamentals."},
