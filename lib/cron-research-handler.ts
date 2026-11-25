@@ -458,7 +458,43 @@ export async function handleScheduledResearchWithDependencies(
     // P0: measured FRED/Nasdaq inputs enter the canonical Evidence chain on the
     // actual scheduled slot BEFORE research publication/intelligence snapshot.
     // No additional cron, LLM reviewer or independent Story decision.
-    const numericIntakePromise = (dependencies.collectMarketMeasurements ?? collectScheduledMarketMeasurements)(now);
+    // Share one in-flight monitor read across the existing source collectors.
+    // Scheduled coverage must not depend on a browser visit or an AI verdict.
+    // Injected tests retain their original isolation from real providers.
+    const sharedMonitorEnabled = !dependencies.buildScheduledResearchInput
+      && !dependencies.collectMarketMeasurements && !dependencies.collectAiCompanyCloses;
+    let sharedMonitor: Promise<import("./market-monitor").MarketMonitor> | undefined;
+    const readSharedMonitor = () => sharedMonitor ??= import("./market-monitor")
+      .then(({getMarketMonitor}) => getMarketMonitor());
+    const equityCoveragePromise = sharedMonitorEnabled ? (async () => {
+      try {
+        const {expectedHomeEtfSession} = await import("./bluebelly-home-etf-history");
+        const expected = expectedHomeEtfSession(now);
+        const prior = expectedHomeEtfSession(new Date(now.getTime() - 86400000));
+        const weekday = new Intl.DateTimeFormat("en-US",{timeZone:"Asia/Kuala_Lumpur",weekday:"short"}).format(now);
+        // Morning: new completed US session. Evening: local Asia refresh on
+        // weekdays. Do not invent exchange holidays or intraday closing prices.
+        const due = slot === "morning" ? !!expected && expected !== prior
+          : !["Sat","Sun"].includes(weekday);
+        if (!due) return {status:"NOT_DUE",expectedUsSession:expected};
+        const monitor = await readSharedMonitor();
+        const {projectPublicEquityCoverage} = await import("./bluebelly-equity-coverage");
+        const coverage = projectPublicEquityCoverage(monitor.rows, now);
+        return {
+          status: coverage.quality?.latestUs === coverage.coverage.US
+            && coverage.coverage.unavailable === 0 ? "US_CURRENT_LOCAL_DATED" : "PARTIAL",
+          expectedUsSession:expected, checkedAt:now.toISOString(),
+          monitorUpdatedAt:monitor.updatedAt, coverage:coverage.coverage, quality:coverage.quality,
+          missing:coverage.rows.filter(r=>r.status==="MONITORED_UNAVAILABLE" || r.sessionFreshness==="BEHIND_US_SESSION")
+            .map(r=>({ticker:r.ticker,status:r.sessionFreshness,asOf:r.asOf})),
+        };
+      } catch {
+        return {status:"PROVIDER_ERROR",checkedAt:now.toISOString()};
+      }
+    })() : Promise.resolve(null);
+    const numericIntakePromise = sharedMonitorEnabled
+      ? collectScheduledMarketMeasurements(now,{fetchMonitor:readSharedMonitor})
+      : (dependencies.collectMarketMeasurements ?? collectScheduledMarketMeasurements)(now);
     // Independent source-only official Treasury close persistence. No additional
     // schedule, model or Dossier write. Tests using injected research skip IO.
     const treasuryClosePromise: Promise<TreasuryDailyCloseReceipt | null> = dependencies.buildScheduledResearchInput
@@ -466,7 +502,9 @@ export async function handleScheduledResearchWithDependencies(
       : (dependencies.collectTreasuryCloses ?? collectScheduledTreasuryDailyCloses)(now);
     // Same authorised source-only scheduled cycle. No Notion-to-Evidence
     // promotion and no LLM: the vendor's actual US close is the source.
-    const aiIssuerPricePromise = (dependencies.collectAiCompanyCloses ?? collectScheduledAiCompanyCloses)(now);
+    const aiIssuerPricePromise = sharedMonitorEnabled
+      ? collectScheduledAiCompanyCloses(now,{readMonitor:readSharedMonitor})
+      : (dependencies.collectAiCompanyCloses ?? collectScheduledAiCompanyCloses)(now);
     // Original SEC 10-Q/10-K accession identity gates costly quarterly fact reads.
     const secFilingsPromise = (dependencies.collectSec10q10k ?? collectScheduledSec10q10k)(now);
     const officialActuals = await safeOfficialActualIngestion(
@@ -539,7 +577,7 @@ export async function handleScheduledResearchWithDependencies(
     };
     if (cpiCoverage.status === "DEGRADED") console.warn(JSON.stringify(cpiCoverageLog));
     else console.info(JSON.stringify(cpiCoverageLog));
-    const [input, macroCapture, numericIntake, aiIssuerPrices, secFilings, treasuryCloses] = await Promise.all([
+    const [input, macroCapture, numericIntake, aiIssuerPrices, secFilings, treasuryCloses, equityCoverage] = await Promise.all([
       (dependencies.buildScheduledResearchInput ?? buildScheduledResearchInputWithFirecrawl)(slot, {
         now,
         runKey,
@@ -549,7 +587,13 @@ export async function handleScheduledResearchWithDependencies(
       aiIssuerPricePromise,
       secFilingsPromise,
       treasuryClosePromise,
+      equityCoveragePromise,
     ]);
+    if (equityCoverage) {
+      const receipt = {event:"scheduled_bb_equity_coverage",slot,runKey,...equityCoverage};
+      if (["PARTIAL","PROVIDER_ERROR"].includes(equityCoverage.status)) console.warn(JSON.stringify(receipt));
+      else console.info(JSON.stringify(receipt));
+    }
     if (treasuryCloses) {
       const treasuryLog = { event: "scheduled_treasury_daily_closes", slot, runKey, ...treasuryCloses };
       if (treasuryCloses.status === "RECORDED") console.info(JSON.stringify(treasuryLog));
@@ -656,6 +700,7 @@ export async function handleScheduledResearchWithDependencies(
         calendarPreproduction,
         cpiCoverage,
         quantifiedMarket: numericIntake,
+        equityCoverage,
         treasuryCloses,
         aiIssuerPrices,
         secFilings,
