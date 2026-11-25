@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 
 import {
   isTranscriptChannel,
+  isRatesOutlookTitle,
   selectedTranscriptChannels,
 } from "../lib/video-intake-policy.ts";
 import { RESEARCH_SLOT_HEALTH_STATES } from "../lib/persistence/contracts.ts";
@@ -230,7 +231,11 @@ test("only the fixed creator universe enters the browser/manual work list", () =
     channel("traders-reality", [video("traders-reality", "tino-upload")]),
     channel("trade-brigade", [video("trade-brigade", "trade-upload")]),
     channel("real-eisman-playbook", [video("real-eisman-playbook", "eisman-upload")]),
-    channel("clearvalue-tax", [video("clearvalue-tax", "rates-upload")]),
+    channel("clearvalue-tax", [
+      {...video("clearvalue-tax", "rates-upload"), title: "Fed interest rate outlook"},
+      {...video("clearvalue-tax", "tax-upload"), title: "Tax filing tips"},
+      {...video("clearvalue-tax", "ambiguous-upload"), title: "Important update"},
+    ]),
   ];
 
   const workList = selectedTranscriptChannels(channels);
@@ -857,4 +862,16 @@ test("failVideoIntakeRun transitions run to terminal failed state on error", asy
   const slotUpdate = updates[1].payload as { status: string; health_state: string };
   assert.equal(slotUpdate.status, "failed");
   assert.equal(slotUpdate.health_state, "blocked");
+});
+
+ test("rates-only automatic acquisition does not block manual discovery or other creators", () => {
+  assert.equal(isRatesOutlookTitle("FOMC: Powell and interest rate cuts"),true);
+  assert.equal(isRatesOutlookTitle("Treasury yields and monetary policy"),true);
+  assert.equal(isRatesOutlookTitle("Tax filing tips"),false);
+  assert.equal(isRatesOutlookTitle(undefined),false);
+  const input=[channel("clearvalue-tax",[{...video("clearvalue-tax","a"),title:"Tax filing tips"}]),channel("meetkevin",[{...video("meetkevin","b"),title:"Tax filing tips"}])];
+  const selected=selectedTranscriptChannels(input);
+  assert.equal(selected.find(c=>c.channelKey==="clearvalue-tax")?.videos.length,0);
+  assert.equal(selected.find(c=>c.channelKey==="meetkevin")?.videos.length,1);
+  assert.equal(input[0].videos.length,1);
 });
