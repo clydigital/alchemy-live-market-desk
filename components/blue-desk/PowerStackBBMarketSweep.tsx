@@ -10,9 +10,7 @@ function statements(o:EmaObservation){
  const out:string[]=[];
  for(const w of ["1","3","5"] as const){const s=o.windows[w];if(!s)continue;
   if((s.approach==="down_to"||s.approach==="up_to")&&Math.abs(o.distancePct)<=3)out.push(w+"D "+(s.approach==="down_to"?"falling toward":"rising toward"));
-  if(s.emaCross!=="none")out.push(w+"D crossed "+(s.emaCross==="up"?"above":"below")+" EMA");
-  if(s.upperCross!=="none")out.push(w+"D crossed "+(s.upperCross==="up"?"above":"below")+" upper SD");
-  if(s.lowerCross!=="none")out.push(w+"D crossed "+(s.lowerCross==="up"?"above":"below")+" lower SD");
+  for(const e of s.events)if(!out.some(t=>t.endsWith(e.session+" "+e.boundary+" "+e.direction)))out.push(w+"D crossed "+(e.direction==="up"?"above":"below")+" "+(e.boundary==="ema"?"EMA":e.boundary+" SD")+" · "+e.session+" "+e.boundary+" "+e.direction);
  }
  return out;
 }
@@ -33,7 +31,7 @@ export default function PowerStackBBMarketSweep({rows,reviews,asOf}:{rows:readon
  return <section className={styles.section} data-power-stack-bb-sweep="canonical-market-read">
   <h2>BB market sweep · {asOf}</h2>
   <p>{eligible.length}/{rows.length} recent source-dated equity observations. Research alerts only; a falling price or EMA crossing is not proof of value. <Link href="/markets">Full BB market universe</Link>.</p>
-  <p>Approach alert: within 3% of EMA with a narrowing signed distance and matching price direction over 1, 3 or 5 completed daily sessions. Crosses compare endpoint states; a breach and recovery inside a window may not appear. W/M anchors use completed periods only. Missing history stays unavailable.</p>
+  <p>Approach alert: within 3% of EMA with a narrowing signed distance and matching price direction over 1, 3 or 5 completed daily sessions. Crosses use consecutive completed daily closes within each window; intraday-only breaches are not inferred. W/M anchors use completed periods only. Missing history stays unavailable.</p>
   {!flagged.length?<p>No verified proximity or crossing alerts from available observations. Check source coverage.</p>:null}
   <div className={styles.watchGrid}>{flagged.slice(0,12).map(({row,levels,review})=><details className={styles.assetDetails} key={row.ticker}>
    <summary><strong>{row.ticker}</strong> · {row.currency} {row.price?.toFixed(2)} · {row.asOf} · 1D {row.changePct==null?"—":pct(row.changePct)} / 3D {row.change3dPct==null?"—":pct(row.change3dPct)} / 5D {row.change5dPct==null?"—":pct(row.change5dPct)}</summary>
