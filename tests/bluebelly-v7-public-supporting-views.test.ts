@@ -56,7 +56,7 @@ test("Newsroom command counts use source-qualified server results, not a simulat
  assert.match(newsroom,/<BluebellyNewsWire news=\{news\}/);
  assert.match(newsroom,/initialCategory=\{typeof params\.category==="string"\?params\.category:"all"\}/);
  assert.match(newsroom,/initialPage=\{typeof params\.page==="string"\?params\.page:"1"\}/);
- assert.match(newsroom,/data-newsroom-deep-dives="single-editorial-destination"/);
+ assert.match(newsroom,/data-newsroom-industry-handoff="source-qualified"/);
 });
 
 test("Research archive preserves exact edition URLs, filters and pagination, moves duplicate editorial to disclosure",()=>{
