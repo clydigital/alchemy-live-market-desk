@@ -14,6 +14,30 @@ export function expectedHomeEtfSession(now:Date):string|null{
  // Allow 15 minutes after the scheduled close for daily-history publication.
  return expectedCompletedUsWeekdaySessionDay(new Date(now.getTime()-15*60000));
 }
+/** Ask through the next calendar date to accommodate an exclusive provider
+ * end boundary; the admission ceiling stays the completed session. */
+export function nasdaqCompletedHistoryBounds(now:Date,historyDays:number){
+ const expected=expectedHomeEtfSession(now);
+ if(!expected)throw Error("US session unavailable");
+ const through=Date.parse(expected+"T00:00:00Z")/1000;
+ return {start:new Date((through-historyDays*86400)*1000),end:new Date((through+86400)*1000),through};
+}
+export function usRepairChartUrl(symbol:string,now:Date):string{
+ if(!(US_REPAIR_SYMBOLS as readonly string[]).includes(symbol))throw Error("Repair symbol not allowlisted");
+ const {through}=nasdaqCompletedHistoryBounds(now,365);
+ // A stable per-session key replaces a rolling range URL that could reuse
+ // pre-close cached data. End is exclusive and includes the US close.
+ return "https://query1.finance.yahoo.com/v8/finance/chart/"+symbol+"?period1="+(through-365*86400)+"&period2="+(through+86400)+"&interval=1d";
+}
+export function repairFailureCode(error:unknown):string{
+ const m=error instanceof Error?error.message:"";
+ if(error instanceof Error&&(error.name==="TimeoutError"||error.name==="AbortError"))return "TIMEOUT_OR_ABORT";
+ if(/^Secondary repair HTTP (400|401|403|404|429|500|502|503|504)$/.test(m))return "HTTP_"+m.split(" ").at(-1);
+ if(m==="ETF identity mismatch")return "IDENTITY_MISMATCH";
+ if(m==="Invalid ETF daily history"||m==="Duplicate ETF daily session")return "INVALID_HISTORY";
+ if(m==="Secondary ETF history is behind expected session")return "SESSION_BEHIND_OR_SPARSE";
+ return "UNAVAILABLE";
+}
 function parseUsListedChart(payload:unknown,symbol:string,kind:"ETF"|"EQUITY",now:Date,allowLag:boolean):EtfBar[]{
  const root=payload as {chart?:{error?:unknown;result?:Array<{
   meta?:{symbol?:string;currency?:string;instrumentType?:string;exchangeTimezoneName?:string};
@@ -70,9 +94,14 @@ export function parseUsRepairChart(payload:unknown,symbol:string,now:Date):EtfBa
 }
 export async function fetchUsRepairHistory(symbol:string,now:Date,budget:AbortSignal,fetcher:typeof fetch=fetch){
  if(!(US_REPAIR_SYMBOLS as readonly string[]).includes(symbol))throw Error("Repair symbol not allowlisted");
- const response=await fetcher("https://query1.finance.yahoo.com/v8/finance/chart/"+symbol+"?range=1y&interval=1d",{
+ const response=await fetcher(usRepairChartUrl(symbol,now),{
   headers:{accept:"application/json","user-agent":"Mozilla/5.0 Bluebelly Markets Monitor"},
   next:{revalidate:3600},signal:AbortSignal.any([budget,AbortSignal.timeout(8500)])});
- if(!response.ok)throw Error("Secondary repair history unavailable");
- return {points:parseUsRepairChart(await response.json(),symbol,now),sourceName:"Yahoo Finance public daily chart (secondary; delayed)",sourceUrl:"https://finance.yahoo.com/quote/"+symbol+"/history/"};
+ if(!response.ok)throw Error("Secondary repair HTTP "+response.status);
+ const payload=await response.json();
+ const points=parseUsListedChart(payload,symbol,REPAIR_EQUITIES.has(symbol)?"EQUITY":"ETF",now,true);
+ const lastDay=new Date(points.at(-1)!.time*1000).toISOString().slice(0,10);
+ const expected=expectedHomeEtfSession(now)!;
+ if(Date.parse(expected+"T00:00:00Z")-Date.parse(lastDay+"T00:00:00Z")>7*86400000)throw Error("Secondary ETF history is behind expected session");
+ return {points,sourceName:"Yahoo Finance public daily chart (secondary; delayed)",sourceUrl:"https://finance.yahoo.com/quote/"+symbol+"/history/"};
 }

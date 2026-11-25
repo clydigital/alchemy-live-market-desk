@@ -473,7 +473,8 @@ function calculatePulse(series: MarketSeries[], breadth: BreadthSnapshot, sessio
   return clamp(50 + averageMove * 3 + (breadth.current.above50 - 50) * 0.35 + breadthDelta * 0.7 + highLow * 0.15);
 }
 
-async function loadMarketData(): Promise<MarketData> {
+async function loadMarketData(session:string|null): Promise<MarketData> {
+  void session;
   const stockUniverse = [...new Set([...MAG7, ...AI_BASKET, ...LARGE_CAP_PROXY])];
   const nasdaqRequests: NasdaqRequest[] = [
     ...CORE_NASDAQ.map(({ providerSymbol, assetClass }) => ({ providerSymbol, assetClass })),
@@ -567,4 +568,5 @@ async function loadMarketData(): Promise<MarketData> {
   };
 }
 
-export const getMarketData = unstable_cache(loadMarketData, ["alchemy-market-data-v2"], { revalidate: 300 });
+const getMarketDataForSession = unstable_cache(loadMarketData, ["alchemy-market-data-v3-session"], { revalidate: 300 });
+export const getMarketData=()=>getMarketDataForSession(expectedHomeEtfSession(new Date()));
