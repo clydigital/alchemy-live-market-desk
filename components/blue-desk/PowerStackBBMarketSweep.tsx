@@ -2,6 +2,7 @@ import "server-only";
 import Link from "next/link";
 import type {PublicEquityCoverageRow} from "@/lib/bluebelly-equity-coverage";
 import type {IssuerReviewResult} from "@/lib/power-stack-issuer-valuation";
+import type {LongEquityRead} from "@/lib/bluebelly-equity-long-history";
 import type {FundamentalRow} from "@/lib/bluebelly-fundamental-comparison";
 import type {EmaObservation} from "@/lib/bluebelly-equity-ema";
 import styles from "@/app/power-stack/private-power-stack.module.css";
@@ -25,7 +26,7 @@ const baskets=[
  ["Malaysia infrastructure","0245.KL 0310.KL 0296.KL 5398.KL 5347.KL","Cash collection, funded backlog and grid demand.","Local demand / currency diversification; AI overlap remains","Good","Mixed","Poor","Mixed","Good"],
 ] as const;
 type PrivateLevel={ticker:string;currency:string;low:number|null;high:number|null;note:string;updatedAt:string};
-export default function PowerStackBBMarketSweep({rows,reviews,asOf,levels,fundamentals}:{rows:readonly PublicEquityCoverageRow[];reviews:readonly IssuerReviewResult[];asOf:string;levels:readonly PrivateLevel[];fundamentals:readonly FundamentalRow[]}){
+export default function PowerStackBBMarketSweep({rows,reviews,asOf,levels,fundamentals,longHistory}:{rows:readonly PublicEquityCoverageRow[];reviews:readonly IssuerReviewResult[];asOf:string;levels:readonly PrivateLevel[];fundamentals:readonly FundamentalRow[];longHistory:LongEquityRead|null}){
  const levelByTicker=new Map(levels.map(x=>[x.ticker,x]));
  const factsByTicker=new Map(fundamentals.map(x=>[x.ticker,x]));
  const reviewByTicker=new Map(reviews.map(r=>[r.ticker,r]));
@@ -33,10 +34,14 @@ export default function PowerStackBBMarketSweep({rows,reviews,asOf,levels,fundam
  const signals=eligible.map(r=>({row:r,levels:r.emaScan?.observations.map(o=>({o,statements:statements(o)})).filter(x=>x.statements.length)??[],review:reviewByTicker.get(r.ticker),entry:levelByTicker.get(r.ticker),fundamental:factsByTicker.get(r.ticker)}));
  const nearEntry=(x:typeof signals[number])=>!!x.entry&&x.entry.currency===x.row.currency&&x.row.price!<=(x.entry.high??x.entry.low??0)*1.03;
  const flagged=signals.filter(x=>nearEntry(x)||x.levels.length||x.review&&x.review.currency===x.row.currency&&x.row.price!<=x.review.valuationLow*1.05).sort((a,b)=>Number(nearEntry(b))-Number(nearEntry(a))||(a.row.changePct??0)-(b.row.changePct??0));
- return <section className={styles.section} data-power-stack-bb-sweep="canonical-market-read">
+ return <section id="bb-market-sweep" className={styles.section} data-power-stack-bb-sweep="canonical-market-read">
   <h2>BB market sweep · {asOf}</h2>
   <p>{eligible.length}/{rows.length} recent source-dated equity observations. Research alerts only; a falling price or EMA crossing is not proof of value. <Link href="/markets">Full BB market universe</Link>.</p>
   <p>Approach alert: within 3% of EMA with a narrowing signed distance and matching price direction over 1, 3 or 5 completed daily sessions. Crosses use consecutive completed daily closes within each window; intraday-only breaches are not inferred. W/M anchors use completed periods only. Missing history stays unavailable.</p>
+  <form action="/power-stack#bb-market-sweep" method="get"><label>Manual long-history deep dive: <select name="technical" defaultValue={longHistory?.ticker??""}><option value="">Select equity</option>{rows.map(r=><option key={r.ticker} value={r.ticker}>{r.ticker} · {r.company}</option>)}</select></label> <button type="submit">Check D/W/M EMA</button></form>
+  {longHistory?<details open className={styles.assetDetails}><summary><strong>{longHistory.ticker} · Long-history check · {longHistory.status}</strong></summary><p>{longHistory.reason} · <a href={longHistory.sourceUrl}>History source</a>{longHistory.asOf?" · "+longHistory.historyStart+" to "+longHistory.asOf+" · "+longHistory.bars+" daily bars":""}</p>
+  {longHistory.scan?.observations.map(o=><p key={o.frame+o.period}>{o.frame} EMA{o.period}: {o.ema.toFixed(2)} · price {o.side} ({pct(o.distancePct)}) · {o.band.replaceAll("_"," ")} {o.multiplier} SD · {statements(o).join("; ")||"No recent boundary event"} · anchor {o.anchorDay}</p>)}
+  {longHistory.scan?.unavailable.length?<p>Insufficient history: {longHistory.scan.unavailable.join(", ")}</p>:null}</details>:null}
   {!flagged.length?<p>No verified proximity or crossing alerts from available observations. Check source coverage.</p>:null}
   <div className={styles.watchGrid}>{flagged.slice(0,12).map(({row,levels,review,entry,fundamental})=><details className={styles.assetDetails} key={row.ticker}>
    <summary><strong>{row.ticker}</strong> · {row.currency} {row.price?.toFixed(2)} · {row.asOf} · 1D {row.changePct==null?"—":pct(row.changePct)} / 3D {row.change3dPct==null?"—":pct(row.change3dPct)} / 5D {row.change5dPct==null?"—":pct(row.change5dPct)}</summary>
