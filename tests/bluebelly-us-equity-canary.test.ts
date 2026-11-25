@@ -1,7 +1,7 @@
 import {scanEquityEma} from "../lib/bluebelly-equity-ema.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
-import {planUsRecovery,US_REPAIR_SYMBOLS,US_EQUITY_CANARY,PREFERRED_US_ETFS,US_RECOVERY_BATCH_LIMIT,fetchUsEquityCanaryHistory} from "../lib/bluebelly-home-etf-history.ts";
+import {planUsRecovery,US_REPAIR_SYMBOLS,US_EQUITY_CANARY,PREFERRED_US_ETFS,PREFERRED_US_EQUITIES,US_RECOVERY_BATCH_LIMIT,fetchUsEquityCanaryHistory} from "../lib/bluebelly-home-etf-history.ts";
 test("reallocate existing 17-slot budget, preserve ETF fallback precedence",()=>{
  assert.equal(PREFERRED_US_ETFS.length,15);
  assert.equal(US_EQUITY_CANARY.length,12);
@@ -48,4 +48,13 @@ test("canary rejects a missing recent scheduled session",async()=>{
  const fixture={chart:{error:null,result:[{meta:{symbol:"NVDA",currency:"USD",instrumentType:"EQUITY",exchangeTimezoneName:"America/New_York"},timestamp:dates.map(d=>Date.parse(d+"T14:30:00Z")/1000),indicators:{quote:[{close:[90,91,92,93,94,95]}]}}]}};
  const fetcher=(async()=>new Response(JSON.stringify(fixture))) as typeof fetch;
  await assert.rejects(()=>fetchUsEquityCanaryHistory("NVDA",now,AbortSignal.timeout(1000),fetcher),/behind expected session/);
+});
+
+test("expanded preferred equities use existing bounded fallback slots",()=>{
+ assert.equal(PREFERRED_US_EQUITIES.length,12);
+ assert.equal(new Set([...US_EQUITY_CANARY,...PREFERRED_US_EQUITIES]).size,24);
+ const plan=planUsRecovery(new Set([...US_EQUITY_CANARY,...PREFERRED_US_EQUITIES]));
+ assert.equal(plan.length,17);
+ assert.deepEqual(plan.slice(0,12),[...US_EQUITY_CANARY]);
+ assert(plan.includes("XOM"));
 });
