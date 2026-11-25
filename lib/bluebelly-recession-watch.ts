@@ -21,7 +21,7 @@ export const RECESSION_INDICATORS:readonly Indicator[]=[
  f("CMRMTSPL","Real manufacturing and trade sales","Real activity","Monthly","real USD millions","Coincident",true,"NBER core; lagging availability",true),
  f("INDPRO","Industrial production","Real activity","Monthly","index","Coincident",true,"NBER core",true),
  f("GDPC1","Real GDP","Real activity","Quarterly","real USD billions","Context",true,"GDP level, not annualised quarter growth"),
- f("A261RX1Q020SBEA","Real GDI","Real activity","Quarterly","real USD billions","Context",false,"Verify current GDI series and period before use"),
+ {id:"REAL_GDI",name:"Real GDI",pillar:"Real activity",frequency:"Quarterly",unit:"real USD billions",role:"Context",connected:false,sourceUrl:"https://www.bea.gov/data/income-saving/gross-domestic-income",note:"Verify current GDI series and period before use"},
  f("DSPIC96","Real disposable personal income","Household","Monthly","real USD billions","Coincident",true,"Consumption capacity"),
  f("PSAVERT","Personal saving rate","Household","Monthly","%","Context",false,"Savings buffer"),
  f("DRCCLACBS","Credit-card delinquency rate","Household","Quarterly","%","Context",false,"Bank-reported loan delinquency"),
