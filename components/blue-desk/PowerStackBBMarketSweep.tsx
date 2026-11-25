@@ -10,7 +10,7 @@ function statements(o:EmaObservation){
  const out:string[]=[];
  for(const w of ["1","3","5"] as const){const s=o.windows[w];if(!s)continue;
   if((s.approach==="down_to"||s.approach==="up_to")&&Math.abs(o.distancePct)<=3)out.push(w+"D "+(s.approach==="down_to"?"falling toward":"rising toward"));
-  for(const e of s.events)if(!out.some(t=>t.endsWith(e.session+" "+e.boundary+" "+e.direction)))out.push(w+"D crossed "+(e.direction==="up"?"above":"below")+" "+(e.boundary==="ema"?"EMA":e.boundary+" SD")+" · "+e.session+" "+e.boundary+" "+e.direction);
+  for(const e of s.events??[])if(!out.some(t=>t.endsWith(e.session+" "+e.boundary+" "+e.direction)))out.push(w+"D crossed "+(e.direction==="up"?"above":"below")+" "+(e.boundary==="ema"?"EMA":e.boundary+" SD")+" · "+e.session+" "+e.boundary+" "+e.direction);
  }
  return out;
 }
