@@ -7,6 +7,10 @@ import { loadExtras } from "@/lib/market-monitor";
 import { buildMarketToolsCorrelations, CORRELATION_WINDOWS } from "@/lib/market-tools-correlations";
 import { getMarketToolsProviderReadiness } from "@/lib/market-tools-provider-readiness";
 import styles from "./market-tools.module.css";
+import OwnerTechnicalLevels from "@/components/blue-desk/OwnerTechnicalLevels";
+import {readTechnicalSnapshot} from "@/lib/providers/twelve-data-ema-history";
+import {createSupabaseServerClient} from "@/lib/supabase/server";
+import {authorizeVerifiedEventOwner} from "@/lib/bluebelly-verified-event-owner-auth";
 
 export const metadata = { title: "Market Tools | Bluebelly", description: "Research sources, correlation watchlists and trade-idea discovery." };
 
@@ -30,9 +34,13 @@ const connectors = [
 ];
 export const dynamic = "force-dynamic";
 
-export default async function MarketToolsPage({searchParams}:{searchParams:Promise<{check?:string}>}) {
+export default async function MarketToolsPage({searchParams}:{searchParams:Promise<{check?:string;technical?:string}>}) {
   const options = await searchParams;
   const checkProviders=options?.check==="providers";
+  const ticker=typeof options.technical==="string"?options.technical.toUpperCase():"MAA";
+  const session=await createSupabaseServerClient();
+  const access=await authorizeVerifiedEventOwner({getUser:()=>session.auth.getUser(),readActiveAllowlist:email=>session.from("app_access_allowlist").select("email").eq("email",email).eq("active",true).maybeSingle()});
+  const technical=access.ok&&options.technical?await readTechnicalSnapshot(ticker):null;
   const [market, monitor, readiness, extendedHistory] = await Promise.all([
     getMarketData().catch(() => null),
     getMarketMonitor().catch(() => null),
@@ -71,6 +79,7 @@ export default async function MarketToolsPage({searchParams}:{searchParams:Promi
       </section>
       <div className={styles.stats}><div><strong>{sources.length}</strong><span>Curated sources</span></div><div><strong>{measuredCount}/{pairs.length}</strong><span>Current dated correlation pairs</span></div><div><strong>0</strong><span>Verified trade signals</span></div><div><strong>{newestCommonDate ?? "—"}</strong><span>Newest aligned observation date</span></div></div>
       <section className={styles.workflow} aria-labelledby="workflow-title"><div><p className={styles.eyebrow}>RESEARCH HANDOFF / NOT AN AUTOMATIC SIGNAL</p><h2 id="workflow-title">Turn a screen into a sourced investigation</h2><p>Screen for an unusual move → compare cross-market relationships → check the original catalyst → verify price timestamps and invalidation → submit a candidate to Bluebelly research. Unverified observations must not appear as published ideas.</p></div><div className={styles.workflowActions}><Link href="/owner/research">Open Research Library →</Link><Link href="/owner/presenter">Presenter technical checks →</Link><Link href="/my-reports">Editorial reports →</Link></div></section>
+      {access.ok?<OwnerTechnicalLevels snapshot={technical} ticker={ticker}/>:null}
       <ResearchTriggerIntake monitor={monitor} />
       <div className={styles.layout}>
         <div className={styles.primary}>
