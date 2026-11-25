@@ -22,6 +22,8 @@ import {BLUEBELLY_STOCK_UNIVERSE,findStockIdentity} from "@/lib/bluebelly-equity
 import {readPublicFundamentalComparison} from "@/lib/bluebelly-fundamental-comparison-server";
 import {projectPublicEquityCoverage} from "@/lib/bluebelly-equity-coverage";
 import PowerStackBBMarketSweep from "@/components/blue-desk/PowerStackBBMarketSweep";
+import {projectOpportunityQueue} from "@/lib/power-stack-opportunity-queue";
+import PowerStackOpportunityQueue from "@/components/blue-desk/PowerStackOpportunityQueue";
 import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
 import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
 import {selectMeasuredMarketSignals} from "@/lib/bluebelly-measured-market-signals";
@@ -228,7 +230,7 @@ export default async function PrivatePowerStack({searchParams}:{searchParams:Pro
         .eq("owner_user_id",identity.user.id).in("ticker",trackedTickers.slice(0,250))
         .order("reviewed_at",{ascending:false}).limit(300)
     : {data:null,error:null};
-  const issuerReviews=projectIssuerValuationReviews(issuerValuationRows??[],trackedTickers,new Date());
+  const issuerReviews=projectIssuerValuationReviews(issuerValuationRows??[],trackedTickers,new Date(),250);
   // The source lookup starts ONLY after the verified owner session, allowlist,
   // and retired-public-snapshot gates. Never put ticker/holding data in public Regime routes.
   const researchedAt=new Date();
@@ -263,6 +265,8 @@ export default async function PrivatePowerStack({searchParams}:{searchParams:Pro
    ready?getReboundCapitalResearchLeads(researchedAt):Promise.resolve(null),
    ready?readPublicFundamentalComparison(bbCoverage.rows,researchedAt):Promise.resolve(null),
   ]);
+  const ownerOpportunityAssets=[...holdings,...watchlist,...(ideaRecords??[])].filter(item=>item.ticker!=="6742UW"&&!nonIssuer.has(marketTicker(item.ticker))).map(item=>({ticker:marketTicker(item.ticker),name:item.name}));
+  const opportunities=ready?projectOpportunityQueue(bbCoverage.rows,bbFundamentals?.rows??[],issuerReviews,ownerOpportunityAssets,researchedAt):[];
   const researchGroups=ready?projectPowerStackResearch(researchAssets,researchReads,researchedAt):[];
   const tapeComparisons=buildMarketDivergenceWatch(publicMarketObservations(publicTape?.rows??[],"all"),"1D");
   const measuredSignals=selectMeasuredMarketSignals(tapeComparisons,"1D",researchedAt,5);
@@ -286,6 +290,7 @@ export default async function PrivatePowerStack({searchParams}:{searchParams:Pro
         {ready?<PowerStackBBMarketSweep rows={bbCoverage.rows} reviews={issuerReviews} asOf={bbCoverage.asOf} levels={privateLevels} fundamentals={bbFundamentals?.rows??[]} longHistory={longHistory} />:null}
         {ready?<PowerStackMeasuredSignals signals={measuredSignals} trackedTickers={trackedTickers} topics={researchTopics}/>:null}
         {ready?<PowerStackResearchFocus assets={issuers} now={researchedAt}/>:null}
+        {ready?<PowerStackOpportunityQueue rows={opportunities} issuerUnavailable={bbFundamentals?.status!=="OK"}/>:null}
         {ready?<PowerStackValuationWorkbench assets={issuers} reviews={issuerReviews}
           storeError={Boolean(issuerValuationError)}/>:null}
         <NvidiaEarningsDecisionWatch mode="power-stack" now={researchedAt} owner={{

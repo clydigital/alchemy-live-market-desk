@@ -30,14 +30,16 @@ function eligible(row:MarketMonitorRow,spec:StockIdentity,now:Date):boolean{
 export function projectPublicEquityCoverage(
  rows:readonly MarketMonitorRow[],now=new Date(),
 ):PublicEquityCoverage{
- const observed=new Map<string,MarketMonitorRow>();
+ const observed=new Map<string,MarketMonitorRow[]>();
  for(const raw of rows){
   const ticker=raw.symbol?.toUpperCase();if(!ticker)continue;
-  const old=observed.get(ticker);
-  if(!old||(old.asOf??"")<(raw.asOf??""))observed.set(ticker,raw);
+  const list=observed.get(ticker)??[];list.push(raw);observed.set(ticker,list);
  }
  const projected:PublicEquityCoverageRow[]=BLUEBELLY_STOCK_UNIVERSE.map(spec=>{
-  const row=observed.get(spec.ticker),ok=!!row&&eligible(row,spec,now);
+  const candidates=(observed.get(spec.ticker)??[]).filter(r=>eligible(r,spec,now)).sort((a,b)=>b.asOf!.localeCompare(a.asOf!));
+  const row=candidates[0];
+  const conflict=!!row&&candidates.some(r=>r.asOf===row.asOf&&Math.abs(r.last!-row.last!)>Math.max(0.000001,Math.abs(row.last!)*0.000001));
+  const ok=!!row&&!conflict;
   return {ticker:spec.ticker,company:spec.company,region:spec.region,exchange:spec.exchange,
    currency:spec.currency,timeZone:spec.timeZone,priority:spec.priority,theme:spec.theme,
    status:ok?"SOURCE_DATED":"MONITORED_UNAVAILABLE",

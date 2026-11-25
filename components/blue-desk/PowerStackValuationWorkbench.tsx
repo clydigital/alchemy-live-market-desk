@@ -1,4 +1,5 @@
 import Link from "next/link";
+import {entryCeilings} from "@/lib/power-stack-accumulation-gate";
 import type {IssuerReviewResult} from "@/lib/power-stack-issuer-valuation";
 import type {RebasedPegResearchEvaluation} from "@/lib/power-stack-peg-research";
 import s from "./PowerStackValuationWorkbench.module.css";
@@ -49,6 +50,8 @@ export default function PowerStackValuationWorkbench({assets,reviews,storeError}
       <p><b>Observed price:</b> {money(r.marketPrice,r.currency)} · {r.priceObservedOn}</p>
       <p><b>Reviewed model range:</b> {money(r.valuationLow,r.currency)}–{money(r.valuationHigh,r.currency)} ({r.valuationMethod.replaceAll("_"," ")})</p>
       <p><b>Distance to low case:</b> {r.distanceToLowPct>0?"+":""}{r.distanceToLowPct}% · not a forecast return</p>
+      <p><b>Illustrative entry thresholds using the reviewed lower bound:</b> {money(entryCeilings(r.valuationLow).upsideCeiling,r.currency)} for 20% appreciation to that bound; {money(entryCeilings(r.valuationLow).discountCeiling,r.currency)} for a 20% discount to it.</p>
+      <p className={s.warning}>Range-derived arithmetic only. The current review does not establish a separate numerical base and bear case, so it cannot pass the full accumulation evidence gate. Review funding, cash conversion and earnings direction independently.</p>
       <p><b>Reported FCF proxy:</b> {money(r.freeCashFlow,r.currency)} {r.financialsUnit} (operating cash flow minus capex) · period ended {r.financialPeriodEnd}</p>
       <p><b>Operating cash flow / capex:</b> {money(r.cashFlowFromOperations,r.currency)} / {money(r.capitalExpenditure,r.currency)} {r.financialsUnit}</p>
       <p><b>Revenue / net income:</b> {r.revenue===null?"Not supplied":money(r.revenue,r.currency)+" "+r.financialsUnit} / {r.netIncome===null?"Not supplied":money(r.netIncome,r.currency)+" "+r.financialsUnit}</p>
