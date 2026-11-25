@@ -274,7 +274,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
                   <p><DualTimestamp value={item.occurredAt}/> · {item.sourceName}</p>
                 </article>)}
               </div>:<p className={styles.coverage}>No new verified headline in the past 48 hours. Older sources remain searchable.</p>}
-              <div className={marketHome.panelFooter}><Link href="/newsroom">Search Newsroom</Link><Link href="/research">Research archive</Link></div>
+              <div className={marketHome.panelFooter}><Link href="/newsroom">Search Newsroom</Link><Link href="/industry-intel">Industry Intel</Link></div>
             </section>
           </div>
           <p className={marketHome.note}>1D/3D/5D changes use available source trading sessions. Nominal yield changes are basis points; equity and currency moves are percentages. Every reading must retain its own source timestamp. The window bars compare cumulative changes within one instrument; they do not represent historical price paths or comparable moves across assets.</p>
@@ -298,10 +298,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
           <summary style={{cursor:"pointer",color:"var(--bb-accent)",fontWeight:700}}>Browse more dated investigations and previous research</summary>
           <PublishedResearchDispatches items={projectPublishedResearchFocus(digestBriefs,now,3)}
             mode="today" readerHref={blueDeskPublicHref("/blue-desk/newsroom",host)}/>
-          <p data-home-research-archive-link="dated-not-live" style={{margin:"12px 0 6px",fontSize:13,color:"var(--bb-muted)"}}>
-            Older investigations are preserved separately.{" "}
-            <Link href={blueDeskPublicHref("/blue-desk/research",host)}>Browse the dated Research Library →</Link>
-          </p>
+          <p data-home-industry-intel-link="source-qualified" style={{margin:"12px 0 6px",fontSize:13,color:"var(--bb-muted)"}}><Link href={blueDeskPublicHref("/blue-desk/industry-intel",host)}>Explore industry developments →</Link></p>
         </details>
         {/* Legacy research archive remains accessible on the old desk only; Bluebelly readers use dedicated Markets and Key Stories pages. */}
         {!publicHost ? <>
