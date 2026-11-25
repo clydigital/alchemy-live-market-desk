@@ -1,5 +1,5 @@
 import { unstable_cache } from "next/cache";
-import {expectedHomeEtfSession} from "./bluebelly-home-etf-history.ts";
+import {nasdaqCompletedHistoryBounds,expectedHomeEtfSession} from "./bluebelly-home-etf-history.ts";
 
 export type PricePoint = { time: number; close: number; high?: number | null; low?: number | null; volume?: number | null };
 
@@ -184,10 +184,7 @@ async function mapLimit<T, R>(items: T[], limit: number, worker: (item: T) => Pr
 }
 
 async function fetchNasdaqHistory(request: NasdaqRequest): Promise<PricePoint[]> {
-  const expected=expectedHomeEtfSession(new Date());
-  if(!expected)throw Error("US session unavailable");
-  const end = new Date(expected+"T00:00:00Z");
-  const start = new Date(end.getTime() - HISTORY_DAYS * 86400000);
+  const {end,start,through}=nasdaqCompletedHistoryBounds(new Date(),HISTORY_DAYS);
   const endpoint = `https://api.nasdaq.com/api/quote/${encodeURIComponent(request.providerSymbol)}/historical?assetclass=${request.assetClass}&fromdate=${isoDate(start)}&todate=${isoDate(end)}&limit=5000`;
   const response = await fetch(endpoint, {
     headers: {
@@ -207,7 +204,7 @@ async function fetchNasdaqHistory(request: NasdaqRequest): Promise<PricePoint[]>
     const match = row.date?.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
     if (close === null || !match) return [];
     const time = Date.UTC(Number(match[3]), Number(match[1]) - 1, Number(match[2])) / 1000;
-    if(time>end.getTime()/1000)return [];
+    if(time>through)return [];
     return [{ time, close, high: parseNumber(row.high), low: parseNumber(row.low), volume: parseNumber(row.volume) }];
   }).sort((a, b) => a.time - b.time);
 }
@@ -473,7 +470,8 @@ function calculatePulse(series: MarketSeries[], breadth: BreadthSnapshot, sessio
   return clamp(50 + averageMove * 3 + (breadth.current.above50 - 50) * 0.35 + breadthDelta * 0.7 + highLow * 0.15);
 }
 
-async function loadMarketData(): Promise<MarketData> {
+async function loadMarketData(session:string|null): Promise<MarketData> {
+  void session;
   const stockUniverse = [...new Set([...MAG7, ...AI_BASKET, ...LARGE_CAP_PROXY])];
   const nasdaqRequests: NasdaqRequest[] = [
     ...CORE_NASDAQ.map(({ providerSymbol, assetClass }) => ({ providerSymbol, assetClass })),
@@ -567,4 +565,5 @@ async function loadMarketData(): Promise<MarketData> {
   };
 }
 
-export const getMarketData = unstable_cache(loadMarketData, ["alchemy-market-data-v2"], { revalidate: 300 });
+const getMarketDataForSession = unstable_cache(loadMarketData, ["alchemy-market-data-v3-session"], { revalidate: 300 });
+export const getMarketData=()=>getMarketDataForSession(expectedHomeEtfSession(new Date()));

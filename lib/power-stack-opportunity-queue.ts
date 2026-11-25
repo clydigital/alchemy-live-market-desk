@@ -35,13 +35,15 @@ export function projectOpportunityQueue(quotes:readonly PublicEquityCoverageRow[
    pos(raw.valuationLow)&&pos(raw.valuationHigh)&&raw.valuationLow<=raw.valuationHigh&&
    Number.isFinite(Date.parse(raw.reviewedAt))&&Date.parse(raw.reviewedAt)<=current&&current-Date.parse(raw.reviewedAt)<=45*86400000?raw:null;
   const gaps:string[]=[];
+  const lagged=q.sessionFreshness==="BEHIND_US_SESSION";
+  if(lagged)gaps.push("US quote behind latest completed session; dated research context only");
   if(!priceOK)gaps.push("Eligible Bluebelly daily quote unavailable");
   if(!f||f.status!=="CURRENT"||!f.facts.length)gaps.push("Recent verified issuer facts unavailable");
   if(!model)gaps.push("Compatible reviewed valuation range unavailable");
   gaps.push("Separate numerical base/bear and full cash/debt/earnings evidence required");
-  const rangeUpsidePct=model&&priceOK?100*(model.valuationLow/q.price!-1):null;
+  const rangeUpsidePct=model&&priceOK&&!lagged?100*(model.valuationLow/q.price!-1):null;
   const ceilings=model?entryCeilings(model.valuationLow):null;
-  return {ticker:q.ticker,company:q.company,theme:q.theme,currency:q.currency,drivers:drivers[q.ticker]??["Unclassified cash-flow drivers"],scope:"BB_UNIVERSE",price:priceOK?q.price:null,priceDay:priceOK?q.asOf:null,priceSource:priceOK?q.sourceUrl:null,fundamental:f,model,rangeUpsidePct,upsideCeiling:ceilings?.upsideCeiling??null,discountCeiling:ceilings?.discountCeiling??null,state:!priceOK?"MISSING_PRICE":!model?"MISSING_MODEL":model.riskFlags.length?"RISK_REVIEW":!f||f.status!=="CURRENT"||!f.facts.length?"EVIDENCE_GAP":"RANGE_RESEARCH",gaps};
+  return {ticker:q.ticker,company:q.company,theme:q.theme,currency:q.currency,drivers:drivers[q.ticker]??["Unclassified cash-flow drivers"],scope:"BB_UNIVERSE",price:priceOK?q.price:null,priceDay:priceOK?q.asOf:null,priceSource:priceOK?q.sourceUrl:null,fundamental:f,model,rangeUpsidePct,upsideCeiling:ceilings?.upsideCeiling??null,discountCeiling:ceilings?.discountCeiling??null,state:!priceOK?"MISSING_PRICE":lagged?"EVIDENCE_GAP":!model?"MISSING_MODEL":model.riskFlags.length?"RISK_REVIEW":!f||f.status!=="CURRENT"||!f.facts.length?"EVIDENCE_GAP":"RANGE_RESEARCH",gaps};
  });
  const seen=new Set(rows.map(r=>r.ticker));
  for(const a of ownerAssets){if(seen.has(a.ticker))continue;seen.add(a.ticker);rows.push({ticker:a.ticker,company:a.name,theme:"UNMAPPED",currency:"",drivers:drivers[a.ticker]??["Unclassified cash-flow drivers"],scope:"OWNER_ONLY_GAP",price:null,priceDay:null,priceSource:null,fundamental:null,model:null,rangeUpsidePct:null,upsideCeiling:null,discountCeiling:null,state:"OUTSIDE_BB",gaps:["Not in shared Bluebelly equity universe; no private quote substitution"]});}
