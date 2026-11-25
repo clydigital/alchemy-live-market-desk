@@ -297,7 +297,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <PublicMarketScreener key={group} observations={observations} group={group} dataAvailable={Boolean(monitor)} mode={mode==="compare"?"compare":"assets"} />
         </section>:null}
 
-        {fundamentals?<MarketFundamentalComparison rows={fundamentals.rows} status={fundamentals.status}/>:null}
+        {fundamentals?<><MarketFundamentalComparison rows={fundamentals.rows} status={fundamentals.status}/><aside className={styles.secondaryPanel}><Link href="https://bluebelly-desk.vercel.app/market-tools#ema-sd-levels">Daily / weekly / monthly EMA-SD levels · owner research →</Link><p>Technical levels supplement fundamentals; private provider access and validation required.</p></aside></>:null}
         {mode==="assets"&&group==="all"?
           <PublicTreasuryLadder rows={publicMarketObservations(monitor?.rows||[],"rates")}/>:null}
         {mode==="assets"&&group==="rates"?
