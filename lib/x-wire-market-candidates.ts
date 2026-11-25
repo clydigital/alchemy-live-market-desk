@@ -22,7 +22,7 @@ export function classifyXWireThemes(body:string):XMarketTheme[] {
 const SOURCE_PRIORITY=new Set(["hormuzreport","thestudyofwar","oilandenergy"]);
 const HANDLES=new Set(X_CORE_ROSTER.map(x=>x.handle.toLowerCase()));
 
-export function rankXWireMarketCandidates(posts:readonly WirePost[],now=new Date(),max=12,options:{allowDeferred?:boolean;maxAgeHours?:number}={}):XMarketCandidate[]{
+export function rankXWireMarketCandidates(posts:readonly WirePost[],now=new Date(),max=12,options:{allowDeferred?:boolean;maxAgeHours?:number;prioritizeKobeissi?:boolean}={}):XMarketCandidate[]{
  const maxAgeHours=Math.min(168,Math.max(1,options.maxAgeHours??48));
  const chosen:XMarketCandidate[]=[];
  const seen=new Set<string>(),byAccount=new Map<string,number>(),byTheme=new Map<XMarketTheme,number>();
@@ -71,6 +71,9 @@ export function rankXWireMarketCandidates(posts:readonly WirePost[],now=new Date
   if(policy.analyst)analystCount++;
   return true;
  };
+ // Give the user-prioritised account the first available material slot, not a guaranteed claim or quota.
+ const kobeissi=valid.find(c=>c.post.handle.toLowerCase()==="kobeissiletter");
+ if(options.prioritizeKobeissi&&kobeissi)add(kobeissi);
  // First reserve at most two actual alert candidates, then four distinct analyst voices.
  // A quiet alert lane consumes no slots; do not force a fixed quota of low-value posts.
  if(capacity>=6){
