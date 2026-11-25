@@ -6,7 +6,7 @@ export const LIVE_DESK_PRESENTATION_HOST = "alchemy-live-market-desk.vercel.app"
 // Do not expose arbitrary dynamic segments on the public presentation hosts.
 const PUBLIC_LEARN_DECK_PATH = /^\/(?:blue-desk\/)?learn\/decks\/(?:d02|d06|d08|d13|d15|d17|d23|d24|d26)$/;
 
-const PUBLIC_REGIME_LENS_PATH = /^\/(?:blue-desk\/)?regime-watch\/(?:fed|bonds|ai|china|energy|yen|breadth|gold|housing)$/;
+const PUBLIC_REGIME_LENS_PATH = /^\/(?:blue-desk\/)?regime-watch\/(?:fed|bonds|ai|china|energy|yen|breadth|gold|housing|recession)$/;
 
 function normalizedHost(host: string | null | undefined) {
   return (host || "").trim().toLowerCase().replace(/:443$/, "");
