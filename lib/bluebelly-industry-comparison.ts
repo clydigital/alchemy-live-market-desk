@@ -18,7 +18,7 @@ export const COMPARISON_METRICS = [
 export type ComparisonKey=typeof COMPARISON_METRICS[number]["key"];
 export type IssuerResultRow={id:string;ticker:string;company_name:string;fiscal_period:string;filing_day:string|null;published_at:string|null;source_url:string;verification_status:string};
 export type IssuerFactRow={result_id:string;metric_key:string;value_numeric:number|string|null;unit:string;accounting_basis:string;period_basis:string;source_url:string;verification_status:string;captured_at:string|null};
-export type ComparisonCell={state:"VERIFIED_NUMERIC"|"REVIEWED_TEXT"|"MISSING";value:number|null;unit:string|null;display:string|null;basis:string|null;sourceUrl:string|null;note:string|null};
+export type ComparisonCell={state:"VERIFIED_NUMERIC"|"REVIEWED_NUMERIC"|"REVIEWED_TEXT"|"MISSING";value:number|null;unit:string|null;display:string|null;basis:string|null;sourceUrl:string|null;note:string|null};
 export type ComparisonColumn={ticker:string;company:string;fiscalPeriod:string|null;releaseDay:string|null;sourceUrl:string|null;basis:string|null;state:"VERIFIED_FILING"|"REVIEWED_SCORECARD"|"UNAVAILABLE";cells:Record<ComparisonKey,ComparisonCell>;guidance:string|null;nextTest:string|null};
 const day=(s:string|null|undefined)=>s&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&Number.isFinite(Date.parse(s+"T00:00:00Z"))?Date.parse(s+"T00:00:00Z"):NaN;
 const sec=(s:string)=>/^https:\/\/www\.sec\.gov\/Archives\/edgar\/data\/\d+\/\d+\/[^?#]+$/i.test(s);
@@ -44,7 +44,7 @@ const textKeys:Partial<Record<VerifiedEarningsScorecard["metrics"][number]["name
 };
 export function buildIndustryComparison(tickers:readonly string[],results:readonly IssuerResultRow[],facts:readonly IssuerFactRow[],reviewed:readonly VerifiedEarningsScorecard[],now=new Date()):ComparisonColumn[]{
  const time=now.getTime(),cutoff=time-90*86400000;
- return tickers.map(ticker=>{
+ return tickers.map((ticker):ComparisonColumn=>{
   const id=ticker.toUpperCase(), cells=emptyCells();
   const rows=results.filter(r=>r.ticker.toUpperCase()===id&&["partial","verified"].includes(r.verification_status)&&
    parseFiscalQuarter(r.fiscal_period)&&day(r.filing_day)>=cutoff&&day(r.filing_day)<=time&&
@@ -83,6 +83,13 @@ export function buildIndustryComparison(tickers:readonly string[],results:readon
     const key=textKeys[metric.name];
     if(!key||metric.state!=="measured"||!metric.value)continue;
     cells[key]={state:"REVIEWED_TEXT",value:null,unit:null,display:metric.value,basis:score.basis,sourceUrl:score.sourceUrl,note:[metric.comparison,metric.note].filter(Boolean).join(" · ")||null};
+   }
+   for(const f of score.numericQuarterFacts??[]){
+    const m=COMPARISON_METRICS.find(k=>k.key===f.key);
+    if(!m||m.unit!==f.unit||!Number.isFinite(f.value)||!f.basis.trim()||
+     !Number.isFinite(day(f.periodEnd))||day(f.periodEnd)>day(score.releaseDay)||
+     day(score.releaseDay)-day(f.periodEnd)>180*86400000)continue;
+    cells[f.key]={state:"REVIEWED_NUMERIC",value:f.value,unit:f.unit,display:display(f.value,f.unit),basis:f.basis,sourceUrl:score.sourceUrl,note:"Quarter ended "+f.periodEnd+" · "+f.note};
    }
    return {ticker,company:score.company,fiscalPeriod:score.fiscalPeriod,releaseDay:score.releaseDay,sourceUrl:score.sourceUrl,basis:score.basis,state:"REVIEWED_SCORECARD",cells,guidance:score.outlook,nextTest:score.nextTest};
   }
