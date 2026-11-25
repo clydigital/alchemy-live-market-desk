@@ -9,11 +9,11 @@ const model:IssuerReviewResult={ticker:"NVDA",verdict:"BELOW_REVIEWED_RANGE",rev
 test("shared universe drives queue, archived owner-only symbols remain explicit gaps",()=>{
  const rows=projectOpportunityQueue([quote("NVDA"),quote("CI")],[],[model],[{ticker:"CI",name:"Cigna"},{ticker:"DELL",name:"Dell"}],now);
  assert.equal(rows.length,3);assert.equal(rows[0].ticker,"NVDA");assert.ok(Math.abs(rows[0].rangeUpsidePct!-20)<1e-9);
- assert.equal(rows[0].state,"RANGE_RESEARCH");assert.ok(rows[0].gaps.some(g=>g.includes("base/bear")));
+ assert.equal(rows[0].state,"EVIDENCE_GAP");assert.ok(rows[0].gaps.some(g=>g.includes("base/bear")));
  assert.equal(rows.find(r=>r.ticker==="DELL")?.state,"OUTSIDE_BB");assert.equal(rows.find(r=>r.ticker==="DELL")?.price,null);
 });
 test("no stale, incompatible or later-priced review promoted",()=>{
- for(const q of [{...quote("NVDA"),asOf:"2026-11-01"},{...quote("NVDA"),asOf:"2026-11-23"},{...quote("NVDA"),currency:"EUR" as const}]){
+ for(const q of [{...quote("NVDA"),asOf:"2026-11-01"},{...quote("NVDA"),asOf:"2026-11-23"},{...quote("NVDA"),currency:"EUR" as const},{...quote("NVDA"),price:110}]){
   const r=projectOpportunityQueue([q],[],[model],[],now)[0];assert.equal(r.model,null);assert.equal(r.rangeUpsidePct,null);
  }
 });
