@@ -17,7 +17,7 @@ function valid(row:Row,now:Date,maxAge=4){
  const t=Date.parse(row.asOf+"T00:00:00Z");if(!Number.isFinite(t)||new Date(t).toISOString().slice(0,10)!==row.asOf||t>+now||+now-t>maxAge*86400000)return false;
  try{const u=new URL(row.sourceUrl);return u.protocol==="https:"&&!u.username&&!u.password;}catch{return false;}
 }
-function stock(row:Row){return ["MAG7","US Stock","Europe Stock"].includes(row.type)||row.type==="AI / Semis"&&Object.prototype.hasOwnProperty.call(sectorFor,row.symbol);}
+function stock(row:Row){return ["MAG7","US Stock","Europe Stock","Asia Stock"].includes(row.type)||row.type==="AI / Semis"&&Object.prototype.hasOwnProperty.call(sectorFor,row.symbol);}
 function hasFive(r:Row){return r.change5d!==null&&Number.isFinite(r.change5d);}
 export function buildScannerDiscovery(rows:readonly Row[],now=new Date(),sectorRows:readonly Row[]=rows,expectedSectorSession:string|null=null,failedSectorSymbols:readonly string[]=[]){
  const available=rows.filter(r=>valid(r,now));
