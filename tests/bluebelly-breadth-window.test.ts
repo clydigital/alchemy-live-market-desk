@@ -50,7 +50,7 @@ test("market participation remains research-only and requires matched source dat
 test("owner writing packet receives research-only breadth prompt without canonical mutation",()=>{
  const route=readFileSync(new URL("../app/api/owner/daily-research/route.ts",import.meta.url),"utf8");
  const packet=readFileSync(new URL("../lib/daily-report-research-packet.ts",import.meta.url),"utf8");
- assert.match(route,/marketDiagnostics:\[\{\.\.\.breadthDiagnostic/);
+ assert.match(route,/marketDiagnostics:marketInternalsDiagnostics\(compare\)/);
  assert.match(packet,/MARKET PARTICIPATION — SOURCE-DATED, NONCANONICAL RESEARCH CHECK/);
  assert.match(packet,/NOT market causality or an accepted Regime\/Dossier finding/);
  assert.doesNotMatch(route,/updateDossier|applyRegimeVerdict|publishStoryVersion/);
