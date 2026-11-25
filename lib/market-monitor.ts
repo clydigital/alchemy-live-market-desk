@@ -1,7 +1,8 @@
 import { unstable_cache } from "next/cache";
 import {expectedHomeEtfSession,fetchHomeEtfHistory,XL_FALLBACK_ETFS,type HomeEtf} from "./bluebelly-home-etf-history";
-import {ADDITIONAL_US_STOCKS,EUROPE_STOCKS} from "./bluebelly-equity-universe";
+import {ADDITIONAL_US_STOCKS,EUROPE_STOCKS,ASIA_STOCKS,findStockIdentity} from "./bluebelly-equity-universe";
 import {fetchEuropeanStockHistory} from "./bluebelly-europe-stock-history";
+import {scanEquityEma,type EquityEmaScan} from "./bluebelly-equity-ema";
 import { evaluateMarketSignals, type MarketSignalSnapshot } from "./bluebelly-signal-scan";
 
 import { getMarketData, type BreadthSnapshot, type MarketSeries, type PricePoint } from "@/lib/market";
@@ -23,6 +24,7 @@ export type MarketMonitorType =
   | "IPO / New Issue"
   | "US Stock"
   | "Europe Stock"
+  | "Asia Stock"
   | "Crypto";
 
 export type MarketMonitorPoint = PricePoint & {
@@ -48,6 +50,7 @@ export type MarketMonitorRow = {
   stochRsi: number | null;
   /** Bounded, source-dated public screening summary, not raw provider candles. */
   screening?: MarketSignalSnapshot | null;
+  emaScan?: EquityEmaScan | null;
   volPercentile: number | null;
   relative5d: number | null;
   attentionScore: number;
@@ -206,6 +209,16 @@ const EXTRA_SPECS: ExtraSpec[] = [
   { id: "ief", providerSymbol: "IEF", assetClass: "etf", label: "IEF · 7–10Y Treasury ETF", type: "Bond ETF" },
   { id: "shy", providerSymbol: "SHY", assetClass: "etf", label: "SHY · 1–3Y Treasury ETF", type: "Bond ETF" },
   { id: "tip", providerSymbol: "TIP", assetClass: "etf", label: "TIP · TIPS ETF", type: "Bond ETF" },
+  { id: "sgov", providerSymbol: "SGOV", assetClass: "etf", label: "SGOV · 0–3M Treasury ETF", type: "Bond ETF" },
+  { id: "usfr", providerSymbol: "USFR", assetClass: "etf", label: "USFR · Treasury floating-rate ETF", type: "Bond ETF" },
+  { id: "tlh", providerSymbol: "TLH", assetClass: "etf", label: "TLH · 10–20Y Treasury ETF", type: "Bond ETF" },
+  { id: "edv", providerSymbol: "EDV", assetClass: "etf", label: "EDV · Extended duration Treasury ETF", type: "Bond ETF" },
+  { id: "zroz", providerSymbol: "ZROZ", assetClass: "etf", label: "ZROZ · 25+Y zero coupon Treasury ETF", type: "Bond ETF" },
+  { id: "agg", providerSymbol: "AGG", assetClass: "etf", label: "AGG · US aggregate bond ETF", type: "Bond ETF" },
+  { id: "govt", providerSymbol: "GOVT", assetClass: "etf", label: "GOVT · US Treasury ETF", type: "Bond ETF" },
+  { id: "vgit", providerSymbol: "VGIT", assetClass: "etf", label: "VGIT · Intermediate Treasury ETF", type: "Bond ETF" },
+  { id: "gldm", providerSymbol: "GLDM", assetClass: "etf", label: "GLDM Gold ETF", type: "Metal", benchmark: "gold" },
+  { id: "nlr", providerSymbol: "NLR", assetClass: "etf", label: "NLR Nuclear Energy ETF", type: "Energy", benchmark: "spx" },
   { id: "ndx", providerSymbol: "QQQ", assetClass: "etf", label: "Nasdaq 100 · QQQ proxy", type: "Major Index", benchmark: "spx" },
   { id: "dow", providerSymbol: "DIA", assetClass: "etf", label: "Dow · DIA proxy", type: "Major Index", benchmark: "spx" },
   { id: "russell", providerSymbol: "IWM", assetClass: "etf", label: "Russell 2000 · IWM proxy", type: "Major Index", benchmark: "spx" },
@@ -298,7 +311,7 @@ async function mapLimit<T, R>(items: readonly T[], limit: number, worker: (item:
   return results;
 }
 
-async function fetchNasdaqHistory(spec: ExtraSpec): Promise<RawSeries> {
+async function fetchNasdaqHistory(spec: ExtraSpec, options?:{revalidate:number;signal:AbortSignal}): Promise<RawSeries> {
   const end = new Date();
   const start = new Date(end.getTime() - HISTORY_DAYS * 86400000);
   const endpoint = `https://api.nasdaq.com/api/quote/${encodeURIComponent(spec.providerSymbol)}/historical?assetclass=${spec.assetClass}&fromdate=${isoDate(start)}&todate=${isoDate(end)}&limit=260`;
@@ -309,7 +322,8 @@ async function fetchNasdaqHistory(spec: ExtraSpec): Promise<RawSeries> {
       origin: "https://www.nasdaq.com",
       referer: "https://www.nasdaq.com/market-activity/",
     },
-    next: { revalidate: EXTRA_REVALIDATE },
+    next: { revalidate: options?.revalidate??EXTRA_REVALIDATE },
+    signal: options?AbortSignal.any([options.signal,AbortSignal.timeout(8500)]):AbortSignal.timeout(8500),
   });
   if (!response.ok) throw new Error(`Nasdaq ${spec.providerSymbol} ${response.status}`);
   const payload = await response.json();
@@ -510,8 +524,12 @@ async function fetchBitcoinSpotSeries(): Promise<RawSeries> {
   };
 }
 
+// Retain the pre-expansion cross-asset cache and its existing refresh cadence.
+const BASELINE_US_EXTRAS=new Set(["ADBE","CI","CVS","CF","XOM","CVX","GRAB","BWXT","OKLO","SMR","PWR","ENPH","MAA","TOL","PHM","INVH","ESS","CPT","AMH","NVR","JLL","CBRE","RKT"]);
+const EXPANDED_SYMBOLS=new Set([...ADDITIONAL_US_STOCKS.filter(x=>!BASELINE_US_EXTRAS.has(x.ticker)).map(x=>x.providerSymbol),"SGOV","USFR","TLH","EDV","ZROZ","AGG","GOVT","VGIT","GLDM","NLR"]);
+const EXPANDED_SPECS=EXTRA_SPECS.filter(spec=>EXPANDED_SYMBOLS.has(spec.providerSymbol));
 export const loadExtras = unstable_cache(async () => {
-  const extraRows = await mapLimit(EXTRA_SPECS, 10, async (spec) => {
+  const extraRows = await mapLimit(EXTRA_SPECS.filter(spec=>!EXPANDED_SYMBOLS.has(spec.providerSymbol)), 10, async (spec) => {
     try { return await fetchNasdaqHistory(spec); } catch { return null; }
   });
   const [fredRateRows, treasuryCurve] = await Promise.all([
@@ -576,9 +594,20 @@ export const loadExtras = unstable_cache(async () => {
       : null)
     .catch(() => null);
   return [...extraRows, ...rateRows, ...creditRows, ...globalRateRows, moveRow].filter((row): row is RawSeries => Boolean(row));
-}, ["alchemy-market-monitor-extras-v8-us-stocks"], { revalidate: EXTRA_REVALIDATE });
+}, ["alchemy-market-monitor-extras-v10-core"], { revalidate: EXTRA_REVALIDATE });
+// Request-driven only: independent cache, six-hour per-symbol provider TTL,
+// hourly partial-cache retry, bounded concurrency and total batch budget.
+// No new cron, no repeated full extended-history acquisition.
+const loadExpandedEquities=unstable_cache(async():Promise<RawSeries[]>=>{
+ const budget=AbortSignal.timeout(30000);
+ const rows=await mapLimit(EXPANDED_SPECS,8,async spec=>{
+  if(budget.aborted)return null;
+  try{return await fetchNasdaqHistory(spec,{revalidate:21600,signal:budget});}catch{return null;}
+ });
+ return rows.filter((row):row is RawSeries=>row!==null);
+},["bluebelly-expanded-daily-equities-v1"],{revalidate:3600});
 const loadEuropeEquities=unstable_cache(async():Promise<RawSeries[]>=>{
- const fetched=await mapLimit(EUROPE_STOCKS,4,async (spec):Promise<RawSeries|null>=>{
+ const fetched=await mapLimit([...EUROPE_STOCKS,...ASIA_STOCKS],6,async (spec):Promise<RawSeries|null>=>{
   try{return await fetchEuropeanStockHistory(spec);}
   catch(error){
    console.warn(JSON.stringify({event:"bluebelly_eu_stock_source_unavailable",ticker:spec.ticker,
@@ -587,7 +616,7 @@ const loadEuropeEquities=unstable_cache(async():Promise<RawSeries[]>=>{
   }
  });
  return fetched.filter((row):row is RawSeries=>row!==null);
-},["bluebelly-europe-daily-shares-v1"],{revalidate:60*60*6});
+},["bluebelly-local-daily-shares-v2"],{revalidate:60*60*6});
 
 export const loadCashAnchors = unstable_cache(async () => {
   const rows = await Promise.all([
@@ -707,6 +736,7 @@ function makeRows(rawSeries: RawSeries[]): MarketMonitorRow[] {
     const previous = points.at(-2);
     const previousClose = previous?.close ?? null;
     const sessionOpen = last?.open ?? null;
+    const identity=findStockIdentity(raw.symbol);
     const row = {
       id: raw.id,
       symbol: raw.symbol,
@@ -730,6 +760,7 @@ function makeRows(rawSeries: RawSeries[]): MarketMonitorRow[] {
           return selected?.at(-1)?.time === lastTime ? selected :
             fallback?.at(-1)?.time === lastTime ? fallback : selected ?? null;
         })()) : null,
+      emaScan: identity&&raw.frequency==="daily"?scanEquityEma(points,identity.timeZone):null,
       volPercentile: volPercentile(points),
       relative5d: null,
       asOf: formatDate(last?.time),
@@ -825,7 +856,7 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   // Degrade independently: core market data, broad extras and cash anchors.
   // Cash anchors stay on their own short cache so headline prices can refresh
   // without re-fetching the full extras universe.
-  const results = await Promise.allSettled([getMarketData(), loadExtras(), loadCashAnchors(),loadEuropeEquities(),loadVolatilityAnchors()]);
+  const results = await Promise.allSettled([getMarketData(), loadExtras(), loadCashAnchors(),loadEuropeEquities(),loadVolatilityAnchors(),loadExpandedEquities()]);
   
   const marketResult = results[0];
   const extrasResult = results[1];
@@ -837,12 +868,15 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   const cashAnchors = cashResult.status === "fulfilled" ? cashResult.value : [];
   const euroResult=results[3];
   const europeanStocks=euroResult.status==="fulfilled"?euroResult.value:[];
+  const expandedResult=results[5];
+  const expandedStocks=expandedResult.status==="fulfilled"?expandedResult.value:[];
   const volResult=results[4];
   const divergenceRows=makeRows(volResult.status==="fulfilled"?volResult.value.filter((row):row is RawSeries=>row!==null):[]);
   if(euroResult.status==="rejected")console.warn(JSON.stringify({event:"bluebelly_eu_equities_unavailable"}));
   
   // Collect coverage gaps from failed branches
   const coverageGaps: string[] = [];
+  if(expandedStocks.length<EXPANDED_SPECS.length)coverageGaps.push("Expanded equity/ETF coverage is partial: "+expandedStocks.length+"/"+EXPANDED_SPECS.length+" source series returned. Missing instruments remain unavailable.");
   
   // If getMarketData failed, record all base provider gaps
   if (marketResult.status === "rejected") {
@@ -889,7 +923,7 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   
   // Combine base (from getMarketData) and extras (from loadExtras)
   // If both branches failed, rows will be empty but not crash.
-  const rawRows=[...base,...extras,...cashAnchors,...europeanStocks];
+  const rawRows=[...base,...extras,...cashAnchors,...europeanStocks,...expandedStocks];
   const now=new Date(),expected=expectedHomeEtfSession(now);
   const homeTape=[{id:"spx-proxy",symbol:"SPY"},{id:"rsp",symbol:"RSP"},
     {id:"ndx",symbol:"QQQ"},{id:"smh",symbol:"SMH"},{id:"soxx",symbol:"SOXX"}] as const;
@@ -939,7 +973,7 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
     "Daily open/gap is shown only when the upstream history exposes an opening price.",
     "Euro-area and Japan long-yield fallbacks are monthly until a reliable daily official structured feed is connected; daily momentum fields remain unavailable for those rows.",
     "Daily headline anchors use direct cash/spot series where available. ETF rows such as SPY, GLD and IBIT remain separate proxies for secondary positioning/market-structure analysis.",
-    "European ordinary shares are sourced separately from unofficial Yahoo Finance daily history. Missing/late sessions remain unavailable, not 0% changes or US ADR stand-ins. EU values retain local EUR/DKK currencies and must not be USD compared without FX conversion.",
+    "European and Asian local shares are sourced separately from unofficial Yahoo Finance daily history. Missing/late sessions remain unavailable, not 0% changes or US listing stand-ins. Local currencies must not be compared with USD without FX conversion.",
   ].filter((item): item is string => Boolean(item));
   
   return {
@@ -954,4 +988,4 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   };
 }
 
-export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v3-xl-fallback"], { revalidate: 300 });
+export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v5-equities"], { revalidate: 300 });

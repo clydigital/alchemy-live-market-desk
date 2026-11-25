@@ -4,7 +4,7 @@ import {getManualSweeps,type ManualSweep, type ManualSweepFinding} from "./blueb
 /** A relevance map, not security/portfolio authority or a recommendation model.
  * Do not infer issuer-level findings from a shared macro theme. */
 export type PowerStackTracked={
- ticker:string;name:string;scope:"archived_holding"|"archived_watchlist"|"bond_watch";
+ ticker:string;name:string;scope:"archived_holding"|"archived_watchlist"|"bb_market"|"bond_watch";
 };
 export type PowerStackResearchGroup={
  topic:InfluenceTopic;title:string;channel:"THEME CONTEXT"|"PORTFOLIO-WIDE";
@@ -41,7 +41,7 @@ for(const [topic,names] of Object.entries(ASSETS) as [InfluenceTopic,readonly st
 }
 function norm(ticker:string){return ticker.trim().toUpperCase().replace(/\.US$/,"");}
 const scopeRank:Record<PowerStackTracked["scope"],number>={
- archived_holding:0,archived_watchlist:1,bond_watch:2,
+ archived_holding:0,bb_market:1,archived_watchlist:2,bond_watch:3,
 };
 export function powerStackResearchTopics(assets:readonly PowerStackTracked[]):PowerStackResearchTopic[]{
  if(!assets.length)return [];

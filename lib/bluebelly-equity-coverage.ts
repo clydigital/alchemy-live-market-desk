@@ -1,15 +1,16 @@
 import {BLUEBELLY_STOCK_UNIVERSE,stockUniverseCoverage,type StockIdentity} from "./bluebelly-equity-universe.ts";
+import type {EquityEmaScan} from "./bluebelly-equity-ema";
 import type {MarketMonitorRow} from "./market-monitor";
 
 export type EquityCoverageStatus="SOURCE_DATED"|"MONITORED_UNAVAILABLE";
 export type PublicEquityCoverageRow=Pick<StockIdentity,
  "ticker"|"company"|"region"|"exchange"|"currency"|"timeZone"|"priority"|"theme"> & {
-  status:EquityCoverageStatus;price:number|null;changePct:number|null;
+  status:EquityCoverageStatus;price:number|null;changePct:number|null;change3dPct?:number|null;change5dPct?:number|null;emaScan?:EquityEmaScan|null;
   asOf:string|null;sourceName:string|null;sourceUrl:string|null;
 };
 export type PublicEquityCoverage={
  contractVersion:"bluebelly-equity-coverage/1";source:"Bluebelly public market monitor";
- asOf:string;generatedAt:string;coverage:{tracked:number;US:number;EU:number;sourceDated:number;unavailable:number};
+ asOf:string;generatedAt:string;coverage:{tracked:number;US:number;EU:number;ASIA:number;sourceDated:number;unavailable:number};
  rows:PublicEquityCoverageRow[];disclaimer:string;
 };
 function eligible(row:MarketMonitorRow,spec:StockIdentity,now:Date):boolean{
@@ -41,12 +42,15 @@ export function projectPublicEquityCoverage(
    currency:spec.currency,timeZone:spec.timeZone,priority:spec.priority,theme:spec.theme,
    status:ok?"SOURCE_DATED":"MONITORED_UNAVAILABLE",
    price:ok?row!.last:null,changePct:ok&&Number.isFinite(row!.dayChange)?row!.dayChange:null,
+   change3dPct:ok&&Number.isFinite(row!.change3d)?row!.change3d:null,
+   change5dPct:ok&&Number.isFinite(row!.change5d)?row!.change5d:null,
+   emaScan:ok&&row!.emaScan?.asOf===row!.asOf?row!.emaScan:null,
    asOf:ok?row!.asOf:null,sourceName:ok?row!.sourceName:null,sourceUrl:ok?row!.sourceUrl:null};
  });
  const coverage=stockUniverseCoverage(),available=projected.filter(x=>x.status==="SOURCE_DATED").length;
  return {contractVersion:"bluebelly-equity-coverage/1",source:"Bluebelly public market monitor",
   asOf:now.toISOString().slice(0,10),generatedAt:now.toISOString(),
-  coverage:{tracked:coverage.total,US:coverage.byRegion.US,EU:coverage.byRegion.EU,
+  coverage:{tracked:coverage.total,US:coverage.byRegion.US,EU:coverage.byRegion.EU,ASIA:coverage.byRegion.ASIA,
    sourceDated:available,unavailable:coverage.total-available},
   rows:projected,
   disclaimer:"Public curated research universe, not private Power Stack holdings. Source-dated prices are unofficial delayed observations in local listing currency, not streaming quotes or trading recommendations. Unavailable is not a flat/zero price."};

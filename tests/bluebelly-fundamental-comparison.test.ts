@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {projectFundamentalComparison,type IssuerResultRow,type IssuerMetricRow} from "../lib/bluebelly-fundamental-comparison.ts";
 import type {PublicEquityCoverageRow} from "../lib/bluebelly-equity-coverage.ts";
+import {BLUEBELLY_STOCK_UNIVERSE} from "../lib/bluebelly-equity-universe.ts";
 const now=new Date("2026-11-26T00:00:00Z");
 const result:IssuerResultRow={id:"MAA|Q3 FY2026",ticker:"MAA",fiscal_period:"Q3 FY2026",filing_day:"2026-10-28",verification_status:"partial"};
 const fact:IssuerMetricRow={result_id:result.id,metric_key:"core_affo_guidance_mid",value_numeric:7.46,unit:"USD/shares",accounting_basis:"ISSUER_GUIDANCE_NON_GAAP",period_basis:"fiscal_year_guidance",source_url:"https://www.sec.gov/Archives/edgar/data/912595/000119312526436173/maa-ex99_1.htm",verification_status:"verified"};
@@ -9,4 +10,4 @@ const quote={ticker:"MAA",currency:"USD",price:100,asOf:"2026-11-25",status:"SOU
 const get=(rows:IssuerResultRow[],facts:IssuerMetricRow[],q=quote)=>projectFundamentalComparison(rows,facts,[q],now).find(r=>r.ticker==="MAA")!;
 test("guidance and source dated quotes produce a labelled ratio not an EPS estimate",()=>{const r=get([result],[fact]);assert.equal(r.status,"CURRENT");assert.equal(r.valuation?.label,"P/Core AFFO");assert.equal(r.valuation?.yieldPct,7.46);assert.equal(r.facts[0].period,"FY 2026 guidance");});
 test("stale, future, unverified, wrong unit, non SEC and conflicting facts do not create valuations",()=>{for(const bad of [{...fact,unit:"USD"},{...fact,verification_status:"pending"},{...fact,source_url:"https://example.com"},{...fact,period_basis:"fiscal_quarter"}])assert.equal(get([result],[bad]).valuation,null);assert.equal(get([result],[fact,{...fact,value_numeric:8}]).valuation,null);assert.equal(get([{...result,filing_day:"2026-12-01"}],[fact]).valuation,null);assert.equal(get([{...result,filing_day:"2026-03-01"}],[fact]).valuation,null);assert.equal(get([result],[fact],{...quote,asOf:"2026-10-01"}).valuation,null);});
-test("all curated identities remain visible even when provider store is empty",()=>{const rows=projectFundamentalComparison([],[],[],now);assert.equal(rows.length,48);assert.equal(rows.filter(r=>r.theme==="REAL_ESTATE").length,11);assert(rows.every(r=>r.status==="UNAVAILABLE"&&r.valuation===null));});
+test("all curated identities remain visible even when provider store is empty",()=>{const rows=projectFundamentalComparison([],[],[],now);assert.equal(rows.length,BLUEBELLY_STOCK_UNIVERSE.length);assert.equal(rows.filter(r=>r.theme==="REAL_ESTATE").length,BLUEBELLY_STOCK_UNIVERSE.filter(r=>r.theme==="REAL_ESTATE").length);assert(rows.every(r=>r.status==="UNAVAILABLE"&&r.valuation===null));});

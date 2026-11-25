@@ -17,6 +17,11 @@ import PowerStackMeasuredSignals from "@/components/blue-desk/PowerStackMeasured
 import PowerStackValuationWorkbench,{type ValuationResearchAsset} from "@/components/blue-desk/PowerStackValuationWorkbench";
 import {projectIssuerValuationReviews} from "@/lib/power-stack-issuer-valuation";
 import {getMarketMonitor} from "@/lib/market-monitor-public";
+import {readLongEquityHistory} from "@/lib/bluebelly-equity-long-history";
+import {BLUEBELLY_STOCK_UNIVERSE,findStockIdentity} from "@/lib/bluebelly-equity-universe";
+import {readPublicFundamentalComparison} from "@/lib/bluebelly-fundamental-comparison-server";
+import {projectPublicEquityCoverage} from "@/lib/bluebelly-equity-coverage";
+import PowerStackBBMarketSweep from "@/components/blue-desk/PowerStackBBMarketSweep";
 import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
 import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
 import {selectMeasuredMarketSignals} from "@/lib/bluebelly-measured-market-signals";
@@ -54,6 +59,8 @@ type SnapshotRow = {
   snapshot: unknown;
 };
 
+const aliases:Record<string,string>={MNHLDG:"0245.KL",UUE:"0310.KL",HEGROUP:"0296.KL",GAMUDA:"5398.KL",TENAGA:"5347.KL",MISC:"3816.KL",HIBISCS:"5199.KL",YTLPOWR:"6742.KL",DAYANG:"5141.KL" ,"688825":"688825.SS"};
+const marketTicker=(ticker:string)=>aliases[ticker]??ticker;
 function cleanString(v: unknown, max = 90): string {
   return typeof v === "string" ? v.trim().slice(0, max) : "";
 }
@@ -104,7 +111,7 @@ function parseOwnerWatchlist(snapshot: unknown): WatchAsset[] {
   }).sort((a,b)=>(a.rank??999)-(b.rank??999));
 }
 
-export default async function PrivatePowerStack() {
+export default async function PrivatePowerStack({searchParams}:{searchParams:Promise<{technical?:string|string[]}>}) {
   // This page enforces owner identity itself, even if a preview/alias is
   // misconfigured to disable the general middleware dashboard gate.
   const supabase = await createSupabaseServerClient().catch(() => null);
@@ -141,8 +148,8 @@ export default async function PrivatePowerStack() {
   // without rewriting the frozen original Power Stack snapshot.
   const { data: ideaRecords, error: ideasError } = ready
     ? await supabase.from("power_stack_idea_tracker")
-        .select("ticker,name,currency,macro_state,macro_reason,macro_as_of,note")
-        .eq("owner_user_id", identity.user.id).eq("idea_type", "INVESTMENT").limit(100)
+        .select("ticker,name,currency,macro_state,macro_reason,macro_as_of,note,watch_low,watch_high,updated_at")
+        .eq("owner_user_id", identity.user.id).eq("idea_type", "INVESTMENT").limit(250)
     : { data: null, error: null };
   const bondPriority = ["TLT","IEF","SGOV","SHY","EDV","ZROZ","TIP","LQD","HYG","AGG","GOVT","USFR","TLH"];
   const bondWatch = (ideaRecords ?? [])
@@ -152,23 +159,39 @@ export default async function PrivatePowerStack() {
       const bi = bondPriority.indexOf(b.ticker);
       return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi) || a.ticker.localeCompare(b.ticker);
     });
-  const trackedTickers = [...new Set([
-    ...holdings.map(item => item.ticker),
-    ...watchlist.map(item => item.ticker),
-    ...bondWatch.map(item => item.ticker)
-  ])];
-  const { data: quoteRecords, error: quoteError } = ready && trackedTickers.length
-    ? await supabase.from("power_stack_quote_observations")
-        .select("ticker,price,currency,observed_on,source_name,source_url,ingested_at,timestamp_basis,source_recorded_at")
-        .in("ticker", trackedTickers.slice(0,250))
-        .order("observed_on", { ascending: false }).limit(1000)
-    : { data: null, error: null };
+  // Current watch universe and market observations are owned by BB; legacy ranks
+  // remain archive-only. Keep original private holdings and manually reviewed theses.
+  const publicTape=ready?await getMarketMonitor().catch(()=>null):null;
+  const bbCoverage=projectPublicEquityCoverage(publicTape?.rows??[]);
+  const params=await searchParams;
+  const requested=ready&&typeof params.technical==="string"?findStockIdentity(params.technical):undefined;
+  const reference=requested?bbCoverage.rows.find(q=>q.ticker===requested.ticker&&q.status==="SOURCE_DATED"):undefined;
+  const longHistory=requested&&reference?.price!=null&&reference.asOf?await readLongEquityHistory(requested,{price:reference.price,asOf:reference.asOf}):null;
+  const privateLevels=(ideaRecords??[]).flatMap(i=>{
+    const lo=i.watch_low==null?null:Number(i.watch_low),hi=i.watch_high==null?null:Number(i.watch_high);
+    if((lo===null&&hi===null)||(lo!==null&&(!Number.isFinite(lo)||lo<=0))||(hi!==null&&(!Number.isFinite(hi)||hi<=0))||(lo!==null&&hi!==null&&lo>hi))return [];
+    return [{ticker:marketTicker(i.ticker),currency:i.currency,low:lo,high:hi,note:i.note,updatedAt:i.updated_at}];
+  });
+  const trackedTickers = ready?[...new Set([
+    ...holdings.filter(item=>item.ticker!=="6742UW").map(item=>marketTicker(item.ticker)),
+    ...BLUEBELLY_STOCK_UNIVERSE.map(item=>item.ticker),
+    ...bondWatch.map(item=>item.ticker)
+  ])]:[];
+  const quoteError=ready&&!publicTape;
   const latestQuotes = new Map<string, {
     price:number; currency:string; observed_on:string; source_name:string; source_url:string; timestamp_basis:string; source_recorded_at:string|null;
   }>();
-  if (!quoteError) for (const quote of quoteRecords ?? []) {
-    if (!latestQuotes.has(quote.ticker)) latestQuotes.set(quote.ticker, quote);
+  for(const q of bbCoverage.rows){
+    if(q.status!=="SOURCE_DATED"||q.price===null||!q.asOf||!q.sourceName||!q.sourceUrl)continue;
+    latestQuotes.set(q.ticker,{price:q.price,currency:q.currency,observed_on:q.asOf,source_name:q.sourceName,source_url:q.sourceUrl,timestamp_basis:"source_observation",source_recorded_at:null});
   }
+  // Bonds remain their own instrument class; only exact BB observations, no PS fallback.
+  for(const q of publicTape?.rows??[]){
+    if(!bondWatch.some(b=>b.ticker===q.symbol)||q.frequency!=="daily"||q.last===null||q.last<=0||!q.asOf||!q.sourceName||!q.sourceUrl)continue;
+    latestQuotes.set(q.symbol,{price:q.last,currency:"USD",observed_on:q.asOf,source_name:q.sourceName,source_url:q.sourceUrl,timestamp_basis:"source_observation",source_recorded_at:null});
+  }
+  const canonicalQuoteCount=latestQuotes.size;
+  for(const [alias,ticker] of Object.entries(aliases)){const q=latestQuotes.get(ticker);if(q)latestQuotes.set(alias,q);}
   // Private, manually source-attested PEG snapshots. Never exposed on public Markets.
   // A fetched forecast period date is NOT an analyst revision date.
   const {data:pegRecords,error:pegError}=ready&&trackedTickers.length
@@ -210,8 +233,8 @@ export default async function PrivatePowerStack() {
   // and retired-public-snapshot gates. Never put ticker/holding data in public Regime routes.
   const researchedAt=new Date();
   const researchAssets:PowerStackTracked[]=ready?[
-    ...holdings.map(item=>({ticker:item.ticker,name:item.name,scope:"archived_holding" as const})),
-    ...watchlist.map(item=>({ticker:item.ticker,name:item.name,scope:"archived_watchlist" as const})),
+    ...holdings.filter(item=>item.ticker!=="6742UW").map(item=>({ticker:marketTicker(item.ticker),name:item.name,scope:"archived_holding" as const})),
+    ...BLUEBELLY_STOCK_UNIVERSE.map(item=>({ticker:item.ticker,name:item.company,scope:"bb_market" as const})),
     ...bondWatch.map(item=>({ticker:item.ticker,name:item.name,scope:"bond_watch" as const})),
   ]:[];
   const researchTopics=ready?powerStackResearchTopics(researchAssets):[];
@@ -235,10 +258,10 @@ export default async function PrivatePowerStack() {
 
   // Both reads happen only after owner/allowlist gating. Run in parallel to
   // avoid slowing the private terminal by sequential source collection.
-  const [researchReads,publicTape,reboundCapitalLeads]=await Promise.all([
+  const [researchReads,reboundCapitalLeads,bbFundamentals]=await Promise.all([
    researchTopics.length?getTopicInfluences(researchTopics,researchedAt):Promise.resolve([]),
-   ready?getMarketMonitor().catch(()=>null):Promise.resolve(null),
    ready?getReboundCapitalResearchLeads(researchedAt):Promise.resolve(null),
+   ready?readPublicFundamentalComparison(bbCoverage.rows,researchedAt):Promise.resolve(null),
   ]);
   const researchGroups=ready?projectPowerStackResearch(researchAssets,researchReads,researchedAt):[];
   const tapeComparisons=buildMarketDivergenceWatch(publicMarketObservations(publicTape?.rows??[],"all"),"1D");
@@ -260,6 +283,7 @@ export default async function PrivatePowerStack() {
           </div>
         </header>
         <PowerStackDecisionHub now={researchedAt}/>
+        {ready?<PowerStackBBMarketSweep rows={bbCoverage.rows} reviews={issuerReviews} asOf={bbCoverage.asOf} levels={privateLevels} fundamentals={bbFundamentals?.rows??[]} longHistory={longHistory} />:null}
         {ready?<PowerStackMeasuredSignals signals={measuredSignals} trackedTickers={trackedTickers} topics={researchTopics}/>:null}
         {ready?<PowerStackResearchFocus assets={issuers} now={researchedAt}/>:null}
         {ready?<PowerStackValuationWorkbench assets={issuers} reviews={issuerReviews}
@@ -307,10 +331,8 @@ export default async function PrivatePowerStack() {
               </details>
             </section>
             <section className={portfolio.section} data-power-stack-quotes="dated-manual-observations">
-              <h2>Source-dated prices · {latestQuotes.size}/{trackedTickers.length}</h2>
-              <p>Last verified observations from manual research sweeps and optional scheduled sources, not streaming prices.
-                Source dates may be market observation dates or upstream refresh-batch dates. iSaham\u2019s batch date is NOT its last-trade time.
-                Missing symbols are not assigned invented prices.</p>
+              <h2>Bluebelly source-dated prices · {canonicalQuoteCount}/{trackedTickers.length}</h2>
+              <p>Current market observations are read from Bluebelly only, not a separate Power Stack quote feed; these are not streaming prices. Missing or unsupported symbols are not assigned invented prices.</p>
               <p data-power-stack-peg-coverage="owner-research-only">
                 Forward PEG research: {pegByTicker.size} of {trackedTickers.length} tracked symbols.
                 Uncovered names are not assigned estimates; non-equities, overseas listings and
@@ -366,7 +388,7 @@ export default async function PrivatePowerStack() {
                 Indicative observations are not ranked in the public Markets screener or counted in technical alignment.
                 A PEG below 1 is not a standalone buy signal.
               </p>
-              {pegError ? <p>Private PEG research is unavailable; the existing price ledger remains intact.</p> : null}
+              {pegError ? <p>Private PEG research is unavailable; Bluebelly market observations remain separate.</p> : null}
             </section>
             <section className={portfolio.section} data-power-stack-bond-watch="owner-research">
               <h2>Bond Watch · {bondWatch.length}</h2>
@@ -430,34 +452,13 @@ export default async function PrivatePowerStack() {
               </div>
               {holdings.length === 0 ? <p>No valid positions in this private snapshot.</p> : null}
             </section>
-            <section className={portfolio.section} data-power-stack-watchlist="private">
-              <h2>Research watchlist · {watchlist.length}</h2>
-              <p>Archived rankings and thesis gates from the original Power Stack.
-                Scores are historical research assessments, not present-day trade signals.
-                Open a ticker for its entry condition and invalidation.</p>
-              <div className={portfolio.watchGrid}>
-                {watchlist.map(asset => (
-                  <details key={asset.ticker} className={portfolio.assetDetails}>
-                    <summary>
-                      <strong>{asset.ticker} · {asset.name}</strong>
-                      {" · "}Rank {asset.rank ?? "—"}
-                      {" · "}Score {asset.score ?? "—"}
-                      {latestQuotes.has(asset.ticker)
-                        ? " · " + latestQuotes.get(asset.ticker)!.currency + " " +
-                          Number(latestQuotes.get(asset.ticker)!.price).toFixed(2) +
-                          " (" + latestQuotes.get(asset.ticker)!.observed_on + ")"
-                        : " · No verified quote"}
-                    </summary>
-                    <p>{asset.theme || "Theme not recorded"}</p>
-                    <p><strong>Recorded action:</strong> {asset.action || asset.bucket || "Research pending"}</p>
-                    <p><strong>Entry test:</strong> {asset.entry || "Unavailable"}</p>
-                    <p><strong>Invalidation:</strong> {asset.invalidation || "Unavailable"}</p>
-                  </details>
-                ))}
-              </div>
-              <p>Research dates, price levels and assertions may now be stale. Recheck
-                broker balances, official issuer releases and live quotes before acting.
-                This page never updates positions or investment orders.</p>
+            <section className={portfolio.section} data-power-stack-watchlist="private" data-watchlist-mode="BB_CANONICAL">
+              <h2>Market watch moved to Bluebelly</h2>
+              <p>Bluebelly is the canonical market universe. The {watchlist.length} original Power Stack rankings remain in the immutable private archive, not an active watchlist. Manual sweeps use BB prices, EMA readings and verified fundamentals, then add issuer research and portfolio decisions.</p>
+              <p><Link href="/markets">Open Bluebelly Markets</Link>{" · "}<Link href="/api/markets/stocks">Inspect source-dated equity coverage</Link>.</p>
+              <details className={portfolio.assetDetails}><summary>Historical thesis and entry notes (archive only)</summary>
+                {watchlist.map(asset=><details key={asset.ticker} className={portfolio.assetDetails}><summary>{asset.ticker} · {asset.name}</summary><p>{asset.theme}</p><p>Recorded entry: {asset.entry||"Unavailable"}</p><p>Invalidation: {asset.invalidation||"Unavailable"}</p></details>)}
+              </details>
             </section>
           </>
         )}

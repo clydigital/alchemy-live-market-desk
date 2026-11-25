@@ -38,7 +38,7 @@ export default function PowerStackResearchImpact({groups}:{
     {group.assets.length?
      <div className={s.researchAssets}>
       {group.assets.slice(0,12).map(asset=><span key={asset.ticker} className={s.researchAsset}
-       title={asset.name+" · "+(asset.scope==="archived_holding"?"historical holding":asset.scope==="archived_watchlist"?"historical watchlist":"bond idea")}>
+       title={asset.name+" · "+(asset.scope==="archived_holding"?"historical holding":asset.scope==="archived_watchlist"?"historical watchlist":asset.scope==="bb_market"?"Bluebelly market candidate":"bond idea")}>
        {asset.ticker}<small>{asset.scope==="archived_holding"?"H":asset.scope==="bond_watch"?"B":"W"}</small>
       </span>)}
       {group.assets.length>12?<details className={s.researchMoreAssets}>
