@@ -154,7 +154,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   // Fail closed if the owner-gated digest reader itself throws. Its non-unauthorised
   // results are returned only after the session and active allowlist check.
   const radarOwner=creatorRadarRead!==null&&creatorRadarRead.status!=="unauthorised";
-  const radarReviews=radarOwner?await getPrivateReviewedCreatorArguments(now).catch(()=>[]):[];
+  const radarReviews=radarOwner?await getPrivateReviewedCreatorArguments(now,3,true).catch(()=>[]):[];
   const radarIntel=publicHost?projectHomeRadar({
     now,news:recentNews,market:marketRows,divergences:marketComparisons,
     creatorDigest:creatorRadarRead?.digest??null,
