@@ -70,3 +70,33 @@ test("MD6 recent session quality distinguishes missing, stale and unverified ven
  assert.equal(unexpected.recentSessionQuality?.status,"MISSING_SESSIONS");
  assert.deepEqual(unexpected.recentSessionQuality?.unexpectedSessions,["2026-11-22"]);
 });
+
+import {replayBandRespect,type RetestBar} from "../lib/bluebelly-equity-ema.ts";
+const retest=(i:number,close:number,low:number|null,high:number|null,priorClose=100):RetestBar=>({time:Date.UTC(2026,10,2+i)/1000,close,low,high,priorClose,lower:95,upper:105});
+test("daily OHLC retest holds on a wick and close back inside, then resets after three outside closes",()=>{
+ const support=retest(0,99,93,102);
+ const one=retest(1,94,92,98,99),two=retest(2,93,91,94,94),three=retest(3,92,90,94,93);
+ assert.equal(replayBandRespect([support]).lastRetest?.direction,"support");
+ assert.equal(replayBandRespect([support,one,two]).status,"BREAK_PENDING");
+ const result=replayBandRespect([support,one,two,three]);
+ assert.equal(result.status,"RESET");assert.equal(result.resetOn,"2026-11-05");
+ assert.equal(replayBandRespect([support,one,retest(2,100,96,102,94)]).status,"RESPECTED");
+ const resistance=retest(4,102,99,108);
+ assert.equal(replayBandRespect([support,one,two,three,resistance]).lastRetest?.direction,"resistance");
+ assert.equal(replayBandRespect([support,one,two,three,resistance]).status,"RESPECTED");
+});
+test("missing OHLC, two-edge wick and close outside do not manufacture a respected band",()=>{
+ const support=retest(0,99,93,102);
+ assert.equal(replayBandRespect([support,retest(1,100,null,102)]).status,"INCOMPLETE_OHLC");
+ assert.equal(replayBandRespect([support,retest(1,100,93,107)]).lastRetest,null);
+ assert.equal(replayBandRespect([retest(0,94,93,100)]).status,"NONE");
+ assert.equal(replayBandRespect([retest(0,99,93,102,94)]).status,"NONE");
+});
+test("integrated band respect is daily-only and requires a contiguous completed replay window and actual OHLC",()=>{
+ const now=new Date("2026-11-25T22:00:00Z"),end=Date.parse("2026-11-25T00:00:00Z");
+ const bars=Array.from({length:220},(_,i)=>end-(219-i)*86400000).filter(t=>scheduledUsEquityCloseHourET(new Date(t).toISOString().slice(0,10))!==null).map((t,i)=>({time:t/1000,close:100+(i%8)*.1}));
+ const scan=(b:typeof bars)=>scanEquityEma(b,"America/New_York",now)!;
+ assert.equal(scan(bars).observations.find(o=>o.frame==="D"&&o.period===20)?.bandRespect?.status,"INCOMPLETE_OHLC");
+ assert.equal(scan(bars.filter(b=>b!==bars.at(-10))).observations.find(o=>o.frame==="D"&&o.period===20)?.bandRespect?.status,"UNVERIFIED_SESSIONS");
+ assert(scan(bars).observations.filter(o=>o.frame!=="D").every(o=>o.bandRespect===undefined));
+});
