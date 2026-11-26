@@ -13,8 +13,9 @@ const read=unstable_cache(async()=>Promise.all(sources.map(async({symbol,url})=>
   return response.ok?parseSpotQuote(symbol,await response.json(),new Date()):unavailableSpot(symbol);
  }catch{return unavailableSpot(symbol)}
 })),["bb-owner-spot-pilot-v1"],{revalidate:60});
-export async function getOwnerSpotPilot(now=new Date()){
+export async function getOwnerSpotPilot(){
  const quotes=await read();
+ const now=new Date();
  return quotes.map(q=>{
   if(q.state!=="fresh"||!q.asOf)return q;
   const age=+now-Date.parse(q.asOf);
