@@ -4,6 +4,16 @@ import type {IssuerReviewResult} from "./power-stack-issuer-valuation.ts";
 import {entryCeilings} from "./power-stack-accumulation-gate.ts";
 /** Owner-only read projection. Never changes the public universe, owner holdings,
  * scenario reviews or price stores. A range is not a base/bear model. */
+// Known non-issuer instruments require fund, bond or digital-asset analysis,
+// not operating-company earnings or cash-flow models. Public instrument
+// identities only; this classification says nothing about owner membership.
+const NON_ISSUER_INSTRUMENTS=new Set(["TLT","IEF","EDV","ZROZ","AGG","GOVT","USFR","SGOV","SHY","TIP","LQD","HYG","BND","BNDX","VGIT","VGLT","TLH",
+ "SPY","QQQ","RSP","SMH","SOXX","IGV","XLE","XLF","XLK","XLY","XOP","KWEB","FXI","MCHI","GLD","GLDM","GDX","GDXJ","IAU",
+ "3191.HK","NLR","BTC"]);
+/** Unmapped equities remain explicit gaps; do not infer classification from a symbol pattern. */
+export function isNonIssuerInstrument(ticker:string):boolean{
+ return NON_ISSUER_INSTRUMENTS.has(ticker.trim().toUpperCase());
+}
 const drivers:Record<string,string[]>={
  NVDA:["AI compute capex"],AMD:["AI compute capex"],AVGO:["AI compute capex","Enterprise software"],MU:["Memory cycle","AI compute capex"],
  DELL:["AI compute capex","Enterprise hardware"],CRWV:["AI compute capex","Refinancing"],ORCL:["AI compute capex","Enterprise software","Refinancing"],SPCX:["Space / connectivity","AI compute capex"],
@@ -46,7 +56,7 @@ export function projectOpportunityQueue(quotes:readonly PublicEquityCoverageRow[
   return {ticker:q.ticker,company:q.company,theme:q.theme,currency:q.currency,drivers:drivers[q.ticker]??["Unclassified cash-flow drivers"],scope:"BB_UNIVERSE",price:priceOK?q.price:null,priceDay:priceOK?q.asOf:null,priceSource:priceOK?q.sourceUrl:null,fundamental:f,model,rangeUpsidePct,upsideCeiling:ceilings?.upsideCeiling??null,discountCeiling:ceilings?.discountCeiling??null,state:!priceOK?"MISSING_PRICE":lagged?"EVIDENCE_GAP":!model?"MISSING_MODEL":model.riskFlags.length?"RISK_REVIEW":!f||f.status!=="CURRENT"||!f.facts.length?"EVIDENCE_GAP":"RANGE_RESEARCH",gaps};
  });
  const seen=new Set(rows.map(r=>r.ticker));
- for(const a of ownerAssets){if(seen.has(a.ticker))continue;seen.add(a.ticker);rows.push({ticker:a.ticker,company:a.name,theme:"UNMAPPED",currency:"",drivers:drivers[a.ticker]??["Unclassified cash-flow drivers"],scope:"OWNER_ONLY_GAP",price:null,priceDay:null,priceSource:null,fundamental:null,model:null,rangeUpsidePct:null,upsideCeiling:null,discountCeiling:null,state:"OUTSIDE_BB",gaps:["Not in shared Bluebelly equity universe; no private quote substitution"]});}
+ for(const a of ownerAssets){if(seen.has(a.ticker)||isNonIssuerInstrument(a.ticker))continue;seen.add(a.ticker);rows.push({ticker:a.ticker,company:a.name,theme:"UNMAPPED",currency:"",drivers:drivers[a.ticker]??["Unclassified cash-flow drivers"],scope:"OWNER_ONLY_GAP",price:null,priceDay:null,priceSource:null,fundamental:null,model:null,rangeUpsidePct:null,upsideCeiling:null,discountCeiling:null,state:"OUTSIDE_BB",gaps:["Not in shared Bluebelly equity universe; no private quote substitution"]});}
  // Order a research queue, never an expected-return ranking. Missing and flagged
  // models are not promoted; cross-industry upside is scenario arithmetic only.
  const order={RANGE_RESEARCH:0,RISK_REVIEW:1,EVIDENCE_GAP:2,MISSING_MODEL:3,MISSING_PRICE:4,OUTSIDE_BB:5};
