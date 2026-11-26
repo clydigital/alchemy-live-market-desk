@@ -8,6 +8,14 @@ import type {EmaObservation} from "@/lib/bluebelly-equity-ema";
 import styles from "@/app/power-stack/private-power-stack.module.css";
 
 const pct=(v:number)=> (v>=0?"+":"")+v.toFixed(1)+"%";
+function bandRespectText(o:EmaObservation):string|null{
+ const r=o.bandRespect;if(!r)return null;
+ const t=r.lastRetest;
+ if(r.status==="RESPECTED"&&t)return "Last respected "+t.boundary+" SD · "+t.direction+" · "+t.session;
+ if(r.status==="BREAK_PENDING"&&t)return "Respected "+t.boundary+" SD at risk · "+r.outsideCloses+" outside close(s) · retest "+t.session;
+ if(r.status==="RESET"&&t)return "Respected "+t.boundary+" SD invalidated · "+(r.resetOn??"date unavailable")+" · prior retest "+t.session;
+ return "Retest replay: "+r.status.toLowerCase().replaceAll("_"," ");
+}
 function statements(o:EmaObservation){
  const out:string[]=[],seen=new Set<string>();
  for(const w of ["1","3","5"] as const){const s=o.windows[w];if(!s)continue;
@@ -16,6 +24,14 @@ function statements(o:EmaObservation){
    out.push(w+"D crossed "+(e.direction==="up"?"above":"below")+" "+(e.boundary==="ema"?"EMA":e.boundary+" SD")+" · "+e.session);}
  }
  for(const h of o.closeHolds??[])out.push((h.status==="HOLD_CONFIRMED"?"Close hold confirmed":"Break; hold pending")+" · "+h.consecutiveCloses+" closes "+(h.direction==="up"?"above ":"below ")+(h.boundary==="ema"?"EMA":h.boundary+" SD"));
+ const r=o.bandRespect;
+ // A standing respected band is context; only a recent retest, pending break
+ // or recent reset earns a Technical Watch event. Never promote missing data.
+ if(r&&r.lastRetest&&o.warmup==="READY"){
+  const eventDate=r.status==="RESET"?r.resetOn:r.lastRetest.session;
+  const recent=eventDate!==null&&eventDate!==undefined&&Date.parse(o.asOf)-Date.parse(eventDate)<=7*86400000&&Date.parse(o.asOf)>=Date.parse(eventDate);
+  if(r.status==="BREAK_PENDING"||recent&&(r.status==="RESPECTED"||r.status==="RESET")){const label=bandRespectText(o);if(label)out.push(label);}
+ }
  return out;
 }
 const baskets=[
@@ -39,17 +55,17 @@ export default function PowerStackBBMarketSweep({rows,reviews,asOf,levels,fundam
  const factsByTicker=new Map(fundamentals.map(x=>[x.ticker,x]));
  const reviewByTicker=new Map(reviews.map(r=>[r.ticker,r]));
  const eligible=rows.filter(r=>r.status==="SOURCE_DATED"&&r.price!==null&&r.asOf&&r.asOf<=asOf&&Date.parse(asOf+"T00:00:00Z")-Date.parse(r.asOf+"T00:00:00Z")<=5*86400000);
- const signals=eligible.filter(r=>r.theme!=="REAL_ESTATE"&&(r.region!=="US"||r.sessionFreshness==="LATEST_COMPLETED_US_SESSION")).map(r=>({row:r,levels:r.emaScan?.observations.filter(o=>o.warmup==="READY").map(o=>({o,statements:statements(o)})).filter(x=>x.statements.length)??[],review:reviewByTicker.get(r.ticker),entry:levelByTicker.get(r.ticker),fundamental:factsByTicker.get(r.ticker)}));
+ const signals=eligible.filter(r=>r.theme!=="REAL_ESTATE"&&(r.region!=="US"||r.sessionFreshness==="LATEST_COMPLETED_US_SESSION")).map(r=>({row:r,levels:(r.region==="US"&&r.emaScan?.recentSessionQuality?.status!=="VERIFIED"?[]:r.emaScan?.observations??[]).filter(o=>o.warmup==="READY").map(o=>({o,statements:statements(o)})).filter(x=>x.statements.length)??[],review:reviewByTicker.get(r.ticker),entry:levelByTicker.get(r.ticker),fundamental:factsByTicker.get(r.ticker)}));
  const nearEntry=(x:typeof signals[number])=>!!x.entry&&x.entry.currency===x.row.currency&&x.row.price!<=(x.entry.high??x.entry.low??0)*1.03;
  const flagged=signals.filter(x=>nearEntry(x)||x.levels.length||x.review&&x.review.currency===x.row.currency&&x.row.price!<=x.review.valuationLow*1.05).sort((a,b)=>Number(nearEntry(b))-Number(nearEntry(a))||(a.row.changePct??0)-(b.row.changePct??0));
  return <section id="bb-market-sweep" className={styles.section} data-power-stack-bb-sweep="canonical-market-read">
   <h2>04 / Technical Watch · {asOf}</h2>
   <p>Real estate is valuation-only; short-warm-up bands are reference context, not qualifying technical alerts. {conflicted.size?`Conflicting private marks require reconciliation: ${[...conflicted].join(", ")}.`:""}</p>
-  <p>{eligible.length}/{rows.length} recent source-dated equity observations; {eligible.filter(r=>r.sessionFreshness==="BEHIND_US_SESSION").length} US rows lag the expected completed session and are excluded from technical alerts. Local session dates require venue checks. Research alerts only; a falling price or EMA crossing is not proof of value. <Link href="/markets">Full BB market universe</Link>.</p>
-  <p>Approach alert: within 3% of EMA with a narrowing signed distance and matching price direction over 1, 3 or 5 completed daily sessions. Crosses use completed daily closes within each window; intraday-only breaches are not inferred. A US close hold requires the crossing close plus two subsequent closes on the same side, with six contiguous scheduled sessions and ready warm-up. It is not a wick retest or execution signal. W/M anchors use completed periods only. The common BB kernel uses a first-close EMA seed and population SD. Short warm-up (less than 5× period) is indicative only; missing history stays unavailable.</p>
+  <p>{eligible.length}/{rows.length} recent source-dated equity observations; {eligible.filter(r=>r.sessionFreshness==="BEHIND_US_SESSION").length} US rows lag the expected completed session and are excluded from technical alerts. US technical events also require verified recent session continuity. Local session dates require venue checks. Research alerts only; a falling price or EMA crossing is not proof of value. <Link href="/markets">Full BB market universe</Link>.</p>
+  <p>Approach alert: within 3% of EMA with a narrowing signed distance and matching price direction over 1, 3 or 5 completed daily sessions. Crosses use completed daily closes within each window; intraday-only breaches are not inferred. A US close hold requires the crossing close plus two subsequent closes on the same side, with six contiguous scheduled sessions and ready warm-up. A separate daily wick-retest replay requires 20 contiguous verified sessions, valid OHLC and ready warm-up. It uses prior-close bands; three outside closes invalidate the respected edge. This is bounded reconstructed context, not a trade signal or durable trend ledger. W/M anchors use completed periods only. The common BB kernel uses a first-close EMA seed and population SD. Short warm-up (less than 5× period) is indicative only; missing history stays unavailable.</p>
   <form action="/power-stack#bb-market-sweep" method="get"><label>Manual long-history deep dive: <select name="technical" defaultValue={longHistory?.ticker??""}><option value="">Select equity</option>{rows.filter(r=>r.theme!=="REAL_ESTATE").map(r=><option key={r.ticker} value={r.ticker}>{r.ticker} · {r.company}</option>)}</select></label> <button type="submit">Check D/W/M EMA</button></form>
   {longHistory?<details open className={styles.assetDetails}><summary><strong>{longHistory.ticker} · Long-history check · {longHistory.status}</strong></summary><p>{longHistory.reason} · <a href={longHistory.sourceUrl}>History source</a>{longHistory.asOf?" · "+longHistory.historyStart+" to "+longHistory.asOf+" · "+longHistory.bars+" daily bars":""}</p>
-  {longHistory.scan?.observations.map(o=><p key={o.frame+o.period}>{o.frame} EMA{o.period}: {o.ema.toFixed(2)} · price {o.side} ({pct(o.distancePct)}) · {o.band.replaceAll("_"," ")} {o.multiplier} SD · {statements(o).join("; ")||"No recent boundary event"} · anchor {o.anchorDay} · {o.warmup==="READY"?"warm-up ready":"short warm-up; indicative"}</p>)}
+  {longHistory.scan?.observations.map(o=><p key={o.frame+o.period}>{o.frame} EMA{o.period}: {o.ema.toFixed(2)} · price {o.side} ({pct(o.distancePct)}) · {o.band.replaceAll("_"," ")} {o.multiplier} SD · {statements(o).join("; ")||bandRespectText(o)||"No recent boundary event"} · anchor {o.anchorDay} · {o.warmup==="READY"?"warm-up ready":"short warm-up; indicative"}</p>)}
   {longHistory.scan?.unavailable.length?<p>Insufficient history: {longHistory.scan.unavailable.join(", ")}</p>:null}</details>:null}
   {!flagged.length?<p>No verified proximity or crossing alerts from available observations. Check source coverage.</p>:null}
   <div className={styles.watchGrid}>{flagged.slice(0,12).map(({row,levels,review,entry,fundamental})=><details className={styles.assetDetails} key={row.ticker}>
@@ -58,7 +74,7 @@ export default function PowerStackBBMarketSweep({rows,reviews,asOf,levels,fundam
    {fundamental&&fundamental.facts.length?<details><summary>BB issuer facts · {fundamental.status} · {fundamental.period}</summary>{fundamental.facts.map(f=><p key={f.key}>{f.label}: {f.value.toLocaleString()} {f.unit} · <a href={f.sourceUrl}>{f.filingDay}</a></p>)}</details>:<p>BB issuer fundamentals unavailable; manual filing review required.</p>}
    {review&&review.currency===row.currency?<p>Reviewed value range {review.valuationLow}–{review.valuationHigh} {review.currency}, reviewed {review.reviewedAt.slice(0,10)}; current discount to low end {pct((1-row.price!/review.valuationLow)*100)}. Model assumptions, not an order.</p>:null}
    {levels.map(({o,statements:s})=><p key={o.frame+o.period}><strong>{o.frame} EMA{o.period}</strong> {o.ema.toFixed(2)} · price {o.side} ({pct(o.distancePct)}) · {o.band.replaceAll("_"," ")} {o.multiplier} SD envelope · {s.join("; ")} · {o.warmup==="READY"?"warm-up ready":"short warm-up; indicative"}.</p>)}
-   <details><summary>All available EMA states</summary>{row.emaScan?.observations.map(o=><p key={o.frame+o.period}>{o.frame} EMA{o.period} · price {o.side} ({pct(o.distancePct)}) · {o.band.replaceAll("_"," ")} · {o.warmup==="READY"?"warm-up ready":"short warm-up; indicative"}</p>)}</details>
+   <details><summary>All available EMA states</summary>{row.emaScan?.observations.map(o=><p key={o.frame+o.period}>{o.frame} EMA{o.period} · price {o.side} ({pct(o.distancePct)}) · {o.band.replaceAll("_"," ")} · {o.warmup==="READY"?"warm-up ready":"short warm-up; indicative"}{bandRespectText(o)?" · "+bandRespectText(o):""}</p>)}</details>
    <p>Unavailable anchors: {row.emaScan?row.emaScan.unavailable.join(", ")||"none":"entire EMA scan unavailable"}</p>
   </details>)}</div>
   {flagged.length>12?<details className={styles.assetDetails}><summary>More flagged symbols ({flagged.length-12})</summary><ul>{flagged.slice(12).map(({row,levels})=><li key={row.ticker}>{row.ticker}: {levels.map(({o,statements:s})=>o.frame+" EMA"+o.period+" "+s.join(", ")).join("; ")||"reviewed value proximity"}</li>)}</ul></details>:null}
