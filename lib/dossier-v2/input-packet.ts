@@ -519,8 +519,7 @@ function retainWithinEvidenceCap(items: ObservedEvidence[], cap: number, reserve
     const index = kept.findLastIndex(e => !reserved.has(e.evidence_id) && e.rank !== 1);
     if (index >= 0) kept[index] = item;
   }
-  const ids = new Set(kept.map(e => e.evidence_id));
-  return items.filter(e => ids.has(e.evidence_id));
+  return kept.sort((a,b) => items.indexOf(a) - items.indexOf(b));
 }
 
 function selectBalancedDevelopmentClusters(candidateClusters: DevelopmentCluster[]) {
