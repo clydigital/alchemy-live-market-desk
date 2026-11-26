@@ -14,7 +14,7 @@ import {
 
 const NOW = "2026-10-23T06:00:00+08:00";
 const ISO = "2026-10-22T21:00:00Z";
-function post(id: number, handle = "Bluekurtic", patch: Partial<XCandidate> = {}): XCandidate {
+function post(id: number, handle = "HFI_Research", patch: Partial<XCandidate> = {}): XCandidate {
   return {
     postUrl: "https://x.com/" + handle + "/status/211317772374942" + String(id).padStart(4, "0"),
     accountHandle: handle,
@@ -25,17 +25,17 @@ function post(id: number, handle = "Bluekurtic", patch: Partial<XCandidate> = {}
   };
 }
 
-test("preserves the X sweep settings with 16 monitored accounts", () => {
+test("preserves the X sweep settings with 14 monitored accounts", () => {
   assert.deepEqual(X_SWEEP_DEFAULTS, {
     sweep: "x", preset: "normal", lookbackHours: 2.5, overlapMinutes: 30,
     maxCandidatesPerRun: 250, softLimitPerAccount: 40, recoveryLookbackHours: 72,
     deepInvestigationsCap: 12, schedule: "existing MacroPulse only",
     newScheduledTask: false,
   });
-  assert.equal(X_CORE_ROSTER.length, 16);
+  assert.equal(X_CORE_ROSTER.length, 14);
   assert.deepEqual(X_CORE_ROSTER.map(item => item.handle), [
-    "Bluekurtic", "HFI_Research", "OilandEnergy", "HormuzReport", "TheStudyofWar",
-    "Currentreport1", "arena", "KobeissiLetter", "FirstSquawk", "zerohedge", "TGLetter", "macropaperr", "BeginnerTrades", "OddStats", "DrJStrategy", "SaraEisen",
+    "HFI_Research", "OilandEnergy", "HormuzReport", "TheStudyofWar",
+    "Currentreport1", "arena", "KobeissiLetter", "FirstSquawk", "zerohedge", "TGLetter", "macropaperr", "OddStats", "DrJStrategy", "SaraEisen",
   ]);
 });
 
@@ -63,21 +63,21 @@ test("uses 150-minute rolling window and expands only after actual missed covera
 });
 
 test("normalises direct X status URLs and rejects unsafe and non-status inputs", () => {
-  assert.deepEqual(normaliseXPostUrl("https://twitter.com/Bluekurtic/status/2113177723749420001?utm_campaign=abc"), {
-    handle: "Bluekurtic",
+  assert.deepEqual(normaliseXPostUrl("https://twitter.com/HFI_Research/status/2113177723749420001?utm_campaign=abc"), {
+    handle: "HFI_Research",
     postId: "2113177723749420001",
-    url: "https://x.com/Bluekurtic/status/2113177723749420001",
+    url: "https://x.com/HFI_Research/status/2113177723749420001",
   });
-  assert.throws(() => normaliseXPostUrl("http://x.com/Bluekurtic/status/2113177723749420001"));
-  assert.throws(() => normaliseXPostUrl("https://x.com.evil.com/Bluekurtic/status/2113177723749420001"));
-  assert.throws(() => normaliseXPostUrl("https://x.com/Bluekurtic"));
+  assert.throws(() => normaliseXPostUrl("http://x.com/HFI_Research/status/2113177723749420001"));
+  assert.throws(() => normaliseXPostUrl("https://x.com.evil.com/HFI_Research/status/2113177723749420001"));
+  assert.throws(() => normaliseXPostUrl("https://x.com/HFI_Research"));
 });
 
 test("deduplicates repeated post IDs, excludes bare reposts, preserves materially distinct quotes", () => {
-  const first = post(1, "Bluekurtic", { importance: 91, investigate: true });
-  const dup = post(1, "Bluekurtic", { importance: 88 });
-  const repost = post(2, "Bluekurtic", { type: "repost" });
-  const quote = post(3, "Bluekurtic", { type: "quote", investigate: true });
+  const first = post(1, "HFI_Research", { importance: 91, investigate: true });
+  const dup = post(1, "HFI_Research", { importance: 88 });
+  const repost = post(2, "HFI_Research", { type: "repost" });
+  const quote = post(3, "HFI_Research", { type: "quote", investigate: true });
   const result = selectXSweepCandidates([first, dup, repost, quote], NOW);
   assert.deepEqual(result.selected.map(x => x.postId), [
     "2113177723749420001", "2113177723749420003",
@@ -89,10 +89,10 @@ test("deduplicates repeated post IDs, excludes bare reposts, preserves materiall
 
 test("withholds unverifiable time/identity instead of pretending those posts were checked", () => {
   const rows = [
-    post(1, "Bluekurtic", { publishedAt: null }),
-    post(2, "Bluekurtic", { accountHandle: "FirstSquawk" }),
-    post(3, "Bluekurtic", { publishedAt: "2026-10-10T01:00:00Z" }),
-    post(4, "Bluekurtic"),
+    post(1, "HFI_Research", { publishedAt: null }),
+    post(2, "HFI_Research", { accountHandle: "FirstSquawk" }),
+    post(3, "HFI_Research", { publishedAt: "2026-10-10T01:00:00Z" }),
+    post(4, "HFI_Research"),
   ];
   const result = selectXSweepCandidates(rows, NOW);
   assert.equal(result.selected.length, 1);
@@ -102,7 +102,7 @@ test("withholds unverifiable time/identity instead of pretending those posts wer
 });
 
 test("honours 40-per-account soft cap and retains deferred rows as backlog", () => {
-  const rows = Array.from({ length: 45 }, (_, i) => post(i + 10, "Bluekurtic", { importance: 80 }));
+  const rows = Array.from({ length: 45 }, (_, i) => post(i + 10, "HFI_Research", { importance: 80 }));
   const result = selectXSweepCandidates(rows, NOW);
   assert.equal(result.selected.length, 40);
   assert.equal(result.deferred.length, 5);
@@ -120,13 +120,13 @@ test("hard global and deep-investigation budgets are independent", () => {
 
 test("source-health does not call inaccessible accounts quiet", () => {
   const result = xSourceHealth([{
-    handle: "Bluekurtic", status: "blocked", attemptedAt: ISO,
+    handle: "HFI_Research", status: "blocked", attemptedAt: ISO,
     lastSuccessAt: null, lastObservedPostAt: null, fetched: 0,
     newPosts: 0, error: "login challenge",
   }]);
   assert.equal(result.inaccessible, 1);
   assert.equal(result.complete, false);
-  assert.equal(result.monitored, 16);
+  assert.equal(result.monitored, 14);
 });
 
 test("restores ZeroHedge, adds TGLetter and continues to exclude GordianKnotDev", () => {
@@ -134,7 +134,8 @@ test("restores ZeroHedge, adds TGLetter and continues to exclude GordianKnotDev"
   assert.equal(isExcludedXWireHandle("zerohedge"), false);
   assert.equal(isExcludedXWireHandle("@TGLetter"), false);
   assert.equal(isExcludedXWireHandle("@macropaperr"), false);
-  assert.equal(isExcludedXWireHandle("@BeginnerTrades"), false);
+  assert.equal(isExcludedXWireHandle("@BeginnerTrades"), true);
+  assert.equal(isExcludedXWireHandle("@Bluekurtic"), true);
   assert.equal(isExcludedXWireHandle("@OddStats"), false);
   assert.equal(isExcludedXWireHandle("@DrJStrategy"), false);
   assert.equal(isExcludedXWireHandle("zerohedge2"), false);
@@ -142,10 +143,10 @@ test("restores ZeroHedge, adds TGLetter and continues to exclude GordianKnotDev"
   assert.equal(isExcludedXWireHandle("gordianknotdev"), true);
   const selected=selectXSweepCandidates([
     post(70,"ZeroHedge"),post(71,"zerohedge"),post(76,"TGLetter"),
-    post(72,"Bluekurtic"),post(73,"Bluekurtic",{accountHandle:"@ZEROHEDGE"}),
-    post(74,"GordianKnotDev"),post(75,"Bluekurtic",{accountHandle:"@GORDIANKNOTDEV"}),
+    post(72,"HFI_Research"),post(73,"HFI_Research",{accountHandle:"@ZEROHEDGE"}),
+    post(74,"GordianKnotDev"),post(75,"HFI_Research",{accountHandle:"@GORDIANKNOTDEV"}),
   ],NOW);
-  assert.deepEqual(new Set(selected.selected.map(x=>x.accountHandle)),new Set(["ZeroHedge","zerohedge","TGLetter","Bluekurtic"]));
+  assert.deepEqual(new Set(selected.selected.map(x=>x.accountHandle)),new Set(["ZeroHedge","zerohedge","TGLetter","HFI_Research"]));
   assert.equal(selected.withheld.filter(x=>x.reason==="excluded_x_wire_source").length,2);
   assert.ok(!X_CORE_ROSTER.some(x=>isExcludedXWireHandle(x.handle)));
 });
