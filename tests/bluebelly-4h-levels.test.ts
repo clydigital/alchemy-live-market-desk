@@ -24,7 +24,7 @@ test("gaps are explicit and stale history remains non-actionable",()=>{
 test("4H read is owner-gated, opt-in and not called by scheduled pilot",()=>{
  const page=readFileSync(new URL("../app/market-tools/page.tsx",import.meta.url),"utf8");
  const provider=readFileSync(new URL("../lib/providers/twelve-data-ema-history.ts",import.meta.url),"utf8");
- assert.match(page,/access\.ok&&typeof options\.fourh==="string"\?await readFourH/);
+ assert.match(page,/access\.ok&&view==="technical"&&typeof options\.fourh==="string"\?await readFourH/);
  assert.match(provider,/timezone:"UTC"/);assert.match(provider,/outputsize:"1200"/);
  const pilot=provider.split("export async function refreshTechnicalPilot")[1].split("/** Owner-requested")[0];
  assert.doesNotMatch(pilot,/readFourH|cachedFourH/);
