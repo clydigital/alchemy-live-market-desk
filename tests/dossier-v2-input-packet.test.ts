@@ -1871,3 +1871,35 @@ test("20i. a single eligible creator question shares the three-slot attention re
   const again=assembleDossierV2InputPacket({as_of:TEST_AS_OF,previous_dossier_id:null},{observed_evidence:evidence,research_leads:[...leads].reverse()});
   assert.equal(packet.packet_id,again.packet_id);
 });
+
+test("20j. explicit canonical opposing evidence survives rank saturation without increasing caps",()=>{
+ const fact=(id:string,grouping_key:string,rank:number,direction="neutral",canonical=true,url="https://example.org/source")=>({
+  evidence_id:id,claim_or_fact:"Dated measurement "+id,available_at:IN_WINDOW_TIME,grouping_key,rank,
+  source_type:"OFFICIAL_DATA",canonical_record_backed:canonical,metrics:{support_direction:direction},
+  provenance:[{source_type:"OFFICIAL_DATA",source_id:id,url}],
+ });
+ const rows=[
+  ...Array.from({length:14},(_,i)=>fact("monitor-"+i,"market-monitor:pair-"+i,2)),
+  ...Array.from({length:16},(_,i)=>Array.from({length:6},(_,j)=>fact("f-"+i+"-"+j,"ordinary-"+i,5))).flat(),
+  ...Array.from({length:6},(_,i)=>fact("neutral-"+i,"opposing-topic",30)),
+  fact("supports","opposing-topic",31,"supports"),
+  fact("contradicts","opposing-topic",32,"contradicts"),
+  fact("unbacked","other-topic",1,"contradicts",false),
+ ];
+ const p=assembleDossierV2InputPacket({as_of:TEST_AS_OF},{observed_evidence:rows});
+ const ids=new Set(p.observed_evidence.map(e=>e.evidence_id));
+ assert.ok(ids.has("supports")&&ids.has("contradicts"));
+ assert.equal(p.development_clusters.length,24);
+ assert.ok(p.observed_evidence.length<=72);
+ assert.ok(p.development_clusters.every(c=>c.evidence.length<=6&&c.evidence.every(e=>ids.has(e.evidence_id))));
+ assert.ok(p.observed_evidence.every(e=>e.epistemic_label==="OBSERVED"));
+ assert.ok(Buffer.byteLength(toCanonicalJson(p),"utf8")<=200000);
+ const again=assembleDossierV2InputPacket({as_of:TEST_AS_OF},{observed_evidence:[...rows].reverse()});
+ assert.equal(again.packet_id,p.packet_id);
+ const invalid=assembleDossierV2InputPacket({as_of:TEST_AS_OF},{observed_evidence:[
+  ...Array.from({length:6},(_,i)=>fact("pin-"+i,"pins",1)),
+  fact("pin-support","pins",40,"supports"),fact("pin-counter","pins",41,"contradicts"),
+ ]});
+ assert.equal(invalid.observed_evidence.length,6);
+ assert.ok(invalid.observed_evidence.every(e=>e.rank===1));
+});
