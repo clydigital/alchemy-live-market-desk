@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { ComparisonColumn, ComparisonKey } from "./bluebelly-industry-comparison.ts";
 import type { CompareResearch } from "./bluebelly-compare-research.ts";
+import { projectBondPressure } from "./bluebelly-bond-pressure.ts";
 import { marketTrend } from "./market-trend-series.ts";
 import type { MarketMonitorRow } from "./market-monitor.ts";
 import { sourceDateFresh } from "./bluebelly-breadth-dated.ts";
@@ -9,7 +10,7 @@ export const RESEARCH_CHART_VERSION = "bluebelly/research-chart/1" as const;
 type Mark = { label: string; value: number; sources: { name: string; url: string }[] };
 type Spec = {
   id: string; title: string; asOf: string | null; frequency: "daily" | "monthly" | "quarterly";
-  window: string; unit: "%" | "pp" | "USD bn"; kind: "SOURCE_DATED_RETURN" | "SOURCE_DATED_SECONDARY" | "DERIVED_GAP" | "OBSERVED_HISTORY" | "VERIFIED_FILING" | "REVIEWED_ISSUER";
+  window: string; unit: "%" | "pp" | "USD bn" | "bp"; kind: "SOURCE_DATED_RETURN" | "SOURCE_DATED_SECONDARY" | "DERIVED_GAP" | "OBSERVED_HISTORY" | "VERIFIED_FILING" | "REVIEWED_ISSUER" | "REGIME_YIELD_PROXY";
   segments?: string[][];
   expected: number; marks: Mark[]; missing: string[];
 };
@@ -42,7 +43,7 @@ function svg(s: Spec): string {
   const lo=s.kind==="SOURCE_DATED_SECONDARY"?0:-limit;
   const hi=s.kind==="SOURCE_DATED_SECONDARY"?100:limit;
   const x=(v:number)=>left+(v-lo)/(hi-lo)*(right-left);
-  const color=(v:number)=>s.kind==="SOURCE_DATED_SECONDARY"?"#71638f":v<0?"#ad5447":"#42765a";
+  const color=(v:number)=>(s.kind==="SOURCE_DATED_SECONDARY"||s.kind==="REGIME_YIELD_PROXY")?"#71638f":v<0?"#ad5447":"#42765a";
   const ticks=[lo,(lo+hi)/2,hi];
   const body=s.marks.map((m,i)=>{
     const y=top+i*step;
@@ -62,7 +63,7 @@ function svg(s: Spec): string {
     +'<text x="24" y="58" font-size="15">'+esc(s.asOf+" UTC source date · "+s.window+" · "+s.unit+" · "+s.frequency+" · "+s.marks.length+"/"+s.expected)+'</text>'
     +ticks.map(t=>'<line x1="'+x(t)+'" x2="'+x(t)+'" y1="85" y2="'+footer+'" stroke="#d7cbbd"/><text x="'+x(t)+'" y="80" text-anchor="middle" font-size="12">'+fmt(t)+'</text>').join("")
     +body+'<text x="24" y="'+(footer+25)+'" font-size="13">'+esc("Source: "+names.slice(0,95))+'</text>'
-    +'<text x="24" y="'+(footer+46)+'" font-size="13">'+esc((s.kind==="DERIVED_GAP"?"Derived left minus right; not causality.":s.kind==="SOURCE_DATED_SECONDARY"?"Secondary provider participation; proxies differ.":s.kind==="VERIFIED_FILING"?"Matched quarter filing amounts; not a forecast.":s.kind==="REVIEWED_ISSUER"?"Source-reviewed quarterly amounts; not adjusted estimates.":"Recorded price returns; not fund flows."))+'</text>'
+    +'<text x="24" y="'+(footer+46)+'" font-size="13">'+esc((s.kind==="DERIVED_GAP"?"Derived left minus right; not causality.":s.kind==="SOURCE_DATED_SECONDARY"?"Secondary provider participation; proxies differ.":s.kind==="VERIFIED_FILING"?"Matched quarter filing amounts; not a forecast.":s.kind==="REVIEWED_ISSUER"?"Source-reviewed quarterly amounts; not adjusted estimates.":s.kind==="REGIME_YIELD_PROXY"?"Observed official yields; not a regime forecast.":"Recorded price returns; not fund flows."))+'</text>'
     +'<text x="24" y="'+(footer+67)+'" font-size="13">'+esc(s.missing.length?"Unavailable: "+s.missing.join(", ").slice(0,100):"All expected rows available")+'</text></g></svg>';
 }
 function historySvg(s: Spec): string {
@@ -163,4 +164,22 @@ export function buildIssuerCashCharts(columns:readonly ComparisonColumn[],now:Da
   const missing=metrics.map(([,label])=>label).filter(label=>!marks.some(m=>m.label===label));
   return finish({id:"cash-"+ticker.toLowerCase(),title:ticker+" — quarterly cash conversion",asOf:marks.length?date:null,frequency:"quarterly",window:col?.fiscalPeriod??"period unavailable",unit:"USD bn",kind,expected:metrics.length,marks,missing});
  });
+}
+
+/** Project the existing bond-regime measurement, without inventing a regime
+ * confidence score or combining mismatched cash-yield sessions. */
+export function buildBondRegimeCharts(rows:readonly MarketMonitorRow[],now:Date):ResearchChart[]{
+ const reading=projectBondPressure(rows,now);
+ const valid=reading.state==="READY"||reading.state==="LAST_REPORTED";
+ const asOf=valid?reading.asOf:null;
+ const curve=reading.curve.filter(m=>asOf!==null&&m.asOf===asOf&&m.last!==null&&Number.isFinite(m.last))
+   .map(m=>({label:m.label,value:m.last!,sources:source(m.sourceName,m.sourceUrl)})).filter(usable);
+ const charts=[finish({id:"regime-bond-curve",title:"Bond regime — official yield curve",asOf,frequency:"daily",window:"matched source session",unit:"%",kind:"REGIME_YIELD_PROXY",expected:reading.curve.length,marks:curve,missing:reading.curve.filter(m=>!curve.some(x=>x.label===m.label)).map(m=>m.label)})];
+ const ten=reading.curve.find(m=>m.id==="us10y-fred"),thirty=reading.curve.find(m=>m.id==="us30y-fred");
+ for(const w of reading.windows){
+  const matched=valid&&w.from&&w.to===asOf&&w.tenYearBp!==null&&w.thirtyYearBp!==null;
+  const marks=matched?[{label:"10Y",value:w.tenYearBp!,sources:source(ten?.sourceName,ten?.sourceUrl)},{label:"30Y",value:w.thirtyYearBp!,sources:source(thirty?.sourceName,thirty?.sourceUrl)}].filter(usable):[];
+  charts.push(finish({id:"regime-duration-"+w.label,title:"Bond regime — yield change "+w.label,asOf:marks.length?asOf:null,frequency:"daily",window:matched?w.label+" · "+w.from+" to "+w.to:w.label,unit:"bp",kind:"REGIME_YIELD_PROXY",expected:2,marks,missing:["10Y","30Y"].filter(m=>!marks.some(x=>x.label===m))}));
+ }
+ return charts;
 }
