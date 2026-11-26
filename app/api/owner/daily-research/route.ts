@@ -73,6 +73,7 @@ export async function GET(req:NextRequest){
     creatorReviews:creatorDelivery.reviews,
     creatorCoverageStatus:creatorDelivery.status,
     compare,
+    macroRows:monitor?.rows??[],
     marketDiagnostics:marketInternalsDiagnostics(compare),
     prices:(monitor?.rows||[]).filter(r=>r.last!==null)
       .slice(0,12).map(r=>({
