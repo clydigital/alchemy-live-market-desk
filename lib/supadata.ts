@@ -55,6 +55,7 @@ function classifyFailure(status: number, body: unknown) {
     }
     return { code: "transcript_missing" as const, retryable: false, message };
   }
+  if (status === 402) return { code: "provider_payment_required" as const, retryable: false, message };
   if (status === 408) return { code: "timeout" as const, retryable: true, message };
   if (status === 429) return { code: "provider_rate_limit" as const, retryable: true, message };
   if (status >= 500) return { code: "provider_server_error" as const, retryable: true, message };
