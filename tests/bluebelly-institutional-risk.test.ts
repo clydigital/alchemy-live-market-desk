@@ -117,5 +117,11 @@ test("volatility fallback refreshes faster than general FRED price histories wit
  assert.match(source,/revalidate: volSeries \? 30 \* 60 : 60 \* 60 \* 6/);
  assert.match(source,/bluebelly_volatility_source_unavailable/);
  const home=readFileSync("app/blue-desk/page.tsx","utf8");
- assert.match(home,/equityTape=\{marketCompass\}/);
+ const markets=readFileSync("app/blue-desk/markets/page.tsx","utf8");
+ assert.doesNotMatch(home,/<InstitutionalRiskMonitor|loadVolatilityAnchors/);
+ assert.match(home,/markets\?mode=risk#institutional-risk-heading/);
+ assert.match(markets,/mode==="risk"\?loadVolatilityAnchors/);
+ assert.match(markets,/<InstitutionalRiskMonitor/);
+ assert.match(markets,/equityTape=\{buildMarketCompassSummary\(/);
+ assert.match(markets,/Risk &amp; Positioning/);
 });
