@@ -13,6 +13,9 @@ const ISSUER_HOSTS:Readonly<Record<string,readonly string[]>>={
  CRWV:["investors.coreweave.com"],
  PLTR:["investors.palantir.com"],
  AMD:["ir.amd.com"],
+ DELL:["investors.delltechnologies.com"],
+ WDAY:["investor.workday.com"],
+ ADI:["www.analog.com"],
 };
 /** An issuer calendar is only an expectation: it never proves that actuals
  * were published. This diagnostic checks only primary-source intake items that
@@ -42,7 +45,8 @@ export function expectedIssuerReceiptGaps(
    ))return false;
    const resultsAnnounced=/\b(?:announces?|announced)\b.{0,120}\bresults\b/i.test(item.title);
    const resultsReported=/\b(?:reports?|reported)\b.{0,120}\b(?:earnings|quarter|results|revenue)\b/i.test(item.title);
-   const issuerVerified=/^Issuer confirms (?:FY20\d{2} )?Q[1-4](?: 20\d{2})? financial results — [A-Z0-9.]+$/.test(item.title);
+   const issuerVerified=item.title==="Issuer confirms "+event.quarter+" financial results — "+event.ticker;
+   if(isIssuer&&!issuerVerified)return false;
    if((!resultsAnnounced&&!resultsReported&&!(isIssuer&&issuerVerified))
       ||/\b(?:date of|will report|to report|earnings call|conference call|webcast|scheduled|upcoming)\b/i.test(item.title))return false;
    const when=Date.parse(item.publishedAt),call=Date.parse(event.scheduledCallAt);
@@ -52,6 +56,10 @@ export function expectedIssuerReceiptGaps(
    // a 36-hour result-retrieval deadline: actual source may land two days later.
    if(event.sourceDateOnly){
      if(when<call||when-call>96*3600_000)return false;
+   }else if(isIssuer){
+     // Issuer-original intake uses retrieval time, not a fabricated release minute.
+     // The exact reporting date/quarter was checked in the bounded original-page adapter.
+     if(when<call-24*3600_000||when-call>72*3600_000)return false;
    }else if(Math.abs(when-call)>36*3600_000)return false;
    try{
     const url=new URL(item.url);
