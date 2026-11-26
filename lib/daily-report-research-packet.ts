@@ -1,3 +1,4 @@
+import {buildResearchCharts,type ResearchChart} from "./bluebelly-research-charts.ts";
 import {compareResearchLines,type CompareResearch} from "./bluebelly-compare-research.ts";
 import type { NotionResearchBundle } from "./notion-market-research.ts";
 import type { NewsBriefV1 } from "./market-brief-news.ts";
@@ -26,6 +27,7 @@ export type DailyResearchPacket = {
   deliveredBriefCount?:number;
   packet:string;
   sourceUrls:string[];
+  researchCharts?:ResearchChart[];
 };
 function safeUrl(value:unknown):string|null {
   if(typeof value!=="string")return null;
@@ -46,7 +48,7 @@ export function buildDailyResearchPacket(input:{
   compare?:CompareResearch;
   marketDiagnostics?: readonly {status:"ready"|"insufficient";headline:string;interpretation:string;
     nextTest:string;asOf:string|null;sourceUrls:readonly string[]}[];
-}):DailyResearchPacket{
+}):DailyResearchPacket & {researchCharts:ResearchChart[]}{
   const links=new Set<string>();
   const include=(url:unknown)=>{const safeLink=safeUrl(url);if(safeLink&&links.size<40)links.add(safeLink);};
   const normalise=(raw:string)=>{
@@ -209,5 +211,6 @@ export function buildDailyResearchPacket(input:{
   return {contractVersion:"daily-report-research/1",assembledAt:input.now,
     notionStatus:input.notion.status,warnings:input.notion.warnings,
     newsCount:input.news.length,deliveredBriefCount:delivered.length,researchSourceCandidates:candidates,
-    packet:lines.join("\n").slice(0,23800),sourceUrls:[...links]};
+    packet:lines.join("\n").slice(0,23800),sourceUrls:[...links],
+    researchCharts:input.compare?buildResearchCharts(input.compare):[]};
 }
