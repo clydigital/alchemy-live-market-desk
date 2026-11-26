@@ -13,11 +13,11 @@ test("squawk gate retains actual surprises, rejects repetitive commentary",()=>{
  assert.equal(classifyXFlash("PUTIN SAYS HE WANTS BETTER US-RUSSIA TIES"),null);
  assert.equal(classifyXFlash("FED OFFICIAL EXPECTS RATES MAY STAY HIGH"),null);
  assert.equal(xWireSourcePolicy("FirstSquawk").recoveryHours,24);
- assert.equal(xWireSourcePolicy("Bluekurtic").recoveryHours,72);
+ assert.equal(xWireSourcePolicy("DrJStrategy").recoveryHours,72);
 });
 test("noisy alert cannot dominate and older squawks are not backlog candidates",()=>{
- const p=[...Array.from({length:40},(_,i)=>post("FirstSquawk",i,"US CPI ACTUAL 2.5% EST 2.4%",1)),post("FirstSquawk",99,"FED RAISES RATES 25 BPS",30),post("Bluekurtic",100,"SPY 200 DMA historical signal in 16 prior cases",22,["https://pbs.twimg.com/media/example.jpg"]),post("OddStats",101,"QQQ prior 5 trading days after a 4% decline",18),post("HFI_Research",102,"Natural gas positioning and crude oil fundamentals",16),post("macropaperr",103,"Fed inflation and Treasury yields after the release",12)];
- const selected=rankXWireMarketCandidates(p as never,now,9);assert.ok(selected.some(x=>x.post.handle==="Bluekurtic"));assert.ok(selected.some(x=>x.post.handle==="OddStats"));assert.equal(selected.filter(x=>x.post.handle==="FirstSquawk").length,1);assert.ok(!selected.some(x=>x.post.id===p[40].id));
+ const p=[...Array.from({length:40},(_,i)=>post("FirstSquawk",i,"US CPI ACTUAL 2.5% EST 2.4%",1)),post("FirstSquawk",99,"FED RAISES RATES 25 BPS",30),post("DrJStrategy",100,"SPY 200 DMA historical signal in 16 prior cases",22,["https://pbs.twimg.com/media/example.jpg"]),post("OddStats",101,"QQQ prior 5 trading days after a 4% decline",18),post("HFI_Research",102,"Natural gas positioning and crude oil fundamentals",16),post("macropaperr",103,"Fed inflation and Treasury yields after the release",12)];
+ const selected=rankXWireMarketCandidates(p as never,now,9);assert.ok(selected.some(x=>x.post.handle==="DrJStrategy"));assert.ok(selected.some(x=>x.post.handle==="OddStats"));assert.equal(selected.filter(x=>x.post.handle==="FirstSquawk").length,1);assert.ok(!selected.some(x=>x.post.id===p[40].id));
  assert.equal(xWireNearDuplicate("US CPI ACTUAL 2.5% EST 2.4%","US CPI ACTUAL 2.6% EST 2.4%"),false);
 });
 test("only vetted public material locators, never interpretation or unknown hosts",()=>{

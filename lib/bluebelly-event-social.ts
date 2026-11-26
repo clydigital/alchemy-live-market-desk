@@ -11,7 +11,7 @@ export type EmbeddedSocialContext={
  id:string;handle:string;url:string;postedAt:string;caption:string;phase:"BEFORE DECISION"|"AFTER DECISION";
 };
 const TRUSTED_CONTEXT_HANDLES=new Set([
- "KobeissiLetter","Bluekurtic","FirstSquawk","HFI_Research",
+ "KobeissiLetter","FirstSquawk","HFI_Research",
  "ReserveBankofNZ","federalreserve","bankofcanada","ecb"
 ]);
 const TOPIC:Readonly<Record<string,RegExp>>={

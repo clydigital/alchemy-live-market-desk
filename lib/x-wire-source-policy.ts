@@ -1,5 +1,5 @@
 /** Source routing is an attention/cost policy, never an evidence grade. */
-export const X_ANALYST_HANDLES = new Set(["bluekurtic","oddstats","macropaperr","hfi_research","kobeissiletter","drjstrategy"]);
+export const X_ANALYST_HANDLES = new Set(["oddstats","macropaperr","hfi_research","kobeissiletter","drjstrategy"]);
 export const X_ALERT_HANDLES = new Set(["firstsquawk","zerohedge","currentreport1"]);
 const normalize=(handle:string)=>handle.toLowerCase();
 export function xWireSourcePolicy(handle:string){
@@ -8,7 +8,7 @@ export function xWireSourcePolicy(handle:string){
    recoveryHours:h==="firstsquawk"?24:72,
    activeCap:h==="firstsquawk"?12:h==="zerohedge"?18:40,
    maxAgeHours:h==="firstsquawk"?24:168,
-   researchCap:h==="firstsquawk"||h==="zerohedge"||h==="currentreport1"||h==="drjstrategy"?2:h==="beginnertrades"?1:3};
+   researchCap:h==="firstsquawk"||h==="zerohedge"||h==="currentreport1"||h==="drjstrategy"?2:3};
 }
 const MAJOR_ECONOMY=/\b(?:US|U\.S\.|USA|EUROZONE|EURO AREA|UK|BRITAIN|GERMAN|GERMANY|CHINA|CHINESE|JAPAN|JAPANESE|CANADA|AUSTRALIA|NEW ZEALAND)\b/i;
 const MACRO_DATA=/\b(?:CPI|PPI|PCE|GDP|payrolls?|jobless claims|unemployment|retail sales|ISM|PMI|consumer confidence|business outlook|industrial production|jobs report|trade balance|inflation)\b/i;
