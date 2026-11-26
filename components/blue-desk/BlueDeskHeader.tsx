@@ -45,6 +45,10 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Hormuz Watch": "oil",
   "Regime Watch": "divergence",
   "Markets": "chart",
+  "All Assets": "market",
+  "Rotation & Breadth": "layers",
+  "Divergence Watch": "divergence",
+  "Risk & Positioning": "credit",
   "Earnings": "calendar",
   "Deep Dive": "deep-dive",
   "Deep Dives": "deep-dive",
@@ -90,7 +94,16 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
     const href = blueDeskPublicHref(path, host);
     return href === current || (href === "/markets" && (activePath === "/blue-desk/markets" || activePath === "/blue-desk/markets/scanner"));
   };
-  const commandContext = [...commandLinks, ...PUBLIC_MORE, ["My Desk", "/my-reports"] as const]
+  const marketViews = [["All Assets","/blue-desk/markets?mode=assets"],["Rotation & Breadth","/blue-desk/markets?mode=compare"],["Divergence Watch","/blue-desk/markets?mode=watch"],["Risk & Positioning","/blue-desk/markets?mode=risk"]] as const;
+  // Desktop sidebar and mobile drawer share the same destinations. Query-mode
+  // selection stays with the existing Markets page; no host access expansion.
+  const sectionGroups:ReadonlyArray<{label:string;links:ReadonlyArray<readonly [string,string]>}> = [
+    {label:"COMMAND",links:commandLinks},
+    {label:"MARKET VIEWS",links:marketViews},
+    {label:"EXPLORE",links:PUBLIC_MORE},
+    {label:"PRIVATE",links:[["My Desk","/my-reports"]]},
+  ];
+  const commandContext = sectionGroups.flatMap(group=>group.links)
     .find(([, path]) => isActive(path))?.[0] || (ownerWorkspace ? "My Desk" : "Markets");
   const commandLink = ([label, path]: readonly [string, string]) => (
     <Link key={path} href={blueDeskPublicHref(path,host)} title={label} aria-label={label}
@@ -111,12 +124,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
           <span className={chrome.sideLogo}>BLUE<b>BELLY</b></span>
         </Link>
         <nav className={chrome.sideNav} aria-label="Bluebelly command">
-          <span className={chrome.sideGroup}>COMMAND</span>
-          {commandLinks.map(commandLink)}
-          <span className={chrome.sideGroup}>EXPLORE</span>
-          {PUBLIC_MORE.map(commandLink)}
-          <span className={chrome.sideGroup}>PRIVATE</span>
-          {commandLink(["My Desk", "/my-reports"])}
+          {sectionGroups.map(group=><div key={group.label} style={{display:"contents"}}><span className={chrome.sideGroup}>{group.label}</span>{group.links.map(commandLink)}</div>)}
         </nav>
         <div className={chrome.sideFooter}>
           <span className={chrome.sidePulse} aria-hidden="true"/>
@@ -143,7 +151,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
       </div></div>
       <div className={chrome.navbar}><div className={chrome.navInner}>
         <span className={chrome.navHint}>SOURCE-DATED OBSERVATIONS <span aria-hidden="true">·</span> SEARCH VERIFIED RELEASES</span>
-        <details className={chrome.mobileNav}><summary>Sections</summary><nav aria-label="Bluebelly mobile">{nav.map(([label,path])=><Link key={path} href={blueDeskPublicHref(path,host)}>{label}</Link>)}{more.map(([label,path])=><Link key={path} href={blueDeskPublicHref(path,host)}>{label}</Link>)}</nav></details>
+        <details className={chrome.mobileNav}><summary>Sections</summary><nav aria-label="Bluebelly mobile">{sectionGroups.map(group=><div key={group.label} style={{display:"contents"}}><small className={chrome.sideGroup}>{group.label}</small>{group.links.map(([label,path])=><Link key={path} href={blueDeskPublicHref(path,host)} aria-current={isActive(path)?"page":undefined}>{label}</Link>)}</div>)}</nav></details>
         <nav className={chrome.links} aria-label="Bluebelly primary">
           {nav.map(([label,path])=>{
             const href=blueDeskPublicHref(path,host);

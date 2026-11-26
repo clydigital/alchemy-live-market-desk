@@ -34,29 +34,38 @@ const connectors = [
 ];
 export const dynamic = "force-dynamic";
 
-export default async function MarketToolsPage({searchParams}:{searchParams:Promise<{check?:string;technical?:string;fourh?:string}>}) {
+export default async function MarketToolsPage({searchParams}:{searchParams:Promise<{check?:string;technical?:string;view?:string;fourh?:string}>}) {
   const options = await searchParams;
-  const checkProviders=options?.check==="providers";
+  const view=options?.check==="providers"?"diagnostics":typeof options?.technical==="string"||typeof options?.fourh==="string"?"technical":options?.view==="relationships"?"relationships":options?.view==="technical"?"technical":options?.view==="intake"?"intake":options?.view==="diagnostics"?"diagnostics":"sources";
+  const relationshipView=view==="relationships";
+  const intakeView=view==="intake";
+  const diagnosticsView=view==="diagnostics";
   const ticker=typeof options.technical==="string"?options.technical.toUpperCase():"MAA";
   const session=await createSupabaseServerClient();
   const access=await authorizeVerifiedEventOwner({getUser:()=>session.auth.getUser(),readActiveAllowlist:email=>session.from("app_access_allowlist").select("email").eq("email",email).eq("active",true).maybeSingle()});
-  const technical=access.ok&&options.technical&&!options.fourh?await readTechnicalSnapshot(ticker):null;
-  const fourH=access.ok&&typeof options.fourh==="string"?await readFourH(options.fourh):null;
+  if(!access.ok)return <main className={styles.page}><div className={styles.shell}><h1>Owner access required</h1><Link href="/my-reports">Return to My Desk →</Link></div></main>;
+  const checkProviders=access.ok&&diagnosticsView&&options?.check==="providers";
+  const technical=access.ok&&view==="technical"&&options.technical&&!options.fourh?await readTechnicalSnapshot(ticker):null;
+  const fourH=access.ok&&view==="technical"&&typeof options.fourh==="string"?await readFourH(options.fourh):null;
   const [market, monitor, readiness, extendedHistory] = await Promise.all([
-    getMarketData().catch(() => null),
-    getMarketMonitor().catch(() => null),
+    relationshipView ? getMarketData().catch(() => null) : Promise.resolve(null),
+    relationshipView||intakeView ? getMarketMonitor().catch(() => null) : Promise.resolve(null),
     checkProviders ? getMarketToolsProviderReadiness().catch(() => null) : Promise.resolve(null),
-    loadExtras().catch(() => []),
+    relationshipView ? loadExtras().catch(() => []) : Promise.resolve([]),
   ]);
-  const pairs = buildMarketToolsCorrelations(market?.series ?? [], monitor?.rows ?? [], new Date(), extendedHistory);
+  const pairs = relationshipView ? buildMarketToolsCorrelations(market?.series ?? [], monitor?.rows ?? [], new Date(), extendedHistory) : [];
   const measuredCount = pairs.filter(p => p.status === "measured").length;
   const newestCommonDate = pairs.filter(p => p.status === "measured").map(p => p.asOf).filter((v): v is string => Boolean(v)).sort().at(-1) ?? null;
   return <main className={styles.page}>
     <div className={styles.shell}>
       <BlueDeskHeader activePath="/market-tools" />
       <header className={styles.topbar}><Link href="/" className={styles.brand}><span className={styles.brandMark}>B</span> BLUEBELLY <span className={styles.brandSub}>/ RESEARCH WORKSPACE</span></Link><Link href="/blue-desk" className={styles.back}>← Back to desk</Link></header>
-      <section className={styles.hero}><div><p className={styles.eyebrow}>RESEARCH TOOLKIT / BLUEBELLY</p><h1>Market tools<span>.</span><br/>Better signals, less noise.</h1><p className={styles.intro}>One workspace for finding trade candidates, checking cross-market relationships and opening primary-source evidence.</p></div><div className={styles.heroSide}><span className={styles.statusDot}/> Research feeds connected <small>Historical correlations where data passes date, sample and freshness checks; no streaming quote claim</small></div></section>
-      <section className={styles.providerCheck} aria-label="Owner provider connection test">
+      <section className={styles.hero}><div><p className={styles.eyebrow}>RESEARCH TOOLKIT / BLUEBELLY</p><h1>Market tools<span>.</span><br/>Better signals, less noise.</h1><p className={styles.intro}>Focused owner-only utilities for source discovery, relationships, technical research, candidate intake and provider checks.</p></div><div className={styles.heroSide}>Owner research tools <small>Choose a focused view. Provider readiness and market observations are shown only where measured; no streaming quote claim.</small></div></section>
+      <nav aria-label="Private market tools views" style={{display:"flex",flexWrap:"wrap",gap:10,marginBottom:24}}>
+        {([["sources","Source directory"],["relationships","Relationships"],["technical","Technical Watch"],["intake","Research intake"],["diagnostics","Provider diagnostics"]] as const).map(([id,label])=><Link key={id} href={id==="sources"?"/market-tools":"/market-tools?view="+id} aria-current={view===id?"page":undefined} className={styles.providerCheckLink} style={view===id?{outline:"2px solid currentColor"}:undefined}>{label}</Link>)}
+      </nav>
+      {view==="sources"?<section className={styles.workflow} aria-label="Canonical workspace shortcuts"><div><p className={styles.eyebrow}>ONE DATA SOURCE / FOCUSED WORKSPACES</p><h2>Find the right analytical view</h2><p>Markets owns observations; Research Library owns hypotheses and evidence; My Desk owns operational health. These private utilities reuse existing readers.</p></div><div className={styles.workflowActions}><Link href="/markets?mode=risk">Risk &amp; Positioning →</Link><Link href="/markets?mode=compare">Rotation &amp; breadth →</Link><Link href="/markets?mode=watch">Divergence Watch →</Link><Link id="ema-sd-levels" href="/market-tools?view=technical">Technical Watch →</Link><Link href="/owner/research">Research Library →</Link><Link href="/my-reports">My Desk / research health →</Link></div></section>:null}
+      {diagnosticsView?<section className={styles.providerCheck} aria-label="Owner provider connection test">
         <div>
           <p className={styles.eyebrow}>PROVIDER CONNECTIVITY / MANUAL CHECK</p>
           <h2>Are the API keys actually working?</h2>
@@ -77,15 +86,15 @@ export default async function MarketToolsPage({searchParams}:{searchParams:Promi
             </div>
           </article>) ?? <p>Provider check could not be completed; existing market data is unaffected.</p>}
         </div>}
-      </section>
-      <div className={styles.stats}><div><strong>{sources.length}</strong><span>Curated sources</span></div><div><strong>{measuredCount}/{pairs.length}</strong><span>Current dated correlation pairs</span></div><div><strong>0</strong><span>Verified trade signals</span></div><div><strong>{newestCommonDate ?? "—"}</strong><span>Newest aligned observation date</span></div></div>
-      <section className={styles.workflow} aria-labelledby="workflow-title"><div><p className={styles.eyebrow}>RESEARCH HANDOFF / NOT AN AUTOMATIC SIGNAL</p><h2 id="workflow-title">Turn a screen into a sourced investigation</h2><p>Screen for an unusual move → compare cross-market relationships → check the original catalyst → verify price timestamps and invalidation → submit a candidate to Bluebelly research. Unverified observations must not appear as published ideas.</p></div><div className={styles.workflowActions}><Link href="/owner/research">Open Research Library →</Link><Link href="/owner/presenter">Presenter technical checks →</Link><Link href="/my-reports">Editorial reports →</Link></div></section>
-      {access.ok?<OwnerTechnicalLevels snapshot={technical} ticker={ticker} fourH={fourH}/>:null}
-      <ResearchTriggerIntake monitor={monitor} />
-      <div className={styles.layout}>
-        <div className={styles.primary}>
-          <section className={styles.section}><div className={styles.sectionHead}><div><p className={styles.eyebrow}>01 / SOURCE DIRECTORY</p><h2>Research shortcuts</h2></div><span className={styles.hint}>External tools · open in new tab</span></div><div className={styles.sourceGrid}>{sources.map(s=><a className={styles.source} href={s.url} key={s.name} target="_blank" rel="noopener noreferrer"><div className={styles.sourceTop}><span className={styles.group}>{s.group}</span><span className={styles.tag}>{s.tag}</span></div><h3>{s.name}<span aria-hidden="true"> ↗</span></h3><p>{s.desc}</p></a>)}</div></section>
-          <section className={styles.section}>
+      </section>:null}
+      {relationshipView?<div className={styles.stats}><div><strong>{sources.length}</strong><span>Curated sources</span></div><div><strong>{measuredCount}/{pairs.length}</strong><span>Current dated correlation pairs</span></div><div><strong>—</strong><span>Not a trade-signal count</span></div><div><strong>{newestCommonDate ?? "—"}</strong><span>Newest aligned observation date</span></div></div>:null}
+      {intakeView?<section className={styles.workflow} aria-labelledby="workflow-title"><div><p className={styles.eyebrow}>RESEARCH HANDOFF / NOT AN AUTOMATIC SIGNAL</p><h2 id="workflow-title">Turn a screen into a sourced investigation</h2><p>Screen for an unusual move → compare cross-market relationships → check the original catalyst → verify price timestamps and invalidation → submit a candidate to Bluebelly research. Unverified observations must not appear as published ideas.</p></div><div className={styles.workflowActions}><Link href="/owner/research">Open Research Library →</Link><Link href="/owner/presenter">Presenter technical checks →</Link><Link href="/my-reports">Editorial reports →</Link></div></section>:null}
+      {view==="technical"?<OwnerTechnicalLevels snapshot={technical} ticker={ticker} fourH={fourH}/>:null}
+      {intakeView?<ResearchTriggerIntake monitor={monitor} />:null}
+      <div className={styles.layout} style={view==="sources"||relationshipView?undefined:{gridTemplateColumns:"minmax(0,1fr)"}}>
+        {view==="sources"||relationshipView?<div className={styles.primary}>
+          {view==="sources"?<section className={styles.section}><div className={styles.sectionHead}><div><p className={styles.eyebrow}>01 / SOURCE DIRECTORY</p><h2>Research shortcuts</h2></div><span className={styles.hint}>External tools · open in new tab</span></div><div className={styles.sourceGrid}>{sources.map(s=><a className={styles.source} href={s.url} key={s.name} target="_blank" rel="noopener noreferrer"><div className={styles.sourceTop}><span className={styles.group}>{s.group}</span><span className={styles.tag}>{s.tag}</span></div><h3>{s.name}<span aria-hidden="true"> ↗</span></h3><p>{s.desc}</p></a>)}</div></section>:null}
+          {relationshipView?<section className={styles.section}>
             <div className={styles.sectionHead}><div><p className={styles.eyebrow}>02 / RELATIONSHIP WATCH</p><h2>Cross-asset correlations</h2></div><span className={styles.pending}>DAILY HISTORY · NOT LIVE QUOTES</span></div>
             <p className={styles.sectionDesc}>Measured 20 / 60 / 120 matched-session relationships from existing Bluebelly sources, using the longer cached provider histories when available. Price and ETF series use log returns; Treasury yields and breakevens use basis-point changes. Data gaps, missing windows and older source dates remain visible. Proxies do not equal the named cash index or spot market.</p>
             <div className={styles.pairs}>{pairs.map(p=><article className={`${styles.pair} ${styles.pairCorrelation}`} key={p.id}>
@@ -111,11 +120,11 @@ export default async function MarketToolsPage({searchParams}:{searchParams:Promi
               </div>
             </article>)}</div>
             <p className={styles.sectionDesc} style={{marginTop:12}}>A correlation describes historical co-movement, not causation or a trade recommendation. Dated price-provider series may lag today's session. Market hours, ETF tracking/roll effects and differently timed official observations limit comparability.</p>
-          </section>
-        </div>
+          </section>:null}
+        </div>:null}
         <aside className={styles.sidebar}>
-          <section className={styles.sideCard}><p className={styles.eyebrow}>03 / IDEA RADAR</p><h2>Trade candidates</h2><div className={styles.empty}><span>◇</span><strong>No verified ideas yet</strong><p>Ideas will require a catalyst, direction, timeframe, confirmation, invalidation and evidence receipt before appearing as researched signals.</p></div><div className={styles.stage}><span>Candidate</span><span>Research</span><span>Verified</span></div></section>
-          <section className={styles.sideCard}><p className={styles.eyebrow}>04 / CONNECTORS</p><h2>API setup hotlist</h2><p className={styles.muted}>Complete these when ready. No credentials should be entered into the public page.</p><div className={styles.connectors}>{connectors.map(c=><a href={c.url} target="_blank" rel="noopener noreferrer" key={c.name}><small>{c.priority}</small><strong>{c.name} ↗</strong><span>{c.desc}</span></a>)}</div></section>
+          {intakeView?<section className={styles.sideCard}><p className={styles.eyebrow}>RESEARCH HANDOFF</p><h2>Trade candidates</h2><p className={styles.muted}>Review current hypothesis and evidence status in Research Library. No independent verified-idea count is maintained here.</p><Link href="/owner/research">Open canonical Research Library →</Link></section>:null}
+          {diagnosticsView?<section className={styles.sideCard}><p className={styles.eyebrow}>04 / CONNECTORS</p><h2>API setup hotlist</h2><p className={styles.muted}>Complete these when ready. No credentials should be entered into the public page.</p><div className={styles.connectors}>{connectors.map(c=><a href={c.url} target="_blank" rel="noopener noreferrer" key={c.name}><small>{c.priority}</small><strong>{c.name} ↗</strong><span>{c.desc}</span></a>)}</div></section>:null}
           <section className={styles.note}><strong>Research standard</strong><p>A correlation is not a trading signal by itself. All proposed trades stay provisional until independently supported by market observations and the Bluebelly research workflow.</p></section>
         </aside>
       </div>
