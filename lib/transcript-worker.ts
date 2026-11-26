@@ -10,6 +10,8 @@ import {
 } from "./video-retrieval-failure.ts";
 import {
   normalizeTranscriptApiError,
+  providerFailureReceipt,
+  type ProviderHealthReceipt,
   transcriptProviderFromRetrieval,
   TranscriptApiError,
   type TranscriptApiRetrieval,
@@ -59,6 +61,7 @@ export type TranscriptWorkerStore = {
     nextAttemptAt: string | null,
     failureKind: VideoRetrievalFailureKind,
     analysisOutcome?: GeminiVideoAnalysisOutcome,
+    providerReceipt?: ProviderHealthReceipt,
   ): Promise<void>;
   saveInterpretation(job: ClaimedTranscriptJob, review: TranscriptResearchReview, interpretedAt: string): Promise<void>;
   findEvidence(job: ClaimedTranscriptJob): Promise<string | null>;
@@ -205,29 +208,24 @@ export async function processTranscriptJob(
                 };
           }
         }
-        await dependencies.store.saveExtractionFailure(
-          job,
-          failure,
-          attemptedAt,
-          nextAttemptAt,
-          failureKind,
-          analysisOutcome,
-        );
-        // Report summary rescue independently; it never restores transcript coverage.
+        // Persist ordered retrieval and summary-rescue outcomes in the same fenced checkpoint.
+        const chain = providerFailureReceipt(failure);
         const rescueCause = !geminiRescueEligible(failure) ? "capability_mismatch"
           : job.videoAnalysisStatus === "summary_only" ? "summary_already_saved"
           : !dependencies.videoAnalysisConfigured?.() || !dependencies.analyseVideo ? "not_configured" : null;
-        console.info(JSON.stringify({
-          kind: "provider_health_receipt_v1", provider: "transcript_chain",
+        const providerReceipt: ProviderHealthReceipt = {
+          kind: "provider_health_receipt_v1", provider: chain?.provider ?? "transcript_chain",
           capability: "timestamped_public_video_transcript", timestamp: now().toISOString(),
           state: analysisOutcome?.status === "summary_only" || job.videoAnalysisStatus === "summary_only" ? "degraded" : "failed",
-          cause: failure.code, fallbackAttempted: shouldAnalyse,
-          attempts: [{provider: "transcript_chain", outcome: "failed", cause: failure.code, timestamp: attemptedAt},
+          cause: chain?.cause ?? failure.code, fallbackAttempted: Boolean(chain?.fallbackAttempted || shouldAnalyse),
+          attempts: [...(chain?.attempts ?? [{provider: "transcript_chain" as const, outcome: "failed" as const, cause: failure.code, timestamp: attemptedAt}]),
             {provider: "gemini", outcome: analysisOutcome?.status === "summary_only" ? "success" : analysisOutcome?.status === "failed" ? "failed" : "skipped",
              cause: analysisOutcome?.status === "failed" ? analysisOutcome.errorCode : rescueCause, timestamp: now().toISOString()}],
           residualCoverage: analysisOutcome?.status === "summary_only" || job.videoAnalysisStatus === "summary_only" ? "summary_only_no_transcript" : "no_transcript",
           nextRetry: nextAttemptAt, retryOwner: "leased_transcript_worker",
-        }));
+        };
+        await dependencies.store.saveExtractionFailure(job, failure, attemptedAt, nextAttemptAt, failureKind, analysisOutcome, providerReceipt);
+        console.info(JSON.stringify(providerReceipt));
         timings.extraction += elapsed(clock, stageStartedAt);
         return outcome({
           itemId: job.id,
