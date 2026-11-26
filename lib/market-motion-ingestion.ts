@@ -616,6 +616,9 @@ function categoryFor(text: string): MarketMotionCategory {
 }
 
 function eligible(item: ScoredIntakeItem, now: Date) {
+  // Date-only issuer release receipts use a retrieval clock and belong in the
+  // earnings reconciliation path, not the timed market-motion feed.
+  if (item.itemKey.startsWith("issuer-press:")) return false;
   // Gap research is admitted back into canonical Live through the handoff path.
   // Do not turn that same handoff into new Motion or Motion -> Gap can recurse.
   if (parseResearchGapHandoffContext(item.divergenceNote)) return false;
@@ -789,6 +792,9 @@ export function buildMarketMotionCandidates(
 }
 
 function corroborationCandidateEligible(item: ScoredIntakeItem, now: Date) {
+  // Date-only issuer release receipts use a retrieval clock and belong in the
+  // earnings reconciliation path, not the timed market-motion feed.
+  if (item.itemKey.startsWith("issuer-press:")) return false;
   if (parseResearchGapHandoffContext(item.divergenceNote)) return false;
   if (item.itemType === "video" || !item.evidence.length) return false;
   if (!["collect_evidence", "review_article", "recalibrate_story"].includes(item.recommendedAction)) return false;
