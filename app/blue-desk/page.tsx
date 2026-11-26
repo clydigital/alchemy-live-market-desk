@@ -97,20 +97,21 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   const now = new Date();
   const host = (await headers()).get("host");
   const publicHost = isBlueDeskPublicReaderHost(host);
+  const radarNewsReads={motion:true,originalPress:true,officialMacro:true};
   const [macro, earnings, monitor, verifiedMotions, observations, theses, originalPress, digestBriefs, breadthFeed, jobs, dossierSelection] = await Promise.all([
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({ now }).catch(() => ({
       events: [], coverage: "unavailable" as const, warning: "Earnings source unavailable",
     })),
     getMarketMonitor().catch(() => null),
-    getCurrentVerifiedMarketMotion({ limit: 36 }).catch(() => []),
+    getCurrentVerifiedMarketMotion({ limit: 36 }).catch(() => {radarNewsReads.motion=false;return [];}),
     getPublicSourceObservations(now,12).catch(() => []),
     getPublicThesisLedger(now,24).catch(() => []),
     // Both sources are already original-source qualified; the new second
     // arm is READ-ONLY completed macro actuals, not research drafts.
     Promise.all([
-      getOriginalPressNews(now,18,7).catch(()=>[]),
-      getCompletedOfficialMacroNews(now,18,7).catch(()=>[]),
+      getOriginalPressNews(now,18,7).catch(()=>{radarNewsReads.originalPress=false;return [];}),
+      getCompletedOfficialMacroNews(now,18,7).catch(()=>{radarNewsReads.officialMacro=false;return [];}),
     ]).then(([press,macroActuals])=>[...press,...macroActuals]),
     getPublishedMacroPulseBriefs(2).catch(() => []),
     getSourceDatedBreadth(true).catch(() => ({series:[],retrievalStatus:"fallback" as const})),
@@ -152,7 +153,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   const radarIntel=publicHost?projectHomeRadar({
     now,news:recentNews,market:marketRows,divergences:marketComparisons,
     creatorDigest:creatorRadarRead?.digest??null,
-    creatorIsAuthorised:Boolean(creatorRadarRead&&creatorRadarRead.status!=="unauthorised"),
+    creatorIsAuthorised:Boolean(creatorRadarRead&&creatorRadarRead.status!=="unauthorised"&&creatorRadarRead.status!=="unavailable"),
   }):null;
   const compare=buildCompareResearch([...(monitor?.rows??[]),...(monitor?.divergenceRows??[])],[...marketRows,...compareBreadthObservations(breadthFeed.series,now)],now,breadthFeed.series);
   const divergenceRadar=compare.radar;
@@ -181,7 +182,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
       {!publicHost?<AbsorptionHealth health={absorptionHealth}/>:null}
       <div className={styles.content}>
         {publicHost?<section className={marketHome.terminal} data-home-market-first="source-dated-terminal" aria-label="Bluebelly market overview">
-          <RadarIntelligenceShell read={radarIntel!}>
+          <RadarIntelligenceShell read={radarIntel!} sourceHealth={{newsReads:radarNewsReads,marketReadable:monitor!==null,creatorStatus:creatorRadarRead?.status??"unauthorised",creatorGeneratedAt:creatorRadarRead?.digest?.generatedAt??null,latestNewsAt:recentNews[0]?.occurredAt??null,latestMarketAt:marketRows.filter(r=>r.frequency==="daily"&&r.asOf&&r.dataStatus!=="UNAVAILABLE_OR_STALE").map(r=>r.asOf!).sort().at(-1)??null}}>
           <header className={marketHome.hero} data-v7-graphical-hero="source-dated">
             <div className={marketHome.heroCopy}>
               <p className={marketHome.eyebrow}><span className={marketHome.heroSignal} aria-hidden="true"/> SOURCE-DATED MARKET TERMINAL</p>
