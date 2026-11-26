@@ -86,9 +86,26 @@ async function gaps(db:DB){
  return lane("Research digestion / handoff",{attempt:r?.research_started_at??null,success:r?.handed_off_at??null,execution:r?"Latest gap case: "+r.status:"No gap-case receipt",coverage:"Case-level only",gaps:"Handoff receipt is not proof of all current research digested or downstream publication"});
 }
 async function publication(db:DB){
- const {data,error}=await db.from("research_runs").select("completed_at,updates_published").in("schedule_slot",["morning","evening"]).gt("updates_published",0).not("completed_at","is",null).order("completed_at",{ascending:false}).limit(1);
- if(error)throw error;const r=data?.[0];
- return lane("Publication / consumer readback",{success:r?.completed_at??null,execution:"Historical canonical Story update receipt only",coverage:r?String(r.updates_published)+" updates in last publishing run":"No publishing run receipt",gaps:"Current consumer readback and private report delivery not linked; no automatic public publication inferred"});
+ const readLatest=async(table:"intelligence_evidence"|"story_updates"|"story_thesis_versions",column:"created_at")=>{
+  const {data,error}=await db.from(table).select(column).order(column,{ascending:false}).limit(1);
+  if(error)throw error;
+  return data?.[0]?.created_at??null;
+ };
+ const [evidence,story,thesis,scheduled]=await Promise.allSettled([
+  readLatest("intelligence_evidence","created_at"),readLatest("story_updates","created_at"),
+  readLatest("story_thesis_versions","created_at"),
+  (async()=>{const {data,error}=await db.from("research_runs").select("completed_at,updates_published").in("schedule_slot",["morning","evening"]).gt("updates_published",0).not("completed_at","is",null).order("completed_at",{ascending:false}).limit(1);
+  if(error)throw error;return data?.[0]?.completed_at??null;})()]);
+ const get=(r:PromiseSettledResult<string|null>)=>r.status==="fulfilled"?r.value:null;
+ const label=(r:PromiseSettledResult<string|null>)=>r.status==="fulfilled"?(r.value?myt(r.value):"No record"):"Read unavailable";
+ const e=get(evidence),s=get(story),t=get(thesis);
+ const lag=!!e&&[s,t].some(at=>!!at&&Date.parse(e)-Date.parse(at)>7*86400000);
+ return lane("Publication / consumer readback",{success:latest([s,t]),
+ execution:"Actual canonical table timestamps; Work receipts are separate",
+ coverage:"Evidence: "+label(evidence)+" · Story update: "+label(story)+" · Thesis revision: "+label(thesis),
+ partial:lag,failure:lag?"Canonical evidence is newer than a downstream revision by over 7 days; review disposition unverified":"Not established",
+ gaps:"Last scheduled publishing run: "+label(scheduled)+". Stale canonical revisions do not prove failed agent-led research or a material change. Consumer readback and no-change disposition need their own receipts.",
+ fresh:null,coverageComplete:null});
 }
 export async function getMyDeskHealth(now=new Date()):Promise<HealthLane[]>{
  let db:DB;try{db=createSupabaseAdminClient()}catch{return ["X Wire","Creator discovery / transcripts","Scheduled source acquisition","MacroPulse","AI16","Material Events","Research Investigation","Market data / EMA","Research digestion / handoff","Publication / consumer readback"].map(label=>unknown(label,"Database unavailable"))}
