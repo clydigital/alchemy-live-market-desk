@@ -62,7 +62,7 @@ test("private cron isolation retained with additional first-party US macro check
  const original=vercel.crons.filter(item=>item.path!=="/api/cron/research/official-actuals");
  const actuals=vercel.crons.filter(item=>item.path==="/api/cron/research/official-actuals");
  assert.equal(original.length,34);
- assert.equal(original.filter(item=>item.path.endsWith("-intelligence")).length,4);
+ assert.equal(original.filter(item=>/-intelligence(?:-watchdog)?$/.test(item.path)).length,4);
  assert.deepEqual(original.filter(item=>item.path==="/api/cron/research-gap/handoff").map(item=>item.schedule),["30 3 * * *","45 3 * * *","30 15 * * *","45 15 * * *"]);
  assert.deepEqual(vercel.crons.filter(item=>item.path==="/api/cron/calendar/discover").map(item=>item.schedule),["0 1 * * *"]);
  assert.deepEqual(actuals.map(item=>item.schedule),["42 12 * * *","42 13 * * *","12 14 * * *","12 15 * * *"]);
