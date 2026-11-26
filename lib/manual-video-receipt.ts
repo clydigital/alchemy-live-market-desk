@@ -53,9 +53,10 @@ export function parseManualCaptionReceipt(value: unknown, now = new Date(), env:
   if (!/^[A-Za-z0-9_-]+$/.test(receiptId)) throw new ManualCaptionError("Invalid receipt ID.");
   const language = str(r.language, 32, "language");
   const transcriptText = str(r.transcriptText, 400000, "transcriptText");
+  if (transcriptText.trim().length < 300) throw new ManualCaptionError("Caption receipt is too short to establish full coverage.");
   const sha = createHash("sha256").update(transcriptText, "utf8").digest("hex");
   if (r.transcriptSha256 !== sha) throw new ManualCaptionError("Transcript fingerprint mismatch.");
-  if (!Array.isArray(r.segments) || r.segments.length < 1 || r.segments.length > 10000) throw new ManualCaptionError("Authentic timestamped segments are required.");
+  if (!Array.isArray(r.segments) || r.segments.length < 4 || r.segments.length > 10000) throw new ManualCaptionError("Authentic timestamped segments are required.");
   let lastStart = -1;
   const segments = r.segments.map((s) => {
     const seg = obj(s);
@@ -64,6 +65,10 @@ export function parseManualCaptionReceipt(value: unknown, now = new Date(), env:
     lastStart = start;
     return { startSeconds: start / 1000, endSeconds: end / 1000, durationSeconds: (end - start) / 1000, text: str(seg.text, 4000, "caption segment") };
   });
+  const lastEnd = Math.max(...segments.map(s => s.endSeconds));
+  if (segments[0].startSeconds > 60 || lastEnd < duration - Math.max(30, Math.min(120, duration * 0.05))) {
+    throw new ManualCaptionError("Caption timestamps do not establish near-full video coverage.");
+  }
   // A hash proves integrity of the supplied bytes, not independent authenticity.
   // The trusted caller attests native-caption provenance; review remains pending.
   return { videoId, channelKey: channel.key, publisher: channel.name, channelId: expectedId, title, url: "https://www.youtube.com/watch?v=" + videoId, publishedAt, retrievedAt, receiptId, language, duration, transcriptText, sha, segments };
@@ -87,7 +92,7 @@ export function buildManualCaptionCheckpoint(r: ManualCaptionReceipt, previous?:
     transcript_error_code: null, transcript_error_message: null, transcript_retryable: false,
     transcript_attempt_count: (previous?.transcript_attempt_count ?? 0) + 1,
     transcript_metadata: {
-      ...(previous?.transcript_metadata ?? {}), retrievalProvider: "scrapecreators", transcriptSource: "native_caption",
+      ...(previous?.transcript_metadata ?? {}), source_scope: "full_native_caption", retrievalProvider: "scrapecreators", transcriptSource: "native_caption",
       manualReceipt: { version: "native-caption-receipt/1", id: r.receiptId, url: PRIVATE_RECEIPT, sha256: r.sha, channelId: r.channelId, retrievedAt: r.retrievedAt, segmentCount: r.segments.length },
     },
     video_review_status: "transcript_only", transcript_job_status: "pending", transcript_next_attempt_at: null,
@@ -126,7 +131,7 @@ export async function admitManualCaptionReceipt(r: ManualCaptionReceipt, client:
   // no scheduled-run reassignment, no new cron and no full-coverage claims.
   const runKey = "manual-video-receipt:" + r.videoId;
   const {error:runError} = await client.from("research_runs").upsert({
-    run_key:runKey,schedule_slot:"manual",scheduled_for:r.retrievedAt,status:"running",
+    run_key:runKey,schedule_slot:"manual",scheduled_for:r.retrievedAt,status:"blocked",
     accuracy_gate:"blocked",required_sources_complete:false,evidence_gate_passed:false,
     summary:"Private native-caption source receipt; review and evidence pending.",
     source_checks:[{source:r.channelKey,status:"checked",itemCount:1,note:"Exact-ID private receipt only; not full discovery coverage."}],
@@ -155,7 +160,7 @@ export async function admitManualCaptionReceipt(r: ManualCaptionReceipt, client:
   const {error:finishError} = await client.from("research_runs").update({
     status:"completed",completed_at:new Date().toISOString(),videos_found:1,transcripts_ready:1,
     updated_at:new Date().toISOString(),
-  }).eq("id",run.id).eq("status","running");
+  }).eq("id",run.id).eq("status","blocked");
   check(finishError,"Caption checkpoint saved; run ledger reconciliation required.");
   return result(data,"queued_review");
 }
