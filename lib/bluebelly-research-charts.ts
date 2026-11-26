@@ -130,6 +130,6 @@ export function buildMacroResearchCharts(rows:readonly MarketMonitorRow[],now:Da
   const eligible=!!trend&&!trend.stale&&!trend.missing&&sources.length>0;
   const date=(time:number)=>new Date(time*1000).toISOString().slice(0,10);
   const marks=eligible?trend!.points.map(p=>({label:date(p.time),value:p.close,sources})):[];
-  return finish({id:"macro-"+t.id,title:t.title,asOf:eligible?trend!.sourceDate:null,frequency:"daily",window:"90D",unit:t.unit,kind:"OBSERVED_HISTORY",expected:2,marks,missing:eligible?[]:[trend?.stale?"Stale source history":!sources.length?"Source unavailable":"Insufficient dated observations"],segments:eligible?trend!.segments.map(seg=>seg.map(p=>date(p.time))):[]});
+  return finish({id:"macro-"+t.id,title:t.title,asOf:eligible?trend!.sourceDate:null,frequency:"daily",window:"90D",unit:t.unit,kind:"OBSERVED_HISTORY",expected:Math.max(2,marks.length),marks,missing:eligible?[]:[trend?.stale?"Stale source history":!sources.length?"Source unavailable":"Insufficient dated observations"],segments:eligible?trend!.segments.map(seg=>seg.map(p=>date(p.time))):[]});
  });
 }
