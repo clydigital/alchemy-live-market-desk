@@ -235,3 +235,27 @@ test("fallback eligibility is limited to provider-capacity failures", () => {
   assert.equal(transcriptWorkerShouldUseBrowserFallback(providerError("provider_payment_required", false)), true);
   assert.equal(transcriptWorkerShouldUseBrowserFallback(providerError("transcript_missing", false)), false);
 });
+
+test("MD1: timeout uses existing configured fallback; missing credential skips primary transport and recovers", async () => {
+  for (const code of ["timeout", "provider_auth_error"] as const) {
+    let calls = 0;
+    const result = await retrieveTranscriptForWorker(VIDEO_ID, code === "timeout" ? "mock" : "", {
+      retrieveSupadata: async () => { throw new TranscriptApiError("mock", { code, httpStatus: null, retryable: code === "timeout" }); },
+      browserConfigured: () => false,
+      transcriptApiConfigured: () => true,
+      retrieveTranscriptApi: async () => { calls++; return retrieval("transcriptapi"); },
+    });
+    assert.equal(calls, 1);
+    assert.equal(transcriptProviderFromRetrieval(result), "transcriptapi");
+  }
+});
+test("MD1: HTTP 402 Supadata response enters configured fallback", async () => {
+  const { retrieveSupadataVideo } = await import("../lib/supadata.ts");
+  const result = await retrieveTranscriptForWorker(VIDEO_ID, "mock", {
+    retrieveSupadata: (id, key) => retrieveSupadataVideo(id, key, {fetchImpl: async () => new Response("{}", {status: 402})}),
+    browserConfigured: () => false,
+    transcriptApiConfigured: () => true,
+    retrieveTranscriptApi: async () => retrieval("transcriptapi"),
+  });
+  assert.equal(transcriptProviderFromRetrieval(result), "transcriptapi");
+});

@@ -213,6 +213,21 @@ export async function processTranscriptJob(
           failureKind,
           analysisOutcome,
         );
+        // Report summary rescue independently; it never restores transcript coverage.
+        const rescueCause = !geminiRescueEligible(failure) ? "capability_mismatch"
+          : job.videoAnalysisStatus === "summary_only" ? "summary_already_saved"
+          : !dependencies.videoAnalysisConfigured?.() || !dependencies.analyseVideo ? "not_configured" : null;
+        console.info(JSON.stringify({
+          kind: "provider_health_receipt_v1", provider: "transcript_chain",
+          capability: "timestamped_public_video_transcript", timestamp: now().toISOString(),
+          state: analysisOutcome?.status === "summary_only" || job.videoAnalysisStatus === "summary_only" ? "degraded" : "failed",
+          cause: failure.code, fallbackAttempted: shouldAnalyse,
+          attempts: [{provider: "transcript_chain", outcome: "failed", cause: failure.code, timestamp: attemptedAt},
+            {provider: "gemini", outcome: analysisOutcome?.status === "summary_only" ? "success" : analysisOutcome?.status === "failed" ? "failed" : "skipped",
+             cause: analysisOutcome?.status === "failed" ? analysisOutcome.errorCode : rescueCause, timestamp: now().toISOString()}],
+          residualCoverage: analysisOutcome?.status === "summary_only" || job.videoAnalysisStatus === "summary_only" ? "summary_only_no_transcript" : "no_transcript",
+          nextRetry: nextAttemptAt, retryOwner: "leased_transcript_worker",
+        }));
         timings.extraction += elapsed(clock, stageStartedAt);
         return outcome({
           itemId: job.id,
