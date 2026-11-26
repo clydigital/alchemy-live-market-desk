@@ -1,6 +1,7 @@
 import "server-only";
 import {createSupabaseServerClient} from "@/lib/supabase/server";
-import {projectRegistryRows,readFirstSnapshot,type RegistryRead} from "./bluebelly-hypothesis-registry";
+import {createSupabaseAdminClient} from "@/lib/supabase/admin";
+import {projectRegistryRows,readFirstSnapshot,canonicalGemIds,projectCanonicalGemReceipts,type RegistryRead} from "./bluebelly-hypothesis-registry";
 const SOURCE="7daf2da3-4f2e-4746-8fa8-fc957e293ded";
 const empty=(status:RegistryRead["status"]):RegistryRead=>({status,rows:[],truncated:false,retrievedAt:null});
 /** Only owner-initiated Research Library requests. No public reader, new collector or cache. */
@@ -27,6 +28,12 @@ export async function getOwnerHypothesisRegistry(now=new Date()):Promise<Registr
  await Promise.all(rows.slice(0,4).map(async row=>{
  try{row.snapshot=readFirstSnapshot(await read("/blocks/"+row.pageId+"/children?page_size=1"),row,now);}catch{failed=true;}
  }));
- return {status:failed?"PARTIAL":"AVAILABLE",rows,truncated:raw.has_more===true||rows.length>4,retrievedAt:new Date().toISOString()};
+ // At most one bounded private database read; do not promote or mutate evidence.
+ const ids=canonicalGemIds(rows);let receipts:unknown[]|null=null;
+ if(ids.length)try{
+ const {data,error}=await createSupabaseAdminClient().from("intelligence_evidence").select("id,provenance_urls,event_at,published_at,received_at").in("id",ids).limit(32);
+ if(!error&&Array.isArray(data))receipts=data;
+ }catch{/* Preserve saved snapshots; mark canonical readback unavailable. */}
+ return {status:failed?"PARTIAL":"AVAILABLE",rows:projectCanonicalGemReceipts(rows,receipts,now),truncated:raw.has_more===true||rows.length>4,retrievedAt:new Date().toISOString()};
  }catch{return empty("UNAVAILABLE");}
 }

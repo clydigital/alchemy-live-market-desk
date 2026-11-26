@@ -1,8 +1,9 @@
 /** Bounded projection of existing private Research Gap rows. No inference or writes. */
 export type EvidenceRole="CONFIRMS"|"WEAKENS"|"CONDITIONAL"|"AMPLIFIES"|"INVALIDATES"|"TRANSMITS"|"HORIZON_SHIFT";
-export type Gem={id:string;label:string;role:EvidenceRole;observation:string;sourceUrl:string;sourceDate:string|null;state:"RETAINED_SOURCE_RECEIPT"|"ATTRIBUTED"|"PENDING";premise:string};
+export type CanonicalReceipt={status:"MATCHED"|"MISSING"|"PROVENANCE_MISMATCH"|"UNAVAILABLE";receivedAt:string|null};
+export type Gem={id:string;label:string;role:EvidenceRole;observation:string;sourceUrl:string;sourceDate:string|null;state:"RETAINED_SOURCE_RECEIPT"|"ATTRIBUTED"|"PENDING";premise:string;canonicalReceipt?:CanonicalReceipt};
 export type HypothesisSnapshot={version:"evidence-gems/1";hypothesisId:string;reviewedOn:string;currentRead:string;conditional:string;nextTest:string;gems:Gem[]};
-export type RegistryRow={id:string;pageId:string;title:string;state:"ACTIVE"|"STALE";theme:string;currentRead:string;nextTrigger:string;lastChecked:string|null;lastEdited:string|null;snapshot:HypothesisSnapshot|null};
+export type RegistryRow={id:string;pageId:string;title:string;state:"ACTIVE"|"STALE";theme:string;confidence?:"LOW"|"MEDIUM"|"HIGH";decisionImpact?:string;currentRead:string;nextTrigger:string;lastChecked:string|null;lastEdited:string|null;snapshot:HypothesisSnapshot|null};
 export type RegistryRead={status:"AVAILABLE"|"PARTIAL"|"UNAVAILABLE"|"NOT_CONFIGURED"|"UNAUTHORISED";rows:RegistryRow[];truncated:boolean;retrievedAt:string|null};
 const obj=(v:unknown):Record<string,unknown>=>v&&typeof v==="object"&&!Array.isArray(v)?v as Record<string,unknown>:{};
 const list=(v:unknown):unknown[]=>Array.isArray(v)?v:[];
@@ -17,7 +18,7 @@ export function projectRegistryRows(raw:unknown,now:Date):RegistryRow[]{
  const seen=new Set<string>();return list(obj(raw).results).slice(0,12).flatMap(v=>{
  const r=obj(v),p=obj(r.properties),field=(key:string,kind="rich_text")=>rich(obj(p[key])[kind]),id=field("Investigation ID"),pageId=safeId(r.id),title=field("Gap","title"),state=str(obj(obj(p.Status).select).name,20);
  if(r.archived||r.in_trash||!pageId||!/^[-A-Za-z0-9_]{3,100}$/.test(id)||!title||!["ACTIVE","STALE"].includes(state)||seen.has(id))return [];
- seen.add(id);return [{id,pageId,title,state:state as RegistryRow["state"],theme:field("Story / Theme"),currentRead:field("Current Read"),nextTrigger:field("Next Trigger"),lastChecked:date(obj(obj(p["Last Checked"]).date).start,now),lastEdited:date(r.last_edited_time,now),snapshot:null}];
+ seen.add(id);return [{id,pageId,title,state:state as RegistryRow["state"],theme:field("Story / Theme"),confidence:(["LOW","MEDIUM","HIGH"].includes(str(obj(obj(p.Confidence).select).name,20))?str(obj(obj(p.Confidence).select).name,20) as RegistryRow["confidence"]:undefined),decisionImpact:field("Dossier Impact"),currentRead:field("Current Read"),nextTrigger:field("Next Trigger"),lastChecked:date(obj(obj(p["Last Checked"]).date).start,now),lastEdited:date(r.last_edited_time,now),snapshot:null}];
  });
 }
 export function parseHypothesisSnapshot(raw:unknown,row:RegistryRow,now:Date):HypothesisSnapshot|null{
@@ -35,4 +36,21 @@ export function readFirstSnapshot(blockResponse:unknown,row:RegistryRow,now:Date
  if(block.type!=="code"||code.language!=="json")return null;
  const raw=rich(code.rich_text,28000);if(!raw)return null;
  try{return parseHypothesisSnapshot(JSON.parse(raw),row,now);}catch{return null;}
+}
+
+/** Exact canonical evidence IDs only. Receipt presence is not hypothesis admission. */
+const canonicalId=(id:string)=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)?id.toLowerCase():"";
+export function canonicalGemIds(rows:RegistryRow[]):string[]{
+ return [...new Set(rows.slice(0,4).flatMap(row=>(row.snapshot?.gems??[]).slice(0,8).map(g=>canonicalId(g.id)).filter(Boolean)))];
+}
+export function projectCanonicalGemReceipts(rows:RegistryRow[],receipts:unknown[]|null,now:Date):RegistryRow[]{
+ const allowed=new Set(canonicalGemIds(rows)),byId=new Map((receipts??[]).map(v=>[canonicalId(str(obj(v).id,36)),obj(v)]));
+ return rows.map(row=>!row.snapshot?row:{...row,snapshot:{...row.snapshot,gems:row.snapshot.gems.map(g=>{
+ const id=canonicalId(g.id);if(!allowed.has(id))return g;
+ const r=byId.get(id),receivedAt=r?date(r.received_at,now):null;
+ const sameUrl=r&&list(r.provenance_urls).some(u=>sourceUrl(u)===g.sourceUrl);
+ const sameDate=r&&g.sourceDate&&[r.event_at,r.published_at].some(v=>date(v,now)?.slice(0,10)===g.sourceDate?.slice(0,10));
+ const status:CanonicalReceipt["status"]=receipts===null?"UNAVAILABLE":!r?"MISSING":sameUrl&&sameDate&&receivedAt?"MATCHED":"PROVENANCE_MISMATCH";
+ return {...g,canonicalReceipt:{status,receivedAt:status==="MATCHED"?receivedAt:null}};
+ })}});
 }
