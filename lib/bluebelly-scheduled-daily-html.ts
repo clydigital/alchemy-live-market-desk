@@ -63,7 +63,7 @@ export function renderScheduledChartPack(charts:readonly ResearchChart[]):string
    try{const u=new URL(s.url);return u.protocol==="https:"&&!u.username&&!u.password?['<a href="'+plain(u.href,2048)+'" target="_blank" rel="noopener noreferrer">'+plain(s.name,120)+'</a>']:[];}catch{return [];}
   });
   const available=c.status!=="UNAVAILABLE"&&safeSvg;
-  return '<figure class="research-chart" data-chart-hash="'+hash+'"><h3>'+plain(c.title,180)+'</h3><p class="small">'+plain(c.status+" · "+(c.asOf??"No eligible observation date")+" · "+c.frequency+" · "+c.window+" · "+c.unit,240)+'</p>'+
+  return '<figure class="research-chart" data-chart-hash="'+hash+'" data-chart-rendered="'+Boolean(available)+'"><h3>'+plain(c.title,180)+'</h3><p class="small">'+plain((available?c.status:"UNAVAILABLE")+" · "+(c.asOf??"No eligible observation date")+" · "+c.frequency+" · "+c.window+" · "+c.unit,240)+'</p>'+
    (available?svg:'<p>Chart unavailable: insufficient compatible source observations or static rendering rejected.</p>')+
    (c.missing.length?'<p class="small">Missing: '+plain(c.missing.join(", "),400)+'</p>':"")+
    (links.length?'<p class="small">Source links: '+links.join(" · ")+'</p>':"")+'</figure>';
