@@ -13,7 +13,8 @@ type Band="above_upper"|"below_lower"|"inside";
 type Cross="up"|"down"|"none";
 export type CloseHold={boundary:"ema"|"upper"|"lower";direction:"up"|"down";crossedOn:string;consecutiveCloses:number;status:"BREAK_ONLY"|"HOLD_CONFIRMED"};
 export type EmaObservation={frame:Frame;period:number;multiplier:number;asOf:string;anchorDay:string;sampleCount?:number;requiredReadySamples?:number;closeHolds?:CloseHold[];warmup:"READY"|"SHORT_WARMUP";ema:number;upper:number;lower:number;distancePct:number;side:State;band:Band;windows:Record<"1"|"3"|"5",{returnPct:number;approach:"down_to"|"up_to"|"away"|"none";emaCross:Cross;upperCross:Cross;lowerCross:Cross;events:{session:string;boundary:"ema"|"upper"|"lower";direction:"up"|"down"}[]}|null>};
-export type EquityEmaScan={asOf:string;method:"FIRST_CLOSE_EMA_ROLLING_CLOSE_POPULATION_SD";observations:EmaObservation[];unavailable:string[]};
+export type RecentSessionQuality={status:"VERIFIED"|"MISSING_SESSIONS"|"STALE"|"UNVERIFIED_CALENDAR";expectedSession:string|null;missingSessions:string[];unexpectedSessions:string[]};
+export type EquityEmaScan={asOf:string;method:"FIRST_CLOSE_EMA_ROLLING_CLOSE_POPULATION_SD";observations:EmaObservation[];unavailable:string[];recentSessionQuality?:RecentSessionQuality};
 const periods=EMA_PERIODS.map((period,i)=>[period,EMA_WIDTHS[i]] as const);
 const day=(t:number)=>new Date(t*1000).toISOString().slice(0,10);
 const key=(t:number,frame:Frame)=>{const d=new Date(t*1000);if(frame==="M")return day(t).slice(0,7);if(frame==="W"){d.setUTCDate(d.getUTCDate()-((d.getUTCDay()+6)%7));return day(d.getTime()/1000);}return day(t);};
@@ -28,19 +29,24 @@ const pct=(v:number,base:number)=>(v/base-1)*100;
 export function scanEquityEma(input:readonly EmaPoint[],timeZone:string,now=new Date()):EquityEmaScan|null{
  const local=localDay(now,timeZone),usExpected=timeZone==="America/New_York"?expectedHomeEtfSession(now):null;const bars=[...new Map(input.filter(b=>Number.isFinite(b.time)&&b.time>0&&Number.isFinite(b.close)&&b.close>0&&day(b.time)<=local.date&&(timeZone==="America/New_York"?!!usExpected&&day(b.time)<=usExpected:day(b.time)<local.date||(!local.weekend&&local.hour>=18))).map(b=>[day(b.time),b])).values()].sort((a,b)=>a.time-b.time);
  if(!bars.length)return null;const at=bars.length-1,p=bars[at],asOf=day(p.time),observations:EmaObservation[]=[],unavailable:string[]=[];
- // Only the official US calendar can certify consecutiveness today.
- const recentDays=new Set(bars.slice(-6).map(b=>day(b.time)));
- let contiguous=timeZone==="America/New_York"&&asOf===usExpected&&bars.length>=6;
- if(contiguous){
-  let t=p.time;
-  for(let n=0;n<6;t-=86400){
+ // Check the six expected completed sessions, not the last six supplied bars.
+ const recentSessionQuality:RecentSessionQuality={status:"UNVERIFIED_CALENDAR",expectedSession:usExpected,missingSessions:[],unexpectedSessions:[]};
+ if(timeZone==="America/New_York"&&usExpected){
+  const expectedDays:string[]=[];
+  let official=true;
+  for(let t=Date.parse(usExpected+"T00:00:00Z")/1000;expectedDays.length<6;t-=86400){
    const d=day(t);
-   if(usEquitySessionCalendarBasis(d)!=="OFFICIAL_NYSE_2026_2028"){contiguous=false;break;}
-   if(scheduledUsEquityCloseHourET(d)===null)continue;
-   if(!recentDays.has(d)){contiguous=false;break;}
-   n++;
+   if(usEquitySessionCalendarBasis(d)!=="OFFICIAL_NYSE_2026_2028"){official=false;break;}
+   if(scheduledUsEquityCloseHourET(d)!==null)expectedDays.push(d);
+  }
+  if(official){
+   const supplied=new Set(bars.map(b=>day(b.time)));
+   recentSessionQuality.missingSessions=expectedDays.filter(d=>!supplied.has(d));
+   recentSessionQuality.unexpectedSessions=bars.map(b=>day(b.time)).filter(d=>d>=expectedDays[5]&&d<=usExpected&&!expectedDays.includes(d));
+   recentSessionQuality.status=asOf!==usExpected?"STALE":recentSessionQuality.missingSessions.length||recentSessionQuality.unexpectedSessions.length?"MISSING_SESSIONS":"VERIFIED";
   }
  }
+ const contiguous=recentSessionQuality.status==="VERIFIED";
  for(const frame of ["D","W","M"] as const){
  const byIndex=new Map<number,EmaPoint[]>();for(let i=Math.max(0,at-5);i<=at;i++)byIndex.set(i,anchors(bars,frame,i));
  for(const [period,multiplier] of periods){
@@ -79,5 +85,5 @@ export function scanEquityEma(input:readonly EmaPoint[],timeZone:string,now=new 
   }
   observations.push({frame,period,multiplier,asOf,...cur,distancePct:pct(p.close,cur.ema),side,band,windows,closeHolds});
  }}
- return {asOf,method:"FIRST_CLOSE_EMA_ROLLING_CLOSE_POPULATION_SD",observations,unavailable};
+ return {asOf,method:"FIRST_CLOSE_EMA_ROLLING_CLOSE_POPULATION_SD",observations,unavailable,recentSessionQuality};
 }
