@@ -8,6 +8,7 @@ import {projectNewsroomEditorial} from "./bluebelly-newsroom-editorial.ts";
 import {recentBankDecisions} from "./bluebelly-bank-decision-snapshots.ts";
 import {recentReportedEditorial} from "./bluebelly-reported-editorial.ts";
 import {selectPostEventRecaps} from "./bluebelly-post-event-recap.ts";
+import {nov27NewsroomEditorial} from "./bluebelly-nov27-newsroom.ts";
 import {weekAheadNewsroomEditorial} from "./bluebelly-week-ahead-newsroom.ts";
 import {nvidiaCrisisNewsroomItem} from "./bluebelly-nvidia-crisis-editorial.ts";
 import {faaCrisisNewsroomItem} from "./bluebelly-faa-crisis-editorial.ts";
@@ -29,6 +30,7 @@ export function publicNewsroomEditorials(
   selectPostEventRecaps(news,now,8),reader,now,
  );
  result.push(...weekAheadNewsroomEditorial(now,blueDeskPublicHref("/blue-desk/newsroom/week-ahead",host)));
+ result.push(...nov27NewsroomEditorial(now,blueDeskPublicHref("/blue-desk/newsroom/nov-27",host)));
  const nvidiaCrisis=nvidiaCrisisNewsroomItem(now,reader);
  if(nvidiaCrisis)result.push(nvidiaCrisis);
  const faaCrisis=faaCrisisNewsroomItem(now,reader);
