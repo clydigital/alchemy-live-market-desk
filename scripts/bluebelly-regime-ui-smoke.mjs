@@ -251,7 +251,7 @@ try{
       .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi,"")
       .replace(/<img\b[^>]*>/gi,"")
       .replace(/<link\b(?=[^>]*\brel=["']preload["'])[^>]*>/gi,"");
-   assertHtml(view.html,'data-markets-working-modes="four"',
+   assertHtml(view.html,'data-markets-working-modes="five"',
       'data-v7-treasury-ladder="source-dated-us-only"',
       'data-market-change-screener="read-only"');
    // All Assets is now the first screen. Its open, searchable instrument table
@@ -261,7 +261,7 @@ try{
    const first=await waitResponse("/markets",code=>code===307);
    if(first.status!==307)throw Error("Default Markets must lead to Screener");
    const scanner=await waitResponse("/markets/scanner");
-   assertHtml(scanner.html,'data-markets-working-modes="four"',"Stock screener","Stock heatmap","Currency strength");
+   assertHtml(scanner.html,'data-markets-working-modes="five"',"Stock screener","Stock heatmap","Currency strength");
    const compare=await waitResponse("/markets?mode=compare");
    assertHtml(compare.html,'data-market-breadth-watch="research-first"',
       'data-market-change-screener="read-only"');
@@ -269,7 +269,11 @@ try{
    if(compare.html.includes('data-v7-etf-rotation="source-matched"')||compare.html.includes("Rotation map"))throw Error("Redundant Compare graph remains");
    const watch=await waitResponse("/markets?mode=watch");
    assertHtml(watch.html,'data-market-divergence-watch="read-only"',
-      'data-markets-working-modes="four"',"Same-session ETF price returns");
+      'data-markets-working-modes="five"',"Same-session ETF price returns");
+   const risk=await waitResponse("/markets?mode=risk");
+   assertHtml(risk.html,'data-markets-risk="source-dated"','data-institutional-risk="implied-var-v1"');
+   if(risk.html.includes('data-market-change-screener="read-only"'))throw Error("Risk mode unexpectedly renders asset screener");
+   if(compare.html.includes('data-institutional-risk="implied-var-v1"')||watch.html.includes('data-institutional-risk="implied-var-v1"'))throw Error("Risk monitor duplicated");
    const watch3d=await waitResponse("/markets?mode=watch&window=3D");
    assertHtml(watch3d.html,'data-market-divergence-watch="read-only"',
       'Divergence comparison window',"3D");
