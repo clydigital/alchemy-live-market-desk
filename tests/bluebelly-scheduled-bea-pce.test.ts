@@ -146,3 +146,31 @@ test("official 2026 BEA dates seed the existing macro collector, with DST-correc
   ...event("2026-11-25","October 2026"),sourceUrl:"https://fake.example/schedule",
  }],new Date("2026-10-30T00:00:00Z")).length,0);
 });
+
+
+test("October 2026 original BEA core wording with also retains exact metric and period guards",async()=>{
+ const october={...bea,id:"us-bea-2026-11-25-personal-income-outlays-oct-2026",
+  reference_period:"October 2026",release_date:"2026-11-25T13:30:00.000Z"};
+ // Exact relevant original-source clauses, 25 Nov 2026, BEA 26–51.
+ const body=String.raw`<h1>Personal Income and Outlays, October 2026</h1>
+ <p>From the preceding month, the PCE price index for October increased 0.3 percent.
+ Excluding food and energy, the PCE price index also increased 0.3 percent.</p>
+ <p>From the same month one year ago, the PCE price index for October increased 3.8 percent.
+ Excluding food and energy, the PCE price index increased 3.3 percent from one year ago.</p>`;
+ const expected="Headline PCE +0.3% m/m; +3.8% y/y; Core PCE +0.3% m/m; +3.3% y/y";
+ assert.equal(parseBeaPceActual(october.release_name,october.reference_period,body)?.actual,expected);
+ assert.equal(parseBeaPceActual(october.release_name,"September 2026",body),null);
+ assert.equal(parseBeaPceActual(october.release_name,october.reference_period,body.replace("also increased 0.3 percent","also changed 0.3 percent")),null);
+ assert.equal(parseBeaPceActual(october.release_name,october.reference_period,body.replace("3.3 percent","")),null);
+ const url=beaPceReleaseUrl(october.release_name,october.reference_period,october.release_date)!;
+ const fetcher=(async(target:RequestInfo|URL)=>{
+  assert.equal(String(target),url);
+  return {ok:true,status:200,url,text:async()=>body} as Response;
+ }) as typeof fetch;
+ const result=await resolveOfficialActual(october,fetcher);
+ assert.equal(result.actual,expected);
+ assert.deepEqual(parseOfficialBeaPceMetricRows(result.actual).map(row=>[row.metric_key,row.actual]),[
+  ["pce_headline_mom",0.3],["pce_headline_yoy",3.8],
+  ["pce_core_mom",0.3],["pce_core_yoy",3.3],
+ ]);
+});
