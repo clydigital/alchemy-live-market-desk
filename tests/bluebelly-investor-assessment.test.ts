@@ -121,3 +121,18 @@ test("stale review takes precedence over incomplete coverage",()=>{
  assert.equal(out.status,"STALE");
  assert.deepEqual(out.rows,{});
 });
+
+
+test("successful NO_CHANGE checkpoint is displayed separately from evidence qualification",()=>{
+ const board=readFileSync(new URL("../components/blue-desk/InvestorMindsetBoard.tsx",import.meta.url),"utf8");
+ assert.match(board,/Last successful pipeline review/);
+ assert.match(board,/No material change recorded; prior assessment date retained/);
+ assert.match(board,/assessment\.status!=="RESEARCHED"\?" · Review completion does not clear evidence or assessment warnings\."/);
+ assert.match(board,/data-fundamental-status=\{assessment\.status\}/);
+ const input=selection();
+ input.presentation!.health.executionDegraded=true;
+ const out=projectInvestorAssessment(input,now);
+ assert.equal(out.status,"DEGRADED");
+ assert.equal(out.asOf,"2026-11-14T02:30:00Z");
+ assert.deepEqual(out.rows,{});
+});
