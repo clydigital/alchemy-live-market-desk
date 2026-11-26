@@ -10,7 +10,7 @@ import {
   type GeminiVideoAnalysisOutcome,
   type TranscriptWorkerStore,
 } from "../lib/transcript-worker.ts";
-import { transcriptProviderFromRetrieval, TranscriptApiError, type TranscriptApiRetrieval } from "../lib/transcriptapi.ts";
+import { transcriptProviderFromRetrieval, TranscriptApiError, type TranscriptApiRetrieval, type ProviderHealthReceipt } from "../lib/transcriptapi.ts";
 import type { VideoRetrievalFailureKind } from "../lib/video-retrieval-failure.ts";
 
 const start = new Date("2026-09-14T00:00:00.000Z");
@@ -99,6 +99,7 @@ class MemoryStore implements TranscriptWorkerStore {
   failEvidenceOnce = false;
   lastFailureKind: VideoRetrievalFailureKind | null = null;
   lastAnalysisOutcome: GeminiVideoAnalysisOutcome = null;
+  lastProviderReceipt: ProviderHealthReceipt | undefined;
 
   async claim(input: { workerId: string; batchSize: number; leaseSeconds: number }) {
     const leaseExpired = this.state === "running" && Date.parse(this.current.leaseExpiresAt) <= this.now;
@@ -138,11 +139,13 @@ class MemoryStore implements TranscriptWorkerStore {
     next: string | null,
     failureKind: VideoRetrievalFailureKind,
     analysisOutcome: GeminiVideoAnalysisOutcome = null,
+    providerReceipt?: ProviderHealthReceipt,
   ) {
     assert.equal(this.owns(candidate), true);
     this.extractionFailures += 1;
     this.lastFailureKind = failureKind;
     this.lastAnalysisOutcome = analysisOutcome;
+    this.lastProviderReceipt = providerReceipt;
     this.state = error.retryable ? "retryable" : "blocked";
     this.current = { ...this.current, transcriptStatus: error.retryable ? "missing" : "unavailable", leaseExpiresAt: next ?? this.current.leaseExpiresAt };
   }
@@ -383,4 +386,26 @@ test("completed transcript evidence is visible through the normal evidence set a
   const replay = await processTranscriptJob({ ...store.current }, { ...workerDependencies(store, calls), maxAttempts: 6 });
   assert.equal(replay.status, "completed");
   assert.equal(store.evidenceWrites, writes);
+});
+
+test("MD1 exhausted transport chain survives normalization and is checkpointed with actual Gemini outcome", async () => {
+ const {retrieveTranscriptForWorker} = await import("../lib/transcript-worker-retrieval.ts");
+ const store = new MemoryStore(); store.state="running"; store.current=job();
+ const outcome=await processTranscriptJob({...store.current},{
+  store, now:()=>start, leaseSeconds:300,maxAttempts:6,
+  extract:()=>retrieveTranscriptForWorker(store.current.videoId,"mock-key",{
+   retrieveSupadata:async()=>{throw new TranscriptApiError("secret upstream detail",{code:"provider_rate_limit",httpStatus:429,retryable:true,retryAfterSeconds:120})},
+   browserConfigured:()=>true,
+   retrieveBrowser:async()=>{throw new TranscriptApiError("browser unavailable",{code:"browser_operator_unavailable",httpStatus:null,retryable:true})},
+   transcriptApiConfigured:()=>false,
+  }),interpret:async()=>review,videoAnalysisConfigured:()=>false,
+ });
+ assert.equal(outcome.status,"retryable");
+ const receipt=store.lastProviderReceipt!;
+ assert.deepEqual(receipt.attempts.map(a=>[a.provider,a.outcome]),[["supadata","failed"],["chrome_operator","failed"],["transcriptapi","skipped"],["gemini","skipped"]]);
+ assert.equal(receipt.nextRetry,new Date(start.getTime()+120000).toISOString());
+ assert.equal(receipt.fallbackAttempted,true);
+ assert.equal(receipt.state,"failed");
+ assert.ok(!JSON.stringify(receipt).includes("secret upstream detail"));
+ assert.equal(store.extractionFailures,1);
 });

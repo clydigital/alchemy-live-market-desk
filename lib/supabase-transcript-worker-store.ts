@@ -18,7 +18,7 @@ import {
   type GeminiVideoAnalysisOutcome,
   type TranscriptWorkerStore,
 } from "./transcript-worker.ts";
-import { transcriptProviderFromRetrieval, type TranscriptApiError, type TranscriptApiRetrieval } from "./transcriptapi.ts";
+import { transcriptProviderFromRetrieval, type TranscriptApiError, type TranscriptApiRetrieval, type ProviderHealthReceipt } from "./transcriptapi.ts";
 import type { VideoRetrievalFailureKind } from "./video-retrieval-failure.ts";
 
 type ClaimedRow = {
@@ -174,9 +174,26 @@ export class SupabaseTranscriptWorkerStore implements TranscriptWorkerStore {
     nextAttemptAt: string | null,
     failureKind: VideoRetrievalFailureKind,
     analysisOutcome: GeminiVideoAnalysisOutcome = null,
+    providerReceipt?: ProviderHealthReceipt,
   ) {
+    // Read only the current lease's metadata; preserve existing provenance keys.
+    let metadataPatch: Record<string, unknown> = {};
+    if (providerReceipt) {
+      const { data, error } = await this.client.from("research_intake_items")
+        .select("transcript_metadata").eq("id", job.id).eq("transcript_job_status", "running")
+        .eq("transcript_claim_token", job.claimToken).maybeSingle<{transcript_metadata: unknown}>();
+      if (error) {
+        // Do not sacrifice the existing failure/retry checkpoint for diagnostics.
+        console.warn(JSON.stringify({kind:"provider_health_receipt_persistence",state:"failed",cause:"metadata_read_failed"}));
+      } else {
+        if (!data) throw new LostTranscriptLeaseError();
+        const prior = data.transcript_metadata;
+        metadataPatch = {transcript_metadata: {...(prior && typeof prior === "object" && !Array.isArray(prior) ? prior : {}), providerHealthReceipt: providerReceipt}};
+      }
+    }
     const analysisPayload = analysisOutcome ? geminiAnalysisPayload(analysisOutcome, attemptedAt) : null;
     await this.ownedUpdate(job, {
+      ...metadataPatch,
       transcript_status: failure.retryable ? "missing" : "unavailable",
       transcript_provider: "supadata",
       transcript_attempted_at: attemptedAt,
