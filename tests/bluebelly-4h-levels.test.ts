@@ -50,3 +50,19 @@ test("priority batch planning deduplicates, excludes unsupported, caps fanout an
  assert.equal(planFourHWatch(priority,allowed,undefined).symbols.length,0);
  assert.equal(planFourHWatch(priority,allowed,"scan").symbols.length,6);
 });
+
+test("US 4H session close, Thanksgiving and early-close continuity",()=>{
+ const bar=(datetime:string,close=100)=>({datetime,close:String(close)});
+ const pwr=(v:ReturnType<typeof bar>[])=>({meta:{symbol:"PWR",interval:"4h",currency:"USD"},values:v});
+ // Synthetic regular-session seed, official recent window covers Nov 25 and Nov 27.
+ const recent=[bar("2026-11-25 14:30:00"),bar("2026-11-25 18:30:00"),bar("2026-11-27 14:30:00",110)];
+ const holiday=parseFourH(pwr(recent.slice(0,2)),"PWR",new Date("2026-11-26T22:00:00Z"));
+ assert.equal(holiday.status,"INDICATIVE");assert.equal(holiday.asOf,"2026-11-25T21:00:00.000Z");assert.equal(holiday.gapCount,0);
+ const before=parseFourH(pwr(recent),"PWR",new Date("2026-11-27T17:59:00Z"));
+ assert.equal(before.sampleCount,2);
+ const after=parseFourH(pwr(recent),"PWR",new Date("2026-11-27T18:00:00Z"));
+ assert.equal(after.sampleCount,3);assert.equal(after.asOf,"2026-11-27T18:00:00.000Z");assert.equal(after.gapCount,0);
+ assert.equal(parseFourH(pwr(recent.filter((_,i)=>i!==1)),"PWR",new Date("2026-11-27T18:00:00Z")).gapCount,1);
+ assert.equal(parseFourH(pwr(recent.slice(0,2)),"PWR",new Date("2026-11-27T18:00:00Z")).status,"STALE");
+ assert.equal(parseFourH(pwr([...recent,bar("2026-11-27 18:30:00")]),"PWR",new Date("2026-11-27T22:00:00Z")).status,"INVALID_HISTORY");
+});

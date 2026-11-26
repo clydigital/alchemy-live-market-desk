@@ -177,7 +177,7 @@ export default async function PrivatePowerStack({searchParams}:{searchParams:Pro
   const longHistory=requested&&reference?.price!=null&&reference.asOf?await readLongEquityHistory(requested,{price:reference.price,asOf:reference.asOf}):null;
   const fourHAllowed=TECHNICAL_UNIVERSE.filter(x=>findStockIdentity(x.ticker)?.theme!=="REAL_ESTATE"&&!["XLRE","ITB","XHB"].includes(x.ticker)).map(x=>x.ticker);
   const fourHPriority=ready?[...holdings.map(x=>marketTicker(x.ticker)),...(ideaRecords??[]).map(x=>marketTicker(x.ticker)),...watchlist.map(x=>marketTicker(x.ticker)),...BLUEBELLY_STOCK_UNIVERSE.map(x=>x.ticker),...fourHAllowed]:[];
-  const fourHPlan=planFourHWatch(fourHPriority,fourHAllowed,params.fourh);
+  const fourHPlan=planFourHWatch(fourHPriority,fourHAllowed,params.fourh??(requested?undefined:"1"));
   const fourHSelected=ready&&requested&&fourHAllowed.includes(requested.ticker)?requested.ticker:null;
   const fourHSymbols=fourHPlan.symbols.length?fourHPlan.symbols:fourHSelected?[fourHSelected]:[];
   const fourHWatch=ready&&fourHSymbols.length?await readFourHWatch(new Date(),fourHSymbols):null;

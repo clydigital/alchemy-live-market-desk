@@ -61,10 +61,10 @@ const cachedFourH=unstable_cache(async(symbol:FourHSymbol,bucket:number):Promise
   if(!response.ok)return emptyFourH(symbol,"Provider HTTP "+response.status);
   return parseFourH(await response.json(),symbol,new Date());
  }catch{return emptyFourH(symbol,"Provider request or response unavailable");}
-},["bb-owner-4h-v2"],{revalidate:3600});
+},["bb-owner-4h-v3"],{revalidate:3600});
 export async function readFourH(symbol:string,now=new Date()):Promise<FourHRead>{
  if(!(FOUR_H_SYMBOLS as readonly string[]).includes(symbol)&&!TECHNICAL_UNIVERSE.some(x=>x.ticker===symbol))return emptyFourH("Unsupported","Instrument not allowlisted");
- return cachedFourH(symbol as FourHSymbol,Math.floor(+now/3600000));
+ return cachedFourH(symbol as FourHSymbol,Math.floor(+now/(4*3600000)));
 }
 
 /** Bounded shared scan: no automatic per-holding fanout or extra scheduler. */
