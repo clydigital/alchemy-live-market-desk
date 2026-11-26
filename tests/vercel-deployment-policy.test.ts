@@ -28,12 +28,12 @@ test("Vercel owns acquisition and bounded source-only X retry cadence", () => {
   assert.equal(has("/api/cron/research/evening", "30 13 * * *"), true);
   assert.equal(has("/api/cron/research/evening-watchdog", "35 13 * * *"), true);
 
-  for (const schedule of ["55 1 * * *","15 2 * * *"]) {
-    assert.equal(has("/api/cron/research/morning-intelligence", schedule), true);
-  }
-  for (const schedule of ["55 13 * * *","15 14 * * *"]) {
-    assert.equal(has("/api/cron/research/evening-intelligence", schedule), true);
-  }
+  assert.equal(has("/api/cron/research/morning-intelligence", "55 1 * * *"), true);
+  assert.equal(has("/api/cron/research/evening-intelligence", "55 13 * * *"), true);
+  assert.equal(has("/api/cron/research/morning-intelligence-watchdog", "45 7 * * *"), true);
+  assert.equal(has("/api/cron/research/evening-intelligence-watchdog", "45 19 * * *"), true);
+  assert.equal(has("/api/cron/research/morning-intelligence", "15 2 * * *"), false);
+  assert.equal(has("/api/cron/research/evening-intelligence", "15 14 * * *"), false);
 
   assert.equal(
     config.rewrites?.some((entry: { source?: string }) => entry.source === "/api/cron/research/:path*") ?? false,
@@ -54,7 +54,7 @@ test("GitHub Actions is a delayed fallback for the same canonical slots", () => 
 
  test("scheduled fallback and X retries remain bounded", () => {
   assert.equal(config.crons.length, 38);
-  assert.equal(config.crons.filter((c: {path: string}) => c.path.endsWith("-intelligence")).length, 4);
+  assert.equal(config.crons.filter((c: {path: string}) => /-intelligence(?:-watchdog)?$/.test(c.path)).length, 4);
   assert.equal((liveWorkflow.match(/^\s+- cron:/gm) ?? []).length, 2);
   const jules = readFileSync(new URL("../.github/workflows/jules-market-brief-ci-feedback.yml", import.meta.url), "utf8");
   assert.match(jules, /workflow_run:/);

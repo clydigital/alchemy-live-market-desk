@@ -5,5 +5,5 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 export async function GET(request: Request) {
-  return handleScheduledResearchIntelligence(request, "evening");
+  return handleScheduledResearchIntelligence(request, "evening", { sourceOnlyRetry: true });
 }

@@ -290,14 +290,19 @@ function handoffWarnings(
 export async function handleScheduledResearchIntelligence(
   request: Request,
   slot: CanonicalResearchSlot,
+  options: { sourceOnlyRetry?: boolean } = {},
 ) {
   if (!authorised(request)) return response({ error: "Unauthorized Vercel Cron request." }, 401);
   if (!process.env.CRON_SECRET?.trim()) return response({ error: "CRON_SECRET is not configured." }, 503);
-  // Old retry schedule remains installed until both live slots pass readback.
+  // Relocated watchdog retries are X-only and cannot start legacy intelligence.
+  if (options.sourceOnlyRetry && !scheduledSourceOnlyEnabled(process.env)) {
+    return response({ status: "not_required", slot, message: "Source-only X retry disabled in legacy mode." });
+  }
+  // Primary continuation remains installed; redistributed watchdogs run only in source-only mode.
   // In source-only mode the collector owns terminalisation; this route must
   // never launch a model, freeze a Story, or write a Daily Brief.
   if (scheduledSourceOnlyEnabled(process.env)) {
-    // Existing five-minute continuation slots are idle in source-only mode.
+    // Existing continuation and redistributed watchdog slots are idle in source-only mode.
     // Reuse them for due failed/incomplete X checks; the DB claim and cooldown
     // prevent races with acquisition. No new schedule or canonical writer.
     const wire=scheduledResearchEnabled()?await getXWireDurable({retryOnly:true}):null;

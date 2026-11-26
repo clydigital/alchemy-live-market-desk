@@ -60,8 +60,8 @@
       "schedule": "55 1 * * *"
     },
     {
-      "path": "/api/cron/research/morning-intelligence",
-      "schedule": "15 2 * * *"
+      "path": "/api/cron/research/morning-intelligence-watchdog",
+      "schedule": "45 7 * * *"
     },
     {
       "path": "/api/cron/research/evening",
@@ -76,8 +76,8 @@
       "schedule": "55 13 * * *"
     },
     {
-      "path": "/api/cron/research/evening-intelligence",
-      "schedule": "15 14 * * *"
+      "path": "/api/cron/research/evening-intelligence-watchdog",
+      "schedule": "45 19 * * *"
     },
     {
       "path": "/api/cron/research/morning-watchdog",
