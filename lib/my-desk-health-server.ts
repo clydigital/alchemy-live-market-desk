@@ -4,6 +4,9 @@ import {X_CORE_ROSTER} from "./x-sweep-core.ts";
 import {xWireFreshCheckComplete,xWireLiveFreshnessHours} from "./x-wire-pagination.ts";
 import {CREATOR_ROSTER,isRatesOutlookTitle} from "./video-intake-policy.ts";
 import {lane,latest,earliest,fresh,failureCategory,myt,type HealthLane} from "./my-desk-health-core.ts";
+import {getOwnerWorkReceiptLanes} from "./my-desk-work-receipt-server";
+import {getOwnerCreatorSignalDigest} from "./bluebelly-creator-signals-server";
+import {augmentCreatorLane} from "./my-desk-work-receipt-core";
 
 type DB=ReturnType<typeof createSupabaseAdminClient>;
 const categories=(errors:(string|null|undefined)[])=>[...new Set(errors.map(failureCategory).filter(Boolean))].join("; ")||"Not recorded";
@@ -39,7 +42,7 @@ async function creators(db:DB,now:Date){
  if(day.error||last.error||attempt.error)throw Error("creator receipt read failed");
  const raw=day.data??[];
  const rows=raw.filter(r=>r.publisher!=="ClearValueTax"||isRatesOutlookTitle(r.title));
- const unique=[...new Map(rows.map(r=>[r.external_id||r.publisher+":"+r.title,r])).values()];
+ const unique=[...new Map([...rows].reverse().map(r=>[r.external_id||r.publisher+":"+r.title,r])).values()];
  const ready=unique.filter(r=>r.transcript_status==="ready").length;
  const missing=unique.filter(r=>r.transcript_status!=="ready");
  const order=new Map<string,number>(names.map((n,i)=>[n,i]));
@@ -88,10 +91,12 @@ async function publication(db:DB){
 }
 export async function getMyDeskHealth(now=new Date()):Promise<HealthLane[]>{
  let db:DB;try{db=createSupabaseAdminClient()}catch{return ["X Wire","Creator discovery / transcripts","Scheduled source acquisition","MacroPulse","AI16","Material Events","Research Investigation","Market data / EMA","Research digestion / handoff","Publication / consumer readback"].map(label=>unknown(label,"Database unavailable"))}
+ const work=getOwnerWorkReceiptLanes(now);
+ const creator=safe("Creator discovery / transcripts",async()=>{const [base,digest]=await Promise.all([creators(db,now),getOwnerCreatorSignalDigest(now)]);return augmentCreatorLane(base,digest.digest,now)});
  return Promise.all([
- safe("X Wire",()=>xwire(db,now)),safe("Creator discovery / transcripts",()=>creators(db,now)),safe("Scheduled source acquisition",()=>sourceRun(db,now)),safe("MacroPulse",()=>macro(db)),
- Promise.resolve(unknown("AI16","No verified current scheduled-task receipt linked")),
- Promise.resolve(unknown("Material Events","No verified current scheduled-task receipt linked")),
- Promise.resolve(unknown("Research Investigation","No verified current scheduled-task receipt linked; gap-case receipts shown separately")),
+ safe("X Wire",()=>xwire(db,now)),creator,safe("Scheduled source acquisition",()=>sourceRun(db,now)),safe("MacroPulse",async()=>{const r=(await work).MacroPulse;return r.success||r.state!=="unknown"?r:macro(db)}),
+ safe("AI16",async()=>(await work).AI16),
+ safe("Material Events",async()=>(await work)["Material Events"]),
+ safe("Research Investigation",async()=>(await work)["Research Investigation"]),
  safe("Market data / EMA",()=>market(db)),safe("Research digestion / handoff",()=>gaps(db)),safe("Publication / consumer readback",()=>publication(db))]);
 }
