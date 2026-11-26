@@ -66,3 +66,16 @@ test("Dell source-reviewed numeric facts preserve GAAP vs derived cash-flow basi
  assert.match(col.cells.free_cash_flow.note??"",/2026-10-30/);
  assert.equal(col.cells.valuation.state,"MISSING");
 });
+
+ test("date-only SEC receipts admit verified metrics only after retrieval and filing day",()=>{
+ const dated={...row,published_at:null,source_retrieved_at:"2026-11-25T12:00:00Z"};
+ const observed=[fact("revenue",100)];
+ const result=buildIndustryComparison(["TEST"],[dated],observed,[],now)[0];
+ assert.equal(result.state,"VERIFIED_FILING");assert.equal(result.cells.revenue.value,100);
+ assert.match(result.availabilityNote??"",/Exact publication time unknown/);
+ for(const invalid of [{...dated,source_retrieved_at:null},{...dated,source_retrieved_at:"2026-11-27T00:00:00Z"},{...dated,source_retrieved_at:"2026-11-23T00:00:00Z"},{...dated,source_url:"https://example.com/report"},{...dated,published_at:"bad"},{...dated,published_at:"2026-11-27T00:00:00Z"},{...dated,filing_day:"2026-11-26"}]){
+ assert.equal(buildIndustryComparison(["TEST"],[invalid],observed,[],now)[0].state,"UNAVAILABLE");
+ }
+ assert.equal(buildIndustryComparison(["TEST"],[dated],[fact("revenue",100,"USD",{captured_at:"2026-11-27T00:00:00Z"})],[],now)[0].state,"UNAVAILABLE");
+ assert.equal(buildIndustryComparison(["TEST"],[dated],observed,[],new Date("2026-11-25T11:59:59Z"))[0].state,"UNAVAILABLE");
+ });

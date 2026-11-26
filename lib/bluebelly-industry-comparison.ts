@@ -16,13 +16,24 @@ export const COMPARISON_METRICS = [
  {key:"valuation",label:"Valuation / AFFO or P/E",unit:null}
 ] as const;
 export type ComparisonKey=typeof COMPARISON_METRICS[number]["key"];
-export type IssuerResultRow={id:string;ticker:string;company_name:string;fiscal_period:string;filing_day:string|null;published_at:string|null;source_url:string;verification_status:string};
+export type IssuerResultRow={id:string;ticker:string;company_name:string;fiscal_period:string;filing_day:string|null;published_at:string|null;source_retrieved_at?:string|null;source_url:string;verification_status:string};
 export type IssuerFactRow={result_id:string;metric_key:string;value_numeric:number|string|null;unit:string;accounting_basis:string;period_basis:string;source_url:string;verification_status:string;captured_at:string|null};
 export type ComparisonCell={state:"VERIFIED_NUMERIC"|"REVIEWED_NUMERIC"|"REVIEWED_TEXT"|"MISSING";value:number|null;unit:string|null;display:string|null;basis:string|null;sourceUrl:string|null;note:string|null};
-export type ComparisonColumn={ticker:string;company:string;fiscalPeriod:string|null;releaseDay:string|null;sourceUrl:string|null;basis:string|null;state:"VERIFIED_FILING"|"REVIEWED_SCORECARD"|"UNAVAILABLE";cells:Record<ComparisonKey,ComparisonCell>;guidance:string|null;nextTest:string|null};
+export type ComparisonColumn={ticker:string;company:string;fiscalPeriod:string|null;releaseDay:string|null;sourceUrl:string|null;basis:string|null;state:"VERIFIED_FILING"|"REVIEWED_SCORECARD"|"UNAVAILABLE";cells:Record<ComparisonKey,ComparisonCell>;guidance:string|null;nextTest:string|null;availabilityNote?:string};
 const day=(s:string|null|undefined)=>s&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&Number.isFinite(Date.parse(s+"T00:00:00Z"))?Date.parse(s+"T00:00:00Z"):NaN;
 const sec=(s:string)=>/^https:\/\/www\.sec\.gov\/Archives\/edgar\/data\/\d+\/\d+\/[^?#]+$/i.test(s);
 const https=(s:string)=>{try{const u=new URL(s);return u.protocol==="https:"&&!u.username&&!u.password&&u.pathname!=="/";}catch{return false;}};
+/** A date-only original filing may be shown after the recorded retrieval, never
+ * as a publication timestamp or a same-day/backdated event. */
+function receiptAvailable(r:IssuerResultRow,time:number):boolean{
+ if(r.published_at!==null){
+  const published=Date.parse(r.published_at);
+  return Number.isFinite(published)&&published<=time;
+ }
+ const retrieved=Date.parse(r.source_retrieved_at??"");
+ const filing=day(r.filing_day);
+ return sec(r.source_url)&&Number.isFinite(retrieved)&&retrieved>=filing&&retrieved<=time&&time>=filing+86400000;
+}
 const missing=():ComparisonCell=>({state:"MISSING",value:null,unit:null,display:null,basis:null,sourceUrl:null,note:null});
 function emptyCells():Record<ComparisonKey,ComparisonCell>{
  return Object.fromEntries(COMPARISON_METRICS.map(m=>[m.key,missing()])) as Record<ComparisonKey,ComparisonCell>;
@@ -48,8 +59,8 @@ export function buildIndustryComparison(tickers:readonly string[],results:readon
   const id=ticker.toUpperCase(), cells=emptyCells();
   const rows=results.filter(r=>r.ticker.toUpperCase()===id&&["partial","verified"].includes(r.verification_status)&&
    parseFiscalQuarter(r.fiscal_period)&&day(r.filing_day)>=cutoff&&day(r.filing_day)<=time&&
-   Number.isFinite(Date.parse(r.published_at??""))&&Date.parse(r.published_at??"")<=time)
-   .sort((a,b)=>String(b.filing_day).localeCompare(String(a.filing_day))||String(b.published_at).localeCompare(String(a.published_at)));
+   receiptAvailable(r,time))
+   .sort((a,b)=>String(b.filing_day).localeCompare(String(a.filing_day))||Number(Boolean(b.published_at))-Number(Boolean(a.published_at))||String(b.published_at??b.source_retrieved_at).localeCompare(String(a.published_at??a.source_retrieved_at)));
   const score=reviewed.filter(r=>r.ticker.toUpperCase()===id&&https(r.sourceUrl)&&day(r.releaseDay)>=cutoff&&day(r.releaseDay)<=time&&
    Date.parse(r.availableNotBefore??r.releaseDay+"T00:00:00Z")<=time).sort((a,b)=>b.releaseDay.localeCompare(a.releaseDay))[0];
   const row=rows[0];
@@ -76,7 +87,7 @@ export function buildIndustryComparison(tickers:readonly string[],results:readon
     cells.operating_margin={state:"VERIFIED_NUMERIC",value,unit:"%",display:display(value,"%"),basis:"Derived from matched GAAP revenue and operating income",sourceUrl:a.sourceUrl,note:"Same result and filing; not gross margin"};
    }
    const source=Object.values(cells).find(c=>c.sourceUrl)?.sourceUrl??null;
-   return {ticker,company:row.company_name,fiscalPeriod:row.fiscal_period,releaseDay:row.filing_day,sourceUrl:source,basis:"Quarter-specific SEC US-GAAP facts; missing metrics are not zero",state:source?"VERIFIED_FILING":"UNAVAILABLE",cells,guidance:null,nextTest:"Verify missing fields in the same original filing; reconcile current price and valuation separately."};
+   return {ticker,company:row.company_name,fiscalPeriod:row.fiscal_period,releaseDay:row.filing_day,sourceUrl:source,basis:"Quarter-specific SEC US-GAAP facts; missing metrics are not zero",availabilityNote:row.published_at===null?"Filing date only; evidence retrieved "+new Date(row.source_retrieved_at!).toISOString()+". Exact publication time unknown.":undefined,state:source?"VERIFIED_FILING":"UNAVAILABLE",cells,guidance:null,nextTest:"Verify missing fields in the same original filing; reconcile current price and valuation separately."};
   }
   if(score){
    for(const metric of score.metrics){

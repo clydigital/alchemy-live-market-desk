@@ -13,12 +13,13 @@ export async function readIndustryComparison(tickers:readonly string[],now=new D
  try{
   if(selected.length){
    const db=createSupabaseAdminClient();
-   const since=new Date(now.getTime()-90*86400000).toISOString();
+   const since=new Date(now.getTime()-90*86400000).toISOString().slice(0,10);
    const {data,error}=await db.from("issuer_earnings_results")
-    .select("id,ticker,company_name,fiscal_period,filing_day,published_at,source_url,verification_status")
+    .select("id,ticker,company_name,fiscal_period,filing_day,published_at,source_retrieved_at,source_url,verification_status")
     .in("ticker",selected).in("verification_status",["partial","verified"])
-    .gte("published_at",since).lte("published_at",now.toISOString())
-    .order("published_at",{ascending:false}).limit(80);
+    .gte("filing_day",since).lte("filing_day",now.toISOString().slice(0,10))
+    .or("published_at.lte."+now.toISOString()+",and(published_at.is.null,source_retrieved_at.lte."+now.toISOString()+")")
+    .order("filing_day",{ascending:false}).order("published_at",{ascending:false,nullsFirst:false}).limit(80);
    if(error)throw new Error("issuer_result_read_failed");
    results=(data??[]) as IssuerResultRow[];
    if(results.length){
