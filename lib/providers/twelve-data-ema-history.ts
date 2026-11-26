@@ -1,5 +1,6 @@
 import "server-only";
 import {unstable_cache} from "next/cache";
+import {FOUR_H_SYMBOLS,emptyFourH,parseFourH,type FourHSymbol,type FourHRead} from "../bluebelly-4h-levels.ts";
 import {BLUEBELLY_STOCK_UNIVERSE} from "../bluebelly-equity-universe.ts";
 import {calculateTechnicalLevels,exchangeDay,unavailableLevels,type Frame,type TechnicalLevels,type Bar} from "../ema-sd-levels.ts";
 export const TECHNICAL_UNIVERSE=[...BLUEBELLY_STOCK_UNIVERSE.filter(x=>x.region==="US").map(x=>({ticker:x.ticker,label:x.company,currency:"USD",timeZone:x.timeZone,kind:"stock"})),...["SPY","QQQ","IWM","SMH","SOXX","XLRE","ITB","XHB","XLK","XLP","XLY","XLE","XLF","XLI","XLV","XLU","XLB","XLC","TLT","HYG","LQD","GLD","SLV","USO","UUP"].map(ticker=>({ticker,label:ticker,currency:"USD",timeZone:"America/New_York",kind:"etf"}))];
@@ -46,4 +47,22 @@ export async function refreshTechnicalPilot(now=new Date()){
  const ticker=core[Math.floor(now.getTime()/86400000)%core.length];
  const s=await readTechnicalSnapshot(ticker,now);
  return {ticker,frames:s?.frames.map(f=>({frame:f.frame,status:f.status,sampleCount:f.sampleCount,asOf:f.asOf,ready:f.bands.filter(b=>b.status==="READY").length}))??[]};
+}
+
+/** Owner-requested only; never called by the existing daily pilot or default page. */
+const cachedFourH=unstable_cache(async(symbol:FourHSymbol,bucket:number):Promise<FourHRead>=>{
+ void bucket;
+ const key=process.env.TWELVEDATA_API_KEY?.trim();
+ if(!key)return emptyFourH(symbol,"Server credential missing");
+ const url=new URL("https://api.twelvedata.com/time_series");
+ for(const [k,v] of Object.entries({symbol,interval:"4h",timezone:"UTC",outputsize:"1200",format:"JSON",order:"ASC",apikey:key}))url.searchParams.set(k,v);
+ try{
+  const response=await fetch(url,{cache:"no-store",signal:AbortSignal.timeout(8000)});
+  if(!response.ok)return emptyFourH(symbol,"Provider HTTP "+response.status);
+  return parseFourH(await response.json(),symbol,new Date());
+ }catch{return emptyFourH(symbol,"Provider request or response unavailable");}
+},["bb-owner-4h-v1"],{revalidate:3600});
+export async function readFourH(symbol:string,now=new Date()):Promise<FourHRead>{
+ if(!(FOUR_H_SYMBOLS as readonly string[]).includes(symbol))return emptyFourH("Unsupported","Instrument not allowlisted");
+ return cachedFourH(symbol as FourHSymbol,Math.floor(+now/3600000));
 }
