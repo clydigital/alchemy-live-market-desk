@@ -26,7 +26,14 @@ Return a COMPREHENSIVE, GRANULAR analysis in the existing JSON schema:
    RISK — exposure, debt, leverage, earnings, financing, macro or alternative scenario raised by the creator;
    COUNTERCASE — an opposing interpretation or what would prove their view wrong;
    MECHANISM — a concrete cause-and-effect chain the creator advances;
-   RESEARCH QUESTION — a consequential unresolved claim worth independent verification.
+   RESEARCH QUESTION — a consequential unresolved claim worth independent verification;
+   IF–THEN — the creator's measurable premises (AND/OR conditions), mechanism, predicted outcome and horizon, UNLESS a rival or invalidation condition holds;
+   ASSUMPTION — the stated or inferred assumption, labelled appropriately, and what observation would test it;
+   LEADING SIGNAL — the metric, event or indicator that leads the expected outcome, its direction, timing and comparison baseline;
+   VALUATION — the stated price, normalized cash earnings/free cash flow, multiple, scenario or financing sensitivity; preserve units, periods and distinguish actuals from estimates;
+   TRANSMISSION — the causal sequence from policy/rates/credit/demand through business or market conditions to the affected asset; identify second-order effects only if grounded in the video;
+   EVIDENCE GEM — a specific cited news item, economic event, statistic or other source lead linked to a named IF–THEN premise; state whether it would confirm, weaken, amplify, invalidate or change the horizon. Include a source URL only if actually visible or stated; otherwise give a precise verification target.
+   Keep each material conditional thesis paired with its strongest rival, confirmation/invalidation trigger and next measurable discriminator, where available. Explicitly distinguish speaker-stated logic from model inference. Do not infer a number, external source URL, time horizon or trigger when it is absent; record unknowns in uncertainty. Evidence gems are attributed candidate leads, not independently verified facts.
 4. Include bull AND bear views, specific opportunities, tickers, technical levels, market breadth, rates, policy/earnings, physical supply-demand and financing where the VIDEO discusses them. Do not add these topics if absent.
 5. For every claim: use classification=creator_claim for statements attributable to the speaker; observable_content only for genuinely visible/audible material, which is not externally verified; inference ONLY for your own clearly labelled interpretation. Use figures[] and dates[] only for values actually given, retain the context and units in text, and provide timestampSeconds only when directly recoverable. Set requiresVerification=true and a SPECIFIC verificationTarget for market figures, news, levels, flows and causal assertions.
 6. uncertainty: itemise missing information, access gaps, weak sourcing and the creator's expressed uncertainty.
