@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
+import {buildMacroResearchCharts} from "../lib/bluebelly-research-charts.ts";
+import type {MarketMonitorRow} from "../lib/market-monitor.ts";
 import {renderScheduledDailyHtml} from "../lib/bluebelly-scheduled-daily-html.ts";
 import {parseExistingHtmlEdition} from "../lib/bluebelly-html-archive-import-contract.ts";
 import {assembleAutomaticReportEvidence,reportEvidenceReady,type AutomaticReportEvidence}
@@ -123,4 +125,22 @@ test("two distinct releases sharing one official calendar URL remain in the priv
  assert.equal(upcoming[1].calendarComparison?.previous,"54.9");
  assert.match(renderScheduledDailyHtml({day,now,evidence:{...evidence,
   sources:[...evidence.sources,...upcoming]}}).html,/ISM Services PMI/);
+});
+
+test("scheduled private HTML includes static actual charts, missing states and hash dedupe",()=>{
+ const row={id:"us2y",type:"Rates",frequency:"daily",sourceName:"FRED",sourceUrl:"https://fred.stlouisfed.org/series/DGS2",points:[{time:Date.parse("2026-10-29T00:00:00Z")/1000,close:3.8},{time:Date.parse("2026-10-30T00:00:00Z")/1000,close:3.9}]} as MarketMonitorRow;
+ const charts=buildMacroResearchCharts([row],now);
+ const result=renderScheduledDailyHtml({day,now,evidence,researchCharts:[...charts,charts[0]]});
+ assert.equal((result.html.match(/data-chart-rendered="true"/g)||[]).length,1);
+ assert.equal((result.html.match(/data-chart-hash="/g)||[]).length,3);
+ assert.match(result.html,/<svg xmlns=/);
+ assert.match(result.html,/Source-dated research charts/);
+ assert.match(result.html,/Chart unavailable/);
+ assert.match(result.html,/https:\/\/fred\.stlouisfed\.org\/series\/DGS2/);
+ assert.ok(result.html.includes(charts[0].dataHash));
+ const bad={...charts[0],svg:'<svg xmlns="http://www.w3.org/2000/svg"><foreignObject>bad</foreignObject></svg>'};
+ const rejected=renderScheduledDailyHtml({day,now,evidence,researchCharts:[bad]});
+ assert.doesNotMatch(rejected.html,/<foreignObject/i);
+ assert.match(rejected.html,/data-chart-rendered="false"/);
+ assert.match(read("lib/bluebelly-scheduled-daily-html-job.ts"),/renderScheduledDailyHtml\(\{day,now,evidence,narrative,researchCharts\}\)/);
 });
