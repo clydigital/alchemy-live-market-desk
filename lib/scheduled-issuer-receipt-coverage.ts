@@ -16,6 +16,12 @@ const ISSUER_HOSTS:Readonly<Record<string,readonly string[]>>={
  DELL:["investors.delltechnologies.com"],
  WDAY:["investor.workday.com"],
  ADI:["www.analog.com"],
+ HPE:["www.hpe.com"],
+ A:["www.agilent.com"],
+ HPQ:["investor.hp.com"],
+ BBY:["investors.bestbuy.com"],
+ MDT:["news.medtronic.com"],
+ DE:["www.deere.com"],
 };
 /** An issuer calendar is only an expectation: it never proves that actuals
  * were published. This diagnostic checks only primary-source intake items that
