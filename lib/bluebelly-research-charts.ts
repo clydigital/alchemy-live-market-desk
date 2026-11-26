@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { ComparisonColumn, ComparisonKey } from "./bluebelly-industry-comparison.ts";
 import type { CompareResearch } from "./bluebelly-compare-research.ts";
 import { marketTrend } from "./market-trend-series.ts";
 import type { MarketMonitorRow } from "./market-monitor.ts";
@@ -7,8 +8,8 @@ import { sourceDateFresh } from "./bluebelly-breadth-dated.ts";
 export const RESEARCH_CHART_VERSION = "bluebelly/research-chart/1" as const;
 type Mark = { label: string; value: number; sources: { name: string; url: string }[] };
 type Spec = {
-  id: string; title: string; asOf: string | null; frequency: "daily" | "monthly";
-  window: string; unit: "%" | "pp"; kind: "SOURCE_DATED_RETURN" | "SOURCE_DATED_SECONDARY" | "DERIVED_GAP" | "OBSERVED_HISTORY";
+  id: string; title: string; asOf: string | null; frequency: "daily" | "monthly" | "quarterly";
+  window: string; unit: "%" | "pp" | "USD bn"; kind: "SOURCE_DATED_RETURN" | "SOURCE_DATED_SECONDARY" | "DERIVED_GAP" | "OBSERVED_HISTORY" | "VERIFIED_FILING" | "REVIEWED_ISSUER";
   segments?: string[][];
   expected: number; marks: Mark[]; missing: string[];
 };
@@ -58,10 +59,10 @@ function svg(s: Spec): string {
     +'<rect width="100%" height="100%" rx="12" fill="#fbf7ef"/>'
     +'<g font-family="Arial, sans-serif" fill="#302b26">'
     +'<text x="24" y="34" font-size="24" font-weight="bold">'+esc(s.title)+'</text>'
-    +'<text x="24" y="58" font-size="15">'+esc(s.asOf+" UTC source date · "+s.window+" · "+s.unit+" · daily · "+s.marks.length+"/"+s.expected)+'</text>'
+    +'<text x="24" y="58" font-size="15">'+esc(s.asOf+" UTC source date · "+s.window+" · "+s.unit+" · "+s.frequency+" · "+s.marks.length+"/"+s.expected)+'</text>'
     +ticks.map(t=>'<line x1="'+x(t)+'" x2="'+x(t)+'" y1="85" y2="'+footer+'" stroke="#d7cbbd"/><text x="'+x(t)+'" y="80" text-anchor="middle" font-size="12">'+fmt(t)+'</text>').join("")
     +body+'<text x="24" y="'+(footer+25)+'" font-size="13">'+esc("Source: "+names.slice(0,95))+'</text>'
-    +'<text x="24" y="'+(footer+46)+'" font-size="13">'+esc((s.kind==="DERIVED_GAP"?"Derived left minus right; not causality.":s.kind==="SOURCE_DATED_SECONDARY"?"Secondary provider participation; proxies differ.":"Recorded price returns; not fund flows."))+'</text>'
+    +'<text x="24" y="'+(footer+46)+'" font-size="13">'+esc((s.kind==="DERIVED_GAP"?"Derived left minus right; not causality.":s.kind==="SOURCE_DATED_SECONDARY"?"Secondary provider participation; proxies differ.":s.kind==="VERIFIED_FILING"?"Matched quarter filing amounts; not a forecast.":s.kind==="REVIEWED_ISSUER"?"Source-reviewed quarterly amounts; not adjusted estimates.":"Recorded price returns; not fund flows."))+'</text>'
     +'<text x="24" y="'+(footer+67)+'" font-size="13">'+esc(s.missing.length?"Unavailable: "+s.missing.join(", ").slice(0,100):"All expected rows available")+'</text></g></svg>';
 }
 function historySvg(s: Spec): string {
@@ -131,5 +132,35 @@ export function buildMacroResearchCharts(rows:readonly MarketMonitorRow[],now:Da
   const date=(time:number)=>new Date(time*1000).toISOString().slice(0,10);
   const marks=eligible?trend!.points.map(p=>({label:date(p.time),value:p.close,sources})):[];
   return finish({id:"macro-"+t.id,title:t.title,asOf:eligible?trend!.sourceDate:null,frequency:"daily",window:"90D",unit:t.unit,kind:"OBSERVED_HISTORY",expected:Math.max(2,marks.length),marks,missing:eligible?[]:[trend?.stale?"Stale source history":!sources.length?"Source unavailable":"Insufficient dated observations"],segments:eligible?trend!.segments.map(seg=>seg.map(p=>date(p.time))):[]});
+ });
+}
+
+/** Reuse the MD7 quarterly financial comparison admission. No arithmetic on
+ * narrative text, adjusted figures, or mismatched issuer quarters. */
+export const RESEARCH_CASH_ISSUERS=["NVDA","AMD","DELL","MSFT","AMZN","ORCL"] as const;
+export function buildIssuerCashCharts(columns:readonly ComparisonColumn[],now:Date):ResearchChart[]{
+ const metrics:[ComparisonKey,string][]=[
+  ["operating_cash_flow","Operating cash flow"],["capital_expenditure","Capital expenditure"],
+  ["free_cash_flow","Free cash flow"],["net_income","Net income"],
+ ];
+ return RESEARCH_CASH_ISSUERS.map(ticker=>{
+  const col=columns.find(c=>c.ticker.toUpperCase()===ticker);
+  const reviewed=col?.state==="REVIEWED_SCORECARD";
+  const kind=reviewed?"REVIEWED_ISSUER" as const:"VERIFIED_FILING" as const;
+  const date=col?.releaseDay??null,stamp=date?Date.parse(date+"T00:00:00Z"):NaN;
+  const eligible=!!col&&col.state!=="UNAVAILABLE"&&!!col.fiscalPeriod&&Number.isFinite(stamp)&&stamp<=now.getTime()&&stamp>=now.getTime()-90*86400000;
+  const candidates=eligible?metrics.flatMap(([key,label])=>{
+   const m=col!.cells[key];
+   if(m.state!==(reviewed?"REVIEWED_NUMERIC":"VERIFIED_NUMERIC")||m.unit!=="USD"||m.value===null||!Number.isFinite(m.value)||!m.basis||!m.sourceUrl)return [];
+   // The reviewed scorecard adapter explicitly stores the numeric receipt's period end in note.
+   const period=reviewed?m.note?.match(/^Quarter ended (\d{4}-\d{2}-\d{2}) · /)?.[1]:col!.fiscalPeriod;
+   if(!period||!source(m.basis,m.sourceUrl).length)return [];
+   return [{label,value:m.value/1e9,sources:source(m.basis,m.sourceUrl),period,url:m.sourceUrl}];
+  }):[];
+  // Refuse to draw a comparison if the selected amounts have conflicting provenance.
+  const matched=candidates.length>0&&candidates.every(m=>m.period===candidates[0].period&&m.url===candidates[0].url);
+  const marks:Mark[]=matched?candidates.map(({label,value,sources})=>({label,value,sources})):[];
+  const missing=metrics.map(([,label])=>label).filter(label=>!marks.some(m=>m.label===label));
+  return finish({id:"cash-"+ticker.toLowerCase(),title:ticker+" — quarterly cash conversion",asOf:marks.length?date:null,frequency:"quarterly",window:col?.fiscalPeriod??"period unavailable",unit:"USD bn",kind,expected:metrics.length,marks,missing});
  });
 }
