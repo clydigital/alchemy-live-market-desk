@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {parseFourH} from "../lib/bluebelly-4h-levels.ts";
+import {parseFourH,planFourHWatch} from "../lib/bluebelly-4h-levels.ts";
 import {readFileSync} from "node:fs";
 const now=new Date("2026-11-26T05:00:00Z");
 const end=Date.parse("2026-11-26T04:00:00Z");
@@ -26,7 +26,7 @@ test("4H read is owner-gated, opt-in and not called by scheduled pilot",()=>{
  const provider=readFileSync(new URL("../lib/providers/twelve-data-ema-history.ts",import.meta.url),"utf8");
  assert.match(page,/access\.ok&&view==="technical"&&typeof options\.fourh==="string"\?await readFourH/);
  assert.match(provider,/timezone:"UTC"/);assert.match(provider,/outputsize:"1200"/);
- const pilot=provider.split("export async function refreshTechnicalPilot")[1].split("/** Owner-requested")[0];
+ const pilot=provider.split("export async function refreshTechnicalPilot")[1].split("const cachedFourH")[0];
  assert.doesNotMatch(pilot,/readFourH|cachedFourH/);
 });
 
@@ -37,4 +37,16 @@ test("4H boundary events require ready, adjacent elapsed windows",()=>{
  assert.ok(r.events.some(e=>e.period===20&&e.kind==="CROSS"&&e.boundary==="upper"&&e.direction==="up"));
  assert.equal(parseFourH(payload(series.filter((_,i)=>i!==103)),"XAU/USD",now).events.length,0);
  assert.equal(parseFourH(payload(series),"XAU/USD",new Date("2026-11-27T05:00:00Z")).events.length,0);
+});
+
+test("priority batch planning deduplicates, excludes unsupported, caps fanout and never repeats core",()=>{
+ const allowed=["NVDA","PWR","AMD","MU","AVGO","TTWO","TLT","SPY"];
+ const priority=["pwr","NVDA","PWR","MAA","SPY","AMD","MU","AVGO","TTWO","TLT","BAD"];
+ const a=planFourHWatch(priority,allowed,"1");
+ assert.deepEqual(a.symbols,["PWR","NVDA","AMD","MU","AVGO","TTWO"]);
+ assert.deepEqual(a.excluded,["MAA","BAD"]);assert.equal(a.batches,2);
+ assert.deepEqual(planFourHWatch(priority,allowed,"2").symbols,["TLT"]);
+ assert.equal(planFourHWatch(priority,allowed,"999").symbols.length,0);
+ assert.equal(planFourHWatch(priority,allowed,undefined).symbols.length,0);
+ assert.equal(planFourHWatch(priority,allowed,"scan").symbols.length,6);
 });

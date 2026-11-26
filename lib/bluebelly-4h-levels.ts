@@ -58,3 +58,18 @@ export function parseFourH(payload:unknown,symbol:FourHSymbol,now:Date):FourHRea
  }
  return {symbol,status:stale?"STALE":"INDICATIVE",reason:stale?"Latest elapsed window is more than eight hours old; market closure not inferred":"UTC elapsed windows; exchange/session completeness, exact feed and chart alignment unverified. Indicative research events only.",asOf:new Date(t+fourHours).toISOString(),sampleCount:a.length,gapCount,close,bands,events};
 }
+
+/** Private request planning only; canonical identity allowlist supplied by caller.
+ * Six symbols per user-triggered batch; holdings before saved ideas before BB universe.
+ * Macro batch is independent and never repeated during equity batches. */
+export const FOUR_H_BATCH_SIZE=6;
+export const FOUR_H_CORE=["XAU/USD","USD/JPY","BTC/USD","SPY","QQQ","SMH"] as const;
+export function planFourHWatch(priority:readonly string[],allowed:readonly string[],requested:string|undefined){
+ const permitted=new Set(allowed),unique=[...new Set(priority.map(s=>s.trim().toUpperCase()).filter(Boolean))];
+ const eligible=unique.filter(s=>permitted.has(s)&&!(FOUR_H_CORE as readonly string[]).includes(s));
+ const excluded=unique.filter(s=>!permitted.has(s)&&!(FOUR_H_CORE as readonly string[]).includes(s));
+ const batches=Math.ceil(eligible.length/FOUR_H_BATCH_SIZE);
+ const index=requested&&/^\d{1,4}$/.test(requested)?Number(requested):null;
+ const batch=index!==null&&index>=1&&index<=batches?index:null;
+ return {eligible,excluded,batches,batch,symbols:requested==="scan"?[...FOUR_H_CORE]:batch!==null?eligible.slice((batch-1)*FOUR_H_BATCH_SIZE,batch*FOUR_H_BATCH_SIZE):[]};
+}

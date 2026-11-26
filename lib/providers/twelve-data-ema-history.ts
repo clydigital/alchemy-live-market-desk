@@ -1,6 +1,6 @@
 import "server-only";
 import {unstable_cache} from "next/cache";
-import {FOUR_H_SYMBOLS,emptyFourH,parseFourH,type FourHSymbol,type FourHRead} from "../bluebelly-4h-levels.ts";
+import {FOUR_H_SYMBOLS,FOUR_H_BATCH_SIZE,emptyFourH,parseFourH,type FourHSymbol,type FourHRead} from "../bluebelly-4h-levels.ts";
 import {BLUEBELLY_STOCK_UNIVERSE} from "../bluebelly-equity-universe.ts";
 import {calculateTechnicalLevels,exchangeDay,unavailableLevels,type Frame,type TechnicalLevels,type Bar} from "../ema-sd-levels.ts";
 export const TECHNICAL_UNIVERSE=[...BLUEBELLY_STOCK_UNIVERSE.filter(x=>x.region==="US").map(x=>({ticker:x.ticker,label:x.company,currency:"USD",timeZone:x.timeZone,kind:"stock"})),...["SPY","QQQ","IWM","SMH","SOXX","XLRE","ITB","XHB","XLK","XLP","XLY","XLE","XLF","XLI","XLV","XLU","XLB","XLC","TLT","HYG","LQD","GLD","SLV","USO","UUP"].map(ticker=>({ticker,label:ticker,currency:"USD",timeZone:"America/New_York",kind:"etf"}))];
@@ -67,8 +67,7 @@ export async function readFourH(symbol:string,now=new Date()):Promise<FourHRead>
  return cachedFourH(symbol as FourHSymbol,Math.floor(+now/3600000));
 }
 
-/** Fixed, bounded shared scan for private PowerStack; no per-holding fanout. */
-export async function readFourHWatch(now=new Date(),selected?:string){
- const symbols=[...new Set([...FOUR_H_SYMBOLS,"SPY","QQQ","SMH",...(selected&&TECHNICAL_UNIVERSE.some(x=>x.ticker===selected)?[selected]:[])])];
- const results:FourHRead[]=[];for(const symbol of symbols)results.push(await readFourH(symbol,now));return results;
+/** Bounded shared scan: no automatic per-holding fanout or extra scheduler. */
+export async function readFourHWatch(now=new Date(),symbols:readonly string[]=[]){
+ const results:FourHRead[]=[];for(const symbol of [...new Set(symbols)].slice(0,FOUR_H_BATCH_SIZE))results.push(await readFourH(symbol,now));return results;
 }

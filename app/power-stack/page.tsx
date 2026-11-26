@@ -25,7 +25,8 @@ import PowerStackBBMarketSweep from "@/components/blue-desk/PowerStackBBMarketSw
 import {projectOpportunityQueue,isNonIssuerInstrument} from "@/lib/power-stack-opportunity-queue";
 import PowerStackOpportunityQueue from "@/components/blue-desk/PowerStackOpportunityQueue";
 import PowerStackDecisionOverview from "@/components/blue-desk/PowerStackDecisionOverview";
-import {readFourHWatch} from "@/lib/providers/twelve-data-ema-history";
+import {readFourHWatch,TECHNICAL_UNIVERSE} from "@/lib/providers/twelve-data-ema-history";
+import {planFourHWatch} from "@/lib/bluebelly-4h-levels";
 import PowerStackFourHWatch from "@/components/blue-desk/PowerStackFourHWatch";
 import {buildCompareResearch,compareBreadthObservations} from "@/lib/bluebelly-compare-research";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
@@ -174,7 +175,12 @@ export default async function PrivatePowerStack({searchParams}:{searchParams:Pro
   const requested=ready&&typeof params.technical==="string"?findStockIdentity(params.technical):undefined;
   const reference=requested&&requested.theme!=="REAL_ESTATE"?bbCoverage.rows.find(q=>q.ticker===requested.ticker&&q.status==="SOURCE_DATED"):undefined;
   const longHistory=requested&&reference?.price!=null&&reference.asOf?await readLongEquityHistory(requested,{price:reference.price,asOf:reference.asOf}):null;
-  const fourHWatch=ready&&(params.fourh==="scan"||requested&&requested.theme!=="REAL_ESTATE")?await readFourHWatch(new Date(),requested?.theme!=="REAL_ESTATE"?requested?.ticker:undefined):null;
+  const fourHAllowed=TECHNICAL_UNIVERSE.filter(x=>findStockIdentity(x.ticker)?.theme!=="REAL_ESTATE"&&!["XLRE","ITB","XHB"].includes(x.ticker)).map(x=>x.ticker);
+  const fourHPriority=ready?[...holdings.map(x=>marketTicker(x.ticker)),...(ideaRecords??[]).map(x=>marketTicker(x.ticker)),...watchlist.map(x=>marketTicker(x.ticker)),...BLUEBELLY_STOCK_UNIVERSE.map(x=>x.ticker),...fourHAllowed]:[];
+  const fourHPlan=planFourHWatch(fourHPriority,fourHAllowed,params.fourh);
+  const fourHSelected=ready&&requested&&fourHAllowed.includes(requested.ticker)?requested.ticker:null;
+  const fourHSymbols=fourHPlan.symbols.length?fourHPlan.symbols:fourHSelected?[fourHSelected]:[];
+  const fourHWatch=ready&&fourHSymbols.length?await readFourHWatch(new Date(),fourHSymbols):null;
   const privateLevels=(ideaRecords??[]).flatMap(i=>{
     const lo=i.watch_low==null?null:Number(i.watch_low),hi=i.watch_high==null?null:Number(i.watch_high);
     if((lo===null&&hi===null)||(lo!==null&&(!Number.isFinite(lo)||lo<=0))||(hi!==null&&(!Number.isFinite(hi)||hi<=0))||(lo!==null&&hi!==null&&lo>hi))return [];
@@ -293,7 +299,7 @@ export default async function PrivatePowerStack({searchParams}:{searchParams:Pro
           </div>
         </header>
         {ready?<PowerStackDecisionOverview compare={compare} tape={tape} now={researchedAt} breadthStatus={breadthFeed.retrievalStatus}/>:null}
-        {ready?<PowerStackFourHWatch reads={fourHWatch}/>:null}
+        {ready?<PowerStackFourHWatch reads={fourHWatch} plan={fourHPlan} selected={fourHSelected}/>:null}
         {ready?<PowerStackBBMarketSweep rows={bbCoverage.rows} reviews={issuerReviews} asOf={bbCoverage.asOf} levels={privateLevels} fundamentals={bbFundamentals?.rows??[]} longHistory={longHistory} />:null}
         {ready?<PowerStackOpportunityQueue rows={opportunities} issuerUnavailable={bbFundamentals?.status!=="OK"}/>:null}
         <PowerStackDecisionHub now={researchedAt}/>
