@@ -1,6 +1,6 @@
 import "server-only";
 import {createSupabaseServerClient} from "@/lib/supabase/server";
-import {projectMacroLog,projectGapRun,projectAiMatrix,workReceiptReadIssue,annotateWorkReceiptRead} from "./my-desk-work-receipt-core";
+import {projectMacroLog,projectGapRun,projectAiMatrix,workReceiptReadIssue,annotateWorkReceiptRead,receiptReadTokens,readReceiptWithScopedFallback,type ReceiptReadResult} from "./my-desk-work-receipt-core";
 import {lane,type HealthLane} from "./my-desk-health-core";
 import {parseOperationalBlocks,applyOperationalReceipt,type WorkOperationalReceipt} from "./my-desk-operational-receipt";
 const AUDIT="423519b6-7a94-811f-8452-d736356546bb";
@@ -19,13 +19,13 @@ export async function getOwnerWorkReceiptLanes(now=new Date()):Promise<WorkLanes
   const {data:access,error:accessError}=await session.from("app_access_allowlist").select("email").eq("email",user.email.toLowerCase().trim()).eq("active",true).maybeSingle();
   if(accessError||!access)return unknown("Owner authorization unavailable");
  }catch{return unknown("Owner authorization unavailable");}
- const token=process.env.NOTION_API_TOKEN?.trim()||process.env.NOTION_MARKET_RESEARCH_TOKEN?.trim();
- if(!token)return unknown("Existing Notion receipt reader not configured");
- const read=async(path:string,body?:object):Promise<{raw:unknown;issue:string|null}>=>{
+ const tokens=receiptReadTokens(process.env.NOTION_API_TOKEN,process.env.NOTION_MARKET_RESEARCH_TOKEN);
+ if(!tokens.length)return unknown("Existing Notion receipt reader not configured");
+ const read=async(path:string,body?:object):Promise<ReceiptReadResult>=>readReceiptWithScopedFallback(tokens,async token=>{
   try{const r=await fetch("https://api.notion.com/v1"+path,{method:body?"POST":"GET",headers:{Authorization:"Bearer "+token,"Notion-Version":"2025-09-03",...(body?{"Content-Type":"application/json"}:{})},body:body?JSON.stringify(body):undefined,cache:"no-store",signal:AbortSignal.timeout(6500)});
-   return r.ok?{raw:await r.json(),issue:null}:{raw:null,issue:workReceiptReadIssue(r.status)};
-  }catch{return {raw:null,issue:workReceiptReadIssue(null)};}
- };
+   return r.ok?{raw:await r.json(),issue:null,status:200}:{raw:null,issue:workReceiptReadIssue(r.status),status:r.status};
+  }catch{return {raw:null,issue:workReceiptReadIssue(null),status:null};}
+ });
  // Bounded current metadata; no historical bodies or duplicate research fetch.
  const [log,runs,ai,ops]=await Promise.all([
   read("/data_sources/"+LOG+"/query",{page_size:24,sorts:[{property:"Created",direction:"descending"}]}),
