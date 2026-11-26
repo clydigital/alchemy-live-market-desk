@@ -34,7 +34,7 @@ function dateOk(x: string) {
 }
 function readFmpKey(options: FmpOptions) {
   const env = options.env ?? process.env;
-  return (options.apiKey ?? env.FMP_API ?? env.FMP_API_KEY ?? "").trim();
+  return (options.apiKey === undefined ? (env.FMP_API?.trim() || env.FMP_API_KEY?.trim() || "") : options.apiKey.trim());
 }
 
 /**
@@ -100,7 +100,8 @@ export async function readFmpRecords(options: FmpOptions): Promise<FmpReadResult
       return { ...base, note: "FMP_SYMBOL_MISMATCH_OR_MISSING" };
     }
     return { ...base, state: "ready", retrievedAt: new Date().toISOString(), records, note: null };
-  } catch {
-    return { ...base, note: "FMP_REQUEST_FAILED" };
+  } catch (error) {
+    const timeout = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+    return { ...base, note: timeout ? "FMP_REQUEST_TIMEOUT" : "FMP_REQUEST_FAILED" };
   }
 }
