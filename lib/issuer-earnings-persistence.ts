@@ -3,7 +3,7 @@
  * No separate scheduler or public publication is introduced here.
  */
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
-import {parseFiscalQuarter} from "./earnings/sec-quarter-facts.ts";
+import {canonicalIssuerQuarter,selectExistingIssuerQuarter} from "./earnings/issuer-quarter-identity.ts";
 import type { ResearchRunInput } from "./research-update.ts";
 
 export async function persistIssuerReleaseDetections(
@@ -21,17 +21,14 @@ export async function persistIssuerReleaseDetections(
     const match = /^Issuer confirms (.+?) financial results — ([A-Z0-9.]+)$/.exec(item.title);
     if (!match) continue;
     const ticker = match[2];
-    const sourcePeriod = parseFiscalQuarter(match[1]);
+    const sourcePeriod = canonicalIssuerQuarter(match[1]);
     if(!sourcePeriod)continue;
     const {data: known,error:readError} = await db.from("issuer_earnings_ingestion_state")
-      .select("fiscal_period,state,event_at").eq("ticker",ticker).limit(20);
+      .select("fiscal_period,state,event_at").eq("ticker",ticker).order("event_at",{ascending:false}).limit(80);
     if(readError)throw new Error("issuer_detection_read_failed: "+readError.code);
     // "FY2027 Q3" and "Q3 FY27" must resolve to the SAME issuer-quarter.
-    const existing = (known||[]).find(row=>{
-      const q=parseFiscalQuarter(row.fiscal_period);
-      return q&&q.year===sourcePeriod.year&&q.quarter===sourcePeriod.quarter;
-    });
-    const fiscalPeriod=existing?.fiscal_period??match[1];
+    const existing=selectExistingIssuerQuarter(known??[],sourcePeriod);
+    const fiscalPeriod=existing?.fiscal_period??sourcePeriod;
     if (existing && ["verified","published","review_required","partial"].includes(existing.state)) continue;
     const { error: stateError } = await db.from("issuer_earnings_ingestion_state")
       .upsert({
