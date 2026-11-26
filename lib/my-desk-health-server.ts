@@ -94,7 +94,7 @@ export async function getMyDeskHealth(now=new Date()):Promise<HealthLane[]>{
  const work=getOwnerWorkReceiptLanes(now);
  const creator=safe("Creator discovery / transcripts",async()=>{const [base,digest]=await Promise.all([creators(db,now),getOwnerCreatorSignalDigest(now)]);return augmentCreatorLane(base,digest.digest,now)});
  return Promise.all([
- safe("X Wire",()=>xwire(db,now)),creator,safe("Scheduled source acquisition",()=>sourceRun(db,now)),safe("MacroPulse",async()=>{const r=(await work).MacroPulse;return r.success||r.state!=="unknown"?r:macro(db)}),
+ safe("X Wire",()=>xwire(db,now)),creator,safe("Scheduled source acquisition",()=>sourceRun(db,now)),safe("MacroPulse",async()=>{const r=(await work).MacroPulse;return r.execution!=="Unknown"?r:macro(db)}),
  safe("AI16",async()=>(await work).AI16),
  safe("Material Events",async()=>(await work)["Material Events"]),
  safe("Research Investigation",async()=>(await work)["Research Investigation"]),
