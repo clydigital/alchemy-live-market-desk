@@ -503,6 +503,26 @@ function isVerifiedIssuerResultsCluster(cluster: DevelopmentCluster) {
     && item.provenance.length > 0);
 }
 
+// Only source-backed canonical observations with explicitly recorded opposing
+// directions. These tags are attention hints, not proof of a causal thesis.
+function opposingEvidencePair(items: ObservedEvidence[]): ObservedEvidence[] {
+  const eligible = items.filter(item => item.canonical_record_backed === true
+    && item.provenance.some(p => /^https:\/\//i.test(p.url ?? "")));
+  const supporting = eligible.find(item => item.metrics?.support_direction === "supports");
+  const counter = eligible.find(item => item.metrics?.support_direction === "contradicts");
+  return supporting && counter && supporting.evidence_id !== counter.evidence_id ? [supporting, counter] : [];
+}
+function retainWithinEvidenceCap(items: ObservedEvidence[], cap: number, reserved: Set<string>): ObservedEvidence[] {
+  const kept = items.slice(0, cap);
+  for (const item of items) {
+    if (!reserved.has(item.evidence_id) || kept.some(e => e.evidence_id === item.evidence_id)) continue;
+    const index = kept.findLastIndex(e => !reserved.has(e.evidence_id) && e.rank !== 1);
+    if (index >= 0) kept[index] = item;
+  }
+  const ids = new Set(kept.map(e => e.evidence_id));
+  return items.filter(e => ids.has(e.evidence_id));
+}
+
 function selectBalancedDevelopmentClusters(candidateClusters: DevelopmentCluster[]) {
   if (candidateClusters.length <= MAX_DEVELOPMENT_CLUSTERS) {
     return candidateClusters;
@@ -541,6 +561,11 @@ function selectBalancedDevelopmentClusters(candidateClusters: DevelopmentCluster
     if (!isAdmittedCanonicalNewsCluster(cluster)) continue;
     add(cluster);
     recentCanonicalNewsSelected += 1;
+  }
+  // Share one existing non-monitor slot with an explicit opposing-evidence
+  // pair. Do not displace the existing macro, issuer or news reservations.
+  if (selected.filter(item => !isMarketMonitorCluster(item)).length < TARGET_NON_MONITOR_CLUSTERS) {
+    add(nonMonitor.find(cluster => opposingEvidencePair(cluster.evidence).length === 2));
   }
   for (const cluster of nonMonitor) {
     if (selected.filter((item) => !isMarketMonitorCluster(item)).length >= TARGET_NON_MONITOR_CLUSTERS) break;
@@ -1537,7 +1562,8 @@ export function assembleDossierV2InputPacket(
 
     if (evList.length > MAX_EVIDENCE_PER_CLUSTER) {
       omittedEvidenceCount += evList.length - MAX_EVIDENCE_PER_CLUSTER;
-      evList = evList.slice(0, MAX_EVIDENCE_PER_CLUSTER);
+      evList = retainWithinEvidenceCap(evList, MAX_EVIDENCE_PER_CLUSTER,
+        new Set(opposingEvidencePair(evList).map(item => item.evidence_id)));
     }
 
     ldList = ldList.sort((a, b) => {
@@ -1704,7 +1730,20 @@ export function assembleDossierV2InputPacket(
 
   if (observedEvidence.length > MAX_TOTAL_OBSERVED_EVIDENCE) {
     omittedEvidenceCount += observedEvidence.length - MAX_TOTAL_OBSERVED_EVIDENCE;
-    observedEvidence = observedEvidence.slice(0, MAX_TOTAL_OBSERVED_EVIDENCE);
+    // Reserve at most two explicit paired clusters in the existing total cap.
+    // Preserve rank-1 Motion pins and the existing protected rates/credit rows.
+    const reserved = new Set([
+      ...protectedDollarLiquidityEvidence.map(e => e.evidence_id),
+      ...protectedCreditOasEvidence.map(e => e.evidence_id),
+      ...developmentClusters.map(cluster => opposingEvidencePair(cluster.evidence))
+        .filter(pair => pair.length === 2).slice(0, 2).flat().map(e => e.evidence_id),
+    ]);
+    observedEvidence = retainWithinEvidenceCap(observedEvidence, MAX_TOTAL_OBSERVED_EVIDENCE, reserved);
+    // A cluster may not advertise an evidence ID dropped from the actual ledger.
+    const retainedIds = new Set(observedEvidence.map(e => e.evidence_id));
+    developmentClusters = developmentClusters.map(cluster => ({
+      ...cluster, evidence: cluster.evidence.filter(e => retainedIds.has(e.evidence_id)),
+    }));
   }
 
   researchLeads = Array.from(new Map(researchLeads.map((l) => [l.lead_id, l])).values()).sort((a, b) => {
