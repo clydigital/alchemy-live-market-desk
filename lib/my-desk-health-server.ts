@@ -7,6 +7,7 @@ import {lane,latest,earliest,fresh,failureCategory,myt,type HealthLane} from "./
 import {getOwnerWorkReceiptLanes} from "./my-desk-work-receipt-server";
 import {getOwnerCreatorSignalDigest} from "./bluebelly-creator-signals-server";
 import {augmentCreatorLane} from "./my-desk-work-receipt-core";
+import {applyOperationalReceipt} from "./my-desk-operational-receipt";
 
 type DB=ReturnType<typeof createSupabaseAdminClient>;
 const categories=(errors:(string|null|undefined)[])=>[...new Set(errors.map(failureCategory).filter(Boolean))].join("; ")||"Not recorded";
@@ -92,7 +93,7 @@ async function publication(db:DB){
 export async function getMyDeskHealth(now=new Date()):Promise<HealthLane[]>{
  let db:DB;try{db=createSupabaseAdminClient()}catch{return ["X Wire","Creator discovery / transcripts","Scheduled source acquisition","MacroPulse","AI16","Material Events","Research Investigation","Market data / EMA","Research digestion / handoff","Publication / consumer readback"].map(label=>unknown(label,"Database unavailable"))}
  const work=getOwnerWorkReceiptLanes(now);
- const creator=safe("Creator discovery / transcripts",async()=>{const [base,digest]=await Promise.all([creators(db,now),getOwnerCreatorSignalDigest(now)]);return augmentCreatorLane(base,digest.digest,now)});
+ const creator=safe("Creator discovery / transcripts",async()=>{const [base,digest,receipts]=await Promise.all([creators(db,now),getOwnerCreatorSignalDigest(now),work]);return applyOperationalReceipt(augmentCreatorLane(base,digest.digest,now),receipts.creatorReceipt,now)});
  return Promise.all([
  safe("X Wire",()=>xwire(db,now)),creator,safe("Scheduled source acquisition",()=>sourceRun(db,now)),safe("MacroPulse",async()=>{const r=(await work).MacroPulse;return r.execution!=="Unknown"?r:macro(db)}),
  safe("AI16",async()=>(await work).AI16),
