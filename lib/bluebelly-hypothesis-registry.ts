@@ -1,6 +1,7 @@
 /** Bounded projection of existing private Research Gap rows. No inference or writes. */
 export type EvidenceRole="CONFIRMS"|"WEAKENS"|"CONDITIONAL"|"AMPLIFIES"|"INVALIDATES"|"TRANSMITS"|"HORIZON_SHIFT";
-export type CanonicalReceipt={status:"MATCHED"|"MISSING"|"PROVENANCE_MISMATCH"|"UNAVAILABLE";receivedAt:string|null};
+export type DossierReference={status:"ANALYTICAL_REFERENCE"|"GOVERNANCE_ONLY"|"NOT_REFERENCED"|"BEFORE_RECEIPT"|"UNAVAILABLE";dossierId:string|null;asOf:string|null};
+export type CanonicalReceipt={status:"MATCHED"|"MISSING"|"PROVENANCE_MISMATCH"|"UNAVAILABLE";receivedAt:string|null;dossierReference?:DossierReference};
 export type Gem={id:string;label:string;role:EvidenceRole;observation:string;sourceUrl:string;sourceDate:string|null;state:"RETAINED_SOURCE_RECEIPT"|"ATTRIBUTED"|"PENDING";premise:string;canonicalReceipt?:CanonicalReceipt};
 export type HypothesisSnapshot={version:"evidence-gems/1";hypothesisId:string;reviewedOn:string;currentRead:string;conditional:string;nextTest:string;gems:Gem[]};
 export type RegistryRow={id:string;pageId:string;title:string;state:"ACTIVE"|"STALE";theme:string;confidence?:"LOW"|"MEDIUM"|"HIGH";decisionImpact?:string;currentRead:string;nextTrigger:string;lastChecked:string|null;lastEdited:string|null;snapshot:HypothesisSnapshot|null};
@@ -43,7 +44,26 @@ const canonicalId=(id:string)=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}
 export function canonicalGemIds(rows:RegistryRow[]):string[]{
  return [...new Set(rows.slice(0,4).flatMap(row=>(row.snapshot?.gems??[]).slice(0,8).map(g=>canonicalId(g.id)).filter(Boolean)))];
 }
-export function projectCanonicalGemReceipts(rows:RegistryRow[],receipts:unknown[]|null,now:Date):RegistryRow[]{
+// Only exact IDs in declared reference fields count, never a prose substring.
+const analyticalRefKeys=new Set(["evidence_references","evidence_ids","observed_evidence","supporting_evidence_ids","counter_evidence_ids","current_evidence_refs","observed_reaction_evidence_refs","evidence_for_ids","evidence_against_ids","confirming","contradicting","accelerating","unresolved","blocking_evidence"]);
+function dossierReferenceIndex(raw:unknown,now:Date){
+ const d=obj(raw),id=canonicalId(str(d.id,36)),asOf=date(d.as_of,now),payload=obj(d.payload),analytical=obj(payload.analytical_output),governance=obj(payload.evidence_governance);
+ if(!id||!asOf||!Object.keys(analytical).length||!Array.isArray(governance.items))return null;
+ const references=new Set<string>(),governed=new Set<string>();
+ const visit=(value:unknown,depth=0)=>{
+ if(depth>16)return;
+ if(Array.isArray(value)){for(const v of value)visit(v,depth+1);return;}
+ for(const [key,v] of Object.entries(obj(value))){
+ if(analyticalRefKeys.has(key)&&Array.isArray(v))for(const x of v){const s=str(x,300);if(s)references.add(s);}
+ if(v&&typeof v==="object")visit(v,depth+1);
+ }
+ };
+ visit(analytical);
+ for(const item of governance.items){const s=str(obj(item).evidenceId,300);if(s)governed.add(s);}
+ return {id,asOf,references,governed};
+}
+export function projectCanonicalGemReceipts(rows:RegistryRow[],receipts:unknown[]|null,now:Date,dossier?:unknown):RegistryRow[]{
+ const index=dossierReferenceIndex(dossier,now);
  const allowed=new Set(canonicalGemIds(rows)),byId=new Map((receipts??[]).map(v=>[canonicalId(str(obj(v).id,36)),obj(v)]));
  return rows.map(row=>!row.snapshot?row:{...row,snapshot:{...row.snapshot,gems:row.snapshot.gems.map(g=>{
  const id=canonicalId(g.id);if(!allowed.has(id))return g;
@@ -51,6 +71,12 @@ export function projectCanonicalGemReceipts(rows:RegistryRow[],receipts:unknown[
  const sameUrl=r&&list(r.provenance_urls).some(u=>sourceUrl(u)===g.sourceUrl);
  const sameDate=r&&g.sourceDate&&[r.event_at,r.published_at].some(v=>date(v,now)?.slice(0,10)===g.sourceDate?.slice(0,10));
  const status:CanonicalReceipt["status"]=receipts===null?"UNAVAILABLE":!r?"MISSING":sameUrl&&sameDate&&receivedAt?"MATCHED":"PROVENANCE_MISMATCH";
- return {...g,canonicalReceipt:{status,receivedAt:status==="MATCHED"?receivedAt:null}};
+ let dossierReference:DossierReference|undefined;
+ if(status==="MATCHED"&&receivedAt&&r&&dossier!==undefined){
+ const aliases=[id,`ev:${id}`,`lead:${id}`,str(r.external_evidence_id,300)].filter(Boolean);
+ const referenceStatus:DossierReference["status"]=!index?"UNAVAILABLE":Date.parse(index.asOf)<Date.parse(receivedAt)?"BEFORE_RECEIPT":aliases.some(a=>index.references.has(a))?"ANALYTICAL_REFERENCE":aliases.some(a=>index.governed.has(a))?"GOVERNANCE_ONLY":"NOT_REFERENCED";
+ dossierReference={status:referenceStatus,dossierId:index?.id??null,asOf:index?.asOf??null};
+ }
+ return {...g,canonicalReceipt:{status,receivedAt:status==="MATCHED"?receivedAt:null,...(dossierReference?{dossierReference}:{})}};
  })}});
 }

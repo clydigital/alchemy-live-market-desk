@@ -28,12 +28,17 @@ export async function getOwnerHypothesisRegistry(now=new Date()):Promise<Registr
  await Promise.all(rows.slice(0,4).map(async row=>{
  try{row.snapshot=readFirstSnapshot(await read("/blocks/"+row.pageId+"/children?page_size=1"),row,now);}catch{failed=true;}
  }));
- // At most one bounded private database read; do not promote or mutate evidence.
+ // Bounded owner-only receipt and latest Dossier readback; no promotion or mutation.
  const ids=canonicalGemIds(rows);let receipts:unknown[]|null=null;
  if(ids.length)try{
- const {data,error}=await createSupabaseAdminClient().from("intelligence_evidence").select("id,provenance_urls,event_at,published_at,received_at").in("id",ids).limit(32);
+ const {data,error}=await createSupabaseAdminClient().from("intelligence_evidence").select("id,external_evidence_id,provenance_urls,event_at,published_at,received_at").in("id",ids).limit(32);
  if(!error&&Array.isArray(data))receipts=data;
  }catch{/* Preserve saved snapshots; mark canonical readback unavailable. */}
- return {status:failed?"PARTIAL":"AVAILABLE",rows:projectCanonicalGemReceipts(rows,receipts,now),truncated:raw.has_more===true||rows.length>4,retrievedAt:new Date().toISOString()};
+ let dossier:unknown=null;
+ if(receipts?.length)try{
+ const {data,error}=await createSupabaseAdminClient().from("market_dossiers_v2").select("id,as_of,payload").lte("as_of",now.toISOString()).order("as_of",{ascending:false}).limit(1).maybeSingle();
+ if(!error&&data)dossier=data;
+ }catch{/* Missing Dossier is not proof of non-consumption. */}
+ return {status:failed?"PARTIAL":"AVAILABLE",rows:projectCanonicalGemReceipts(rows,receipts,now,dossier),truncated:raw.has_more===true||rows.length>4,retrievedAt:new Date().toISOString()};
  }catch{return empty("UNAVAILABLE");}
 }
