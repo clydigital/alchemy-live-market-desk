@@ -2,6 +2,7 @@ import { getEconomicCalendar } from "@/lib/calendar";
 import { getForwardEarningsEvents } from "@/lib/forward-earnings-sources";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
+import {canonicalIssuerQuarter,selectExistingIssuerQuarter} from "@/lib/earnings/issuer-quarter-identity";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -84,10 +85,11 @@ export async function GET(request: Request) {
     let obligationsCreated = 0;
     for (const event of issuerEvents) {
       const ticker = event.affectedAssets[0];
-      const fiscalPeriod = event.title.match(/(?:Q[1-4]\s*(?:FY)?(?:20)?\d{2}|(?:FY)?(?:20)?\d{2}\s*Q[1-4])/i)?.[0] || "";
+      const fiscalPeriod = canonicalIssuerQuarter(event.title);
       if (!ticker || !fiscalPeriod) continue;
-      const { data: existing, error: readError } = await db.from("issuer_earnings_ingestion_state")
-        .select("state").eq("ticker", ticker).eq("fiscal_period", fiscalPeriod).maybeSingle();
+      const { data: known, error: readError } = await db.from("issuer_earnings_ingestion_state")
+        .select("fiscal_period,state").eq("ticker", ticker).order("event_at",{ascending:false}).limit(80);
+      const existing=selectExistingIssuerQuarter(known??[],fiscalPeriod);
       if (readError) throw new Error("issuer_obligation_read_failed: " + readError.code);
       const dueAt = event.timePrecision === "date"
         ? event.startAt!.slice(0, 10) + "T23:59:59Z"
@@ -97,7 +99,7 @@ export async function GET(request: Request) {
           const { error } = await db.from("issuer_earnings_ingestion_state")
             .update({event_at:dueAt,source_url:event.sourceUrl,
               next_retry_at:dueAt,updated_at:now.toISOString()})
-            .eq("ticker",ticker).eq("fiscal_period",fiscalPeriod).eq("state","scheduled");
+            .eq("ticker",ticker).eq("fiscal_period",existing.fiscal_period).eq("state","scheduled");
           if (error) throw new Error("issuer_schedule_refresh_failed: " + error.code);
         }
         continue;
