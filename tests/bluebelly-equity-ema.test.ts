@@ -51,3 +51,22 @@ test("confirmed close hold requires two more completed scheduled sessions and re
  const p=scanEquityEma(breakOnly,"America/New_York",now)!.observations.find(o=>o.frame==="D"&&o.period===20)!;
  assert(p.closeHolds?.some(h=>h.boundary==="ema"&&h.status==="BREAK_ONLY"));
 });
+
+test("MD6 recent session quality distinguishes missing, stale and unverified venue calendars",()=>{
+ const now=new Date("2026-11-25T22:00:00Z");
+ const end=Date.parse("2026-11-25T00:00:00Z");
+ const bars=Array.from({length:180},(_,i)=>end-(179-i)*86400000).filter(t=>scheduledUsEquityCloseHourET(new Date(t).toISOString().slice(0,10))!==null).map(t=>({time:t/1000,close:100}));
+ const good=scanEquityEma(bars,"America/New_York",now)!;
+ assert.equal(good.recentSessionQuality?.status,"VERIFIED");
+ assert.deepEqual(good.recentSessionQuality?.missingSessions,[]);
+ const gap=bars.filter(b=>b!==bars.at(-2));
+ const missing=scanEquityEma(gap,"America/New_York",now)!;
+ assert.equal(missing.recentSessionQuality?.status,"MISSING_SESSIONS");
+ assert.deepEqual(missing.recentSessionQuality?.missingSessions,[new Date(bars.at(-2)!.time*1000).toISOString().slice(0,10)]);
+ assert.equal(scanEquityEma(bars.slice(0,-1),"America/New_York",now)!.recentSessionQuality?.status,"STALE");
+ assert.equal(scanEquityEma(bars,"Europe/Berlin",now)!.recentSessionQuality?.status,"UNVERIFIED_CALENDAR");
+ const weekend={time:Date.parse("2026-11-22T00:00:00Z")/1000,close:101};
+ const unexpected=scanEquityEma([...bars,weekend],"America/New_York",now)!;
+ assert.equal(unexpected.recentSessionQuality?.status,"MISSING_SESSIONS");
+ assert.deepEqual(unexpected.recentSessionQuality?.unexpectedSessions,["2026-11-22"]);
+});
