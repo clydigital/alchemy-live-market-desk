@@ -81,6 +81,7 @@ export default async function NewsroomPage({searchParams}:Props){
     <nav className={ui.newsroomDepthNav} aria-label="Newsroom reading depth" data-newsroom-industry-handoff="source-qualified">
       <span aria-current="page">Latest verified news</span>
       <Link href={blueDeskPublicHref("/blue-desk/industry-intel",host)}>Industry Intel</Link>
+      {editorials.some(item=>item.id.startsWith("nov27-editorial:"))?<Link href={blueDeskPublicHref("/blue-desk/newsroom/nov-27",host)}>27 November · Eight market tests</Link>:null}
       <a href="#newsroom-manual-sweeps">Manual research checks</a>
     </nav>
     {showJensenGovernanceWatch&&isJensenGovernanceWatchWindow(now)?<JensenGovernanceWatch host={host}/>:null}
