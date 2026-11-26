@@ -37,6 +37,10 @@ export function nasdaqCompletedHistoryBounds(now:Date,historyDays:number){
 }
 export const US_EQUITY_CANARY_HISTORY_DAYS=1830;
 const US_EQUITY_CANARY_MAX_BARS=1500;
+// Extend only the 12 existing preferred-primary routes; the fallback canary
+// retains its smaller payload and the same request/timeout budget.
+export const US_PREFERRED_HISTORY_DAYS=3835;
+const US_PREFERRED_MAX_BARS=3000;
 function sessionChartUrl(symbol:string,now:Date,historyDays=365):string{
  const {through}=nasdaqCompletedHistoryBounds(now,historyDays);
  // A stable per-session key replaces a rolling range URL that could reuse
@@ -140,7 +144,8 @@ export async function fetchUsRepairHistory(symbol:string,now:Date,budget:AbortSi
 export async function fetchUsEquityCanaryHistory(symbol:string,now:Date,budget:AbortSignal,fetcher:typeof fetch=fetch,revalidate=3600){
  if(!isEquityCanary(symbol)&&!(PREFERRED_US_EQUITIES as readonly string[]).includes(symbol))throw Error("Equity canary not allowlisted");
  // One existing request, longer history only for the already-proven equity pilot.
- const result=await fetchSessionChart(symbol,"EQUITY",now,budget,fetcher,revalidate,US_EQUITY_CANARY_HISTORY_DAYS,US_EQUITY_CANARY_MAX_BARS);
+ const preferred=(PREFERRED_US_EQUITIES as readonly string[]).includes(symbol);
+ const result=await fetchSessionChart(symbol,"EQUITY",now,budget,fetcher,revalidate,preferred?US_PREFERRED_HISTORY_DAYS:US_EQUITY_CANARY_HISTORY_DAYS,preferred?US_PREFERRED_MAX_BARS:US_EQUITY_CANARY_MAX_BARS);
  // A 1/3/5 session tracker must not silently treat missing sessions as observations.
  const recent=new Set(result.points.slice(-6).map(p=>new Date(p.time*1000).toISOString().slice(0,10)));
  let t=result.points.at(-1)!.time*1000;
