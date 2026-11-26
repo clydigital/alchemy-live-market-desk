@@ -1616,7 +1616,9 @@ export function assembleDossierV2InputPacket(
   const selectedLeadIds = new Set(researchLeads.map((lead) => lead.lead_id));
   const eligibleResearchLeads = rawAdmittedLeads
     .filter((lead) =>
-      lead.source_type === "RESEARCH_LEAD"
+      (lead.source_type === "RESEARCH_LEAD"
+        || (lead.source_type === "CREATOR_LEAD"
+          && leadPriorityMetadata.get(lead.lead_id)?.marketLinked === true))
       && (lead.urgency === "HIGH" || lead.urgency === "MEDIUM")
       && lead.provenance.some((ref) =>
         typeof ref.source_id === "string" && ref.source_id.length > 0
@@ -1632,16 +1634,21 @@ export function assembleDossierV2InputPacket(
       || left.lead_id.localeCompare(right.lead_id));
   // Preserve both Story-linked verification questions and orphan news
   // developments. Never infer a Story association to fill the orphan slot.
-  const linkedLeads = eligibleResearchLeads.filter((lead) =>
+  const publisherLeads = eligibleResearchLeads.filter((lead) => lead.source_type === "RESEARCH_LEAD");
+  const creatorLead = eligibleResearchLeads.find((lead) => lead.source_type === "CREATOR_LEAD");
+  const linkedLeads = publisherLeads.filter((lead) =>
     leadPriorityMetadata.get(lead.lead_id)?.marketLinked === true);
-  const unlinkedLeads = eligibleResearchLeads.filter((lead) =>
+  const unlinkedLeads = publisherLeads.filter((lead) =>
     leadPriorityMetadata.get(lead.lead_id)?.marketLinked !== true);
   const priorityResearchLeads: typeof rawAdmittedLeads = [];
   const sampledLeadIds = new Set<string>();
   for (const lead of [
-    ...linkedLeads.slice(0, 2),
+    // Reallocate one of the existing three attention slots, not a fourth.
+    // Creator hypotheses stay attributed questions, never OBSERVED facts.
+    ...linkedLeads.slice(0, creatorLead ? 1 : 2),
     ...unlinkedLeads.slice(0, 1),
-    ...eligibleResearchLeads,
+    ...(creatorLead ? [creatorLead] : []),
+    ...publisherLeads,
   ]) {
     if (priorityResearchLeads.length >= MAX_STANDALONE_RESEARCH_LEADS) break;
     if (sampledLeadIds.has(lead.lead_id)) continue;

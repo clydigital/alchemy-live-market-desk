@@ -1830,3 +1830,44 @@ test("20h. official issuer earnings survive evidence saturation without displaci
   assert.equal(packet.development_clusters.filter(c=>c.grouping_key.startsWith("publisher:measured-")).length,2);
   assert.ok(Buffer.byteLength(toCanonicalJson(packet),"utf8")<=200000);
 });
+
+test("20i. a single eligible creator question shares the three-slot attention reserve without factual promotion", () => {
+  const evidence: NonNullable<CandidateSnapshot["observed_evidence"]> = [
+    ...Array.from({length:14},(_,i)=>({
+      evidence_id:`market-monitor:creator-fixture-${i}`,claim_or_fact:`Measured market series ${i}`,
+      source_type:"MARKET_DATA",rank:2,grouping_key:`market-monitor:creator-fixture-${i}`,
+      available_at:IN_WINDOW_TIME,provenance:[{source_type:"MARKET_DATA",source_id:`m-${i}`}],
+    })),
+    ...Array.from({length:10},(_,i)=>({
+      evidence_id:`official:creator-fixture-${i}`,claim_or_fact:`Verified official measurement ${i}`,
+      source_type:"OFFICIAL_DATA",rank:10,grouping_key:`official:creator-fixture-${i}`,
+      available_at:IN_WINDOW_TIME,provenance:[{source_type:"OFFICIAL_DATA",source_id:`o-${i}`}],
+    })),
+  ];
+  const lead=(id:string,source_type:string,market_linked:boolean,score:number,available_at=IN_WINDOW_TIME,url?:string,urgency="HIGH")=>({
+    lead_id:id,source_type,market_linked,candidate_score:score,urgency,
+    available_at,grouping_key:`unresolved:${id}`,claim_or_question:`Test claim ${id} against dated evidence`,
+    provenance:[{source_type,source_id:id,url}],
+  });
+  const leads=[
+    lead("linked-first","RESEARCH_LEAD",true,90,IN_WINDOW_TIME,"https://example.org/first"),
+    lead("linked-second","RESEARCH_LEAD",true,88,IN_WINDOW_TIME,"https://example.org/second"),
+    lead("orphan","RESEARCH_LEAD",false,85,IN_WINDOW_TIME,"https://example.org/orphan"),
+    lead("creator-selected","CREATOR_LEAD",true,90,IN_WINDOW_TIME,"https://www.youtube.com/watch?v=fixture"),
+    lead("creator-other","CREATOR_LEAD",true,80,IN_WINDOW_TIME,"https://www.youtube.com/watch?v=other"),
+    lead("creator-unlinked","CREATOR_LEAD",false,100,IN_WINDOW_TIME,"https://www.youtube.com/watch?v=unlinked"),
+    lead("creator-unsourced","CREATOR_LEAD",true,100),
+    lead("creator-future","CREATOR_LEAD",true,100,FUTURE_TIME,"https://www.youtube.com/watch?v=future"),
+    lead("creator-low","CREATOR_LEAD",true,100,IN_WINDOW_TIME,"https://www.youtube.com/watch?v=low","LOW"),
+  ];
+  const packet=assembleDossierV2InputPacket({as_of:TEST_AS_OF,previous_dossier_id:null},{observed_evidence:evidence,research_leads:leads});
+  assert.deepEqual(new Set(packet.research_leads.map(l=>l.lead_id)),new Set(["linked-first","orphan","creator-selected"]));
+  assert.equal(packet.observed_evidence.length,24);
+  assert.equal(packet.development_clusters.length,24);
+  assert.ok(packet.observed_evidence.every(e=>!e.evidence_id.startsWith("creator-")));
+  assert.equal(packet.research_leads.find(l=>l.lead_id==="creator-selected")?.source_type,"CREATOR_LEAD");
+  assert.ok(packet.research_leads.every(l=>l.epistemic_label===undefined));
+  assert.ok(Buffer.byteLength(toCanonicalJson(packet),"utf8")<=200000);
+  const again=assembleDossierV2InputPacket({as_of:TEST_AS_OF,previous_dossier_id:null},{observed_evidence:evidence,research_leads:[...leads].reverse()});
+  assert.equal(packet.packet_id,again.packet_id);
+});
