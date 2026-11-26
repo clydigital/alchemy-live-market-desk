@@ -35,3 +35,29 @@ test("canonical readback is bounded, read-only and after the owner gate",()=>{
  assert.match(source,/\.in\("id",ids\)\.limit\(32\)/);
  assert.doesNotMatch(source,/\.(insert|upsert|update|delete)\(/);
 });
+
+test("private receipt trace checks exact Dossier references and canonical aliases without inferring agreement",()=>{
+ const id="aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",alias="market-crack:fixture",did="bbbbbbbb-cccc-4ddd-8eee-ffffffffffff";
+ const g={...snapshot.gems[0],id,state:"ATTRIBUTED",canonicalReceipt:{dossierReference:{status:"ANALYTICAL_REFERENCE"}}};
+ const parsed=parseHypothesisSnapshot({...snapshot,gems:[g]},row,now)!;
+ assert.equal(parsed.gems[0].canonicalReceipt,undefined);
+ const rows=[{...row,snapshot:parsed}];
+ const receipt={id,external_evidence_id:alias,provenance_urls:[g.sourceUrl],event_at:"2026-11-25T12:00:00Z",received_at:"2026-11-25T13:00:00Z"};
+ const make=(analytical_output:unknown,items:unknown[]=[],as_of="2026-11-25T14:00:00Z")=>({id:did,as_of,payload:{analytical_output,evidence_governance:{items}}});
+ const check=(dossier:unknown,receipts:unknown[]=[receipt])=>projectCanonicalGemReceipts(rows,receipts,now,dossier)[0].snapshot!.gems[0];
+ assert.equal(check(make({main_thread:{evidence_references:[alias]}})).canonicalReceipt?.dossierReference?.status,"ANALYTICAL_REFERENCE");
+ assert.equal(check(make({investigations:[{candidate_explanations:[{evidence_against_ids:[id]}]}]})).canonicalReceipt?.dossierReference?.status,"ANALYTICAL_REFERENCE");
+ assert.equal(check(make({main_thread:{answer:alias,evidence_references:[alias+"-suffix"]}},[{evidenceId:alias}])).canonicalReceipt?.dossierReference?.status,"GOVERNANCE_ONLY");
+ assert.equal(check(make({main_thread:{answer:alias,evidence_references:[alias+"-suffix"]}})).canonicalReceipt?.dossierReference?.status,"NOT_REFERENCED");
+ assert.equal(check(make({main_thread:{evidence_references:["ev:"+id]}})).canonicalReceipt?.dossierReference?.status,"ANALYTICAL_REFERENCE");
+ assert.equal(check(make({main_thread:{evidence_references:[alias]}},[],"2026-11-25T12:30:00Z")).canonicalReceipt?.dossierReference?.status,"BEFORE_RECEIPT");
+ assert.equal(check(make({main_thread:{evidence_references:[alias]}},[],"2026-11-27T00:00:00Z")).canonicalReceipt?.dossierReference?.status,"UNAVAILABLE");
+ assert.equal(check(null).canonicalReceipt?.dossierReference?.status,"UNAVAILABLE");
+ assert.equal(check(make({main_thread:{evidence_references:[alias]}}),[{...receipt,provenance_urls:["https://example.com/other"]}]).canonicalReceipt?.dossierReference,undefined);
+ assert.equal(check(make({main_thread:{evidence_references:[alias]}})).state,"ATTRIBUTED");
+});
+test("latest Dossier trace is bounded behind owner authorisation",()=>{
+ const source=readFileSync(new URL("../lib/bluebelly-hypothesis-registry-server.ts",import.meta.url),"utf8");
+ assert.ok(source.indexOf("if(accessError||!access)")<source.indexOf('.from("market_dossiers_v2")'));
+ assert.match(source,/\.lte\("as_of",now\.toISOString\(\)\)\.order\("as_of",\{ascending:false\}\)\.limit\(1\)\.maybeSingle\(\)/);
+});
