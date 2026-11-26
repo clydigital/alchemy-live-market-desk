@@ -113,3 +113,25 @@ test("November issuer incident recovery admits only the actual named quarter and
  const wrong={...result,items:result.items.map(i=>i.title.endsWith(" — DELL")?{...i,title:"Issuer confirms Q2 FY2027 financial results — DELL"}:i)};
  assert.ok(expectedIssuerReceiptGaps(wrong,now).some(g=>g.includes(":DELL:")));
 });
+
+test("six additional November issuers reconcile exact fiscal quarters and original dates",async()=>{
+ const now=new Date("2026-11-26T19:00:00Z");
+ const fixtures:Record<string,string>={};
+ const releases=[
+ ["https://www.hpe.com/us/en/newsroom/press-release/2026/11/hpe-reports-fiscal-2026-fourth-quarter-results.html","HPE reports fiscal 2026 fourth quarter results","HPE (NYSE: HPE)","November 23, 2026","fourth quarter of fiscal 2026"],
+ ["https://www.agilent.com/about/newsroom/presrel/2026/23nov-gp26025.html","Agilent Reports Fourth-Quarter Fiscal Year 2026 Financial Results","Agilent Technologies","November 23, 2026","fourth quarter of fiscal 2026"],
+ ["https://investor.hp.com/news-events/news/news-details/2026/HP-Inc--Reports-Fiscal-2026-Full-Year-and-Fourth-Quarter-Results-Announces-Dividend-Increase/default.aspx","HP Inc. Reports Fiscal 2026 Full Year and Fourth Quarter Results","HP (NYSE: HPQ)","November 24, 2026","fourth quarter of fiscal 2026"],
+ ["https://investors.bestbuy.com/News--Events/news/news-details/2026/Best-Buy-Reports-Third-Quarter-Results/default.aspx","Best Buy Reports Third Quarter Results","Best Buy Co., Inc.","November 24, 2026","third quarter (Q3 FY27)"],
+ ["https://news.medtronic.com/2026-11-24-Medtronic-reports-second-quarter-fiscal-2027-results-performance-reflects-consistent-execution-across-the-portfolio","Medtronic reports second quarter fiscal 2027 results","Medtronic plc","Nov. 24, 2026","second quarter of fiscal 2027"],
+ ["https://www.deere.com/en-us/john-deere-news/fy26-fourth-quarter-earnings","FY26 Fourth Quarter Earnings Release","Deere &amp; Company","November 25, 2026","fourth quarter of fiscal 2026"],
+ ];
+ for(const [url,title,company,day,period] of releases)fixtures[url]=`<html><body><h1>${title}</h1><p>${day}</p><p>${company} announced financial results for the ${period}. Revenue, net income, earnings per share, operating cash flow, balance sheet and outlook are included in this controlled synthetic HTML fixture. It tests source identity and reporting period only, not actual financial figures.</p></body></html>`;
+ const result=await applyIssuerResultsPressIntake(input(),{now,fetchImpl:fetchWithFixture(fixtures)});
+ assert.equal(result.items.length,6);
+ const gaps=expectedIssuerReceiptGaps(result,now);
+ for(const ticker of ["HPE","A","HPQ","BBY","MDT","DE"])assert.equal(gaps.some(g=>g.includes(":"+ticker+":")),false,ticker);
+ const bby=releases[3][0];
+ const wrong={...fixtures,[bby]:fixtures[bby].replace("Q3 FY27","Q3 FY26")};
+ const rejected=await applyIssuerResultsPressIntake(input(),{now,fetchImpl:fetchWithFixture(wrong)});
+ assert.equal(rejected.items.some(i=>i.url===bby),false);
+});

@@ -82,6 +82,42 @@ const SOURCES:Readonly<Record<string,Source>>={
   publisher:"Analog Devices Investor Relations",headline:/analog devices\s+reports?\s+(?:record\s+)?(?:first|second|third|fourth)\s+quarter(?:\s+and)?\s+fiscal\s+20\d{2}\s+financial\s+results/i,
   company:/analog devices,?\s+inc\.?|\(nasdaq:\s*adi\)/i,
  },
+ HPE:{
+  host:"www.hpe.com",listing:"https://www.hpe.com/us/en/newsroom.html",
+  path:/^\/us\/en\/newsroom\/press-release\/20\d{2}\/\d{2}\/[a-z0-9-]+\.html$/i,
+  publisher:"HPE Newsroom",headline:/\bhpe\s+reports?\s+fiscal\s+20\d{2}\s+(?:first|second|third|fourth)\s+quarter\s+results\b/i,
+  company:/hewlett packard enterprise|\(nyse:\s*hpe\)/i,
+ },
+ A:{
+  host:"www.agilent.com",listing:"https://www.agilent.com/about/newsroom/presrel/",
+  path:/^\/about\/newsroom\/presrel\/20\d{2}\/[a-z0-9-]+\.html$/i,
+  publisher:"Agilent Newsroom",headline:/agilent\s+reports?\s+(?:first|second|third|fourth)[-\s]+quarter\s+fiscal\s+year\s+20\d{2}\s+financial\s+results/i,
+  company:/agilent technologies|\(nyse:\s*a\)/i,
+ },
+ HPQ:{
+  host:"investor.hp.com",listing:"https://investor.hp.com/",
+  path:/^\/news-events\/news\/news-details\/20\d{2}\/[a-z0-9-]+\/default\.aspx$/i,
+  publisher:"HP Investor Relations",headline:/hp inc\.?\s+reports?\s+fiscal\s+20\d{2}\s+(?:full year and\s+)?(?:first|second|third|fourth)\s+quarter\s+results/i,
+  company:/hp inc\.?|\(nyse:\s*hpq\)/i,
+ },
+ BBY:{
+  host:"investors.bestbuy.com",listing:"https://investors.bestbuy.com/",
+  path:/^\/news--events\/news\/news-details\/20\d{2}\/[a-z0-9-]+\/default\.aspx$/i,
+  publisher:"Best Buy Investor Relations",headline:/best buy\s+reports?\s+(?:first|second|third|fourth)\s+quarter\s+results/i,
+  company:/best buy co\.?,?\s*inc\.?|\(nyse:\s*bby\)/i,
+ },
+ MDT:{
+  host:"news.medtronic.com",listing:"https://news.medtronic.com/press-releases",
+  path:/^\/20\d{2}-\d{2}-\d{2}-[a-z0-9-]+$/i,
+  publisher:"Medtronic Newsroom",headline:/medtronic\s+reports?\s+(?:first|second|third|fourth)\s+quarter\s+fiscal\s+20\d{2}\s+results/i,
+  company:/medtronic plc|\(nyse:\s*mdt\)/i,
+ },
+ DE:{
+  host:"www.deere.com",listing:"https://www.deere.com/en-us/content-library",
+  path:/^\/en-us\/john-deere-news\/[a-z0-9-]+\/?$/i,
+  publisher:"John Deere Newsroom",headline:/(?:fy\d{2}\s+(?:first|second|third|fourth)\s+quarter\s+earnings\s+release|deere\s+reports?\s+(?:first|second|third|fourth)\s+quarter)/i,
+  company:/deere\s*(?:&|and)\s*company|\(nyse:\s*de\)/i,
+ },
  AMD:{
   host:"ir.amd.com",listing:"https://ir.amd.com/news-events/press-releases",
   path:/^\/news-events\/press-releases\/detail\/\d{3,5}\/[a-z0-9-]+\/?$/i,
@@ -90,6 +126,12 @@ const SOURCES:Readonly<Record<string,Source>>={
  },
 };
 const NOVEMBER_ORIGINALS:Readonly<Record<string,{quarter:string;day:string;url:string}>>={
+ HPE:{"quarter":"Q4 FY2026","day":"2026-11-23","url":"https://www.hpe.com/us/en/newsroom/press-release/2026/11/hpe-reports-fiscal-2026-fourth-quarter-results.html"},
+ A:{"quarter":"Q4 FY2026","day":"2026-11-23","url":"https://www.agilent.com/about/newsroom/presrel/2026/23nov-gp26025.html"},
+ HPQ:{"quarter":"Q4 FY2026","day":"2026-11-24","url":"https://investor.hp.com/news-events/news/news-details/2026/HP-Inc--Reports-Fiscal-2026-Full-Year-and-Fourth-Quarter-Results-Announces-Dividend-Increase/default.aspx"},
+ BBY:{"quarter":"Q3 FY2027","day":"2026-11-24","url":"https://investors.bestbuy.com/News--Events/news/news-details/2026/Best-Buy-Reports-Third-Quarter-Results/default.aspx"},
+ MDT:{"quarter":"Q2 FY2027","day":"2026-11-24","url":"https://news.medtronic.com/2026-11-24-Medtronic-reports-second-quarter-fiscal-2027-results-performance-reflects-consistent-execution-across-the-portfolio"},
+ DE:{"quarter":"Q4 FY2026","day":"2026-11-25","url":"https://www.deere.com/en-us/john-deere-news/fy26-fourth-quarter-earnings"},
  DELL:{quarter:"Q3 FY2027",day:"2026-11-24",url:"https://investors.delltechnologies.com/news-events/press-releases/detail/1665/dell-technologies-delivers-third-quarter-fiscal-2027-financial-results"},
  WDAY:{quarter:"Q3 FY2027",day:"2026-11-24",url:"https://investor.workday.com/news-and-events/press-releases/news-details/2026/Workday-Announces-Fiscal-2027-Third-Quarter-Financial-Results/default.aspx"},
  ADI:{quarter:"Q4 FY2026",day:"2026-11-24",url:"https://www.analog.com/en/newsroom/press-releases/2026/11-24-26-adi-reports-record-4th-qtr-and-fiscal-2026-financial-results.html"},
@@ -121,20 +163,26 @@ function quarterToken(q:string){
  if(!m||!year)return null;
  return {word:["first","second","third","fourth"][Number(m[1])-1],year:year[0]};
 }
+function hasReleaseDay(text:string,day:string){
+ const full=dayLabel(day);
+ if(!full)return false;
+ const short=full.replace(/^([A-Za-z]{3})[A-Za-z]+ /,"$1 ");
+ return text.includes(full)||text.includes(short)||text.includes(short.replace(/^([A-Za-z]{3}) /,"$1. "));
+}
 function isResult(body:string,source:Source,event:Candidate){
  const text=htmlText(body).slice(0,105_000);
  const token=quarterToken(event.quarter);
  if(!token||text.length<250||!source.headline.test(text.slice(0,25_000))||
    !source.company.test(text)||!/revenue|net sales/i.test(text)
    ||!/\bfinancial results\b|\bresults for (?:the|its)\b|\bquarter ended\b/i.test(text)
-   ||!text.includes(dayLabel(releaseDay(event))))return false;
+   ||!hasReleaseDay(text,releaseDay(event)))return false;
  const lower=text.toLowerCase();
  const nearTitle=lower.search(source.headline);
  const core=nearTitle>=0?lower.slice(nearTitle,nearTitle+12_000):"";
  // A result for the wrong quarter/year, an old date announcement or a future
  // preview must never clear the current issuer-coverage obligation.
  const hasQuarter=new RegExp("\\b"+token.word+"[-\\s]+quarter\\b","i").test(core);
- const hasYear=core.includes(token.year)||core.includes(releaseDay(event).slice(0,4));
+ const hasYear=core.includes(token.year)||new RegExp("\\bfy\\s*"+token.year.slice(-2)+"\\b","i").test(core);
  const future=/\b(?:will report|to report|announces? date of|announces? the date|conference call to discuss)\b/i
    .test(core.slice(0,170));
  return hasQuarter&&hasYear&&!future;
