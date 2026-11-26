@@ -72,6 +72,7 @@ export default async function MyBluebellyReports({searchParams}:{
       <h3>Markets &amp; breadth</h3>
       <p>Source-dated instruments, sector moves and yield comparisons where observations are available.</p>
       <Link href="/markets">Open Markets</Link>
+      <p><Link href="/markets?mode=compare">Rotation &amp; breadth</Link> · <Link href="/markets?mode=watch">Divergence Watch</Link> · <Link href="/markets?mode=risk">Risk &amp; Positioning</Link></p>
      </article>
      <article className={layout.hubCard}>
       <span>03 / EVIDENCE</span>
@@ -91,6 +92,7 @@ export default async function MyBluebellyReports({searchParams}:{
       <h3>Market Tools</h3>
       <p>Access existing authenticated market utilities and technical checks.</p>
       <Link href="/market-tools">Open Market Tools</Link>
+      <p><Link href="/market-tools?view=technical#ema-sd-levels">Technical Watch</Link> · <Link href="/market-tools?view=relationships">Relationships</Link> · <Link href="/market-tools?view=intake">Research intake</Link> · <Link href="/market-tools?view=diagnostics">Provider diagnostics</Link></p>
      </article>
     </div>
 
