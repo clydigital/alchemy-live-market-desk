@@ -14,7 +14,8 @@ const knownChannelIds: Record<string, string> = {
   "wall-street-truth-bombs": "UCTK_cv-y88CScoudcXnS1Ew",
 };
 export class ManualCaptionError extends Error {
-  constructor(message: string, readonly status = 422) { super(message); }
+  readonly status: number;
+  constructor(message: string, status = 422) { super(message); this.status = status; }
 }
 const obj = (v: unknown): Record<string, unknown> => {
   if (!v || typeof v !== "object" || Array.isArray(v)) throw new ManualCaptionError("Receipt must be an object.");
