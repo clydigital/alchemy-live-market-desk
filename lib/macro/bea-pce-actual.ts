@@ -51,13 +51,13 @@ export function parseBeaPceActual(
  const monthly=new RegExp(
   "From the preceding month,?\\s+the PCE price index for "+month+
   "\\s+(increased|decreased|rose|fell)\\s+([0-9]+(?:\\.[0-9]+)?)\\s+percent\\s*\\.\\s+"+
-  "Excluding food and energy,\\s+the PCE price index\\s+(increased|decreased|rose|fell)\\s+"+
+  "Excluding food and energy,\\s+the PCE price index\\s+(?:also\\s+)?(increased|decreased|rose|fell)\\s+"+
   "([0-9]+(?:\\.[0-9]+)?)\\s+percent","i",
  ).exec(text);
  const yearly=new RegExp(
   "From the same month one year ago,?\\s+the PCE price index for "+month+
   "\\s+(increased|decreased|rose|fell)\\s+([0-9]+(?:\\.[0-9]+)?)\\s+percent\\s*\\.\\s+"+
-  "Excluding food and energy,\\s+the PCE price index\\s+(increased|decreased|rose|fell)\\s+"+
+  "Excluding food and energy,\\s+the PCE price index\\s+(?:also\\s+)?(increased|decreased|rose|fell)\\s+"+
   "([0-9]+(?:\\.[0-9]+)?)\\s+percent","i",
  ).exec(text);
  if(!monthly||!yearly)return null;
