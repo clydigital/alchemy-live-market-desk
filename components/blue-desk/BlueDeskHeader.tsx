@@ -30,7 +30,6 @@ const PUBLIC_NAV = [
 const PUBLIC_MORE = [
   ["Newsroom", "/newsroom"],
   ["Regime Lenses", "/regime-watch"],
-  ["Industry Intel", "/industry-intel"],
   ["Hormuz Data", "/hormuz"],
   ["Learn", "/learn"],
 ] as const;
