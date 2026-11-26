@@ -27,7 +27,7 @@ export async function getXWireOwnerView(raw:Record<string,unknown>,now=new Date(
     let query=db.from("x_wire_posts")
       .select("post_id,handle,original_url,published_at,retrieved_at,body,intake_status,quote_url,media_urls",
         {count:"exact"})
-      .not("handle","ilike","gordianknotdev");
+      .not("handle","ilike","gordianknotdev").not("handle","ilike","beginnertrades").not("handle","ilike","bluekurtic");
     if(filters.handle)query=query.ilike("handle",filters.handle);
     if(filters.status)query=query.eq("intake_status",filters.status);
     if(filters.period!=="all"){
