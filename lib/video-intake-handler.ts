@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server.js";
 
 import { acceptsResearchAuthorization } from "./research-auth.ts";
+import { admitManualCaptionReceipt, ManualCaptionError, parseManualCaptionReceipt } from "./manual-video-receipt.ts";
 import { scheduledVideoRunIdentity, type ScheduledVideoSlot } from "./scheduled-video-identity.ts";
 import { SupadataTranscriptStore } from "./supadata-transcript-store.ts";
 import type { TranscriptPipelineStore } from "./transcript-pipeline.ts";
@@ -20,6 +21,7 @@ export type VideoIntakeHandlerDependencies = {
   now: () => Date;
   createStore: () => TranscriptPipelineStore;
   runScheduled: typeof runScheduledVideoIntake;
+  admitManualReceipt: typeof admitManualCaptionReceipt;
 };
 
 const runScheduledQueueOnly: typeof runScheduledVideoIntake = (input) => (
@@ -33,6 +35,7 @@ const defaultDependencies: VideoIntakeHandlerDependencies = {
   now: () => new Date(),
   createStore: () => new SupadataTranscriptStore(),
   runScheduled: runScheduledQueueOnly,
+  admitManualReceipt: admitManualCaptionReceipt,
 };
 
 function response(body: unknown, status = 200) {
@@ -148,6 +151,25 @@ export async function handleVideoIntakeRequest(
   const dependencies = { ...defaultDependencies, ...dependencyOverrides };
   if (!dependencies.authenticate(request)) return response({ error: "Unauthorized video intake request." }, 401);
   try {
+    // Only explicit, authenticated POST requests can import a saved source.
+    // Scheduled discovery and existing target guidance are unchanged.
+    if (!forcedSlot && request.method === "POST") {
+      const copy = request.clone();
+      const raw = await copy.text();
+      if (Buffer.byteLength(raw, "utf8") > 1_600_000) return response({ status: "failed", error: "Request exceeds receipt size limit." }, 413);
+      let body: unknown;
+      try { body = JSON.parse(raw); } catch { body = null; }
+      if (body && typeof body === "object" && "manualReceipt" in body) {
+        try {
+          const receipt = parseManualCaptionReceipt(body.manualReceipt, dependencies.now());
+          const result = await dependencies.admitManualReceipt(receipt);
+          return response({ engine: "XWADA", mode: "private_caption_admission", ...result }, result.status === "queued_review" ? 202 : 200);
+        } catch (error) {
+          if (error instanceof ManualCaptionError) return response({ status: "failed", error: error.message }, error.status);
+          throw error;
+        }
+      }
+    }
     const target = forcedSlot ? null : await targetFromRequest(request);
     return target
       ? await runTarget(target, dependencies)
