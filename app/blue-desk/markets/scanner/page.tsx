@@ -18,11 +18,12 @@ export default async function MarketsScannerPage(){
     <div><p className={styles.kicker}><Link href={blueDeskPublicHref("/blue-desk/markets?mode=assets",host)}>Markets</Link> / SCANNER</p>
     <h1>Scanner</h1><p className={styles.heroDeck}>Find unusual moves, currency strength and equity candidates.</p></div>
    </header>
-   <nav aria-label="Markets working modes" data-markets-working-modes="four" className={legibility.workingModes}>
+   <nav aria-label="Markets working modes" data-markets-working-modes="five" className={legibility.workingModes}>
     <Link href={blueDeskPublicHref("/blue-desk/markets/scanner",host)} aria-current="page">Screener</Link>
     <Link href={blueDeskPublicHref("/blue-desk/markets?mode=assets",host)}>All Assets</Link>
     <Link href={blueDeskPublicHref("/blue-desk/markets?mode=compare",host)}>Compare</Link>
     <Link href={blueDeskPublicHref("/blue-desk/markets?mode=watch",host)}>Divergence Watch</Link>
+    <Link href={blueDeskPublicHref("/blue-desk/markets?mode=risk",host)}>Risk &amp; Positioning</Link>
    </nav>
    <MarketsScannerWidgets/>
    <Suspense fallback={<p role="status">Loading source-dated intelligent screens…</p>}><NativeMarketsDiscovery positioningHref={blueDeskPublicHref("/blue-desk/qqq-positioning",host)}/></Suspense>
