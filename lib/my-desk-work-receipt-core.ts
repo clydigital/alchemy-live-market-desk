@@ -15,7 +15,13 @@ const oneOf=(s:string,allowed:string[])=>allowed.includes(s)?s:"Unknown";
 const unknown=(label:string,gaps:string)=>lane(label,{gaps});
 export function projectMacroLog(raw:unknown,now:Date):HealthLane{
  if(!completeResult(raw))return unknown("MacroPulse","Existing private Log receipt unavailable");
- const rows=bounded(raw).filter(r=>/^(?:MP-)?\d{8}-\d{4}$/.test(val(r,"Pulse ID"))&&/^\d{2}:\d{2}$/.test(val(r,"MYT Slot")));
+ const slotAt=(r:unknown)=>{
+  const date=val(r,"Date Key"),slot=val(r,"MYT Slot"),id=val(r,"Pulse ID");
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d{2}:\d{2}$/.test(slot))return null;
+  const key=date.replace(/-/g,"")+"-"+slot.replace(":","");
+  return (id===key||id==="MP-"+key)?time(date+"T"+slot+":00+08:00",now):null;
+ };
+ const rows=bounded(raw).filter(r=>slotAt(r)!==null).sort((a,b)=>Date.parse(slotAt(b)!)-Date.parse(slotAt(a)!));
  const r=rows[0];if(!r)return unknown("MacroPulse","No scheduled Log in bounded receipt window; manual records do not prove scheduled delivery");
  const status=oneOf(val(r,"Status"),["PUBLISHED","QUALIFIED","UNPUBLISHED","SKIPPED"]);
  const success=latest(rows.filter(x=>["PUBLISHED","QUALIFIED"].includes(val(x,"Status"))&&typeof prop(x,"Post URL").url==="string"&&String(prop(x,"Post URL").url).startsWith("https://")).map(x=>at(x,"Published At",now)));
@@ -60,11 +66,12 @@ export function augmentCreatorLane(base:HealthLane,digest:CreatorDigest|null,now
  if(!digest||!time(digest.generatedAt,now))return base;
  const reviewed=digest.creators.filter(x=>x.sourceStatus==="reviewed").length,privateOnly=digest.creators.filter(x=>x.sourceStatus==="handoff_reviewed").length;
  const partial=/\bPARTIAL\b|\bDEGRADED\b/i.test(digest.coverage)||privateOnly>0;
+ const reportedRecovery=digest.creators.filter(x=>x.sourceStatus==="handoff_reviewed"&&typeof x.changed==="string"&&/^RECOVERED\s*[—:-]/.test(x.changed)).length;
  const credit=digest.coverage.match(/ScrapeCreators last verified balance (\d{1,6})\b/i);
  return lane(base.label,{...base,execution:base.execution+"; saved digest "+myt(digest.generatedAt),
  coverage:base.coverage+"; digest "+reviewed+" reviewed / "+privateOnly+" private handoff reviews (not full roster coverage)",
  partial:base.partial||partial,fresh:base.fresh,coverageComplete:partial?false:base.coverageComplete,
  budget:credit?"ScrapeCreators last reported free balance: "+credit[1]:base.budget,
  gaps:base.gaps+(privateOnly?"; "+privateOnly+" private reviews require separate canonical intake readback":"")+"; digest timestamp is not new discovery or transcript timestamp",
- backup:base.backup});
+ backup:reportedRecovery?reportedRecovery+" private recovery reported in saved digest; equivalent provider fallback chain not verified":base.backup});
 }
