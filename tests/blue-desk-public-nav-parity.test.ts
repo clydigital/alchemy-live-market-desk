@@ -14,7 +14,7 @@ test("all visible public header links target approved host paths and real anchor
   const more = header.match(/const PUBLIC_MORE = \[([\s\S]*?)\] as const;/);
   assert.ok(more, "secondary public research destinations must be explicit");
   const additional = [...more[1].matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m=>m[1]);
-  assert.deepEqual(additional, ["/newsroom", "/regime-watch", "/industry-intel", "/hormuz", "/learn"]);
+  assert.deepEqual(additional, ["/newsroom", "/regime-watch", "/hormuz", "/learn"]);
   for (const href of additional) assert.equal(blueDeskHostAccess(href, "bluebelly-desk.vercel.app"), "public", href);
   for (const href of hrefs) {
     const url = new URL(href, "https://bluebelly-desk.vercel.app");

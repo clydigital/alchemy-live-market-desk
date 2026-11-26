@@ -82,9 +82,9 @@ test("public reader navigation hides dated Research, omit duplicate Daily Report
  assert.ok(!nav.includes('["My Desk", "/my-reports"]'));
  assert.match(header,/href="\/my-reports">My Desk/);
  const more=header.split("const PUBLIC_MORE = [")[1]?.split("] as const;")[0]||"";
- assert.doesNotMatch(more,/Research Archive/);
+ assert.doesNotMatch(more,/Research Archive|Industry Intel/);
  for(const [label,href] of [
-  ["Newsroom","/newsroom"],["Industry Intel","/industry-intel"],["Hormuz Data","/hormuz"],
+  ["Newsroom","/newsroom"],["Hormuz Data","/hormuz"],
   ["Regime Lenses","/regime-watch"],["Learn","/learn"],
  ]) assert.ok(more.includes('["'+label+'", "'+href+'"]'),label);
  assert.match(header,/className=\{chrome\.moreNav\}/);
