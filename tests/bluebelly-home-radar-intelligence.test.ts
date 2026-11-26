@@ -79,3 +79,15 @@ test("theme-aware glowing full-circle radar preserves its original shortcut link
  assert.match(ui,/aria-expanded=\{open\}/);
  assert.match(ui,/data-home-radar-intelligence="source-dated-v1"/);
 });
+
+test("radar exposes read clocks and degraded upstream reads without polling",()=>{
+ const page=readFileSync("app/blue-desk/page.tsx","utf8");
+ const ui=readFileSync("components/blue-desk/HomeRadarIntelligence.tsx","utf8");
+ for(const lane of ["motion","originalPress","officialMacro"])assert.ok(page.includes("radarNewsReads."+lane+"=false"));
+ assert.match(page,/sourceHealth=\{\{newsReads:radarNewsReads/);
+ assert.match(ui,/observed\(read.generatedAt\)/);
+ assert.match(ui,/router.refresh\(\)/);
+ assert.match(ui,/Partial \/ failed reads/);
+ assert.match(ui,/Read completion is not ingestion success/);
+ assert.doesNotMatch(ui,/setInterval\(/);
+});
