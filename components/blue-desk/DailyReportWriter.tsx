@@ -1,6 +1,8 @@
 "use client";
 
 import {useState} from "react";
+import ResearchChartPreview from "./ResearchChartPreview";
+import type {ResearchChart} from "@/lib/bluebelly-research-charts";
 import Link from "next/link";
 import css from "./daily-report-writer.module.css";
 import OwnerHtmlEditionArchive from "./OwnerHtmlEditionArchive";
@@ -8,6 +10,7 @@ import {DAILY_BRIEFING_STEPS} from "@/lib/blue-desk-narrative-playbook";
 import {HTML_LONGFORM_CHAPTERS,assembleHtmlLongformDraft} from "@/lib/bluebelly-html-longform-generator";
 
 type Handoff={
+  researchCharts?:ResearchChart[];
   contractVersion:string;assembledAt:string;notionStatus:string;
   warnings:string[];newsCount:number;deliveredBriefCount?:number;packet:string;sourceUrls:string[];
   deliveredResearch?:{status:"AVAILABLE"|"UNAVAILABLE";count:number;caveat:string};
@@ -227,6 +230,7 @@ export default function DailyReportWriter(){
                 {new URL(entry.url).hostname} · Source {i+1}</a>
             </p>) :
           <p>No links were extracted from authorised Notion research.</p>}
+        <ResearchChartPreview charts={research.researchCharts}/>
         <label>Research packet — editable but unverified
           <textarea rows={22} value={editedPacket}
             onChange={e=>{setEditedPacket(e.target.value.slice(0,24000));setLongformProgress(null);setPreviewHtml("");}}/>
