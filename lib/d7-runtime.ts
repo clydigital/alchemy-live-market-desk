@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getDeskData } from "./data.ts";
 import { buildD7CrossLayerDivergence } from "./dossier-v2/cross-layer-divergence.ts";
 import { getDossierV2PresentationSelection } from "./dossier-v2/presentation-reader.ts";
@@ -6,14 +7,15 @@ import { getStoryRecordLayer } from "./persistence/read.ts";
 import { buildRegimeProjection } from "./regimes.ts";
 import { getD7StoryReviewClocks } from "./d7-story-review-clock.ts";
 
-export async function loadCurrentD7RuntimeSnapshot() {
+/** Internal worker only: callers supply their existing authorized database client. */
+export async function loadCurrentD7RuntimeSnapshot(workerClient: SupabaseClient) {
   const [selection, data, recordLayer] = await Promise.all([
     getDossierV2PresentationSelection(),
     getDeskData(),
-    getStoryRecordLayer(),
+    getStoryRecordLayer(workerClient),
   ]);
   const dossier = selection.presentation;
-  if (!dossier || !selection.selectedDossierId) return null;
+  if (!dossier || !selection.selectedDossierId || !recordLayer.available) return null;
 
   const regimes = buildRegimeProjection({
     stories: data.stories,
@@ -33,6 +35,7 @@ export async function loadCurrentD7RuntimeSnapshot() {
     (dossier.evidenceSufficiency?.stories ?? [])
       .map((item) => item.persistentStoryId)
       .filter((item): item is string => Boolean(item)),
+    workerClient,
   );
 
   return {
