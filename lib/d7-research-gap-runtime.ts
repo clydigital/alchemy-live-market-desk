@@ -14,9 +14,9 @@ type D7RuntimeSnapshot = Awaited<
 >;
 type D7Loader = () => Promise<D7RuntimeSnapshot>;
 
-async function loadDefaultD7RuntimeSnapshot(): Promise<D7RuntimeSnapshot> {
+async function loadDefaultD7RuntimeSnapshot(client: SupabaseClient): Promise<D7RuntimeSnapshot> {
   const { loadCurrentD7RuntimeSnapshot } = await import("./d7-runtime.ts");
-  return loadCurrentD7RuntimeSnapshot();
+  return loadCurrentD7RuntimeSnapshot(client);
 }
 
 export async function syncLatestPrioritisedResearchGapCasesWithD7(
@@ -30,7 +30,7 @@ export async function syncLatestPrioritisedResearchGapCasesWithD7(
   let queue = baseQueue;
   try {
     const runtime = await (
-      dependencies.loadD7 ?? loadDefaultD7RuntimeSnapshot
+      dependencies.loadD7 ?? (() => loadDefaultD7RuntimeSnapshot(client))
     )();
     if (
       runtime
