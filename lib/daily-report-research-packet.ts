@@ -1,6 +1,6 @@
 import type {MarketMonitorRow} from "./market-monitor.ts";
 import type {ComparisonColumn} from "./bluebelly-industry-comparison.ts";
-import {buildIssuerCashCharts,buildMacroResearchCharts,buildResearchCharts,type ResearchChart} from "./bluebelly-research-charts.ts";
+import {buildBondRegimeCharts,buildIssuerCashCharts,buildMacroResearchCharts,buildResearchCharts,type ResearchChart} from "./bluebelly-research-charts.ts";
 import {compareResearchLines,type CompareResearch} from "./bluebelly-compare-research.ts";
 import type { NotionResearchBundle } from "./notion-market-research.ts";
 import type { NewsBriefV1 } from "./market-brief-news.ts";
@@ -216,5 +216,5 @@ export function buildDailyResearchPacket(input:{
     notionStatus:input.notion.status,warnings:input.notion.warnings,
     newsCount:input.news.length,deliveredBriefCount:delivered.length,researchSourceCandidates:candidates,
     packet:lines.join("\n").slice(0,23800),sourceUrls:[...links],
-    researchCharts:[...(input.compare?buildResearchCharts(input.compare):[]),...(input.macroRows?buildMacroResearchCharts(input.macroRows,new Date(input.now)):[]),...(input.issuerColumns?buildIssuerCashCharts(input.issuerColumns,new Date(input.now)):[])]};
+    researchCharts:[...(input.compare?buildResearchCharts(input.compare):[]),...(input.macroRows?buildMacroResearchCharts(input.macroRows,new Date(input.now)):[]),...(input.issuerColumns?buildIssuerCashCharts(input.issuerColumns,new Date(input.now)):[]),...(input.macroRows?buildBondRegimeCharts(input.macroRows,new Date(input.now)):[])]};
 }
