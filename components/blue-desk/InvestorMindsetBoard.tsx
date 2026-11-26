@@ -57,7 +57,7 @@ export default function InvestorMindsetBoard({snapshot,assessment,host,themes=[]
      <strong>{assessment.status==="RESEARCHED"?"FUNDAMENTAL REVIEWED":assessment.status==="PARTIAL"?"FUNDAMENTAL PARTIALLY REVIEWED":assessment.status==="STALE"?"FUNDAMENTAL REVIEW STALE":assessment.status==="DEGRADED"?"FUNDAMENTAL REVIEW DEGRADED":"FUNDAMENTAL REVIEW UNAVAILABLE"}</strong>
      <span>{assessment.asOf?"Dossier research as of "+readableDate(assessment.asOf):"No qualified current research edition"} · {Object.keys(assessment.rows).length} independently qualified lenses · Market source timestamps shown per row</span>
      {assessment.statusDetail&&<span data-fundamental-reason>{assessment.statusDetail}</span>}
-     {receipt&&<span data-investor-review-outcome={receipt.outcome}>Pipeline checked {new Date(receipt.checkedAt).toISOString().slice(0,16).replace("T"," ")} UTC · {receipt.outcome==="NO_CHANGE"?"No new synthesis; prior assessment date retained":receipt.outcome==="PERSISTED"?"Research edition persisted":"Existing edition already covered run"}</span>}
+     {receipt&&<span data-investor-review-outcome={receipt.outcome}>Last successful pipeline review {new Date(receipt.checkedAt).toISOString().slice(0,16).replace("T"," ")} UTC · {receipt.outcome==="NO_CHANGE"?"No material change recorded; prior assessment date retained":receipt.outcome==="PERSISTED"?"Research edition persisted":"Existing edition already covered run"}{assessment.status!=="RESEARCHED"?" · Review completion does not clear evidence or assessment warnings.":""}</span>}
     </div>
    </div>
    <div className={s.tape} data-investor-tape={snapshot.tape}>
