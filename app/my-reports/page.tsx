@@ -1,6 +1,8 @@
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import Link from "next/link";
 import AbsorptionHealth from "@/components/blue-desk/AbsorptionHealth";
+import MyDeskHealthSynopsis from "@/components/blue-desk/MyDeskHealthSynopsis";
+import {getMyDeskHealth} from "@/lib/my-desk-health-server";
 import {getBluebellyAbsorptionHealth} from "@/lib/bluebelly-absorption-health";
 import {redirect} from "next/navigation";
 import styles from "@/app/blue-desk/blue-desk.module.css";
@@ -23,7 +25,8 @@ export default async function MyBluebellyReports({searchParams}:{
  if(params.view==="portfolio")redirect("/my-reports");
  // Aggregate-only operational status; this private route is protected by
  // the existing Supabase claims + active allowlist middleware.
- const absorption=await getBluebellyAbsorptionHealth();
+ const now=new Date();
+ const [absorption,health]=await Promise.all([getBluebellyAbsorptionHealth(),getMyDeskHealth(now)]);
  return <main className={styles.page} data-bluebelly-my-reports="owner-only"
    data-private-desk="source-first-market-workspace">
   <BlueDeskHeader activePath="/my-reports"/>
@@ -46,7 +49,8 @@ export default async function MyBluebellyReports({searchParams}:{
    </header>
    <div id="ingestion-health" className={layout.ownerOperations}
      data-my-desk-ingestion="aggregate-private-only">
-     <AbsorptionHealth health={absorption}/>
+     <MyDeskHealthSynopsis lanes={health} checkedAt={now.toISOString()}/>
+     <details><summary>Detailed existing ingestion metrics</summary><AbsorptionHealth health={absorption}/></details>
    </div>
    <section className={layout.hub} id="owner-research-tools" aria-label="My Desk workspace">
     <div className={layout.hubHeading}>
