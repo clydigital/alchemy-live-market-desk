@@ -18,3 +18,10 @@ test("private investment view shares the canonical BB feed and never reinstates 
  assert.match(src,/readLongEquityHistory/);assert.match(src,/auth.getUser\(\)/);
  assert.doesNotMatch(src,/\.from\("power_stack_quote_observations"\)/);
 });
+
+test("private technical watch reads canonical retest states, gates US session events and preserves valuation-only real estate",()=>{
+ const src=readFileSync(new URL("../components/blue-desk/PowerStackBBMarketSweep.tsx",import.meta.url),"utf8");
+ assert.match(src,/o\.bandRespect/);assert.match(src,/BREAK_PENDING/);assert.match(src,/RESET/);assert.match(src,/INCOMPLETE_OHLC|Retest replay:/);
+ assert.match(src,/recentSessionQuality\?\.status!=="VERIFIED"/);assert.match(src,/theme!=="REAL_ESTATE"/);
+ assert.doesNotMatch(src,/fetch\(/);
+});
