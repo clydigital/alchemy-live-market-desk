@@ -6,15 +6,68 @@ import {scheduledUsEquityCloseHourET,usEquitySessionCalendarBasis} from "./blueb
  * envelope centred on EMA. Confirm chart convention before execution.
  * Higher timeframes use only prior completed calendar periods (conservative).
  */
-export type EmaPoint={time:number;close:number};
+export type EmaPoint={time:number;close:number;high?:number|null;low?:number|null};
 type Frame="D"|"W"|"M";
 type State="above"|"below"|"at";
 type Band="above_upper"|"below_lower"|"inside";
 type Cross="up"|"down"|"none";
 export type CloseHold={boundary:"ema"|"upper"|"lower";direction:"up"|"down";crossedOn:string;consecutiveCloses:number;status:"BREAK_ONLY"|"HOLD_CONFIRMED"};
-export type EmaObservation={frame:Frame;period:number;multiplier:number;asOf:string;anchorDay:string;sampleCount?:number;requiredReadySamples?:number;closeHolds?:CloseHold[];warmup:"READY"|"SHORT_WARMUP";ema:number;upper:number;lower:number;distancePct:number;side:State;band:Band;windows:Record<"1"|"3"|"5",{returnPct:number;approach:"down_to"|"up_to"|"away"|"none";emaCross:Cross;upperCross:Cross;lowerCross:Cross;events:{session:string;boundary:"ema"|"upper"|"lower";direction:"up"|"down"}[]}|null>};
+export type EmaObservation={frame:Frame;period:number;multiplier:number;asOf:string;anchorDay:string;sampleCount?:number;requiredReadySamples?:number;closeHolds?:CloseHold[];bandRespect?:BandRespect;warmup:"READY"|"SHORT_WARMUP";ema:number;upper:number;lower:number;distancePct:number;side:State;band:Band;windows:Record<"1"|"3"|"5",{returnPct:number;approach:"down_to"|"up_to"|"away"|"none";emaCross:Cross;upperCross:Cross;lowerCross:Cross;events:{session:string;boundary:"ema"|"upper"|"lower";direction:"up"|"down"}[]}|null>};
 export type RecentSessionQuality={status:"VERIFIED"|"MISSING_SESSIONS"|"STALE"|"UNVERIFIED_CALENDAR";expectedSession:string|null;missingSessions:string[];unexpectedSessions:string[]};
 export type EquityEmaScan={asOf:string;method:"FIRST_CLOSE_EMA_ROLLING_CLOSE_POPULATION_SD";observations:EmaObservation[];unavailable:string[];recentSessionQuality?:RecentSessionQuality};
+/** Conservative daily OHLC retest replay. Boundaries are frozen at the
+ * preceding completed close, never calculated using the retest candle.
+ * This is a bounded observation, not a persistent trade signal. */
+export type BandRetest={session:string;boundary:"lower"|"upper";direction:"support"|"resistance";level:number;close:number};
+export type BandRespect={lookbackSessions:number;status:"UNVERIFIED_SESSIONS"|"SHORT_WARMUP"|"INCOMPLETE_OHLC"|"NONE"|"RESPECTED"|"BREAK_PENDING"|"RESET";lastRetest:BandRetest|null;outsideCloses:number;resetOn:string|null};
+export type RetestBar=EmaPoint&{priorClose:number;lower:number;upper:number};
+const RETEST_LOOKBACK=20;
+export function replayBandRespect(rows:readonly RetestBar[]):BandRespect{
+ const result:BandRespect={lookbackSessions:rows.length,status:"NONE",lastRetest:null,outsideCloses:0,resetOn:null};
+ for(const b of rows){
+  const h=b.high,l=b.low;
+  if(typeof h!=="number"||typeof l!=="number"||!Number.isFinite(h)||!Number.isFinite(l)||l<=0||l>b.close||h<b.close||!Number.isFinite(b.lower)||!Number.isFinite(b.upper)||b.lower>=b.upper){
+   // A missing or ambiguous candle could conceal a newer retest or reset.
+   return {...result,status:"INCOMPLETE_OHLC",lastRetest:null,outsideCloses:0,resetOn:null};
+  }
+  const inside=b.close>b.lower&&b.close<b.upper;
+  const touchesLower=l<=b.lower,touchesUpper=h>=b.upper;
+  const boundary=inside&&touchesLower&&!touchesUpper&&b.priorClose>=b.lower?"lower":inside&&touchesUpper&&!touchesLower&&b.priorClose<=b.upper?"upper":null;
+  if(boundary){
+   result.lastRetest={session:day(b.time),boundary,direction:boundary==="lower"?"support":"resistance",level:b[boundary],close:b.close};
+   result.outsideCloses=0;result.resetOn=null;result.status="RESPECTED";continue;
+  }
+  if(inside&&touchesLower&&touchesUpper){
+   // No intrabar sequence is available; neither side earns trend authority.
+   result.lastRetest=null;result.outsideCloses=0;result.resetOn=null;result.status="NONE";continue;
+  }
+  if(!result.lastRetest||result.status==="RESET")continue;
+  const outside=result.lastRetest.boundary==="lower"?b.close<b.lower:b.close>b.upper;
+  result.outsideCloses=outside?result.outsideCloses+1:0;
+  if(result.outsideCloses>=3){result.status="RESET";result.resetOn=day(b.time);}
+  else result.status=outside?"BREAK_PENDING":"RESPECTED";
+ }
+ return result;
+}
+function dailyBandRespect(bars:EmaPoint[],period:number,multiplier:number,verified:boolean):BandRespect{
+ const empty=(status:BandRespect["status"]):BandRespect=>({lookbackSessions:RETEST_LOOKBACK,status,lastRetest:null,outsideCloses:0,resetOn:null});
+ const at=bars.length-1,start=at-RETEST_LOOKBACK+1;
+ if(!verified||start<1)return empty("UNVERIFIED_SESSIONS");
+ // Verify the entire replay window plus its preceding anchor, not only six days.
+ const actual=bars.slice(start-1).map(b=>day(b.time));const expected:string[]=[];
+ for(let t=bars[at].time;expected.length<actual.length;t-=86400){
+  const d=day(t);if(usEquitySessionCalendarBasis(d)!=="OFFICIAL_NYSE_2026_2028")return empty("UNVERIFIED_SESSIONS");
+  if(scheduledUsEquityCloseHourET(d)!==null)expected.unshift(d);
+ }
+ if(actual.some((d,i)=>d!==expected[i]))return empty("UNVERIFIED_SESSIONS");
+ const rows:RetestBar[]=[];
+ for(let i=start;i<=at;i++){
+  const level=bandAt(bars.slice(0,i),period,multiplier);
+  if(!level||level.warmup!=="READY")return empty("SHORT_WARMUP");
+  rows.push({...bars[i],priorClose:bars[i-1].close,lower:level.lower,upper:level.upper});
+ }
+ return replayBandRespect(rows);
+}
 const periods=EMA_PERIODS.map((period,i)=>[period,EMA_WIDTHS[i]] as const);
 const day=(t:number)=>new Date(t*1000).toISOString().slice(0,10);
 const key=(t:number,frame:Frame)=>{const d=new Date(t*1000);if(frame==="M")return day(t).slice(0,7);if(frame==="W"){d.setUTCDate(d.getUTCDate()-((d.getUTCDay()+6)%7));return day(d.getTime()/1000);}return day(t);};
@@ -83,7 +136,7 @@ export function scanEquityEma(input:readonly EmaPoint[],timeZone:string,now=new 
     if(valid)closeHolds.push({boundary,direction:event.direction,crossedOn:event.session,consecutiveCloses:at-start+1,status:at-start>=2?"HOLD_CONFIRMED":"BREAK_ONLY"});
    }
   }
-  observations.push({frame,period,multiplier,asOf,...cur,distancePct:pct(p.close,cur.ema),side,band,windows,closeHolds});
+  observations.push({frame,period,multiplier,asOf,...cur,distancePct:pct(p.close,cur.ema),side,band,windows,closeHolds,...(frame==="D"?{bandRespect:dailyBandRespect(bars,period,multiplier,contiguous)}:{})});
  }}
  return {asOf,method:"FIRST_CLOSE_EMA_ROLLING_CLOSE_POPULATION_SD",observations,unavailable,recentSessionQuality};
 }
