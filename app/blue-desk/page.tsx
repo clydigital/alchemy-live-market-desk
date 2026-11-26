@@ -33,6 +33,7 @@ import RadarIntelligenceShell, {RadarIntelligenceTrigger} from "@/components/blu
 import {projectHomeRadar} from "@/lib/bluebelly-home-radar-intelligence";
 import {getOwnerCreatorSignalDigest} from "@/lib/bluebelly-creator-signals-server";
 import {getPrivateReviewedCreatorArguments} from "@/lib/bluebelly-private-creator-reviews";
+import {getRadarResearchLeads} from "@/lib/bluebelly-radar-research-leads-server";
 import BluebellyNewsfront from "@/components/blue-desk/BluebellyNewsfront";
 import EditorialStoryArt from "@/components/blue-desk/EditorialStoryArt";
 import { EntityMark, ScopeStrip } from "@/components/blue-desk/EntityIdentity";
@@ -155,10 +156,12 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   // results are returned only after the session and active allowlist check.
   const radarOwner=creatorRadarRead!==null&&creatorRadarRead.status!=="unauthorised";
   const radarReviews=radarOwner?await getPrivateReviewedCreatorArguments(now,3,true).catch(()=>[]):[];
+  const radarVerifiedCount=recentNews.filter(n=>n.verification==="SOURCE_VERIFIED"&&Date.parse(n.occurredAt)<=+now&&+now-Date.parse(n.occurredAt)<=86400000).length;
+  const radarLeadRead=radarOwner&&radarVerifiedCount<3?await getRadarResearchLeads(now).then(rows=>({rows,status:"readable" as const})).catch(()=>({rows:[],status:"unavailable" as const})):null;
   const radarIntel=publicHost?projectHomeRadar({
     now,news:recentNews,market:marketRows,divergences:marketComparisons,
     creatorDigest:creatorRadarRead?.digest??null,
-    creatorIsAuthorised:radarOwner,reviewedCreatorReceipts:radarReviews,
+    creatorIsAuthorised:radarOwner,reviewedCreatorReceipts:radarReviews,researchLeads:radarLeadRead?.rows??[],
   }):null;
   const compare=buildCompareResearch([...(monitor?.rows??[]),...(monitor?.divergenceRows??[])],[...marketRows,...compareBreadthObservations(breadthFeed.series,now)],now,breadthFeed.series);
   const divergenceRadar=compare.radar;
@@ -187,7 +190,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
       {!publicHost?<AbsorptionHealth health={absorptionHealth}/>:null}
       <div className={styles.content}>
         {publicHost?<section className={marketHome.terminal} data-home-market-first="source-dated-terminal" aria-label="Bluebelly market overview">
-          <RadarIntelligenceShell read={radarIntel!} sourceHealth={{newsReads:radarNewsReads,marketReadable:monitor!==null,creatorStatus:creatorRadarRead?.status??"unauthorised",creatorGeneratedAt:creatorRadarRead?.digest?.generatedAt??null,latestNewsAt:recentNews[0]?.occurredAt??null,latestMarketAt:marketRows.filter(r=>r.frequency==="daily"&&r.asOf&&r.dataStatus!=="UNAVAILABLE_OR_STALE").map(r=>r.asOf!).sort().at(-1)??null}}>
+          <RadarIntelligenceShell read={radarIntel!} sourceHealth={{newsReads:radarNewsReads,researchLeadStatus:radarLeadRead?.status??null,marketReadable:monitor!==null,creatorStatus:creatorRadarRead?.status??"unauthorised",creatorGeneratedAt:creatorRadarRead?.digest?.generatedAt??null,latestNewsAt:recentNews[0]?.occurredAt??null,latestMarketAt:marketRows.filter(r=>r.frequency==="daily"&&r.asOf&&r.dataStatus!=="UNAVAILABLE_OR_STALE").map(r=>r.asOf!).sort().at(-1)??null}}>
           <header className={marketHome.hero} data-v7-graphical-hero="source-dated">
             <div className={marketHome.heroCopy}>
               <p className={marketHome.eyebrow}><span className={marketHome.heroSignal} aria-hidden="true"/> SOURCE-DATED MARKET TERMINAL</p>
