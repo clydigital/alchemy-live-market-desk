@@ -91,3 +91,16 @@ test("radar exposes read clocks and degraded upstream reads without polling",()=
  assert.match(ui,/Read completion is not ingestion success/);
  assert.doesNotMatch(ui,/setInterval\(/);
 });
+
+test("new reviewed creator receipt can appear without a compiled digest, only for an owner",()=>{
+ const row={publisher:"StockedUp",videoId:"abcdefghijk",title:"Current review",url:"https://www.youtube.com/watch?v=abcdefghijk",publishedAt:recent,summary:"Attributed argument",logic:"Test the cash flow premise",claimChecks:[]};
+ const input={now,news:[],market:[],divergences:[],reviewedCreatorReceipts:[row,{...row,videoId:"12345678901",publishedAt:"2026-11-22T00:00:00Z"}]};
+ assert.equal(projectHomeRadar(input).creatorCount,0);
+ const owner=projectHomeRadar({...input,creatorIsAuthorised:true});
+ assert.equal(owner.creatorCount,1);
+ assert.equal(owner.items[0].statusLabel,"ATTRIBUTED · REVIEW RECEIPT");
+ assert.equal(owner.items[0].observedAt,recent);
+ const page=readFileSync("app/blue-desk/page.tsx","utf8");
+ assert.match(page,/radarOwner=creatorRadarRead!==null&&creatorRadarRead.status!=="unauthorised"/);
+ assert.match(page,/radarOwner\?await getPrivateReviewedCreatorArguments/);
+});
