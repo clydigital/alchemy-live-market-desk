@@ -61,14 +61,17 @@ async function creators(db:DB,now:Date){
 }
 async function sourceRun(db:DB,now:Date){
  const [last,success]=await Promise.all([
- db.from("research_runs").select("started_at,completed_at,status,required_sources_complete,videos_found,transcripts_ready,updates_published").in("schedule_slot",["morning","evening"]).order("started_at",{ascending:false,nullsFirst:false}).limit(1),
+ db.from("research_runs").select("started_at,completed_at,status,required_sources_complete,evidence_gate_passed,freshness_gate_passed,videos_found,transcripts_ready,updates_published,evidence_added").in("schedule_slot",["morning","evening"]).order("started_at",{ascending:false,nullsFirst:false}).limit(1),
  db.from("research_runs").select("completed_at").in("schedule_slot",["morning","evening"]).eq("status","completed").not("completed_at","is",null).order("completed_at",{ascending:false}).limit(1)]);
  if(last.error||success.error)throw Error("run read failed");
  const r=last.data?.[0],at=success.data?.[0]?.completed_at??null;
+ const gate=(value:boolean|null|undefined)=>value===true?"passed":value===false?"not passed":"unverified";
+ const failedGates=r?[r.required_sources_complete===false?"required sources":null,r.evidence_gate_passed===false?"evidence":null,r.freshness_gate_passed===false?"freshness":null].filter(Boolean):[];
  return lane("Scheduled source acquisition",{attempt:r?.started_at??null,success:at,execution:r?.status??"Unknown",
- coverage:r?String(r.videos_found??0)+" video discoveries; "+String(r.transcripts_ready??0)+" transcripts in latest acquisition receipt":"Unverified",
- coverageComplete:null,fresh:fresh(at,now,24),failed:r?.status==="failed"||r?.status==="blocked",partial:r?.required_sources_complete===false,
- gaps:"Source-only completion is not digestion, publication or full creator coverage"});
+ coverage:r?String(r.videos_found??0)+" video discoveries; "+String(r.transcripts_ready??0)+" transcripts; "+String(r.evidence_added??0)+" reported evidence additions in latest acquisition receipt":"Unverified",
+ coverageComplete:null,fresh:r?.freshness_gate_passed===false?false:fresh(at,now,24),failed:r?.status==="failed"||r?.status==="blocked",partial:failedGates.length>0,
+ failure:failedGates.length?"Gate not passed: "+failedGates.join(", "):"Not established",
+ gaps:"Required sources "+gate(r?.required_sources_complete)+" · evidence "+gate(r?.evidence_gate_passed)+" · freshness "+gate(r?.freshness_gate_passed)+". Source-only completion is not digestion, publication or full creator coverage"});
 }
 async function macro(db:DB){
  const {data,error}=await db.from("blue_desk_macropulse_briefs").select("received_at,published_at,status").order("received_at",{ascending:false}).limit(1);
@@ -81,9 +84,21 @@ async function market(db:DB){
  return lane("Market data / EMA",{execution:"Scheduled market measurement receipt only",coverage:r?"Latest canonical measurement observation: "+myt(r.event_at??null):"No canonical measurement receipt",success:r?.received_at??null,gaps:"Canonical measurement is not full equity or EMA session coverage; provider refresh and warmup status not verified"});
 }
 async function gaps(db:DB){
- const {data,error}=await db.from("research_gap_cases").select("status,handed_off_at,completed_at,research_started_at").order("updated_at",{ascending:false}).limit(1);
- if(error)throw error;const r=data?.[0];
- return lane("Research digestion / handoff",{attempt:r?.research_started_at??null,success:r?.handed_off_at??null,execution:r?"Latest gap case: "+r.status:"No gap-case receipt",coverage:"Case-level only",gaps:"Handoff receipt is not proof of all current research digested or downstream publication"});
+ const [latestCase,lastHandoff,handedCount]=await Promise.all([
+  db.from("research_gap_cases").select("status,updated_at,research_started_at").order("updated_at",{ascending:false}).limit(1),
+  db.from("research_gap_cases").select("handed_off_at,handoff_canonical_status").not("handed_off_at","is",null).order("handed_off_at",{ascending:false}).limit(1),
+  db.from("research_gap_cases").select("id",{head:true,count:"exact"}).eq("status","HANDED_OFF")]);
+ const r=latestCase.data?.[0],h=lastHandoff.data?.[0];
+ const caseAt=latestCase.error?"Read unavailable":myt(r?.updated_at??null);
+ const handoffAt=lastHandoff.error?"Read unavailable":myt(h?.handed_off_at??null);
+ const count=handedCount.error?"Unknown":String(handedCount.count??0);
+ const status=h?.handoff_canonical_status;
+ const canonical=typeof status==="number"?"HTTP "+status:"Unverified";
+ return lane("Research digestion / handoff",{attempt:r?.research_started_at??null,success:!lastHandoff.error&&typeof status==="number"&&status>=200&&status<300?h?.handed_off_at??null:null,
+ execution:latestCase.error?"Case read unavailable":r?"Latest modified case: "+r.status:"No gap-case receipt",
+ coverage:count+" cases currently marked HANDED_OFF; last recorded handoff "+handoffAt+" ("+canonical+")",
+ gaps:"Latest case modification: "+caseAt+". Modification is not a new handoff. Gap cases represent only one research route; agent-led reviews and consumer readback require separate receipts.",
+ failed:false,coverageComplete:null,fresh:null});
 }
 async function publication(db:DB){
  const readLatest=async(table:"intelligence_evidence"|"story_updates"|"story_thesis_versions",column:"created_at")=>{
