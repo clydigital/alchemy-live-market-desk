@@ -259,3 +259,19 @@ test("MD1: HTTP 402 Supadata response enters configured fallback", async () => {
   });
   assert.equal(transcriptProviderFromRetrieval(result), "transcriptapi");
 });
+
+test("MD1 successful fallback carries sanitized ordered receipt into existing transcript metadata", async () => {
+ const result = await retrieveTranscriptForWorker(VIDEO_ID, "secret-mock-key", {
+  retrieveSupadata: async () => { throw providerError("provider_rate_limit", true); },
+  browserConfigured: () => false,
+  transcriptApiConfigured: () => true,
+  retrieveTranscriptApi: async () => retrieval("transcriptapi"),
+ });
+ const receipt = result.transcript.metadata.providerHealthReceipt as { state: string; fallbackAttempted: boolean; attempts: {provider:string; outcome:string; cause:string|null}[]; residualCoverage:string };
+ assert.equal(receipt.state, "recovered");
+ assert.equal(receipt.fallbackAttempted, true);
+ assert.deepEqual(receipt.attempts.map(a=>[a.provider,a.outcome,a.cause]), [["supadata","failed","provider_rate_limit"],["chrome_operator","skipped","not_configured"],["transcriptapi","success",null]]);
+ assert.equal(receipt.residualCoverage,"transcript_retrieved_not_yet_persisted");
+ assert.ok(!JSON.stringify(receipt).includes("secret-mock-key"));
+ assert.equal(transcriptProviderFromRetrieval(result),"transcriptapi");
+});

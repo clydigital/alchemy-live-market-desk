@@ -91,3 +91,14 @@ test("public reader is narrowly whitelisted; raw owner Wire stays private",()=>{
  assert.doesNotMatch(route,/getXWireDurable\(|\.rpc\(|\.upsert\(|\.insert\(|\.update\(|story_thesis_versions/);
 });
 
+
+test("MD1 discovery: account-ledger failure retains bounded leads without inventing coverage",()=>{
+ const route=readFileSync(new URL("../app/api/x-wire/discovery/route.ts",import.meta.url),"utf8");
+ assert.match(route,/Promise\.allSettled/);
+ assert.match(route,/poolResult\.status==="rejected"/);
+ assert.match(route,/registered:accountsRead\?checked\.length:null/);
+ assert.match(route,/complete:accountsRead&&/);
+ assert.match(route,/since===null&&accountsRead\?/);
+ assert.match(route,/if\(delta\.error\)throw/);
+ assert.match(route,/x_discovery_read_health/);
+});

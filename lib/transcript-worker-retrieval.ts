@@ -62,13 +62,17 @@ export async function retrieveTranscriptForWorker(
     attempts.push({ provider, outcome, cause, timestamp: new Date().toISOString() });
   };
   const finish = (state: "healthy" | "recovered" | "failed", nextRetry: string | null = null) => {
-    console.info(JSON.stringify({ kind: "provider_health_receipt_v1", capability: "timestamped_public_video_transcript", provider: "supadata", timestamp: new Date().toISOString(), state, cause: attempts.find(a => a.outcome === "failed")?.cause ?? null, fallbackAttempted: attempts.slice(1).some(a => a.outcome !== "skipped"), attempts, residualCoverage: state === "failed" ? "no_transcript" : "transcript_retrieved_not_yet_persisted", nextRetry, retryOwner: "leased_transcript_worker" }));
+    const receipt = { kind: "provider_health_receipt_v1", capability: "timestamped_public_video_transcript", provider: "supadata", timestamp: new Date().toISOString(), state, cause: attempts.find(a => a.outcome === "failed")?.cause ?? null, fallbackAttempted: attempts.slice(1).some(a => a.outcome !== "skipped"), attempts: [...attempts], residualCoverage: state === "failed" ? "no_transcript" : "transcript_retrieved_not_yet_persisted", nextRetry, retryOwner: "leased_transcript_worker" };
+    console.info(JSON.stringify(receipt));
+    return receipt;
   };
+  const withReceipt = (result: TranscriptApiRetrieval, state: "healthy" | "recovered"): TranscriptApiRetrieval => ({
+    ...result, transcript: { ...result.transcript, metadata: { ...result.transcript.metadata, providerHealthReceipt: finish(state) } },
+  });
   try {
     const result = await dependencies.retrieveSupadata(videoId, supadataApiKey, { timeoutMs: 12_000 });
     record("supadata", "success");
-    finish("healthy");
-    return result;
+    return withReceipt(result, "healthy");
   } catch (error) {
     const primary = normalizeTranscriptApiError(error);
     record("supadata", "failed", !supadataApiKey.trim() && primary.code === "provider_auth_error" ? "credential_not_visible_at_runtime" : primary.code);
@@ -83,8 +87,7 @@ export async function retrieveTranscriptForWorker(
       try {
         const result = await dependencies.retrieveBrowser(videoId);
         record("chrome_operator", "success");
-        finish("recovered");
-        return result;
+        return withReceipt(result, "recovered");
       } catch (browserError) {
         const browserFailure = normalizeTranscriptApiError(browserError);
         record("chrome_operator", "failed", browserFailure.code);
@@ -98,8 +101,7 @@ export async function retrieveTranscriptForWorker(
       try {
         const result = await dependencies.retrieveTranscriptApi(videoId);
         record("transcriptapi", "success");
-        finish("recovered");
-        return result;
+        return withReceipt(result, "recovered");
       } catch (transcriptApiError) {
         const transcriptApiFailure = normalizeTranscriptApiError(transcriptApiError);
         record("transcriptapi", "failed", transcriptApiFailure.code);
