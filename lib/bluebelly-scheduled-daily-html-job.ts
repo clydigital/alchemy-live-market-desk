@@ -139,6 +139,7 @@ export async function runPrivateDailyHtmlFallback(
   const researchCharts=[...buildResearchCharts(compare),...buildMacroResearchCharts(rows,now),
    ...buildIssuerCashCharts(issuerComparison.columns,now),...buildBondRegimeCharts(rows,now)];
   const rendered=renderScheduledDailyHtml({day,now,evidence,narrative,researchCharts});
+  const chartAvailable=(rendered.html.match(/data-chart-rendered="true"/g)??[]).length;
   const htmlSha=hash(rendered.html),contentSha=hash("BLUEBELLY_SCHEDULED_HTML_V1|"+day+"|"+rendered.html);
   const manifest=evidence.sources.slice(0,20).map(s=>({
    sourceId:s.id,sourceType:s.type,sourceName:s.sourceName,
@@ -161,9 +162,9 @@ export async function runPrivateDailyHtmlFallback(
   if(saveError||!saved||saved.report_day!==day||saved.html_sha256!==htmlSha)
    return {status:"failed",reportDay:day,reason:"private_archive_insert_failed"};
   console.info(JSON.stringify({event:"private_daily_html_archived",reportDay:day,
-   id:saved.id,mode:rendered.mode,sourceCount:manifest.length,chartCount:researchCharts.length,chartAvailable:researchCharts.filter(c=>c.svg!==null).length}));
+   id:saved.id,mode:rendered.mode,sourceCount:manifest.length,chartCount:researchCharts.length,chartAvailable}));
   return {status:"ready",reportDay:day,id:saved.id,mode:rendered.mode,
-   qualified:evidence.sources.filter(s=>s.type!=="CALENDAR").length,chartCount:researchCharts.length,chartAvailable:researchCharts.filter(c=>c.svg!==null).length};
+   qualified:evidence.sources.filter(s=>s.type!=="CALENDAR").length,chartCount:researchCharts.length,chartAvailable};
  }catch(err){
   const reason=err instanceof Error?boundedText(err.message):"unhandled_error";
   console.warn(JSON.stringify({event:"private_daily_html_failed",reportDay:day,reason}));
