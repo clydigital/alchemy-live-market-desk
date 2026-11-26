@@ -58,3 +58,22 @@ test("expanded preferred equities use existing bounded fallback slots",()=>{
  assert.deepEqual(plan.slice(0,12),[...US_EQUITY_CANARY]);
  assert(plan.includes("XOM"));
 });
+
+test("preferred primary history reaches W100 and M20 warmup in the same bounded request",async()=>{
+ const now=new Date("2026-11-25T22:00:00Z"),end=Date.parse("2026-11-25T14:30:00Z");
+ const dates=Array.from({length:3830},(_,i)=>new Date(end-(3829-i)*86400000)).filter(d=>d.getUTCDay()!==0&&d.getUTCDay()!==6);
+ const fixture={chart:{error:null,result:[{meta:{symbol:"XOM",currency:"USD",instrumentType:"EQUITY",exchangeTimezoneName:"America/New_York"},timestamp:dates.map(d=>+d/1000),indicators:{quote:[{close:dates.map((_,i)=>100+i/100)}]}}]}};
+ let calls=0;
+ const fetcher=(async(url:URL|string|Request)=>{
+  calls++;
+  const u=new URL(String(url));
+  assert.equal(Number(u.searchParams.get("period2"))-Number(u.searchParams.get("period1")),3836*86400);
+  return new Response(JSON.stringify(fixture));
+ }) as typeof fetch;
+ const row=await fetchUsEquityCanaryHistory("XOM",now,AbortSignal.timeout(1000),fetcher);
+ assert.equal(calls,1);assert(row.points.length<3000);
+ const scan=scanEquityEma(row.points,"America/New_York",now)!;
+ for(const [frame,period] of [["W",100],["M",20]] as const)assert.equal(scan.observations.find(o=>o.frame===frame&&o.period===period)?.warmup,"READY");
+ assert.notEqual(scan.observations.find(o=>o.frame==="W"&&o.period===200)?.warmup,"READY");
+ assert.notEqual(scan.observations.find(o=>o.frame==="M"&&o.period===50)?.warmup,"READY");
+});
