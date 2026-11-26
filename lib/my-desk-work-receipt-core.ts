@@ -1,0 +1,70 @@
+import {lane,fresh,latest,myt,type HealthLane} from "./my-desk-health-core.ts";
+import type {CreatorDigest} from "./bluebelly-creator-signals.ts";
+type Obj=Record<string,unknown>;
+const obj=(v:unknown):Obj=>v&&typeof v==="object"&&!Array.isArray(v)?v as Obj:{};
+const txt=(v:unknown)=>Array.isArray(v)?v.map(t=>{const a=obj(t);return typeof a.plain_text==="string"?a.plain_text:typeof obj(a.text).content==="string"?obj(a.text).content:""}).join(""):"";
+const prop=(r:unknown,k:string)=>obj(obj(obj(r).properties)[k]);
+const val=(r:unknown,k:string)=>{const p=prop(r,k);return typeof obj(p.select).name==="string"?String(obj(p.select).name):txt(p.title??p.rich_text)};
+const time=(v:unknown,now:Date)=>typeof v==="string"&&Number.isFinite(Date.parse(v))&&Date.parse(v)<=+now?v:null;
+const at=(r:unknown,k:string,now:Date)=>time(obj(prop(r,k).date).start,now);
+const created=(r:unknown,now:Date)=>time(obj(r).created_time,now);
+const today=(now:Date)=>new Date(+now+8*3600000).toISOString().slice(0,10);
+const bounded=(r:unknown)=>Array.isArray(obj(r).results)?(obj(r).results as unknown[]).slice(0,24):[];
+const completeResult=(r:unknown)=>Array.isArray(obj(r).results);
+const oneOf=(s:string,allowed:string[])=>allowed.includes(s)?s:"Unknown";
+const unknown=(label:string,gaps:string)=>lane(label,{gaps});
+export function projectMacroLog(raw:unknown,now:Date):HealthLane{
+ if(!completeResult(raw))return unknown("MacroPulse","Existing private Log receipt unavailable");
+ const rows=bounded(raw).filter(r=>/^(?:MP-)?\d{8}-\d{4}$/.test(val(r,"Pulse ID"))&&/^\d{2}:\d{2}$/.test(val(r,"MYT Slot")));
+ const r=rows[0];if(!r)return unknown("MacroPulse","No scheduled Log in bounded receipt window; manual records do not prove scheduled delivery");
+ const status=oneOf(val(r,"Status"),["PUBLISHED","QUALIFIED","UNPUBLISHED","SKIPPED"]);
+ const success=latest(rows.filter(x=>["PUBLISHED","QUALIFIED"].includes(val(x,"Status"))&&typeof prop(x,"Post URL").url==="string"&&String(prop(x,"Post URL").url).startsWith("https://")).map(x=>at(x,"Published At",now)));
+ const date=val(r,"Date Key"),isCurrent=date===today(now);
+ const count=prop(r,"Source Count").number;
+ const post=typeof prop(r,"Post URL").url==="string"&&String(prop(r,"Post URL").url).startsWith("https://");
+ return lane("MacroPulse",{success,execution:"Latest stored scheduled Log: "+status+" · "+(isCurrent?"current MYT day":"earlier MYT day"),
+ coverage:(typeof count==="number"&&Number.isFinite(count)&&count>=0?count+" sources recorded":"Source count unknown")+"; "+(post?"Post URL recorded (not independently read back)":"Post link absent"),
+ coverageComplete:null,fresh:fresh(success,now,24),partial:status==="UNPUBLISHED"||status==="SKIPPED"||!post,
+ gaps:"Last stored Log created "+myt(created(r,now))+"; latest task attempt, fallback and any unsaved slots remain unverified"});
+}
+export function projectGapRun(raw:unknown,kind:"Material Events"|"Research Investigation",now:Date):HealthLane{
+ if(!completeResult(raw))return unknown(kind,"Existing private Run receipt unavailable");
+ const rows=bounded(raw).filter(r=>{const name=val(r,"Run");return kind==="Material Events"?/^ME-\d{8}-(?:MANUAL-)?\d{4}$/.test(name):!!name&&!name.startsWith("ME-")&&["AM","PM","MANUAL"].includes(val(r,"Session"))});
+ const r=rows[0];if(!r)return unknown(kind,"No matching saved Run in bounded receipt window");
+ const status=oneOf(val(r,"Status"),["COMPLETE","PARTIAL","FAILED"]),coverage=oneOf(val(r,"Coverage"),["GOOD","PARTIAL","MATERIAL GAP"]),input=oneOf(val(r,"Input Health"),["GOOD","PARTIAL","FAILED"]),quality=oneOf(val(r,"Research Quality"),["GOOD","DEGRADED","INSUFFICIENT"]),session=oneOf(val(r,"Session"),["AM","PM","MANUAL"]);
+ const attempt=at(r,"Run At",now),saved=created(r,now);
+ const success=latest(rows.filter(x=>["COMPLETE","PARTIAL"].includes(val(x,"Status"))).map(x=>created(x,now)));
+ return lane(kind,{attempt,success,execution:"Saved "+session+" Run: "+status,
+ coverage:"Coverage "+coverage+" · inputs "+input+" · research quality "+quality,
+ coverageComplete:coverage==="PARTIAL"||coverage==="MATERIAL GAP"?false:null,
+ fresh:fresh(attempt,now,24),failed:status==="FAILED",partial:status==="PARTIAL"||input==="PARTIAL"||input==="FAILED"||quality==="DEGRADED"||quality==="INSUFFICIENT",
+ gaps:"Saved "+myt(saved)+"; "+(session==="MANUAL"?"manual recovery, scheduled execution not established; ":"")+"latest unsaved task attempts, exact provider fallback and consumer readback not established"});
+}
+export function projectAiMatrix(raw:unknown,now:Date):HealthLane{
+ const [heading,body]=bounded(raw);const h=obj(heading),b=obj(body);
+ if(h.type!=="heading_2"||b.type!=="paragraph")return unknown("AI16","Newest bounded parent blocks do not match a dated matrix receipt");
+ const match=txt(obj(h.heading_2).rich_text).match(/^AI16(?: |_)DAILY(?: |_)MATRIX(?: |_)(\d{4}-\d{2}-\d{2})(?: | |_)(\d{2})(\d{2})(?: |_)MYT(?: |_)V\d+$/);
+ const p=txt(obj(b.paragraph).rich_text).slice(0,4000);
+ if(!match)return unknown("AI16","No exact dated matrix marker in first parent block; no broad historical scan");
+ const stamp=time(match[1]+"T"+match[2]+":"+match[3]+":00+08:00",now);
+ if(!stamp)return unknown("AI16","Invalid or future matrix date");
+ const count=p.match(/\brow_count\s*=\s*(\d{1,2})\b/i),checks=p.match(/\bORIGINAL_SOURCE_CHECKS_COMPLETED\s*=\s*(\d{1,2})\/16\b/i);
+ const n=count?Number(count[1]):null,k=checks?Number(checks[1]):null;
+ const valid=n!==null&&n>=0&&n<=16,checked=k!==null&&k>=0&&k<=16;
+ return lane("AI16",{success:stamp,execution:"Dated parent matrix marker read; task execution unverified",
+ coverage:(valid?n+"/16 rows reported saved":"Row count unknown")+"; "+(checked?k+"/16 original checks reported":"Fresh issuer checks unknown"),
+ coverageComplete:checked&&k!<16?false:null,partial:(valid&&n!<16)||(checked&&k!<16),fresh:fresh(stamp,now,24),
+ gaps:"Matrix marker is not independent per-issuer verification; current source clocks, fallback and consumer readback not established"});
+}
+export function augmentCreatorLane(base:HealthLane,digest:CreatorDigest|null,now:Date):HealthLane{
+ if(!digest||!time(digest.generatedAt,now))return base;
+ const reviewed=digest.creators.filter(x=>x.sourceStatus==="reviewed").length,privateOnly=digest.creators.filter(x=>x.sourceStatus==="handoff_reviewed").length;
+ const partial=/\bPARTIAL\b|\bDEGRADED\b/i.test(digest.coverage)||privateOnly>0;
+ const credit=digest.coverage.match(/ScrapeCreators last verified balance (\d{1,6})\b/i);
+ return lane(base.label,{...base,execution:base.execution+"; saved digest "+myt(digest.generatedAt),
+ coverage:base.coverage+"; digest "+reviewed+" reviewed / "+privateOnly+" private handoff reviews (not full roster coverage)",
+ partial:base.partial||partial,fresh:base.fresh,coverageComplete:partial?false:base.coverageComplete,
+ budget:credit?"ScrapeCreators last reported free balance: "+credit[1]:base.budget,
+ gaps:base.gaps+(privateOnly?"; "+privateOnly+" private reviews require separate canonical intake readback":"")+"; digest timestamp is not new discovery or transcript timestamp",
+ backup:base.backup});
+}
