@@ -75,3 +75,24 @@ export function augmentCreatorLane(base:HealthLane,digest:CreatorDigest|null,now
  gaps:base.gaps+(privateOnly?"; "+privateOnly+" private reviews require separate canonical intake readback":"")+"; digest timestamp is not new discovery or transcript timestamp",
  backup:reportedRecovery?reportedRecovery+" private recovery reported in saved digest; equivalent provider fallback chain not verified":base.backup});
 }
+
+
+/** Preserve the actual bounded reader failure instead of hiding it behind old receipts. */
+export function workReceiptReadIssue(status:number|null):string|null {
+ if(status===200)return null;
+ if(status===401||status===403||status===404)return "Notion receipt access/configuration (HTTP "+status+")";
+ if(status===429)return "Notion receipt rate limit (HTTP 429)";
+ if(status===null)return "Notion receipt request unavailable";
+ return "Notion receipt request failed (HTTP "+status+")";
+}
+export function annotateWorkReceiptRead(base:HealthLane,primaryIssue:string|null,operationalIssue:string|null):HealthLane {
+ const issues=[primaryIssue,operationalIssue].filter((x):x is string=>!!x);
+ if(!issues.length)return base;
+ return lane(base.label,{...base,failure:issues.join("; "),partial:true,
+ coverageComplete:false,gaps:base.gaps+"; "+issues.join("; ")+"; no replacement source clock inferred"});
+}
+export function preserveMacroReceiptGap(work:HealthLane,brief:HealthLane):HealthLane {
+ if(work.execution!=="Unknown")return work;
+ return lane(brief.label,{...brief,failure:work.failure,partial:work.partial||brief.partial,
+ coverageComplete:work.partial?false:brief.coverageComplete,gaps:brief.gaps+"; "+work.gaps});
+}

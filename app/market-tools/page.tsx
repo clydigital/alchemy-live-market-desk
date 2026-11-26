@@ -58,7 +58,7 @@ export default async function MarketToolsPage({searchParams}:{searchParams:Promi
   const newestCommonDate = pairs.filter(p => p.status === "measured").map(p => p.asOf).filter((v): v is string => Boolean(v)).sort().at(-1) ?? null;
   return <main className={styles.page}>
     <div className={styles.shell}>
-      <BlueDeskHeader activePath="/market-tools" />
+      <BlueDeskHeader activePath={view==="technical"?"/market-tools?view=technical":"/market-tools"} />
       <header className={styles.topbar}><Link href="/" className={styles.brand}><span className={styles.brandMark}>B</span> BLUEBELLY <span className={styles.brandSub}>/ RESEARCH WORKSPACE</span></Link><Link href="/blue-desk" className={styles.back}>← Back to desk</Link></header>
       <section className={styles.hero}><div><p className={styles.eyebrow}>RESEARCH TOOLKIT / BLUEBELLY</p><h1>Market tools<span>.</span><br/>Better signals, less noise.</h1><p className={styles.intro}>Focused owner-only utilities for source discovery, relationships, technical research, candidate intake and provider checks.</p></div><div className={styles.heroSide}>Owner research tools <small>Choose a focused view. Provider readiness and market observations are shown only where measured; no streaming quote claim.</small></div></section>
       <nav aria-label="Private market tools views" style={{display:"flex",flexWrap:"wrap",gap:10,marginBottom:24}}>

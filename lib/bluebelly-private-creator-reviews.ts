@@ -9,11 +9,11 @@ export type PrivateCreatorReview={
 };
 /** Read-only, owner-only existing transcript reviews. No raw transcript output
  * and no creator claim is promoted to canonical evidence. */
-export async function getPrivateReviewedCreatorArguments(now:Date,claimLimit=3):Promise<PrivateCreatorReview[]>{
+export async function getPrivateReviewedCreatorArguments(now:Date,claimLimit=3,requireDatedPublication=false):Promise<PrivateCreatorReview[]>{
  const db=createSupabaseAdminClient();
  const cutoff=new Date(now.getTime()-12*86400_000).toISOString();
  const {data,error}=await db.from("research_intake_items")
-  .select("publisher,external_id,title,url,published_at,summary,creator_logic,claim_checks")
+  .select("publisher,external_id,title,url,published_at,summary,creator_logic,claim_checks,transcript_metadata")
   .eq("item_type","video").eq("transcript_status","ready")
   .eq("video_review_status","reviewed").in("publisher",CREATOR_ROSTER.map(channel=>channel.name))
   .gte("published_at",cutoff).lte("published_at",now.toISOString())
@@ -25,6 +25,8 @@ export async function getPrivateReviewedCreatorArguments(now:Date,claimLimit=3):
   if(typeof item.external_id!=="string"||!/^[\w-]{11}$/.test(item.external_id)||
      typeof item.publisher!=="string"||!item.publisher.trim()||
      typeof item.published_at!=="string")continue;
+  const metadata=item.transcript_metadata&&typeof item.transcript_metadata==="object"&&!Array.isArray(item.transcript_metadata)?item.transcript_metadata as Record<string,unknown>:{};
+  if(requireDatedPublication&&(metadata.publication_timestamp_verified===false||metadata.published_at_is_capture_proxy===true||metadata.published_at_date_only_proxy===true||metadata.publication_time_unknown===true))continue;
   const publisher=item.publisher.trim();
   if((used.get(publisher)||0)>=2)continue;
   let url:string;
