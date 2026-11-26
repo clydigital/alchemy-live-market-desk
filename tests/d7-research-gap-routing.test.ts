@@ -231,3 +231,17 @@ test("Dossier persistence uses backend D7-aware Research Gap sync and not Presen
   assert.match(runtime, /runtime\.dossierAsOf === baseQueue\.dossierAsOf/);
   assert.doesNotMatch(runtime, /story_thesis_versions|intelligence_reevaluation_queue|\.insert\(/i);
 });
+
+test("D7 worker supplies its authorized client while browser story history remains session scoped",async()=>{
+ const {readFileSync}=await import("node:fs");
+ const read=(p:string)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
+ const runtime=read("lib/d7-runtime.ts");
+ assert.match(runtime,/getStoryRecordLayer\(workerClient\)/);
+ assert.match(runtime,/!recordLayer\.available\) return null/);
+ assert.match(read("lib/d7-research-gap-runtime.ts"),/loadDefaultD7RuntimeSnapshot\(client\)/);
+ const reader=read("lib/persistence/read.ts");
+ assert.match(reader,/trustedWorkerClient \?\? await createSupabaseServerClient\(\)/);
+ assert.doesNotMatch(reader,/createSupabaseAdminClient/);
+ const handoff=read("lib/research-gap-manual-handoff-run.ts");
+ assert.ok(handoff.indexOf("if (!authorization.authorized)")<handoff.indexOf("const loadCurrentD7 = dependencies.loadCurrentD7"));
+});
