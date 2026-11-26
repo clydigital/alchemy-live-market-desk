@@ -1,0 +1,32 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {buildIssuerCashCharts} from "../lib/bluebelly-research-charts.ts";
+import {buildIndustryComparison,type IssuerFactRow,type IssuerResultRow} from "../lib/bluebelly-industry-comparison.ts";
+const now=new Date("2026-11-26T05:00:00Z");
+const url="https://www.sec.gov/Archives/edgar/data/123/123456/report.htm";
+const row:IssuerResultRow={id:"fixture",ticker:"NVDA",company_name:"Fixture",fiscal_period:"FY2027 Q3",filing_day:"2026-11-24",published_at:"2026-11-24T22:00:00Z",source_url:url,verification_status:"verified"};
+const fact=(metric_key:string,value_numeric:number,extra:Partial<IssuerFactRow>={}):IssuerFactRow=>({result_id:row.id,metric_key,value_numeric,unit:"USD",accounting_basis:"SEC_US_GAAP",period_basis:"fiscal_quarter",source_url:url,verification_status:"verified",captured_at:"2026-11-25T00:00:00Z",...extra});
+test("cash chart uses the existing quarter-specific filing admission, not display text or zero fill",()=>{
+ const col=buildIndustryComparison(["NVDA"],[row],[fact("operating_cash_flow",8e9),fact("capital_expenditure",2e9),fact("free_cash_flow",6e9),fact("net_income",5e9)],[],now);
+ const c=buildIssuerCashCharts(col,now)[0];
+ assert.equal(c.status,"READY");
+ assert.equal(c.kind,"VERIFIED_FILING");
+ assert.equal(c.frequency,"quarterly");
+ assert.equal(c.unit,"USD bn");
+ assert.equal(c.asOf,"2026-11-24");
+ assert.deepEqual(c.marks.map(m=>m.value),[8,2,6,5]);
+ assert.match(c.svg!,/quarterly/);
+ assert.match(c.svg!,/Matched quarter filing amounts/);
+ assert.equal(buildIssuerCashCharts(col,now)[0].dataHash,c.dataHash);
+ assert.equal(buildIssuerCashCharts(col,now)[1].svg,null);
+});
+test("year-to-date and unverified values are absent, conflicting sources suppress the chart",()=>{
+ const columns=buildIndustryComparison(["NVDA"],[row],[fact("operating_cash_flow",8e9),fact("capital_expenditure",2e9),fact("free_cash_flow",6e9,{period_basis:"year_to_date"})],[],now);
+ const c=buildIssuerCashCharts(columns,now)[0];
+ assert.equal(c.status,"PARTIAL");
+ assert.ok(c.missing.includes("Free cash flow"));
+ assert.equal(c.marks.length,2);
+ const mixed=buildIndustryComparison(["NVDA"],[row],[fact("operating_cash_flow",8e9),fact("capital_expenditure",2e9,{source_url:"https://www.sec.gov/Archives/edgar/data/123/123457/other.htm"})],[],now);
+ assert.equal(buildIssuerCashCharts(mixed,now)[0].svg,null);
+ assert.equal(buildIssuerCashCharts(columns,new Date("2027-03-01T00:00:00Z"))[0].svg,null);
+});
