@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {projectOpportunityQueue} from "../lib/power-stack-opportunity-queue.ts";
+import {projectOpportunityQueue,isNonIssuerInstrument} from "../lib/power-stack-opportunity-queue.ts";
 import type {PublicEquityCoverageRow} from "../lib/bluebelly-equity-coverage.ts";
 import type {IssuerReviewResult} from "../lib/power-stack-issuer-valuation.ts";
 const now=new Date("2026-11-26T00:00:00Z");
@@ -23,4 +23,15 @@ test("quality flags remain risk-review; driver overlap not a correlation score",
  assert.ok(rows.find(r=>r.ticker==="NVDA")?.drivers.includes("AI compute capex"));
  assert.ok(rows.find(r=>r.ticker==="AVGO")?.drivers.includes("AI compute capex"));
  assert.ok(!rows.find(r=>r.ticker==="CI")?.drivers.includes("AI compute capex"));
+});
+
+test("funds and digital assets do not enter operating-company valuation; unknown equity remains an explicit gap",()=>{
+ const assets=["3191.HK","NLR","BTC","TLH","SPY","UNKNOWN"].map(ticker=>({ticker,name:ticker}));
+ for(const t of assets.slice(0,-1))assert.equal(isNonIssuerInstrument(t.ticker),true);
+ assert.equal(isNonIssuerInstrument(" nlr "),true);
+ assert.equal(isNonIssuerInstrument("UNKNOWN"),false);
+ const rows=projectOpportunityQueue([quote("NVDA")],[],[],assets,now);
+ assert.deepEqual(rows.map(r=>r.ticker).sort(),["NVDA","UNKNOWN"]);
+ assert.equal(rows.find(r=>r.ticker==="UNKNOWN")?.state,"OUTSIDE_BB");
+ assert.equal(assets.length,6);
 });
