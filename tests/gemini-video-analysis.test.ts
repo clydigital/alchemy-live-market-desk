@@ -110,6 +110,13 @@ test("public YouTube analysis builds one structured request and returns summary-
   assert.match(captured[0]?.prompt || "", /COUNTERCASE.*opposing interpretation/i);
   assert.match(captured[0]?.prompt || "", /accessStatus=partial/);
   assert.match(captured[0]?.prompt || "", /SUMMARY-ONLY FALLBACK/);
+  for (const prefix of ["IF–THEN", "ASSUMPTION", "LEADING SIGNAL", "VALUATION", "TRANSMISSION", "EVIDENCE GEM"]) {
+    assert.ok(captured[0]?.prompt.includes(prefix), prefix);
+  }
+  assert.match(captured[0]?.prompt || "", /next measurable discriminator/);
+  assert.match(captured[0]?.prompt || "", /not independently verified facts/);
+  assert.match(captured[0]?.prompt || "", /Do not infer a number, external source URL, time horizon or trigger/);
+  assert.equal(captured.length, 1);
   assert.equal(captured[0]?.responseSchema.type, "object");
 });
 
