@@ -62,12 +62,37 @@ const SOURCES:Readonly<Record<string,Source>>={
   publisher:"CoreWeave Investor Relations",headline:/coreweave\s+(?:reports?|announces?)\s+(?:first|second|third|fourth)\s+quarter\s+20\d{2}\s+(?:financial\s+)?results/i,
   company:/coreweave,\s*inc/i,
  },
+ // November original links independently located on the issuer's own site.
+ // Incident recovery is exact-period bounded; subsequent releases use listings.
+ DELL:{
+  host:"investors.delltechnologies.com",listing:"https://investors.delltechnologies.com/",
+  path:/^\/news-events\/press-releases\/detail\/\d{3,6}\/[a-z0-9-]+\/?$/i,
+  publisher:"Dell Technologies Investor Relations",headline:/dell technologies\s+(?:delivers?|reports?|announces?)\s+(?:first|second|third|fourth)\s+quarter\s+fiscal\s+20\d{2}\s+financial\s+results/i,
+  company:/dell technologies\s*\(nyse:\s*dell\)|dell technologies inc/i,
+ },
+ WDAY:{
+  host:"investor.workday.com",listing:"https://investor.workday.com/home/default.aspx",
+  path:/^\/news-and-events\/press-releases\/news-details\/20\d{2}\/[a-z0-9-]+\/default\.aspx$/i,
+  publisher:"Workday Investor Relations",headline:/workday\s+(?:announces?|reports?)\s+fiscal\s+20\d{2}\s+(?:first|second|third|fourth)\s+quarter\s+financial\s+results/i,
+  company:/workday,?\s+inc\.?|\(nasdaq:\s*wday\)/i,
+ },
+ ADI:{
+  host:"www.analog.com",listing:"https://www.analog.com/en/newsroom/press-releases.html",
+  path:/^\/en\/newsroom\/press-releases\/20\d{2}\/[a-z0-9-]+\.html$/i,
+  publisher:"Analog Devices Investor Relations",headline:/analog devices\s+reports?\s+(?:record\s+)?(?:first|second|third|fourth)\s+quarter(?:\s+and)?\s+fiscal\s+20\d{2}\s+financial\s+results/i,
+  company:/analog devices,?\s+inc\.?|\(nasdaq:\s*adi\)/i,
+ },
  AMD:{
   host:"ir.amd.com",listing:"https://ir.amd.com/news-events/press-releases",
   path:/^\/news-events\/press-releases\/detail\/\d{3,5}\/[a-z0-9-]+\/?$/i,
   publisher:"AMD Investor Relations",headline:/amd\s+(?:reports?|announces?)\s+(?:first|second|third|fourth)\s+quarter\s+20\d{2}\s+(?:financial\s+)?results/i,
   company:/advanced\s+micro\s+devices/i,
  },
+};
+const NOVEMBER_ORIGINALS:Readonly<Record<string,{quarter:string;day:string;url:string}>>={
+ DELL:{quarter:"Q3 FY2027",day:"2026-11-24",url:"https://investors.delltechnologies.com/news-events/press-releases/detail/1665/dell-technologies-delivers-third-quarter-fiscal-2027-financial-results"},
+ WDAY:{quarter:"Q3 FY2027",day:"2026-11-24",url:"https://investor.workday.com/news-and-events/press-releases/news-details/2026/Workday-Announces-Fiscal-2027-Third-Quarter-Financial-Results/default.aspx"},
+ ADI:{quarter:"Q4 FY2026",day:"2026-11-24",url:"https://www.analog.com/en/newsroom/press-releases/2026/11-24-26-adi-reports-record-4th-qtr-and-fiscal-2026-financial-results.html"},
 };
 type Candidate={ticker:string;quarter:string;scheduledCallAt:string;sourceDateOnly:boolean};
 const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -181,7 +206,9 @@ export async function applyIssuerResultsPressIntake(
    const direct=source.octoberOriginal&&event.scheduledCallAt.startsWith("2026-10-")
       &&now.getTime()<=Date.parse("2026-11-05T23:59:59Z")
      ?[source.octoberOriginal]:[];
-   const candidates=[...new Set([...direct,...results])].slice(0,4);
+   const incident=NOVEMBER_ORIGINALS[event.ticker];
+   const incidentDirect=incident&&incident.quarter===event.quarter&&incident.day===releaseDay(event)&&now.getTime()<=Date.parse("2026-11-29T23:59:59Z")?[incident.url]:[];
+   const candidates=[...new Set([...direct,...incidentDirect,...results])].slice(0,4);
    for(const url of candidates){
     const original=issuerOriginalUrl(url,source);
     if(!original)continue;

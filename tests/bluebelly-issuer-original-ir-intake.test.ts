@@ -94,3 +94,22 @@ test("scheduled research pipeline includes original IR retrieval before generic 
  const gaps=source.indexOf("expectedIssuerReceiptGaps(recovered,now)");
  assert.ok(issuer>0&&sec>issuer&&gaps>sec);
 });
+
+test("November issuer incident recovery admits only the actual named quarter and date",async()=>{
+ const now=new Date("2026-11-26T19:00:00Z");
+ const sources={
+  "https://investors.delltechnologies.com/news-events/press-releases/detail/1665/dell-technologies-delivers-third-quarter-fiscal-2027-financial-results":"Dell Technologies Delivers Third Quarter Fiscal 2027 Financial Results|Dell Technologies (NYSE: DELL)|fiscal 2027 third quarter",
+  "https://investor.workday.com/news-and-events/press-releases/news-details/2026/Workday-Announces-Fiscal-2027-Third-Quarter-Financial-Results/default.aspx":"Workday Announces Fiscal 2027 Third Quarter Financial Results|Workday, Inc.|fiscal 2027 third quarter",
+  "https://www.analog.com/en/newsroom/press-releases/2026/11-24-26-adi-reports-record-4th-qtr-and-fiscal-2026-financial-results.html":"Analog Devices Reports Record Fourth Quarter and Fiscal 2026 Financial Results|Analog Devices, Inc.|fiscal fourth quarter 2026",
+ };
+ const fixtures=Object.fromEntries(Object.entries(sources).map(([url,s])=>{
+  const [title,company,period]=s.split("|");
+  return [url,`<html><body><h1>${title}</h1><p>November 24, 2026</p><p>${company} announced financial results for the ${period}. Reported revenue, net income, operating cash flow, gross margin, earnings per share and forward guidance are described in the original dated financial results. This is a controlled test fixture, not live market evidence.</p></body></html>`];
+ }));
+ const result=await applyIssuerResultsPressIntake(input(),{now,fetchImpl:fetchWithFixture(fixtures)});
+ assert.equal(result.items.length,3);
+ const gaps=expectedIssuerReceiptGaps(result,now);
+ for(const tick of ["DELL","WDAY","ADI"])assert.equal(gaps.some(g=>g.includes(":"+tick+":")),false,tick);
+ const wrong={...result,items:result.items.map(i=>i.title.endsWith(" — DELL")?{...i,title:"Issuer confirms Q2 FY2027 financial results — DELL"}:i)};
+ assert.ok(expectedIssuerReceiptGaps(wrong,now).some(g=>g.includes(":DELL:")));
+});
