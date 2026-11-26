@@ -26,3 +26,13 @@ test("only exact public industry route is enabled, not arbitrary child routes",(
 test("each persistent industry question has a conditional mechanism and countercase",()=>{
  for(const q of MATERIAL_RESEARCH_QUESTIONS){assert.ok(INDUSTRY_CONDITIONAL_TESTS[q.id]?.ifThen);assert.ok(INDUSTRY_CONDITIONAL_TESTS[q.id]?.countercase);}
 });
+
+ test("Take-Two thread is consumer-only, distinguishes source facts from conditional economics and matches relevant news",()=>{
+ const q=MATERIAL_RESEARCH_QUESTIONS.find(x=>x.id==="ttwo-recurring-monetisation");
+ assert.ok(q);assert.deepEqual(q.lenses,["consumer"]);assert.deepEqual(q.companies,["TTWO"]);
+ const hypothesis=INDUSTRY_CONDITIONAL_TESTS[q.id];assert.equal(hypothesis.disclosed?.length,4);assert.ok(hypothesis.comparison?.includes("contractual ARR"));assert.ok(hypothesis.ifThen.includes("hypotheses"));
+ const yes={headline:"Take-Two reports GTA VI launch bookings",summary:"Recurring spending guidance"};
+ const no={headline:"Take-Two appoints director",summary:"Board update"};
+ assert.deepEqual(questionNews(q.id,[yes,no]),[yes]);
+ for(const source of hypothesis.disclosed??[])assert.equal(new URL(source.url).protocol,"https:");
+ });
