@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { StoryEvent, StoryThesisVersion } from "@/lib/persistence/contracts";
 
@@ -17,9 +18,9 @@ function isMissingRelation(message: string | undefined) {
   return Boolean(message && /does not exist|schema cache|could not find the table|relation/i.test(message));
 }
 
-export async function getStoryRecordLayer(): Promise<StoryRecordLayer> {
+export async function getStoryRecordLayer(trustedWorkerClient?: SupabaseClient): Promise<StoryRecordLayer> {
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = trustedWorkerClient ?? await createSupabaseServerClient();
     const [eventsResult, versionsResult] = await Promise.all([
       supabase
         .from("story_events")
