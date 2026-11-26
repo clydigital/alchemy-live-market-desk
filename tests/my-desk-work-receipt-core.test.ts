@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {projectMacroLog,projectGapRun,projectAiMatrix,augmentCreatorLane} from "../lib/my-desk-work-receipt-core.ts";
+import {projectMacroLog,projectGapRun,projectAiMatrix,augmentCreatorLane,workReceiptReadIssue,annotateWorkReceiptRead,preserveMacroReceiptGap} from "../lib/my-desk-work-receipt-core.ts";
 import {lane} from "../lib/my-desk-health-core.ts";
 import type {CreatorDigest} from "../lib/bluebelly-creator-signals.ts";
 const now=new Date("2026-11-26T05:30:00Z");
@@ -44,4 +44,20 @@ test("Work receipt reader remains owner guarded, bounded and read only",()=>{
  assert.match(server,/auth\.getUser\(\)/);assert.match(server,/app_access_allowlist/);
  assert.match(server,/page_size:24/);assert.match(server,/page_size=2/);
  assert.doesNotMatch(server,/\.insert\(|\.update\(|\.upsert\(|cron\.schedule/);
+});
+
+
+test("receipt access and rate-limit failures remain visible through legacy MacroPulse fallback",()=>{
+ const reason=workReceiptReadIssue(404);
+ const base=annotateWorkReceiptRead(projectMacroLog(null,now),reason,null);
+ const legacy=lane("MacroPulse",{execution:"Scheduled Work execution receipt not linked",success:"2026-11-06T00:40:00Z",gaps:"Legacy brief only"});
+ const result=preserveMacroReceiptGap(base,legacy);
+ assert.equal(result.state,"degraded");assert.equal(result.success,legacy.success);
+ assert.match(result.failure,/HTTP 404/);assert.match(result.gaps,/Existing private Log receipt unavailable/);
+ assert.equal(workReceiptReadIssue(200),null);
+ assert.match(workReceiptReadIssue(429)!,/rate limit/);
+ assert.match(workReceiptReadIssue(null)!,/unavailable/);
+ const valid=lane("AI16",{success:"2026-11-26T04:00:00Z",fresh:true,coverageComplete:true});
+ assert.equal(annotateWorkReceiptRead(valid,null,null),valid);
+ assert.equal(annotateWorkReceiptRead(valid,null,reason).state,"degraded");
 });
