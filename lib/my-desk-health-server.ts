@@ -6,7 +6,7 @@ import {CREATOR_ROSTER,isRatesOutlookTitle} from "./video-intake-policy.ts";
 import {lane,latest,earliest,fresh,failureCategory,myt,type HealthLane} from "./my-desk-health-core.ts";
 import {getOwnerWorkReceiptLanes} from "./my-desk-work-receipt-server";
 import {getOwnerCreatorSignalDigest} from "./bluebelly-creator-signals-server";
-import {augmentCreatorLane} from "./my-desk-work-receipt-core";
+import {augmentCreatorLane,preserveMacroReceiptGap} from "./my-desk-work-receipt-core";
 import {applyOperationalReceipt} from "./my-desk-operational-receipt";
 
 type DB=ReturnType<typeof createSupabaseAdminClient>;
@@ -127,7 +127,7 @@ export async function getMyDeskHealth(now=new Date()):Promise<HealthLane[]>{
  const work=getOwnerWorkReceiptLanes(now);
  const creator=safe("Creator discovery / transcripts",async()=>{const [base,digest,receipts]=await Promise.all([creators(db,now),getOwnerCreatorSignalDigest(now),work]);return applyOperationalReceipt(augmentCreatorLane(base,digest.digest,now),receipts.creatorReceipt,now)});
  return Promise.all([
- safe("X Wire",()=>xwire(db,now)),creator,safe("Scheduled source acquisition",()=>sourceRun(db,now)),safe("MacroPulse",async()=>{const r=(await work).MacroPulse;return r.execution!=="Unknown"?r:macro(db)}),
+ safe("X Wire",()=>xwire(db,now)),creator,safe("Scheduled source acquisition",()=>sourceRun(db,now)),safe("MacroPulse",async()=>{const r=(await work).MacroPulse;return r.execution!=="Unknown"?r:preserveMacroReceiptGap(r,await macro(db))}),
  safe("AI16",async()=>(await work).AI16),
  safe("Material Events",async()=>(await work)["Material Events"]),
  safe("Research Investigation",async()=>(await work)["Research Investigation"]),
