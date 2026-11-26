@@ -2,6 +2,8 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import Link from "next/link";
 import AbsorptionHealth from "@/components/blue-desk/AbsorptionHealth";
 import OwnerSpotPilot from "@/components/blue-desk/OwnerSpotPilot";
+import {getOwnerSecondaryQuotes} from "@/lib/bluebelly-secondary-quote-server";
+import {expectedHomeEtfSession} from "@/lib/bluebelly-home-etf-history";
 import {getOwnerSpotPilot} from "@/lib/bluebelly-spot-quote-server";
 import MyDeskHealthSynopsis from "@/components/blue-desk/MyDeskHealthSynopsis";
 import {getMyDeskHealth} from "@/lib/my-desk-health-server";
@@ -28,7 +30,7 @@ export default async function MyBluebellyReports({searchParams}:{
  // Aggregate-only operational status; this private route is protected by
  // the existing Supabase claims + active allowlist middleware.
  const now=new Date();
- const [absorption,health,spotQuotes]=await Promise.all([getBluebellyAbsorptionHealth(),getMyDeskHealth(now),getOwnerSpotPilot()]);
+ const [absorption,health,spotQuotes,secondary]=await Promise.all([getBluebellyAbsorptionHealth(),getMyDeskHealth(now),getOwnerSpotPilot(),getOwnerSecondaryQuotes()]);
  return <main className={styles.page} data-bluebelly-my-reports="owner-only"
    data-private-desk="source-first-market-workspace">
   <BlueDeskHeader activePath="/my-reports"/>
@@ -54,7 +56,7 @@ export default async function MyBluebellyReports({searchParams}:{
      <MyDeskHealthSynopsis lanes={health} checkedAt={now.toISOString()}/>
      <details><summary>Detailed existing ingestion metrics</summary><AbsorptionHealth health={absorption}/></details>
    </div>
-   <OwnerSpotPilot quotes={spotQuotes}/>
+   <OwnerSpotPilot quotes={spotQuotes} secondary={secondary} expectedUsClose={expectedHomeEtfSession(new Date())}/>
    <section className={layout.hub} id="owner-research-tools" aria-label="My Desk workspace">
     <div className={layout.hubHeading}>
      <div>
