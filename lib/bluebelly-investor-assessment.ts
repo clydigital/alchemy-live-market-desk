@@ -5,7 +5,7 @@ import type {InvestorMindsetRow} from "./bluebelly-investor-mindset";
  * Do not present a stale, degraded, unobserved or uncited model interpretation
  * as current investor psychology. The board's independent tape still renders.
  */
-export type InvestorAssessmentStatus = "RESEARCHED" | "STALE" | "DEGRADED" | "UNAVAILABLE";
+export type InvestorAssessmentStatus = "RESEARCHED" | "PARTIAL" | "STALE" | "DEGRADED" | "UNAVAILABLE";
 export type InvestorLensReview = Readonly<{
  status:"RESEARCHED"|"STALE"|"UNRESOLVED";
  asOf:string; sourceThrough:string|null; interpretation:string|null;
@@ -13,6 +13,7 @@ export type InvestorLensReview = Readonly<{
 }>;
 export type InvestorAssessmentRead = Readonly<{
  status:InvestorAssessmentStatus;
+ statusDetail?:string;
  asOf:string|null;
  headline:string|null;
  whatWouldChangeMind:string|null;
@@ -37,12 +38,13 @@ export function projectInvestorAssessment(
  const asOf=present.investorReviewedAt??selection.selectedAsOf;
  const age=now.getTime()-Date.parse(asOf);
  if(!Number.isFinite(age)||age<0||Date.parse(asOf)>Date.parse(selection.selectedAsOf))return EMPTY;
- const status:InvestorAssessmentStatus=selection.status==="degraded_latest"||present.health.degraded?
-   "DEGRADED":age>30*3_600_000?"STALE":"RESEARCHED";
+ const coverageDegraded=selection.status==="degraded_latest"||present.health.degraded;
+ const materialGaps=(present.health.researchGaps??[]).filter(gap=>gap.severity==="MATERIAL");
  const rows:Partial<Record<InvestorMindsetRow["id"],string>>={};
  const lensReviews:Partial<Record<InvestorMindsetRow["id"],InvestorLensReview>>={};
  const governance=present.evidenceGovernance;
- const brainFailed=present.health.researchGaps?.some(gap=>gap.category==="RESEARCH_BRAIN_DEGRADED")??false;
+ const brainFailed=(present.health.researchGaps?.some(gap=>gap.category==="RESEARCH_BRAIN_DEGRADED")??false)
+   || (present.health.executionDegraded ?? coverageDegraded);
  const byId=new Map(governance?.items.map(item=>[item.evidenceId,item])??[]);
  const conflicted=new Set(governance?.conflictGroups.filter(group=>group.resolution!=="RESOLVED_BY_SUPERSESSION").flatMap(group=>group.activeEvidenceIds)??[]);
  for(const [id,key] of Object.entries(LENSES)){
@@ -68,8 +70,18 @@ export function projectInvestorAssessment(
    nextTest:usable&&linked?`Confirm: ${linked.confirmationCondition} · Invalidate: ${linked.invalidationCondition}`.slice(0,400):null};
   if(reviewStatus==="RESEARCHED")rows[rowId]=text.slice(0,350);
  }
+ const coreUnresolved=["rates","chips","breadth","oil"].filter(id=>lensReviews[id as InvestorMindsetRow["id"]]?.status!=="RESEARCHED");
+ const unresolved=Object.values(lensReviews).some(review=>review.status==="UNRESOLVED");
+ const status:InvestorAssessmentStatus=brainFailed?"DEGRADED":age>30*3_600_000?"STALE":
+   coverageDegraded||coreUnresolved.length>0||unresolved?"PARTIAL":"RESEARCHED";
+ const statusDetail=status==="DEGRADED"?"Research execution failed or could not be verified; current interpretations withheld.":
+   status==="STALE"?"Actual investor reasoning is older than 30 hours.":
+   status==="PARTIAL"?[materialGaps.length?`${materialGaps.length} material Dossier evidence gap(s): ${materialGaps.map(gap=>gap.description).join(" · ")}`:null,
+     coreUnresolved.length?`Unqualified core lenses: ${coreUnresolved.join(", ")}.`:null,
+     coverageDegraded&&!materialGaps.length?"Dossier evidence coverage is incomplete.":null,
+     unresolved?"Individual evidence checks still unresolved.":null].filter(Boolean).join(" "):undefined;
  return {
-   status,asOf,rows,lensReviews,
+   status,statusDetail,asOf,rows,lensReviews,
    headline:status==="RESEARCHED"&&(present.header.epistemicLabel==="OBSERVED"||present.header.epistemicLabel==="SUPPORTED")?
      present.header.headline.slice(0,155):null,
    whatWouldChangeMind:status==="RESEARCHED"?present.header.whatWouldChangeMind?.slice(0,260)||null:null,
