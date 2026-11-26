@@ -229,7 +229,9 @@ test("existing authorised source-only continuation slots retry only due incomple
  const retry=handler.indexOf("getXWireDurable({retryOnly:true})");
  assert.ok(retry>handler.indexOf("if (!authorised(request))"));
  assert.ok(retry>handler.indexOf("if (scheduledSourceOnlyEnabled(process.env))"));
- assert.ok(retry<handler.indexOf('status: "not_required"'));
+ assert.ok(retry<handler.indexOf('status: "not_required"',retry));
+ assert.ok(handler.indexOf("if (options.sourceOnlyRetry")<retry);
+ assert.match(handler,/if \(options\.sourceOnlyRetry && !scheduledSourceOnlyEnabled\(process\.env\)\)/);
  const wire=readFileSync(new URL("../lib/x-wire-durable.ts",import.meta.url),"utf8");
  assert.match(wire,/opts\.retryOnly\?X_CORE_ROSTER\.filter/);
  assert.match(wire,/claim_x_wire_account/);
