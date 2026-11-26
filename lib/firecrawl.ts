@@ -33,10 +33,6 @@ function publicHttpsUrl(value: string) {
   }
 }
 
-function safeMessage(value: unknown) {
-  return typeof value === "string" ? value.slice(0, 500) : "";
-}
-
 export async function scrapePublicUrlWithFirecrawl(
   url: string,
   options: {
@@ -94,9 +90,8 @@ export async function scrapePublicUrlWithFirecrawl(
     } | null;
 
     if (!response.ok || payload?.success === false) {
-      const detail = safeMessage(payload?.error)
-        || safeMessage(payload?.data?.metadata?.error)
-        || `Firecrawl returned HTTP ${response.status}.`;
+      // Provider error bodies can echo request URLs or credentials; log only a bounded status.
+      const detail = `Firecrawl returned HTTP ${response.status}.`;
       return {
         ok: false,
         code: "http_error",
@@ -133,7 +128,7 @@ export async function scrapePublicUrlWithFirecrawl(
     return {
       ok: false,
       code: timeout ? "timeout" : "network_error",
-      detail: message.slice(0, 500),
+      detail: timeout ? "Firecrawl request timed out." : "Firecrawl network request failed.",
       retryable: true,
     };
   }
