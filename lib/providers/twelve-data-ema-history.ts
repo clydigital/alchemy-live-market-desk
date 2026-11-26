@@ -49,20 +49,26 @@ export async function refreshTechnicalPilot(now=new Date()){
  return {ticker,frames:s?.frames.map(f=>({frame:f.frame,status:f.status,sampleCount:f.sampleCount,asOf:f.asOf,ready:f.bands.filter(b=>b.status==="READY").length}))??[]};
 }
 
-/** Owner-requested only; never called by the existing daily pilot or default page. */
+/** Shared bounded owner 4H read; no new scheduler. */
 const cachedFourH=unstable_cache(async(symbol:FourHSymbol,bucket:number):Promise<FourHRead>=>{
  void bucket;
  const key=process.env.TWELVEDATA_API_KEY?.trim();
  if(!key)return emptyFourH(symbol,"Server credential missing");
  const url=new URL("https://api.twelvedata.com/time_series");
- for(const [k,v] of Object.entries({symbol,interval:"4h",timezone:"UTC",outputsize:"1200",format:"JSON",order:"ASC",apikey:key}))url.searchParams.set(k,v);
+ for(const [k,v] of Object.entries({symbol,interval:"4h",timezone:"UTC",outputsize:"1200",...(symbol.includes("/")?{}:{adjust:"splits"}),format:"JSON",order:"ASC",apikey:key}))url.searchParams.set(k,v);
  try{
   const response=await fetch(url,{cache:"no-store",signal:AbortSignal.timeout(8000)});
   if(!response.ok)return emptyFourH(symbol,"Provider HTTP "+response.status);
   return parseFourH(await response.json(),symbol,new Date());
  }catch{return emptyFourH(symbol,"Provider request or response unavailable");}
-},["bb-owner-4h-v1"],{revalidate:3600});
+},["bb-owner-4h-v2"],{revalidate:3600});
 export async function readFourH(symbol:string,now=new Date()):Promise<FourHRead>{
- if(!(FOUR_H_SYMBOLS as readonly string[]).includes(symbol))return emptyFourH("Unsupported","Instrument not allowlisted");
+ if(!(FOUR_H_SYMBOLS as readonly string[]).includes(symbol)&&!TECHNICAL_UNIVERSE.some(x=>x.ticker===symbol))return emptyFourH("Unsupported","Instrument not allowlisted");
  return cachedFourH(symbol as FourHSymbol,Math.floor(+now/3600000));
+}
+
+/** Fixed, bounded shared scan for private PowerStack; no per-holding fanout. */
+export async function readFourHWatch(now=new Date(),selected?:string){
+ const symbols=[...new Set([...FOUR_H_SYMBOLS,"SPY","QQQ","SMH",...(selected&&TECHNICAL_UNIVERSE.some(x=>x.ticker===selected)?[selected]:[])])];
+ const results:FourHRead[]=[];for(const symbol of symbols)results.push(await readFourH(symbol,now));return results;
 }

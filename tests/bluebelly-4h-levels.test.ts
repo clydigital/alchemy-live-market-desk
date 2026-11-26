@@ -29,3 +29,12 @@ test("4H read is owner-gated, opt-in and not called by scheduled pilot",()=>{
  const pilot=provider.split("export async function refreshTechnicalPilot")[1].split("/** Owner-requested")[0];
  assert.doesNotMatch(pilot,/readFourH|cachedFourH/);
 });
+
+test("4H boundary events require ready, adjacent elapsed windows",()=>{
+ const end=Date.parse("2026-11-26T00:00:00Z");
+ const series=Array.from({length:105},(_,i)=>({datetime:new Date(end-(104-i)*14400000).toISOString().slice(0,19).replace("T"," "),close:String(i===104?110:100)}));
+ const r=parseFourH(payload(series),"XAU/USD",now);
+ assert.ok(r.events.some(e=>e.period===20&&e.kind==="CROSS"&&e.boundary==="upper"&&e.direction==="up"));
+ assert.equal(parseFourH(payload(series.filter((_,i)=>i!==103)),"XAU/USD",now).events.length,0);
+ assert.equal(parseFourH(payload(series),"XAU/USD",new Date("2026-11-27T05:00:00Z")).events.length,0);
+});
