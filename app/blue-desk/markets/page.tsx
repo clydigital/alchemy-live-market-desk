@@ -1,3 +1,9 @@
+import InstitutionalRiskMonitor from "@/components/blue-desk/InstitutionalRiskMonitor";
+import {loadVolatilityAnchors} from "@/lib/market-monitor";
+import {buildInstitutionalRisk} from "@/lib/bluebelly-institutional-risk";
+import {buildFedRateWatch,nextFomcDecision} from "@/lib/bluebelly-next-rate-decision";
+import {getEconomicCalendar} from "@/lib/calendar";
+import {buildPresenterCalendar} from "@/lib/presenter-calendar";
 import {buildDivergenceRadar} from "@/lib/bluebelly-divergence-radar";
 import {getEarningsCase} from "@/lib/bluebelly-earnings-investor-stories";
 import Link from "next/link";
@@ -73,8 +79,8 @@ const BREADTH_WATCHES = [
 export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   const query = await searchParams;
   const now = new Date();
-  const mode: "assets" | "compare" | "watch" =
-    query.mode==="compare"?"compare":query.mode==="watch"?"watch":"assets";
+  const mode: "assets" | "compare" | "watch" | "risk" =
+    query.mode==="compare"?"compare":query.mode==="watch"?"watch":query.mode==="risk"?"risk":"assets";
   const watchWindow: "1D" | "3D" | "5D" =
     query.window==="3D"?"3D":query.window==="5D"?"5D":"1D";
   // Existing group deep links retain their original table/filter semantics.
@@ -88,16 +94,19 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   // The unfiltered Markets entry opens discovery; legacy filtered URLs remain native.
   if(query.mode==="screener" || Object.keys(query).length===0)
     redirect(blueDeskPublicHref("/blue-desk/markets/scanner",host));
-  const [monitor,breadthHistory,researchDigests,usJobs,japan,bund,gilt] = await Promise.all([
+  const [monitor,breadthHistory,researchDigests,usJobs,japan,bund,gilt,riskVolatility,riskMacro] = await Promise.all([
     getMarketMonitor().catch(() => null),
     getSourceDatedBreadth(mode==="compare"||mode==="watch"||group==="breadth").catch(()=>({series:[],retrievalStatus:"fallback" as const,researchHistory:false})),
-    getPublishedMacroPulseBriefs(6).catch(()=>[]),
+    mode!=="risk"?getPublishedMacroPulseBriefs(6).catch(()=>[]):Promise.resolve([]),
     mode==="assets"&&group==="all"?readPublicUsJobs():Promise.resolve(null),
     // International providers only run when the reader deliberately opens
     // the Rates category. Never add three remote requests to every market view.
     mode==="assets"&&group==="rates"?fetchJapanMofJgbYields().catch(()=>null):Promise.resolve(null),
     mode==="assets"&&group==="rates"?fetchBundesbankBund10().catch(()=>null):Promise.resolve(null),
     mode==="assets"&&group==="rates"?fetchBoeGilt10().catch(()=>null):Promise.resolve(null),
+    // The full risk reader moved from Home. Reuse the existing cached sources.
+    mode==="risk"?loadVolatilityAnchors().catch(()=>[]):Promise.resolve([]),
+    mode==="risk"?getEconomicCalendar().catch(()=>[]):Promise.resolve([]),
   ]);
   // Public markets are independent of private investment portfolios.
   const monitoredRows=publicMarketObservations(monitor?.rows || [],group);
@@ -143,7 +152,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
             <p className={styles.kicker}>CROSS-ASSET OBSERVATIONS</p>
             <h1><MarketIcon name="market" size={33} /> Markets</h1>
             <p className={styles.heroDeck}>
-              Search the assets, compare performance or inspect cross-market contradictions.
+              Search assets, compare performance, inspect divergences or review market risk.
             </p>
             <p><Link href={blueDeskPublicHref("/blue-desk/markets/scanner",host)}>Open Scanner →</Link></p>
           </div>
@@ -165,7 +174,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
          </aside>:null}
 
 
-        <nav aria-label="Markets working modes" data-markets-working-modes="four"
+        <nav aria-label="Markets working modes" data-markets-working-modes="five"
           className={legibility.workingModes}>
           <Link href={blueDeskPublicHref("/blue-desk/markets/scanner",host)}>Screener</Link>
           <Link href={blueDeskPublicHref("/blue-desk/markets?mode=assets",host)}
@@ -174,6 +183,8 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
             aria-current={mode==="compare"?"page":undefined}>Compare</Link>
           <Link href={blueDeskPublicHref("/blue-desk/markets?mode=watch",host)}
             aria-current={mode==="watch"?"page":undefined}>Divergence Watch</Link>
+          <Link href={blueDeskPublicHref("/blue-desk/markets?mode=risk",host)}
+            aria-current={mode==="risk"?"page":undefined}>Risk &amp; Positioning</Link>
         </nav>
         {mode==="compare"?<nav aria-label="Markets page sections"
           className={legibility.focusNavigation} data-markets-primary="breadth-and-comparison">
@@ -206,6 +217,18 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           compareHref={blueDeskPublicHref("/blue-desk/markets?mode=compare",host)+"#market-group-heading"}
           watchHref={blueDeskPublicHref("/blue-desk/markets?mode=watch",host)}
           scannerHref={blueDeskPublicHref("/blue-desk/markets/scanner",host)}/>:null}
+        {mode==="risk"?<section aria-label="Risk and positioning" data-markets-risk="source-dated">
+          <InstitutionalRiskMonitor
+            rows={buildInstitutionalRisk(riskVolatility,monitor?.rows??[],now)}
+            equityTape={buildMarketCompassSummary(buildMarketDivergenceWatch(publicMarketObservations(monitor?.rows||[],"all"),"1D"),now)}
+            rates={buildFedRateWatch(monitor?.rows??[],now)}
+            nextDecision={nextFomcDecision(buildPresenterCalendar(riskMacro,{events:[],coverage:"unavailable",warning:"Earnings not required for policy watch"},now).events,now)}/>
+          <aside className={styles.secondaryPanel}>
+            <h2>Positioning and confirmation</h2>
+            <p>Risk estimates describe potential loss magnitude; positioning extremes and breadth may support a conditional reversal setup, not a forecast on their own.</p>
+            <p><Link href={blueDeskPublicHref("/blue-desk/qqq-positioning",host)}>QQQ positioning →</Link>{" · "}<Link href={blueDeskPublicHref("/blue-desk/markets?mode=compare",host)+"#breadth-watch-heading"}>Market breadth →</Link>{" · "}<Link href={blueDeskPublicHref("/blue-desk/regime-watch",host)}>Regime hypotheses and next tests →</Link></p>
+          </aside>
+        </section>:null}
         {mode==="watch"?<section aria-labelledby="divergence-watch-heading" className={`${styles.section} ${legibility.marketSection}`}>
           <p className={styles.kicker}>01 / WHAT IS NOT MOVING TOGETHER?</p>
           <h2 id="divergence-watch-heading">Divergence Watch</h2>
@@ -283,7 +306,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
         {catalogue?<PublicAssetCatalogue data={catalogue}
           baseHref={blueDeskPublicHref("/blue-desk/markets",host)}/>:null}
 
-        {mode!=="watch"?<section aria-labelledby="market-group-heading" className={`${styles.section} ${legibility.marketSection}`}>
+        {(mode==="assets"||mode==="compare")?<section aria-labelledby="market-group-heading" className={`${styles.section} ${legibility.marketSection}`}>
           <div className={styles.sectionHead}>
             <div>
               <p className={styles.kicker}>{mode==="assets"?"01 / AVAILABLE SOURCE-DATED ASSETS":"02 / RELATIVE MARKET LEADERSHIP"}</p>
