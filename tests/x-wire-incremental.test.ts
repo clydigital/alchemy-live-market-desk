@@ -27,11 +27,11 @@ test("Kobeissi is first in acquisition, stale accounts retain oldest-first order
 });
 test("Kobeissi ranking priority is opt-in and only for a material eligible post",()=>{
  const row=(handle:string,i:number,text:string)=>({handle,id:String(BigInt("2125600000000000000")+BigInt(i)),url:"https://x.com/"+handle+"/status/"+String(BigInt("2125600000000000000")+BigInt(i)),text,publishedAt:"2026-11-25T23:00:00Z",images:[],quoteUrl:null,attribution:"THIRD_PARTY_ONLY" as const,intakeStatus:"discovery"});
- const data=[row("Bluekurtic",1,"SPY moving average and historical breadth signal in 16 prior trading days"),row("KobeissiLetter",2,"Treasury yields and the Fed FOMC interest rate decision")];
+ const data=[row("OddStats",1,"SPY moving average and historical breadth signal in 16 prior trading days"),row("KobeissiLetter",2,"Treasury yields and the Fed FOMC interest rate decision")];
  assert.equal(rankXWireMarketCandidates(data,now,12,{prioritizeKobeissi:true})[0].post.handle,"KobeissiLetter");
  assert.notEqual(rankXWireMarketCandidates(data,now,12,{prioritizeKobeissi:true}).length,0);
  const old=[data[0],{...data[1],publishedAt:"2026-11-24T23:00:00Z"}];
- assert.equal(rankXWireMarketCandidates(old,now,12,{prioritizeKobeissi:true})[0].post.handle,"Bluekurtic");
+ assert.equal(rankXWireMarketCandidates(old,now,12,{prioritizeKobeissi:true})[0].post.handle,"OddStats");
 });
 test("source code keeps bounded read-only redaction, registration and quota safeguards",()=>{
  const route=readFileSync(new URL("../app/api/x-wire/discovery/route.ts",import.meta.url),"utf8");

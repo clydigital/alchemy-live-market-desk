@@ -13,7 +13,7 @@ export async function readXWireResearchPoolResult(db:Db,now:Date,mode:"discovery
   .select("post_id,handle,original_url,published_at,retrieved_at,body,media_urls,quote_url,intake_status")
   .eq("intake_status",mode).gte("published_at",cutoff(hours)).lte("published_at",now.toISOString());
  const results=await Promise.allSettled([
-  base(mode==="deferred"?168:48).not("handle","in",'(FirstSquawk,zerohedge,GordianKnotDev)')
+  base(mode==="deferred"?168:48).not("handle","in",'(FirstSquawk,zerohedge,GordianKnotDev,BeginnerTrades,Bluekurtic)')
    .order("published_at",{ascending:false}).limit(250),
   base(24).eq("handle","FirstSquawk").order("published_at",{ascending:false}).limit(100),
   base(48).eq("handle","zerohedge").order("published_at",{ascending:false}).limit(100),
