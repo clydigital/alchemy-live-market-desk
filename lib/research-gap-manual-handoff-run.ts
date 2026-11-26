@@ -76,7 +76,8 @@ async function requestedCaseId(request: Request) {
 
 async function loadCurrentD7ForHandoff() {
   const { loadCurrentD7RuntimeSnapshot } = await import("./d7-runtime.ts");
-  return loadCurrentD7RuntimeSnapshot();
+  const { createSupabaseAdminClient } = await import("./supabase/admin.ts");
+  return loadCurrentD7RuntimeSnapshot(createSupabaseAdminClient());
 }
 
 async function loadStoryReviewClocksForHandoff(storyIds: string[]) {
