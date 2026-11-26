@@ -5,10 +5,6 @@ import {readQqqPositioning} from "@/lib/bluebelly-qqq-positioning";
 import AbsorptionHealth from "@/components/blue-desk/AbsorptionHealth";
 import MarketWindowBars from "@/components/blue-desk/MarketWindowBars";
 import MarketConditionsBoard from "@/components/blue-desk/MarketConditionsBoard";
-import InstitutionalRiskMonitor from "@/components/blue-desk/InstitutionalRiskMonitor";
-import {loadVolatilityAnchors} from "@/lib/market-monitor";
-import {buildInstitutionalRisk} from "@/lib/bluebelly-institutional-risk";
-import {buildFedRateWatch,nextFomcDecision} from "@/lib/bluebelly-next-rate-decision";
 import InvestorMindsetBoard from "@/components/blue-desk/InvestorMindsetBoard";
 import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
 import {buildMarketCompassSummary} from "@/lib/bluebelly-market-compass";
@@ -101,7 +97,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   const now = new Date();
   const host = (await headers()).get("host");
   const publicHost = isBlueDeskPublicReaderHost(host);
-  const [macro, earnings, monitor, verifiedMotions, observations, theses, originalPress, digestBriefs, breadthFeed, jobs, dossierSelection, volatility] = await Promise.all([
+  const [macro, earnings, monitor, verifiedMotions, observations, theses, originalPress, digestBriefs, breadthFeed, jobs, dossierSelection] = await Promise.all([
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({ now }).catch(() => ({
       events: [], coverage: "unavailable" as const, warning: "Earnings source unavailable",
@@ -120,7 +116,6 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
     getSourceDatedBreadth(true).catch(() => ({series:[],retrievalStatus:"fallback" as const})),
     readPublicUsJobs().catch(() => null),
     publicHost?getDossierV2PresentationSelection().catch(()=>null):Promise.resolve(null),
-    publicHost?loadVolatilityAnchors().catch(()=>[]):Promise.resolve([]),
   ]);
   const [absorptionHealth,qqqPosition] = await Promise.all([getBluebellyAbsorptionHealth(now),publicHost?readQqqPositioning():Promise.resolve({rows:[],checkedAt:now.toISOString()})]);
   const motionNews = selectVerifiedNewsBriefs(verifiedMotions, now, 18);
@@ -212,7 +207,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
           </RadarIntelligenceShell>
           <DivergenceRadar read={divergenceRadar} compact href="/markets?mode=watch#divergence-radar"/>
            <RegimeCompareEvidence compare={compare} host={host} compact/>
-          <InstitutionalRiskMonitor rows={buildInstitutionalRisk(volatility,monitor?.rows??[],now)} equityTape={marketCompass} rates={buildFedRateWatch(monitor?.rows??[],now)} nextDecision={nextFomcDecision(calendar.events,now)}/>
+          <p className={styles.subtle}><Link href="/markets?mode=risk#institutional-risk-heading">Risk &amp; positioning · implied VaR and policy watch →</Link> · Risk magnitude, not a directional forecast.</p>
           <Link href="/creator-intelligence">Open CREATOR INTEL →</Link>
           <InvestorMindsetBoard snapshot={investorMindset} assessment={investorAssessment} host={host} themes={investorThemes} receipt={investorReceipt}/>
            <MarketConditionsBoard market={marketRows} breadth={breadth50} jobs={jobs}
