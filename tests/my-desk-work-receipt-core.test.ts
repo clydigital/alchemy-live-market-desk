@@ -12,7 +12,7 @@ const date=(start:string)=>({date:{start}});
 const receipt=(properties:object)=>({created_time:"2026-11-26T04:52:00Z",properties});
 const log=(id:string,slot:string,status:string,post:string|null)=>receipt({"Pulse ID":rich(id),"MYT Slot":rich(slot),"Date Key":rich("2026-11-26"),Status:select(status),"Post URL":{url:post},"Source Count":{number:2},"Published At":date("2026-11-26T04:50:00Z")});
 test("MacroPulse uses scheduled Log, not manual runs; a link is not consumer verification",()=>{
- const r=projectMacroLog({results:[log("MP-20261126-MANUAL-1300","13:00","PUBLISHED","https://example.com"),log("MP-20261126-1200","12:00","UNPUBLISHED",null),log("MP-20261126-1000","10:00","PUBLISHED","https://example.com")]},now);
+ const r=projectMacroLog({results:[log("MP-20261126-MANUAL-1300","13:00","PUBLISHED","https://example.com"),log("MP-20261126-1000","10:00","PUBLISHED","https://example.com"),log("MP-20261126-1200","12:00","UNPUBLISHED",null)]},now);
  assert.equal(r.state,"degraded");assert.match(r.execution,/UNPUBLISHED/);assert.equal(r.attempt,null);assert.match(r.gaps,/unsaved slots/);
  assert.equal(projectMacroLog({results:[log("MP-20261126-1000","10:00","PUBLISHED","https://example.com")]},now).state,"unknown");
  assert.equal(projectMacroLog({results:[]},now).state,"unknown");
@@ -35,9 +35,9 @@ test("AI matrix counts are independent; no stale, malformed or future marker bec
 });
 test("digest handoff is not canonical transcript or fallback proof",()=>{
  const base=lane("Creator discovery / transcripts",{coverage:"0/1 canonical",success:null});
- const digest={generatedAt:"2026-11-26T05:15:00Z",coverage:"PARTIAL; ScrapeCreators last verified balance 40",creators:[{sourceStatus:"handoff_reviewed"}]} as unknown as CreatorDigest;
+ const digest={generatedAt:"2026-11-26T05:15:00Z",coverage:"PARTIAL; ScrapeCreators last verified balance 40",creators:[{sourceStatus:"handoff_reviewed",changed:"RECOVERED — private caption receipt"}]} as unknown as CreatorDigest;
  const r=augmentCreatorLane(base,digest,now);
- assert.equal(r.state,"degraded");assert.equal(r.success,null);assert.match(r.budget,/40/);assert.match(r.gaps,/canonical intake/);assert.equal(r.backupRecovered,false);
+ assert.equal(r.state,"degraded");assert.equal(r.success,null);assert.match(r.budget,/40/);assert.match(r.gaps,/canonical intake/);assert.equal(r.backupRecovered,false);assert.match(r.backup,/1 private recovery reported/);
 });
 test("Work receipt reader remains owner guarded, bounded and read only",()=>{
  const server=readFileSync(new URL("../lib/my-desk-work-receipt-server.ts",import.meta.url),"utf8");
