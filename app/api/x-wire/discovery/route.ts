@@ -4,7 +4,7 @@ import {createSupabaseAdminClient} from "@/lib/supabase/admin";
 import {X_CORE_ROSTER} from "@/lib/x-sweep-core";
 import {rankXWireMarketCandidates} from "@/lib/x-wire-market-candidates";
 import type {XWireDurable} from "@/lib/x-wire-durable";
-import {readXWireResearchPool,type XWireResearchRow} from "@/lib/x-wire-research-pool";
+import {readXWireResearchPoolResult,type XWireResearchRow} from "@/lib/x-wire-research-pool";
 import {xWireSourceMaterial} from "@/lib/x-wire-source-material";
 import {xWireFreshCheckComplete,xWireLiveFreshnessHours} from "@/lib/x-wire-pagination";
 import {parseXWireDeltaWindow,xWireDeltaPage} from "@/lib/x-wire-incremental";
@@ -29,12 +29,15 @@ export async function GET(request:NextRequest){
   const db=createSupabaseAdminClient();
   failureStage="source_pool";
   const [poolResult,accountResult]=await Promise.allSettled([
-   readXWireResearchPool(db,now),
+   readXWireResearchPoolResult(db,now),
    db.from("x_wire_accounts")
     .select("handle,health,last_completed_at,uncovered_before,page_cursor,last_error")
   ]);
   if(poolResult.status==="rejected")throw new Error("X source pool unavailable");
-  const items=poolResult.value;
+  const pool=poolResult.value;
+  if(pool.successfulPartitions===0)throw new Error("X source pool unavailable");
+  const items=pool.rows;
+  if(!pool.complete)console.warn(JSON.stringify({kind:"x_discovery_read_health",stage:"source_pool",state:"degraded",cause:"partition_read_failed",successfulPartitions:pool.successfulPartitions,totalPartitions:pool.totalPartitions}));
   const accountsRead=accountResult.status==="fulfilled"&&!accountResult.value.error;
   const accountRows=accountResult.status==="fulfilled"&&!accountResult.value.error?accountResult.value.data:[];
   if(!accountsRead)console.warn(JSON.stringify({kind:"x_discovery_read_health",stage:"accounts",state:"degraded",cause:"ledger_read_failed"}));
@@ -87,11 +90,11 @@ export async function GET(request:NextRequest){
    contractVersion:"bluebelly/x-discovery/1",generatedAt:now.toISOString(),
    source:"Bluebelly X Wire / attributed third-party FxEmbed timeline",
    discoveryOnly:true,verifiedMarketClaims:0,
-   coverage:{monitored:X_CORE_ROSTER.length,accountsRead,registered:accountsRead?checked.length:null,healthy:accountsRead?healthy:null,
+   coverage:{monitored:X_CORE_ROSTER.length,accountsRead,sourcePoolComplete:pool.complete,sourcePoolPartitionsRead:pool.successfulPartitions,sourcePoolPartitionsTotal:pool.totalPartitions,registered:accountsRead?checked.length:null,healthy:accountsRead?healthy:null,
     fresh:accountsRead?fresh:null,historicallyComplete:accountsRead?historicallyComplete:null,missingRegistration:accountsRead?X_CORE_ROSTER.length-checked.length:null,
-    complete:accountsRead&&checked.length===X_CORE_ROSTER.length&&healthy===X_CORE_ROSTER.length},
+    complete:accountsRead&&pool.complete&&checked.length===X_CORE_ROSTER.length&&healthy===X_CORE_ROSTER.length&&fresh===X_CORE_ROSTER.length},
    leads,incremental,notice:"X post existence and attribution do not verify underlying claims. Confirm primary sources, market measurement vintage and contradictions before MacroPulse or Research Gap promotion. Source status is not claim verification."
-  },{headers:{"Cache-Control":since===null&&accountsRead?"public, s-maxage=120, stale-while-revalidate=60":"no-store",
+  },{headers:{"Cache-Control":since===null&&accountsRead&&pool.complete?"public, s-maxage=120, stale-while-revalidate=60":"no-store",
     "X-Content-Type-Options":"nosniff"}});
  }catch{
   console.warn(JSON.stringify({kind:"x_discovery_read_health",stage:failureStage,state:"failed",cause:"read_or_projection_failed"}));
