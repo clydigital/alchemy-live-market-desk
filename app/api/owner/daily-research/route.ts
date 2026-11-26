@@ -4,6 +4,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { blueDeskHostAccess } from "@/lib/blue-desk-host";
 import { fetchTodayNotionResearch } from "@/lib/notion-market-research";
 import {buildCompareResearch,compareBreadthObservations,marketInternalsDiagnostics} from "@/lib/bluebelly-compare-research";
+import { readIndustryComparison } from "@/lib/bluebelly-industry-comparison-server";
+import { RESEARCH_CASH_ISSUERS } from "@/lib/bluebelly-research-charts";
 import { buildDailyResearchPacket } from "@/lib/daily-report-research-packet";
 import { assessDailyResearchHealth } from "@/lib/daily-report-research-health";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
@@ -42,7 +44,7 @@ export async function GET(req:NextRequest){
   if(accessError||!access)return fail(403,"Owner account not authorised");
 
   const now=new Date();
-  const [notion,rawNews,originalPress,monitor,macro,earnings,delivery,creatorDelivery,breadthSource,creatorSignalDigest]=await Promise.all([
+  const [notion,rawNews,originalPress,monitor,macro,earnings,delivery,creatorDelivery,breadthSource,creatorSignalDigest,issuerComparison]=await Promise.all([
     fetchTodayNotionResearch(now),
     getCurrentVerifiedMarketMotion({limit:24}).catch(()=>[]),
     getOriginalPressNews(now,12).catch(()=>[]),
@@ -59,6 +61,7 @@ export async function GET(req:NextRequest){
       .catch(()=>({status:"UNAVAILABLE" as const,reviews:[]})),
     getSourceDatedBreadth(true).catch(()=>({series:[],retrievalStatus:"fallback" as const})),
     getOwnerCreatorSignalDigest(now),
+    readIndustryComparison(RESEARCH_CASH_ISSUERS,now).catch(()=>({status:"UNAVAILABLE" as const,asOf:now.toISOString(),columns:[]})),
   ]);
   const researchDistribution=await getOwnerResearchDistribution(creatorSignalDigest.digest,now);
   const motionNews=selectVerifiedNewsBriefs(rawNews,now,12);
@@ -74,6 +77,7 @@ export async function GET(req:NextRequest){
     creatorCoverageStatus:creatorDelivery.status,
     compare,
     macroRows:monitor?.rows??[],
+    issuerColumns:issuerComparison.columns,
     marketDiagnostics:marketInternalsDiagnostics(compare),
     prices:(monitor?.rows||[]).filter(r=>r.last!==null)
       .slice(0,12).map(r=>({
@@ -93,7 +97,7 @@ export async function GET(req:NextRequest){
   });
   const health=assessDailyResearchHealth({now,notion,packet,news});
   return NextResponse.json({
-    ...packet,health,creatorSignalDigest,marketCompare:compare,researchDistribution,evidenceGemCandidates,
+    ...packet,issuerChartCoverage:{status:issuerComparison.status,asOf:issuerComparison.asOf,expected:RESEARCH_CASH_ISSUERS.length},health,creatorSignalDigest,marketCompare:compare,researchDistribution,evidenceGemCandidates,
     creatorReviewCoverage:{status:creatorDelivery.status,count:creatorDelivery.reviews.length,
       caveat:"Reviews have original video dates and attributed mechanisms; their claims have not been independently source-verified."},
     deliveredResearch:{status:delivery.status,count:delivery.briefs.length,
