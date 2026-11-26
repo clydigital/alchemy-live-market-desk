@@ -22,7 +22,7 @@ import {BLUEBELLY_STOCK_UNIVERSE,findStockIdentity} from "@/lib/bluebelly-equity
 import {readPublicFundamentalComparison} from "@/lib/bluebelly-fundamental-comparison-server";
 import {projectPublicEquityCoverage} from "@/lib/bluebelly-equity-coverage";
 import PowerStackBBMarketSweep from "@/components/blue-desk/PowerStackBBMarketSweep";
-import {projectOpportunityQueue} from "@/lib/power-stack-opportunity-queue";
+import {projectOpportunityQueue,isNonIssuerInstrument} from "@/lib/power-stack-opportunity-queue";
 import PowerStackOpportunityQueue from "@/components/blue-desk/PowerStackOpportunityQueue";
 import PowerStackDecisionOverview from "@/components/blue-desk/PowerStackDecisionOverview";
 import {buildCompareResearch,compareBreadthObservations} from "@/lib/bluebelly-compare-research";
@@ -243,12 +243,9 @@ export default async function PrivatePowerStack({searchParams}:{searchParams:Pro
     ...bondWatch.map(item=>({ticker:item.ticker,name:item.name,scope:"bond_watch" as const})),
   ]:[];
   const researchTopics=ready?powerStackResearchTopics(researchAssets):[];
-  // Avoid classifying bond funds, broad index baskets or commodity proxies as
-  // operating companies. Unmapped equities remain coverage gaps.
-  const nonIssuer=new Set(["TLT","IEF","EDV","ZROZ","AGG","GOVT","USFR","SGOV","SHY","TIP","LQD","HYG","BND","BNDX","VGIT","VGLT",
-    "SPY","QQQ","RSP","SMH","SOXX","IGV","XLE","XLF","XLK","XLY","XOP","KWEB","FXI","MCHI","GLD","GLDM","GDX","GDXJ","IAU"]);
+  // Funds and digital assets retain their private records but use separate analysis.
   const issuers:ValuationResearchAsset[]=ready?researchAssets.filter(item=>
-    item.scope!=="bond_watch"&&!nonIssuer.has(item.ticker.toUpperCase())).filter((item,index,all)=>
+    item.scope!=="bond_watch"&&!isNonIssuerInstrument(item.ticker)).filter((item,index,all)=>
       all.findIndex(other=>other.ticker.toUpperCase()===item.ticker.toUpperCase())===index).map(item=>({
       ...item,peg:pegByTicker.get(item.ticker)||null,
       quote:latestQuotes.get(item.ticker)?{
@@ -269,7 +266,7 @@ export default async function PrivatePowerStack({searchParams}:{searchParams:Pro
    ready?readPublicFundamentalComparison(bbCoverage.rows,researchedAt):Promise.resolve(null),
    ready?getSourceDatedBreadth(true).catch(()=>({series:[],retrievalStatus:"fallback" as const})):Promise.resolve({series:[],retrievalStatus:"fallback" as const}),
   ]);
-  const ownerOpportunityAssets=[...holdings,...watchlist,...(ideaRecords??[])].filter(item=>item.ticker!=="6742UW"&&!nonIssuer.has(marketTicker(item.ticker))).map(item=>({ticker:marketTicker(item.ticker),name:item.name}));
+  const ownerOpportunityAssets=[...holdings,...watchlist,...(ideaRecords??[])].filter(item=>item.ticker!=="6742UW"&&!isNonIssuerInstrument(marketTicker(item.ticker))).map(item=>({ticker:marketTicker(item.ticker),name:item.name}));
   const opportunities=ready?projectOpportunityQueue(bbCoverage.rows,bbFundamentals?.rows??[],issuerReviews,ownerOpportunityAssets,researchedAt):[];
   const researchGroups=ready?projectPowerStackResearch(researchAssets,researchReads,researchedAt):[];
   const tape=publicMarketObservations(publicTape?.rows??[],"all");
