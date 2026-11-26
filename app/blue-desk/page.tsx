@@ -32,6 +32,7 @@ import RadarSweep from "@/components/blue-desk/RadarSweep";
 import RadarIntelligenceShell, {RadarIntelligenceTrigger} from "@/components/blue-desk/HomeRadarIntelligence";
 import {projectHomeRadar} from "@/lib/bluebelly-home-radar-intelligence";
 import {getOwnerCreatorSignalDigest} from "@/lib/bluebelly-creator-signals-server";
+import {getPrivateReviewedCreatorArguments} from "@/lib/bluebelly-private-creator-reviews";
 import BluebellyNewsfront from "@/components/blue-desk/BluebellyNewsfront";
 import EditorialStoryArt from "@/components/blue-desk/EditorialStoryArt";
 import { EntityMark, ScopeStrip } from "@/components/blue-desk/EntityIdentity";
@@ -148,12 +149,16 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   // The private transcript reader enforces current Supabase owner session +
   // allowlist before returning ANY creator data. Public visitors get no digest.
   const creatorRadarRead=publicHost
-    ?await getOwnerCreatorSignalDigest(now).catch(()=>({status:"unavailable" as const,digest:null}))
+    ?await getOwnerCreatorSignalDigest(now).catch(()=>null)
     :null;
+  // Fail closed if the owner-gated digest reader itself throws. Its non-unauthorised
+  // results are returned only after the session and active allowlist check.
+  const radarOwner=creatorRadarRead!==null&&creatorRadarRead.status!=="unauthorised";
+  const radarReviews=radarOwner?await getPrivateReviewedCreatorArguments(now).catch(()=>[]):[];
   const radarIntel=publicHost?projectHomeRadar({
     now,news:recentNews,market:marketRows,divergences:marketComparisons,
     creatorDigest:creatorRadarRead?.digest??null,
-    creatorIsAuthorised:Boolean(creatorRadarRead&&creatorRadarRead.status!=="unauthorised"&&creatorRadarRead.status!=="unavailable"),
+    creatorIsAuthorised:radarOwner,reviewedCreatorReceipts:radarReviews,
   }):null;
   const compare=buildCompareResearch([...(monitor?.rows??[]),...(monitor?.divergenceRows??[])],[...marketRows,...compareBreadthObservations(breadthFeed.series,now)],now,breadthFeed.series);
   const divergenceRadar=compare.radar;
