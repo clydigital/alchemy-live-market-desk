@@ -51,6 +51,8 @@ export type DossierAnalyticalRateCoverage = {
 export type DossierPresentationHealth = {
   state: "healthy" | "degraded";
   degraded: boolean;
+  /** Distinguishes synthesis failure from dossier-wide evidence gaps. */
+  executionDegraded?: boolean;
   repairUsed: boolean;
   freshnessWarnings: string[];
   analyticalRateCoverage: DossierAnalyticalRateCoverage;
@@ -1641,6 +1643,7 @@ export function buildDossierV2Presentation(
     health: {
       state: degraded ? "degraded" : "healthy",
       degraded,
+      executionDegraded: Boolean(output.diagnostics.degraded),
       repairUsed: Boolean(output.diagnostics.model_repair_used),
       freshnessWarnings: warnings,
       analyticalRateCoverage: rateCoverage,
