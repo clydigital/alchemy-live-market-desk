@@ -300,6 +300,7 @@ export default async function PrivatePowerStack({searchParams}:{searchParams:Pro
           </div>
         </header>
         {ready?<PowerStackDecisionOverview compare={compare} tape={tape} now={researchedAt} breadthStatus={breadthFeed.retrievalStatus}/>:null}
+        {ready?<p><Link href="/market-tools?view=technical-scan&scope=ps">Open EMA Scanner · My PowerStack →</Link></p>:null}
         {ready?<PowerStackFourHWatch reads={fourHWatch} plan={fourHPlan} selected={fourHSelected} snapshot={sharedTechnical}/>:null}
         {ready?<PowerStackBBMarketSweep rows={bbCoverage.rows} reviews={issuerReviews} asOf={bbCoverage.asOf} levels={privateLevels} fundamentals={bbFundamentals?.rows??[]} longHistory={longHistory} />:null}
         {ready?<PowerStackOpportunityQueue rows={opportunities} issuerUnavailable={bbFundamentals?.status!=="OK"}/>:null}
