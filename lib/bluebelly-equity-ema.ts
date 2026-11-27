@@ -12,7 +12,7 @@ type State="above"|"below"|"at";
 type Band="above_upper"|"below_lower"|"inside";
 type Cross="up"|"down"|"none";
 export type CloseHold={boundary:"ema"|"upper"|"lower";direction:"up"|"down";crossedOn:string;consecutiveCloses:number;status:"BREAK_ONLY"|"HOLD_CONFIRMED"};
-export type EmaObservation={frame:Frame;period:number;multiplier:number;asOf:string;anchorDay:string;sampleCount?:number;requiredReadySamples?:number;closeHolds?:CloseHold[];bandRespect?:BandRespect;warmup:"READY"|"SHORT_WARMUP";ema:number;upper:number;lower:number;distancePct:number;side:State;band:Band;windows:Record<"1"|"3"|"5",{returnPct:number;approach:"down_to"|"up_to"|"away"|"none";emaCross:Cross;upperCross:Cross;lowerCross:Cross;boundaryApproaches?:{boundary:"ema"|"upper"|"lower";direction:"up"|"down";distancePct:number;level:number}[];events:{session:string;boundary:"ema"|"upper"|"lower";direction:"up"|"down"}[]}|null>};
+export type EmaObservation={frame:Frame;period:number;multiplier:number;asOf:string;anchorDay:string;sampleCount?:number;requiredReadySamples?:number;closeHolds?:CloseHold[];bandRespect?:BandRespect;warmup:"READY"|"SHORT_WARMUP";ema:number;upper:number;lower:number;distancePct:number;side:State;band:Band;priorBand?:Band;windows:Record<"1"|"3"|"5",{returnPct:number;approach:"down_to"|"up_to"|"away"|"none";emaCross:Cross;upperCross:Cross;lowerCross:Cross;boundaryApproaches?:{boundary:"ema"|"upper"|"lower";direction:"up"|"down";distancePct:number;level:number}[];events:{session:string;boundary:"ema"|"upper"|"lower";direction:"up"|"down"}[]}|null>};
 export type RecentSessionQuality={status:"VERIFIED"|"MISSING_SESSIONS"|"STALE"|"UNVERIFIED_CALENDAR";expectedSession:string|null;missingSessions:string[];unexpectedSessions:string[]};
 export type EquityEmaScan={asOf:string;method:"FIRST_CLOSE_EMA_ROLLING_CLOSE_POPULATION_SD";observations:EmaObservation[];unavailable:string[];recentSessionQuality?:RecentSessionQuality};
 /** Conservative daily OHLC retest replay. Boundaries are frozen at the
@@ -142,7 +142,8 @@ export function scanEquityEma(input:readonly EmaPoint[],timeZone:string,now=new 
     if(valid)closeHolds.push({boundary,direction:event.direction,crossedOn:event.session,consecutiveCloses:at-start+1,status:at-start>=2?"HOLD_CONFIRMED":"BREAK_ONLY"});
    }
   }
-  observations.push({frame,period,multiplier,asOf,...cur,distancePct:pct(p.close,cur.ema),side,band,windows,closeHolds,...(frame==="D"?{bandRespect:dailyBandRespect(bars,period,multiplier,contiguous)}:{})});
+  const prev=levels.get(at-1);const priorClose=bars[at-1]?.close;const priorBand=contiguous&&prev?.warmup==="READY"&&priorClose!==undefined?(priorClose>prev.upper?"above_upper":priorClose<prev.lower?"below_lower":"inside") as Band:undefined;
+  observations.push({frame,period,multiplier,asOf,...cur,priorBand,distancePct:pct(p.close,cur.ema),side,band,windows,closeHolds,...(frame==="D"?{bandRespect:dailyBandRespect(bars,period,multiplier,contiguous)}:{})});
  }}
  return {asOf,method:"FIRST_CLOSE_EMA_ROLLING_CLOSE_POPULATION_SD",observations,unavailable,recentSessionQuality};
 }
