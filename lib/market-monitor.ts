@@ -1064,4 +1064,4 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   };
 }
 
-export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v12-band-state"], { revalidate: 300 });
+export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v13-last-exit"], { revalidate: 300 });
