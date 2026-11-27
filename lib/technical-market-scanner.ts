@@ -17,7 +17,7 @@ export function projectPrivateSymbols(snapshot:unknown,ideas:readonly unknown[])
    const r=raw as Record<string,unknown>,code=safe(r.ticker).toUpperCase(),ticker=aliases[code]??code;
    if(!/^[A-Z0-9][A-Z0-9.\-]{0,17}$/.test(ticker))continue;
    const previous=out.get(ticker),action=safe(r.action).toLowerCase();
-   const intent:PrivateSymbol["intent"]=membership!=="Archived watch"?"Unspecified":/\b(sell|short|trim|reduce)\b/.test(action)&&!/\b(buy|add|accumulate)\b/.test(action)?"Sell / reduce":/\b(buy|add|accumulate)\b/.test(action)&&!/\b(sell|short|trim|reduce|avoid|not|no|wait)\b/.test(action)?"Buy / add":"Watch";
+   const intent:PrivateSymbol["intent"]=membership!=="Archived watch"?"Unspecified":/^(sell|short|trim|reduce)\b/.test(action)&&!/\b(buy|add|accumulate|avoid|not|no|wait)\b/.test(action)?"Sell / reduce":/^(buy|add|accumulate)\b/.test(action)&&!/\b(sell|short|trim|reduce|avoid|not|no|wait)\b/.test(action)?"Buy / add":"Watch";
    out.set(ticker,{ticker,name:previous?.name||safe(r.name)||ticker,memberships:[...new Set([...(previous?.memberships??[]),membership])],intent:intent==="Unspecified"?previous?.intent??intent:intent,theme:previous?.theme||safe(r.theme)});
   }
  };
@@ -27,6 +27,7 @@ export function projectPrivateSymbols(snapshot:unknown,ideas:readonly unknown[])
 // Explicit US ETF identity allowlist. Never interpret a cash index, yield or
 // FX spot as an ETF; non-covered instruments remain visible without signals.
 const ETFs=new Set("SPY RSP QQQ DIA IWM SMH SOXX XLK XLP XLY XLE XLF XLI XLV XLU XLB XLC XLRE ITB XHB TLT IEF SGOV SHY EDV ZROZ TIP LQD HYG AGG GOVT USFR TLH VGIT GLD SLV USO UUP FXE FXB FXC FXA FXY FXF CYB IBIT ETHA EWJ EWY EWH ASHR EWG FEZ EWU".split(" "));
+const bonds=new Set("TLT IEF SGOV SHY EDV ZROZ TIP LQD HYG AGG GOVT USFR TLH VGIT".split(" "));
 const deepDive=new Set("SPY QQQ IWM SMH SOXX XLRE ITB XHB XLK XLP XLY XLE XLF XLI XLV XLU XLB XLC TLT HYG LQD GLD SLV USO UUP".split(" "));
 export function buildScannerAssets(equities:readonly PublicEquityCoverageRow[],market:readonly MarketMonitorRow[],privateSymbols:readonly PrivateSymbol[],now=new Date()):ScanAsset[]{
  const assets=new Map<string,ScanAsset>();
@@ -41,10 +42,11 @@ export function buildScannerAssets(equities:readonly PublicEquityCoverageRow[],m
   const isEtf=ETFs.has(ticker),age=r.asOf?+now-Date.parse(r.asOf+"T00:00:00Z"):NaN;
   const dated=r.frequency==="daily"&&Number.isFinite(age)&&age>=0&&age<=8*86400000&&r.last!==null&&Number.isFinite(r.last)&&r.last>0;
   const scan=isEtf&&dated?scanEquityEma(r.points,"America/New_York",now):null;
-  const matched=scan?.asOf===r.asOf&&scan.recentSessionQuality?.status==="VERIFIED";
-  assets.set(ticker,{ticker,name:r.label,category:isEtf?(r.type==="Bond ETF"||["LQD","HYG"].includes(ticker)?"Bond ETF":"ETF / proxy"):r.type,theme:r.type,region:isEtf?"US":"Other",price:dated?r.last:null,currency:r.currency??(isEtf?"USD":null),asOf:dated?r.asOf:null,sourceName:r.sourceName,sourceUrl:r.sourceUrl,quality:!dated?"Unavailable":matched?"Verified sessions":isEtf?"Stale / unverified sessions":"No verified EMA history",observations:scan?.asOf===r.asOf?scan.observations:[],detail:deepDive.has(ticker),...flags(ticker)});
+  const conflict=market.some(x=>x!==r&&x.symbol?.toUpperCase()===ticker&&x.asOf===r.asOf&&x.last!==null&&r.last!==null&&Math.abs(x.last-r.last)>Math.max(.000001,Math.abs(r.last)*.000001));
+  const matched=!!scan&&scan.asOf===r.asOf&&scan.recentSessionQuality?.status==="VERIFIED"&&!conflict;
+  assets.set(ticker,{ticker,name:r.label,category:isEtf?(bonds.has(ticker)?"Bond ETF":"ETF / proxy"):r.type,theme:r.type,region:isEtf?"US":"Other",price:dated?r.last:null,currency:r.currency??(isEtf?"USD":null),asOf:dated?r.asOf:null,sourceName:r.sourceName,sourceUrl:r.sourceUrl,quality:!dated?"Unavailable":conflict?"Conflicting observations":matched?"Verified sessions":isEtf?"Stale / unverified sessions":"No verified EMA history",observations:scan&&scan.asOf===r.asOf&&!conflict?scan.observations:[],detail:deepDive.has(ticker),...flags(ticker)});
  }
- for(const r of privateSymbols)if(!assets.has(r.ticker))assets.set(r.ticker,{ticker:r.ticker,name:r.name,category:"Other / unclassified",theme:r.theme||"Unclassified",region:"Unknown",price:null,currency:null,asOf:null,sourceName:null,sourceUrl:null,quality:"Not covered by Markets",observations:[],detail:false,...flags(r.ticker)});
+ for(const r of privateSymbols)if(!assets.has(r.ticker))assets.set(r.ticker,{ticker:r.ticker,name:r.name,category:bonds.has(r.ticker)?"Bond ETF":ETFs.has(r.ticker)?"ETF / proxy":"Other / unclassified",theme:r.theme||"Unclassified",region:ETFs.has(r.ticker)?"US":"Unknown",price:null,currency:null,asOf:null,sourceName:null,sourceUrl:null,quality:"Not covered by Markets",observations:[],detail:false,...flags(r.ticker)});
  return [...assets.values()];
 }
 export type ScannerSignal={kind:"Cross"|"Hold"|"Approach"|"Retest"|"Reset";direction:"up"|"down";boundary:"ema"|"lower"|"upper";date:string;level:number;distance:number};
