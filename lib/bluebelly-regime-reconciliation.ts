@@ -59,7 +59,7 @@ export function projectLensReconciliation(input:Input){
     "Mixed relative participation; no broad verdict";
   }else marketLines.push("Matched five-session equal-weight and semiconductor comparison incomplete.");
  }
- const state=!assessed.length?"INSUFFICIENT_REVIEW":newer.length?"NEW_EVIDENCE_TO_REVIEW":live.partial||!marketDate?"PARTIAL_MATCH":"DATED_REVIEW_AND_MARKET_TEST";
+ const state:"INSUFFICIENT_REVIEW"|"NEW_EVIDENCE_TO_REVIEW"|"PARTIAL_MATCH"|"DATED_REVIEW_AND_MARKET_TEST"=!assessed.length?"INSUFFICIENT_REVIEW":newer.length?"NEW_EVIDENCE_TO_REVIEW":live.partial||!marketDate?"PARTIAL_MATCH":"DATED_REVIEW_AND_MARKET_TEST";
  return {state,scenarios,assessed,sourceThrough:through,marketDate,marketState,marketLines,
   newer,newerBriefs:briefs,sameDay,partial:live.partial,
   prior:prior&&valid(prior.updatedAt,now)?{title:prior.title,thesis:prior.thesis,updatedAt:prior.updatedAt}:null,
