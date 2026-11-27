@@ -1,4 +1,7 @@
 import "server-only";
+import PowerStackBandReview from "./PowerStackBandReview";
+import type {ScanAsset} from "@/lib/technical-market-scanner";
+import type {FourHRead} from "@/lib/bluebelly-4h-levels";
 import Link from "next/link";
 import type {PublicEquityCoverageRow} from "@/lib/bluebelly-equity-coverage";
 import type {IssuerReviewResult} from "@/lib/power-stack-issuer-valuation";
@@ -49,7 +52,7 @@ const baskets=[
  ["Malaysia infrastructure","0245.KL 0310.KL 0296.KL 5398.KL 5347.KL","Cash collection, funded backlog and grid demand.","Local demand / currency diversification; AI overlap remains","Good","Mixed","Poor","Mixed","Good"],
 ] as const;
 type PrivateLevel={ticker:string;currency:string;low:number|null;high:number|null;note:string;updatedAt:string};
-export default function PowerStackBBMarketSweep({rows,reviews,asOf,levels,fundamentals,longHistory}:{rows:readonly PublicEquityCoverageRow[];reviews:readonly IssuerReviewResult[];asOf:string;levels:readonly PrivateLevel[];fundamentals:readonly FundamentalRow[];longHistory:LongEquityRead|null}){
+export default function PowerStackBBMarketSweep({rows,reviews,asOf,levels,fundamentals,longHistory,bandAssets,fourHReads,bandSourceDate,privateBandStatus}:{rows:readonly PublicEquityCoverageRow[];reviews:readonly IssuerReviewResult[];asOf:string;levels:readonly PrivateLevel[];fundamentals:readonly FundamentalRow[];longHistory:LongEquityRead|null;bandAssets:ScanAsset[];fourHReads:FourHRead[];bandSourceDate:string|null;privateBandStatus:string}){
  const levelByTicker=new Map<string,PrivateLevel>();
  const conflicted=new Set<string>();
  for(const level of levels){const prior=levelByTicker.get(level.ticker);if(prior&&(prior.currency!==level.currency||prior.low!==level.low||prior.high!==level.high))conflicted.add(level.ticker);else if(!prior)levelByTicker.set(level.ticker,level);}
@@ -62,6 +65,8 @@ export default function PowerStackBBMarketSweep({rows,reviews,asOf,levels,fundam
  const flagged=signals.filter(x=>nearEntry(x)||x.levels.length||x.review&&x.review.currency===x.row.currency&&x.row.price!<=x.review.valuationLow*1.05).sort((a,b)=>Number(nearEntry(b))-Number(nearEntry(a))||(a.row.changePct??0)-(b.row.changePct??0));
  return <section id="bb-market-sweep" className={styles.section} data-power-stack-bb-sweep="canonical-market-read">
   <h2>04 / Technical Watch · {asOf}</h2>
+  <PowerStackBandReview assets={bandAssets} reads={fourHReads} sourceDate={bandSourceDate} privateStatus={privateBandStatus}/>
+  <details className={styles.assetDetails}><summary>Detailed boundary events, valuation marks and retest evidence</summary>
   <p>Real estate is valuation-only; short-warm-up bands are reference context, not qualifying technical alerts. {conflicted.size?`Conflicting private marks require reconciliation: ${[...conflicted].join(", ")}.`:""}</p>
   <p>{eligible.length}/{rows.length} recent source-dated equity observations; {eligible.filter(r=>r.sessionFreshness==="BEHIND_US_SESSION").length} US rows lag the expected completed session and are excluded from technical alerts. US technical events also require verified recent session continuity. Local session dates require venue checks. Research alerts only; a falling price or EMA crossing is not proof of value. <Link href="/markets">Full BB market universe</Link>.</p>
   <p>Approach alert: within 3% of the EMA or either SD edge with a narrowing signed distance and matching price direction over 1, 3 or 5 completed daily sessions. Crosses use completed daily closes within each window; intraday-only breaches are not inferred. A US close hold requires the crossing close plus two subsequent closes on the same side, with six contiguous scheduled sessions and ready warm-up. A separate daily wick-retest replay requires 20 contiguous verified sessions, valid OHLC and ready warm-up. It uses prior-close bands; three outside closes invalidate the respected edge. This is bounded reconstructed context, not a trade signal or durable trend ledger. W/M anchors use completed periods only. The common BB kernel uses a first-close EMA seed and population SD. Short warm-up (less than 5× period) is indicative only; missing history stays unavailable.</p>
@@ -90,5 +95,5 @@ export default function PowerStackBBMarketSweep({rows,reviews,asOf,levels,fundam
   </details>
   <p><a href={GEKKO_STOCKS_HUB} target="_blank" rel="noopener noreferrer">Gekko stock discovery ↗</a> · Secondary manual research; do not substitute proprietary scores for BB market data or issuer valuation.</p>
   <p>Manual committee review: read BB macro and credit regime, then verified issuer filings and BB fundamentals; normalise cash earnings, compare valuation with internal entry ranges and stress downside, funding and portfolio overlap. Mark research now, wait, de-risk or no change only with evidence.</p>
- </section>;
+ </details></section>;
 }
