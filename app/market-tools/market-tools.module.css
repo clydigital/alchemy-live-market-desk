@@ -74,3 +74,14 @@
 .technicalViewNav a{border-radius:0}
 @media(max-width:900px){.technicalMetrics,.technicalEventGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.technicalEventGrid{grid-template-columns:1fr}.technicalControl button{flex:1 1 100%}.technicalLegend{margin-top:7px}.technicalDisclosure summary span{display:block;margin:5px 0 0 17px}.technicalViewNav a{flex:1 1 auto;text-align:center}}
+
+.scannerPresets{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:20px}
+.scannerPresets button,.scannerFilters button,.scannerMore{font:inherit;padding:9px 14px;border-radius:9px;border:1px solid currentColor;background:transparent;color:inherit;cursor:pointer}
+.scannerPresets button[aria-pressed=true]{background:#be873d;color:#17130f;border-color:#be873d;font-weight:700}
+.scannerFilters{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px;margin:16px 0;align-items:end}
+.scannerFilters label{display:grid;gap:5px;font-size:12px;font-weight:600}
+.scannerFilters select,.scannerFilters input{width:100%;min-width:0;box-sizing:border-box;color:inherit;background:transparent;border:1px solid #8b7e6b;border-radius:8px;font:inherit;padding:10px}
+.scannerFilters select option{background:#26221d;color:#f5ece0}
+.scannerMore{margin-top:14px}
+.technicalTable td small,.technicalTable th small{display:block;font-weight:400;font-size:11px;opacity:.83;margin-top:4px;white-space:normal}
+@media(max-width:600px){.scannerFilters{grid-template-columns:repeat(2,minmax(0,1fr))}}
