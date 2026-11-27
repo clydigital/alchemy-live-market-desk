@@ -25,7 +25,7 @@ export function fourHCacheKey(symbol:string,now:Date):string{
 export const FOUR_H_SYMBOLS=["XAU/USD","USD/JPY","BTC/USD"] as const;
 export type FourHSymbol=string;
 export type FourHEvent={period:number;boundary:"lower"|"ema"|"upper";direction:"up"|"down";kind:"CROSS"|"HOLD"|"APPROACH";level:number;distancePct:number;asOf:string;closes:number};
-export type FourHRead={symbol:string;status:"INDICATIVE"|"STALE"|"UNAVAILABLE"|"INVALID_HISTORY";reason:string;asOf:string|null;sampleCount:number;gapCount:number;close:number|null;bands:Band[];events:FourHEvent[]};
+export type FourHRead={symbol:string;status:"INDICATIVE"|"STALE"|"UNAVAILABLE"|"INVALID_HISTORY";reason:string;asOf:string|null;sampleCount:number;gapCount:number;close:number|null;bands:Band[];events:FourHEvent[];priorPositions?:Record<number,Band["position"]>};
 const fourHours=4*3600000;
 export function emptyFourH(symbol:string,reason:string,status:FourHRead["status"]="UNAVAILABLE"):FourHRead{return {symbol,status,reason,asOf:null,sampleCount:0,gapCount:0,close:null,bands:[],events:[]};}
 const obj=(v:unknown):Record<string,unknown>|null=>v&&typeof v==="object"&&!Array.isArray(v)?v as Record<string,unknown>:null;
@@ -69,6 +69,11 @@ export function parseFourH(payload:unknown,symbol:FourHSymbol,now:Date):FourHRea
   if(!v)return {period,multiplier,ema:null,sd:null,upper:null,lower:null,status:"INSUFFICIENT",distancePct:null,position:null};
   return {period,multiplier,...v,distancePct:(close/v.ema-1)*100,position:close>v.upper?"ABOVE":close<v.lower?"BELOW":"INSIDE"};
  });
+ const priorPositions:Record<number,Band["position"]>={};
+ if(!stale&&a.length>=2&&adjacent(a.at(-2)![0],a.at(-1)![0]))for(const [i,period] of EMA_PERIODS.entries()){
+  const prev=calculateEmaBand(closes.slice(0,-1),period,EMA_WIDTHS[i]);const price=closes.at(-2)!;
+  if(prev?.status==="READY")priorPositions[period]=price>prev.upper?"ABOVE":price<prev.lower?"BELOW":"INSIDE";
+ }
  const events:FourHEvent[]=[];
  if(!stale&&a.length>=2&&adjacent(a.at(-2)![0],a.at(-1)![0])){
   for(const [i,period] of EMA_PERIODS.entries()){
@@ -89,7 +94,7 @@ export function parseFourH(payload:unknown,symbol:FourHSymbol,now:Date):FourHRea
    }
   }
  }
- return {symbol,status:stale?"STALE":"INDICATIVE",reason:stale?(equity?"Latest scheduled completed US window missing or calendar unverified":"Latest elapsed window more than eight hours old; market closure not inferred"):(equity?"NYSE regular-session windows, including shortened close and scheduled holidays; vendor/chart parity unverified. Gap count covers recent official windows.":"UTC elapsed windows; exchange/session completeness, exact feed and chart alignment unverified. Indicative research events only."),asOf:new Date(end).toISOString(),sampleCount:a.length,gapCount,close,bands,events};
+ return {symbol,status:stale?"STALE":"INDICATIVE",reason:stale?(equity?"Latest scheduled completed US window missing or calendar unverified":"Latest elapsed window more than eight hours old; market closure not inferred"):(equity?"NYSE regular-session windows, including shortened close and scheduled holidays; vendor/chart parity unverified. Gap count covers recent official windows.":"UTC elapsed windows; exchange/session completeness, exact feed and chart alignment unverified. Indicative research events only."),asOf:new Date(end).toISOString(),sampleCount:a.length,gapCount,close,bands,events,priorPositions};
 }
 
 /** Recheck cached observations against the current clock before display.
