@@ -3,6 +3,7 @@ import s from "@/app/market-tools/market-tools.module.css";
 import home from "@/app/blue-desk/market-first-home.module.css";
 import {FOUR_H_SYMBOLS,type FourHRead} from "@/lib/bluebelly-4h-levels";
 import {TECHNICAL_UNIVERSE,type TechnicalSnapshot} from "@/lib/providers/twelve-data-ema-history";
+import {gekkoStockResearchUrl} from "@/lib/gekko-stock-research";
 import type {Band} from "@/lib/ema-sd-levels";
 
 const colors:Record<number,string>={20:"#e89536",50:"#299568",100:"#4789d2",200:"#a478d4"};
@@ -50,6 +51,7 @@ export default function OwnerTechnicalLevels({snapshot,ticker,fourH}:{snapshot:T
     ].map(m=><article className={home.quote} key={m.label}><p className={home.quoteLabel}>{m.label}</p><p className={home.quoteValue}>{m.value}</p><p className={home.source}>{m.note}</p></article>)}
    </div>
    {!requested&&<p className={s.technicalHint}>Choose an instrument above to retrieve its levels. No provider request runs on initial page load.</p>}
+   {snapshot&&TECHNICAL_UNIVERSE.find(x=>x.ticker===snapshot.ticker)?.kind==="stock"&&gekkoStockResearchUrl(snapshot.ticker,"US")?<p className={s.technicalHint}><a href={gekkoStockResearchUrl(snapshot.ticker,"US")!} target="_blank" rel="noopener noreferrer">Gekko issuer research ↗</a> · Secondary positioning and valuation evidence; not a BB signal source.</p>:null}
    {snapshot&&<p className={s.technicalHint}>Twelve Data · split-adjusted, not total return · retrieved {snapshot.retrievedAt} (view retrieval time, not native vendor update). {snapshot.discardedSentinels>0?"Excluded "+snapshot.discardedSentinels+" epoch sentinel rows.":""}</p>}
   </section>
   <section className={home.panel} aria-labelledby="technical-events">
