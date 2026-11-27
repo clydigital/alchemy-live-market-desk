@@ -64,7 +64,9 @@ export async function GET(req:NextRequest){
     getOwnerCreatorSignalDigest(now),
     readIndustryComparison(RESEARCH_CASH_ISSUERS,now).catch(()=>({status:"UNAVAILABLE" as const,asOf:now.toISOString(),columns:[]})),
   ]);
-  const [researchDistribution,thesisRevisionHandoff]=await Promise.all([getOwnerResearchDistribution(creatorSignalDigest.digest,now),getOwnerThesisRevisionPackets(now)]);
+  const thesisRevisionPromise=getOwnerThesisRevisionPackets(now);
+  const researchDistribution=await getOwnerResearchDistribution(creatorSignalDigest.digest,now);
+  const thesisRevisionHandoff=await thesisRevisionPromise;
   const motionNews=selectVerifiedNewsBriefs(rawNews,now,12);
   const news=combineQualifiedNews(motionNews,originalPress,12);
   const calendar=buildPresenterCalendar(macro,earnings,now);
