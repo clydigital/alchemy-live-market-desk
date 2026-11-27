@@ -64,12 +64,13 @@ export default function OwnerTechnicalLevels({snapshot,ticker,fourH}:{snapshot:T
    {snapshot?<div className={s.technicalFrameGrid}>{snapshot.frames.map(f=><details key={f.frame} className={s.technicalDisclosure} open={f.frame==="1day"||undefined}>
     <summary>{frames[f.frame]} <span>{f.status} · Close {fmt(f.close)}</span></summary>
     <p className={s.technicalHint}>{f.asOf??"No completed period"} · {f.sampleCount} bars · {f.frame==="1day"?"session date":"period start"}. {f.reason??""}</p>
+    {(f.events??[]).map(e=><p className={s.technicalHint} key={e.period+e.boundary}><strong>{e.kind} {e.direction==="up"?"↑":"↓"} · EMA {e.period} {e.boundary}</strong> · {fmt(e.level)} · {fmt(e.distancePct)}% · {e.asOf}</p>)}
     <Levels bands={f.bands}/>
    </details>)}</div>:<p className={s.technicalHint}>Daily, weekly and monthly levels appear after an equity / ETF check. Macro-only reads do not supply these timeframes.</p>}
   </section>
   <details className={home.archive}>
    <summary>Methodology / source limitations</summary>
-   <p className={s.technicalHint}>SHORT_WARMUP is indicative only; INSUFFICIENT means no value calculated. 5× period warm-up is a conservative threshold. Weekly/monthly current bars excluded. Crosses and approaches use completed windows and ready warm-up. US equities use scheduled regular-session windows; macro windows use elapsed UTC time. Chart parity, exact holiday/session completeness and feed licensing remain verification gates; no automated trading or accumulation change.</p>
+   <p className={s.technicalHint}>SHORT_WARMUP is indicative only; INSUFFICIENT means no value calculated. 5× period warm-up is a conservative threshold. Weekly/monthly current bars excluded. D/W/M event dates identify the daily session or period start. Daily events require the last four official prior NYSE sessions; weekly/monthly require consecutive calendar periods. Crosses and approaches use completed windows and ready warm-up. US equities use scheduled regular-session windows; macro windows use elapsed UTC time. Chart parity, exact holiday/session completeness and feed licensing remain verification gates; no automated trading or accumulation change.</p>
   </details>
   <div className={home.panelFooter}><Link href="/markets?group=equities#market-fundamentals">Market Instruments · fundamentals</Link><Link href="/markets?mode=watch">Divergence Watch</Link></div>
  </section>
