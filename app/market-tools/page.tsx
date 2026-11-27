@@ -9,9 +9,9 @@ import { getMarketToolsProviderReadiness } from "@/lib/market-tools-provider-rea
 import styles from "./market-tools.module.css";
 import TechnicalMarketScanner from "@/components/blue-desk/TechnicalMarketScanner";
 import {projectPublicEquityCoverage} from "@/lib/bluebelly-equity-coverage";
-import {buildScannerAssets,projectPrivateSymbols,type PrivateSymbol} from "@/lib/technical-market-scanner";
+import {buildScannerAssets,projectPrivateSymbols,scannerGroup,matchesScannerGroup,fourHBandCells,type PrivateSymbol} from "@/lib/technical-market-scanner";
 import OwnerTechnicalLevels from "@/components/blue-desk/OwnerTechnicalLevels";
-import {readTechnicalSnapshot,readFourH} from "@/lib/providers/twelve-data-ema-history";
+import {readTechnicalSnapshot,readFourH,readFourHWatch,TECHNICAL_UNIVERSE} from "@/lib/providers/twelve-data-ema-history";
 import {createSupabaseServerClient} from "@/lib/supabase/server";
 import {authorizeVerifiedEventOwner} from "@/lib/bluebelly-verified-event-owner-auth";
 
@@ -38,7 +38,7 @@ const connectors = [
 ];
 export const dynamic = "force-dynamic";
 
-export default async function MarketToolsPage({searchParams}:{searchParams:Promise<{check?:string;technical?:string;view?:string;fourh?:string;scope?:string}>}) {
+export default async function MarketToolsPage({searchParams}:{searchParams:Promise<{check?:string;technical?:string;view?:string;fourh?:string;scope?:string;group?:string;batch?:string}>}) {
   const options = await searchParams;
   const view=options?.check==="providers"?"diagnostics":typeof options?.technical==="string"||typeof options?.fourh==="string"?"technical":options?.view==="relationships"?"relationships":options?.view==="technical"?"technical":options?.view==="technical-scan"?"technical-scan":options?.view==="intake"?"intake":options?.view==="diagnostics"?"diagnostics":"sources";
   const scannerView=view==="technical-scan";
@@ -67,6 +67,14 @@ export default async function MarketToolsPage({searchParams}:{searchParams:Promi
   }
   const scannerMonitor=scannerView?await getMarketMonitor().catch(()=>null):null;
   const scannerAssets=scannerView?buildScannerAssets(projectPublicEquityCoverage(scannerMonitor?.rows??[]).rows,scannerMonitor?.rows??[],privateSymbols):[];
+  const scanGroup=scannerGroup(options.group??(options.scope==="ps"?"PowerStack":"All Markets"));
+  const allowed4H=new Set(TECHNICAL_UNIVERSE.map(x=>x.ticker));
+  const scanSymbols=scannerView?[...new Set([...scannerAssets.filter(a=>matchesScannerGroup(a,scanGroup)&&allowed4H.has(a.ticker)&&!(scanGroup==="PowerStack"&&matchesScannerGroup(a,"Real estate"))).sort((a,b)=>Number(b.memberships.includes("Holding"))-Number(a.memberships.includes("Holding"))).map(a=>a.ticker),...(scanGroup==="All Markets"?["XAU/USD","USD/JPY","BTC/USD"]:scanGroup==="Metals"?["XAU/USD"]:scanGroup==="FX"?["USD/JPY"]:scanGroup==="Crypto"?["BTC/USD"]:[])])]:[];
+  const batchCount=Math.ceil(scanSymbols.length/6);
+  const requestedBatch=typeof options.batch==="string"&&/^\d{1,4}$/.test(options.batch)?Number(options.batch):0;
+  const activeBatch=requestedBatch>=1&&requestedBatch<=batchCount?requestedBatch:0;
+  const fourHScan=activeBatch?await readFourHWatch(new Date(),scanSymbols.slice((activeBatch-1)*6,activeBatch*6)):[];
+  const fourHCells=Object.fromEntries(fourHScan.map(r=>[r.symbol,{status:r.status,asOf:r.asOf,cells:fourHBandCells(r)}]));
   const checkProviders=access.ok&&diagnosticsView&&options?.check==="providers";
   const technical=access.ok&&view==="technical"&&options.technical&&!options.fourh?await readTechnicalSnapshot(ticker):null;
   const fourH=access.ok&&view==="technical"&&typeof options.fourh==="string"?await readFourH(options.fourh):access.ok&&view==="technical"&&typeof options.technical==="string"?await readFourH(ticker):null;
@@ -114,7 +122,7 @@ export default async function MarketToolsPage({searchParams}:{searchParams:Promi
       </section>:null}
       {relationshipView?<div className={styles.stats}><div><strong>{sources.length}</strong><span>Curated sources</span></div><div><strong>{measuredCount}/{pairs.length}</strong><span>Current dated correlation pairs</span></div><div><strong>—</strong><span>Not a trade-signal count</span></div><div><strong>{newestCommonDate ?? "—"}</strong><span>Newest aligned observation date</span></div></div>:null}
       {intakeView?<section className={styles.workflow} aria-labelledby="workflow-title"><div><p className={styles.eyebrow}>RESEARCH HANDOFF / NOT AN AUTOMATIC SIGNAL</p><h2 id="workflow-title">Turn a screen into a sourced investigation</h2><p>Screen for an unusual move → compare cross-market relationships → check the original catalyst → verify price timestamps and invalidation → submit a candidate to Bluebelly research. Unverified observations must not appear as published ideas.</p></div><div className={styles.workflowActions}><Link href="/owner/research">Open Research Library →</Link><Link href="/owner/presenter">Presenter technical checks →</Link><Link href="/my-reports">Editorial reports →</Link></div></section>:null}
-      {scannerView?<TechnicalMarketScanner assets={scannerAssets} initialScope={options.scope==="ps"?"ps":"all"} sourceDate={scannerMonitor?.updatedAt??null} privateStatus={privateStatus}/>:null}
+      {scannerView?<TechnicalMarketScanner assets={scannerAssets} initialGroup={scanGroup} fourHCells={fourHCells} batchCount={batchCount} activeBatch={activeBatch} batchSymbols={scanSymbols.slice((activeBatch-1)*6,activeBatch*6)} sourceDate={scannerMonitor?.updatedAt??null} privateStatus={privateStatus}/>:null}
       {view==="technical"?<OwnerTechnicalLevels snapshot={technical} ticker={ticker} fourH={fourH}/>:null}
       {intakeView?<ResearchTriggerIntake monitor={monitor} />:null}
       {view!=="technical"&&!scannerView?<div className={styles.layout} style={view==="sources"||relationshipView?undefined:{gridTemplateColumns:"minmax(0,1fr)"}}>
