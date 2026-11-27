@@ -4,6 +4,8 @@ import {buildInvestorMindsetSnapshot,buildInvestorResearchThemes} from "@/lib/bl
 import {projectInvestorAssessment} from "@/lib/bluebelly-investor-assessment";
 import {selectPilotLensAssessment} from "@/lib/bluebelly-regime-assessment-pilot";
 import RegimeCurrentAssessment from "@/components/blue-desk/RegimeCurrentAssessment";
+import RegimeScenarioMatch from "@/components/blue-desk/RegimeScenarioMatch";
+import {projectLensReconciliation} from "@/lib/bluebelly-regime-reconciliation";
 import {getInvestorReviewReceipt} from "@/lib/bluebelly-investor-review-receipt";
 import {getDossierV2PresentationSelection} from "@/lib/dossier-v2/presentation-reader";
 import {isBlueDeskPublicReaderHost} from "@/lib/blue-desk-host";
@@ -141,7 +143,8 @@ export default async function RegimeWatchPage(){
         <span className={styles.lensStatusDetail}>{signal.readout}</span>
         <small>{signal.sourceDate?signal.dateNote+" "+signal.sourceDate:signal.dateNote} · {signal.scope}</small>
        </div>
-       <RegimeCurrentAssessment assessment={selectPilotLensAssessment(lens.id,investorAssessment)} compact/>
+       <RegimeScenarioMatch compact read={projectLensReconciliation({lens:lens.id,now,compare,live:liveReads[index],signal,reviews:revisions,prior:lens.stories[0]??null,dossier:dossierSelection})}/>
+       <RegimeCurrentAssessment assessment={selectPilotLensAssessment(lens.id,investorAssessment)} compact historical/>
        <RegimeLiveCardEvidence read={liveReads[index]}/>
        {revisions.length?<div data-regime-current-research="source-reviewed-provisional" style={{borderTop:"1px solid var(--bb-card-border)",marginTop:12,paddingTop:10}}>
         <small className={styles.kicker}>DATED SOURCE REVIEW · RESEARCH CHECK</small>
