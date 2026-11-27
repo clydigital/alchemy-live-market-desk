@@ -25,7 +25,7 @@ import PowerStackBBMarketSweep from "@/components/blue-desk/PowerStackBBMarketSw
 import {projectOpportunityQueue,isNonIssuerInstrument} from "@/lib/power-stack-opportunity-queue";
 import PowerStackOpportunityQueue from "@/components/blue-desk/PowerStackOpportunityQueue";
 import PowerStackDecisionOverview from "@/components/blue-desk/PowerStackDecisionOverview";
-import {readFourHWatch,TECHNICAL_UNIVERSE} from "@/lib/providers/twelve-data-ema-history";
+import {readFourHWatch,readTechnicalSnapshot,TECHNICAL_UNIVERSE} from "@/lib/providers/twelve-data-ema-history";
 import {planFourHWatch} from "@/lib/bluebelly-4h-levels";
 import PowerStackFourHWatch from "@/components/blue-desk/PowerStackFourHWatch";
 import {buildCompareResearch,compareBreadthObservations} from "@/lib/bluebelly-compare-research";
@@ -179,6 +179,7 @@ export default async function PrivatePowerStack({searchParams}:{searchParams:Pro
   const fourHPriority=ready?[...holdings.map(x=>marketTicker(x.ticker)),...(ideaRecords??[]).map(x=>marketTicker(x.ticker)),...watchlist.map(x=>marketTicker(x.ticker)),...BLUEBELLY_STOCK_UNIVERSE.map(x=>x.ticker),...fourHAllowed]:[];
   const fourHPlan=planFourHWatch(fourHPriority,fourHAllowed,params.fourh??(requested?undefined:"1"));
   const fourHSelected=ready&&requested&&fourHAllowed.includes(requested.ticker)?requested.ticker:null;
+  const sharedTechnical=ready&&fourHSelected?await readTechnicalSnapshot(fourHSelected):null;
   const fourHSymbols=fourHPlan.symbols.length?fourHPlan.symbols:fourHSelected?[fourHSelected]:[];
   const fourHWatch=ready&&fourHSymbols.length?await readFourHWatch(new Date(),fourHSymbols):null;
   const privateLevels=(ideaRecords??[]).flatMap(i=>{
@@ -299,7 +300,7 @@ export default async function PrivatePowerStack({searchParams}:{searchParams:Pro
           </div>
         </header>
         {ready?<PowerStackDecisionOverview compare={compare} tape={tape} now={researchedAt} breadthStatus={breadthFeed.retrievalStatus}/>:null}
-        {ready?<PowerStackFourHWatch reads={fourHWatch} plan={fourHPlan} selected={fourHSelected}/>:null}
+        {ready?<PowerStackFourHWatch reads={fourHWatch} plan={fourHPlan} selected={fourHSelected} snapshot={sharedTechnical}/>:null}
         {ready?<PowerStackBBMarketSweep rows={bbCoverage.rows} reviews={issuerReviews} asOf={bbCoverage.asOf} levels={privateLevels} fundamentals={bbFundamentals?.rows??[]} longHistory={longHistory} />:null}
         {ready?<PowerStackOpportunityQueue rows={opportunities} issuerUnavailable={bbFundamentals?.status!=="OK"}/>:null}
         <PowerStackDecisionHub now={researchedAt}/>
