@@ -2,6 +2,7 @@
  * Close-based population SD around the simple mean; EMA seeded with first close.
  * Closed bars only; caller supplies exchange-local calendar day and source identity.
  */
+import {scheduledUsEquityCloseHourET,usEquitySessionCalendarBasis} from "./bluebelly-us-equity-trading-calendar.ts";
 export type Frame="1day"|"1week"|"1month";
 export type Bar={day:string;close:number};
 export const EMA_PERIODS=[20,50,100,200] as const;
@@ -57,9 +58,16 @@ export function calculateTechnicalLevels(input:readonly Bar[],frame:Frame,today:
   const {ema,sd,lower,upper,status}=result;
   return {...empty,ema:round(ema),sd:round(sd),lower:round(lower),upper:round(upper),status,distancePct:round((last.close/ema-1)*100),position:last.close>upper?"ABOVE":last.close<lower?"BELOW":"INSIDE"};
  });
- // Never infer adjacent US daily sessions from date gaps alone. The caller's
- // canonical daily scanner validates the exchange calendar independently.
- const events=stale||frame==="1day"?[]:completedBoundaryEvents(rows.map(r=>r.close),last.day);
+ // Daily events require the latest four scheduled prior NYSE sessions;
+ // the current exchange date is intentionally excluded by the existing reader.
+ const expected:string[]=[];
+ if(frame==="1day")for(let d=now-dayMs;d>=now-15*dayMs&&expected.length<4;d-=dayMs){
+  const day=new Date(d).toISOString().slice(0,10);
+  if(usEquitySessionCalendarBasis(day)!=="OFFICIAL_NYSE_2026_2028")break;
+  if(scheduledUsEquityCloseHourET(day)!==null)expected.unshift(day);
+ }
+ const dailyReady=expected.length===4&&rows.slice(-4).every((r,i)=>r.day===expected[i]);
+ const events=stale||frame==="1day"&&!dailyReady?[]:completedBoundaryEvents(rows.map(r=>r.close),last.day);
  return {frame,asOf:last.day,sampleCount:rows.length,close:last.close,status:stale?"STALE":"OK",reason:stale?"Latest completed period not present":null,bands,events};
 }
 export function exchangeDay(now:Date,timeZone:string){return new Intl.DateTimeFormat("en-CA",{timeZone,year:"numeric",month:"2-digit",day:"2-digit"}).format(now);}
