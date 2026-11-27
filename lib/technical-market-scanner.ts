@@ -1,7 +1,7 @@
 import type {PublicEquityCoverageRow} from "./bluebelly-equity-coverage.ts";
 import type {MarketMonitorRow} from "./market-monitor.ts";
 import type {EmaObservation} from "./bluebelly-equity-ema.ts";
-import {scanEquityEma} from "./bluebelly-equity-ema.ts";
+import {SCANNER_US_ETFS as ETFs} from "./technical-scanner-etf-identities.ts";
 export type Membership="Holding"|"Saved idea"|"Archived watch";
 export type PrivateSymbol={ticker:string;name:string;memberships:Membership[];intent:"Buy / add"|"Sell / reduce"|"Watch"|"Unspecified";theme:string};
 export type ScanAsset={ticker:string;name:string;category:string;theme:string;region:string;price:number|null;currency:string|null;asOf:string|null;sourceName:string|null;sourceUrl:string|null;quality:string;observations:EmaObservation[];memberships:Membership[];intent:PrivateSymbol["intent"];detail:boolean};
@@ -26,7 +26,6 @@ export function projectPrivateSymbols(snapshot:unknown,ideas:readonly unknown[])
 }
 // Explicit US ETF identity allowlist. Never interpret a cash index, yield or
 // FX spot as an ETF; non-covered instruments remain visible without signals.
-const ETFs=new Set("SPY RSP QQQ DIA IWM SMH SOXX XLK XLP XLY XLE XLF XLI XLV XLU XLB XLC XLRE ITB XHB TLT IEF SGOV SHY EDV ZROZ TIP LQD HYG AGG GOVT USFR TLH VGIT GLD SLV USO UUP FXE FXB FXC FXA FXY FXF CYB IBIT ETHA EWJ EWY EWH ASHR EWG FEZ EWU".split(" "));
 const bonds=new Set("TLT IEF SGOV SHY EDV ZROZ TIP LQD HYG AGG GOVT USFR TLH VGIT".split(" "));
 const deepDive=new Set("SPY QQQ IWM SMH SOXX XLRE ITB XHB XLK XLP XLY XLE XLF XLI XLV XLU XLB XLC TLT HYG LQD GLD SLV USO UUP".split(" "));
 export function buildScannerAssets(equities:readonly PublicEquityCoverageRow[],market:readonly MarketMonitorRow[],privateSymbols:readonly PrivateSymbol[],now=new Date()):ScanAsset[]{
@@ -41,7 +40,7 @@ export function buildScannerAssets(equities:readonly PublicEquityCoverageRow[],m
   const ticker=r.symbol?.toUpperCase();if(!ticker||assets.has(ticker))continue;
   const isEtf=ETFs.has(ticker),age=r.asOf?+now-Date.parse(r.asOf+"T00:00:00Z"):NaN;
   const dated=r.frequency==="daily"&&Number.isFinite(age)&&age>=0&&age<=8*86400000&&r.last!==null&&Number.isFinite(r.last)&&r.last>0;
-  const scan=isEtf&&dated?scanEquityEma(r.points,"America/New_York",now):null;
+  const scan=isEtf&&dated?r.emaScan??null:null;
   const conflict=market.some(x=>x!==r&&x.symbol?.toUpperCase()===ticker&&x.asOf===r.asOf&&x.last!==null&&r.last!==null&&Math.abs(x.last-r.last)>Math.max(.000001,Math.abs(r.last)*.000001));
   const matched=!!scan&&scan.asOf===r.asOf&&scan.recentSessionQuality?.status==="VERIFIED"&&!conflict;
   assets.set(ticker,{ticker,name:r.label,category:isEtf?(bonds.has(ticker)?"Bond ETF":"ETF / proxy"):r.type,theme:r.type,region:isEtf?"US":"Other",price:dated?r.last:null,currency:r.currency??(isEtf?"USD":null),asOf:dated?r.asOf:null,sourceName:r.sourceName,sourceUrl:r.sourceUrl,quality:!dated?"Unavailable":conflict?"Conflicting observations":matched?"Verified sessions":isEtf?"Stale / unverified sessions":"No verified EMA history",observations:scan&&scan.asOf===r.asOf&&!conflict?scan.observations:[],detail:deepDive.has(ticker),...flags(ticker)});
