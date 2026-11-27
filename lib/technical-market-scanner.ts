@@ -45,6 +45,11 @@ export function buildScannerAssets(equities:readonly PublicEquityCoverageRow[],m
   const matched=isEtf&&!!scan&&scan.asOf===r.asOf&&scan.recentSessionQuality?.status==="VERIFIED"&&!conflict;
   assets.set(ticker,{ticker,name:r.label,category:isEtf?(bonds.has(ticker)?"Bond ETF":"ETF / proxy"):r.type,theme:r.type,region:isEtf?"US":"Other",price:dated?r.last:null,currency:r.currency??(isEtf?"USD":null),asOf:dated?r.asOf:null,sourceName:r.sourceName,sourceUrl:r.sourceUrl,quality:!dated?"Unavailable":conflict?"Conflicting observations":matched?"Verified sessions":isEtf?"Stale / unverified sessions":"Indicative · local calendar unverified",observations:scan&&scan.asOf===r.asOf&&!conflict?scan.observations:[],detail:deepDive.has(ticker),...flags(ticker)});
  }
+ // Native spot symbols are separate 4H instruments; do not substitute ETF
+ // prices or infer D/W/M levels from proxies.
+ for(const [ticker,name,theme] of [["XAU/USD","Gold spot","Metal"],["USD/JPY","USD/JPY spot","FX"],["BTC/USD","Bitcoin spot","Crypto"]]){
+  if(!assets.has(ticker))assets.set(ticker,{ticker,name,category:theme,theme,region:"Other",price:null,currency:ticker==="USD/JPY"?"JPY":"USD",asOf:null,sourceName:null,sourceUrl:null,quality:"4H provider only",observations:[],detail:false,...flags(ticker)});
+ }
  for(const r of privateSymbols)if(!assets.has(r.ticker))assets.set(r.ticker,{ticker:r.ticker,name:r.name,category:bonds.has(r.ticker)?"Bond ETF":ETFs.has(r.ticker)?"ETF / proxy":"Other / unclassified",theme:r.theme||"Unclassified",region:ETFs.has(r.ticker)?"US":"Unknown",price:null,currency:null,asOf:null,sourceName:null,sourceUrl:null,quality:"Not covered by Markets",observations:[],detail:false,...flags(r.ticker)});
  return [...assets.values()];
 }
