@@ -803,7 +803,7 @@ function makeRows(rawSeries: RawSeries[]): MarketMonitorRow[] {
           return selected?.at(-1)?.time === lastTime ? selected :
             fallback?.at(-1)?.time === lastTime ? fallback : selected ?? null;
         })()) : null,
-      emaScan: raw.frequency==="daily"&&(identity||SCANNER_US_ETFS.has(raw.symbol))?scanEquityEma(points,identity?.timeZone??"America/New_York"):null,
+      emaScan: raw.frequency==="daily"?scanEquityEma(points,identity?.timeZone??(SCANNER_US_ETFS.has(raw.symbol)?"America/New_York":"UTC")):null,
       volPercentile: volPercentile(points),
       relative5d: null,
       asOf: formatDate(last?.time),
@@ -1064,4 +1064,4 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   };
 }
 
-export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v11-ema-etfs"], { revalidate: 300 });
+export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v12-band-state"], { revalidate: 300 });
