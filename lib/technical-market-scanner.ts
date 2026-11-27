@@ -108,7 +108,7 @@ export function classifyBand(position:BandPosition,prior:BandPosition|null,appro
  if(prior===position)return position==="Inside"?"Staying inside":position==="Above"?"Staying above":"Staying below";
  return position;
 }
-export type BandCell={period:number;state:BandState;position:BandPosition;side:"Above"|"Below"|"At";distance:number;edge:"upper"|"lower";date:string;quality:string;held:boolean};
+export type BandCell={lastExit:import("./ema-last-band-exit.ts").LastBandExit|null;period:number;state:BandState;position:BandPosition;side:"Above"|"Below"|"At";distance:number;edge:"upper"|"lower";date:string;quality:string;held:boolean};
 const position=(p:string):BandPosition=>p==="above_upper"||p==="ABOVE"?"Above":p==="below_lower"||p==="BELOW"?"Below":"Inside";
 function nearEdge(price:number,lo:number,hi:number){const lower=lo>0?(price/lo-1)*100:Infinity,upper=hi>0?(price/hi-1)*100:Infinity;return Math.abs(lower)<Math.abs(upper)?{edge:"lower" as const,distance:lower}:{edge:"upper" as const,distance:upper};}
 export function dailyBandCell(a:ScanAsset,o:EmaObservation):BandCell|null{
@@ -118,7 +118,7 @@ export function dailyBandCell(a:ScanAsset,o:EmaObservation):BandCell|null{
  const edge=nearEdge(a.price,o.lower,o.upper);
  if(!Number.isFinite(edge.distance))return null;
  const approach=verified&&prior!==null?o.windows["1"]?.boundaryApproaches?.filter(e=>e.boundary!=="ema").sort((x,y)=>Math.abs(x.distancePct)-Math.abs(y.distancePct))[0]?.direction??null:null;
- return {period:o.period,state:classifyBand(pos,prior,approach),position:pos,side:o.side==="above"?"Above":o.side==="below"?"Below":"At",...edge,date:o.asOf,quality:o.warmup!=="READY"?"Short warm-up":verified?"Verified sessions":"Indicative / unverified",held:verified&&!!o.closeHolds?.some(h=>h.status==="HOLD_CONFIRMED"&&(pos==="Above"&&h.boundary==="upper"&&h.direction==="up"||pos==="Below"&&h.boundary==="lower"&&h.direction==="down"))};
+ return {lastExit:verified?o.lastExit??null:null,period:o.period,state:classifyBand(pos,prior,approach),position:pos,side:o.side==="above"?"Above":o.side==="below"?"Below":"At",...edge,date:o.asOf,quality:o.warmup!=="READY"?"Short warm-up":verified?"Verified sessions":"Indicative / unverified",held:verified&&!!o.closeHolds?.some(h=>h.status==="HOLD_CONFIRMED"&&(pos==="Above"&&h.boundary==="upper"&&h.direction==="up"||pos==="Below"&&h.boundary==="lower"&&h.direction==="down"))};
 }
 export function fourHBandCells(r:import("./bluebelly-4h-levels.ts").FourHRead):BandCell[]{
  if(r.close===null||!r.asOf||r.status!=="INDICATIVE")return [];
@@ -128,6 +128,20 @@ export function fourHBandCells(r:import("./bluebelly-4h-levels.ts").FourHRead):B
   const ready=b.status==="READY",pos=position(b.position),prior=ready&&r.priorPositions?.[b.period]?position(r.priorPositions[b.period]!):null;
   const approach=ready&&prior!==null?r.events.filter(e=>e.period===b.period&&e.boundary!=="ema"&&e.kind==="APPROACH").sort((x,y)=>Math.abs(x.distancePct)-Math.abs(y.distancePct))[0]?.direction??null:null;
   const edge=nearEdge(price,b.lower,b.upper);if(!Number.isFinite(edge.distance))return [];
-  return [{period:b.period,state:classifyBand(pos,prior,approach),position:pos,side:price>b.ema?"Above" as const:price<b.ema?"Below" as const:"At" as const,...edge,date,quality:ready?"4H indicative":"Short warm-up",held:ready&&r.events.some(e=>e.period===b.period&&e.kind==="HOLD"&&(pos==="Above"&&e.boundary==="upper"&&e.direction==="up"||pos==="Below"&&e.boundary==="lower"&&e.direction==="down"))}];
+  return [{lastExit:ready?r.lastExits?.[b.period]??null:null,period:b.period,state:classifyBand(pos,prior,approach),position:pos,side:price>b.ema?"Above" as const:price<b.ema?"Below" as const:"At" as const,...edge,date,quality:ready?"4H indicative":"Short warm-up",held:ready&&r.events.some(e=>e.period===b.period&&e.kind==="HOLD"&&(pos==="Above"&&e.boundary==="upper"&&e.direction==="up"||pos==="Below"&&e.boundary==="lower"&&e.direction==="down"))}];
  });
+}
+
+export const BAND_SORTS=["All","Exiting Down","Exiting Up","Approaching Up","Approaching Down","Inside (up)","Inside (down)"] as const;
+export type BandSort=typeof BAND_SORTS[number];
+export function matchesBandSort(c:BandCell,sort:BandSort){
+ switch(sort){
+ case "All":return true;
+ case "Exiting Down":return c.state==="Exiting ↓";
+ case "Exiting Up":return c.state==="Exiting ↑";
+ case "Approaching Up":return c.state==="Approaching ↑";
+ case "Approaching Down":return c.state==="Approaching ↓";
+ case "Inside (up)":return c.position==="Inside"&&c.lastExit?.direction==="up";
+ case "Inside (down)":return c.position==="Inside"&&c.lastExit?.direction==="down";
+ }
 }
