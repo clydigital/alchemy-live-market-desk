@@ -5,6 +5,7 @@ import type {IssuerReviewResult} from "@/lib/power-stack-issuer-valuation";
 import type {LongEquityRead} from "@/lib/bluebelly-equity-long-history";
 import type {FundamentalRow} from "@/lib/bluebelly-fundamental-comparison";
 import type {EmaObservation} from "@/lib/bluebelly-equity-ema";
+import {gekkoStockResearchUrl,GEKKO_STOCKS_HUB} from "@/lib/gekko-stock-research";
 import styles from "@/app/power-stack/private-power-stack.module.css";
 
 const pct=(v:number)=> (v>=0?"+":"")+v.toFixed(1)+"%";
@@ -76,6 +77,7 @@ export default function PowerStackBBMarketSweep({rows,reviews,asOf,levels,fundam
    {review&&review.currency===row.currency?<p>Reviewed value range {review.valuationLow}–{review.valuationHigh} {review.currency}, reviewed {review.reviewedAt.slice(0,10)}; current discount to low end {pct((1-row.price!/review.valuationLow)*100)}. Model assumptions, not an order.</p>:null}
    {levels.map(({o,statements:s})=><p key={o.frame+o.period}><strong>{o.frame} EMA{o.period}</strong> {o.ema.toFixed(2)} · price {o.side} ({pct(o.distancePct)}) · {o.band.replaceAll("_"," ")} {o.multiplier} SD envelope · {s.join("; ")} · {o.warmup==="READY"?"warm-up ready":"short warm-up; indicative"}.</p>)}
    <details><summary>All available EMA states</summary>{row.emaScan?.observations.map(o=><p key={o.frame+o.period}>{o.frame} EMA{o.period} · price {o.side} ({pct(o.distancePct)}) · {o.band.replaceAll("_"," ")} · {o.warmup==="READY"?"warm-up ready":"short warm-up; indicative"}{bandRespectText(o)?" · "+bandRespectText(o):""}</p>)}</details>
+   {gekkoStockResearchUrl(row.ticker,row.region)?<p><a href={gekkoStockResearchUrl(row.ticker,row.region)!} target="_blank" rel="noopener noreferrer">Gekko issuer research ↗</a> · Review positioning, valuation and earnings risk separately; corroborate material facts with filings.</p>:null}
    <p>Unavailable anchors: {row.emaScan?row.emaScan.unavailable.join(", ")||"none":"entire EMA scan unavailable"}</p>
   </details>)}</div>
   {flagged.length>12?<details className={styles.assetDetails}><summary>More flagged symbols ({flagged.length-12})</summary><ul>{flagged.slice(12).map(({row,levels})=><li key={row.ticker}>{row.ticker}: {levels.map(({o,statements:s})=>o.frame+" EMA"+o.period+" "+s.join(", ")).join("; ")||"reviewed value proximity"}</li>)}</ul></details>:null}
@@ -86,6 +88,7 @@ export default function PowerStackBBMarketSweep({rows,reviews,asOf,levels,fundam
    {baskets.map(([name,tickers,logic,hedge,...states])=><tr key={name}><td><strong>{name}</strong><br/>{tickers}<br/>{logic}</td><td>{hedge}</td>{states.map((state,i)=><td key={i}>{state}</td>)}</tr>)}
   </tbody></table></div>
   </details>
+  <p><a href={GEKKO_STOCKS_HUB} target="_blank" rel="noopener noreferrer">Gekko stock discovery ↗</a> · Secondary manual research; do not substitute proprietary scores for BB market data or issuer valuation.</p>
   <p>Manual committee review: read BB macro and credit regime, then verified issuer filings and BB fundamentals; normalise cash earnings, compare valuation with internal entry ranges and stress downside, funding and portfolio overlap. Mark research now, wait, de-risk or no change only with evidence.</p>
  </section>;
 }
