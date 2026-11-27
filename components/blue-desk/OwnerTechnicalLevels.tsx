@@ -56,7 +56,7 @@ export default function OwnerTechnicalLevels({snapshot,ticker,fourH}:{snapshot:T
   </section>
   <section className={home.panel} aria-labelledby="technical-events">
    <div className={home.panelHead}><div><p className={home.eyebrow}>02 / BOUNDARY RADAR · 4H</p><h2 id="technical-events">What changed?</h2></div></div>
-   {fourH?<><p className={s.technicalHint}>{fourH.symbol} · {fourH.status} · {fourH.asOf??"No completed window"} · {fourH.sampleCount} bars · {fourH.gapCount} non-four-hour gaps. {fourH.reason}</p>
+   {fourH?<><p className={s.technicalHint}>{fourH.symbol} · {fourH.status} · {fourH.asOf??"No completed window"} · {fourH.sampleCount} bars · {fourH.gapCount} {fourH.symbol.includes("/")?"non-four-hour gaps":"recent scheduled-window gaps"}. {fourH.reason}</p>
     {eventCount?<div className={s.technicalEventGrid}>{fourH.events.map(e=><article className={home.item} key={e.period+e.boundary+e.kind+e.asOf}><span className={s.eventDirection} data-direction={e.direction}>{e.direction==="up"?"↑":"↓"} {e.kind}</span><h3>EMA {e.period} · {e.boundary} boundary</h3><p>Level <strong>{fmt(e.level)}</strong> · Distance {fmt(e.distancePct)}%</p><p>{e.asOf} · {e.closes} completed closes</p></article>)}</div>:<p className={s.technicalHint}>No qualifying recent 4H event in available history. Missing or indicative data is not a verified no-signal verdict.</p>}
     <details className={s.technicalDisclosure} open><summary>4H boundary levels <span>{fourH.status}</span></summary><Levels bands={fourH.bands}/></details>
    </>:<p className={s.technicalHint}>Boundary events will appear after a 4H check. This view is not an automatic universe-wide scanner.</p>}

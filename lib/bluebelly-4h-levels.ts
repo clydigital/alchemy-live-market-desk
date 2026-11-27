@@ -12,6 +12,16 @@ function recentEquityWindows(now:Date){
  const local=ny(+now).day,mid=Date.parse(local+"T00:00:00Z");
  return Array.from({length:15},(_,i)=>new Date(mid-(14-i)*86400000).toISOString().slice(0,10)).flatMap(d=>usEquitySessionCalendarBasis(d)==="OFFICIAL_NYSE_2026_2028"?equityWindows(d):[]).filter(w=>w.end<=+now);
 }
+/** Refresh on a completed exchange window rather than an arbitrary UTC bucket.
+ * Retry during the first hour after a close to allow for vendor publication lag.
+ * Macro sessions use hourly buckets because their UTC phase is venue-dependent. */
+export function fourHCacheKey(symbol:string,now:Date):string{
+ if(symbol.includes("/"))return "macro:"+Math.floor(+now/3600000);
+ const last=recentEquityWindows(now).at(-1);
+ if(!last)return "unverified:"+Math.floor(+now/3600000);
+ const age=+now-last.end;
+ return "equity:"+last.end+":"+(age<3600000?Math.floor(age/900000):"settled");
+}
 export const FOUR_H_SYMBOLS=["XAU/USD","USD/JPY","BTC/USD"] as const;
 export type FourHSymbol=string;
 export type FourHEvent={period:number;boundary:"lower"|"ema"|"upper";direction:"up"|"down";kind:"CROSS"|"HOLD"|"APPROACH";level:number;distancePct:number;asOf:string;closes:number};
@@ -80,6 +90,16 @@ export function parseFourH(payload:unknown,symbol:FourHSymbol,now:Date):FourHRea
   }
  }
  return {symbol,status:stale?"STALE":"INDICATIVE",reason:stale?(equity?"Latest scheduled completed US window missing or calendar unverified":"Latest elapsed window more than eight hours old; market closure not inferred"):(equity?"NYSE regular-session windows, including shortened close and scheduled holidays; vendor/chart parity unverified. Gap count covers recent official windows.":"UTC elapsed windows; exchange/session completeness, exact feed and chart alignment unverified. Indicative research events only."),asOf:new Date(end).toISOString(),sampleCount:a.length,gapCount,close,bands,events};
+}
+
+/** Recheck cached observations against the current clock before display.
+ * Never promote a stale cached result to a fresh observation. */
+export function validateFourHReadFreshness(read:FourHRead,now:Date):FourHRead{
+ if(read.status!=="INDICATIVE")return {...read,events:[]};
+ const end=read.asOf?Date.parse(read.asOf):NaN;
+ const expected=read.symbol.includes("/")?null:recentEquityWindows(now).at(-1)?.end;
+ const stale=!Number.isFinite(end)||end>+now||(read.symbol.includes("/")?+now-end>8*3600000:expected!==end);
+ return stale?{...read,status:"STALE",events:[],reason:"Cached observation no longer matches the latest completed window; refresh pending."}:read;
 }
 
 /** Private request planning only; canonical identity allowlist supplied by caller.

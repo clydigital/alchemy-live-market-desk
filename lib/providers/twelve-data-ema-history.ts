@@ -1,6 +1,6 @@
 import "server-only";
 import {unstable_cache} from "next/cache";
-import {FOUR_H_SYMBOLS,FOUR_H_BATCH_SIZE,emptyFourH,parseFourH,type FourHSymbol,type FourHRead} from "../bluebelly-4h-levels.ts";
+import {FOUR_H_SYMBOLS,FOUR_H_BATCH_SIZE,emptyFourH,parseFourH,fourHCacheKey,validateFourHReadFreshness,type FourHSymbol,type FourHRead} from "../bluebelly-4h-levels.ts";
 import {BLUEBELLY_STOCK_UNIVERSE} from "../bluebelly-equity-universe.ts";
 import {calculateTechnicalLevels,exchangeDay,unavailableLevels,type Frame,type TechnicalLevels,type Bar} from "../ema-sd-levels.ts";
 export const TECHNICAL_UNIVERSE=[...BLUEBELLY_STOCK_UNIVERSE.filter(x=>x.region==="US").map(x=>({ticker:x.ticker,label:x.company,currency:"USD",timeZone:x.timeZone,kind:"stock"})),...["SPY","QQQ","IWM","SMH","SOXX","XLRE","ITB","XHB","XLK","XLP","XLY","XLE","XLF","XLI","XLV","XLU","XLB","XLC","TLT","HYG","LQD","GLD","SLV","USO","UUP"].map(ticker=>({ticker,label:ticker,currency:"USD",timeZone:"America/New_York",kind:"etf"}))];
@@ -50,7 +50,7 @@ export async function refreshTechnicalPilot(now=new Date()){
 }
 
 /** Shared bounded owner 4H read; no new scheduler. */
-const cachedFourH=unstable_cache(async(symbol:FourHSymbol,bucket:number):Promise<FourHRead>=>{
+const cachedFourH=unstable_cache(async(symbol:FourHSymbol,bucket:string):Promise<FourHRead>=>{
  void bucket;
  const key=process.env.TWELVEDATA_API_KEY?.trim();
  if(!key)return emptyFourH(symbol,"Server credential missing");
@@ -61,10 +61,11 @@ const cachedFourH=unstable_cache(async(symbol:FourHSymbol,bucket:number):Promise
   if(!response.ok)return emptyFourH(symbol,"Provider HTTP "+response.status);
   return parseFourH(await response.json(),symbol,new Date());
  }catch{return emptyFourH(symbol,"Provider request or response unavailable");}
-},["bb-owner-4h-v3"],{revalidate:3600});
+},["bb-owner-4h-v4"],{revalidate:3600});
 export async function readFourH(symbol:string,now=new Date()):Promise<FourHRead>{
  if(!(FOUR_H_SYMBOLS as readonly string[]).includes(symbol)&&!TECHNICAL_UNIVERSE.some(x=>x.ticker===symbol))return emptyFourH("Unsupported","Instrument not allowlisted");
- return cachedFourH(symbol as FourHSymbol,Math.floor(+now/(4*3600000)));
+ const read=await cachedFourH(symbol as FourHSymbol,fourHCacheKey(symbol,now));
+ return validateFourHReadFreshness(read,new Date(Math.max(+now,Date.now())));
 }
 
 /** Bounded shared scan: no automatic per-holding fanout or extra scheduler. */

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {parseFourH,planFourHWatch} from "../lib/bluebelly-4h-levels.ts";
+import {parseFourH,planFourHWatch,fourHCacheKey,validateFourHReadFreshness} from "../lib/bluebelly-4h-levels.ts";
 import {readFileSync} from "node:fs";
 const now=new Date("2026-11-26T05:00:00Z");
 const end=Date.parse("2026-11-26T04:00:00Z");
@@ -65,4 +65,25 @@ test("US 4H session close, Thanksgiving and early-close continuity",()=>{
  assert.equal(parseFourH(pwr(recent.filter((_,i)=>i!==1)),"PWR",new Date("2026-11-27T18:00:00Z")).gapCount,1);
  assert.equal(parseFourH(pwr(recent.slice(0,2)),"PWR",new Date("2026-11-27T18:00:00Z")).status,"STALE");
  assert.equal(parseFourH(pwr([...recent,bar("2026-11-27 18:30:00")]),"PWR",new Date("2026-11-27T22:00:00Z")).status,"INVALID_HISTORY");
+});
+
+test("4H cache follows scheduled US candle closes, not generic UTC blocks",()=>{
+ const key=(time:string)=>fourHCacheKey("PWR",new Date(time));
+ // Friday after Thanksgiving: one shortened window closes 18:00 UTC.
+ assert.equal(key("2026-11-26T22:00:00Z"),key("2026-11-27T17:59:00Z"));
+ assert.notEqual(key("2026-11-27T17:59:00Z"),key("2026-11-27T18:00:00Z"));
+ assert.notEqual(key("2026-11-27T18:00:00Z"),key("2026-11-27T18:15:00Z"));
+ assert.equal(key("2026-11-27T20:00:00Z"),key("2026-11-28T12:00:00Z"));
+ // Daylight saving: regular first window closes 17:30 UTC.
+ assert.notEqual(key("2026-07-15T17:29:00Z"),key("2026-07-15T17:30:00Z"));
+ assert.notEqual(fourHCacheKey("BTC/USD",new Date("2026-11-27T07:59:00Z")),fourHCacheKey("BTC/USD",new Date("2026-11-27T08:00:00Z")));
+});
+test("cached equity boundary events expire immediately when a newer scheduled window completes",()=>{
+ const payload={meta:{symbol:"PWR",interval:"4h",currency:"USD"},values:[{datetime:"2026-11-25 14:30:00",close:"100"},{datetime:"2026-11-25 18:30:00",close:"101"}]};
+ const read=parseFourH(payload,"PWR",new Date("2026-11-26T22:00:00Z"));
+ const withEvent={...read,events:[{period:20,boundary:"ema" as const,direction:"up" as const,kind:"CROSS" as const,level:100,distancePct:1,asOf:read.asOf!,closes:1}]};
+ assert.equal(validateFourHReadFreshness(withEvent,new Date("2026-11-27T17:59:00Z")).events.length,1);
+ const stale=validateFourHReadFreshness(withEvent,new Date("2026-11-27T18:00:00Z"));
+ assert.equal(stale.status,"STALE");assert.equal(stale.events.length,0);
+ assert.equal(validateFourHReadFreshness(stale,new Date("2026-11-27T18:01:00Z")).events.length,0);
 });
