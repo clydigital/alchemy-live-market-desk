@@ -11,7 +11,7 @@ type Input = {lens:EditorialRegimeId; now:Date; compare:CompareResearch; live:Li
  signal:LensCardSignal; reviews:readonly {read:QuestionAssessment}[]; prior:PublicThesis|null;
  dossier:Context|null};
 const DAY=86400000;
-const valid=(at:string|null,now:Date)=>!!at&&Number.isFinite(Date.parse(at))&&Date.parse(at)<=+now;
+const valid=(at:string|null,now:Date):at is string=>!!at&&Number.isFinite(Date.parse(at))&&Date.parse(at)<=+now;
 const fresh=(at:string|null,now:Date)=>valid(at,now)&&+now-Date.parse(at!)<=6*DAY;
 const day=(at:string)=>at.slice(0,10);
 const pp=(n:number)=>(n>0?"+":"")+n.toFixed(2)+" pp";
