@@ -22,6 +22,7 @@ import {BLUEBELLY_STOCK_UNIVERSE,findStockIdentity} from "@/lib/bluebelly-equity
 import {readPublicFundamentalComparison} from "@/lib/bluebelly-fundamental-comparison-server";
 import {projectPublicEquityCoverage} from "@/lib/bluebelly-equity-coverage";
 import PowerStackBBMarketSweep from "@/components/blue-desk/PowerStackBBMarketSweep";
+import {buildScannerAssets,projectPrivateSymbols} from "@/lib/technical-market-scanner";
 import {projectOpportunityQueue,isNonIssuerInstrument} from "@/lib/power-stack-opportunity-queue";
 import PowerStackOpportunityQueue from "@/components/blue-desk/PowerStackOpportunityQueue";
 import PowerStackDecisionOverview from "@/components/blue-desk/PowerStackDecisionOverview";
@@ -182,6 +183,7 @@ export default async function PrivatePowerStack({searchParams}:{searchParams:Pro
   const sharedTechnical=ready&&fourHSelected?await readTechnicalSnapshot(fourHSelected):null;
   const fourHSymbols=fourHPlan.symbols.length?fourHPlan.symbols:fourHSelected?[fourHSelected]:[];
   const fourHWatch=ready&&fourHSymbols.length?await readFourHWatch(new Date(),fourHSymbols):null;
+  const bandAssets=ready?buildScannerAssets(bbCoverage.rows,publicTape?.rows??[],projectPrivateSymbols({holdings,watchlist},ideasError?[]:ideaRecords??[])):[];
   const privateLevels=(ideaRecords??[]).flatMap(i=>{
     const lo=i.watch_low==null?null:Number(i.watch_low),hi=i.watch_high==null?null:Number(i.watch_high);
     if((lo===null&&hi===null)||(lo!==null&&(!Number.isFinite(lo)||lo<=0))||(hi!==null&&(!Number.isFinite(hi)||hi<=0))||(lo!==null&&hi!==null&&lo>hi))return [];
@@ -302,7 +304,7 @@ export default async function PrivatePowerStack({searchParams}:{searchParams:Pro
         {ready?<PowerStackDecisionOverview compare={compare} tape={tape} now={researchedAt} breadthStatus={breadthFeed.retrievalStatus}/>:null}
         {ready?<p><Link href="/market-tools?view=technical-scan&scope=ps">Open EMA Scanner · My PowerStack →</Link></p>:null}
         {ready?<PowerStackFourHWatch reads={fourHWatch} plan={fourHPlan} selected={fourHSelected} snapshot={sharedTechnical}/>:null}
-        {ready?<PowerStackBBMarketSweep rows={bbCoverage.rows} reviews={issuerReviews} asOf={bbCoverage.asOf} levels={privateLevels} fundamentals={bbFundamentals?.rows??[]} longHistory={longHistory} />:null}
+        {ready?<PowerStackBBMarketSweep rows={bbCoverage.rows} reviews={issuerReviews} asOf={bbCoverage.asOf} levels={privateLevels} fundamentals={bbFundamentals?.rows??[]} longHistory={longHistory} bandAssets={bandAssets} fourHReads={fourHWatch??[]} bandSourceDate={publicTape?.updatedAt??null} privateBandStatus={ideasError?"Saved idea source unavailable; recorded holdings and archived watch remain.":"Recorded snapshot and investment ideas only; not live brokerage positions."} />:null}
         {ready?<PowerStackOpportunityQueue rows={opportunities} issuerUnavailable={bbFundamentals?.status!=="OK"}/>:null}
         <PowerStackDecisionHub now={researchedAt}/>
         {ready?<PowerStackMeasuredSignals signals={measuredSignals} trackedTickers={trackedTickers} topics={researchTopics}/>:null}
