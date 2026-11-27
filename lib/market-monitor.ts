@@ -1,3 +1,4 @@
+import {SCANNER_US_ETFS} from "./technical-scanner-etf-identities.ts";
 import { unstable_cache } from "next/cache";
 import {expectedHomeEtfSession,fetchHomeEtfHistory,fetchUsRepairHistory,fetchUsEquityCanaryHistory,repairFailureCode,US_REPAIR_SYMBOLS,US_EQUITY_CANARY,PREFERRED_US_ETFS,PREFERRED_US_EQUITIES,planUsRecovery,XL_FALLBACK_ETFS,type HomeEtf} from "./bluebelly-home-etf-history";
 import {ADDITIONAL_US_STOCKS,EUROPE_STOCKS,ASIA_STOCKS,findStockIdentity} from "./bluebelly-equity-universe";
@@ -802,7 +803,7 @@ function makeRows(rawSeries: RawSeries[]): MarketMonitorRow[] {
           return selected?.at(-1)?.time === lastTime ? selected :
             fallback?.at(-1)?.time === lastTime ? fallback : selected ?? null;
         })()) : null,
-      emaScan: identity&&raw.frequency==="daily"?scanEquityEma(points,identity.timeZone):null,
+      emaScan: raw.frequency==="daily"?scanEquityEma(points,identity?.timeZone??(SCANNER_US_ETFS.has(raw.symbol)?"America/New_York":"UTC")):null,
       volPercentile: volPercentile(points),
       relative5d: null,
       asOf: formatDate(last?.time),
@@ -1063,4 +1064,4 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   };
 }
 
-export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v10-deep-equities"], { revalidate: 300 });
+export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v13-last-exit"], { revalidate: 300 });

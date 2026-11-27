@@ -24,6 +24,7 @@ export default function OwnerTechnicalLevels({snapshot,ticker,fourH}:{snapshot:T
    <div className={home.heroCopy}>
     <p className={home.eyebrow}><span className={home.heroSignal} aria-hidden="true"/> SOURCE-DATED TECHNICAL TERMINAL</p>
     <h1 className={home.title}>Price first. <span>Boundaries next.</span></h1>
+    <div className={s.scannerPresets}><Link href="/market-tools?view=technical-scan">EMA Scanner · All Markets →</Link><Link href="/market-tools?view=technical-scan&scope=ps">My PowerStack →</Link></div>
     <p className={home.intro}>See where price is relative to the EMA / SD framework, then inspect crosses, holds and approaches. Completed bars only; no streaming quote or automatic trade call.</p>
     <form method="get" action="/market-tools" className={s.technicalControl}>
      <label htmlFor="technical-equity">Equity / ETF</label>
