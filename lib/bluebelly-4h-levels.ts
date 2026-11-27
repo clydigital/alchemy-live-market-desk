@@ -1,3 +1,4 @@
+import {lastBandExit,type LastBandExit} from "./ema-last-band-exit.ts";
 import {calculateEmaBand,EMA_PERIODS,EMA_WIDTHS,type Band} from "./ema-sd-levels.ts";
 import {scheduledUsEquityCloseHourET,usEquitySessionCalendarBasis} from "./bluebelly-us-equity-trading-calendar.ts";
 const NY_FORMAT=new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"});
@@ -8,9 +9,9 @@ function equityWindows(day:string){
  const end=start+(hour-9.5)*3600000;
  return [{open:start,end:Math.min(start+4*3600000,end)},...(end>start+4*3600000?[{open:start+4*3600000,end}]:[])];
 }
-function recentEquityWindows(now:Date){
+function recentEquityWindows(now:Date,days=15){
  const local=ny(+now).day,mid=Date.parse(local+"T00:00:00Z");
- return Array.from({length:15},(_,i)=>new Date(mid-(14-i)*86400000).toISOString().slice(0,10)).flatMap(d=>usEquitySessionCalendarBasis(d)==="OFFICIAL_NYSE_2026_2028"?equityWindows(d):[]).filter(w=>w.end<=+now);
+ return Array.from({length:days},(_,i)=>new Date(mid-(days-1-i)*86400000).toISOString().slice(0,10)).flatMap(d=>usEquitySessionCalendarBasis(d)==="OFFICIAL_NYSE_2026_2028"?equityWindows(d):[]).filter(w=>w.end<=+now);
 }
 /** Refresh on a completed exchange window rather than an arbitrary UTC bucket.
  * Retry during the first hour after a close to allow for vendor publication lag.
@@ -25,7 +26,7 @@ export function fourHCacheKey(symbol:string,now:Date):string{
 export const FOUR_H_SYMBOLS=["XAU/USD","USD/JPY","BTC/USD"] as const;
 export type FourHSymbol=string;
 export type FourHEvent={period:number;boundary:"lower"|"ema"|"upper";direction:"up"|"down";kind:"CROSS"|"HOLD"|"APPROACH";level:number;distancePct:number;asOf:string;closes:number};
-export type FourHRead={symbol:string;status:"INDICATIVE"|"STALE"|"UNAVAILABLE"|"INVALID_HISTORY";reason:string;asOf:string|null;sampleCount:number;gapCount:number;close:number|null;bands:Band[];events:FourHEvent[];priorPositions?:Record<number,Band["position"]>};
+export type FourHRead={symbol:string;status:"INDICATIVE"|"STALE"|"UNAVAILABLE"|"INVALID_HISTORY";reason:string;asOf:string|null;sampleCount:number;gapCount:number;close:number|null;bands:Band[];events:FourHEvent[];priorPositions?:Record<number,Band["position"]>;lastExits?:Record<number,LastBandExit|null>};
 const fourHours=4*3600000;
 export function emptyFourH(symbol:string,reason:string,status:FourHRead["status"]="UNAVAILABLE"):FourHRead{return {symbol,status,reason,asOf:null,sampleCount:0,gapCount:0,close:null,bands:[],events:[]};}
 const obj=(v:unknown):Record<string,unknown>|null=>v&&typeof v==="object"&&!Array.isArray(v)?v as Record<string,unknown>:null;
@@ -74,6 +75,14 @@ export function parseFourH(payload:unknown,symbol:FourHSymbol,now:Date):FourHRea
   const prev=calculateEmaBand(closes.slice(0,-1),period,EMA_WIDTHS[i]);const price=closes.at(-2)!;
   if(prev?.status==="READY")priorPositions[period]=price>prev.upper?"ABOVE":price<prev.lower?"BELOW":"INSIDE";
  }
+ const lastExits:Record<number,LastBandExit|null>={};
+ const exitIndex=new Map((equity?recentEquityWindows(now,90):[]).map((w,i)=>[w.open,i]));
+ if(!stale)for(const [i,period] of EMA_PERIODS.entries()){
+  lastExits[period]=lastBandExit(closes.length,j=>{
+   const b=calculateEmaBand(closes.slice(0,j+1),period,EMA_WIDTHS[i]);
+   const price=closes[j];return b?.status==="READY"?{position:price>b.upper?"above":price<b.lower?"below":"inside",asOf:new Date(ends.get(a[j][0])!).toISOString()}:null;
+  },(before,after)=>equity?exitIndex.has(a[before][0])&&exitIndex.get(a[after][0])===exitIndex.get(a[before][0])!+1:a[after][0]-a[before][0]===fourHours);
+ }
  const events:FourHEvent[]=[];
  if(!stale&&a.length>=2&&adjacent(a.at(-2)![0],a.at(-1)![0])){
   for(const [i,period] of EMA_PERIODS.entries()){
@@ -94,17 +103,17 @@ export function parseFourH(payload:unknown,symbol:FourHSymbol,now:Date):FourHRea
    }
   }
  }
- return {symbol,status:stale?"STALE":"INDICATIVE",reason:stale?(equity?"Latest scheduled completed US window missing or calendar unverified":"Latest elapsed window more than eight hours old; market closure not inferred"):(equity?"NYSE regular-session windows, including shortened close and scheduled holidays; vendor/chart parity unverified. Gap count covers recent official windows.":"UTC elapsed windows; exchange/session completeness, exact feed and chart alignment unverified. Indicative research events only."),asOf:new Date(end).toISOString(),sampleCount:a.length,gapCount,close,bands,events,priorPositions};
+ return {symbol,status:stale?"STALE":"INDICATIVE",reason:stale?(equity?"Latest scheduled completed US window missing or calendar unverified":"Latest elapsed window more than eight hours old; market closure not inferred"):(equity?"NYSE regular-session windows, including shortened close and scheduled holidays; vendor/chart parity unverified. Gap count covers recent official windows.":"UTC elapsed windows; exchange/session completeness, exact feed and chart alignment unverified. Indicative research events only."),asOf:new Date(end).toISOString(),sampleCount:a.length,gapCount,close,bands,events,priorPositions,lastExits};
 }
 
 /** Recheck cached observations against the current clock before display.
  * Never promote a stale cached result to a fresh observation. */
 export function validateFourHReadFreshness(read:FourHRead,now:Date):FourHRead{
- if(read.status!=="INDICATIVE")return {...read,events:[]};
+ if(read.status!=="INDICATIVE")return {...read,events:[],lastExits:{},priorPositions:{}};
  const end=read.asOf?Date.parse(read.asOf):NaN;
  const expected=read.symbol.includes("/")?null:recentEquityWindows(now).at(-1)?.end;
  const stale=!Number.isFinite(end)||end>+now||(read.symbol.includes("/")?+now-end>8*3600000:expected!==end);
- return stale?{...read,status:"STALE",events:[],reason:"Cached observation no longer matches the latest completed window; refresh pending."}:read;
+ return stale?{...read,status:"STALE",events:[],lastExits:{},priorPositions:{},reason:"Cached observation no longer matches the latest completed window; refresh pending."}:read;
 }
 
 /** Private request planning only; canonical identity allowlist supplied by caller.
