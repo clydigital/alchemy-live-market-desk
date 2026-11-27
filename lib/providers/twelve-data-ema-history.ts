@@ -61,7 +61,7 @@ const cachedFourH=unstable_cache(async(symbol:FourHSymbol,bucket:string):Promise
   if(!response.ok)return emptyFourH(symbol,"Provider HTTP "+response.status);
   return parseFourH(await response.json(),symbol,new Date());
  }catch{return emptyFourH(symbol,"Provider request or response unavailable");}
-},["bb-owner-4h-v5"],{revalidate:3600});
+},["bb-owner-4h-v6"],{revalidate:3600});
 export async function readFourH(symbol:string,now=new Date()):Promise<FourHRead>{
  if(!(FOUR_H_SYMBOLS as readonly string[]).includes(symbol)&&!TECHNICAL_UNIVERSE.some(x=>x.ticker===symbol))return emptyFourH("Unsupported","Instrument not allowlisted");
  const read=await cachedFourH(symbol as FourHSymbol,fourHCacheKey(symbol,now));
