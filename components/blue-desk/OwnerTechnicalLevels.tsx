@@ -3,6 +3,7 @@ import s from "@/app/market-tools/market-tools.module.css";
 import home from "@/app/blue-desk/market-first-home.module.css";
 import {FOUR_H_SYMBOLS,type FourHRead} from "@/lib/bluebelly-4h-levels";
 import {TECHNICAL_UNIVERSE,type TechnicalSnapshot} from "@/lib/providers/twelve-data-ema-history";
+import {gekkoStockResearchUrl} from "@/lib/gekko-stock-research";
 import type {Band} from "@/lib/ema-sd-levels";
 
 const colors:Record<number,string>={20:"#e89536",50:"#299568",100:"#4789d2",200:"#a478d4"};
@@ -50,6 +51,7 @@ export default function OwnerTechnicalLevels({snapshot,ticker,fourH}:{snapshot:T
     ].map(m=><article className={home.quote} key={m.label}><p className={home.quoteLabel}>{m.label}</p><p className={home.quoteValue}>{m.value}</p><p className={home.source}>{m.note}</p></article>)}
    </div>
    {!requested&&<p className={s.technicalHint}>Choose an instrument above to retrieve its levels. No provider request runs on initial page load.</p>}
+   {snapshot&&TECHNICAL_UNIVERSE.find(x=>x.ticker===snapshot.ticker)?.kind==="stock"&&gekkoStockResearchUrl(snapshot.ticker,"US")?<p className={s.technicalHint}><a href={gekkoStockResearchUrl(snapshot.ticker,"US")!} target="_blank" rel="noopener noreferrer">Gekko issuer research ↗</a> · Secondary positioning and valuation evidence; not a BB signal source.</p>:null}
    {snapshot&&<p className={s.technicalHint}>Twelve Data · split-adjusted, not total return · retrieved {snapshot.retrievedAt} (view retrieval time, not native vendor update). {snapshot.discardedSentinels>0?"Excluded "+snapshot.discardedSentinels+" epoch sentinel rows.":""}</p>}
   </section>
   <section className={home.panel} aria-labelledby="technical-events">
@@ -64,12 +66,13 @@ export default function OwnerTechnicalLevels({snapshot,ticker,fourH}:{snapshot:T
    {snapshot?<div className={s.technicalFrameGrid}>{snapshot.frames.map(f=><details key={f.frame} className={s.technicalDisclosure} open={f.frame==="1day"||undefined}>
     <summary>{frames[f.frame]} <span>{f.status} · Close {fmt(f.close)}</span></summary>
     <p className={s.technicalHint}>{f.asOf??"No completed period"} · {f.sampleCount} bars · {f.frame==="1day"?"session date":"period start"}. {f.reason??""}</p>
+    {(f.events??[]).map(e=><p className={s.technicalHint} key={e.period+e.boundary}><strong>{e.kind} {e.direction==="up"?"↑":"↓"} · EMA {e.period} {e.boundary}</strong> · {fmt(e.level)} · {fmt(e.distancePct)}% · {e.asOf}</p>)}
     <Levels bands={f.bands}/>
    </details>)}</div>:<p className={s.technicalHint}>Daily, weekly and monthly levels appear after an equity / ETF check. Macro-only reads do not supply these timeframes.</p>}
   </section>
   <details className={home.archive}>
    <summary>Methodology / source limitations</summary>
-   <p className={s.technicalHint}>SHORT_WARMUP is indicative only; INSUFFICIENT means no value calculated. 5× period warm-up is a conservative threshold. Weekly/monthly current bars excluded. Crosses and approaches use completed windows and ready warm-up. US equities use scheduled regular-session windows; macro windows use elapsed UTC time. Chart parity, exact holiday/session completeness and feed licensing remain verification gates; no automated trading or accumulation change.</p>
+   <p className={s.technicalHint}>SHORT_WARMUP is indicative only; INSUFFICIENT means no value calculated. 5× period warm-up is a conservative threshold. Weekly/monthly current bars excluded. D/W/M event dates identify the daily session or period start. Daily events require the last four official prior NYSE sessions; weekly/monthly require consecutive calendar periods. Crosses and approaches use completed windows and ready warm-up. US equities use scheduled regular-session windows; macro windows use elapsed UTC time. Chart parity, exact holiday/session completeness and feed licensing remain verification gates; no automated trading or accumulation change.</p>
   </details>
   <div className={home.panelFooter}><Link href="/markets?group=equities#market-fundamentals">Market Instruments · fundamentals</Link><Link href="/markets?mode=watch">Divergence Watch</Link></div>
  </section>

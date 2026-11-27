@@ -15,6 +15,7 @@ import {authorizeVerifiedEventOwner} from "@/lib/bluebelly-verified-event-owner-
 export const metadata = { title: "Market Tools | Bluebelly", description: "Research sources, correlation watchlists and trade-idea discovery." };
 
 const sources = [
+  { name:"Gekko stock research", group:"Trade discovery", tag:"SECONDARY", desc:"Public US stock research: positioning, proprietary fair value, earnings and seasonal context; verify material facts independently.", url:"https://www.gekko.app/stocks" },
   { name:"TradingView Screener", group:"Trade discovery", tag:"SCREEN", desc:"Filter by trend, momentum, volume and market structure.", url:"https://www.tradingview.com/screener/" },
   { name:"Finviz", group:"Trade discovery", tag:"SCREEN", desc:"US equity technical and fundamental screening.", url:"https://finviz.com/screener.ashx" },
   { name:"Pineify Correlation", group:"Correlation", tag:"COMPARE", desc:"Explore rolling cross-asset correlation relationships.", url:"https://pineify.app/free-tools/volatility-correlation-tracker" },

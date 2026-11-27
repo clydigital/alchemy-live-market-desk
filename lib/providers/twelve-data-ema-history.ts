@@ -32,7 +32,7 @@ export async function fetchTechnicalFrame(ticker:string,frame:Frame,now:Date,fet
   return {levels,discarded,retrievedAt};
  }catch{return bad("Provider request or response unavailable");}
 }
-const cachedFrame=unstable_cache(async(ticker:string,frame:Frame,sessionKey:string)=>{void sessionKey;return fetchTechnicalFrame(ticker,frame,new Date());},["bb-owner-ema-sd-v2"],{revalidate:3600});
+const cachedFrame=unstable_cache(async(ticker:string,frame:Frame,sessionKey:string)=>{void sessionKey;return fetchTechnicalFrame(ticker,frame,new Date());},["bb-owner-ema-sd-v3"],{revalidate:3600});
 export async function readTechnicalSnapshot(ticker:string,now=new Date()):Promise<TechnicalSnapshot|null>{
  const spec=TECHNICAL_UNIVERSE.find(x=>x.ticker===ticker);if(!spec)return null;
  const today=exchangeDay(now,spec.timeZone);
