@@ -36,3 +36,16 @@ test("existing research fanout picks up new evidence and both lens views show re
  assert.match(detail,/QuestionVerdictCard read=\{read\}/);
  assert.match(detail,/Historical watch ideas/);
 });
+
+test("27 November reviews cover all nine lenses with dated sources and preserve older snapshots",()=>{
+ const now=new Date("2026-11-27T07:34:00Z");
+ const fresh=getRegimeResearchRevisions(now).filter(x=>x.read.reviewedOn==="2026-11-27");
+ assert.equal(fresh.length,7);
+ assert.equal(new Set(fresh.flatMap(x=>x.lenses)).size,9);
+ for(const {read} of fresh){
+  assert.equal(read.freshness,"current",read.id);
+  assert.ok(read.sources.length&&read.countercase&&read.nextTest);
+  assert.ok(read.sourceThrough&&read.sourceThrough<=read.reviewedOn!);
+ }
+ assert.equal(getRegimeResearchRevisions(new Date("2026-11-26T23:59:00Z")).length,8);
+});

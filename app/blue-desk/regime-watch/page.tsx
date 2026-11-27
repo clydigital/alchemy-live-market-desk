@@ -144,10 +144,10 @@ export default async function RegimeWatchPage(){
        <RegimeCurrentAssessment assessment={selectPilotLensAssessment(lens.id,investorAssessment)} compact/>
        <RegimeLiveCardEvidence read={liveReads[index]}/>
        {revisions.length?<div data-regime-current-research="source-reviewed-provisional" style={{borderTop:"1px solid var(--bb-card-border)",marginTop:12,paddingTop:10}}>
-        <small className={styles.kicker}>17 NOV US / 18 NOV MYT · RESEARCH CHECK</small>
+        <small className={styles.kicker}>DATED SOURCE REVIEW · RESEARCH CHECK</small>
         {revisions.map(({read})=><div key={read.id} style={{margin:"8px 0"}}>
          <strong style={{fontSize:13}}>{read.freshness==="current"?QUESTION_VERDICT_LABELS[read.verdict]:"Needs fresh review"} · {read.question}</strong>
-         <p className={styles.lensReason}>{read.condition}</p>
+         <p className={styles.lensReason}>{read.condition}</p><small>Reviewed {read.reviewedOn??"—"} · evidence through {read.sourceThrough??"—"}</small>
         </div>)}
         <small>Open lens for source links, countercase, triggers and conditional ideas.</small>
        </div>:null}

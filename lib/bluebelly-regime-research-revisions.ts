@@ -75,6 +75,69 @@ export const REGIME_RESEARCH_REVISIONS:readonly LensReview[]=[
   "TLT/IEF conditional on yields rolling over; gold conditional on real yields and USD. Do not use falling crude alone as an entry trigger.",[IEA,WCS,CPI]),
 ];
 
+
+const NOV27="2026-11-27";
+const BOE26:QuestionSource={name:"Bank of England Financial Stability Report",url:"https://www.bankofengland.co.uk/financial-stability-report/2026/november-2026",publishedOn:"2026-11-26"};
+const ECB18:QuestionSource={name:"ECB Financial Stability Review",url:"https://www.ecb.europa.eu/press/financial-stability-publications/fsr/html/ecb.fsr202611~e03b919d36.et.html",publishedOn:"2026-11-18"};
+const PCE25:QuestionSource={name:"BEA October PCE",url:"https://www.bea.gov/data/personal-consumption-expenditures-price-index",publishedOn:"2026-11-25"};
+const CORE25:QuestionSource={name:"BEA October core PCE",url:"https://www.bea.gov/data/personal-consumption-expenditures-price-index-excluding-food-and-energy",publishedOn:"2026-11-25"};
+const NBS27:QuestionSource={name:"China NBS January–October industrial profits",url:"https://www.stats.gov.cn/sj/zxfb/202611/t20261127_1965949.html",publishedOn:NOV27};
+const NBSCOM27:QuestionSource={name:"China NBS industrial profit interpretation",url:"https://www.stats.gov.cn/sj/sjjd/202611/t20261127_1965950.html",publishedOn:NOV27};
+const BOJ26:QuestionSource={name:"BOJ Tamura speech, Yamanashi",url:"https://www.boj.or.jp/en/about/press/koen_2026/ko261126a.htm",publishedOn:"2026-11-26"};
+const JPY26:QuestionSource={name:"Reuters interview and policy reporting",url:"https://www.reuters.com/markets/us/bojs-tamura-signals-chance-faster-pace-interest-rate-hikes-2026-11-26/",publishedOn:"2026-11-26"};
+const PMMS25:QuestionSource={name:"Freddie Mac PMMS historical archive",url:"https://www.freddiemac.com/pmms/pmms_archives",publishedOn:"2026-11-25"};
+const WGC17:QuestionSource={name:"World Gold Council October China market review",url:"https://www.gold.org/goldhub/gold-focus/2026/11/china-gold-market-update-robust-demand-october",publishedOn:"2026-11-17",note:"Industry research; not live global reserve flows"};
+const WGC03:QuestionSource={name:"World Gold Council Q3 gold demand release",url:"https://www.gold.org/news-and-events/press-releases/central-bank-buying-and-etf-inflows-support-gold-demand-q3",publishedOn:"2026-11-03"};
+const review27=(expiresAfterDays:number,...args:Parameters<typeof review>):LensReview=>{
+ const item=review(...args),r=item.record.revisions[0];
+ return {...item,record:{...item.record,expiresAfterDays,revisions:[{...r,revisionId:item.record.id+"-"+NOV27,reviewedOn:NOV27}]}};
+};
+const NOV27_REVIEWS:readonly LensReview[]=[
+ review27(7,"ai-credit-transmission-nov27",["ai","bonds","breadth"],"Is AI financing stress spreading beyond equity valuations?","Funding selectivity and interconnectedness; not a default forecast","Next financing and earnings cycle","deteriorating",
+  "Credit fragility is more credible, but a systemic cascade is not established.",
+  "The 26 Nov Bank of England stability report describes more selective private-credit financing of AI and data centres and attempts to distribute exposures. The ECB's 18 Nov review also identifies exposure concentration and leverage risks. These are independent institutional assessments, not a measured default rate.",
+  "Greater lender selectivity may improve underwriting; profitable AI suppliers and cash-generating buyers differ materially from leveraged project borrowers. No regulator warning alone proves an equity crash.",
+  "Check issuer cash conversion, maturity ladders, actual refinancing terms and broad versus issuer-specific credit spreads; verify dated sector participation before calling contagion.",
+  "Separate leveraged data-centre operators from cash-generating buyers and suppliers. Monitor SMH, equal weight and credit independently.",[BOE26,ECB18]),
+ review27(7,"fed-pce-nov27",["fed","bonds"],"Has the latest inflation release reopened an easing path?","US inflation and policy constraints, not a dollar or bond trade","Next FOMC and inflation releases","deteriorating",
+  "The inflation hurdle remains elevated.",
+  "The BEA released October PCE on 25 Nov: headline inflation 3.8% year on year and core 3.3%. Both exceed the Fed's 2% headline inflation goal.",
+  "A weakening labour market or softer subsequent monthly inflation can change policy expectations. Annual inflation does not determine today's yield or dollar move.",
+  "Check monthly core services, labour data and matched front-end yields and policy pricing; compare the next Fed statement rather than infer a hike from PCE alone.",
+  "Duration and USD views remain conditional on measured yields and technical confirmation.",[PCE25,CORE25]),
+ review27(10,"china-profit-nov27",["china","ai"],"Is China's industrial profit recovery broad enough to establish compute leadership?","Industrial profit and technology competitiveness are distinct","Next monthly release and comparable compute results","mixed",
+  "Industrial profits are strengthening; relative compute economics remain unproven.",
+  "The NBS reports January–October industrial profits up 16.0% year on year, with nonferrous mining and nonferrous manufacturing profits up 60.2% and 71.7% respectively. Industrial strength is concentrated in important sectors; it does not by itself establish cheaper inference.",
+  "Profit growth can reflect commodity prices, base effects or sector mix rather than broad end demand; no matched US–China compute utilisation and unit-economics dataset is certified.",
+  "Compare real output, sales, receivables, margins, paid compute adoption and comparable performance/cost benchmarks.",
+  "Watch copper and China-linked industrials separately from relative AI leadership.",[NBS27,NBSCOM27]),
+ review27(21,"energy-balance-nov27",["energy"],"Does the crude balance still support a scarcity premium?","Monthly crude balance, distinct from diesel and gas","Next OPEC+ decision and IEA report","mixed",
+  "The November IEA balance points toward surplus, not universal energy scarcity.",
+  "The November IEA report forecasts a return to global oil surplus in Q4 and a larger build in 2027. This is a dated monthly forecast, not fresh tanker or refinery telemetry.",
+  "Delivered crude, product inventories and shipping constraints can diverge from the global aggregate; OPEC+ supply decisions could change the balance.",
+  "Verify the 29 Nov OPEC+ outcome, latest weekly inventory, product cracks and physical arrivals before changing the short-term verdict.",
+  "Keep upstream, refining and LNG exposures separate; no blanket energy trade.",[IEA]),
+ review27(7,"yen-policy-nov27",["yen"],"Is Japanese policy increasing carry-trade vulnerability?","Policy signal, not demonstrated liquidation","Next BOJ meeting and funding observations","mixed",
+  "The possibility of faster tightening remains a live risk; liquidation is unconfirmed.",
+  "BOJ board member Tamura spoke on 26 Nov; Reuters reports that he favoured responding promptly to inflation overshoot, with faster hikes if warranted. Policy-rate risk is separate from actual leveraged funding stress.",
+  "A single board member does not set the committee outcome; a simultaneous US yield increase can offset the yen-supportive rate effect.",
+  "Match JGB and US yields, USDJPY, basis and dated cross-border flows; require more than a yen move to diagnose carry liquidation.",
+  "JPY-sensitive assets and risk positions remain conditional watches.",[BOJ26,JPY26]),
+ review27(21,"gold-reserves-nov27",["gold"],"Does reserve buying support gold independently of rate moves?","Dated reserve and investment demand; not a spot-price signal","Next reserve reports","mixed",
+  "Structural allocation remains supportive; near-term direction is not certified.",
+  "The World Gold Council's Q3 review reported year-to-date central-bank purchases of 675 tonnes, 6% higher than the corresponding prior-year period. Its 17 Nov China review reported continued PBoC buying and Chinese ETF additions during October.",
+  "Reserve statistics lag and buying can be price sensitive; higher real yields or a stronger dollar can outweigh structural demand over shorter horizons.",
+  "Reconcile the next reserve disclosures with matched real yields, USD and completed gold price observations.",
+  "Do not turn an older reserve report into an intraday gold signal.",[WGC17,WGC03]),
+ review27(10,"housing-finance-nov27",["housing"],"Is US housing financing materially improving?","Mortgage affordability, not a house-price or REIT valuation forecast","Next weekly mortgage and housing releases","mixed",
+  "Mortgage rates eased modestly but remain above 7%.",
+  "Freddie Mac's 25 Nov PMMS shows the 30-year fixed mortgage at 7.21%, down from 7.28% the prior week. This is a survey rate, not a universal borrower quote.",
+  "Lower rates may support transactions if sustained; inventory, household income, incentives and affordability can offset rate moves. No broad credit crisis is proved.",
+  "Check mortgage applications, sales, inventory, concessions, delinquency and apartment or CRE refinancing separately.",
+  "Value property businesses on cash flow, leverage and local supply; no blanket real-estate buy.",[PMMS25]),
+];
+
 export function getRegimeResearchRevisions(now:Date,lens?:EditorialRegimeId){
- return REGIME_RESEARCH_REVISIONS.filter(r=>!lens||r.lenses.includes(lens)).map(r=>({lenses:r.lenses,ideas:r.ideas,read:projectQuestionAssessment(r.record,now)}));
+ const dated=now.toISOString().slice(0,10)>=NOV27?[...NOV27_REVIEWS,...REGIME_RESEARCH_REVISIONS]:REGIME_RESEARCH_REVISIONS;
+ return dated.filter(r=>!lens||r.lenses.includes(lens)).map(r=>({lenses:r.lenses,ideas:r.ideas,read:projectQuestionAssessment(r.record,now)}));
 }

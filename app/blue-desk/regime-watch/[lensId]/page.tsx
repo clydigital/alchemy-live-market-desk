@@ -132,7 +132,7 @@ export default async function ResearchLensPage({params}:Props){
    <RegimeLiveEvidence read={liveRead} signal={liveLensSignal(lens.id,readings,rows,now)}/>
    {lens.id==="breadth"||lens.id==="ai"?<RegimeCompareEvidence compare={compare} host={host}/>:null}
    {researchRevisions.length?<section id="current-research-revisions" data-regime-research-revisions="source-reviewed-provisional" aria-label="Latest reviewed research and conditional watch ideas" style={{margin:"18px 0"}}>
-     <span className={styles.kicker}>17 NOV US / 18 NOV MYT · DATED RESEARCH REVISION</span>
+     <span className={styles.kicker}>DATED SOURCE REVIEW · RESEARCH REVISION</span>
      <h2>What changed, and what could benefit?</h2>
      <p>These source-reviewed questions sit alongside the live market reading. Watch ideas are conditional research, not confirmed trades or a canonical Regime change.</p>
      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,340px),1fr))",gap:12}}>
