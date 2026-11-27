@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {buildScannerAssets,projectPrivateSymbols,scannerSignals,classifyBand,dailyBandCell,matchesScannerGroup,fourHBandCells,type ScanAsset} from "../lib/technical-market-scanner.ts";
+import {buildScannerAssets,projectPrivateSymbols,scannerSignals,classifyBand,dailyBandCell,matchesScannerGroup,fourHBandCells,matchesBandSort,type ScanAsset} from "../lib/technical-market-scanner.ts";
+import {lastBandExit} from "../lib/ema-last-band-exit.ts";
 import type {EmaObservation} from "../lib/bluebelly-equity-ema.ts";
 test("owner membership aliases, deduplication, and archive intent do not invent a live position",()=>{
  const a=projectPrivateSymbols({holdings:[{ticker:"TENAGA",name:"Tenaga",position:{quantity:4}}],watchlist:[{ticker:"5347.KL",action:"Buy",theme:"Grid"},{ticker:"ABC",action:"Do not sell"}]},[{ticker:"5347.KL",name:"TNB"},{ticker:"TLT",name:"Bond idea"}]);
@@ -55,4 +56,21 @@ test("category tabs retain exact ETF and private memberships",()=>{
  assert.ok(matchesScannerGroup(t,"Bonds"));
  assert.ok(!matchesScannerGroup(t,"Yields"));
  assert.ok(matchesScannerGroup(rows.find(r=>r.ticker==="XAU/USD")!,"Metals"));
+});
+
+test("inside direction remembers the last actual outward exit, not the reentry or EMA side",()=>{
+ const positions=["inside","above","inside","inside","below","inside","inside"] as const;
+ const read=(i:number)=>({position:positions[i],asOf:String(i)});
+ assert.deepEqual(lastBandExit(positions.length,read,()=>true),{direction:"down",asOf:"4"});
+ assert.deepEqual(lastBandExit(4,read,()=>true),{direction:"up",asOf:"1"});
+ assert.equal(lastBandExit(positions.length,read,(a,b)=>b!==5),null);
+ assert.equal(lastBandExit(3,i=>({position:"inside",asOf:String(i)}),()=>true),null);
+ assert.equal(lastBandExit(2,i=>({position:"above",asOf:String(i)}),()=>true),null);
+ const cell=dailyBandCell({...asset,asOf:observation.asOf},{...observation,priorBand:"inside",lastExit:{direction:"down",asOf:"2026-11-20"}})!;
+ assert.equal(cell.side,"Above");assert.equal(cell.lastExit?.direction,"down");
+ assert.equal(matchesBandSort(cell,"Inside (down)"),true);
+ assert.equal(matchesBandSort(cell,"Inside (up)"),false);
+ assert.equal(matchesBandSort({...cell,state:"Exiting ↑",position:"Above"},"Exiting Up"),true);
+ assert.equal(matchesBandSort({...cell,state:"Approaching ↓"},"Approaching Down"),true);
+ assert.equal(matchesBandSort({...cell,lastExit:null},"Inside (down)"),false);
 });
