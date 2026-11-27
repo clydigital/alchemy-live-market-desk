@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {parseFourH} from "../lib/bluebelly-4h-levels.ts";
+import {parseFourH,planFourHWatch} from "../lib/bluebelly-4h-levels.ts";
 import {readFileSync} from "node:fs";
 const now=new Date("2026-11-26T05:00:00Z");
 const end=Date.parse("2026-11-26T04:00:00Z");
@@ -26,6 +26,43 @@ test("4H read is owner-gated, opt-in and not called by scheduled pilot",()=>{
  const provider=readFileSync(new URL("../lib/providers/twelve-data-ema-history.ts",import.meta.url),"utf8");
  assert.match(page,/access\.ok&&view==="technical"&&typeof options\.fourh==="string"\?await readFourH/);
  assert.match(provider,/timezone:"UTC"/);assert.match(provider,/outputsize:"1200"/);
- const pilot=provider.split("export async function refreshTechnicalPilot")[1].split("/** Owner-requested")[0];
+ const pilot=provider.split("export async function refreshTechnicalPilot")[1].split("const cachedFourH")[0];
  assert.doesNotMatch(pilot,/readFourH|cachedFourH/);
+});
+
+test("4H boundary events require ready, adjacent elapsed windows",()=>{
+ const end=Date.parse("2026-11-26T00:00:00Z");
+ const series=Array.from({length:105},(_,i)=>({datetime:new Date(end-(104-i)*14400000).toISOString().slice(0,19).replace("T"," "),close:String(i===104?110:100)}));
+ const r=parseFourH(payload(series),"XAU/USD",now);
+ assert.ok(r.events.some(e=>e.period===20&&e.kind==="CROSS"&&e.boundary==="upper"&&e.direction==="up"));
+ assert.equal(parseFourH(payload(series.filter((_,i)=>i!==103)),"XAU/USD",now).events.length,0);
+ assert.equal(parseFourH(payload(series),"XAU/USD",new Date("2026-11-27T05:00:00Z")).events.length,0);
+});
+
+test("priority batch planning deduplicates, excludes unsupported, caps fanout and never repeats core",()=>{
+ const allowed=["NVDA","PWR","AMD","MU","AVGO","TTWO","TLT","SPY"];
+ const priority=["pwr","NVDA","PWR","MAA","SPY","AMD","MU","AVGO","TTWO","TLT","BAD"];
+ const a=planFourHWatch(priority,allowed,"1");
+ assert.deepEqual(a.symbols,["PWR","NVDA","AMD","MU","AVGO","TTWO"]);
+ assert.deepEqual(a.excluded,["MAA","BAD"]);assert.equal(a.batches,2);
+ assert.deepEqual(planFourHWatch(priority,allowed,"2").symbols,["TLT"]);
+ assert.equal(planFourHWatch(priority,allowed,"999").symbols.length,0);
+ assert.equal(planFourHWatch(priority,allowed,undefined).symbols.length,0);
+ assert.equal(planFourHWatch(priority,allowed,"scan").symbols.length,6);
+});
+
+test("US 4H session close, Thanksgiving and early-close continuity",()=>{
+ const bar=(datetime:string,close=100)=>({datetime,close:String(close)});
+ const pwr=(v:ReturnType<typeof bar>[])=>({meta:{symbol:"PWR",interval:"4h",currency:"USD"},values:v});
+ // Synthetic regular-session seed, official recent window covers Nov 25 and Nov 27.
+ const recent=[bar("2026-11-25 14:30:00"),bar("2026-11-25 18:30:00"),bar("2026-11-27 14:30:00",110)];
+ const holiday=parseFourH(pwr(recent.slice(0,2)),"PWR",new Date("2026-11-26T22:00:00Z"));
+ assert.equal(holiday.status,"INDICATIVE");assert.equal(holiday.asOf,"2026-11-25T21:00:00.000Z");assert.equal(holiday.gapCount,0);
+ const before=parseFourH(pwr(recent),"PWR",new Date("2026-11-27T17:59:00Z"));
+ assert.equal(before.sampleCount,2);
+ const after=parseFourH(pwr(recent),"PWR",new Date("2026-11-27T18:00:00Z"));
+ assert.equal(after.sampleCount,3);assert.equal(after.asOf,"2026-11-27T18:00:00.000Z");assert.equal(after.gapCount,0);
+ assert.equal(parseFourH(pwr(recent.filter((_,i)=>i!==1)),"PWR",new Date("2026-11-27T18:00:00Z")).gapCount,1);
+ assert.equal(parseFourH(pwr(recent.slice(0,2)),"PWR",new Date("2026-11-27T18:00:00Z")).status,"STALE");
+ assert.equal(parseFourH(pwr([...recent,bar("2026-11-27 18:30:00")]),"PWR",new Date("2026-11-27T22:00:00Z")).status,"INVALID_HISTORY");
 });

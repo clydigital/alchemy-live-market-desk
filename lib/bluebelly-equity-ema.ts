@@ -12,7 +12,7 @@ type State="above"|"below"|"at";
 type Band="above_upper"|"below_lower"|"inside";
 type Cross="up"|"down"|"none";
 export type CloseHold={boundary:"ema"|"upper"|"lower";direction:"up"|"down";crossedOn:string;consecutiveCloses:number;status:"BREAK_ONLY"|"HOLD_CONFIRMED"};
-export type EmaObservation={frame:Frame;period:number;multiplier:number;asOf:string;anchorDay:string;sampleCount?:number;requiredReadySamples?:number;closeHolds?:CloseHold[];bandRespect?:BandRespect;warmup:"READY"|"SHORT_WARMUP";ema:number;upper:number;lower:number;distancePct:number;side:State;band:Band;windows:Record<"1"|"3"|"5",{returnPct:number;approach:"down_to"|"up_to"|"away"|"none";emaCross:Cross;upperCross:Cross;lowerCross:Cross;events:{session:string;boundary:"ema"|"upper"|"lower";direction:"up"|"down"}[]}|null>};
+export type EmaObservation={frame:Frame;period:number;multiplier:number;asOf:string;anchorDay:string;sampleCount?:number;requiredReadySamples?:number;closeHolds?:CloseHold[];bandRespect?:BandRespect;warmup:"READY"|"SHORT_WARMUP";ema:number;upper:number;lower:number;distancePct:number;side:State;band:Band;windows:Record<"1"|"3"|"5",{returnPct:number;approach:"down_to"|"up_to"|"away"|"none";emaCross:Cross;upperCross:Cross;lowerCross:Cross;boundaryApproaches?:{boundary:"ema"|"upper"|"lower";direction:"up"|"down";distancePct:number;level:number}[];events:{session:string;boundary:"ema"|"upper"|"lower";direction:"up"|"down"}[]}|null>};
 export type RecentSessionQuality={status:"VERIFIED"|"MISSING_SESSIONS"|"STALE"|"UNVERIFIED_CALENDAR";expectedSession:string|null;missingSessions:string[];unexpectedSessions:string[]};
 export type EquityEmaScan={asOf:string;method:"FIRST_CLOSE_EMA_ROLLING_CLOSE_POPULATION_SD";observations:EmaObservation[];unavailable:string[];recentSessionQuality?:RecentSessionQuality};
 /** Conservative daily OHLC retest replay. Boundaries are frozen at the
@@ -119,7 +119,13 @@ export function scanEquityEma(input:readonly EmaPoint[],timeZone:string,now=new 
     }
    }
    // Endpoint state plus each observed completed-session crossing within the window.
-   windows[w]={returnPct:ret,approach,emaCross:cross(prior.close-old.ema,p.close-cur.ema),upperCross:cross(prior.close-old.upper,p.close-cur.upper),lowerCross:cross(prior.close-old.lower,p.close-cur.lower),events};
+   const boundaryApproaches:NonNullable<NonNullable<EmaObservation["windows"]["1"]>["boundaryApproaches"]>=[];
+   for(const boundary of ["ema","upper","lower"] as const){
+    if(old[boundary]<=0||cur[boundary]<=0)continue;
+    const b=pct(prior.close,old[boundary]),a=pct(p.close,cur[boundary]);
+    if(Math.abs(a)<=3&&Math.abs(a)<Math.abs(b)&&(b<0&&a<=0&&ret>0||b>0&&a>=0&&ret<0))boundaryApproaches.push({boundary,direction:b<0?"up":"down",distancePct:a,level:cur[boundary]});
+   }
+   windows[w]={returnPct:ret,approach,boundaryApproaches,emaCross:cross(prior.close-old.ema,p.close-cur.ema),upperCross:cross(prior.close-old.upper,p.close-cur.upper),lowerCross:cross(prior.close-old.lower,p.close-cur.lower),events};
   }
   const closeHolds:CloseHold[]=[];
   if(contiguous&&cur.warmup==="READY"&&windows["5"]){
