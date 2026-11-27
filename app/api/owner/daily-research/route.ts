@@ -24,6 +24,7 @@ import {getPrivateReviewedCreatorArguments} from "@/lib/bluebelly-private-creato
 import {getOwnerCreatorSignalDigest} from "@/lib/bluebelly-creator-signals-server";
 import {getOwnerResearchDistribution} from "@/lib/bluebelly-research-distribution-server";
 import {buildEvidenceGemCandidates} from "@/lib/bluebelly-evidence-gems";
+import {getOwnerThesisRevisionPackets} from "@/lib/bluebelly-thesis-revision-server";
 
 export const dynamic="force-dynamic";
 export const runtime="nodejs";
@@ -63,7 +64,7 @@ export async function GET(req:NextRequest){
     getOwnerCreatorSignalDigest(now),
     readIndustryComparison(RESEARCH_CASH_ISSUERS,now).catch(()=>({status:"UNAVAILABLE" as const,asOf:now.toISOString(),columns:[]})),
   ]);
-  const researchDistribution=await getOwnerResearchDistribution(creatorSignalDigest.digest,now);
+  const [researchDistribution,thesisRevisionHandoff]=await Promise.all([getOwnerResearchDistribution(creatorSignalDigest.digest,now),getOwnerThesisRevisionPackets(now)]);
   const motionNews=selectVerifiedNewsBriefs(rawNews,now,12);
   const news=combineQualifiedNews(motionNews,originalPress,12);
   const calendar=buildPresenterCalendar(macro,earnings,now);
@@ -97,7 +98,7 @@ export async function GET(req:NextRequest){
   });
   const health=assessDailyResearchHealth({now,notion,packet,news});
   return NextResponse.json({
-    ...packet,issuerChartCoverage:{status:issuerComparison.status,asOf:issuerComparison.asOf,expected:RESEARCH_CASH_ISSUERS.length},health,creatorSignalDigest,marketCompare:compare,researchDistribution,evidenceGemCandidates,
+    ...packet,issuerChartCoverage:{status:issuerComparison.status,asOf:issuerComparison.asOf,expected:RESEARCH_CASH_ISSUERS.length},health,creatorSignalDigest,marketCompare:compare,researchDistribution,evidenceGemCandidates,thesisRevisionHandoff,
     creatorReviewCoverage:{status:creatorDelivery.status,count:creatorDelivery.reviews.length,
       caveat:"Reviews have original video dates and attributed mechanisms; their claims have not been independently source-verified."},
     deliveredResearch:{status:delivery.status,count:delivery.briefs.length,
