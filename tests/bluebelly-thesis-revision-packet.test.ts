@@ -21,3 +21,10 @@ test("same hypothesis/event grouped; conflicting versions never public",()=>{
  const groups=groupThesisPacketReceipts([{editionId:"a",storedAt:when,packet:p,referenceStates:[]},{editionId:"b",storedAt:when,packet:{...p,assessment:"CHALLENGED",reviewedAt:"2026-11-27T08:30:00Z"},referenceStates:[]}]);
  assert.equal(groups.length,1);assert.equal(groups[0].conflicting,true);assert.equal(groups[0].latest.editionId,"b");assert.equal(groups[0].publicReadback,"NOT_ADMITTED");
 });
+
+test("Work archive receipt cannot refresh evidence vintage or vote as original evidence",()=>{
+ const w={kind:"WORK_EDITION",id:"7c89dd29-0667-45bb-93a3-e10d6df9a4e9",lane:null,url:null,sourceAt:"2026-11-27T07:30:00Z",role:"CONTEXT",claim:"Saved investigation context",qualification:"RETAINED_REVIEW"};
+ assert.ok(parseThesisRevisionPacket({...packet,references:[...packet.references,w]},now));
+ assert.equal(parseThesisRevisionPacket({...packet,sourceThrough:w.sourceAt,references:[...packet.references,w]},now),null);
+ assert.equal(parseThesisRevisionPacket({...packet,references:[...packet.references,{...w,role:"SUPPORT"}]},now),null);
+});

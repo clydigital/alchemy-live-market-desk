@@ -30,15 +30,15 @@ export function parseThesisRevisionPacket(raw:unknown,now:Date):ThesisRevisionPa
  const seen=new Set<string>();
  for(const rawRef of x.references){
   const r=obj(rawRef);
-  if(!oneOf(r.kind,["BB_RECORD","WORK_EDITION","ORIGINAL_LINK"] as const)||!date(r.sourceAt,now)||Date.parse(r.sourceAt)>Date.parse(x.sourceThrough)||
+  if(!oneOf(r.kind,["BB_RECORD","WORK_EDITION","ORIGINAL_LINK"] as const)||!date(r.sourceAt,now)||Date.parse(r.sourceAt)>Date.parse(x.reviewedAt)||r.kind!=="WORK_EDITION"&&Date.parse(r.sourceAt)>Date.parse(x.sourceThrough)||
    !oneOf(r.role,["SUPPORT","CHALLENGE","CONTEXT"] as const)||!oneOf(r.qualification,["ATTRIBUTED","RETAINED_REVIEW","DATED_MEASUREMENT","CONTEXT_ONLY"] as const)||!str(r.claim,700))return null;
   if(r.kind==="BB_RECORD"&&(!(typeof r.id==="string"&&uuid.test(r.id))||!oneOf(r.lane,["evidence","intake","creator","motion","thesis","x_wire"] as const)||!validUrl(r.url)))return null;
-  if(r.kind==="WORK_EDITION"&&(!(typeof r.id==="string"&&uuid.test(r.id))||r.lane!==null||r.url!==null||r.qualification!=="RETAINED_REVIEW"))return null;
+  if(r.kind==="WORK_EDITION"&&(!(typeof r.id==="string"&&uuid.test(r.id))||r.lane!==null||r.url!==null||r.qualification!=="RETAINED_REVIEW"||r.role!=="CONTEXT"))return null;
   if(r.kind==="ORIGINAL_LINK"&&(r.id!==null||r.lane!==null||!validUrl(r.url)))return null;
   const k=r.kind+"|"+(r.id??r.url)+"|"+(r.lane??"");if(seen.has(k))return null;seen.add(k);
   references.push({kind:r.kind,id:r.id as string|null,lane:r.lane as string|null,url:r.url as string|null,sourceAt:r.sourceAt,role:r.role,claim:r.claim,qualification:r.qualification});
  }
- if(!references.some(r=>Date.parse(r.sourceAt)===Date.parse(x.sourceThrough as string)))return null;
+ if(!references.some(r=>r.kind!=="WORK_EDITION"&&Date.parse(r.sourceAt)===Date.parse(x.sourceThrough as string)))return null;
  if(x.assessment!=="INSUFFICIENT"&&(!references.some(r=>r.role==="SUPPORT")||!references.some(r=>r.role==="CHALLENGE")))return null;
  return {version:THESIS_PACKET_VERSION,visibility:"PRIVATE_ONLY",producer:x.producer,hypothesisId:x.hypothesisId,eventKey:x.eventKey,reviewedAt:x.reviewedAt,sourceThrough:x.sourceThrough,marketSession:x.marketSession as string|null,priorThesis:x.priorThesis,currentCondition:x.currentCondition,mechanism:x.mechanism,countercase:x.countercase,nextTest:x.nextTest,horizon:x.horizon,assessment:x.assessment,coverage:x.coverage,materiality:x.materiality,lenses:x.lenses as Lens[],references};
 }
