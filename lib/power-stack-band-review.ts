@@ -26,12 +26,14 @@ export function assessPeriod(period:number,frames:PeriodReview["frames"],levels:
  const up=active.filter(([,c])=>c!.state==="Exiting ↑"||c!.position==="Above"&&c!.held);
  const events=(xs:typeof active)=>xs.map(([f,c])=>f+" "+label(c!)).join("; ");
  const respect=verified(D)?levels.D?.bandRespect:null;
- if(down.length||respect?.status==="RESET"&&respect.lastRetest?.direction==="support"||respect?.status==="BREAK_PENDING"&&respect.lastRetest?.direction==="support")return result("Review downside", [down.length?events(down):"",respect?.lastRetest?.direction==="support"&&(respect.status==="RESET"||respect.status==="BREAK_PENDING")?"Daily respected support "+(respect.status==="RESET"?"invalidated":"at risk"):"",up.length?"Opposing upside event: "+events(up):""].filter(Boolean).join(" · ")+". Review exposure and thesis; do not auto-sell.");
+ const resetAge=respect?.resetOn&&D?Date.parse(D.date)-Date.parse(respect.resetOn):NaN;
+ const recentReset=respect?.status==="RESET"&&resetAge>=0&&resetAge<=7*86400000;
+ if(down.length||recentReset&&respect?.lastRetest?.direction==="support"||respect?.status==="BREAK_PENDING"&&respect.lastRetest?.direction==="support")return result("Review downside", [down.length?events(down):"",respect?.lastRetest?.direction==="support"&&(recentReset||respect.status==="BREAK_PENDING")?"Daily respected support "+(respect.status==="RESET"?"invalidated":"at risk"):"",up.length?"Opposing upside event: "+events(up):""].filter(Boolean).join(" · ")+". Review exposure and thesis; do not auto-sell.");
  if(up.length)return result("Review recovery",events(up)+(wd==="down"||md==="down"?". Higher-timeframe downside context: treat as recovery, not confirmed reversal.":". Check hold/retest and value before adding."));
  const approaches=active.filter(([,c])=>c!.state.startsWith("Approaching"));
  if(approaches.length)return result("Watch boundary",events(approaches)+". Prepare trigger and invalidation; approach is not a break.");
  if(respect?.status==="RESPECTED"&&respect.lastRetest)return result("Monitor / retest","Daily "+respect.lastRetest.direction+" respected at "+respect.lastRetest.boundary+" SD on "+respect.lastRetest.session+". Preserve that edge until invalidated.");
- if(respect?.status==="RESET"&&respect.lastRetest?.direction==="resistance")return result("Review recovery","Prior daily resistance invalidated. Require reclaim/hold and valuation confirmation.");
+ if(recentReset&&respect?.lastRetest?.direction==="resistance")return result("Review recovery","Prior daily resistance invalidated. Require reclaim/hold and valuation confirmation.");
  if(active.some(([,c])=>c!.position==="Inside"&&c!.lastExit))return result("Monitor / retest","Inside-band history: "+events(active.filter(([,c])=>c!.position==="Inside"&&!!c!.lastExit))+". Last exit is context, not a new entry.");
  return result("Context only","Ready position without a qualifying new transition or respected-band evidence.");
 }
