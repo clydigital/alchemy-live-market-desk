@@ -1,3 +1,4 @@
+import {lastBandExit,EXIT_LOOKBACK,type LastBandExit} from "./ema-last-band-exit.ts";
 import {calculateEmaBand,EMA_PERIODS,EMA_WIDTHS} from "./ema-sd-levels.ts";
 import {expectedHomeEtfSession} from "./bluebelly-home-etf-history.ts";
 import {scheduledUsEquityCloseHourET,usEquitySessionCalendarBasis} from "./bluebelly-us-equity-trading-calendar.ts";
@@ -12,7 +13,7 @@ type State="above"|"below"|"at";
 type Band="above_upper"|"below_lower"|"inside";
 type Cross="up"|"down"|"none";
 export type CloseHold={boundary:"ema"|"upper"|"lower";direction:"up"|"down";crossedOn:string;consecutiveCloses:number;status:"BREAK_ONLY"|"HOLD_CONFIRMED"};
-export type EmaObservation={frame:Frame;period:number;multiplier:number;asOf:string;anchorDay:string;sampleCount?:number;requiredReadySamples?:number;closeHolds?:CloseHold[];bandRespect?:BandRespect;warmup:"READY"|"SHORT_WARMUP";ema:number;upper:number;lower:number;distancePct:number;side:State;band:Band;windows:Record<"1"|"3"|"5",{returnPct:number;approach:"down_to"|"up_to"|"away"|"none";emaCross:Cross;upperCross:Cross;lowerCross:Cross;boundaryApproaches?:{boundary:"ema"|"upper"|"lower";direction:"up"|"down";distancePct:number;level:number}[];events:{session:string;boundary:"ema"|"upper"|"lower";direction:"up"|"down"}[]}|null>};
+export type EmaObservation={frame:Frame;period:number;multiplier:number;asOf:string;anchorDay:string;sampleCount?:number;requiredReadySamples?:number;closeHolds?:CloseHold[];bandRespect?:BandRespect;warmup:"READY"|"SHORT_WARMUP";ema:number;upper:number;lower:number;distancePct:number;side:State;band:Band;priorBand?:Band;lastExit?:LastBandExit|null;windows:Record<"1"|"3"|"5",{returnPct:number;approach:"down_to"|"up_to"|"away"|"none";emaCross:Cross;upperCross:Cross;lowerCross:Cross;boundaryApproaches?:{boundary:"ema"|"upper"|"lower";direction:"up"|"down";distancePct:number;level:number}[];events:{session:string;boundary:"ema"|"upper"|"lower";direction:"up"|"down"}[]}|null>};
 export type RecentSessionQuality={status:"VERIFIED"|"MISSING_SESSIONS"|"STALE"|"UNVERIFIED_CALENDAR";expectedSession:string|null;missingSessions:string[];unexpectedSessions:string[]};
 export type EquityEmaScan={asOf:string;method:"FIRST_CLOSE_EMA_ROLLING_CLOSE_POPULATION_SD";observations:EmaObservation[];unavailable:string[];recentSessionQuality?:RecentSessionQuality};
 /** Conservative daily OHLC retest replay. Boundaries are frozen at the
@@ -100,8 +101,20 @@ export function scanEquityEma(input:readonly EmaPoint[],timeZone:string,now=new 
   }
  }
  const contiguous=recentSessionQuality.status==="VERIFIED";
+ // Only replay adjacent official US sessions; stop at the first missing or
+ // unverified session. Precompute anchors once per frame, across periods.
+ const exitAdjacent=(before:number,after:number)=>{
+  const a=day(bars[before].time),b=day(bars[after].time);
+  if(usEquitySessionCalendarBasis(a)!=="OFFICIAL_NYSE_2026_2028"||scheduledUsEquityCloseHourET(a)===null)return false;
+  for(let t=Date.parse(b+"T00:00:00Z")-86400000;t>=Date.parse(a+"T00:00:00Z");t-=86400000){
+   const d=new Date(t).toISOString().slice(0,10);
+   if(usEquitySessionCalendarBasis(d)!=="OFFICIAL_NYSE_2026_2028")return false;
+   if(scheduledUsEquityCloseHourET(d)!==null)return d===a;
+  }
+  return false;
+ };
  for(const frame of ["D","W","M"] as const){
- const byIndex=new Map<number,EmaPoint[]>();for(let i=Math.max(0,at-5);i<=at;i++)byIndex.set(i,anchors(bars,frame,i));
+ const byIndex=new Map<number,EmaPoint[]>();for(let i=Math.max(0,at-(contiguous?EXIT_LOOKBACK:5));i<=at;i++)byIndex.set(i,anchors(bars,frame,i));
  for(const [period,multiplier] of periods){
   const levels=new Map([...byIndex].map(([i,a])=>[i,bandAt(a,period,multiplier)]));
   const cur=levels.get(at);if(!cur){unavailable.push(frame+period);continue;}
@@ -142,7 +155,12 @@ export function scanEquityEma(input:readonly EmaPoint[],timeZone:string,now=new 
     if(valid)closeHolds.push({boundary,direction:event.direction,crossedOn:event.session,consecutiveCloses:at-start+1,status:at-start>=2?"HOLD_CONFIRMED":"BREAK_ONLY"});
    }
   }
-  observations.push({frame,period,multiplier,asOf,...cur,distancePct:pct(p.close,cur.ema),side,band,windows,closeHolds,...(frame==="D"?{bandRespect:dailyBandRespect(bars,period,multiplier,contiguous)}:{})});
+  const prev=levels.get(at-1);const priorClose=bars[at-1]?.close;const priorBand=contiguous&&prev?.warmup==="READY"&&priorClose!==undefined?(priorClose>prev.upper?"above_upper":priorClose<prev.lower?"below_lower":"inside") as Band:undefined;
+  const lastExit=contiguous&&cur.warmup==="READY"?lastBandExit(bars.length,i=>{
+   const level=levels.get(i),close=bars[i].close;
+   return level?.warmup==="READY"?{position:close>level.upper?"above":close<level.lower?"below":"inside",asOf:day(bars[i].time)}:null;
+  },exitAdjacent):null;
+  observations.push({frame,period,multiplier,asOf,...cur,priorBand,lastExit,distancePct:pct(p.close,cur.ema),side,band,windows,closeHolds,...(frame==="D"?{bandRespect:dailyBandRespect(bars,period,multiplier,contiguous)}:{})});
  }}
  return {asOf,method:"FIRST_CLOSE_EMA_ROLLING_CLOSE_POPULATION_SD",observations,unavailable,recentSessionQuality};
 }
