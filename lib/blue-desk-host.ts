@@ -121,7 +121,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     "/api/owner/editorial-reader-preview",
     "/api/owner/html-editions", "/api/owner/report-attachments",
     "/api/owner/editorial-longform-chapter",
-    "/api/presenter/technical-checks", "/api/owner/power-stack-4h",
+    "/api/presenter/technical-checks",
   ].includes(pathname)) return "private";
 
   // Temporary development-only UI viewer on the dedicated public host.
