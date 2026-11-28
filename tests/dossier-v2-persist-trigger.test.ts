@@ -316,10 +316,10 @@ test("Task 1 production route and workflow keep the trusted OIDC boundary", () =
   assert.match(workflow, /DOSSIER_STRATEGY:/);
   assert.match(workflow, /default: auto/);
   assert.match(workflow, /--arg strategy "\$DOSSIER_STRATEGY"/);
-  assert.match(workflow, /lookback_hours="\$\{DOSSIER_LOOKBACK_HOURS:-168\}"/);
-  assert.match(workflow, /evidence_limit="\$\{DOSSIER_EVIDENCE_LIMIT:-180\}"/);
-  assert.match(workflow, /--argjson lookbackHours "\$lookback_hours"/);
-  assert.match(workflow, /--argjson evidenceLimit "\$evidence_limit"/);
+  assert.match(workflow, /DOSSIER_LOOKBACK_HOURS < 1 \|\| DOSSIER_LOOKBACK_HOURS > 720/);
+  assert.match(workflow, /DOSSIER_EVIDENCE_LIMIT < 1 \|\| DOSSIER_EVIDENCE_LIMIT > 500/);
+  assert.match(workflow, /--argjson lookbackHours "\$DOSSIER_LOOKBACK_HOURS"/);
+  assert.match(workflow, /--argjson evidenceLimit "\$DOSSIER_EVIDENCE_LIMIT"/);
   assert.match(workflow, /\{strategy:\$strategy,lookbackHours:\$lookbackHours,evidenceLimit:\$evidenceLimit\}/);
   assert.doesNotMatch(workflow, /Run token-aware Dossier V2 handoff/);
   assert.match(workflow, /id-token:\s*write/);
