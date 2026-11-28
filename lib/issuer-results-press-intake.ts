@@ -118,6 +118,18 @@ const SOURCES:Readonly<Record<string,Source>>={
   publisher:"John Deere Newsroom",headline:/(?:fy\d{2}\s+(?:first|second|third|fourth)\s+quarter\s+earnings\s+release|deere\s+reports?\s+(?:first|second|third|fourth)\s+quarter)/i,
   company:/deere\s*(?:&|and)\s*company|\(nyse:\s*de\)/i,
  },
+ ZM:{
+  host:"investors.zoom.us",listing:"https://investors.zoom.us/news-events/press-releases",
+  path:/^\/(?:news-releases\/news-release-details\/[a-z0-9-]+|node\/\d+)\/?$/i,
+  publisher:"Zoom Investor Relations",headline:/zoom communications\s+reports?\s+financial results for the (?:first|second|third|fourth) quarter of fiscal year 20\d{2}/i,
+  company:/zoom communications,\s*inc\.?|\(nasdaq:\s*zm\)/i,
+ },
+ ADSK:{
+  host:"investors.autodesk.com",listing:"https://investors.autodesk.com/news-events/press-releases",
+  path:/^\/(?:index\.php\/)?(?:news-releases\/news-release-details\/[a-z0-9-]+|node\/\d+)\/?$/i,
+  publisher:"Autodesk Investor Relations",headline:/autodesk,\s*inc\.?\s+announces?\s+fiscal 20\d{2} (?:first|second|third|fourth) quarter results/i,
+  company:/autodesk,\s*inc\.?|\(nasdaq:\s*adsk\)/i,
+ },
  AMD:{
   host:"ir.amd.com",listing:"https://ir.amd.com/news-events/press-releases",
   path:/^\/news-events\/press-releases\/detail\/\d{3,5}\/[a-z0-9-]+\/?$/i,
@@ -136,6 +148,12 @@ const NOVEMBER_ORIGINALS:Readonly<Record<string,{quarter:string;day:string;url:s
  WDAY:{quarter:"Q3 FY2027",day:"2026-11-24",url:"https://investor.workday.com/news-and-events/press-releases/news-details/2026/Workday-Announces-Fiscal-2027-Third-Quarter-Financial-Results/default.aspx"},
  ADI:{quarter:"Q4 FY2026",day:"2026-11-24",url:"https://www.analog.com/en/newsroom/press-releases/2026/11-24-26-adi-reports-record-4th-qtr-and-fiscal-2026-financial-results.html"},
 };
+// Exact issuer-filed SEC exhibits verified independently for this incident.
+// Do not guess EDGAR accessions for future quarters.
+const SEC_NOVEMBER_ORIGINALS:Readonly<Record<string,{quarter:string;day:string;url:string;cik:string}>>={
+ ZM:{quarter:"Q3 FY2027",day:"2026-11-23",url:"https://www.sec.gov/Archives/edgar/data/1585521/000158552126000170/zm-20261031ex991.htm",cik:"1585521"},
+ ADSK:{quarter:"Q3 FY2027",day:"2026-11-24",url:"https://www.sec.gov/Archives/edgar/data/769397/000076939726000069/q327pressrelease.htm",cik:"769397"},
+};
 type Candidate={ticker:string;quarter:string;scheduledCallAt:string;sourceDateOnly:boolean};
 const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
 function dayLabel(day:string){
@@ -146,7 +164,7 @@ function dayLabel(day:string){
 function releaseDay(event:Candidate){return event.scheduledCallAt.slice(0,10);}
 function htmlText(body:string){return body
  .replace(/<(?:script|style|svg|noscript)\b[^>]*>[\s\S]*?<\/(?:script|style|svg|noscript)>/gi," ")
- .replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/gi," ")
+ .replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;|&#x0*a0;|\u00a0/gi," ")
  .replace(/&amp;/gi,"&").replace(/&#39;|&apos;/gi,"'")
  .replace(/\s+/g," ").trim();}
 export function issuerOriginalUrl(value:string,source:Source){
@@ -167,7 +185,8 @@ function hasReleaseDay(text:string,day:string){
  const full=dayLabel(day);
  if(!full)return false;
  const short=full.replace(/^([A-Za-z]{3})[A-Za-z]+ /,"$1 ");
- return text.includes(full)||text.includes(short)||text.includes(short.replace(/^([A-Za-z]{3}) /,"$1. "));
+ const lower=text.toLowerCase();
+ return [full,short,short.replace(/^([A-Za-z]{3}) /,"$1. ")].some(date=>lower.includes(date.toLowerCase()));
 }
 function isResult(body:string,source:Source,event:Candidate){
  const text=htmlText(body).slice(0,105_000);
@@ -198,16 +217,18 @@ function listingUrls(html:string,source:Source){
  return discovered;
 }
 type Read=typeof recoverOfficialPublisherSource;
-async function verifiedHtml(url:string,source:Source,fetchImpl:typeof fetch,recover:Read){
+async function verifiedHtml(url:string,source:Source,fetchImpl:typeof fetch,recover:Read,secAgent?:string){
+ const sec=source.host==="www.sec.gov";
+ if(sec&&(!secAgent||!/^[^\r\n]{12,200}$/.test(secAgent)||!/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(secAgent)))return "";
  let body="";
  try{
   const res=await fetchImpl(url,{cache:"no-store",signal:AbortSignal.timeout(6500),
-   headers:{accept:"text/html,application/xhtml+xml","user-agent":"Alchemy Bluebelly original issuer reader"}});
+   headers:{accept:"text/html,application/xhtml+xml","user-agent":sec?secAgent!:"Alchemy Bluebelly original issuer reader"}});
   if(res.ok&&(!res.url||(url===source.listing ? res.url===url : issuerOriginalUrl(res.url,source)===url))
      &&(res.headers.get("content-type")||"text/html").toLowerCase().includes("text/html"))
    body=(await res.text()).slice(0,225_000);
  }catch{ /* Same-publisher recovery is bounded and separately validated. */ }
- if(body)return body;
+ if(body||sec)return body;
  const recovery=await recover(url,{timeoutMs:12000});
  if(!recovery.ok||!recovery.rawHtml||
     (recovery.resolvedUrl&&(url===source.listing ? recovery.resolvedUrl!==url : issuerOriginalUrl(recovery.resolvedUrl,source)!==url)))return "";
@@ -235,18 +256,37 @@ function makeItem(url:string,event:Candidate,source:Source,now:Date):IntakeItemI
 }
 export async function applyIssuerResultsPressIntake(
  input:ResearchRunInput,
- options:{now?:Date;fetchImpl?:typeof fetch;recoverImpl?:Read}={},
+ options:{now?:Date;fetchImpl?:typeof fetch;recoverImpl?:Read;secUserAgent?:string}={},
 ):Promise<ResearchRunInput>{
  const now=options.now??new Date(),fetchImpl=options.fetchImpl??fetch;
  const closed:Read=async()=>({ok:false,code:"not_configured",detail:"controlled transport",retryable:false});
  const recover=options.recoverImpl??(options.fetchImpl?closed:recoverOfficialPublisherSource);
- const due=getDueOfficialEarningsCandidates(now,72)
+ const ordinary=getDueOfficialEarningsCandidates(now,72);
+ // Allow one bounded incident-recovery window across the next scheduled
+ // collection after deployment; no extension for arbitrary historical items.
+ const incidentRecovery=getDueOfficialEarningsCandidates(now,120).filter(event=>{
+  const incident=NOVEMBER_ORIGINALS[event.ticker]??SEC_NOVEMBER_ORIGINALS[event.ticker];
+  return incident&&incident.quarter===event.quarter&&incident.day===releaseDay(event)&&
+    now.getTime()<=Date.parse("2026-11-29T23:59:59Z");
+ });
+ const due=[...new Map([...ordinary,...incidentRecovery].map(event=>[event.ticker+":"+event.quarter,event])).values()]
   .filter(x=>Boolean(SOURCES[x.ticker])).slice(0,12);
  if(!due.length)return input;
  const existing=new Set(input.items.map(x=>x.url));
  const outputs=await Promise.all(due.map(async event=>{
   const source=SOURCES[event.ticker];
   try{
+   const secIncident=SEC_NOVEMBER_ORIGINALS[event.ticker];
+   if(secIncident&&secIncident.quarter===event.quarter&&secIncident.day===releaseDay(event)&&now.getTime()<=Date.parse("2026-11-29T23:59:59Z")){
+    const secSource:Source={...source,host:"www.sec.gov",listing:secIncident.url,
+     path:new RegExp("^/Archives/edgar/data/"+secIncident.cik+"/\\d{18}/[a-z0-9._-]+\\.html?$","i"),
+     publisher:source.publisher+" (SEC exhibit)"};
+    const original=issuerOriginalUrl(secIncident.url,secSource);
+    if(original){
+     const body=await verifiedHtml(original,secSource,fetchImpl,closed,options.secUserAgent??process.env.SEC_USER_AGENT);
+     if(isResult(body,secSource,event))return makeItem(original,event,secSource,now);
+    }
+   }
    const list=await verifiedHtml(source.listing,source,fetchImpl,recover);
    const results=listingUrls(list,source);
    // Historical recovery is bounded to the October incident and an original,

@@ -1,9 +1,10 @@
 import "server-only";
 import {createSupabaseServerClient} from "@/lib/supabase/server";
 import {createSupabaseAdminClient} from "@/lib/supabase/admin";
+import {notionResearchErrorHint} from "./notion-market-research";
 import {projectRegistryRows,readFirstSnapshot,canonicalGemIds,projectCanonicalGemReceipts,type RegistryRead} from "./bluebelly-hypothesis-registry";
 const SOURCE="7daf2da3-4f2e-4746-8fa8-fc957e293ded";
-const empty=(status:RegistryRead["status"]):RegistryRead=>({status,rows:[],truncated:false,retrievedAt:null});
+const empty=(status:RegistryRead["status"],diagnostic?:string):RegistryRead=>({status,rows:[],truncated:false,retrievedAt:null,...(diagnostic?{diagnostic}:{})});
 /** Only owner-initiated Research Library requests. No public reader, new collector or cache. */
 export async function getOwnerHypothesisRegistry(now=new Date()):Promise<RegistryRead>{
  try{
@@ -15,18 +16,36 @@ export async function getOwnerHypothesisRegistry(now=new Date()):Promise<Registr
  }catch{return empty("UNAUTHORISED");}
  const token=process.env.NOTION_API_TOKEN?.trim()||process.env.NOTION_MARKET_RESEARCH_TOKEN?.trim();
  if(!token)return empty("NOT_CONFIGURED");
+ let activeToken=token;
  const read=async(path:string,body?:object)=>{
- const r=await fetch("https://api.notion.com/v1"+path,{method:body?"POST":"GET",headers:{Authorization:"Bearer "+token,"Notion-Version":"2025-09-03",...(body?{"Content-Type":"application/json"}:{})},body:body?JSON.stringify(body):undefined,cache:"no-store",signal:AbortSignal.timeout(6500)});
- if(!r.ok)throw Error("Registry read unavailable");return await r.json() as {results?:unknown[];has_more?:boolean};
+ const r=await fetch("https://api.notion.com/v1"+path,{method:body?"POST":"GET",headers:{Authorization:"Bearer "+activeToken,"Notion-Version":"2025-09-03",...(body?{"Content-Type":"application/json"}:{})},body:body?JSON.stringify(body):undefined,cache:"no-store",signal:AbortSignal.timeout(10000)});
+ if(!r.ok)throw Error("Notion read failed: "+r.status);return await r.json() as {results?:unknown[];has_more?:boolean};
  };
  try{
- const raw=await read("/data_sources/"+SOURCE+"/query",{page_size:8,filter:{and:[{or:[{property:"Status",select:{equals:"ACTIVE"}},{property:"Status",select:{equals:"STALE"}}]},{property:"Investigation ID",rich_text:{is_not_empty:true}}]},sorts:[{timestamp:"last_edited_time",direction:"descending"}]});
+ const path="/data_sources/"+SOURCE+"/query";
+ const activeFilter={or:[{property:"Status",select:{equals:"ACTIVE"}},{property:"Status",select:{equals:"STALE"}}]};
+ const query={page_size:8,filter:{and:[activeFilter,{property:"Investigation ID",rich_text:{is_not_empty:true}}]},sorts:[{timestamp:"last_edited_time",direction:"descending"}]};
+ let raw:Awaited<ReturnType<typeof read>>;
+ let fallback=false;
+ try{raw=await read(path,query);}catch(error){
+  const status=error instanceof Error?Number(error.message.match(/^Notion read failed: (\d{3})$/)?.[1]||0):0;
+  const alternate=process.env.NOTION_MARKET_RESEARCH_TOKEN?.trim();
+  // One bounded repair attempt against the same source only. Never use a public
+  // cache or ignore an access failure. Rate limits are not retried immediately.
+  if([401,403,404].includes(status)&&alternate&&alternate!==activeToken){
+   activeToken=alternate;fallback=true;raw=await read(path,query);
+  }else if(status===400){
+   fallback=true;raw=await read(path,{page_size:12,filter:activeFilter,sorts:query.sorts});
+  }else throw error;
+ }
+
  if(!Array.isArray(raw.results))return empty("UNAVAILABLE");
- const rows=projectRegistryRows(raw,now);
+ const rows=projectRegistryRows(raw,now).slice(0,8);
  // One bounded registry query plus at most four first-block requests; do not scan old page bodies.
  let failed=false;
+ let blockDiagnostic:string|undefined;
  await Promise.all(rows.slice(0,4).map(async row=>{
- try{row.snapshot=readFirstSnapshot(await read("/blocks/"+row.pageId+"/children?page_size=1"),row,now);}catch{failed=true;}
+ try{row.snapshot=readFirstSnapshot(await read("/blocks/"+row.pageId+"/children?page_size=1"),row,now);}catch(error){failed=true;blockDiagnostic=notionResearchErrorHint(error);}
  }));
  // Bounded owner-only receipt and latest Dossier readback; no promotion or mutation.
  const ids=canonicalGemIds(rows);let receipts:unknown[]|null=null;
@@ -39,6 +58,6 @@ export async function getOwnerHypothesisRegistry(now=new Date()):Promise<Registr
  const {data,error}=await createSupabaseAdminClient().from("market_dossiers_v2").select("id,as_of,payload").lte("as_of",now.toISOString()).order("as_of",{ascending:false}).limit(1).maybeSingle();
  if(!error&&data)dossier=data;
  }catch{/* Missing Dossier is not proof of non-consumption. */}
- return {status:failed?"PARTIAL":"AVAILABLE",rows:projectCanonicalGemReceipts(rows,receipts,now,dossier),truncated:raw.has_more===true||rows.length>4,retrievedAt:new Date().toISOString()};
- }catch{return empty("UNAVAILABLE");}
+ return {status:failed||fallback?"PARTIAL":"AVAILABLE",...(blockDiagnostic?{diagnostic:"Snapshot read: "+blockDiagnostic}:fallback?{diagnostic:"Bounded fallback succeeded; original query failed."}:{}),rows:projectCanonicalGemReceipts(rows,receipts,now,dossier),truncated:raw.has_more===true||rows.length>4,retrievedAt:new Date().toISOString()};
+ }catch(error){const diagnostic=notionResearchErrorHint(error);console.warn("Private hypothesis registry read:",diagnostic);return empty("UNAVAILABLE",diagnostic);}
 }

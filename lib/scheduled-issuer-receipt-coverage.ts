@@ -16,6 +16,8 @@ const ISSUER_HOSTS:Readonly<Record<string,readonly string[]>>={
  DELL:["investors.delltechnologies.com"],
  WDAY:["investor.workday.com"],
  ADI:["www.analog.com"],
+ ZM:["investors.zoom.us"],
+ ADSK:["investors.autodesk.com"],
  HPE:["www.hpe.com"],
  A:["www.agilent.com"],
  HPQ:["investor.hp.com"],
@@ -69,8 +71,11 @@ export function expectedIssuerReceiptGaps(
    }else if(Math.abs(when-call)>36*3600_000)return false;
    try{
     const url=new URL(item.url);
-    return url.protocol==="https:"&&!url.username&&!url.password&&!url.hash
-      &&allowed.includes(url.hostname.toLowerCase());
+    const secCik=event.ticker==="ZM"?"1585521":event.ticker==="ADSK"?"769397":null;
+    const secExhibit=isIssuer&&secCik&&url.hostname==="www.sec.gov"&&!url.search&&
+      new RegExp("^/Archives/edgar/data/"+secCik+"/\\d{18}/[a-z0-9._-]+\\.html?$","i").test(url.pathname);
+    return url.protocol==="https:"&&!url.username&&!url.password&&!url.hash&&!url.port
+      &&(allowed.includes(url.hostname.toLowerCase())||Boolean(secExhibit));
    }catch{return false;}
   });
  }).map(event=>"AUTO_COVERAGE_GAP:ISSUER_ORIGINAL_RELEASE:"+event.ticker+":"+

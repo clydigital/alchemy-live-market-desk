@@ -1,0 +1,2 @@
+/** Explicit US-listed ETF identities for canonical EMA calculations; never substitute a proxy for its underlying market. */
+export const SCANNER_US_ETFS:ReadonlySet<string>=new Set("SPY RSP QQQ DIA IWM SMH SOXX XLK XLP XLY XLE XLF XLI XLV XLU XLB XLC XLRE ITB XHB TLT IEF SGOV SHY EDV ZROZ TIP LQD HYG AGG GOVT USFR TLH VGIT GLD SLV USO UUP FXE FXB FXC FXA FXY FXF CYB IBIT ETHA EWJ EWY EWH ASHR EWG FEZ EWU".split(" "));

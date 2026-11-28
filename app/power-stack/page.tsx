@@ -22,9 +22,13 @@ import {BLUEBELLY_STOCK_UNIVERSE,findStockIdentity} from "@/lib/bluebelly-equity
 import {readPublicFundamentalComparison} from "@/lib/bluebelly-fundamental-comparison-server";
 import {projectPublicEquityCoverage} from "@/lib/bluebelly-equity-coverage";
 import PowerStackBBMarketSweep from "@/components/blue-desk/PowerStackBBMarketSweep";
+import {buildScannerAssets,projectPrivateSymbols} from "@/lib/technical-market-scanner";
 import {projectOpportunityQueue,isNonIssuerInstrument} from "@/lib/power-stack-opportunity-queue";
 import PowerStackOpportunityQueue from "@/components/blue-desk/PowerStackOpportunityQueue";
 import PowerStackDecisionOverview from "@/components/blue-desk/PowerStackDecisionOverview";
+import {readFourHWatch,readTechnicalSnapshot,TECHNICAL_UNIVERSE} from "@/lib/providers/twelve-data-ema-history";
+import {planFourHWatch} from "@/lib/bluebelly-4h-levels";
+import PowerStackFourHWatch from "@/components/blue-desk/PowerStackFourHWatch";
 import {buildCompareResearch,compareBreadthObservations} from "@/lib/bluebelly-compare-research";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
 import {publicMarketObservations} from "@/lib/blue-desk-public-markets";
@@ -116,7 +120,7 @@ function parseOwnerWatchlist(snapshot: unknown): WatchAsset[] {
   }).sort((a,b)=>(a.rank??999)-(b.rank??999));
 }
 
-export default async function PrivatePowerStack({searchParams}:{searchParams:Promise<{technical?:string|string[]}>}) {
+export default async function PrivatePowerStack({searchParams}:{searchParams:Promise<{technical?:string|string[];fourh?:string}>}) {
   // This page enforces owner identity itself, even if a preview/alias is
   // misconfigured to disable the general middleware dashboard gate.
   const supabase = await createSupabaseServerClient().catch(() => null);
@@ -172,6 +176,14 @@ export default async function PrivatePowerStack({searchParams}:{searchParams:Pro
   const requested=ready&&typeof params.technical==="string"?findStockIdentity(params.technical):undefined;
   const reference=requested&&requested.theme!=="REAL_ESTATE"?bbCoverage.rows.find(q=>q.ticker===requested.ticker&&q.status==="SOURCE_DATED"):undefined;
   const longHistory=requested&&reference?.price!=null&&reference.asOf?await readLongEquityHistory(requested,{price:reference.price,asOf:reference.asOf}):null;
+  const fourHAllowed=TECHNICAL_UNIVERSE.filter(x=>findStockIdentity(x.ticker)?.theme!=="REAL_ESTATE"&&!["XLRE","ITB","XHB"].includes(x.ticker)).map(x=>x.ticker);
+  const fourHPriority=ready?[...holdings.map(x=>marketTicker(x.ticker)),...(ideaRecords??[]).map(x=>marketTicker(x.ticker)),...watchlist.map(x=>marketTicker(x.ticker)),...BLUEBELLY_STOCK_UNIVERSE.map(x=>x.ticker),...fourHAllowed]:[];
+  const fourHPlan=planFourHWatch(fourHPriority,fourHAllowed,params.fourh??(requested?undefined:"1"));
+  const fourHSelected=ready&&requested&&fourHAllowed.includes(requested.ticker)?requested.ticker:null;
+  const sharedTechnical=ready&&fourHSelected?await readTechnicalSnapshot(fourHSelected):null;
+  const fourHSymbols=fourHPlan.symbols.length?fourHPlan.symbols:fourHSelected?[fourHSelected]:[];
+  const fourHWatch=ready&&fourHSymbols.length?await readFourHWatch(new Date(),fourHSymbols):null;
+  const bandAssets=ready?buildScannerAssets(bbCoverage.rows,publicTape?.rows??[],projectPrivateSymbols({holdings,watchlist},ideasError?[]:ideaRecords??[])):[];
   const privateLevels=(ideaRecords??[]).flatMap(i=>{
     const lo=i.watch_low==null?null:Number(i.watch_low),hi=i.watch_high==null?null:Number(i.watch_high);
     if((lo===null&&hi===null)||(lo!==null&&(!Number.isFinite(lo)||lo<=0))||(hi!==null&&(!Number.isFinite(hi)||hi<=0))||(lo!==null&&hi!==null&&lo>hi))return [];
@@ -290,7 +302,9 @@ export default async function PrivatePowerStack({searchParams}:{searchParams:Pro
           </div>
         </header>
         {ready?<PowerStackDecisionOverview compare={compare} tape={tape} now={researchedAt} breadthStatus={breadthFeed.retrievalStatus}/>:null}
-        {ready?<PowerStackBBMarketSweep rows={bbCoverage.rows} reviews={issuerReviews} asOf={bbCoverage.asOf} levels={privateLevels} fundamentals={bbFundamentals?.rows??[]} longHistory={longHistory} />:null}
+        {ready?<p><Link href="/market-tools?view=technical-scan&scope=ps">Open EMA Scanner · My PowerStack →</Link></p>:null}
+        {ready?<PowerStackFourHWatch reads={fourHWatch} plan={fourHPlan} selected={fourHSelected} snapshot={sharedTechnical}/>:null}
+        {ready?<PowerStackBBMarketSweep rows={bbCoverage.rows} reviews={issuerReviews} asOf={bbCoverage.asOf} levels={privateLevels} fundamentals={bbFundamentals?.rows??[]} longHistory={longHistory} bandAssets={bandAssets} fourHReads={fourHWatch??[]} bandSourceDate={publicTape?.updatedAt??null} privateBandStatus={ideasError?"Saved idea source unavailable; recorded holdings and archived watch remain.":"Recorded snapshot and investment ideas only; not live brokerage positions."} />:null}
         {ready?<PowerStackOpportunityQueue rows={opportunities} issuerUnavailable={bbFundamentals?.status!=="OK"}/>:null}
         <PowerStackDecisionHub now={researchedAt}/>
         {ready?<PowerStackMeasuredSignals signals={measuredSignals} trackedTickers={trackedTickers} topics={researchTopics}/>:null}
