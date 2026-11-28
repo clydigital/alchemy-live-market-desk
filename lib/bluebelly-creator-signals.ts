@@ -78,3 +78,21 @@ export function corporateBondBias(view:CreatorSignal):CreatorSignal["bias"]|null
  if(spread)return view.bias==="Bullish"?"Bearish":view.bias==="Bearish"?"Bullish":"Neutral";
  return bond?view.bias:null;
 }
+
+/** A bounded sample of dated original reviews, not a survey or a forecast.
+ * Preserve all other takes in research notes; never promote unknown timing to a vote.
+ * The seven-day source window matches existing creator corroboration policy;
+ * the 48-hour digest age matches the existing panel's recency caution.
+ */
+export function datedCreatorOpinionSample(takes:readonly CreatorTake[],generatedAt:string,now:Date){
+ const clock=Date.parse(generatedAt),asOf=+now;
+ const validClock=Number.isFinite(clock)&&Number.isFinite(asOf)&&clock<=asOf;
+ const eligible=validClock?takes.filter(t=>{
+  if(t.sourceStatus!=="reviewed"||!t.videoId||!t.publishedAt)return false;
+  // Date-only and timezone-free strings cannot prove the release preceded the digest.
+  if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(t.publishedAt))return false;
+  const published=Date.parse(t.publishedAt);
+  return Number.isFinite(published)&&published<=clock&&clock-published<=7*86400_000;
+ }):[];
+ return {eligible,excluded:takes.length-eligible.length,state:!validClock?"UNAVAILABLE" as const:asOf-clock>48*3600_000?"HISTORICAL" as const:eligible.length?"DATED_SAMPLE" as const:"UNAVAILABLE" as const};
+}

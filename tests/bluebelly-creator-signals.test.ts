@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
 import {readFileSync} from "node:fs";
-import {corporateBondBias,parseCreatorDigest,parseCreatorDigestHtml,orderCreatorSignals,creatorMarketMatch,creatorSignalGroup,type CreatorDigest} from "../lib/bluebelly-creator-signals.ts";
+import {corporateBondBias,datedCreatorOpinionSample,parseCreatorDigest,parseCreatorDigestHtml,orderCreatorSignals,creatorMarketMatch,creatorSignalGroup,type CreatorDigest} from "../lib/bluebelly-creator-signals.ts";
 import type {PublicMarketObservation} from "../lib/blue-desk-public-markets.ts";
 
 const now=new Date("2026-11-19T10:30:00Z");
@@ -125,4 +125,15 @@ test("corporate bonds use bond direction and reverse explicit credit spread dire
  assert.equal(call("US10Y","Bullish"),null);
  assert.equal(call("TLT","Bearish"),null);
  assert.equal(call("NVDA","Bullish"),null);
+});
+
+
+test("opinion sample admits only original source-dated reviews available by digest time; retains excluded research",()=>{
+ const d=sample(),t=d.creators[0];
+ const takes=[t,{...t,publishedAt:null,sourceStatus:"handoff_reviewed" as const},{...t,sourceStatus:"supplied" as const},{...t,publishedAt:"2026-11-19T10:00:00Z"},{...t,publishedAt:"2026-11-11T00:00:00Z"},{...t,publishedAt:"2026-11-18"},{...t,publishedAt:"2026-11-18T10:00:00"}];
+ const result=datedCreatorOpinionSample(takes,d.generatedAt,now);
+ assert.equal(result.state,"DATED_SAMPLE");assert.deepEqual(result.eligible,[t]);assert.equal(result.excluded,6);assert.equal(takes.length,7);
+ assert.equal(datedCreatorOpinionSample([t],d.generatedAt,new Date("2026-11-22T00:00:00Z")).state,"HISTORICAL");
+ assert.equal(datedCreatorOpinionSample([t],"2026-11-20T00:00:00Z",now).state,"UNAVAILABLE");
+ assert.equal(datedCreatorOpinionSample(takes.slice(1),d.generatedAt,now).state,"UNAVAILABLE");
 });
