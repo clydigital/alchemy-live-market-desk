@@ -5,7 +5,7 @@ import type {JobsPublicProjection} from "@/lib/macro/jobs-public-projection";
 import type {BluebellyAbsorptionHealth} from "@/lib/bluebelly-absorption-health";
 import {blueDeskPublicHref} from "@/lib/blue-desk-host";
 import {proxySignalTone,type LensSignalTone} from "@/lib/bluebelly-regime-lens-card-signal";
-import type {RegimeDirectionId} from "@/lib/bluebelly-regime-direction-reads";
+import {conditionHasLevel,conditionIsCurrent,selectConditionRow,type ConditionKind} from "@/lib/bluebelly-market-conditions-read";
 import s from "./MarketConditionsBoard.module.css";
 
 type Direction = -1 | 0 | 1 | null;
@@ -23,25 +23,18 @@ function lastDate(value:string|null,now:Date,maxDays:number){
   const age=now.getTime()-stamp;
   return Number.isFinite(stamp) && age>=-300000 && age<=maxDays*86400000;
 }
-function admissible(row:PublicMarketObservation|null,now:Date){
-  return Boolean(row && row.frequency==="daily" && row.last!==null &&
-    row.dataStatus!=="UNAVAILABLE_OR_STALE" && lastDate(row.asOf,now,6));
-}
 function sign(value:number,unit:string){
   return (value>0?"+":"")+value.toFixed(unit==="bp"?1:2)+" "+unit;
 }
 function direction(value:number|null):Direction{
   return value===null||!Number.isFinite(value)?null:value>0?1:value<0?-1:0;
 }
-function findMarket(rows:readonly PublicMarketObservation[],type:string,prefer:RegExp){
-  const group=rows.filter(x=>x.type===type);
-  return group.find(x=>prefer.test(x.symbol)||prefer.test(x.label))??group[0]??null;
-}
 function TapeCard({name,scope,row,href,now,signalId,changeWindow="1D",left,right}:{
   name:string;scope:string;row:PublicMarketObservation|null;href:string;now:Date;
-  signalId:RegimeDirectionId;changeWindow?:"1D"|"5D";left:string;right:string;
+  signalId:ConditionKind;changeWindow?:"1D"|"5D";left:string;right:string;
 }){
-  const ready=admissible(row,now);
+  const ready=conditionIsCurrent(row,signalId,now);
+  const hasLevel=conditionHasLevel(row,now);
   const delta=ready?(changeWindow==="5D"?row!.change5d:row!.change):null;
   const needle=direction(delta);
   const unit=row?.changeUnit??"%";
@@ -50,15 +43,15 @@ function TapeCard({name,scope,row,href,now,signalId,changeWindow="1D",left,right
     signal==="pressure"?"RISING PRESSURE / WEAKNESS":
     signal==="mixed"?"MIXED / FLAT":"NO CURRENT SIGNAL";
   return <Link href={href} className={s.card} data-condition={name.toLowerCase().replace(/[^a-z0-9]+/g,"-")}
-    data-condition-status={!ready?"unavailable":needle===null?"partial":"measured"} data-signal-tone={signal}
-    aria-label={name+": "+status+". "+(ready?row!.asOf:"Source unavailable")}>
+    data-condition-status={!ready?(hasLevel?"last_reported":"unavailable"):needle===null?"partial":"measured"} data-signal-tone={signal}
+    aria-label={name+": "+status+". "+(hasLevel?row!.asOf:"Source unavailable")}>
     <div className={s.cardTop}><span className={s.scope}>{scope}</span><strong className={s.toneTag}>{status}</strong></div>
     <h3>{name}</h3>
     <div className={s.meter}><AcceleratorDial compact label={name} direction={needle}
       leftLabel={left} rightLabel={right} middleLabel="FLAT"/></div>
-    <div className={s.mainValue}>{ready?row!.last!.toLocaleString("en-GB",{maximumFractionDigits:2})+(row!.type==="Rates"?"%":row!.type==="Breadth"?"%":""):"—"}</div>
-    <p className={s.delta}>{needle===null?"No comparable current change":changeWindow+" "+sign(delta!,unit)}</p>
-    <small>{ready?row!.label+" · "+row!.asOf:"Fresh comparable reading unavailable"}</small>
+    <div className={s.mainValue}>{hasLevel?row!.last!.toLocaleString("en-GB",{maximumFractionDigits:2})+(row!.type==="Rates"?"%":row!.type==="Breadth"?"%":""):"—"}</div>
+    <p className={s.delta}>{needle===null?(hasLevel&&!ready?"Last reported · not current":"No comparable current change"):changeWindow+" "+sign(delta!,unit)}</p>
+    <small>{hasLevel?row!.label+" · "+row!.asOf+" · "+row!.sourceName:row?.asOf?"Last observation dated "+row.asOf+" · current level unavailable":"Fresh comparable reading unavailable"}</small>
     <span className={s.open}>OPEN SOURCE-DATED DETAIL ↗</span>
   </Link>;
 }
@@ -94,10 +87,9 @@ function FractionCard({name,scope,value,total,caption,date,href,available,metric
  * implied probability, social verification, scheduling or canonical writes. */
 export default function MarketConditionsBoard({market,breadth,jobs,health,now,host}:Props){
   const go=(path:string)=>blueDeskPublicHref(path,host);
-  const ai=findMarket(market,"AI / Semis",/^(SMH|SOXX)$/i);
-  const energy=findMarket(market,"Energy",/brent|^BZ|^BRN/i);
-  const treasury=findMarket(market,"Rates",/10[ -]?(year|yr|y)|DGS10/i);
-  const freshBreadth=admissible(breadth,now)?breadth:null;
+  const ai=selectConditionRow(market,"ai",now);
+  const energy=selectConditionRow(market,"energy",now);
+  const treasury=selectConditionRow(market,"bonds",now);
   const jobsReady=Boolean(jobs && jobs.status==="ready" && jobs.growing!==null &&
     jobs.shrinking!==null && jobs.sectorCount>0 && lastDate(jobs.releasedAt,now,65));
   const healthReady=Boolean(health && lastDate(health.checkedAt,now,1));
@@ -116,7 +108,7 @@ export default function MarketConditionsBoard({market,breadth,jobs,health,now,ho
         href={go("/blue-desk/hormuz")} left="Price falling" right="Price rising"/>
       <TapeCard name="US 10Y YIELD" scope="Yield pressure · bp" row={treasury} now={now} signalId="bonds"
         href={go("/blue-desk/regime-watch/bonds#bond-pressure")} left="Yield falling" right="Yield rising"/>
-      <TapeCard name="S&P 500 BREADTH" scope="Stocks above 50D · 5-session change" row={freshBreadth} now={now} signalId="breadth"
+      <TapeCard name="S&P 500 BREADTH" scope="Stocks above 50D · 5-session change" row={breadth} now={now} signalId="breadth"
         href={go("/blue-desk/markets?group=breadth")} changeWindow="5D"
         left="Participation falling" right="Participation rising"/>
       <FractionCard name="US JOBS BREADTH" scope="Growing sectors · latest BLS release" metric="jobs"

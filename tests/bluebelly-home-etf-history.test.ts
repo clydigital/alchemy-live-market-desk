@@ -38,3 +38,16 @@ test("fallback HTTP failure is not success or a fabricated zero",async()=>{
  const fail=(async()=>new Response("",{status:503})) as typeof fetch;
  await assert.rejects(()=>fetchHomeEtfHistory("QQQ",now,fail),/unavailable/);
 });
+
+test("home ETF fetch uses completed-session cache identity across Black Friday and weekend",async()=>{
+ const urls:string[]=[];
+ const capture=(async(url:unknown)=>{urls.push(String(url));return new Response("",{status:503})}) as typeof fetch;
+ const times=["2026-11-27T17:59:00Z","2026-11-27T18:15:00Z","2026-11-28T04:00:00Z","2026-11-29T04:00:00Z"];
+ for(const t of times)await assert.rejects(()=>fetchHomeEtfHistory("SMH",new Date(t),capture));
+ const end=(url:string)=>Number(new URL(url).searchParams.get("period2"));
+ assert.equal(end(urls[0]),Date.parse("2026-11-26")/1000);
+ assert.equal(end(urls[1]),Date.parse("2026-11-28")/1000);
+ assert.notEqual(urls[0],urls[1]);
+ assert.equal(urls[1],urls[2]);
+ assert.equal(urls[2],urls[3]);
+});
