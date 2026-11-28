@@ -648,7 +648,8 @@ const loadTargetedUsRepair=unstable_cache(async(symbols:readonly string[],sessio
  });
  const failures=rows.filter(r=>!r.ok).map(r=>({symbol:r.symbol,reason:r.reason}));
  const observations=rows.filter(r=>r.ok);
- console.info(JSON.stringify({event:"bb_us_repair_result",session,requested:symbols.length,recovered:observations.map(r=>({symbol:r.symbol,day:new Date(r.points.at(-1)!.time*1000).toISOString().slice(0,10)})),failures}));
+ const dated=observations.map(r=>({symbol:r.symbol,day:new Date(r.points.at(-1)!.time*1000).toISOString().slice(0,10)}));
+ console.info(JSON.stringify({event:"bb_us_repair_result",session,requested:symbols.length,recovered:dated.filter(r=>r.day===session),stillBehind:dated.filter(r=>r.day<session),failures}));
  return observations;
 },["bluebelly-targeted-us-repair-v5-deep-equities"],{revalidate:3600});
 const loadEuropeEquities=unstable_cache(async():Promise<RawSeries[]>=>{
@@ -897,7 +898,8 @@ function buildResearchTriggers(rows: MarketMonitorRow[], contradictions: MarketC
   return triggers.sort((a, b) => b.priority - a.priority).slice(0, 18);
 }
 
-async function loadMarketMonitor(): Promise<MarketMonitor> {
+async function loadMarketMonitor(session:string|null): Promise<MarketMonitor> {
+  void session;
   // Degrade independently: core market data, broad extras and cash anchors.
   // Cash anchors stay on their own short cache so headline prices can refresh
   // without re-fetching the full extras universe.
@@ -1042,6 +1044,13 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
     const pending=repair.filter(s=>!currentSymbols.has(s));
     if(pending.length)coverageGaps.push("Targeted US daily repair remains behind "+expected+": "+pending.join(", ")+".");
   }
+  if(expected){
+    const tape=[...homeTape,...sectorTape].map(spec=>{
+      const row=rawRows.find(r=>r.id===spec.id),last=row?.points.at(-1);
+      return {symbol:spec.symbol,day:last?new Date(last.time*1000).toISOString().slice(0,10):null,source:row?.sourceName??null};
+    });
+    console.info(JSON.stringify({event:"bluebelly_shared_tape_final_session_health",expected,latest:tape.filter(r=>r.day===expected).length,total:tape.length,behind:tape.filter(r=>r.day!==expected),current:tape.filter(r=>r.day===expected)}));
+  }
   let rows = makeRows(rawRows);
   const contradictions = buildContradictions(rows);
   const contradictionIds = new Set(contradictions.flatMap((item) => item.assets));
@@ -1080,4 +1089,5 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   };
 }
 
-export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v14-ledger"], { revalidate: 300 });
+const getMarketMonitorForSession = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v15-session"], { revalidate: 300 });
+export const getMarketMonitor=()=>getMarketMonitorForSession(expectedHomeEtfSession(new Date()));
