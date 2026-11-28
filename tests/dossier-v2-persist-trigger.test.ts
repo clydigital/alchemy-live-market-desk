@@ -315,7 +315,7 @@ test("Task 1 production route and workflow keep the trusted OIDC boundary", () =
   assert.match(workflow, /dossier_strategy:/);
   assert.match(workflow, /DOSSIER_STRATEGY:/);
   assert.match(workflow, /default: auto/);
-  assert.match(workflow, /--arg strategy "\$strategy"/);
+  assert.match(workflow, /--arg strategy "\$DOSSIER_STRATEGY"/);
   assert.match(workflow, /lookback_hours="\$\{DOSSIER_LOOKBACK_HOURS:-168\}"/);
   assert.match(workflow, /evidence_limit="\$\{DOSSIER_EVIDENCE_LIMIT:-180\}"/);
   assert.match(workflow, /--argjson lookbackHours "\$lookback_hours"/);
