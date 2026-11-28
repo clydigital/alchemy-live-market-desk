@@ -27,7 +27,7 @@ export async function getOwnerCreatorSignalDigest(now=new Date()):Promise<Creato
   if(!error)for(const row of data??[]){if(typeof row.html_content!=="string"||row.html_content.length>400_000||createHash("sha256").update(row.html_content).digest("hex")!==row.html_sha256)continue;
    const digest=parseCreatorDigestHtml(row.html_content,now);if(digest&&(!best||Date.parse(digest.generatedAt)>Date.parse(best.generatedAt)))best=digest;}
  }catch{/* Optional Notion read or reviewed-source fallback below. */}
- const token=process.env.NOTION_API_TOKEN?.trim()||process.env.NOTION_MARKET_RESEARCH_TOKEN?.trim();
+ const token=process.env.NOTION_API_TOKEN?.trim()||process.env.NOTION_MARKET_RESEARCH_TOKEN?.trim()||process.env.NOTION_API_KEY?.trim();
  if(!token)return best?{status:"available",digest:best}:{status:"not_configured",digest:null};
  try{const res=await fetch(`https://api.notion.com/v1/blocks/${PAGE_ID}/children?page_size=100`,{headers:{Authorization:`Bearer ${token}`,"Notion-Version":"2025-09-03"},cache:"no-store",signal:AbortSignal.timeout(8000)});
   if(!res.ok)return best?{status:"available",digest:best}:{status:"unavailable",digest:null};

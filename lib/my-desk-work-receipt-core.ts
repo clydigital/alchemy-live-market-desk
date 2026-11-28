@@ -99,8 +99,8 @@ export function preserveMacroReceiptGap(work:HealthLane,brief:HealthLane):Health
 
 
 /** Only already configured server-side identities; no token creation or scope escalation. */
-export function receiptReadTokens(primary:string|undefined,secondary:string|undefined):string[] {
- return [...new Set([primary?.trim(),secondary?.trim()].filter((v):v is string=>!!v))];
+export function receiptReadTokens(primary:string|undefined,secondary:string|undefined,apiKey?:string):string[] {
+ return [...new Set([primary?.trim(),secondary?.trim(),apiKey?.trim()].filter((v):v is string=>!!v))];
 }
 export type ReceiptReadResult={raw:unknown;issue:string|null;status:number|null};
 export async function readReceiptWithScopedFallback(tokens:readonly string[],read:(token:string)=>Promise<ReceiptReadResult>):Promise<ReceiptReadResult>{

@@ -19,7 +19,7 @@ export async function getOwnerWorkReceiptLanes(now=new Date()):Promise<WorkLanes
   const {data:access,error:accessError}=await session.from("app_access_allowlist").select("email").eq("email",user.email.toLowerCase().trim()).eq("active",true).maybeSingle();
   if(accessError||!access)return unknown("Owner authorization unavailable");
  }catch{return unknown("Owner authorization unavailable");}
- const tokens=receiptReadTokens(process.env.NOTION_API_TOKEN,process.env.NOTION_MARKET_RESEARCH_TOKEN);
+ const tokens=receiptReadTokens(process.env.NOTION_API_TOKEN,process.env.NOTION_MARKET_RESEARCH_TOKEN,process.env.NOTION_API_KEY);
  if(!tokens.length)return unknown("Existing Notion receipt reader not configured");
  const read=async(path:string,body?:object):Promise<ReceiptReadResult>=>readReceiptWithScopedFallback(tokens,async token=>{
   try{const r=await fetch("https://api.notion.com/v1"+path,{method:body?"POST":"GET",headers:{Authorization:"Bearer "+token,"Notion-Version":"2025-09-03",...(body?{"Content-Type":"application/json"}:{})},body:body?JSON.stringify(body):undefined,cache:"no-store",signal:AbortSignal.timeout(6500)});
