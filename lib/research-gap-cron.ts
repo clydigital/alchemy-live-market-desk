@@ -8,6 +8,8 @@ import { acceptsResearchAuthorization } from "./research-auth.ts";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
 
 type ResearchGapCronDependencies = {
+  /** False is reserved for isolated legacy contract tests; production routes omit it. */
+  referenceOnly?: boolean;
   authorised?: (request: Request) => boolean;
   handoff?: (request: Request) => Promise<Response>;
   research?: (request: Request) => Promise<Response>;
@@ -125,6 +127,13 @@ export async function handleScheduledResearchGapCycle(
     });
   }
 
+  // Dossier-derived legacy queue is owner-requested reference work. Preserve
+  // authenticated completed disposition for the independent X retry wrapper.
+  if (dependencies.referenceOnly !== false) {
+    return response({status:"completed",action:"manual_only",mode:"MANUAL_ONLY",
+      reason:"Dossier-derived Research Gap queue reserved for explicit owner review"});
+  }
+
   const handoffResponse = await handoff(request);
   const handoffBody = await readJson(handoffResponse);
   if (!handoffResponse.ok) {
@@ -214,6 +223,13 @@ export async function handleScheduledResearchGapHandoff(
       reason: "live_research_active",
       message: "Research Gap handoff deferred because a canonical morning/evening Live sweep is still active.",
     });
+  }
+
+  // Dossier-derived legacy queue is owner-requested reference work. Preserve
+  // authenticated completed disposition for the independent X retry wrapper.
+  if (dependencies.referenceOnly !== false) {
+    return response({status:"completed",action:"manual_only",mode:"MANUAL_ONLY",
+      reason:"Dossier-derived Research Gap queue reserved for explicit owner review"});
   }
 
   const handoffResponse = await handoff(request);
