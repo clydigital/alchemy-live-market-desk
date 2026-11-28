@@ -66,5 +66,15 @@ test("daily downloadable source yields exact 1/3/5-session percentage-point move
  const n=calculateBreadthRow("NDFI","50D",gap.find(s=>s.symbol==="NDFI"),now);
  assert.equal(n.change,1);assert.equal(n.change3d,null);assert.equal(n.change5d,null);
  const reader=readFileSync(new URL("../lib/bluebelly-breadth-reader.ts",import.meta.url),"utf8");
- assert.match(reader,/auth\.getUser/);assert.match(reader,/app_access_allowlist/);assert.match(reader,/researchAllowed\?readResearchHistory/);
+ assert.match(reader,/auth\.getUser/);assert.match(reader,/app_access_allowlist/);assert.match(reader,/researchAllowed\?readResearchBreadthForSession\(session\)/);
+});
+
+test("shared breadth cache is session-keyed and research authorization remains outside the cache",()=>{
+ const reader=readFileSync(new URL("../lib/bluebelly-breadth-reader.ts",import.meta.url),"utf8");
+ assert.match(reader,/const session=expectedHomeEtfSession\(now\)/);
+ assert.match(reader,/readPublicBreadthForSession\(session\)/);
+ assert.match(reader,/readResearchBreadthForSession\(session\)/);
+ assert.match(reader,/researchAllowed=includeResearchHistory&&await authorizedResearchHistory\(\)/);
+ assert.match(reader,/cache:"no-store"/);
+ assert.match(reader,/bluebelly_shared_breadth_session_health/);
 });
