@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
+import {projectXWirePool} from "../lib/x-wire-pool-health.ts";
 import {X_CORE_ROSTER} from "../lib/x-sweep-core.ts";
 import {rankXWireMarketCandidates} from "../lib/x-wire-market-candidates.ts";
 import {attachXWireResearchLeads} from "../lib/x-wire-scheduled-research-leads.ts";
@@ -17,13 +18,13 @@ const source=(handle:string,id:number,text:string,time="2026-10-27T23:05:00Z",
 const run:ResearchRunInput={runKey:"xwire-market",scheduleSlot:"morning",
  scheduledFor:now.toISOString(),items:[],sourceChecks:[],summary:"other sources"};
 test("existing sources stay unique, new owners join and excluded handle stays blocked",()=>{
- assert.equal(X_CORE_ROSTER.length,16);
+ assert.equal(X_CORE_ROSTER.length,14);
  assert.equal(X_CORE_ROSTER.filter(x=>x.handle==="KobeissiLetter").length,1);
  assert.equal(X_CORE_ROSTER.filter(x=>x.handle==="HormuzReport").length,1);
  assert.ok(X_CORE_ROSTER.some(x=>x.handle.toLowerCase()==="zerohedge"));
  assert.ok(X_CORE_ROSTER.some(x=>x.handle==="TGLetter"));
  assert.ok(X_CORE_ROSTER.some(x=>x.handle==="macropaperr"));
- assert.ok(X_CORE_ROSTER.some(x=>x.handle==="BeginnerTrades"));
+ assert.ok(!X_CORE_ROSTER.some(x=>["beginnertrades","bluekurtic"].includes(x.handle.toLowerCase())));
  assert.ok(X_CORE_ROSTER.some(x=>x.handle==="OddStats"));
  assert.equal(X_CORE_ROSTER.filter(x=>x.handle==="DrJStrategy").length,1);
  assert.equal(X_CORE_ROSTER.filter(x=>x.handle==="SaraEisen").length,1);
@@ -51,7 +52,7 @@ test("market-catalyst ranking covers Hormuz and yields, with social claims never
  assert.ok(ranked.some(x=>x.theme==="equities_ai"));
  assert.ok(ranked.some(x=>x.post.handle==="zerohedge"));
  assert.ok(ranked.some(x=>x.post.handle==="macropaperr"));
- assert.ok(ranked.some(x=>x.post.handle==="BeginnerTrades"));
+ assert.ok(!ranked.some(x=>["BeginnerTrades","Bluekurtic"].includes(x.post.handle)));
  assert.ok(ranked.some(x=>x.post.handle==="OddStats"));
  assert.ok(ranked.some(x=>x.post.handle==="TGLetter"&&x.theme==="resilience_preparedness"));
  assert.ok(!ranked.some(x=>x.post.handle==="GordianKnotDev"));
@@ -82,7 +83,7 @@ test("public reader is narrowly whitelisted; raw owner Wire stays private",()=>{
  const route=readFileSync(new URL("../app/api/x-wire/discovery/route.ts",import.meta.url),"utf8");
  assert.match(route,/sourceQuality|discoveryOnly:true|verifiedMarketClaims:0/);
  const pool=readFileSync(new URL("../lib/x-wire-research-pool.ts",import.meta.url),"utf8");
- assert.match(route,/readXWireResearchPool\(db,now\)/);
+ assert.match(route,/readXWireResearchPoolResult\(db,now\)/);
  assert.match(pool,/\.limit\(250\)/);
  assert.match(pool,/GordianKnotDev/);
  assert.match(route,/sourceMaterial:xWireSourceMaterial\(post\)/);
@@ -91,3 +92,30 @@ test("public reader is narrowly whitelisted; raw owner Wire stays private",()=>{
  assert.doesNotMatch(route,/getXWireDurable\(|\.rpc\(|\.upsert\(|\.insert\(|\.update\(|story_thesis_versions/);
 });
 
+
+test("MD1 discovery: account-ledger failure retains bounded leads without inventing coverage",()=>{
+ const route=readFileSync(new URL("../app/api/x-wire/discovery/route.ts",import.meta.url),"utf8");
+ assert.match(route,/Promise\.allSettled/);
+ assert.match(route,/poolResult\.status==="rejected"/);
+ assert.match(route,/registered:accountsRead\?checked\.length:null/);
+ assert.match(route,/complete:accountsRead&&/);
+ assert.match(route,/since===null&&accountsRead&&pool\.complete\?/);
+ assert.match(route,/if\(delta\.error\)throw/);
+ assert.match(route,/x_discovery_read_health/);
+});
+
+test("MD1 public discovery isolates failed post partitions, without implying complete coverage",()=>{
+ const ok=(data:string[])=>({status:"fulfilled" as const,value:{data,error:null}});
+ const failed={status:"fulfilled" as const,value:{data:null,error:{message:"private error"}}};
+ const rejected={status:"rejected" as const,reason:new Error("private rejected")};
+ assert.deepEqual(projectXWirePool([ok(["one"]),failed,rejected]),{rows:["one"],successfulPartitions:1,totalPartitions:3,complete:false});
+ assert.deepEqual(projectXWirePool([ok([]),ok([]),ok([])]),{rows:[],successfulPartitions:3,totalPartitions:3,complete:true});
+ assert.equal(projectXWirePool([failed,rejected,failed]).successfulPartitions,0);
+ assert.ok(!JSON.stringify(projectXWirePool([ok(["one"]),failed,rejected])).includes("private error"));
+ const route=readFileSync(new URL("../app/api/x-wire/discovery/route.ts",import.meta.url),"utf8");
+ assert.match(route,/pool\.successfulPartitions===0/);
+ assert.match(route,/complete:accountsRead&&pool\.complete&&[^\n]+fresh===X_CORE_ROSTER\.length/);
+ assert.match(route,/sourcePoolComplete:pool\.complete/);
+ const pool=readFileSync(new URL("../lib/x-wire-research-pool.ts",import.meta.url),"utf8");
+ assert.match(pool,/if\(!result\.complete\)throw/);
+});

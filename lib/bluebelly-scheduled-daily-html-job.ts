@@ -11,6 +11,10 @@ import {getOriginalPressNews} from "./blue-desk-original-press-news-server";
 import {combineQualifiedNews} from "./blue-desk-qualified-news";
 import {getPublicSourceObservations} from "./blue-desk-source-observations";
 import {getMarketMonitor} from "./market-monitor-public";
+import {buildCompareResearch} from "./bluebelly-compare-research";
+import {publicMarketObservations} from "./blue-desk-public-markets";
+import {buildResearchCharts,buildMacroResearchCharts,buildBondRegimeCharts,buildIssuerCashCharts,RESEARCH_CASH_ISSUERS} from "./bluebelly-research-charts";
+import {readIndustryComparison} from "./bluebelly-industry-comparison-server";
 import {getEconomicCalendar} from "./calendar";
 import {getForwardEarningsEvents} from "./forward-earnings-sources";
 import {buildPresenterCalendar} from "./presenter-calendar";
@@ -22,7 +26,7 @@ import {renderScheduledDailyHtml} from "./bluebelly-scheduled-daily-html";
 import {scheduledDailyHtmlFallbackEnabled} from "./bluebelly-daily-html-fallback-gate";
 
 type Result={status:"ready"|"reused"|"stale"|"withheld"|"locked"|"failed";
- reportDay?:string;id?:string;mode?:string;reason?:string;qualified?:number};
+ reportDay?:string;id?:string;mode?:string;reason?:string;qualified?:number;chartCount?:number;chartAvailable?:number};
 const hash=(s:string)=>createHash("sha256").update(s).digest("hex");
 const timeGate=(d:Date)=>Number.isFinite(d.getTime())&&d.getUTCHours()===3
  &&(d.getUTCMinutes()>=30&&d.getUTCMinutes()<59);
@@ -85,7 +89,7 @@ export async function runPrivateDailyHtmlFallback(
   }
 
   // Every adapter below already projects verified original-source inputs.
-  const [motion,press,observations,economic,earnings,monitor]=await Promise.all([
+  const [motion,press,observations,economic,earnings,monitor,issuerComparison]=await Promise.all([
    getCurrentVerifiedMarketMotion({limit:24}).catch(()=>[]),
    getOriginalPressNews(now,12,2).catch(()=>[]),
    getPublicSourceObservations(now,12).catch(()=>[]),
@@ -94,6 +98,7 @@ export async function runPrivateDailyHtmlFallback(
     events:[],coverage:"unavailable" as const,warning:"Earnings unavailable",
    })),
    getMarketMonitor().catch(()=>null),
+   readIndustryComparison(RESEARCH_CASH_ISSUERS,now).catch(()=>({status:"UNAVAILABLE" as const,columns:[]})),
   ]);
   const news=combineQualifiedNews(selectVerifiedNewsBriefs(motion,now,12),press,12);
   const upcoming=selectBlueDeskUpcoming(buildPresenterCalendar(economic,earnings,now),now,14).slice(0,12);
@@ -127,7 +132,14 @@ export async function runPrivateDailyHtmlFallback(
    return {status:"withheld",reportDay:day,reason:"bounded_source_coverage_gap"};
 
   const narrative=await tryNarrative(evidence);
-  const rendered=renderScheduledDailyHtml({day,now,evidence,narrative});
+  // Use the market data already read for this edition. Do not make an extra
+  // market-provider or breadth request; absent eligible breadth stays missing.
+  const rows=monitor?.rows??[];
+  const compare=buildCompareResearch([...rows,...(monitor?.divergenceRows??[])],publicMarketObservations(rows,"all"),now,[]);
+  const researchCharts=[...buildResearchCharts(compare),...buildMacroResearchCharts(rows,now),
+   ...buildIssuerCashCharts(issuerComparison.columns,now),...buildBondRegimeCharts(rows,now)];
+  const rendered=renderScheduledDailyHtml({day,now,evidence,narrative,researchCharts});
+  const chartAvailable=(rendered.html.match(/data-chart-rendered="true"/g)??[]).length;
   const htmlSha=hash(rendered.html),contentSha=hash("BLUEBELLY_SCHEDULED_HTML_V1|"+day+"|"+rendered.html);
   const manifest=evidence.sources.slice(0,20).map(s=>({
    sourceId:s.id,sourceType:s.type,sourceName:s.sourceName,
@@ -150,9 +162,9 @@ export async function runPrivateDailyHtmlFallback(
   if(saveError||!saved||saved.report_day!==day||saved.html_sha256!==htmlSha)
    return {status:"failed",reportDay:day,reason:"private_archive_insert_failed"};
   console.info(JSON.stringify({event:"private_daily_html_archived",reportDay:day,
-   id:saved.id,mode:rendered.mode,sourceCount:manifest.length}));
+   id:saved.id,mode:rendered.mode,sourceCount:manifest.length,chartCount:researchCharts.length,chartAvailable}));
   return {status:"ready",reportDay:day,id:saved.id,mode:rendered.mode,
-   qualified:evidence.sources.filter(s=>s.type!=="CALENDAR").length};
+   qualified:evidence.sources.filter(s=>s.type!=="CALENDAR").length,chartCount:researchCharts.length,chartAvailable};
  }catch(err){
   const reason=err instanceof Error?boundedText(err.message):"unhandled_error";
   console.warn(JSON.stringify({event:"private_daily_html_failed",reportDay:day,reason}));

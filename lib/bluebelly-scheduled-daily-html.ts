@@ -1,3 +1,4 @@
+import type {ResearchChart} from "./bluebelly-research-charts.ts";
 import type {AutomatedReportNarrative,AutomaticReportEvidence,ReportSource}
  from "./blue-desk-automated-report-contract.ts";
 import {parseExistingHtmlEdition} from "./bluebelly-html-archive-import-contract.ts";
@@ -48,11 +49,33 @@ function sourceRow(s:ReportSource){
 }
 const p=(label:string,value:string)=>`<p><strong>${esc(label)}:</strong> ${plain(value,2300)}</p>`;
 const section=(title:string,body:string)=>`<section><h2>${plain(title,180)}</h2>${body}</section>`;
+/** Only internal, deterministic chart artifacts. No browser/model-provided
+ * markup, remote resources, or chart-derived causal claims. */
+export function renderScheduledChartPack(charts:readonly ResearchChart[]):string{
+ const unique=[...new Map(charts.map(c=>[c.dataHash,c])).values()].slice(0,20);
+ const blocks=unique.map(c=>{
+  const hash=/^[a-f0-9]{64}$/.test(c.dataHash)?c.dataHash:"";
+  const svg=c.svg??"";
+  const safeSvg=hash&&svg.length<=80000&&/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"[^>]*>[\s\S]*<\/svg>$/.test(svg)&&
+   !/\bon[a-z]{3,}\s*=|javascript\s*:|@import\b|url\s*\(|\b(?:href|src)\s*=/i.test(svg)&&
+   [...svg.matchAll(/<\/?([a-z][a-z0-9-]*)\b/gi)].every(m=>["svg","title","desc","rect","g","text","line","path","circle"].includes(m[1]));
+  const links=[...new Map(c.marks.flatMap(m=>m.sources).map(s=>[s.url,s])).values()].slice(0,20).flatMap(s=>{
+   try{const u=new URL(s.url);return u.protocol==="https:"&&!u.username&&!u.password?['<a href="'+plain(u.href,2048)+'" target="_blank" rel="noopener noreferrer">'+plain(s.name,120)+'</a>']:[];}catch{return [];}
+  });
+  const available=c.status!=="UNAVAILABLE"&&safeSvg;
+  return '<figure class="research-chart" data-chart-hash="'+hash+'" data-chart-rendered="'+Boolean(available)+'"><h3>'+plain(c.title,180)+'</h3><p class="small">'+plain((available?c.status:"UNAVAILABLE")+" · "+(c.asOf??"No eligible observation date")+" · "+c.frequency+" · "+c.window+" · "+c.unit,240)+'</p>'+
+   (available?svg:'<p>Chart unavailable: insufficient compatible source observations or static rendering rejected.</p>')+
+   (c.missing.length?'<p class="small">Missing: '+plain(c.missing.join(", "),400)+'</p>':"")+
+   (links.length?'<p class="small">Source links: '+links.join(" · ")+'</p>':"")+'</figure>';
+ }).join("");
+ return section("Source-dated research charts",'<p>Measured chart evidence from the existing market read; not forecasts. Chart fingerprints identify the data and render version.</p>'+(blocks||'<p>No chart packet supplied.</p>'));
+}
 /** An explicitly private, static, source-labelled fallback. No claim that a
  * retrieved Notion/X/creator opinion independently verifies an event. */
 export function renderScheduledDailyHtml(input:{
  day:string;now:Date;evidence:AutomaticReportEvidence;
  narrative?:AutomatedReportNarrative|null;
+ researchCharts?:readonly ResearchChart[];
 }):{html:string;title:string;mode:"MODEL_ASSISTED"|"SOURCE_LED_FALLBACK"}{
  const {day,now,evidence}=input,report=input.narrative||null;
  if(!/^20\d{2}-\d{2}-\d{2}$/.test(day)||
@@ -105,6 +128,7 @@ export function renderScheduledDailyHtml(input:{
   body+=renderPrivateExpectationsTable(evidence);
   body+=renderPrivateUpcomingTable(evidence,report);
  }
+ if(input.researchCharts)body+=renderScheduledChartPack(input.researchCharts);
  body+=section("Original-source ledger",
   "<p>These links were admitted by existing source-qualified research adapters. Their presence is not independent rechecking by this renderer; quotations, forecasts and explanatory mechanisms need their own review.</p><ol>"+
   evidence.sources.slice(0,20).map(sourceRow).join("")+"</ol>");
@@ -114,7 +138,7 @@ export function renderScheduledDailyHtml(input:{
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Bluebelly Daily Intelligence | ${esc(day)}</title>
 <style>body{font:18px/1.75 system-ui,-apple-system,Segoe UI,sans-serif;max-width:790px;margin:auto;padding:28px;color:#182b32;background:#f8f9f7}
-h1{font-size:2.15rem;line-height:1.2}h2{font-size:1.6rem;line-height:1.25;margin:0 0 18px}
+figure.research-chart{margin:22px 0;padding:14px;border:1px solid #dacfc0;background:#fbf7ef;border-radius:10px;break-inside:avoid}figure.research-chart svg{display:block;width:100%;height:auto}figure.research-chart h3{margin:0 0 8px}h1{font-size:2.15rem;line-height:1.2}h2{font-size:1.6rem;line-height:1.25;margin:0 0 18px}
 section{border-top:1px solid #d4ddda;padding:25px 0}p,li{margin:0 0 14px}a{color:#126b65;overflow-wrap:anywhere}
 .kicker{color:#117566;text-transform:uppercase;letter-spacing:.1em;font-size:12px;font-weight:700}
 .limits{background:#fff4df;padding:14px;border-left:3px solid #c18d24}

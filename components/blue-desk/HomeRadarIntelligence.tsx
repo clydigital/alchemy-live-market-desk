@@ -1,20 +1,22 @@
 "use client";
 
-import {createContext,useContext,useEffect,useId,useRef,useState,type ReactNode} from "react";
+import {createContext,useContext,useEffect,useId,useRef,useState,useTransition,type ReactNode} from "react";
+import {useRouter} from "next/navigation";
 import type {HomeRadarRead,HomeRadarPulse} from "@/lib/bluebelly-home-radar-intelligence";
 import ui from "./HomeRadarIntelligence.module.css";
 
+type RadarSourceHealth={researchLeadStatus?:"readable"|"unavailable"|null;newsReads:{motion:boolean;originalPress:boolean;officialMacro:boolean};marketReadable:boolean;creatorStatus:string;creatorGeneratedAt:string|null;latestNewsAt:string|null;latestMarketAt:string|null};
 type RadarContext={
  open:boolean;toggle:()=>void;contentId:string;
 };
 const radarContext=createContext<RadarContext|null>(null);
 const icons:Record<HomeRadarPulse["kind"],string>={
- NEWS:"NEWS",BIG_MOVE:"MOVE",DIVERGENCE:"GAP",CREATOR:"ANALYST",
+ NEWS:"NEWS",BIG_MOVE:"MOVE",DIVERGENCE:"GAP",CREATOR:"ANALYST",RESEARCH_LEAD:"RESEARCH LEAD",
 };
 const descriptions:Record<HomeRadarPulse["kind"],string>={
  NEWS:"Latest verified news",BIG_MOVE:"Large observed daily move",
  DIVERGENCE:"Measured relative-performance divergence",
- CREATOR:"Owner-only transcript interpretation",
+ CREATOR:"Owner-only transcript interpretation",RESEARCH_LEAD:"Private unverified reporting lead",
 };
 function useRadar(){
  const context=useContext(radarContext);
@@ -52,8 +54,10 @@ function Pulse({item,index}:{item:HomeRadarPulse;index:number}){
 /** The radar's owner-checked research is passed by the server route.
  * The UI never fetches privileged data or changes any Regime score. */
 export default function RadarIntelligenceShell({
- read,children,
-}:{read:HomeRadarRead;children:ReactNode}){
+ read,children,sourceHealth,
+}:{read:HomeRadarRead;children:ReactNode;sourceHealth?:RadarSourceHealth}){
+ const router=useRouter();
+ const [refreshing,startRefresh]=useTransition();
  const [open,setOpen]=useState(false);
  const contentId=useId();
  const panel=useRef<HTMLElement>(null);
@@ -79,11 +83,19 @@ export default function RadarIntelligenceShell({
     <button className={ui.close} type="button" onClick={()=>setOpen(false)}>Close radar ×</button>
    </header>
    <div className={ui.wave} aria-hidden="true"><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/></div>
+   <div role="status" aria-live="polite">
+    <p><strong>Radar evaluated:</strong> {observed(read.generatedAt)} · <button type="button" disabled={refreshing} onClick={()=>startRefresh(()=>router.refresh())}>{refreshing?"Refreshing…":"Refresh radar"}</button></p>
+    {sourceHealth&&<><p><strong>News sources:</strong> {Object.values(sourceHealth.newsReads).every(Boolean)?"All three reads returned":"Partial / failed reads: "+Object.entries(sourceHealth.newsReads).filter(([,ok])=>!ok).map(([key])=>key).join(", ")} · Latest qualified event: {sourceHealth.latestNewsAt?observed(sourceHealth.latestNewsAt):"None returned"}</p>
+    <p><strong>Market monitor:</strong> {sourceHealth.marketReadable?"Read returned":"Unavailable"} · Latest eligible daily observation: {sourceHealth.latestMarketAt?observed(sourceHealth.latestMarketAt):"None returned"}</p>
+    {sourceHealth.creatorStatus!=="unauthorised"&&<p><strong>Creator digest:</strong> {sourceHealth.creatorStatus.replaceAll("_"," ")} · {sourceHealth.creatorGeneratedAt?observed(sourceHealth.creatorGeneratedAt):"No digest returned"}</p>}
+    <p>Read completion is not ingestion success. Older trading sessions may reflect holidays; missing observations are not evidence of a quiet market.</p></>}
+   </div>
    <div className={ui.coverage}>
     <span><strong>{read.newsCount}</strong> verified 24h headlines</span>
-    <span><strong>{read.moveCount}</strong> large daily moves</span>
+    <span><strong>{read.items.filter(item=>item.kind==="BIG_MOVE").length}</strong> large daily moves displayed</span>
     <span><strong>{read.divergenceCount}</strong> matched divergences</span>
     <span><strong>{read.creatorCount}</strong> reviewed creator takes</span>
+    {sourceHealth?.researchLeadStatus&&<span><strong>{read.researchLeadCount}</strong> private investigation leads · {sourceHealth.researchLeadStatus==="unavailable"?"read unavailable":"not verified news"}</span>}
    </div>
    {read.items.length?
     <div className={ui.rail} tabIndex={0} role="region" aria-label="Scrollable market intelligence pulses">
@@ -99,7 +111,7 @@ export default function RadarIntelligenceShell({
     <p>{read.creatorAccess==="PRIVATE_LOCKED"?
       <>Transcript-based takes are private. <a href="/my-reports">Sign in to My Desk</a> to inspect reviewed creator reasoning.</>:
       read.creatorAccess==="NO_RECENT_REVIEWED"?
-      "No recently reviewed creator digest met the provenance and freshness rules. No opinion was inferred.":
+      "No recently reviewed creator item met the provenance and freshness rules. No opinion was inferred.":
       "Creator claims shown only in an authorised owner session. Independent price/source checks remain separate."}</p>
    </footer>
   </section>

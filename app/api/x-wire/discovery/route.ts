@@ -4,7 +4,7 @@ import {createSupabaseAdminClient} from "@/lib/supabase/admin";
 import {X_CORE_ROSTER} from "@/lib/x-sweep-core";
 import {rankXWireMarketCandidates} from "@/lib/x-wire-market-candidates";
 import type {XWireDurable} from "@/lib/x-wire-durable";
-import {readXWireResearchPool,type XWireResearchRow} from "@/lib/x-wire-research-pool";
+import {readXWireResearchPoolResult,type XWireResearchRow} from "@/lib/x-wire-research-pool";
 import {xWireSourceMaterial} from "@/lib/x-wire-source-material";
 import {xWireFreshCheckComplete,xWireLiveFreshnessHours} from "@/lib/x-wire-pagination";
 import {parseXWireDeltaWindow,xWireDeltaPage} from "@/lib/x-wire-incremental";
@@ -23,15 +23,25 @@ export async function GET(request:NextRequest){
  if(host!==BLUEBELLY_PRESENTATION_HOST ||
    blueDeskHostAccess(request.nextUrl.pathname,host)!=="public")
   return new NextResponse(null,{status:404});
+ let failureStage="database_client";
  try{
   const now=new Date();
   const db=createSupabaseAdminClient();
-  const [items,accounts]=await Promise.all([
-   readXWireResearchPool(db,now),
+  failureStage="source_pool";
+  const [poolResult,accountResult]=await Promise.allSettled([
+   readXWireResearchPoolResult(db,now),
    db.from("x_wire_accounts")
     .select("handle,health,last_completed_at,uncovered_before,page_cursor,last_error")
   ]);
-  if(accounts.error)throw new Error("X source ledger not readable");
+  if(poolResult.status==="rejected")throw new Error("X source pool unavailable");
+  const pool=poolResult.value;
+  if(pool.successfulPartitions===0)throw new Error("X source pool unavailable");
+  const items=pool.rows;
+  if(!pool.complete)console.warn(JSON.stringify({kind:"x_discovery_read_health",stage:"source_pool",state:"degraded",cause:"partition_read_failed",successfulPartitions:pool.successfulPartitions,totalPartitions:pool.totalPartitions}));
+  const accountsRead=accountResult.status==="fulfilled"&&!accountResult.value.error;
+  const accountRows=accountResult.status==="fulfilled"&&!accountResult.value.error?accountResult.value.data:[];
+  if(!accountsRead)console.warn(JSON.stringify({kind:"x_discovery_read_health",stage:"accounts",state:"degraded",cause:"ledger_read_failed"}));
+  failureStage="rank_and_redact";
   const posts=(items as XWireResearchRow[]).map(p=>({
    id:p.post_id,handle:p.handle,url:p.original_url,
    publishedAt:p.published_at,retrievedAt:p.retrieved_at,text:p.body,
@@ -46,7 +56,7 @@ export async function GET(request:NextRequest){
     verification:"UNVERIFIED_SOCIAL_LEAD" as const};
   });
   const roster=new Set(X_CORE_ROSTER.map(x=>x.handle.toLowerCase()));
-  const checked=((accounts.data||[]) as SourceRecord[]).filter(a=>roster.has(a.handle.toLowerCase()));
+  const checked=((accountRows||[]) as SourceRecord[]).filter(a=>roster.has(a.handle.toLowerCase()));
   const fresh=checked.filter(a=>xWireFreshCheckComplete(a,now,xWireLiveFreshnessHours(a.handle))).length;
   const historicallyComplete=checked.filter(a=>!a.uncovered_before&&a.health==="healthy"&&!a.page_cursor&&!a.last_error&&!!a.last_completed_at).length;
   const healthy=checked.filter(a=>a.health==="healthy" && !!a.last_completed_at &&
@@ -60,6 +70,7 @@ export async function GET(request:NextRequest){
   if(since!==null||params.has("afterId")||params.has("until")){
    const window=parseXWireDeltaWindow(params,now);
    if(!window)return NextResponse.json({error:"Invalid bounded incremental window"},{status:400,headers:{"Cache-Control":"no-store"}});
+   failureStage="incremental_ledger";
    let query=db.from("x_wire_posts").select("post_id,handle,original_url,published_at,retrieved_at,body,media_urls,quote_url")
     .in("handle",X_CORE_ROSTER.map(x=>x.handle)).eq("intake_status","discovery")
     .gt("retrieved_at",window.since).lte("retrieved_at",window.until).lte("published_at",window.until)
@@ -79,13 +90,14 @@ export async function GET(request:NextRequest){
    contractVersion:"bluebelly/x-discovery/1",generatedAt:now.toISOString(),
    source:"Bluebelly X Wire / attributed third-party FxEmbed timeline",
    discoveryOnly:true,verifiedMarketClaims:0,
-   coverage:{monitored:X_CORE_ROSTER.length,registered:checked.length,healthy,
-    fresh,historicallyComplete,missingRegistration:X_CORE_ROSTER.length-checked.length,
-    complete:checked.length===X_CORE_ROSTER.length&&healthy===X_CORE_ROSTER.length},
+   coverage:{monitored:X_CORE_ROSTER.length,accountsRead,sourcePoolComplete:pool.complete,sourcePoolPartitionsRead:pool.successfulPartitions,sourcePoolPartitionsTotal:pool.totalPartitions,registered:accountsRead?checked.length:null,healthy:accountsRead?healthy:null,
+    fresh:accountsRead?fresh:null,historicallyComplete:accountsRead?historicallyComplete:null,missingRegistration:accountsRead?X_CORE_ROSTER.length-checked.length:null,
+    complete:accountsRead&&pool.complete&&checked.length===X_CORE_ROSTER.length&&healthy===X_CORE_ROSTER.length&&fresh===X_CORE_ROSTER.length},
    leads,incremental,notice:"X post existence and attribution do not verify underlying claims. Confirm primary sources, market measurement vintage and contradictions before MacroPulse or Research Gap promotion. Source status is not claim verification."
-  },{headers:{"Cache-Control":since===null?"public, s-maxage=120, stale-while-revalidate=60":"no-store",
+  },{headers:{"Cache-Control":since===null&&accountsRead&&pool.complete?"public, s-maxage=120, stale-while-revalidate=60":"no-store",
     "X-Content-Type-Options":"nosniff"}});
  }catch{
+  console.warn(JSON.stringify({kind:"x_discovery_read_health",stage:failureStage,state:"failed",cause:"read_or_projection_failed"}));
   return NextResponse.json({error:"X discovery ledger temporarily unavailable",
    discoveryOnly:true,coverage:{complete:false}},
    {status:503,headers:{"Cache-Control":"no-store"}});

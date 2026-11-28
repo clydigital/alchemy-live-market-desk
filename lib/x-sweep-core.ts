@@ -29,7 +29,6 @@ export const X_SWEEP_DEFAULTS: XSweepSettings = Object.freeze({
 });
 
 export const X_CORE_ROSTER = Object.freeze([
-  { handle: "Bluekurtic", focus: "energy" },
   { handle: "HFI_Research", focus: "energy" },
   { handle: "OilandEnergy", focus: "energy" },
   { handle: "HormuzReport", focus: "hormuz" },
@@ -41,14 +40,12 @@ export const X_CORE_ROSTER = Object.freeze([
   { handle: "zerohedge", focus: "global-news" },
   { handle: "TGLetter", focus: "civil-resilience" },
   { handle: "macropaperr", focus: "cross-asset" },
-  { handle: "BeginnerTrades", focus: "trading" },
   { handle: "OddStats", focus: "statistics" },
   { handle: "DrJStrategy", focus: "markets" },
   { handle: "SaraEisen", focus: "macro" },
 ] as const);
-// The 24 Nov addition of SaraEisen makes 16 attributed discovery accounts.
-// GordianKnotDev remains excluded. A roster member is not verified market evidence.
-export const X_WIRE_EXCLUDED_HANDLES = Object.freeze(["gordianknotdev"] as const);
+// 27 Nov owner update: 14 active accounts; retired accounts remain audit history.
+export const X_WIRE_EXCLUDED_HANDLES = Object.freeze(["gordianknotdev","beginnertrades","bluekurtic"] as const);
 export function isExcludedXWireHandle(handle: string): boolean {
   return X_WIRE_EXCLUDED_HANDLES.some(blocked =>
     blocked === handle.trim().replace(/^@/, "").toLowerCase());

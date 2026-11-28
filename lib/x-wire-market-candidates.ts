@@ -41,7 +41,7 @@ export function rankXWireMarketCandidates(posts:readonly WirePost[],now=new Date
   const matched=TOPICS.filter(t=>t.regex.test(post.text));
   if(!matched.length&&!flash)return [];
   const preferred=["hormuzreport","hfi_research","oilandenergy"].includes(handle)?"energy_shipping":
-    ["bluekurtic","oddstats"].includes(handle)?"equities_ai":
+    ["oddstats"].includes(handle)?"equities_ai":
     ["kobeissiletter","macropaperr","drjstrategy","saraeisen"].includes(handle)?"macro_rates_fx":
     handle==="tgletter"?"resilience_preparedness":null;
   const theme=matched.find(t=>t.theme===preferred)?.theme||matched[0]?.theme||

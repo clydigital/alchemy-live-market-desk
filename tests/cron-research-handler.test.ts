@@ -236,9 +236,9 @@ test("scheduled acquisition and intelligence routes are separate durable phases"
   assert.match(eveningPrimary, /handleScheduledResearchAcquisition\(request, "evening"\)/);
   assert.match(eveningWatchdog, /handleScheduledResearchAcquisition\(request, "evening"\)/);
   assert.match(morningIntelligence, /handleScheduledResearchIntelligence\(request, "morning"\)/);
-  assert.match(morningIntelligenceWatchdog, /handleScheduledResearchIntelligence\(request, "morning"\)/);
+  assert.match(morningIntelligenceWatchdog, /handleScheduledResearchIntelligence\(request, "morning", \{ sourceOnlyRetry: true \}\)/);
   assert.match(eveningIntelligence, /handleScheduledResearchIntelligence\(request, "evening"\)/);
-  assert.match(eveningIntelligenceWatchdog, /handleScheduledResearchIntelligence\(request, "evening"\)/);
+  assert.match(eveningIntelligenceWatchdog, /handleScheduledResearchIntelligence\(request, "evening", \{ sourceOnlyRetry: true \}\)/);
   assert.match(midnightVideo, /handleVideoIntakeRequest\(request, "video_midnight"\)/);
   assert.match(lateMorningVideo, /handleVideoIntakeRequest\(request, "video_late_morning"\)/);
   assert.match(acquisitionWrapper, /x-alchemy-defer-intelligence/);
@@ -262,14 +262,13 @@ test("scheduled acquisition and intelligence routes are separate durable phases"
   assert.equal(hasCron("/api/cron/research/morning-watchdog", "35 1 * * *"), true);
   assert.equal(hasCron("/api/cron/research/evening", "30 13 * * *"), true);
   assert.equal(hasCron("/api/cron/research/evening-watchdog", "35 13 * * *"), true);
-  assert.equal(
-    vercelConfig.crons.filter((cron) => cron.path === "/api/cron/research/morning-intelligence").length,
-    2,
-  );
-  assert.equal(
-    vercelConfig.crons.filter((cron) => cron.path === "/api/cron/research/evening-intelligence").length,
-    2,
-  );
+  assert.equal(vercelConfig.crons.filter((cron) => cron.path === "/api/cron/research/morning-intelligence").length, 1);
+  assert.equal(vercelConfig.crons.filter((cron) => cron.path === "/api/cron/research/evening-intelligence").length, 1);
+  assert.equal(hasCron("/api/cron/research/morning-intelligence-watchdog", "45 7 * * *"), true);
+  assert.equal(hasCron("/api/cron/research/evening-intelligence-watchdog", "45 19 * * *"), true);
+  assert.match(continuationHandler, /if \(options\.sourceOnlyRetry && !scheduledSourceOnlyEnabled\(process\.env\)\)/);
+  assert.ok(continuationHandler.indexOf("if (!authorised(request))") < continuationHandler.indexOf("if (options.sourceOnlyRetry"));
+  assert.ok(continuationHandler.indexOf("if (options.sourceOnlyRetry") < continuationHandler.indexOf("runWithIntelligenceInvocation({ oneModelStage: true }"));
   assert.equal(vercelConfig.crons.some((cron) => cron.path === "/api/cron/live-research"), false);
   assert.equal(
     vercelConfig.rewrites?.some((entry) => entry.source === "/api/cron/research/:path*") ?? false,

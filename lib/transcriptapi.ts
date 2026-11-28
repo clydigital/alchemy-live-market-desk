@@ -113,6 +113,16 @@ export class TranscriptApiError extends Error {
   }
 }
 
+export type ProviderHealthAttempt = {provider: string; outcome: "success" | "failed" | "skipped"; cause: string | null; timestamp: string};
+export type ProviderHealthReceipt = {kind: "provider_health_receipt_v1"; capability: "timestamped_public_video_transcript"; provider: string; timestamp: string; state: "healthy" | "recovered" | "degraded" | "failed"; cause: string | null; fallbackAttempted: boolean; attempts: ProviderHealthAttempt[]; residualCoverage: string; nextRetry: string | null; retryOwner: string};
+// Attach only locally generated, sanitized diagnostics; never serialize raw provider errors.
+const failureReceipts = new WeakMap<TranscriptApiError, ProviderHealthReceipt>();
+export function attachProviderFailureReceipt(error: TranscriptApiError, receipt: ProviderHealthReceipt) {
+  failureReceipts.set(error, receipt);
+  return error;
+}
+export function providerFailureReceipt(error: TranscriptApiError) { return failureReceipts.get(error); }
+
 type ProviderResponse = {
   response: Response;
   body: Record<string, unknown>;

@@ -1,7 +1,9 @@
 /**
  * Source-only completion contract for the EXISTING authorised Vercel research
- * acquisition slots. The rollback switch restores the old dedicated intelligence
- * continuation without changing schedules or historical research editions.
+ * acquisition slots. The rollback switch restores the primary dedicated intelligence
+ * continuation without changing historical research editions. The two redistributed
+ * source-only watchdog retries stay disabled in legacy mode; restoring the full
+ * former legacy continuation cadence requires restoring those two cron entries.
  *
  * Do not use this contract for user-directed manual research, and never treat
  * a completed source sweep as proof of verified market reaction or a Story.

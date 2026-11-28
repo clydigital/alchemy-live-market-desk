@@ -75,3 +75,41 @@ export function augmentCreatorLane(base:HealthLane,digest:CreatorDigest|null,now
  gaps:base.gaps+(privateOnly?"; "+privateOnly+" private reviews require separate canonical intake readback":"")+"; digest timestamp is not new discovery or transcript timestamp",
  backup:reportedRecovery?reportedRecovery+" private recovery reported in saved digest; equivalent provider fallback chain not verified":base.backup});
 }
+
+
+/** Preserve the actual bounded reader failure instead of hiding it behind old receipts. */
+export function workReceiptReadIssue(status:number|null):string|null {
+ if(status===200)return null;
+ if(status===401||status===403||status===404)return "Notion receipt access/configuration (HTTP "+status+")";
+ if(status===429)return "Notion receipt rate limit (HTTP 429)";
+ if(status===null)return "Notion receipt request unavailable";
+ return "Notion receipt request failed (HTTP "+status+")";
+}
+export function annotateWorkReceiptRead(base:HealthLane,primaryIssue:string|null,operationalIssue:string|null):HealthLane {
+ const issues=[...new Set([primaryIssue,operationalIssue].filter((x):x is string=>!!x))];
+ if(!issues.length)return base;
+ return lane(base.label,{...base,failure:issues.join("; "),partial:true,
+ coverageComplete:false,gaps:base.gaps+"; "+issues.join("; ")+"; no replacement source clock inferred"});
+}
+export function preserveMacroReceiptGap(work:HealthLane,brief:HealthLane):HealthLane {
+ if(work.execution!=="Unknown")return work;
+ return lane(brief.label,{...brief,failure:work.failure,partial:work.partial||brief.partial,
+ coverageComplete:work.partial?false:brief.coverageComplete,gaps:brief.gaps+"; "+work.gaps});
+}
+
+
+/** Only already configured server-side identities; no token creation or scope escalation. */
+export function receiptReadTokens(primary:string|undefined,secondary:string|undefined,apiKey?:string):string[] {
+ return [...new Set([primary?.trim(),secondary?.trim(),apiKey?.trim()].filter((v):v is string=>!!v))];
+}
+export type ReceiptReadResult={raw:unknown;issue:string|null;status:number|null};
+export async function readReceiptWithScopedFallback(tokens:readonly string[],read:(token:string)=>Promise<ReceiptReadResult>):Promise<ReceiptReadResult>{
+ if(!tokens.length)return {raw:null,issue:"Existing Notion receipt reader not configured",status:null};
+ const first=await read(tokens[0]);
+ // A 404 may mean the first integration cannot see this particular source.
+ // One alternate preconfigured identity only. Do not retry quota or timeout.
+ if(![401,403,404].includes(first.status??0)||!tokens[1])return first;
+ const second=await read(tokens[1]);
+ if(second.status===200)return second;
+ return {...second,issue:second.issue+"; alternate configured integration also unsuccessful"};
+}

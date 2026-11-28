@@ -1,0 +1,11 @@
+# Regime current-conditions reconciliation — 27 November 2026
+
+Approved principle: Dossier and Story history supply hypotheses, prior explanations, and falsification context; neither their creation clock nor a fallback dossier can establish present conditions. Current source-qualified observations, dated review and matched market tape stay independent. New original evidence, provisional research, and attributed creator leads are separate classes.
+
+Reviewed existing Notion research registry (AI financing, memory, recession, sentiment, architecture, manual review), production transcript-derived logic and current Work research receipts. The public renderer uses public-safe question records and existing qualified inputs only; no private Notion URLs, transcript text, private drafts, holdings or trading instructions are copied into public output. The additional dated review questions use retained source checks, not a fresh full acquisition.
+
+Phase 1: shared read-time scenario comparison on the overview and all existing lens routes. Separate clocks, countercase, matched five-session RSP/SPY and SMH/QQQ for AI and breadth, actual 1D sector participation only on matching date, and no automatic verdict. Existing Dossier pilot labelled as context. No new paid provider, scheduler, schema or canonical writer.
+
+Next: existing MD3/MD11 producer handoff should carry a source-qualified review packet with hypothesis ID, old/current conditions, exact event/review clocks, evidence IDs, independent countercase, next test, public eligibility and readback. Private draft admission must be explicit; never publish transcript-derived opinions automatically. Source-only acquisition remains in force. Deduplicate by existing event/claim lineage and service the highest-materiality reassessments first. Do not manufacture a reviewed timestamp from a market refresh or close unresolved backlog by age.
+
+Acceptance: all nine pages render source-specific scenario pairs; missing/unmatched/expired data cannot yield a verified present verdict. A newer source should require reassessment and holiday sessions must retain observation date. Private drafts and raw social leads remain outside public output. Deployment and natural producer cycles require independent verification.

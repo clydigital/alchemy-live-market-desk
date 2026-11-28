@@ -30,7 +30,6 @@ const PUBLIC_NAV = [
 const PUBLIC_MORE = [
   ["Newsroom", "/newsroom"],
   ["Regime Lenses", "/regime-watch"],
-  ["Industry Intel", "/industry-intel"],
   ["Hormuz Data", "/hormuz"],
   ["Learn", "/learn"],
 ] as const;
@@ -55,6 +54,7 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Research": "research",
   "Research Library": "research",
   "Market Tools": "chart",
+  "EMA Watch": "chart",
   "Data Library": "library",
   "X Wire": "research",
   "Calendar": "calendar",
@@ -79,7 +79,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
   const publicHost = isBlueDeskPublicReaderHost(host);
   // Authenticated owner routes must retain their private workspace navigation,
   // even when opened on the canonical hostname that also serves public readers.
-  const ownerWorkspace = activePath === "/creator-intelligence" || activePath === "/power-stack" || activePath === "/my-reports" || activePath === "/owner/editorial" || activePath === "/owner/presenter" || activePath === "/owner/research" || activePath === "/owner/publications" || activePath === "/owner/daily-report" || activePath === "/owner/daily-articles" || activePath === "/owner/x-wire" || activePath === "/market-tools";
+  const ownerWorkspace = activePath === "/creator-intelligence" || activePath === "/power-stack" || activePath === "/my-reports" || activePath === "/owner/editorial" || activePath === "/owner/presenter" || activePath === "/owner/research" || activePath === "/owner/publications" || activePath === "/owner/daily-report" || activePath === "/owner/daily-articles" || activePath === "/owner/x-wire" || (activePath === "/market-tools" || activePath === "/market-tools?view=technical");
   const nav = publicHost && !ownerWorkspace ? PUBLIC_NAV : PRIVATE_NAV;
   const more = publicHost && !ownerWorkspace ? PUBLIC_MORE : [];
   const current=blueDeskPublicHref(activePath==="/blue-desk/key-stories"?"/blue-desk/newsroom":activePath==="/blue-desk/earnings-week"?"/blue-desk/earnings":activePath,host);
@@ -94,14 +94,12 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
     const href = blueDeskPublicHref(path, host);
     return href === current || (href === "/markets" && (activePath === "/blue-desk/markets" || activePath === "/blue-desk/markets/scanner"));
   };
-  const marketViews = [["All Assets","/blue-desk/markets?mode=assets"],["Rotation & Breadth","/blue-desk/markets?mode=compare"],["Divergence Watch","/blue-desk/markets?mode=watch"],["Risk & Positioning","/blue-desk/markets?mode=risk"]] as const;
-  // Desktop sidebar and mobile drawer share the same destinations. Query-mode
-  // selection stays with the existing Markets page; no host access expansion.
+  // Desktop sidebar and mobile drawer share the same destinations. Market modes
+  // remain in Markets; EMA Watch links to the existing authenticated toolkit.
   const sectionGroups:ReadonlyArray<{label:string;links:ReadonlyArray<readonly [string,string]>}> = [
     {label:"COMMAND",links:commandLinks},
-    {label:"MARKET VIEWS",links:marketViews},
     {label:"EXPLORE",links:PUBLIC_MORE},
-    {label:"PRIVATE",links:[["My Desk","/my-reports"]]},
+    {label:"PRIVATE",links:[["My Desk","/my-reports"],["EMA Watch","/market-tools?view=technical"]]},
   ];
   const commandContext = sectionGroups.flatMap(group=>group.links)
     .find(([, path]) => isActive(path))?.[0] || (ownerWorkspace ? "My Desk" : "Markets");

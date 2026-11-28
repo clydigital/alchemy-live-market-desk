@@ -30,13 +30,14 @@ function selection(overrides:Record<string,unknown>={}):DossierPresentationSelec
 }
 test("only current, fresh, supported Dossier observations appear as inferred investor motives",()=>{
  const out=projectInvestorAssessment(selection(),now);
- assert.equal(out.status,"RESEARCHED");
+ assert.equal(out.status,"PARTIAL");
  assert.equal(out.asOf,"2026-11-14T02:30:00Z");
  assert.match(out.rows.rates||"",/cash is more attractive/);
  assert.match(out.rows.chips||"",/real chip orders/);
  assert.equal(out.rows.breadth,undefined);
  assert.equal(out.rows.catalyst,undefined);
- assert.match(out.whatWouldChangeMind||"",/credit deterioration/);
+ assert.equal(out.whatWouldChangeMind,null);
+ assert.match(out.statusDetail||"",/Unqualified core lenses/);
 });
 test("no stale, degraded, historical or unselected reasoning is recycled as current",()=>{
  for(const bad of [
@@ -56,9 +57,12 @@ test("a rate-data coverage gap does not suppress a qualified independent chip le
  const input=selection();
  input.status="degraded_latest";
  input.presentation!.health.degraded=true;
+ input.presentation!.health.executionDegraded=false;
+ input.presentation!.health.researchGaps=[{id:"gap:move",category:"MARKET_DATA",severity:"MATERIAL",description:"MOVE data missing"}];
  input.presentation!.evidenceGovernance!.items[0].temporalState="SUPERSEDED";
  const out=projectInvestorAssessment(input,now);
- assert.equal(out.status,"DEGRADED");
+ assert.equal(out.status,"PARTIAL");
+ assert.match(out.statusDetail||"",/MOVE data missing/);
  assert.equal(out.lensReviews.rates?.status,"UNRESOLVED");
  assert.equal(out.lensReviews.chips?.status,"RESEARCHED");
  assert.match(out.rows.chips||"",/real chip orders/);
@@ -87,4 +91,48 @@ test("Tino-style game-theory questions reuse canonical research brain and existi
  assert.match(workflow,/dossier_v2_persist/);
  assert.match(home,/publicHost\?getDossierV2PresentationSelection/);
  assert.doesNotMatch(home,/runManualDossierV2|\.upsert\(|\.insert\(/);
+});
+
+test("execution failure with otherwise qualified receipts withholds all interpretations",()=>{
+ const input=selection();
+ input.presentation!.health.executionDegraded=true;
+ const out=projectInvestorAssessment(input,now);
+ assert.equal(out.status,"DEGRADED");
+ assert.deepEqual(out.rows,{});
+ assert.equal(out.lensReviews.chips?.status,"UNRESOLVED");
+});
+test("all core lenses independently qualified yields reviewed status",()=>{
+ const input=selection();
+ const p=input.presentation!;
+ p.regimeStrip=p.regimeStrip.map(lens=>lens.key==="BREADTH"?{...lens,observed:true,evidenceRefs:["rate-1"]}:lens);
+ p.regimeStrip.push({...p.regimeStrip[0],key:"OIL_WAR_INFLATION"});
+ const out=projectInvestorAssessment(input,now);
+ assert.equal(out.status,"RESEARCHED");
+ assert.equal(Object.keys(out.rows).length,4);
+ assert.match(out.whatWouldChangeMind||"",/credit deterioration/);
+});
+test("stale review takes precedence over incomplete coverage",()=>{
+ const input=selection();
+ input.status="degraded_latest";
+ input.presentation!.health.degraded=true;
+ input.presentation!.health.executionDegraded=false;
+ input.presentation!.investorReviewedAt="2026-11-12T02:30:00Z";
+ const out=projectInvestorAssessment(input,now);
+ assert.equal(out.status,"STALE");
+ assert.deepEqual(out.rows,{});
+});
+
+
+test("successful NO_CHANGE checkpoint is displayed separately from evidence qualification",()=>{
+ const board=readFileSync(new URL("../components/blue-desk/InvestorMindsetBoard.tsx",import.meta.url),"utf8");
+ assert.match(board,/Last successful pipeline review/);
+ assert.match(board,/No material change recorded; prior assessment date retained/);
+ assert.match(board,/assessment\.status!=="RESEARCHED"\?" · Review completion does not clear evidence or assessment warnings\."/);
+ assert.match(board,/data-fundamental-status=\{assessment\.status\}/);
+ const input=selection();
+ input.presentation!.health.executionDegraded=true;
+ const out=projectInvestorAssessment(input,now);
+ assert.equal(out.status,"DEGRADED");
+ assert.equal(out.asOf,"2026-11-14T02:30:00Z");
+ assert.deepEqual(out.rows,{});
 });

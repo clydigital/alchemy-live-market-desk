@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {researchIntakeDisplay} from "../lib/blue-desk/research-intake-display.ts";
-import {fetchTodayNotionResearch,selectNotionResearchPages} from "../lib/notion-market-research.ts";
+import {fetchTodayNotionResearch,selectNotionResearchPages,selectOwnerManualReference} from "../lib/notion-market-research.ts";
 import {readFileSync} from "node:fs";
 
 const statuses=["NOT_CONFIGURED","UNAVAILABLE","PARTIAL","READY_FOR_REVIEW"] as const;
@@ -160,4 +160,14 @@ test("Research Library shows source vintage rather than mislabelling the fetch a
   assert.match(ui,/checked "\+safeDate\(source.retrievedAt\)/);
   assert.match(ui,/coverageStatus/);
   assert.match(ui,/Coverage and freshness notes/);
+});
+
+test("manual newsroom references stay separate from scheduled Gate discovery",()=>{
+ const day="2026-11-27";
+ const row={...gateRow(pmId,day+" MANUAL — newsroom reference reconciliation"),properties:{Run:{type:"title",title:[{plain_text:day+" MANUAL — newsroom reference reconciliation"}]},Session:{select:{name:"MANUAL"}}}};
+ assert.equal(selectNotionResearchPages([row],day).gateId,null);
+ assert.equal(selectOwnerManualReference([row],day),pmId.replaceAll("-",""));
+ assert.equal(selectOwnerManualReference([{...row,parent:{data_source_id:MACRO_ROOT}}],day),null);
+ assert.equal(selectOwnerManualReference([{...row,properties:{...row.properties,Session:{select:{name:"AM"}}}}],day),null);
+ assert.equal(selectOwnerManualReference([row,{...row,id:amId}],day),null);
 });
