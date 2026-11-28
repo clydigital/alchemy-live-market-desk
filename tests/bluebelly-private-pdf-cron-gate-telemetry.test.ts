@@ -20,8 +20,8 @@ test("both pre-existing private Dossier crons log only gate booleans and status,
   assert.match(s,/const reportEligible=authorised && scheduleEnabled && reportWindow/);
   assert.match(s,/JSON\.stringify\(\{event:"bluebelly_pdf_cron_gate",slot:"/);
   assert.match(s,/asOf:now\.toISOString\(\),authorised,scheduleEnabled,reportEligible/);
-  assert.match(s,/const result=await handleScheduledPostResearchDossier/);
-  assert.ok(s.indexOf('event:"bluebelly_pdf_cron_gate"')<s.indexOf("await handleScheduledPostResearchDossier"));
+  assert.match(s,/const result=manualOnlyDossierResponse/);
+  assert.ok(s.indexOf('event:"bluebelly_pdf_cron_gate"')<s.indexOf("const result=manualOnlyDossierResponse"));
   assert.ok(s.includes('slot:"'+slot+'"'));
   const logSnippets=s.split("\n").filter(x=>x.includes('event:"bluebelly_pdf_cron')||x.includes("marketPdfReason")||x.includes("slatePdfReason")||x.includes("asOf:now.toISOString()")).join("\n");
   assert.doesNotMatch(logSnippets,/CRON_SECRET|GEMINI_API_KEY|SUPABASE_SERVICE_ROLE_KEY|pdf_path|sourceUrls|pdf_sha256/);
@@ -34,8 +34,8 @@ test("reports remain independent of canonical Dossier completion, and schedule i
  assert.match(m,/runPrivateEditorialSlatePdf\(now\)/);
  assert.match(m,/runAutomatedDailyPdfReport\("morning",now\)/);
  assert.match(e,/runAutomatedDailyPdfReport\("evening",now\)/);
- assert.ok(m.indexOf("const reports=reportEligible")<m.indexOf("await handleScheduledPostResearchDossier"));
- assert.ok(e.indexOf("const reportTask=reportEligible")<e.indexOf("await handleScheduledPostResearchDossier"));
+ assert.ok(m.indexOf("const reports=reportEligible")<m.indexOf("const result=manualOnlyDossierResponse"));
+ assert.ok(e.indexOf("const reportTask=reportEligible")<e.indexOf("const result=manualOnlyDossierResponse"));
  assert.match(json,/"\/api\/cron\/research\/morning-dossier"/);
  assert.match(json,/"\/api\/cron\/research\/evening-dossier"/);
  assert.doesNotMatch(json,/bluebelly-pdf-cron-gate/);

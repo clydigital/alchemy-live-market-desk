@@ -124,6 +124,6 @@ test("existing Dossier scheduled production validator and repair pathway enforce
   assert.match(validate, /energyClaimProvenanceErrors\(claim, packet\)/);
   assert.match(prompt, /system1_energy_source_coverage: buildEnergyClaimCoverage\(packet\)/);
   assert.match(prompt, /OFAC authorisation/);
-  assert.match(workflow, /Run token-aware Dossier V2 handoff/);
+  assert.doesNotMatch(workflow, /Run token-aware Dossier V2 handoff/);
   assert.match(workflow, /dossier_v2_dry_run/);
 });
