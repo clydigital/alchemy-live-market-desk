@@ -9,10 +9,7 @@ import InvestorMindsetBoard from "@/components/blue-desk/InvestorMindsetBoard";
 import {buildMarketDivergenceWatch} from "@/lib/bluebelly-market-divergence-watch";
 import {buildMarketCompassSummary} from "@/lib/bluebelly-market-compass";
 import {buildInvestorMindsetSnapshot} from "@/lib/bluebelly-investor-mindset";
-import {projectInvestorAssessment} from "@/lib/bluebelly-investor-assessment";
 import {buildInvestorResearchThemes} from "@/lib/bluebelly-investor-mindset";
-import {getInvestorReviewReceipt} from "@/lib/bluebelly-investor-review-receipt";
-import {getDossierV2PresentationSelection} from "@/lib/dossier-v2/presentation-reader";
 import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
 import {calculateBreadthRow} from "@/lib/bluebelly-breadth-dated";
 import {readPublicUsJobs} from "@/lib/bluebelly-us-jobs-reader";
@@ -102,7 +99,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   const host = (await headers()).get("host");
   const publicHost = isBlueDeskPublicReaderHost(host);
   const radarNewsReads={motion:true,originalPress:true,officialMacro:true};
-  const [macro, earnings, monitor, verifiedMotions, observations, theses, originalPress, digestBriefs, breadthFeed, jobs, dossierSelection, treasuryLedger, absorptionHealth, qqqPosition] = await Promise.all([
+  const [macro, earnings, monitor, verifiedMotions, observations, theses, originalPress, digestBriefs, breadthFeed, jobs, treasuryLedger, absorptionHealth, qqqPosition] = await Promise.all([
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({ now }).catch(() => ({
       events: [], coverage: "unavailable" as const, warning: "Earnings source unavailable",
@@ -120,7 +117,6 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
     getPublishedMacroPulseBriefs(2).catch(() => []),
     getSourceDatedBreadth(true).catch(() => ({series:[],retrievalStatus:"fallback" as const})),
     readPublicUsJobs().catch(() => null),
-    publicHost?getDossierV2PresentationSelection().catch(()=>null):Promise.resolve(null),
     readTreasuryLedger(), // same cached ledger already consumed by the market monitor
     getBluebellyAbsorptionHealth(now),
     publicHost?readQqqPositioning():Promise.resolve({rows:[],checkedAt:now.toISOString()}),
@@ -173,9 +169,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   const divergenceRadar=compare.radar;
   const marketCompass=buildMarketCompassSummary(marketComparisons,now);
   const investorMindset=buildInvestorMindsetSnapshot(marketRows,marketComparisons,marketCompass,verifiedNews,now);
-  const investorAssessment=projectInvestorAssessment(dossierSelection,now);
   const investorThemes=buildInvestorResearchThemes(recentNews,observations,now);
-  const investorReceipt=await getInvestorReviewReceipt(dossierSelection?.latestDossierId??null,now).catch(()=>null);
   const breadth50=calculateBreadthRow("S5FI","S&P 500 above 50-day MA",breadthFeed.series.find(s=>s.symbol==="S5FI"),now);
   const marketTypes=["Major Index","Rates","FX","Energy","Metal","AI / Semis"] as const;
   // A stored last price is not a fresh quote. Allow a weekend/holiday window,
@@ -224,7 +218,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
            <RegimeCompareEvidence compare={compare} host={host} compact/>
           <p className={styles.subtle}><Link href="/markets?mode=risk#institutional-risk-heading">Risk &amp; positioning · implied VaR and policy watch →</Link> · Risk magnitude, not a directional forecast.</p>
           <Link href="/creator-intelligence">Open CREATOR INTEL →</Link>
-          <InvestorMindsetBoard snapshot={investorMindset} assessment={investorAssessment} host={host} themes={investorThemes} receipt={investorReceipt}/>
+          <InvestorMindsetBoard snapshot={investorMindset} host={host} themes={investorThemes}/>
            <MarketConditionsBoard market={conditionRows} breadth={breadth50} jobs={jobs}
             health={absorptionHealth} now={now} host={host}/>
           <div className={marketHome.overview}>
