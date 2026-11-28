@@ -39,7 +39,7 @@ test("Legacy PDF runs default to off while existing research cron and HTML paths
  const retry=read("lib/blue-desk-automated-report-late-handoff.ts");
  for(const route of [morning,evening]){
   assert.match(route,/process.env.BLUEBELLY_ENABLE_LEGACY_PDF==="true"/);
-  assert.match(route,/handleScheduledPostResearchDossier/);
+  assert.match(route,/manualOnlyDossierResponse/);
  }
  assert.match(gap,/process.env.BLUEBELLY_ENABLE_LEGACY_PDF==="true"/);
  assert.match(gap,/handleScheduledResearchGapHandoff/);

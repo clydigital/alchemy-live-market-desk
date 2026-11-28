@@ -194,7 +194,7 @@ test("automatic PDF editions are private with owner session, allowlist and no pu
  assert.ok(!migration.includes("grant select ("));
  assert.ok(migration.includes("'building','ready','blocked','failed'"));
  const morning=read("app/api/cron/research/morning-dossier/route.ts");
- assert.ok(morning.includes("handleScheduledPostResearchDossier"));
+ assert.ok(morning.includes("manualOnlyDossierResponse"));
  assert.ok(morning.includes("runAutomatedDailyPdfReport"));
  const job=read("lib/blue-desk-automated-report-job.ts");
  assert.ok(job.includes('status:"ready"'));
@@ -230,8 +230,8 @@ test("source-qualified private PDF starts within the existing authorised cron ev
   assert.ok(content.includes("acceptsResearchAuthorization"),file);
   assert.ok(content.includes("NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED"),file);
   assert.ok(content.includes("isAutomaticReportFinalisationWindow"),file);
-  assert.ok(content.includes("const result=await handleScheduledPostResearchDossier"),file);
-  assert.ok(content.indexOf("runAutomatedDailyPdfReport(")<content.indexOf("const result=await handleScheduledPostResearchDossier"),file);
+  assert.ok(content.includes("const result=manualOnlyDossierResponse"),file);
+  assert.ok(content.indexOf("runAutomatedDailyPdfReport(")<content.indexOf("const result=manualOnlyDossierResponse"),file);
   assert.ok(!content.includes('payload.reason==="dossier_decision_recorded"'),file);
   assert.ok(!content.includes("if(!ready)return result"),file);
   assert.ok(content.includes("if(result.status!==200)return result"),file);

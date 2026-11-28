@@ -144,9 +144,10 @@ test("new route stays inside existing paused/authenticated Vercel research sched
   assert.doesNotMatch(source, /evidenceLimit: 180,\\s*client,/);
   assert.match(source, /syncLatestPrioritisedResearchGapCasesWithD7/);
   assert.match(source, /Research Gap sync failed/);
-  assert.match(morning, /handleScheduledPostResearchDossier\(request, "morning"\)/);
-  assert.match(evening, /handleScheduledPostResearchDossier\(request, "evening"\)/);
+  assert.match(morning, /manualOnlyDossierResponse/);
+  assert.match(evening, /manualOnlyDossierResponse/);
   assert.equal(config.crons.filter((c: { path: string }) => c.path === "/api/cron/research/morning-dossier").length, 2);
   assert.equal(config.crons.filter((c: { path: string }) => c.path === "/api/cron/research/evening-dossier").length, 2);
   assert.doesNotMatch(source, /\.from\("story_thesis_versions"\)\.insert/);
+  for (const route of [morning, evening]) assert.doesNotMatch(route, /handleScheduledPostResearchDossier|runManualDossierV2/);
 });

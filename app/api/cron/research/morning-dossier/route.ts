@@ -1,4 +1,4 @@
-import { handleScheduledPostResearchDossier } from "@/lib/dossier-post-research-trigger";
+import { manualOnlyDossierResponse } from "@/lib/dossier-manual-only";
 import { withResearchEmbeddingRefresh } from "@/lib/bluebelly-research-embedding-refresh";
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
 import { scheduledSourceOnlyEnabled } from "@/lib/bluebelly-source-only-research";
@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 /** Existing authenticated cron only. Run the two private, separately
- * source-gated PDF products concurrently with Dossier, not after it.
+ * source-gated PDF products independently of manual Dossiers.
  * Neither may mutate a canonical Story or change Dossier's outcome. */
 export async function GET(request: Request) {
  const now=new Date();
@@ -19,13 +19,13 @@ export async function GET(request: Request) {
    acceptsResearchAuthorization(request.headers.get("authorization"),[process.env.CRON_SECRET!]);
  if(scheduledSourceOnlyEnabled(process.env)){
    if(!authorised)return Response.json({status:"unauthorized"},{status:401,headers:{"Cache-Control":"private, no-store"}});
-   // Reuse this existing post-intake cron for Dossier V2 assessment only.
-   // Legacy Story intelligence and private PDF generation remain disabled.
-   return withResearchEmbeddingRefresh(handleScheduledPostResearchDossier(request, "morning"),now);
+   // Owner policy: the existing slots refresh derived search embeddings only.
+   // No scheduled Dossier reasoning, persistence or Research Gap sync.
+   return withResearchEmbeddingRefresh(Promise.resolve(manualOnlyDossierResponse(authorised,process.env.NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED==="true")),now);
  }
  const reportWindow=isAutomaticReportFinalisationWindow(now,"morning");
  const scheduleEnabled=process.env.NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED==="true";
- // Legacy PDFs are opt-in. Canonical Dossier still runs on the existing schedule.
+ // Legacy PDFs are opt-in. Dossier is manual-only.
  const reportEligible=authorised && scheduleEnabled && reportWindow
   && process.env.BLUEBELLY_ENABLE_LEGACY_PDF==="true";
  // Status-only, no secrets, response bodies or private report contents.
@@ -41,7 +41,7 @@ export async function GET(request: Request) {
    runAutomatedDailyPdfReport("morning",now).catch(()=>({status:"failed",reason:"daily_pdf_unavailable"})),
    runPrivateEditorialSlatePdf(now).catch(()=>({status:"failed",reason:"slate_pdf_unavailable"})),
  ]):null;
- const result=await handleScheduledPostResearchDossier(request, "morning");
+ const result=manualOnlyDossierResponse(authorised,process.env.NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED==="true");
  if(!reports)return result;
  const [report,slatePdf]=await reports;
  console.info(JSON.stringify({event:"bluebelly_pdf_cron_outcome",slot:"morning",

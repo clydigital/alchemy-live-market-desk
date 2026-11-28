@@ -84,7 +84,7 @@ test("source-only phase retains acquisition and bounded X retry schedules withou
   assert.doesNotMatch(human,/runIntelligenceEngine|generateContent|runAutomatedDailyPdfReport/);
 });
 
-test("source-only keeps legacy writers and PDFs off while existing Dossier cron may reassess investors",()=>{
+test("source-only keeps legacy writers and PDFs off; existing Dossier slots refresh embeddings only",()=>{
   const intelligence=read("lib/cron-research-intelligence-handler.ts");
   const noop=intelligence.indexOf("if (scheduledSourceOnlyEnabled(process.env))");
   const model=intelligence.indexOf("const invocation = await runWithIntelligenceInvocation");
@@ -96,12 +96,13 @@ test("source-only keeps legacy writers and PDFs off while existing Dossier cron 
     const code=read(path);
     assert.match(code,/scheduledSourceOnlyEnabled\(process\.env\)/);
     assert.match(code,/if\(!authorised\)return Response\.json\(\{status:"unauthorized"\}/);
-    assert.ok(code.indexOf("if(scheduledSourceOnlyEnabled")<code.indexOf("handleScheduledPostResearchDossier(request"));
-    // The derived embedding cache refresh wraps, but never replaces, Dossier.
+    assert.ok(code.indexOf("if(scheduledSourceOnlyEnabled")<code.indexOf("manualOnlyDossierResponse(authorised"));
+    // The derived embedding cache refresh is independent of manual Dossier.
     const auth=code.indexOf('if(!authorised)return Response.json({status:"unauthorized"}');
     const refresh=code.indexOf("return withResearchEmbeddingRefresh(");
     assert.ok(auth>0&&refresh>auth);
-    assert.match(code,/return withResearchEmbeddingRefresh\(handleScheduledPostResearchDossier\(request, "(?:morning|evening)"\),now\)/);
+    assert.match(code,/return withResearchEmbeddingRefresh\(Promise\.resolve\(manualOnlyDossierResponse/);
+    assert.doesNotMatch(code,/handleScheduledPostResearchDossier|runManualDossierV2/);
     assert.doesNotMatch(code,/return Response\.json\(\{status:"not_required",mode:"SOURCE_ONLY"/);
   }
   const handoff=read("app/api/cron/research-gap/handoff/route.ts");
@@ -113,7 +114,7 @@ test("source-only keeps legacy writers and PDFs off while existing Dossier cron 
 test("manual GitHub source-only flow accepts only a completed nested acquisition receipt",()=>{
   const flow=read(".github/workflows/run-live-research.yml");
   const begin=flow.indexOf("      - name: Run canonical production pipeline");
-  const end=flow.indexOf("      - name: Run token-aware Dossier V2 handoff");
+  const end=flow.indexOf("      - name: Run canonical intelligence only");
   const run=flow.slice(begin,end);
   assert.match(run,/id: canonical_pipeline/);
   assert.match(run,/\.publication\.mode \/\/ empty/);
@@ -123,6 +124,6 @@ test("manual GitHub source-only flow accepts only a completed nested acquisition
   assert.match(run,/\.acquisition\.sourceChecks/);
   assert.match(run,/source_only_complete=true/);
   assert.ok(run.indexOf("source_mode=")<run.indexOf("for attempt in {1..8}"));
-  assert.match(flow,/steps\.canonical_pipeline\.outputs\.source_only_complete != 'true'/);
+  assert.doesNotMatch(flow,/Run token-aware Dossier V2 handoff/);
   assert.match(run,/Source-only acquisition did not provide a completed durable coverage receipt/);
 });
