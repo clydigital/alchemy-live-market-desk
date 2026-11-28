@@ -17,6 +17,8 @@ import {getSourceDatedBreadth} from "@/lib/bluebelly-breadth-reader";
 import {calculateBreadthRow} from "@/lib/bluebelly-breadth-dated";
 import {readPublicUsJobs} from "@/lib/bluebelly-us-jobs-reader";
 import {getBluebellyAbsorptionHealth} from "@/lib/bluebelly-absorption-health";
+import {readTreasuryLedger} from "@/lib/treasury-ledger-reader";
+import {conditionTreasuryRow} from "@/lib/bluebelly-market-conditions-read";
 import CurrentMarketUpdates from "@/components/blue-desk/CurrentMarketUpdates";
 import DecisionBrief from "@/components/blue-desk/DecisionBrief";
 import ProgressiveTodayReader from "@/components/blue-desk/ProgressiveTodayReader";
@@ -100,7 +102,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   const host = (await headers()).get("host");
   const publicHost = isBlueDeskPublicReaderHost(host);
   const radarNewsReads={motion:true,originalPress:true,officialMacro:true};
-  const [macro, earnings, monitor, verifiedMotions, observations, theses, originalPress, digestBriefs, breadthFeed, jobs, dossierSelection] = await Promise.all([
+  const [macro, earnings, monitor, verifiedMotions, observations, theses, originalPress, digestBriefs, breadthFeed, jobs, dossierSelection, treasuryLedger, absorptionHealth, qqqPosition] = await Promise.all([
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({ now }).catch(() => ({
       events: [], coverage: "unavailable" as const, warning: "Earnings source unavailable",
@@ -119,8 +121,10 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
     getSourceDatedBreadth(true).catch(() => ({series:[],retrievalStatus:"fallback" as const})),
     readPublicUsJobs().catch(() => null),
     publicHost?getDossierV2PresentationSelection().catch(()=>null):Promise.resolve(null),
+    readTreasuryLedger(), // same cached ledger already consumed by the market monitor
+    getBluebellyAbsorptionHealth(now),
+    publicHost?readQqqPositioning():Promise.resolve({rows:[],checkedAt:now.toISOString()}),
   ]);
-  const [absorptionHealth,qqqPosition] = await Promise.all([getBluebellyAbsorptionHealth(now),publicHost?readQqqPositioning():Promise.resolve({rows:[],checkedAt:now.toISOString()})]);
   const motionNews = selectVerifiedNewsBriefs(verifiedMotions, now, 18);
   const recentNews = combineQualifiedNews(motionNews,originalPress,18);
   const verifiedNews = recentNews.filter(n=>Date.parse(n.occurredAt)<=+now && +now-Date.parse(n.occurredAt)<=48*3600000);
@@ -146,6 +150,8 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
   const upcoming = upcoming7d.length ? upcoming7d : upcomingFallback;
   // Reuse the existing source-dated monitor; no new provider call or inferred prices.
   const marketRows=publicMarketObservations(monitor?.rows||[],"all");
+  const ledgerCondition=conditionTreasuryRow(treasuryLedger);
+  const conditionRows=ledgerCondition?[...marketRows,ledgerCondition]:marketRows;
   const marketComparisons=buildMarketDivergenceWatch(marketRows,"1D");
   // The private transcript reader enforces current Supabase owner session +
   // allowlist before returning ANY creator data. Public visitors get no digest.
@@ -219,7 +225,7 @@ export default async function BlueDeskPage({ searchParams }: { searchParams?: Pr
           <p className={styles.subtle}><Link href="/markets?mode=risk#institutional-risk-heading">Risk &amp; positioning · implied VaR and policy watch →</Link> · Risk magnitude, not a directional forecast.</p>
           <Link href="/creator-intelligence">Open CREATOR INTEL →</Link>
           <InvestorMindsetBoard snapshot={investorMindset} assessment={investorAssessment} host={host} themes={investorThemes} receipt={investorReceipt}/>
-           <MarketConditionsBoard market={marketRows} breadth={breadth50} jobs={jobs}
+           <MarketConditionsBoard market={conditionRows} breadth={breadth50} jobs={jobs}
             health={absorptionHealth} now={now} host={host}/>
           <div className={marketHome.overview}>
             <section className={`${marketHome.panel} ${marketHome.snapshot}`} aria-labelledby="market-snapshot-title" data-v7-market-tiles="source-dated">
