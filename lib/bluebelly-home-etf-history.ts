@@ -109,7 +109,7 @@ export function parseHomeEtfChart(payload:unknown,symbol:HomeEtf,now:Date):EtfBa
 }
 export async function fetchHomeEtfHistory(symbol:HomeEtf,now=new Date(),fetcher:typeof fetch=fetch){
  if(!HOME_ETFS.includes(symbol))throw Error("ETF not allowlisted");
- const response=await fetcher("https://query1.finance.yahoo.com/v8/finance/chart/"+symbol+"?range=1y&interval=1d",{
+ const response=await fetcher(sessionChartUrl(symbol,now),{
   headers:{accept:"application/json","user-agent":"Mozilla/5.0 Bluebelly Markets Monitor"},
   next:{revalidate:900},signal:AbortSignal.timeout(8500)});
  if(!response.ok)throw Error("Secondary ETF history unavailable");
