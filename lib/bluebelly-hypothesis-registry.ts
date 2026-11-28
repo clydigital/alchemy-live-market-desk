@@ -3,7 +3,10 @@ export type EvidenceRole="CONFIRMS"|"WEAKENS"|"CONDITIONAL"|"AMPLIFIES"|"INVALID
 export type DossierReference={status:"ANALYTICAL_REFERENCE"|"GOVERNANCE_ONLY"|"NOT_REFERENCED"|"BEFORE_RECEIPT"|"UNAVAILABLE";dossierId:string|null;asOf:string|null};
 export type CanonicalReceipt={status:"MATCHED"|"MISSING"|"PROVENANCE_MISMATCH"|"UNAVAILABLE";receivedAt:string|null;dossierReference?:DossierReference};
 export type Gem={id:string;label:string;role:EvidenceRole;observation:string;sourceUrl:string;sourceDate:string|null;state:"RETAINED_SOURCE_RECEIPT"|"ATTRIBUTED"|"PENDING";premise:string;canonicalReceipt?:CanonicalReceipt};
-export type HypothesisSnapshot={version:"evidence-gems/1";hypothesisId:string;reviewedOn:string;currentRead:string;conditional:string;nextTest:string;gems:Gem[]};
+export type HypothesisChartUnit="bp"|"%"|"USD bn"|"AUD mn"|"wafers/month";
+export type HypothesisChartState="RETAINED"|"ATTRIBUTED"|"FORECAST"|"DERIVED";
+export type HypothesisChart={id:string;title:string;unit:HypothesisChartUnit;state:HypothesisChartState;basis:string;points:{label:string;value:number;gemId:string}[]};
+export type HypothesisSnapshot={version:"evidence-gems/1";hypothesisId:string;reviewedOn:string;currentRead:string;conditional:string;nextTest:string;gems:Gem[];charts?:HypothesisChart[];chartWarnings?:string[]};
 export type RegistryRow={id:string;pageId:string;title:string;state:"ACTIVE"|"STALE";theme:string;confidence?:"LOW"|"MEDIUM"|"HIGH";decisionImpact?:string;currentRead:string;nextTrigger:string;lastChecked:string|null;lastEdited:string|null;snapshot:HypothesisSnapshot|null};
 export type RegistryRead={status:"AVAILABLE"|"PARTIAL"|"UNAVAILABLE"|"NOT_CONFIGURED"|"UNAUTHORISED";rows:RegistryRow[];truncated:boolean;retrievedAt:string|null;diagnostic?:string};
 const obj=(v:unknown):Record<string,unknown>=>v&&typeof v==="object"&&!Array.isArray(v)?v as Record<string,unknown>:{};
@@ -26,6 +29,33 @@ export function projectRegistryRows(raw:unknown,now:Date):RegistryRow[]{
  seen.add(id);return [{id,pageId,title,state:state as RegistryRow["state"],theme:field("Story / Theme"),confidence:(["LOW","MEDIUM","HIGH"].includes(str(obj(obj(p.Confidence).select).name,20))?str(obj(obj(p.Confidence).select).name,20) as RegistryRow["confidence"]:undefined),decisionImpact:field("Dossier Impact"),currentRead:field("Current Read"),nextTrigger:field("Next Trigger"),lastChecked:date(obj(obj(p["Last Checked"]).date).start,now),lastEdited:date(r.last_edited_time,now),snapshot:null}];
  });
 }
+/** Optional numeric research observations, not extracted from narrative. Each
+ * point must reference a dated, nonpending gem in the same snapshot. Reject a
+ * bad chart independently so its failure cannot hide valid hypothesis gems. */
+function parseCharts(raw:unknown,gems:Gem[]):{charts:HypothesisChart[];chartWarnings:string[]}{
+ const charts:HypothesisChart[]=[],chartWarnings:string[]=[],seen=new Set<string>();
+ if(raw===undefined)return {charts,chartWarnings};
+ if(!Array.isArray(raw)){return {charts,chartWarnings:["Chart payload is not an array"]};}
+ if(raw.length>6)chartWarnings.push("Chart coverage bounded to six entries");
+ const byId=new Map(gems.map(g=>[g.id,g]));
+ const units=new Set(["bp","%","USD bn","AUD mn","wafers/month"]);
+ const kinds=new Set(["RETAINED","ATTRIBUTED","FORECAST","DERIVED"]);
+ for(const [i,v] of raw.slice(0,6).entries()){
+  const x=obj(v),id=str(x.id,64),title=str(x.title,90),unit=str(x.unit,20),state=str(x.state,20),basis=str(x.basis,140);
+  const points:HypothesisChart["points"]=[],labels=new Set<string>();
+  let valid=/^[a-z0-9][a-z0-9-]{1,63}$/.test(id)&&!seen.has(id)&&!!title&&units.has(unit)&&kinds.has(state)&&!!basis&&Array.isArray(x.points)&&x.points.length>=2&&x.points.length<=12;
+  if(valid)for(const rawPoint of list(x.points)){
+   const p=obj(rawPoint),label=str(p.label,36),gemId=str(p.gemId,140),g=byId.get(gemId),value=p.value;
+   if(!label||labels.has(label)||!g||!g.sourceDate||g.state==="PENDING"||
+      (g.state==="ATTRIBUTED"&&state!=="ATTRIBUTED")||typeof value!=="number"||!Number.isFinite(value)||value<0||value>1e12||
+      (unit==="%"&&value>100)){valid=false;break;}
+   labels.add(label);points.push({label,value,gemId});
+  }
+  if(!valid){chartWarnings.push("Rejected chart entry "+(i+1));continue;}
+  seen.add(id);charts.push({id,title,unit:unit as HypothesisChartUnit,state:state as HypothesisChartState,basis,points});
+ }
+ return {charts,chartWarnings};
+}
 export function parseHypothesisSnapshot(raw:unknown,row:RegistryRow,now:Date):HypothesisSnapshot|null{
  const x=obj(raw),reviewedOn=date(x.reviewedOn,now),currentRead=str(x.currentRead,1600),conditional=str(x.conditional,1600),nextTest=str(x.nextTest,1000);
  if(x.version!=="evidence-gems/1"||x.hypothesisId!==row.id||!reviewedOn||!currentRead||currentRead!==row.currentRead||!conditional||!nextTest||!Array.isArray(x.gems)||x.gems.length<1||x.gems.length>8)return null;
@@ -34,7 +64,7 @@ export function parseHypothesisSnapshot(raw:unknown,row:RegistryRow,now:Date):Hy
  if(!id||ids.has(id)||!label||!roles.has(role)||!states.has(state)||!observation||!premise||!url||(g.sourceDate!==null&&!d))return null;
  ids.add(id);gems.push({id,label,role:role as EvidenceRole,state:state as Gem["state"],observation,premise,sourceUrl:url,sourceDate:d});
  }
- return {version:"evidence-gems/1",hypothesisId:row.id,reviewedOn,currentRead,conditional,nextTest,gems};
+ return {version:"evidence-gems/1",hypothesisId:row.id,reviewedOn,currentRead,conditional,nextTest,gems,...(x.charts===undefined?{}:parseCharts(x.charts,gems))};
 }
 export function readFirstSnapshot(blockResponse:unknown,row:RegistryRow,now:Date):HypothesisSnapshot|null{
  const block=obj(list(obj(blockResponse).results)[0]),code=obj(block.code);
