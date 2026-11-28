@@ -16,6 +16,8 @@ export type NotionResearchSource = {
   editionDay?: string;
   /** Source-owned run quality, not a Bluebelly verification grade. */
   coverageStatus?: string;
+  /** Private manual reference, never a scheduled Gate or eligible Pulse. */
+  manualReference?: boolean;
 };
 export type NotionResearchBundle = {
   status: "READY_FOR_REVIEW" | "PARTIAL" | "NOT_CONFIGURED" | "UNAVAILABLE";
@@ -214,9 +216,39 @@ async function discoverNotionDay(
   }
   return {archiveId:archive,gateId:gate,searchPaginated,fallbackWarnings};
 }
+/** Owner-library-only read. Keep this separate from scheduled Gate selection and editorial packets. */
+export function selectOwnerManualReference(searchResults:unknown,day:string,gateSource=GATE_SOURCE):string|null{
+ const exact=day+" MANUAL — newsroom reference reconciliation";
+ const eligible=rows(searchResults).filter(p=>{
+   const parent=obj(p.parent),props=obj(p.properties);
+   const title=rows(obj(props.Run).title).map(v=>txt(v.plain_text,300)||txt(obj(v.text).content,300)).join("");
+   const session=txt(obj(obj(props.Session).select).name,40);
+   return !p.archived&&!p.in_trash&&title===exact&&session==="MANUAL"&&
+     (sameId(parent.data_source_id,gateSource)||sameId(parent.database_id,gateSource))&&safePageId(p.id);
+ });
+ // Multiple distinct exact matches are ambiguous, not a license to pick a duplicate.
+ const ids=[...new Set(eligible.map(p=>safePageId(p.id)))];
+ return ids.length===1?ids[0]:null;
+}
+export async function fetchOwnerManualResearchReference(now=new Date()):Promise<NotionResearchSource|null>{
+ const token=process.env.NOTION_API_TOKEN?.trim()||process.env.NOTION_MARKET_RESEARCH_TOKEN?.trim()||process.env.NOTION_API_KEY?.trim();
+ const gateSource=process.env.NOTION_RESEARCH_GATE_DATA_SOURCE_ID||GATE_SOURCE;
+ if(!token||!safePageId(gateSource))return null;
+ const day=new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Kuala_Lumpur",year:"numeric",month:"2-digit",day:"2-digit"}).format(now);
+ const title=day+" MANUAL — newsroom reference reconciliation";
+ const result=await notionRequest(token,"/data_sources/"+gateSource+"/query",{
+  page_size:5,filter:{and:[{property:"Run",title:{equals:title}},{property:"Session",select:{equals:"MANUAL"}}]}
+ });
+ if(result.has_more)return null;
+ const pageId=selectOwnerManualReference(result.results,day,gateSource);
+ if(!pageId)return null;
+ const parsed=blocksText(await children(token,pageId,1),11000);
+ return parsed.text?{kind:"RESEARCH_GAP",manualReference:true,title,url:"https://www.notion.so/"+pageId,pageId,
+  editionDay:day,retrievedAt:new Date().toISOString(),text:parsed.text,originalLinks:parsed.links,coverageStatus:"PARTIAL"}:null;
+}
 export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionResearchBundle>{
   const fetchedAt=now.toISOString();
-  const token=process.env.NOTION_API_TOKEN?.trim()||process.env.NOTION_MARKET_RESEARCH_TOKEN?.trim();
+  const token=process.env.NOTION_API_TOKEN?.trim()||process.env.NOTION_MARKET_RESEARCH_TOKEN?.trim()||process.env.NOTION_API_KEY?.trim();
   if(!token) return {status:"NOT_CONFIGURED",sources:[],fetchedAt,
     warnings:["Notion server-side read-only token is not configured. No research was silently imported."]};
   const day=new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Kuala_Lumpur",

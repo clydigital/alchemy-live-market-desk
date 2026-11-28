@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {projectMacroLog,projectGapRun,projectAiMatrix,augmentCreatorLane,workReceiptReadIssue,annotateWorkReceiptRead,preserveMacroReceiptGap} from "../lib/my-desk-work-receipt-core.ts";
+import {projectMacroLog,projectGapRun,projectAiMatrix,augmentCreatorLane,workReceiptReadIssue,annotateWorkReceiptRead,preserveMacroReceiptGap,receiptReadTokens,readReceiptWithScopedFallback,type ReceiptReadResult} from "../lib/my-desk-work-receipt-core.ts";
 import {lane} from "../lib/my-desk-health-core.ts";
 import type {CreatorDigest} from "../lib/bluebelly-creator-signals.ts";
 const now=new Date("2026-11-26T05:30:00Z");
@@ -60,4 +60,21 @@ test("receipt access and rate-limit failures remain visible through legacy Macro
  const valid=lane("AI16",{success:"2026-11-26T04:00:00Z",fresh:true,coverageComplete:true});
  assert.equal(annotateWorkReceiptRead(valid,null,null),valid);
  assert.equal(annotateWorkReceiptRead(valid,null,reason).state,"degraded");
+});
+
+test("existing Notion identity fallback is bounded, deduplicated and access-error-only",async()=>{
+ const tokens=receiptReadTokens(" primary ","secondary");
+ assert.deepEqual(tokens,["primary","secondary"]);
+ assert.deepEqual(receiptReadTokens("same"," same "),["same"]);
+ assert.deepEqual(receiptReadTokens(undefined,undefined," configured-key "),["configured-key"]);
+ assert.deepEqual(receiptReadTokens("primary","secondary","primary"),["primary","secondary"]);
+ assert.deepEqual(receiptReadTokens(undefined," "),[]);
+ const calls:string[]=[];
+ const result=(status:number|null):ReceiptReadResult=>({raw:status===200?{results:[]}:null,issue:workReceiptReadIssue(status),status});
+ const recovered=await readReceiptWithScopedFallback(tokens,async t=>{calls.push(t);return result(t==="primary"?404:200)});
+ assert.deepEqual(calls,tokens);assert.equal(recovered.status,200);assert.equal(recovered.issue,null);
+ for(const status of [200,429,500,null]){calls.length=0;await readReceiptWithScopedFallback(tokens,async t=>{calls.push(t);return result(status)});assert.deepEqual(calls,["primary"]);}
+ const failed=await readReceiptWithScopedFallback(tokens,async()=>result(404));
+ assert.match(failed.issue!,/alternate configured integration also unsuccessful/);
+ assert.ok(!JSON.stringify(failed).includes("primary"));assert.ok(!JSON.stringify(failed).includes("secondary"));
 });

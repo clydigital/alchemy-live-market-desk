@@ -242,6 +242,7 @@ async function fetchEiaDaily(code: string, sourceUrl: string): Promise<PricePoin
   const response = await fetch(sourceUrl, {
     headers: { "user-agent": "Mozilla/5.0 (Alchemy Live Desk)" },
     next: { revalidate: OFFICIAL_REVALIDATE },
+    signal: AbortSignal.timeout(12000),
   });
   if (!response.ok) throw new Error(`EIA ${response.status}`);
   const html = await response.text();
@@ -266,6 +267,29 @@ async function fetchEiaDaily(code: string, sourceUrl: string): Promise<PricePoin
   return deduped;
 }
 
+/** Same EIA spot price series via FRED, never a futures settlement substitution. */
+async function fetchEiaSpotFallback(symbol:string):Promise<{points:PricePoint[];sourceName:string;sourceUrl:string}|null>{
+ const id=symbol==="CL=F"?"DCOILWTICO":symbol==="BZ=F"?"DCOILBRENTEU":null;
+ if(!id)return null;
+ try{
+  const r=await fetch("https://fred.stlouisfed.org/graph/fredgraph.csv?id="+id,{next:{revalidate:3600},headers:{"user-agent":"Alchemy Live Desk"},signal:AbortSignal.timeout(10000)});
+  if(!r.ok)return null;
+  const points=(await r.text()).split(/\r?\n/).slice(1).flatMap(line=>{
+   const [day,raw]=line.split(",");const close=parseNumber(raw),time=Date.parse(day+"T00:00:00Z")/1000;
+   return /^\d{4}-\d{2}-\d{2}$/.test(day)&&Number.isFinite(time)&&time<=Date.now()/1000&&close!==null?[{time,close}]:[];
+  });
+  const clean=[...new Map(points.map(p=>[p.time,p])).values()].sort((a,b)=>a.time-b.time).slice(-420);
+  return clean.length>=2?{points:clean,sourceName:"U.S. Energy Information Administration via FRED",sourceUrl:"https://fred.stlouisfed.org/series/"+id}:null;
+ }catch{return null}
+}
+async function readEiaSpot(item:typeof EIA_SERIES[keyof typeof EIA_SERIES]){
+ const points=await fetchEiaDaily(item.code,item.sourceUrl).catch(()=>[] as PricePoint[]);
+ const primary={points,sourceName:"U.S. Energy Information Administration",sourceUrl:item.sourceUrl};
+ const last=points.at(-1)?.time??0;
+ if(points.length>=2&&Date.now()-last*1000<=6*86400000)return primary;
+ const fallback=await fetchEiaSpotFallback(item.symbol);
+ return fallback&&(fallback.points.at(-1)!.time>last||fallback.points.at(-1)!.time===last&&points.length<2)?fallback:primary;
+}
 function parseCsvLine(line: string) {
   const values: string[] = [];
   let value = "";
@@ -485,13 +509,14 @@ async function loadMarketData(session:string|null): Promise<MarketData> {
     fetchNasdaqHistories(nasdaqRequests),
     fetchTreasurySeries(),
     fetchUsdJpy(),
-    Promise.all(Object.values(EIA_SERIES).map(async (item) => [item.symbol, await fetchEiaDaily(item.code, item.sourceUrl)] as const)),
+    Promise.all(Object.values(EIA_SERIES).map(async (item) => [item.symbol, await readEiaSpot(item)] as const)),
   ]);
 
   const nasdaq = nasdaqResult.status === "fulfilled" ? nasdaqResult.value : new Map<string, PricePoint[]>();
   const treasury = treasuryResult.status === "fulfilled" ? treasuryResult.value : new Map<string, PricePoint[]>();
   const usdJpy = usdJpyResult.status === "fulfilled" ? usdJpyResult.value : [];
-  const eia = eiaResult.status === "fulfilled" ? new Map<string, PricePoint[]>(eiaResult.value) : new Map<string, PricePoint[]>();
+  const eiaSources = eiaResult.status === "fulfilled" ? new Map(eiaResult.value) : new Map<string,Awaited<ReturnType<typeof readEiaSpot>>>();
+  const eia=new Map([...eiaSources].map(([symbol,row])=>[symbol,row.points]));
 
   const series: MarketSeries[] = CORE_NASDAQ.map((spec) => buildSeries(
     spec.symbol,
@@ -510,7 +535,8 @@ async function loadMarketData(session:string|null): Promise<MarketData> {
   ));
 
   for (const item of Object.values(EIA_SERIES)) {
-    series.push(buildSeries(item.symbol, item.label, "U.S. Energy Information Administration", item.sourceUrl, eia.get(item.symbol) || []));
+    const source=eiaSources.get(item.symbol);
+    series.push(buildSeries(item.symbol, item.label, source?.sourceName??"U.S. Energy Information Administration", source?.sourceUrl??item.sourceUrl, source?.points??[]));
   }
 
   const treasuryPage = "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_yield_curve";
@@ -568,5 +594,5 @@ async function loadMarketData(session:string|null): Promise<MarketData> {
   };
 }
 
-const getMarketDataForSession = unstable_cache(loadMarketData, ["alchemy-market-data-v3-session"], { revalidate: 300 });
+const getMarketDataForSession = unstable_cache(loadMarketData, ["alchemy-market-data-v4-eia-isolated"], { revalidate: 300 });
 export const getMarketData=()=>getMarketDataForSession(expectedHomeEtfSession(new Date()));

@@ -61,3 +61,19 @@ test("latest Dossier trace is bounded behind owner authorisation",()=>{
  assert.ok(source.indexOf("if(accessError||!access)")<source.indexOf('.from("market_dossiers_v2")'));
  assert.match(source,/\.lte\("as_of",now\.toISOString\(\)\)\.order\("as_of",\{ascending:false\}\)\.limit\(1\)\.maybeSingle\(\)/);
 });
+
+test("MYT date-only review is valid before UTC midnight but a future timestamp is not",()=>{
+ const clock=new Date("2026-11-26T20:40:16Z");
+ assert.ok(parseHypothesisSnapshot({...snapshot,reviewedOn:"2026-11-27"},row,clock));
+ assert.equal(parseHypothesisSnapshot({...snapshot,reviewedOn:"2026-11-28"},row,clock),null);
+ assert.equal(parseHypothesisSnapshot({...snapshot,reviewedOn:"2026-11-27T00:00:00Z"},row,clock),null);
+});
+test("Notion rich-text fragment whitespace is preserved in exact assessment and JSON",()=>{
+ const r={...record,properties:{...record.properties,"Current Read":{rich_text:[{plain_text:"Mixed "},{plain_text:"evidence"}]}}};
+ const current=projectRegistryRows({results:[r]},now)[0];
+ assert.equal(current.currentRead,"Mixed evidence");
+ const raw=JSON.stringify({...snapshot,currentRead:"Mixed evidence"});
+ const cut=raw.indexOf("Mixed evidence")+6;
+ const block={type:"code",code:{language:"json",rich_text:[{plain_text:raw.slice(0,cut)},{plain_text:raw.slice(cut)}]}};
+ assert.ok(readFirstSnapshot({results:[block]},current,now));
+});

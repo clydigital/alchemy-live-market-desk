@@ -104,3 +104,19 @@ test("new reviewed creator receipt can appear without a compiled digest, only fo
  assert.match(page,/radarOwner=creatorRadarRead!==null&&creatorRadarRead.status!=="unauthorised"/);
  assert.match(page,/radarOwner\?await getPrivateReviewedCreatorArguments/);
 });
+
+test("owner Radar uses a bounded attributed intake fallback without elevating public news",()=>{
+ const lead={id:"lead1",publisher:"Axios",title:"Reported financing issue",summary:"A claim requiring independent review.",url:"https://www.axios.com/example",publishedAt:recent,score:75};
+ const input={now,news:[],market:[],divergences:[],researchLeads:[lead,{...lead,id:"dup",url:lead.url+"?x=1"},{...lead,id:"old",url:"https://www.axios.com/old",publishedAt:"2026-11-21T00:00:00Z"},{...lead,id:"future",url:"https://www.axios.com/future",publishedAt:"2026-11-25T00:00:00Z"}]};
+ assert.equal(projectHomeRadar(input).researchLeadCount,0);
+ const owner=projectHomeRadar({...input,creatorIsAuthorised:true});
+ assert.equal(owner.newsCount,0);assert.equal(owner.researchLeadCount,1);
+ assert.equal(owner.items[0].kind,"RESEARCH_LEAD");
+ assert.equal(owner.items[0].statusLabel,"UNVERIFIED · PRIVATE LEAD");
+ const populated=projectHomeRadar({...input,creatorIsAuthorised:true,news:[news("a"),news("b"),news("c")]});
+ assert.equal(populated.researchLeadCount,0);assert.equal(populated.newsCount,3);
+ const duplicate=projectHomeRadar({...input,creatorIsAuthorised:true,news:[{...news("a"),sourceUrl:lead.url}]});
+ assert.equal(duplicate.researchLeadCount,0);
+ const page=readFileSync("app/blue-desk/page.tsx","utf8");
+ assert.match(page,/radarOwner&&radarVerifiedCount<3\?await getRadarResearchLeads/);
+});

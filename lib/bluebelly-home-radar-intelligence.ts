@@ -8,7 +8,8 @@ import {selectMeasuredMarketSignals} from "./bluebelly-measured-market-signals.t
 /** Prioritisation for the HOMEPAGE research radar. This is a reader projection,
  * NOT a verified causal link, statistical outlier detector or Regime scorer.
  * Private creator material may be supplied ONLY after its existing owner gate. */
-export type HomeRadarKind="NEWS"|"BIG_MOVE"|"DIVERGENCE"|"CREATOR";
+export type HomeRadarKind="NEWS"|"BIG_MOVE"|"DIVERGENCE"|"CREATOR"|"RESEARCH_LEAD";
+export type RadarResearchLead={id:string;publisher:string;title:string;summary:string;url:string;publishedAt:string;score:number};
 export type HomeRadarPulse=Readonly<{
  id:string;kind:HomeRadarKind;title:string;summary:string;why:string;
  observedAt:string;clockLabel:string;statusLabel:string;
@@ -17,7 +18,7 @@ export type HomeRadarPulse=Readonly<{
 export type HomeRadarRead=Readonly<{
  generatedAt:string;windowStart:string;windowEnd:string;
  items:HomeRadarPulse[];
- newsCount:number;moveCount:number;divergenceCount:number;creatorCount:number;
+ newsCount:number;moveCount:number;divergenceCount:number;creatorCount:number;researchLeadCount:number;
  creatorAccess:"OWNER_REVIEWED"|"PRIVATE_LOCKED"|"NO_RECENT_REVIEWED";
 }>;
 
@@ -160,6 +161,24 @@ function reviewedReceiptPulses(reviews:readonly PrivateCreatorReview[],nowMs:num
  }).slice(0,2);
 }
 
+/** Owner-only fallback; reporting is a prompt for independent verification, not public news. */
+function researchLeadPulses(rows:readonly RadarResearchLead[],news:readonly NewsBriefV1[],nowMs:number,limit:number):HomeRadarPulse[]{
+ if(limit<=0)return [];
+ const key=(raw:string)=>{const u=new URL(raw);return u.origin+u.pathname.replace(/\/$/,"");};
+ const seen=new Set(news.filter(n=>HTTPS(n.sourceUrl)).map(n=>key(n.sourceUrl)));
+ return [...rows].sort((a,b)=>b.score-a.score||Date.parse(b.publishedAt)-Date.parse(a.publishedAt)).flatMap(row=>{
+  if(ago(row.publishedAt,nowMs,DAY)===null||!HTTPS(row.url)||!row.title.trim()||!row.publisher.trim()||!Number.isFinite(row.score)||row.score<72)return [];
+  const identity=key(row.url);
+  if(seen.has(identity))return [];
+  seen.add(identity);
+  return [{id:"lead:"+row.id,kind:"RESEARCH_LEAD" as const,title:clean(row.publisher+" · "+row.title,106),
+   summary:clean(row.summary||"A dated report requires independent confirmation.",210),
+   why:"Private investigation lead from existing intake. Verify the original announcement and market reaction before using it as evidence.",
+   observedAt:row.publishedAt,clockLabel:"REPORT DATE · LAST 24H",statusLabel:"UNVERIFIED · PRIVATE LEAD",
+   href:row.url,sourceUrl:null,sourceLabel:null,rank:75+Math.min(15,row.score-72)}];
+ }).slice(0,Math.min(2,limit));
+}
+
 /** Mandatory input source gates: news source-verified, market direct dated
  * public projection, independently admitted divergence, and owner-gated digest.
  * News is scoped to rolling 24h. Session comparisons may be older (e.g. weekend)
@@ -167,9 +186,9 @@ function reviewedReceiptPulses(reviews:readonly PrivateCreatorReview[],nowMs:num
 export function projectHomeRadar(input:{
  now:Date;news:readonly NewsBriefV1[];market:readonly PublicMarketObservation[];
  divergences:readonly MarketDivergenceRead[];creatorDigest?:CreatorDigest|null;
- creatorIsAuthorised?:boolean;hostPrefix?:string;reviewedCreatorReceipts?:readonly PrivateCreatorReview[];
+ creatorIsAuthorised?:boolean;hostPrefix?:string;reviewedCreatorReceipts?:readonly PrivateCreatorReview[];researchLeads?:readonly RadarResearchLead[];
 }):HomeRadarRead{
- const {now,news,market,divergences,creatorDigest=null,creatorIsAuthorised=false,hostPrefix="",reviewedCreatorReceipts=[]}=input;
+ const {now,news,market,divergences,creatorDigest=null,creatorIsAuthorised=false,hostPrefix="",reviewedCreatorReceipts=[],researchLeads=[]}=input;
  const t=now.getTime();
  if(!Number.isFinite(t))throw new Error("Radar requires a valid source clock.");
  const newsItems=newsPulses(news,t,hostPrefix);
@@ -178,10 +197,11 @@ export function projectHomeRadar(input:{
  const digestItems=creatorIsAuthorised?creatorPulses(creatorDigest,t,hostPrefix):[];
  const receiptItems=creatorIsAuthorised?reviewedReceiptPulses(reviewedCreatorReceipts,t,hostPrefix,digestItems):[];
  const creatorItems=[...receiptItems,...digestItems].sort((a,b)=>Date.parse(b.observedAt)-Date.parse(a.observedAt)).slice(0,2);
- const items=[...newsItems,...moveItems.slice(0,2),...divergenceItems,...creatorItems]
+ const leadItems=creatorIsAuthorised?researchLeadPulses(researchLeads,news,t,3-newsItems.length):[];
+ const items=[...newsItems,...moveItems.slice(0,2),...divergenceItems,...creatorItems,...leadItems]
    .sort((a,b)=>b.rank-a.rank||a.id.localeCompare(b.id)).slice(0,9);
  return {generatedAt:now.toISOString(),windowStart:new Date(t-DAY).toISOString(),
   windowEnd:now.toISOString(),items,newsCount:newsItems.length,moveCount:moveItems.length,
-  divergenceCount:divergenceItems.length,creatorCount:creatorItems.length,
+  divergenceCount:divergenceItems.length,creatorCount:creatorItems.length,researchLeadCount:leadItems.length,
   creatorAccess:!creatorIsAuthorised?"PRIVATE_LOCKED":creatorItems.length?"OWNER_REVIEWED":"NO_RECENT_REVIEWED"};
 }

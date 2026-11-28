@@ -1,3 +1,4 @@
+import {SCANNER_US_ETFS} from "./technical-scanner-etf-identities.ts";
 import { unstable_cache } from "next/cache";
 import {expectedHomeEtfSession,fetchHomeEtfHistory,fetchUsRepairHistory,fetchUsEquityCanaryHistory,repairFailureCode,US_REPAIR_SYMBOLS,US_EQUITY_CANARY,PREFERRED_US_ETFS,PREFERRED_US_EQUITIES,planUsRecovery,XL_FALLBACK_ETFS,type HomeEtf} from "./bluebelly-home-etf-history";
 import {ADDITIONAL_US_STOCKS,EUROPE_STOCKS,ASIA_STOCKS,findStockIdentity} from "./bluebelly-equity-universe";
@@ -9,6 +10,8 @@ import { evaluateMarketSignals, type MarketSignalSnapshot } from "./bluebelly-si
 import { getMarketData, type BreadthSnapshot, type MarketSeries, type PricePoint } from "@/lib/market";
 import { fetchBarchartMoveSnapshot } from "@/lib/providers/barchart-move";
 import { readFredSeries } from "@/lib/providers/fred-api-v1";
+import {readTreasuryLedger} from "./treasury-ledger-reader";
+import {preferLedgerSeries} from "./treasury-ledger-reader-core";
 import { fetchTreasuryNominalCurve, NOMINAL_TREASURY_TENORS, type NominalTreasuryMonitorId } from "@/lib/providers/treasury-nominal-curve";
 
 export type MarketMonitorType =
@@ -802,7 +805,7 @@ function makeRows(rawSeries: RawSeries[]): MarketMonitorRow[] {
           return selected?.at(-1)?.time === lastTime ? selected :
             fallback?.at(-1)?.time === lastTime ? fallback : selected ?? null;
         })()) : null,
-      emaScan: identity&&raw.frequency==="daily"?scanEquityEma(points,identity.timeZone):null,
+      emaScan: raw.frequency==="daily"?scanEquityEma(points,identity?.timeZone??(SCANNER_US_ETFS.has(raw.symbol)?"America/New_York":"UTC")):null,
       volPercentile: volPercentile(points),
       relative5d: null,
       asOf: formatDate(last?.time),
@@ -898,7 +901,7 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   // Degrade independently: core market data, broad extras and cash anchors.
   // Cash anchors stay on their own short cache so headline prices can refresh
   // without re-fetching the full extras universe.
-  const results = await Promise.allSettled([getMarketData(), loadExtras(), loadCashAnchors(),loadEuropeEquities(),loadVolatilityAnchors(),loadExpandedEquities(expectedHomeEtfSession(new Date()))]);
+  const results = await Promise.allSettled([getMarketData(), loadExtras(), loadCashAnchors(),loadEuropeEquities(),loadVolatilityAnchors(),loadExpandedEquities(expectedHomeEtfSession(new Date())),readTreasuryLedger()]);
   
   const marketResult = results[0];
   const extrasResult = results[1];
@@ -966,6 +969,20 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   // Combine base (from getMarketData) and extras (from loadExtras)
   // If both branches failed, rows will be empty but not crash.
   const rawRows=[...base,...extras,...cashAnchors,...europeanStocks,...expandedStocks];
+  const ledgerResult=results[6];
+  if(ledgerResult.status==="fulfilled"){
+    for(const item of ledgerResult.value){
+      const i=rawRows.findIndex(r=>r.id===item.id);
+      const current=i>=0?rawRows[i]:null;
+      if(!preferLedgerSeries(current?.points??null,item.points))continue;
+      const spec=FRED_RATE_SPECS.find(s=>s.id===item.id);
+      if(!spec)continue;
+      const tenor=item.id.replace(/^us/,"").replace(/-fred$/,"").toUpperCase();
+      const replacement:RawSeries={id:item.id,symbol:"US"+tenor,label:spec.label.replace(" · FRED"," · Treasury"),type:"Rates",benchmark:null,frequency:"daily",points:item.points,sourceName:"U.S. Department of the Treasury",sourceUrl:item.sourceUrl,sourceUpdatedAt:item.sourceUpdatedAt};
+      if(i>=0)rawRows[i]=replacement;else rawRows.push(replacement);
+      console.info(JSON.stringify({event:"market_monitor_treasury_ledger_fallback",tenor:item.id,observationDate:new Date(item.points.at(-1)!.time*1000).toISOString().slice(0,10)}));
+    }
+  }
   const now=new Date(),expected=expectedHomeEtfSession(now);
   // Bounded aggregate, no additional provider requests and no raw prices/secrets.
   // Distinguishes upstream lag from successful source selection.
@@ -1063,4 +1080,4 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   };
 }
 
-export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v10-deep-equities"], { revalidate: 300 });
+export const getMarketMonitor = unstable_cache(loadMarketMonitor, ["alchemy-cross-asset-market-monitor-v14-ledger"], { revalidate: 300 });

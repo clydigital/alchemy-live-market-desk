@@ -1,6 +1,6 @@
 import "server-only";
 import {unstable_cache} from "next/cache";
-import {FOUR_H_SYMBOLS,emptyFourH,parseFourH,type FourHSymbol,type FourHRead} from "../bluebelly-4h-levels.ts";
+import {FOUR_H_SYMBOLS,FOUR_H_BATCH_SIZE,emptyFourH,parseFourH,fourHCacheKey,validateFourHReadFreshness,type FourHSymbol,type FourHRead} from "../bluebelly-4h-levels.ts";
 import {BLUEBELLY_STOCK_UNIVERSE} from "../bluebelly-equity-universe.ts";
 import {calculateTechnicalLevels,exchangeDay,unavailableLevels,type Frame,type TechnicalLevels,type Bar} from "../ema-sd-levels.ts";
 export const TECHNICAL_UNIVERSE=[...BLUEBELLY_STOCK_UNIVERSE.filter(x=>x.region==="US").map(x=>({ticker:x.ticker,label:x.company,currency:"USD",timeZone:x.timeZone,kind:"stock"})),...["SPY","QQQ","IWM","SMH","SOXX","XLRE","ITB","XHB","XLK","XLP","XLY","XLE","XLF","XLI","XLV","XLU","XLB","XLC","TLT","HYG","LQD","GLD","SLV","USO","UUP"].map(ticker=>({ticker,label:ticker,currency:"USD",timeZone:"America/New_York",kind:"etf"}))];
@@ -32,7 +32,7 @@ export async function fetchTechnicalFrame(ticker:string,frame:Frame,now:Date,fet
   return {levels,discarded,retrievedAt};
  }catch{return bad("Provider request or response unavailable");}
 }
-const cachedFrame=unstable_cache(async(ticker:string,frame:Frame,sessionKey:string)=>{void sessionKey;return fetchTechnicalFrame(ticker,frame,new Date());},["bb-owner-ema-sd-v2"],{revalidate:3600});
+const cachedFrame=unstable_cache(async(ticker:string,frame:Frame,sessionKey:string)=>{void sessionKey;return fetchTechnicalFrame(ticker,frame,new Date());},["bb-owner-ema-sd-v3"],{revalidate:3600});
 export async function readTechnicalSnapshot(ticker:string,now=new Date()):Promise<TechnicalSnapshot|null>{
  const spec=TECHNICAL_UNIVERSE.find(x=>x.ticker===ticker);if(!spec)return null;
  const today=exchangeDay(now,spec.timeZone);
@@ -49,20 +49,26 @@ export async function refreshTechnicalPilot(now=new Date()){
  return {ticker,frames:s?.frames.map(f=>({frame:f.frame,status:f.status,sampleCount:f.sampleCount,asOf:f.asOf,ready:f.bands.filter(b=>b.status==="READY").length}))??[]};
 }
 
-/** Owner-requested only; never called by the existing daily pilot or default page. */
-const cachedFourH=unstable_cache(async(symbol:FourHSymbol,bucket:number):Promise<FourHRead>=>{
+/** Shared bounded owner 4H read; no new scheduler. */
+const cachedFourH=unstable_cache(async(symbol:FourHSymbol,bucket:string):Promise<FourHRead>=>{
  void bucket;
  const key=process.env.TWELVEDATA_API_KEY?.trim();
  if(!key)return emptyFourH(symbol,"Server credential missing");
  const url=new URL("https://api.twelvedata.com/time_series");
- for(const [k,v] of Object.entries({symbol,interval:"4h",timezone:"UTC",outputsize:"1200",format:"JSON",order:"ASC",apikey:key}))url.searchParams.set(k,v);
+ for(const [k,v] of Object.entries({symbol,interval:"4h",timezone:"UTC",outputsize:"1200",...(symbol.includes("/")?{}:{adjust:"splits"}),format:"JSON",order:"ASC",apikey:key}))url.searchParams.set(k,v);
  try{
   const response=await fetch(url,{cache:"no-store",signal:AbortSignal.timeout(8000)});
   if(!response.ok)return emptyFourH(symbol,"Provider HTTP "+response.status);
   return parseFourH(await response.json(),symbol,new Date());
  }catch{return emptyFourH(symbol,"Provider request or response unavailable");}
-},["bb-owner-4h-v1"],{revalidate:3600});
+},["bb-owner-4h-v6"],{revalidate:3600});
 export async function readFourH(symbol:string,now=new Date()):Promise<FourHRead>{
- if(!(FOUR_H_SYMBOLS as readonly string[]).includes(symbol))return emptyFourH("Unsupported","Instrument not allowlisted");
- return cachedFourH(symbol as FourHSymbol,Math.floor(+now/3600000));
+ if(!(FOUR_H_SYMBOLS as readonly string[]).includes(symbol)&&!TECHNICAL_UNIVERSE.some(x=>x.ticker===symbol))return emptyFourH("Unsupported","Instrument not allowlisted");
+ const read=await cachedFourH(symbol as FourHSymbol,fourHCacheKey(symbol,now));
+ return validateFourHReadFreshness(read,new Date(Math.max(+now,Date.now())));
+}
+
+/** Bounded shared scan: no automatic per-holding fanout or extra scheduler. */
+export async function readFourHWatch(now=new Date(),symbols:readonly string[]=[]){
+ const results:FourHRead[]=[];for(const symbol of [...new Set(symbols)].slice(0,FOUR_H_BATCH_SIZE))results.push(await readFourH(symbol,now));return results;
 }
