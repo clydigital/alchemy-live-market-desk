@@ -28,6 +28,7 @@ test("Vercel Research Gap cron defers while a canonical Live sweep is active", a
   await withCronSecret(async () => {
     let handoffCalls = 0;
     const result = await handleScheduledResearchGapCycle(request(), {
+      referenceOnly: false,
       authorised: () => true,
       liveResearchActive: async () => true,
       handoff: async () => {
@@ -48,6 +49,7 @@ test("Vercel Research Gap cycle retries completed handoff and stops before new w
   await withCronSecret(async () => {
     let researched = false;
     const result = await handleScheduledResearchGapCycle(request(), {
+      referenceOnly: false,
       authorised: () => true,
       liveResearchActive: async () => false,
       handoff: async () => Response.json({
@@ -72,6 +74,7 @@ test("Vercel Research Gap cycle researches at most one case and leaves canonical
   await withCronSecret(async () => {
     let researchCalls = 0;
     const result = await handleScheduledResearchGapCycle(request(), {
+      referenceOnly: false,
       authorised: () => true,
       liveResearchActive: async () => false,
       handoff: async () => Response.json({ status: "empty" }),
@@ -97,6 +100,7 @@ test("Vercel Research Gap cycle researches at most one case and leaves canonical
 test("Vercel Research Gap cycle may close superseded D7 work before finding no ordinary work", async () => {
   await withCronSecret(async () => {
     const result = await handleScheduledResearchGapCycle(request(), {
+      referenceOnly: false,
       authorised: () => true,
       liveResearchActive: async () => false,
       handoff: async () => Response.json({ status: "closed_superseded" }),
@@ -112,6 +116,7 @@ test("Vercel Research Gap cycle may close superseded D7 work before finding no o
 test("Vercel Research Gap handoff cron remains handoff-only", async () => {
   await withCronSecret(async () => {
     const result = await handleScheduledResearchGapHandoff(request(), {
+      referenceOnly: false,
       authorised: () => true,
       liveResearchActive: async () => false,
       handoff: async () => Response.json({
@@ -166,4 +171,24 @@ test("Research Gap Vercel cron routes are runtime-only and scheduled independent
   assert.doesNotMatch(workflow, /cron: "15 15 \* \* \*"/);
   assert.match(workflow, /- research_gap_cycle/);
   assert.match(workflow, /env\.MODE == 'research_gap_cycle'/);
+});
+
+
+test("scheduled Research Gap defaults to manual-only after auth and concurrency checks",async()=>{
+ await withCronSecret(async()=>{
+  for(const handler of [handleScheduledResearchGapCycle,handleScheduledResearchGapHandoff]){
+   let calls=0;
+   const dependencies={authorised:()=>true,liveResearchActive:async()=>false,
+    handoff:async()=>{calls++;throw Error("legacy queue touched");},
+    research:async()=>{calls++;throw Error("legacy model touched");}};
+   const denied=await handler(request(),{...dependencies,authorised:()=>false});
+   assert.equal(denied.status,401);
+   const active=await handler(request(),{...dependencies,liveResearchActive:async()=>true});
+   assert.equal((await active.json()).status,"deferred");
+   const result=await handler(request(),dependencies);
+   assert.equal(result.status,200);
+   const body=await result.json();assert.equal(body.action,"manual_only");
+   assert.equal(body.status,"completed");assert.equal(calls,0);
+  }
+ });
 });
