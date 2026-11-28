@@ -1,4 +1,6 @@
 import "server-only";
+import {unstable_cache} from "next/cache";
+import {expectedHomeEtfSession} from "./bluebelly-home-etf-history";
 import {createSupabaseServerClient} from "@/lib/supabase/server";
 import {BREADTH_HISTORY_URL,parseBreadthDailyDataset,REVIEWED_BREADTH_SEED,REVIEWED_BREADTH_PROXY_SNAPSHOT,parsePublishedSp500Breadth,parseCurrentBreadthTable,parseBreadthHistoricalTable,sourceDateFresh,type BreadthSeries} from "./bluebelly-breadth-dated";
 const SOURCE_URL="https://www.thetrading.tools/stocks-above-moving-average";
@@ -8,7 +10,7 @@ const HISTORICAL=[
 ] as const;
 async function read(url:string){
  try{
-  const response=await fetch(url,{headers:{accept:"text/html","user-agent":"Bluebelly-Market-Research/1.0"},next:{revalidate:7200},signal:AbortSignal.timeout(7500)});
+  const response=await fetch(url,{headers:{accept:"text/html","user-agent":"Bluebelly-Market-Research/1.0"},cache:"no-store",signal:AbortSignal.timeout(7500)});
   return response.ok?await response.text():"";
  }catch{return "";}
 }
@@ -23,25 +25,40 @@ async function authorizedResearchHistory():Promise<boolean>{
 }
 async function readResearchHistory(now:Date){
  try{
-  const r=await fetch(BREADTH_HISTORY_URL,{headers:{accept:"application/json"},next:{revalidate:7200},signal:AbortSignal.timeout(10000)});
+  const r=await fetch(BREADTH_HISTORY_URL,{headers:{accept:"application/json"},cache:"no-store",signal:AbortSignal.timeout(10000)});
   if(!r.ok)return [];
   const body=await r.text();
   if(body.length>10000000)return [];
   return parseBreadthDailyDataset(JSON.parse(body),now);
  }catch{return [];}
 }
+// Cache only parsed, public-source observations, not HTML or user session data.
+const readPublicBreadthForSession=unstable_cache(async(session:string|null)=>{
+ void session;
+ const now=new Date();
+ const [html,...history]=await Promise.all([read(SOURCE_URL),...HISTORICAL.map(([,url])=>read(url))]);
+ return {
+  freshProxy:parseCurrentBreadthTable(html,now)??parsePublishedSp500Breadth(html,now),
+  freshHistory:HISTORICAL.map(([symbol,url],i)=>parseBreadthHistoricalTable(history[i],symbol,url,now)).filter((s):s is BreadthSeries=>s!==null),
+ };
+},["bluebelly-public-breadth-v2-session"],{revalidate:7200});
+const readResearchBreadthForSession=unstable_cache(async(session:string|null)=>{
+ void session;
+ return readResearchHistory(new Date());
+},["bluebelly-authorized-breadth-history-v2-session"],{revalidate:7200});
+
 export async function getSourceDatedBreadth(includeResearchHistory=false):Promise<{series:BreadthSeries[];retrievalStatus:"refreshed"|"fallback"|"mixed";researchHistory?:boolean}>{
  const now=new Date();
  const researchAllowed=includeResearchHistory&&await authorizedResearchHistory();
- const [research,html,...history]=await Promise.all([researchAllowed?readResearchHistory(now):Promise.resolve([]),read(SOURCE_URL),...HISTORICAL.map(([,url])=>read(url))]);
- const freshProxy=parseCurrentBreadthTable(html,now)??parsePublishedSp500Breadth(html,now);
- const freshHistory=HISTORICAL.map(([symbol,url],i)=>parseBreadthHistoricalTable(history[i],symbol,url,now)).filter((s):s is BreadthSeries=>s!==null);
+ const session=expectedHomeEtfSession(now);
+ const [research,{freshProxy,freshHistory}]=await Promise.all([researchAllowed?readResearchBreadthForSession(session):Promise.resolve([] as BreadthSeries[]),readPublicBreadthForSession(session)]);
  const seeds=REVIEWED_BREADTH_PROXY_SNAPSHOT.filter(s=>sourceDateFresh(s.points.at(-1)!.date,now));
  const merged=new Map<string,BreadthSeries>();
  for(const series of [...REVIEWED_BREADTH_SEED,...seeds,...(freshProxy??[]),...freshHistory,...research]){
   const previous=merged.get(series.symbol);
   if(!previous||series.points.at(-1)!.date>=previous.points.at(-1)!.date)merged.set(series.symbol,series);
  }
+ console.info(JSON.stringify({event:"bluebelly_shared_breadth_session_health",expected:session,publicSources:[...(freshProxy??[]),...freshHistory].map(s=>({symbol:s.symbol,day:s.points.at(-1)?.date??null,points:s.points.length})),selected:[...merged.values()].map(s=>({symbol:s.symbol,day:s.points.at(-1)?.date??null,points:s.points.length}))}));
  if(research.length)return {series:[...merged.values()],retrievalStatus:"refreshed",researchHistory:true};
  if(freshProxy?.length||freshHistory.length)return {series:[...merged.values()],retrievalStatus:freshProxy?.length&&freshHistory.length===2?"refreshed":"mixed"};
  return {series:[...merged.values()],retrievalStatus:"fallback"};
