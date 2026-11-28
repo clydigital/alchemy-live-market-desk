@@ -5,18 +5,18 @@ import {useRouter} from "next/navigation";
 import type {HomeRadarRead,HomeRadarPulse} from "@/lib/bluebelly-home-radar-intelligence";
 import ui from "./HomeRadarIntelligence.module.css";
 
-type RadarSourceHealth={newsReads:{motion:boolean;originalPress:boolean;officialMacro:boolean};marketReadable:boolean;creatorStatus:string;creatorGeneratedAt:string|null;latestNewsAt:string|null;latestMarketAt:string|null};
+type RadarSourceHealth={researchLeadStatus?:"readable"|"unavailable"|null;newsReads:{motion:boolean;originalPress:boolean;officialMacro:boolean};marketReadable:boolean;creatorStatus:string;creatorGeneratedAt:string|null;latestNewsAt:string|null;latestMarketAt:string|null};
 type RadarContext={
  open:boolean;toggle:()=>void;contentId:string;
 };
 const radarContext=createContext<RadarContext|null>(null);
 const icons:Record<HomeRadarPulse["kind"],string>={
- NEWS:"NEWS",BIG_MOVE:"MOVE",DIVERGENCE:"GAP",CREATOR:"ANALYST",
+ NEWS:"NEWS",BIG_MOVE:"MOVE",DIVERGENCE:"GAP",CREATOR:"ANALYST",RESEARCH_LEAD:"RESEARCH LEAD",
 };
 const descriptions:Record<HomeRadarPulse["kind"],string>={
  NEWS:"Latest verified news",BIG_MOVE:"Large observed daily move",
  DIVERGENCE:"Measured relative-performance divergence",
- CREATOR:"Owner-only transcript interpretation",
+ CREATOR:"Owner-only transcript interpretation",RESEARCH_LEAD:"Private unverified reporting lead",
 };
 function useRadar(){
  const context=useContext(radarContext);
@@ -95,6 +95,7 @@ export default function RadarIntelligenceShell({
     <span><strong>{read.items.filter(item=>item.kind==="BIG_MOVE").length}</strong> large daily moves displayed</span>
     <span><strong>{read.divergenceCount}</strong> matched divergences</span>
     <span><strong>{read.creatorCount}</strong> reviewed creator takes</span>
+    {sourceHealth?.researchLeadStatus&&<span><strong>{read.researchLeadCount}</strong> private investigation leads · {sourceHealth.researchLeadStatus==="unavailable"?"read unavailable":"not verified news"}</span>}
    </div>
    {read.items.length?
     <div className={ui.rail} tabIndex={0} role="region" aria-label="Scrollable market intelligence pulses">
@@ -110,7 +111,7 @@ export default function RadarIntelligenceShell({
     <p>{read.creatorAccess==="PRIVATE_LOCKED"?
       <>Transcript-based takes are private. <a href="/my-reports">Sign in to My Desk</a> to inspect reviewed creator reasoning.</>:
       read.creatorAccess==="NO_RECENT_REVIEWED"?
-      "No recently reviewed creator digest met the provenance and freshness rules. No opinion was inferred.":
+      "No recently reviewed creator item met the provenance and freshness rules. No opinion was inferred.":
       "Creator claims shown only in an authorised owner session. Independent price/source checks remain separate."}</p>
    </footer>
   </section>

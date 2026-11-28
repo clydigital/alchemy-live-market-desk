@@ -94,3 +94,71 @@ test("scheduled research pipeline includes original IR retrieval before generic 
  const gaps=source.indexOf("expectedIssuerReceiptGaps(recovered,now)");
  assert.ok(issuer>0&&sec>issuer&&gaps>sec);
 });
+
+test("November issuer incident recovery admits only the actual named quarter and date",async()=>{
+ const now=new Date("2026-11-26T19:00:00Z");
+ const sources={
+  "https://investors.delltechnologies.com/news-events/press-releases/detail/1665/dell-technologies-delivers-third-quarter-fiscal-2027-financial-results":"Dell Technologies Delivers Third Quarter Fiscal 2027 Financial Results|Dell Technologies (NYSE: DELL)|fiscal 2027 third quarter",
+  "https://investor.workday.com/news-and-events/press-releases/news-details/2026/Workday-Announces-Fiscal-2027-Third-Quarter-Financial-Results/default.aspx":"Workday Announces Fiscal 2027 Third Quarter Financial Results|Workday, Inc.|fiscal 2027 third quarter",
+  "https://www.analog.com/en/newsroom/press-releases/2026/11-24-26-adi-reports-record-4th-qtr-and-fiscal-2026-financial-results.html":"Analog Devices Reports Record Fourth Quarter and Fiscal 2026 Financial Results|Analog Devices, Inc.|fiscal fourth quarter 2026",
+ };
+ const fixtures=Object.fromEntries(Object.entries(sources).map(([url,s])=>{
+  const [title,company,period]=s.split("|");
+  return [url,`<html><body><h1>${title}</h1><p>November 24, 2026</p><p>${company} announced financial results for the ${period}. Reported revenue, net income, operating cash flow, gross margin, earnings per share and forward guidance are described in the original dated financial results. This is a controlled test fixture, not live market evidence.</p></body></html>`];
+ }));
+ const result=await applyIssuerResultsPressIntake(input(),{now,fetchImpl:fetchWithFixture(fixtures)});
+ assert.equal(result.items.length,3);
+ const gaps=expectedIssuerReceiptGaps(result,now);
+ for(const tick of ["DELL","WDAY","ADI"])assert.equal(gaps.some(g=>g.includes(":"+tick+":")),false,tick);
+ const wrong={...result,items:result.items.map(i=>i.title.endsWith(" — DELL")?{...i,title:"Issuer confirms Q2 FY2027 financial results — DELL"}:i)};
+ assert.ok(expectedIssuerReceiptGaps(wrong,now).some(g=>g.includes(":DELL:")));
+});
+
+test("six additional November issuers reconcile exact fiscal quarters and original dates",async()=>{
+ const now=new Date("2026-11-26T19:00:00Z");
+ const fixtures:Record<string,string>={};
+ const releases=[
+ ["https://www.hpe.com/us/en/newsroom/press-release/2026/11/hpe-reports-fiscal-2026-fourth-quarter-results.html","HPE reports fiscal 2026 fourth quarter results","HPE (NYSE: HPE)","November 23, 2026","fourth quarter of fiscal 2026"],
+ ["https://www.agilent.com/about/newsroom/presrel/2026/23nov-gp26025.html","Agilent Reports Fourth-Quarter Fiscal Year 2026 Financial Results","Agilent Technologies","November 23, 2026","fourth quarter of fiscal 2026"],
+ ["https://investor.hp.com/news-events/news/news-details/2026/HP-Inc--Reports-Fiscal-2026-Full-Year-and-Fourth-Quarter-Results-Announces-Dividend-Increase/default.aspx","HP Inc. Reports Fiscal 2026 Full Year and Fourth Quarter Results","HP (NYSE: HPQ)","November 24, 2026","fourth quarter of fiscal 2026"],
+ ["https://investors.bestbuy.com/News--Events/news/news-details/2026/Best-Buy-Reports-Third-Quarter-Results/default.aspx","Best Buy Reports Third Quarter Results","Best Buy Co., Inc.","November 24, 2026","third quarter (Q3 FY27)"],
+ ["https://news.medtronic.com/2026-11-24-Medtronic-reports-second-quarter-fiscal-2027-results-performance-reflects-consistent-execution-across-the-portfolio","Medtronic reports second quarter fiscal 2027 results","Medtronic plc","Nov. 24, 2026","second quarter of fiscal 2027"],
+ ["https://www.deere.com/en-us/john-deere-news/fy26-fourth-quarter-earnings","FY26 Fourth Quarter Earnings Release","Deere &amp; Company","November 25, 2026","fourth quarter of fiscal 2026"],
+ ];
+ for(const [url,title,company,day,period] of releases)fixtures[url]=`<html><body><h1>${title}</h1><p>${day}</p><p>${company} announced financial results for the ${period}. Revenue, net income, earnings per share, operating cash flow, balance sheet and outlook are included in this controlled synthetic HTML fixture. It tests source identity and reporting period only, not actual financial figures.</p></body></html>`;
+ const result=await applyIssuerResultsPressIntake(input(),{now,fetchImpl:fetchWithFixture(fixtures)});
+ assert.equal(result.items.length,6);
+ const gaps=expectedIssuerReceiptGaps(result,now);
+ for(const ticker of ["HPE","A","HPQ","BBY","MDT","DE"])assert.equal(gaps.some(g=>g.includes(":"+ticker+":")),false,ticker);
+ const bby=releases[3][0];
+ const wrong={...fixtures,[bby]:fixtures[bby].replace("Q3 FY27","Q3 FY26")};
+ const rejected=await applyIssuerResultsPressIntake(input(),{now,fetchImpl:fetchWithFixture(wrong)});
+ assert.equal(rejected.items.some(i=>i.url===bby),false);
+});
+
+test("Zoom and Autodesk use the exact issuer-filed SEC exhibits, not a PDF or announcement",async()=>{
+ const now=new Date("2026-11-26T19:00:00Z");
+ const zoom="https://www.sec.gov/Archives/edgar/data/1585521/000158552126000170/zm-20261031ex991.htm";
+ const adsk="https://www.sec.gov/Archives/edgar/data/769397/000076939726000069/q327pressrelease.htm";
+ const agent="Bluebelly test desk test@example.org";
+ const fixture=(title:string,company:string,date:string)=>`<html><body><h1>${title}</h1><p>${date}</p><p>${company} announced financial results for the third fiscal quarter ended October 31, 2026. Revenue, operating margin, cash flows, net income and earnings per share are present in this synthetic test document. The reporting period is fiscal year 2027 and no prices or market reaction are inferred.</p></body></html>`;
+ const pages={
+  [zoom]:fixture("Zoom Communications Reports Financial Results for the Third Quarter of Fiscal Year 2027","Zoom Communications, Inc.","November 23, 2026"),
+  [adsk]:fixture("AUTODESK, INC. ANNOUNCES FISCAL 2027 THIRD QUARTER RESULTS","Autodesk, Inc.","NOVEMBER 24, 2026"),
+ };
+ const result=await applyIssuerResultsPressIntake(input(),{now,fetchImpl:fetchWithFixture(pages),secUserAgent:agent});
+ assert.equal(result.items.length,2);
+ const gaps=expectedIssuerReceiptGaps(result,now);
+ for(const ticker of ["ZM","ADSK"])assert.equal(gaps.some(g=>g.includes(":"+ticker+":")),false,ticker);
+ const wrong={...pages,[zoom]:pages[zoom].replace("November 23, 2026","November 23, 2025")};
+ const rejected=await applyIssuerResultsPressIntake(input(),{now,fetchImpl:fetchWithFixture(wrong),secUserAgent:agent});
+ assert.equal(rejected.items.some(i=>i.url===zoom),false);
+ const later=await applyIssuerResultsPressIntake(input(),{now:new Date("2026-11-27T01:30:00Z"),fetchImpl:fetchWithFixture(pages),secUserAgent:agent});
+ assert.equal(later.items.length,2,"incident recovery must survive the next scheduled slot");
+});
+test("issuer retrieval clocks are not eligible for timed market motion or private 24-hour leads",()=>{
+ const motion=readFileSync(new URL("../lib/market-motion-ingestion.ts",import.meta.url),"utf8");
+ const leads=readFileSync(new URL("../lib/bluebelly-radar-research-leads-server.ts",import.meta.url),"utf8");
+ assert.ok(motion.split('item.itemKey.startsWith("issuer-press:")').length>=3);
+ assert.ok(leads.includes('.not("item_key","like","issuer-press:%")'));
+});

@@ -62,12 +62,97 @@ const SOURCES:Readonly<Record<string,Source>>={
   publisher:"CoreWeave Investor Relations",headline:/coreweave\s+(?:reports?|announces?)\s+(?:first|second|third|fourth)\s+quarter\s+20\d{2}\s+(?:financial\s+)?results/i,
   company:/coreweave,\s*inc/i,
  },
+ // November original links independently located on the issuer's own site.
+ // Incident recovery is exact-period bounded; subsequent releases use listings.
+ DELL:{
+  host:"investors.delltechnologies.com",listing:"https://investors.delltechnologies.com/",
+  path:/^\/news-events\/press-releases\/detail\/\d{3,6}\/[a-z0-9-]+\/?$/i,
+  publisher:"Dell Technologies Investor Relations",headline:/dell technologies\s+(?:delivers?|reports?|announces?)\s+(?:first|second|third|fourth)\s+quarter\s+fiscal\s+20\d{2}\s+financial\s+results/i,
+  company:/dell technologies\s*\(nyse:\s*dell\)|dell technologies inc/i,
+ },
+ WDAY:{
+  host:"investor.workday.com",listing:"https://investor.workday.com/home/default.aspx",
+  path:/^\/news-and-events\/press-releases\/news-details\/20\d{2}\/[a-z0-9-]+\/default\.aspx$/i,
+  publisher:"Workday Investor Relations",headline:/workday\s+(?:announces?|reports?)\s+fiscal\s+20\d{2}\s+(?:first|second|third|fourth)\s+quarter\s+financial\s+results/i,
+  company:/workday,?\s+inc\.?|\(nasdaq:\s*wday\)/i,
+ },
+ ADI:{
+  host:"www.analog.com",listing:"https://www.analog.com/en/newsroom/press-releases.html",
+  path:/^\/en\/newsroom\/press-releases\/20\d{2}\/[a-z0-9-]+\.html$/i,
+  publisher:"Analog Devices Investor Relations",headline:/analog devices\s+reports?\s+(?:record\s+)?(?:first|second|third|fourth)\s+quarter(?:\s+and)?\s+fiscal\s+20\d{2}\s+financial\s+results/i,
+  company:/analog devices,?\s+inc\.?|\(nasdaq:\s*adi\)/i,
+ },
+ HPE:{
+  host:"www.hpe.com",listing:"https://www.hpe.com/us/en/newsroom.html",
+  path:/^\/us\/en\/newsroom\/press-release\/20\d{2}\/\d{2}\/[a-z0-9-]+\.html$/i,
+  publisher:"HPE Newsroom",headline:/\bhpe\s+reports?\s+fiscal\s+20\d{2}\s+(?:first|second|third|fourth)\s+quarter\s+results\b/i,
+  company:/hewlett packard enterprise|\(nyse:\s*hpe\)/i,
+ },
+ A:{
+  host:"www.agilent.com",listing:"https://www.agilent.com/about/newsroom/presrel/",
+  path:/^\/about\/newsroom\/presrel\/20\d{2}\/[a-z0-9-]+\.html$/i,
+  publisher:"Agilent Newsroom",headline:/agilent\s+reports?\s+(?:first|second|third|fourth)[-\s]+quarter\s+fiscal\s+year\s+20\d{2}\s+financial\s+results/i,
+  company:/agilent technologies|\(nyse:\s*a\)/i,
+ },
+ HPQ:{
+  host:"investor.hp.com",listing:"https://investor.hp.com/",
+  path:/^\/news-events\/news\/news-details\/20\d{2}\/[a-z0-9-]+\/default\.aspx$/i,
+  publisher:"HP Investor Relations",headline:/hp inc\.?\s+reports?\s+fiscal\s+20\d{2}\s+(?:full year and\s+)?(?:first|second|third|fourth)\s+quarter\s+results/i,
+  company:/hp inc\.?|\(nyse:\s*hpq\)/i,
+ },
+ BBY:{
+  host:"investors.bestbuy.com",listing:"https://investors.bestbuy.com/",
+  path:/^\/news--events\/news\/news-details\/20\d{2}\/[a-z0-9-]+\/default\.aspx$/i,
+  publisher:"Best Buy Investor Relations",headline:/best buy\s+reports?\s+(?:first|second|third|fourth)\s+quarter\s+results/i,
+  company:/best buy co\.?,?\s*inc\.?|\(nyse:\s*bby\)/i,
+ },
+ MDT:{
+  host:"news.medtronic.com",listing:"https://news.medtronic.com/press-releases",
+  path:/^\/20\d{2}-\d{2}-\d{2}-[a-z0-9-]+$/i,
+  publisher:"Medtronic Newsroom",headline:/medtronic\s+reports?\s+(?:first|second|third|fourth)\s+quarter\s+fiscal\s+20\d{2}\s+results/i,
+  company:/medtronic plc|\(nyse:\s*mdt\)/i,
+ },
+ DE:{
+  host:"www.deere.com",listing:"https://www.deere.com/en-us/content-library",
+  path:/^\/en-us\/john-deere-news\/[a-z0-9-]+\/?$/i,
+  publisher:"John Deere Newsroom",headline:/(?:fy\d{2}\s+(?:first|second|third|fourth)\s+quarter\s+earnings\s+release|deere\s+reports?\s+(?:first|second|third|fourth)\s+quarter)/i,
+  company:/deere\s*(?:&|and)\s*company|\(nyse:\s*de\)/i,
+ },
+ ZM:{
+  host:"investors.zoom.us",listing:"https://investors.zoom.us/news-events/press-releases",
+  path:/^\/(?:news-releases\/news-release-details\/[a-z0-9-]+|node\/\d+)\/?$/i,
+  publisher:"Zoom Investor Relations",headline:/zoom communications\s+reports?\s+financial results for the (?:first|second|third|fourth) quarter of fiscal year 20\d{2}/i,
+  company:/zoom communications,\s*inc\.?|\(nasdaq:\s*zm\)/i,
+ },
+ ADSK:{
+  host:"investors.autodesk.com",listing:"https://investors.autodesk.com/news-events/press-releases",
+  path:/^\/(?:index\.php\/)?(?:news-releases\/news-release-details\/[a-z0-9-]+|node\/\d+)\/?$/i,
+  publisher:"Autodesk Investor Relations",headline:/autodesk,\s*inc\.?\s+announces?\s+fiscal 20\d{2} (?:first|second|third|fourth) quarter results/i,
+  company:/autodesk,\s*inc\.?|\(nasdaq:\s*adsk\)/i,
+ },
  AMD:{
   host:"ir.amd.com",listing:"https://ir.amd.com/news-events/press-releases",
   path:/^\/news-events\/press-releases\/detail\/\d{3,5}\/[a-z0-9-]+\/?$/i,
   publisher:"AMD Investor Relations",headline:/amd\s+(?:reports?|announces?)\s+(?:first|second|third|fourth)\s+quarter\s+20\d{2}\s+(?:financial\s+)?results/i,
   company:/advanced\s+micro\s+devices/i,
  },
+};
+const NOVEMBER_ORIGINALS:Readonly<Record<string,{quarter:string;day:string;url:string}>>={
+ HPE:{"quarter":"Q4 FY2026","day":"2026-11-23","url":"https://www.hpe.com/us/en/newsroom/press-release/2026/11/hpe-reports-fiscal-2026-fourth-quarter-results.html"},
+ A:{"quarter":"Q4 FY2026","day":"2026-11-23","url":"https://www.agilent.com/about/newsroom/presrel/2026/23nov-gp26025.html"},
+ HPQ:{"quarter":"Q4 FY2026","day":"2026-11-24","url":"https://investor.hp.com/news-events/news/news-details/2026/HP-Inc--Reports-Fiscal-2026-Full-Year-and-Fourth-Quarter-Results-Announces-Dividend-Increase/default.aspx"},
+ BBY:{"quarter":"Q3 FY2027","day":"2026-11-24","url":"https://investors.bestbuy.com/News--Events/news/news-details/2026/Best-Buy-Reports-Third-Quarter-Results/default.aspx"},
+ MDT:{"quarter":"Q2 FY2027","day":"2026-11-24","url":"https://news.medtronic.com/2026-11-24-Medtronic-reports-second-quarter-fiscal-2027-results-performance-reflects-consistent-execution-across-the-portfolio"},
+ DE:{"quarter":"Q4 FY2026","day":"2026-11-25","url":"https://www.deere.com/en-us/john-deere-news/fy26-fourth-quarter-earnings"},
+ DELL:{quarter:"Q3 FY2027",day:"2026-11-24",url:"https://investors.delltechnologies.com/news-events/press-releases/detail/1665/dell-technologies-delivers-third-quarter-fiscal-2027-financial-results"},
+ WDAY:{quarter:"Q3 FY2027",day:"2026-11-24",url:"https://investor.workday.com/news-and-events/press-releases/news-details/2026/Workday-Announces-Fiscal-2027-Third-Quarter-Financial-Results/default.aspx"},
+ ADI:{quarter:"Q4 FY2026",day:"2026-11-24",url:"https://www.analog.com/en/newsroom/press-releases/2026/11-24-26-adi-reports-record-4th-qtr-and-fiscal-2026-financial-results.html"},
+};
+// Exact issuer-filed SEC exhibits verified independently for this incident.
+// Do not guess EDGAR accessions for future quarters.
+const SEC_NOVEMBER_ORIGINALS:Readonly<Record<string,{quarter:string;day:string;url:string;cik:string}>>={
+ ZM:{quarter:"Q3 FY2027",day:"2026-11-23",url:"https://www.sec.gov/Archives/edgar/data/1585521/000158552126000170/zm-20261031ex991.htm",cik:"1585521"},
+ ADSK:{quarter:"Q3 FY2027",day:"2026-11-24",url:"https://www.sec.gov/Archives/edgar/data/769397/000076939726000069/q327pressrelease.htm",cik:"769397"},
 };
 type Candidate={ticker:string;quarter:string;scheduledCallAt:string;sourceDateOnly:boolean};
 const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -79,7 +164,7 @@ function dayLabel(day:string){
 function releaseDay(event:Candidate){return event.scheduledCallAt.slice(0,10);}
 function htmlText(body:string){return body
  .replace(/<(?:script|style|svg|noscript)\b[^>]*>[\s\S]*?<\/(?:script|style|svg|noscript)>/gi," ")
- .replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/gi," ")
+ .replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;|&#x0*a0;|\u00a0/gi," ")
  .replace(/&amp;/gi,"&").replace(/&#39;|&apos;/gi,"'")
  .replace(/\s+/g," ").trim();}
 export function issuerOriginalUrl(value:string,source:Source){
@@ -96,20 +181,27 @@ function quarterToken(q:string){
  if(!m||!year)return null;
  return {word:["first","second","third","fourth"][Number(m[1])-1],year:year[0]};
 }
+function hasReleaseDay(text:string,day:string){
+ const full=dayLabel(day);
+ if(!full)return false;
+ const short=full.replace(/^([A-Za-z]{3})[A-Za-z]+ /,"$1 ");
+ const lower=text.toLowerCase();
+ return [full,short,short.replace(/^([A-Za-z]{3}) /,"$1. ")].some(date=>lower.includes(date.toLowerCase()));
+}
 function isResult(body:string,source:Source,event:Candidate){
  const text=htmlText(body).slice(0,105_000);
  const token=quarterToken(event.quarter);
  if(!token||text.length<250||!source.headline.test(text.slice(0,25_000))||
    !source.company.test(text)||!/revenue|net sales/i.test(text)
    ||!/\bfinancial results\b|\bresults for (?:the|its)\b|\bquarter ended\b/i.test(text)
-   ||!text.includes(dayLabel(releaseDay(event))))return false;
+   ||!hasReleaseDay(text,releaseDay(event)))return false;
  const lower=text.toLowerCase();
  const nearTitle=lower.search(source.headline);
  const core=nearTitle>=0?lower.slice(nearTitle,nearTitle+12_000):"";
  // A result for the wrong quarter/year, an old date announcement or a future
  // preview must never clear the current issuer-coverage obligation.
  const hasQuarter=new RegExp("\\b"+token.word+"[-\\s]+quarter\\b","i").test(core);
- const hasYear=core.includes(token.year)||core.includes(releaseDay(event).slice(0,4));
+ const hasYear=core.includes(token.year)||new RegExp("\\bfy\\s*"+token.year.slice(-2)+"\\b","i").test(core);
  const future=/\b(?:will report|to report|announces? date of|announces? the date|conference call to discuss)\b/i
    .test(core.slice(0,170));
  return hasQuarter&&hasYear&&!future;
@@ -125,16 +217,18 @@ function listingUrls(html:string,source:Source){
  return discovered;
 }
 type Read=typeof recoverOfficialPublisherSource;
-async function verifiedHtml(url:string,source:Source,fetchImpl:typeof fetch,recover:Read){
+async function verifiedHtml(url:string,source:Source,fetchImpl:typeof fetch,recover:Read,secAgent?:string){
+ const sec=source.host==="www.sec.gov";
+ if(sec&&(!secAgent||!/^[^\r\n]{12,200}$/.test(secAgent)||!/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(secAgent)))return "";
  let body="";
  try{
   const res=await fetchImpl(url,{cache:"no-store",signal:AbortSignal.timeout(6500),
-   headers:{accept:"text/html,application/xhtml+xml","user-agent":"Alchemy Bluebelly original issuer reader"}});
+   headers:{accept:"text/html,application/xhtml+xml","user-agent":sec?secAgent!:"Alchemy Bluebelly original issuer reader"}});
   if(res.ok&&(!res.url||(url===source.listing ? res.url===url : issuerOriginalUrl(res.url,source)===url))
      &&(res.headers.get("content-type")||"text/html").toLowerCase().includes("text/html"))
    body=(await res.text()).slice(0,225_000);
  }catch{ /* Same-publisher recovery is bounded and separately validated. */ }
- if(body)return body;
+ if(body||sec)return body;
  const recovery=await recover(url,{timeoutMs:12000});
  if(!recovery.ok||!recovery.rawHtml||
     (recovery.resolvedUrl&&(url===source.listing ? recovery.resolvedUrl!==url : issuerOriginalUrl(recovery.resolvedUrl,source)!==url)))return "";
@@ -162,18 +256,37 @@ function makeItem(url:string,event:Candidate,source:Source,now:Date):IntakeItemI
 }
 export async function applyIssuerResultsPressIntake(
  input:ResearchRunInput,
- options:{now?:Date;fetchImpl?:typeof fetch;recoverImpl?:Read}={},
+ options:{now?:Date;fetchImpl?:typeof fetch;recoverImpl?:Read;secUserAgent?:string}={},
 ):Promise<ResearchRunInput>{
  const now=options.now??new Date(),fetchImpl=options.fetchImpl??fetch;
  const closed:Read=async()=>({ok:false,code:"not_configured",detail:"controlled transport",retryable:false});
  const recover=options.recoverImpl??(options.fetchImpl?closed:recoverOfficialPublisherSource);
- const due=getDueOfficialEarningsCandidates(now,72)
+ const ordinary=getDueOfficialEarningsCandidates(now,72);
+ // Allow one bounded incident-recovery window across the next scheduled
+ // collection after deployment; no extension for arbitrary historical items.
+ const incidentRecovery=getDueOfficialEarningsCandidates(now,120).filter(event=>{
+  const incident=NOVEMBER_ORIGINALS[event.ticker]??SEC_NOVEMBER_ORIGINALS[event.ticker];
+  return incident&&incident.quarter===event.quarter&&incident.day===releaseDay(event)&&
+    now.getTime()<=Date.parse("2026-11-29T23:59:59Z");
+ });
+ const due=[...new Map([...ordinary,...incidentRecovery].map(event=>[event.ticker+":"+event.quarter,event])).values()]
   .filter(x=>Boolean(SOURCES[x.ticker])).slice(0,12);
  if(!due.length)return input;
  const existing=new Set(input.items.map(x=>x.url));
  const outputs=await Promise.all(due.map(async event=>{
   const source=SOURCES[event.ticker];
   try{
+   const secIncident=SEC_NOVEMBER_ORIGINALS[event.ticker];
+   if(secIncident&&secIncident.quarter===event.quarter&&secIncident.day===releaseDay(event)&&now.getTime()<=Date.parse("2026-11-29T23:59:59Z")){
+    const secSource:Source={...source,host:"www.sec.gov",listing:secIncident.url,
+     path:new RegExp("^/Archives/edgar/data/"+secIncident.cik+"/\\d{18}/[a-z0-9._-]+\\.html?$","i"),
+     publisher:source.publisher+" (SEC exhibit)"};
+    const original=issuerOriginalUrl(secIncident.url,secSource);
+    if(original){
+     const body=await verifiedHtml(original,secSource,fetchImpl,closed,options.secUserAgent??process.env.SEC_USER_AGENT);
+     if(isResult(body,secSource,event))return makeItem(original,event,secSource,now);
+    }
+   }
    const list=await verifiedHtml(source.listing,source,fetchImpl,recover);
    const results=listingUrls(list,source);
    // Historical recovery is bounded to the October incident and an original,
@@ -181,7 +294,9 @@ export async function applyIssuerResultsPressIntake(
    const direct=source.octoberOriginal&&event.scheduledCallAt.startsWith("2026-10-")
       &&now.getTime()<=Date.parse("2026-11-05T23:59:59Z")
      ?[source.octoberOriginal]:[];
-   const candidates=[...new Set([...direct,...results])].slice(0,4);
+   const incident=NOVEMBER_ORIGINALS[event.ticker];
+   const incidentDirect=incident&&incident.quarter===event.quarter&&incident.day===releaseDay(event)&&now.getTime()<=Date.parse("2026-11-29T23:59:59Z")?[incident.url]:[];
+   const candidates=[...new Set([...direct,...incidentDirect,...results])].slice(0,4);
    for(const url of candidates){
     const original=issuerOriginalUrl(url,source);
     if(!original)continue;

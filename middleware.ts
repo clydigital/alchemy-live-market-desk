@@ -97,6 +97,8 @@ export async function middleware(request: NextRequest) {
       headers: { "Cache-Control": "private, no-store" },
     });
   }
+  // Exact owner bearer endpoint; route verifies token and active allowlist before any provider read.
+  if (pathname === "/api/owner/power-stack-4h") return NextResponse.next();
   if (accessScope === "public") {
     const nextPublic = retiredLivePublicDestination(pathname, host, request.nextUrl.search);
     if (nextPublic) {
