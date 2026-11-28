@@ -18,13 +18,13 @@ const source=(handle:string,id:number,text:string,time="2026-10-27T23:05:00Z",
 const run:ResearchRunInput={runKey:"xwire-market",scheduleSlot:"morning",
  scheduledFor:now.toISOString(),items:[],sourceChecks:[],summary:"other sources"};
 test("existing sources stay unique, new owners join and excluded handle stays blocked",()=>{
- assert.equal(X_CORE_ROSTER.length,16);
+ assert.equal(X_CORE_ROSTER.length,14);
  assert.equal(X_CORE_ROSTER.filter(x=>x.handle==="KobeissiLetter").length,1);
  assert.equal(X_CORE_ROSTER.filter(x=>x.handle==="HormuzReport").length,1);
  assert.ok(X_CORE_ROSTER.some(x=>x.handle.toLowerCase()==="zerohedge"));
  assert.ok(X_CORE_ROSTER.some(x=>x.handle==="TGLetter"));
  assert.ok(X_CORE_ROSTER.some(x=>x.handle==="macropaperr"));
- assert.ok(X_CORE_ROSTER.some(x=>x.handle==="BeginnerTrades"));
+ assert.ok(!X_CORE_ROSTER.some(x=>["beginnertrades","bluekurtic"].includes(x.handle.toLowerCase())));
  assert.ok(X_CORE_ROSTER.some(x=>x.handle==="OddStats"));
  assert.equal(X_CORE_ROSTER.filter(x=>x.handle==="DrJStrategy").length,1);
  assert.equal(X_CORE_ROSTER.filter(x=>x.handle==="SaraEisen").length,1);
@@ -52,7 +52,7 @@ test("market-catalyst ranking covers Hormuz and yields, with social claims never
  assert.ok(ranked.some(x=>x.theme==="equities_ai"));
  assert.ok(ranked.some(x=>x.post.handle==="zerohedge"));
  assert.ok(ranked.some(x=>x.post.handle==="macropaperr"));
- assert.ok(ranked.some(x=>x.post.handle==="BeginnerTrades"));
+ assert.ok(!ranked.some(x=>["BeginnerTrades","Bluekurtic"].includes(x.post.handle)));
  assert.ok(ranked.some(x=>x.post.handle==="OddStats"));
  assert.ok(ranked.some(x=>x.post.handle==="TGLetter"&&x.theme==="resilience_preparedness"));
  assert.ok(!ranked.some(x=>x.post.handle==="GordianKnotDev"));

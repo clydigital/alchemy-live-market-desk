@@ -1,10 +1,14 @@
 import "server-only";
+import PowerStackBandReview from "./PowerStackBandReview";
+import type {ScanAsset} from "@/lib/technical-market-scanner";
+import type {FourHRead} from "@/lib/bluebelly-4h-levels";
 import Link from "next/link";
 import type {PublicEquityCoverageRow} from "@/lib/bluebelly-equity-coverage";
 import type {IssuerReviewResult} from "@/lib/power-stack-issuer-valuation";
 import type {LongEquityRead} from "@/lib/bluebelly-equity-long-history";
 import type {FundamentalRow} from "@/lib/bluebelly-fundamental-comparison";
 import type {EmaObservation} from "@/lib/bluebelly-equity-ema";
+import {gekkoStockResearchUrl,GEKKO_STOCKS_HUB} from "@/lib/gekko-stock-research";
 import styles from "@/app/power-stack/private-power-stack.module.css";
 
 const pct=(v:number)=> (v>=0?"+":"")+v.toFixed(1)+"%";
@@ -19,7 +23,8 @@ function bandRespectText(o:EmaObservation):string|null{
 function statements(o:EmaObservation){
  const out:string[]=[],seen=new Set<string>();
  for(const w of ["1","3","5"] as const){const s=o.windows[w];if(!s)continue;
-  if((s.approach==="down_to"||s.approach==="up_to")&&Math.abs(o.distancePct)<=3)out.push(w+"D "+(s.approach==="down_to"?"falling toward":"rising toward"));
+  for(const a of s.boundaryApproaches??[]){const key="approach|"+a.boundary+"|"+a.direction;if(seen.has(key))continue;seen.add(key);out.push(w+"D "+(a.direction==="up"?"rising toward":"falling toward")+" "+(a.boundary==="ema"?"EMA":a.boundary+" SD")+" "+a.level.toFixed(2)+" ("+pct(a.distancePct)+")");}
+  if(!s.boundaryApproaches&&(s.approach==="down_to"||s.approach==="up_to")&&Math.abs(o.distancePct)<=3)out.push(w+"D "+(s.approach==="down_to"?"falling toward":"rising toward")+" EMA");
   for(const e of s.events??[]){const key=e.session+"|"+e.boundary+"|"+e.direction;if(seen.has(key))continue;seen.add(key);
    out.push(w+"D crossed "+(e.direction==="up"?"above":"below")+" "+(e.boundary==="ema"?"EMA":e.boundary+" SD")+" · "+e.session);}
  }
@@ -47,7 +52,7 @@ const baskets=[
  ["Malaysia infrastructure","0245.KL 0310.KL 0296.KL 5398.KL 5347.KL","Cash collection, funded backlog and grid demand.","Local demand / currency diversification; AI overlap remains","Good","Mixed","Poor","Mixed","Good"],
 ] as const;
 type PrivateLevel={ticker:string;currency:string;low:number|null;high:number|null;note:string;updatedAt:string};
-export default function PowerStackBBMarketSweep({rows,reviews,asOf,levels,fundamentals,longHistory}:{rows:readonly PublicEquityCoverageRow[];reviews:readonly IssuerReviewResult[];asOf:string;levels:readonly PrivateLevel[];fundamentals:readonly FundamentalRow[];longHistory:LongEquityRead|null}){
+export default function PowerStackBBMarketSweep({rows,reviews,asOf,levels,fundamentals,longHistory,bandAssets,fourHReads,bandSourceDate,privateBandStatus}:{rows:readonly PublicEquityCoverageRow[];reviews:readonly IssuerReviewResult[];asOf:string;levels:readonly PrivateLevel[];fundamentals:readonly FundamentalRow[];longHistory:LongEquityRead|null;bandAssets:ScanAsset[];fourHReads:FourHRead[];bandSourceDate:string|null;privateBandStatus:string}){
  const levelByTicker=new Map<string,PrivateLevel>();
  const conflicted=new Set<string>();
  for(const level of levels){const prior=levelByTicker.get(level.ticker);if(prior&&(prior.currency!==level.currency||prior.low!==level.low||prior.high!==level.high))conflicted.add(level.ticker);else if(!prior)levelByTicker.set(level.ticker,level);}
@@ -60,9 +65,11 @@ export default function PowerStackBBMarketSweep({rows,reviews,asOf,levels,fundam
  const flagged=signals.filter(x=>nearEntry(x)||x.levels.length||x.review&&x.review.currency===x.row.currency&&x.row.price!<=x.review.valuationLow*1.05).sort((a,b)=>Number(nearEntry(b))-Number(nearEntry(a))||(a.row.changePct??0)-(b.row.changePct??0));
  return <section id="bb-market-sweep" className={styles.section} data-power-stack-bb-sweep="canonical-market-read">
   <h2>04 / Technical Watch · {asOf}</h2>
+  <PowerStackBandReview assets={bandAssets} reads={fourHReads} sourceDate={bandSourceDate} privateStatus={privateBandStatus}/>
+  <details className={styles.assetDetails}><summary>Detailed boundary events, valuation marks and retest evidence</summary>
   <p>Real estate is valuation-only; short-warm-up bands are reference context, not qualifying technical alerts. {conflicted.size?`Conflicting private marks require reconciliation: ${[...conflicted].join(", ")}.`:""}</p>
   <p>{eligible.length}/{rows.length} recent source-dated equity observations; {eligible.filter(r=>r.sessionFreshness==="BEHIND_US_SESSION").length} US rows lag the expected completed session and are excluded from technical alerts. US technical events also require verified recent session continuity. Local session dates require venue checks. Research alerts only; a falling price or EMA crossing is not proof of value. <Link href="/markets">Full BB market universe</Link>.</p>
-  <p>Approach alert: within 3% of EMA with a narrowing signed distance and matching price direction over 1, 3 or 5 completed daily sessions. Crosses use completed daily closes within each window; intraday-only breaches are not inferred. A US close hold requires the crossing close plus two subsequent closes on the same side, with six contiguous scheduled sessions and ready warm-up. A separate daily wick-retest replay requires 20 contiguous verified sessions, valid OHLC and ready warm-up. It uses prior-close bands; three outside closes invalidate the respected edge. This is bounded reconstructed context, not a trade signal or durable trend ledger. W/M anchors use completed periods only. The common BB kernel uses a first-close EMA seed and population SD. Short warm-up (less than 5× period) is indicative only; missing history stays unavailable.</p>
+  <p>Approach alert: within 3% of the EMA or either SD edge with a narrowing signed distance and matching price direction over 1, 3 or 5 completed daily sessions. Crosses use completed daily closes within each window; intraday-only breaches are not inferred. A US close hold requires the crossing close plus two subsequent closes on the same side, with six contiguous scheduled sessions and ready warm-up. A separate daily wick-retest replay requires 20 contiguous verified sessions, valid OHLC and ready warm-up. It uses prior-close bands; three outside closes invalidate the respected edge. This is bounded reconstructed context, not a trade signal or durable trend ledger. W/M anchors use completed periods only. The common BB kernel uses a first-close EMA seed and population SD. Short warm-up (less than 5× period) is indicative only; missing history stays unavailable.</p>
   <form action="/power-stack#bb-market-sweep" method="get"><label>Manual long-history deep dive: <select name="technical" defaultValue={longHistory?.ticker??""}><option value="">Select equity</option>{rows.filter(r=>r.theme!=="REAL_ESTATE").map(r=><option key={r.ticker} value={r.ticker}>{r.ticker} · {r.company}</option>)}</select></label> <button type="submit">Check D/W/M EMA</button></form>
   {longHistory?<details open className={styles.assetDetails}><summary><strong>{longHistory.ticker} · Long-history check · {longHistory.status}</strong></summary><p>{longHistory.reason} · <a href={longHistory.sourceUrl}>History source</a>{longHistory.asOf?" · "+longHistory.historyStart+" to "+longHistory.asOf+" · "+longHistory.bars+" daily bars":""}</p>
   {longHistory.scan?.observations.map(o=><p key={o.frame+o.period}>{o.frame} EMA{o.period}: {o.ema.toFixed(2)} · price {o.side} ({pct(o.distancePct)}) · {o.band.replaceAll("_"," ")} {o.multiplier} SD · {statements(o).join("; ")||bandRespectText(o)||"No recent boundary event"} · anchor {o.anchorDay} · {o.warmup==="READY"?"warm-up ready":"short warm-up; indicative"}</p>)}
@@ -75,16 +82,18 @@ export default function PowerStackBBMarketSweep({rows,reviews,asOf,levels,fundam
    {review&&review.currency===row.currency?<p>Reviewed value range {review.valuationLow}–{review.valuationHigh} {review.currency}, reviewed {review.reviewedAt.slice(0,10)}; current discount to low end {pct((1-row.price!/review.valuationLow)*100)}. Model assumptions, not an order.</p>:null}
    {levels.map(({o,statements:s})=><p key={o.frame+o.period}><strong>{o.frame} EMA{o.period}</strong> {o.ema.toFixed(2)} · price {o.side} ({pct(o.distancePct)}) · {o.band.replaceAll("_"," ")} {o.multiplier} SD envelope · {s.join("; ")} · {o.warmup==="READY"?"warm-up ready":"short warm-up; indicative"}.</p>)}
    <details><summary>All available EMA states</summary>{row.emaScan?.observations.map(o=><p key={o.frame+o.period}>{o.frame} EMA{o.period} · price {o.side} ({pct(o.distancePct)}) · {o.band.replaceAll("_"," ")} · {o.warmup==="READY"?"warm-up ready":"short warm-up; indicative"}{bandRespectText(o)?" · "+bandRespectText(o):""}</p>)}</details>
+   {gekkoStockResearchUrl(row.ticker,row.region)?<p><a href={gekkoStockResearchUrl(row.ticker,row.region)!} target="_blank" rel="noopener noreferrer">Gekko issuer research ↗</a> · Review positioning, valuation and earnings risk separately; corroborate material facts with filings.</p>:null}
    <p>Unavailable anchors: {row.emaScan?row.emaScan.unavailable.join(", ")||"none":"entire EMA scan unavailable"}</p>
   </details>)}</div>
   {flagged.length>12?<details className={styles.assetDetails}><summary>More flagged symbols ({flagged.length-12})</summary><ul>{flagged.slice(12).map(({row,levels})=><li key={row.ticker}>{row.ticker}: {levels.map(({o,statements:s})=>o.frame+" EMA"+o.period+" "+s.join(", ")).join("; ")||"reviewed value proximity"}</li>)}</ul></details>:null}
   <details className={styles.assetDetails}><summary>All private marked equity levels ({levels.length})</summary><ul>{levels.map(entry=>{const row=eligible.find(r=>r.ticker===entry.ticker&&r.currency===entry.currency);return <li key={entry.ticker}>{entry.ticker} · {entry.currency} {entry.low??"—"}–{entry.high??"—"} · {row?row.price?.toFixed(2)+" on "+row.asOf:"No matching recent BB equity quote"}</li>})}</ul></details>
-  <p><Link href="/market-tools#ema-sd-levels">Existing owner-only Twelve Data technical pilot</Link> — independent vendor cross-check using the same numerical kernel; no automatic second-provider requests.</p>
+  <p><Link href="/market-tools?view=technical#ema-sd-levels">Owner Technical Watch · 4H / D / W / M</Link> — independent vendor cross-check using the same numerical kernel; no automatic second-provider requests.</p>
   <details className={styles.assetDetails}><summary>Scenario baskets · research hypotheses</summary><p>Directional tendencies, not measured hedge ratios or forecasts. Shared exposures can still decline together. Evaluate the actual issuer, valuation, leverage and funding before investing.</p>
   <div className={styles.tableScroll}><table className={styles.holdingsTable}><thead><tr><th>Basket / thesis</th><th>Potential diversification</th><th>AI boom</th><th>AI bust</th><th>Recession</th><th>Supply shock / sticky inflation</th><th>Soft landing / cuts</th></tr></thead><tbody>
    {baskets.map(([name,tickers,logic,hedge,...states])=><tr key={name}><td><strong>{name}</strong><br/>{tickers}<br/>{logic}</td><td>{hedge}</td>{states.map((state,i)=><td key={i}>{state}</td>)}</tr>)}
   </tbody></table></div>
   </details>
+  <p><a href={GEKKO_STOCKS_HUB} target="_blank" rel="noopener noreferrer">Gekko stock discovery ↗</a> · Secondary manual research; do not substitute proprietary scores for BB market data or issuer valuation.</p>
   <p>Manual committee review: read BB macro and credit regime, then verified issuer filings and BB fundamentals; normalise cash earnings, compare valuation with internal entry ranges and stress downside, funding and portfolio overlap. Mark research now, wait, de-risk or no change only with evidence.</p>
- </section>;
+ </details></section>;
 }

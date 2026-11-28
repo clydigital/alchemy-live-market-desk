@@ -92,11 +92,11 @@ export default function ResearchLibraryExplorer({intake}:{intake:NotionResearchB
   const pulseLink=latestPulse?.url ?? "https://app.notion.com/p/3ea519b67a948161ba4dec8f97ebf658";
   const recent:ResearchEntry[]=useMemo(()=>intake.sources.map(source=>({
     id:source.pageId,title:source.title,description:shortText(source.text),
-    section:"Latest" as const,discipline:source.kind==="MACROPULSE"?"MacroPulse":"Research Gap",
+    section:"Latest" as const,discipline:source.manualReference?"Manual reference":source.kind==="MACROPULSE"?"MacroPulse":"Research Gap",
     href:source.url,
     provenance:"Notion · "+(source.editionDay?"edition "+safeDate(source.editionDay+"T00:00:00+08:00"):"undated edition")+
       " · checked "+safeDate(source.retrievedAt),
-    quality:source.coverageStatus?"Research input · "+source.coverageStatus+" coverage · not canonical":
+    quality:source.manualReference?"Manual reference · partial · not scheduled Gate":source.coverageStatus?"Research input · "+source.coverageStatus+" coverage · not canonical":
       "Research input · not canonical",
   })),[intake.sources]);
   const results = useMemo(()=>{

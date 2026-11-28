@@ -1,9 +1,11 @@
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import ResearchLibraryExplorer from "@/components/blue-desk/ResearchLibraryExplorer";
 import HypothesisEvidencePanel from "@/components/blue-desk/HypothesisEvidencePanel";
+import ThesisRevisionPanel from "@/components/blue-desk/ThesisRevisionPanel";
+import {getOwnerThesisRevisionPackets} from "@/lib/bluebelly-thesis-revision-server";
 import {getOwnerHypothesisRegistry} from "@/lib/bluebelly-hypothesis-registry-server";
 import MarketResearchGapQueue from "@/components/blue-desk/MarketResearchGapQueue";
-import { fetchTodayNotionResearch } from "@/lib/notion-market-research";
+import { fetchTodayNotionResearch,fetchOwnerManualResearchReference } from "@/lib/notion-market-research";
 import {getOwnerResearchHandoffStatus} from "@/lib/bluebelly-owner-research-handoff-status";
 import desk from "@/app/blue-desk/blue-desk.module.css";
 
@@ -18,13 +20,14 @@ export const metadata = {
  * No canonical Dossier writes, source promotion or research scheduling here.
  */
 export default async function OwnerResearchLibraryPage() {
-  const intake = await fetchTodayNotionResearch().catch(() => ({
+  const intakePromise = fetchTodayNotionResearch().catch(() => ({
     status: "UNAVAILABLE" as const,
     sources: [],
     warnings: ["Research source retrieval failed; the archive links remain available."],
     fetchedAt: new Date().toISOString(),
   }));
-  const [handoff,hypotheses]=await Promise.all([getOwnerResearchHandoffStatus().catch(()=>null),getOwnerHypothesisRegistry()]);
+  const [baseIntake,handoff,hypotheses,manual,revisions]=await Promise.all([intakePromise,getOwnerResearchHandoffStatus().catch(()=>null),getOwnerHypothesisRegistry(),fetchOwnerManualResearchReference().catch(()=>null),getOwnerThesisRevisionPackets()]);
+  const intake=manual?{...baseIntake,sources:[manual,...baseIntake.sources],warnings:[...baseIntake.warnings,"Manual reference retrieved separately; not a scheduled Gate, eligible Pulse, or canonical evidence."]}:baseIntake;
   return (
     <main className={desk.page} data-owner-research-library="private-read-only">
       <BlueDeskHeader activePath="/owner/research" />
@@ -40,6 +43,7 @@ export default async function OwnerResearchLibraryPage() {
        </div>:<p role="status">Publication handoff status unavailable. Do not infer that the Newsroom is current.</p>}
        <p style={{marginTop:12,fontSize:"0.85rem"}}>Work-mode MacroPulse and manual investigation notes remain in the Notion research library below. Only approved, source-qualified outputs with publication readback become public Newsroom dispatches. No research or regime state is changed by this panel.</p>
       </section>
+      <ThesisRevisionPanel read={revisions}/>
       <HypothesisEvidencePanel read={hypotheses}/>
       <MarketResearchGapQueue />
       <ResearchLibraryExplorer intake={intake} />

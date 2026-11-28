@@ -28,7 +28,7 @@ export async function getHormuzWireLeads(now=new Date()):Promise<HormuzWireRead>
     const {data,error}=await db.from("x_wire_posts")
       .select("post_id,handle,original_url,published_at,body,intake_status")
       .eq("intake_status","discovery")
-      .not("handle","ilike","gordianknotdev")
+      .not("handle","ilike","gordianknotdev").not("handle","ilike","beginnertrades").not("handle","ilike","bluekurtic")
       .gte("published_at",since)
       .order("published_at",{ascending:false}).limit(250);
     if(error)throw new Error("Stored X Wire discovery unavailable");

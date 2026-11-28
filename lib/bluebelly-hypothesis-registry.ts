@@ -8,12 +8,16 @@ export type HypothesisChartState="RETAINED"|"ATTRIBUTED"|"FORECAST"|"DERIVED";
 export type HypothesisChart={id:string;title:string;unit:HypothesisChartUnit;state:HypothesisChartState;basis:string;points:{label:string;value:number;gemId:string}[]};
 export type HypothesisSnapshot={version:"evidence-gems/1";hypothesisId:string;reviewedOn:string;currentRead:string;conditional:string;nextTest:string;gems:Gem[];charts?:HypothesisChart[];chartWarnings?:string[]};
 export type RegistryRow={id:string;pageId:string;title:string;state:"ACTIVE"|"STALE";theme:string;confidence?:"LOW"|"MEDIUM"|"HIGH";decisionImpact?:string;currentRead:string;nextTrigger:string;lastChecked:string|null;lastEdited:string|null;snapshot:HypothesisSnapshot|null};
-export type RegistryRead={status:"AVAILABLE"|"PARTIAL"|"UNAVAILABLE"|"NOT_CONFIGURED"|"UNAUTHORISED";rows:RegistryRow[];truncated:boolean;retrievedAt:string|null};
+export type RegistryRead={status:"AVAILABLE"|"PARTIAL"|"UNAVAILABLE"|"NOT_CONFIGURED"|"UNAUTHORISED";rows:RegistryRow[];truncated:boolean;retrievedAt:string|null;diagnostic?:string};
 const obj=(v:unknown):Record<string,unknown>=>v&&typeof v==="object"&&!Array.isArray(v)?v as Record<string,unknown>:{};
 const list=(v:unknown):unknown[]=>Array.isArray(v)?v:[];
 const str=(v:unknown,n=1000)=>typeof v==="string"&&v.trim().length<=n?v.trim():"";
-const rich=(v:unknown,n=1600)=>str(list(v).map(x=>str(obj(x).plain_text,4000)||str(obj(obj(x).text).content,4000)).join(""),n);
-const date=(v:unknown,now:Date)=>{const s=str(v,40);return s&&/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(s)&&Number.isFinite(Date.parse(s))&&Date.parse(s)<=now.getTime()?s:null;};
+// Notion splits long text into rich-text spans. Preserve boundaries, then trim once.
+const rich=(v:unknown,n=1600)=>{const parts=list(v).map(x=>{const o=obj(x),t=typeof o.plain_text==="string"?o.plain_text:obj(o.text).content;return typeof t==="string"&&t.length<=4000?t:null;});return parts.some(x=>x===null)?"":str(parts.join(""),n);};
+// Date-only Notion properties are MYT research days, not future UTC timestamps.
+const date=(v:unknown,now:Date)=>{const s=str(v,40);if(!s||!/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(s)||!Number.isFinite(Date.parse(s)))return null;
+ if(s.length===10)return new Date(s+"T00:00:00Z").toISOString().slice(0,10)===s&&s<=new Date(now.getTime()+8*3600000).toISOString().slice(0,10)?s:null;
+ return Date.parse(s)<=now.getTime()?s:null;};
 const safeId=(v:unknown)=>{const s=str(v,50).replace(/-/g,"").toLowerCase();return /^[0-9a-f]{32}$/.test(s)?s:"";};
 const roles=new Set<string>(["CONFIRMS","WEAKENS","CONDITIONAL","AMPLIFIES","INVALIDATES","TRANSMITS","HORIZON_SHIFT"]);
 const states=new Set<string>(["RETAINED_SOURCE_RECEIPT","ATTRIBUTED","PENDING"]);

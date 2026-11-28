@@ -7,7 +7,7 @@ import type {ResearchRunInput} from "../lib/research-update.ts";
 
 const now=new Date("2026-11-08T00:00:00Z");
 const post=(id:string,status:string,publishedAt:string)=>({
- id,handle:"Bluekurtic",url:"https://x.com/Bluekurtic/status/"+id,
+ id,handle:"macropaperr",url:"https://x.com/macropaperr/status/"+id,
  publishedAt,text:"Treasury bond yields and the Federal Reserve policy decision may affect equity valuations today.",
  images:[],quoteUrl:null,attribution:"THIRD_PARTY_ONLY",intakeStatus:status,
 });

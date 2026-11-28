@@ -21,7 +21,7 @@ export async function getBluebellyAbsorptionHealth(now=new Date()):Promise<Blueb
     const [source,posts,handed,runs]=await Promise.all([
       db.from("x_wire_accounts").select("handle,health,last_attempt_at,last_completed_at,last_error,uncovered_before,page_cursor"),
       db.from("x_wire_posts").select("post_id",{head:true,count:"exact"})
-        .gte("retrieved_at",h24).not("handle","ilike","gordianknotdev"),
+        .gte("retrieved_at",h24).not("handle","ilike","gordianknotdev").not("handle","ilike","beginnertrades").not("handle","ilike","bluekurtic"),
       db.from("research_intake_items").select("id",{head:true,count:"exact"})
         .ilike("publisher","X/@%").gte("created_at",h48),
       db.from("research_runs").select("schedule_slot,status,scheduled_for,started_at,completed_at,updates_published,evidence_added,freshness_gate_passed,evidence_gate_passed,required_sources_complete")
