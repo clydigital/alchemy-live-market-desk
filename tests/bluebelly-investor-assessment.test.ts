@@ -89,7 +89,7 @@ test("Tino-style game-theory questions reuse canonical research brain and existi
  assert.match(prompt,/buy, sell, hold cash or rotate/);
  assert.match(handoff,/source_only_contract === "BLUEBELLY_SOURCE_ONLY_V1"/);
  assert.match(workflow,/dossier_v2_persist/);
- assert.match(home,/publicHost\?getDossierV2PresentationSelection/);
+ assert.doesNotMatch(home,/getDossierV2PresentationSelection|projectInvestorAssessment/);
  assert.doesNotMatch(home,/runManualDossierV2|\.upsert\(|\.insert\(/);
 });
 
@@ -123,12 +123,10 @@ test("stale review takes precedence over incomplete coverage",()=>{
 });
 
 
-test("successful NO_CHANGE checkpoint is displayed separately from evidence qualification",()=>{
+test("historical review remains separate from the source-dated public board",()=>{
  const board=readFileSync(new URL("../components/blue-desk/InvestorMindsetBoard.tsx",import.meta.url),"utf8");
- assert.match(board,/Last successful pipeline review/);
- assert.match(board,/No material change recorded; prior assessment date retained/);
- assert.match(board,/assessment\.status!=="RESEARCHED"\?" · Review completion does not clear evidence or assessment warnings\."/);
- assert.match(board,/data-fundamental-status=\{assessment\.status\}/);
+ assert.match(board,/data-research-mode="source-dated"/);
+ assert.doesNotMatch(board,/FUNDAMENTAL REVIEW DEGRADED|Last successful pipeline review|DOSSIER RESEARCH/);
  const input=selection();
  input.presentation!.health.executionDegraded=true;
  const out=projectInvestorAssessment(input,now);

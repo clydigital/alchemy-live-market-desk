@@ -25,11 +25,11 @@ test("stale and missing evidence preserve the historical baseline instead of pos
  }
  assert.equal(selectPilotLensAssessment("bonds",read({}))?.state,"PENDING");
 });
-test("overview and detail share projection, not raw Dossier payload or a new write path",()=>{
+test("overview and detail use current research reconciliation rather than the manual Dossier pilot",()=>{
  for(const path of ["app/blue-desk/regime-watch/page.tsx","app/blue-desk/regime-watch/[lensId]/page.tsx"]){
   const source=readFileSync(new URL("../"+path,import.meta.url),"utf8");
-  assert.match(source,/RegimeCurrentAssessment assessment=\{selectPilotLensAssessment/);
-  assert.match(source,/projectInvestorAssessment/);
+  assert.match(source,/projectLensReconciliation/);
+  assert.doesNotMatch(source,/projectInvestorAssessment|selectPilotLensAssessment|getDossierV2PresentationSelection/);
   assert.match(source,/getLensOutlook/);
   assert.doesNotMatch(source,/\.upsert\(|\.insert\(/);
  }
