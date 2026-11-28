@@ -66,6 +66,8 @@ test("existing Notion identity fallback is bounded, deduplicated and access-erro
  const tokens=receiptReadTokens(" primary ","secondary");
  assert.deepEqual(tokens,["primary","secondary"]);
  assert.deepEqual(receiptReadTokens("same"," same "),["same"]);
+ assert.deepEqual(receiptReadTokens(undefined,undefined," configured-key "),["configured-key"]);
+ assert.deepEqual(receiptReadTokens("primary","secondary","primary"),["primary","secondary"]);
  assert.deepEqual(receiptReadTokens(undefined," "),[]);
  const calls:string[]=[];
  const result=(status:number|null):ReceiptReadResult=>({raw:status===200?{results:[]}:null,issue:workReceiptReadIssue(status),status});

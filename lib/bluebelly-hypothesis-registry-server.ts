@@ -14,7 +14,7 @@ export async function getOwnerHypothesisRegistry(now=new Date()):Promise<Registr
   const {data:access,error:accessError}=await session.from("app_access_allowlist").select("email").eq("email",user.email.toLowerCase().trim()).eq("active",true).maybeSingle();
   if(accessError||!access)return empty("UNAUTHORISED");
  }catch{return empty("UNAUTHORISED");}
- const token=process.env.NOTION_API_TOKEN?.trim()||process.env.NOTION_MARKET_RESEARCH_TOKEN?.trim();
+ const token=process.env.NOTION_API_TOKEN?.trim()||process.env.NOTION_MARKET_RESEARCH_TOKEN?.trim()||process.env.NOTION_API_KEY?.trim();
  if(!token)return empty("NOT_CONFIGURED");
  let activeToken=token;
  const read=async(path:string,body?:object)=>{
@@ -29,7 +29,7 @@ export async function getOwnerHypothesisRegistry(now=new Date()):Promise<Registr
  let fallback=false;
  try{raw=await read(path,query);}catch(error){
   const status=error instanceof Error?Number(error.message.match(/^Notion read failed: (\d{3})$/)?.[1]||0):0;
-  const alternate=process.env.NOTION_MARKET_RESEARCH_TOKEN?.trim();
+  const alternate=[process.env.NOTION_MARKET_RESEARCH_TOKEN?.trim(),process.env.NOTION_API_KEY?.trim()].find(candidate=>candidate&&candidate!==activeToken);
   // One bounded repair attempt against the same source only. Never use a public
   // cache or ignore an access failure. Rate limits are not retried immediately.
   if([401,403,404].includes(status)&&alternate&&alternate!==activeToken){

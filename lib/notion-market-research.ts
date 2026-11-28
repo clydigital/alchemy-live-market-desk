@@ -231,7 +231,7 @@ export function selectOwnerManualReference(searchResults:unknown,day:string,gate
  return ids.length===1?ids[0]:null;
 }
 export async function fetchOwnerManualResearchReference(now=new Date()):Promise<NotionResearchSource|null>{
- const token=process.env.NOTION_API_TOKEN?.trim()||process.env.NOTION_MARKET_RESEARCH_TOKEN?.trim();
+ const token=process.env.NOTION_API_TOKEN?.trim()||process.env.NOTION_MARKET_RESEARCH_TOKEN?.trim()||process.env.NOTION_API_KEY?.trim();
  const gateSource=process.env.NOTION_RESEARCH_GATE_DATA_SOURCE_ID||GATE_SOURCE;
  if(!token||!safePageId(gateSource))return null;
  const day=new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Kuala_Lumpur",year:"numeric",month:"2-digit",day:"2-digit"}).format(now);
@@ -248,7 +248,7 @@ export async function fetchOwnerManualResearchReference(now=new Date()):Promise<
 }
 export async function fetchTodayNotionResearch(now=new Date()):Promise<NotionResearchBundle>{
   const fetchedAt=now.toISOString();
-  const token=process.env.NOTION_API_TOKEN?.trim()||process.env.NOTION_MARKET_RESEARCH_TOKEN?.trim();
+  const token=process.env.NOTION_API_TOKEN?.trim()||process.env.NOTION_MARKET_RESEARCH_TOKEN?.trim()||process.env.NOTION_API_KEY?.trim();
   if(!token) return {status:"NOT_CONFIGURED",sources:[],fetchedAt,
     warnings:["Notion server-side read-only token is not configured. No research was silently imported."]};
   const day=new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Kuala_Lumpur",

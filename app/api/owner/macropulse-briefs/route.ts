@@ -39,7 +39,7 @@ export async function GET(req:NextRequest){
   ]);
   if(queued.error||latest.error)return fail(503,"Brief review queue unavailable");
   return NextResponse.json({status:"REVIEW_REQUIRED",briefs:queued.data||[],deliveryHealth:{
-    notionReaderConfigured:Boolean(process.env.NOTION_API_TOKEN?.trim()||process.env.NOTION_MARKET_RESEARCH_TOKEN?.trim()),
+    notionReaderConfigured:Boolean(process.env.NOTION_API_TOKEN?.trim()||process.env.NOTION_MARKET_RESEARCH_TOKEN?.trim()||process.env.NOTION_API_KEY?.trim()),
     macroPulseIngestConfigured:Boolean(process.env.BLUEBELLY_MACROPULSE_INGEST_TOKEN?.trim()),
     latestDraftAt:latest.data?.received_at||null,
     latestSourceAt:latest.data?.source_published_at||null,
